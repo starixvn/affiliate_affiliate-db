@@ -1,0 +1,226 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Name>Fanex.Affiliate.User</Name>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>4.0</ProjectVersion>
+    <ProjectGuid>{67cbc824-a49e-4e9b-a947-360f3dfe65c3}</ProjectGuid>
+    <DSP>Microsoft.Data.Schema.Sql.Sql90DatabaseSchemaProvider</DSP>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <ShowWizard>False</ShowWizard>
+    <OutputType>Database</OutputType>
+    <RootPath>
+    </RootPath>
+    <IncludeSchemaNameInFileName>False</IncludeSchemaNameInFileName>
+    <ModelCollation>1033, CI</ModelCollation>
+    <DefaultFileStructure>BySchema</DefaultFileStructure>
+    <DeployToDatabaseAddToServerExplorer>True</DeployToDatabaseAddToServerExplorer>
+    <DeployToScript>True</DeployToScript>
+    <CatalogPropertiesFile>Properties\Database.sqlsettings</CatalogPropertiesFile>
+    <RootNamespace>Fanex.Affiliate.User</RootNamespace>
+    <DefaultSchema>dbo</DefaultSchema>
+    <PreviousProjectVersion>4.0</PreviousProjectVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <OutputPath>.\sql\release\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TargetConnectionString>
+    </TargetConnectionString>
+    <TargetDatabase>Fanex.Affiliate.User</TargetDatabase>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <SuppressWarnings>
+    </SuppressWarnings>
+    <DeploymentConfigFile>Properties\Database.sqldeployment</DeploymentConfigFile>
+    <SqlCommandVariablesFile>Properties\Database.sqlcmdvars</SqlCommandVariablesFile>
+    <DeployToDatabase>False</DeployToDatabase>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <OutputPath>.\sql\debug\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TargetConnectionString>
+    </TargetConnectionString>
+    <TargetDatabase>Fanex.Affiliate.User</TargetDatabase>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <SuppressWarnings>
+    </SuppressWarnings>
+    <DeploymentConfigFile>Properties\Database.sqldeployment</DeploymentConfigFile>
+    <SqlCommandVariablesFile>Properties\Database.sqlcmdvars</SqlCommandVariablesFile>
+    <DeployToDatabase>False</DeployToDatabase>
+  </PropertyGroup>
+  <!--Import the settings-->
+  <Import Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v10.0\TeamData\Microsoft.Data.Schema.SqlTasks.targets" />
+  <ItemGroup>
+    <Folder Include="Properties\" />
+    <Folder Include="AffiliateUser" />
+  </ItemGroup>
+  <ItemGroup>
+    <PropertiesFile Include="Properties\Database.sqlsettings">
+    </PropertiesFile>
+    <PropertiesFile Include="Properties\Database.sqldeployment">
+    </PropertiesFile>
+    <PropertiesFile Include="Properties\Database.sqlcmdvars">
+    </PropertiesFile>
+    <Build Include="Properties\Database.sqlpermissions">
+      <ModelBuilderType>Permissions</ModelBuilderType>
+    </Build>
+  </ItemGroup>
+  <ItemGroup>
+    <BuildContributorArgument Include="OutDir=$(OutDir)" />
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_AffiliateAllLanguages.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_SystemSettingsSelByType.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_AffiliateCurrenciesSel.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_AffiliateForgotPwd.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_AffiliateIns.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_AffiliateInternalLogin.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_AffiliateLogin.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_AffiliateRecoverPwd.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_AffiliateSelDBTime.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_AffiliateSelEditInfo.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_AffiliateStatementHistorySel.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_AffiliateSupportedLanguagesSel.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_AffiliateUpdInfo.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_AffiliateUpdPwd.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_BannerSel.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_BannerSelType.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_BaseCurrenciesSel.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_ClickStatisticsDetailBySite.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_ClickStatisticsSelByPage.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_ClickStatisticsSelBySite.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_CommGroupSelDetail.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_CountrySelAll.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_CurrencyListSel.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_DomainAffClientSel.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_EarningSelDaily.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_EmailHistoryIns.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_GetAllAffSystemSettings.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_GetDefaultProductCommission.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_HotNewsDetail_New.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_HotNewsSel_New.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_LanguageSel.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_Logout.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_OnUserSelNetSessionID.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_PaymentRequestIns.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_PaymentRequestSelInfoByAff.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_PaymentRequestUpd.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_PlayerPayoutInfoSel.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_PlayersCurrenciesSel.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_ProductSelByAffID.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_RecheckIn.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_StatisticsSel.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_SystemSettingsSelByName.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_Link_AffiliateInsClickStatistics.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_EarningSelDetail.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_MemberListSel.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_AffiliateUpdInfo.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_Banner_UpdateStatistic.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_Banner_SelInfo.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_Banner_GetSystemName.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\dbo.Aff_User_GetExchangeRate.StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateUser\Aff_AffiliateStatistics.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+  </ItemGroup>
+</Project>
