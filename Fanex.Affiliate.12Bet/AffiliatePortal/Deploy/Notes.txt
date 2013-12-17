@@ -1,0 +1,3 @@
+﻿http://johan.driessen.se/archive/2010/04/13/getting-an-asp.net-4-application-to-work-on-iis6.aspx
+
+cscript iisext.vbs /EnFile C:\WINDOWS\Microsoft.NET\Framework\v4.0.30319\aspnet_isapi.dll

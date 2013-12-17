@@ -1,0 +1,120 @@
+﻿ --DB06.bodb02 
+ select * from sys.procedures (nolock)
+where name like 'Aff_%'
+/*
+Aff_CustomerSelMember
+Aff_CustomerSelInfo
+Aff_BettransSelRequestPayment
+Aff_BettransSelRequestPaymentList
+Aff_CustomerSelAffiliate
+Aff_CustomerSelDetailsAll
+Aff_CustomerSelDetailsByAff
+Aff_CustomerSelStatementHistory
+Aff_CustomerSelSummary
+Aff_EarningSelDaily
+Aff_EarningSelDetail
+Aff_PlayersDetailSel
+Aff_CustomerCheck12BetPlayerAccountActivated_xpre
+Aff_CustomerSelStatistics_viettest
+Aff_PlayersSelDetail_viettest
+Aff_ExchangeUpdateRptDepWinlost
+Aff_CustomerSelAffInfo
+Aff_CustomerSelEarning
+Aff_CustomerSelStatistics
+Aff_PlayersSelDetail
+Aff_CustomerSelBalBF
+Aff_CustomerSelMemberAll
+Aff_CustomerCheck12BetPlayerAccountActivated
+*/
+--DB02.bodb02
+ select * from sys.procedures (nolock)
+where name not in 
+
+(
+'Aff_AdminUpdPwd',
+'Aff_AdminLogin',
+'Aff_PaymentRequestApprove',
+'Aff_Con_AdminUpdClosed',
+'Aff_Con_AdminIns',
+'Aff_Con_AdminUpd',
+'Aff_MemberUpdAffID',
+'Aff_AdminUpdPwd_xpre',
+'Aff_AdminLogin_xpre',
+'Aff_PaymentRequestApprove_xpre',
+'Aff_Con_AdminUpdClosed_xpre',
+'Aff_Con_AdminIns_xpre',
+'Aff_Con_AdminUpd_xpre',
+'Aff_MemberUpdAffID_xpre'
+)
+and name like '%Aff_%'
+
+/*
+  Aff_CustomerUpdPwdReset
+Aff_CustomerUpdPwd
+Aff_CustomerUpdPositionTaking
+Aff_LoginAffiliate
+Aff_CustomerUpdForgotPwdInit
+Aff_LoginAdmin_xtest
+Aff_CustomerSelEditAffiliate_xtest
+Aff_BettransSelRequestPayment
+Aff_BettransSelRequestPaymentList
+Aff_CustomerSelStatementHistory
+Aff_CustomerInsAffiliate
+Aff_CustomerUpdAffiliate
+Aff_ExchangeUpdateRptDepWinlost
+Aff_CustomerSelBalBF
+Aff_CustomerSelStatistics_viettest
+Aff_LoginAffiliate_xpre
+Aff_CustomerSelMember
+Aff_CustomerUpdForgotPwdInit_xpre
+Aff_CustomerUpdAffiliate_xpre
+Aff_CustomerUpdPwd_xpre
+Aff_CustomerCheck12BetPlayerAccountActivated_xpre
+Aff_CustomerInsAffiliate_xtest
+Aff_CustomerUpdForgotPwdVerify
+Aff_CustomerUpdPwd_xtest
+Aff_CustomerSelInfo
+Aff_CustomerInsAffiliate_xpre
+Aff_CustomerSelDetailsAll
+Aff_PlayersSelDetail_viettest
+Aff_CustomerSelMemberAll
+Aff_CustomerSelDetailsByAff
+Aff_CustomerUpdForgotPwdVerify_xpre
+Aff_CustomerUpdClosedStatus
+Aff_CustomerSelEditAffiliate
+Aff_CustomerSelStatistics
+Aff_PlayersDetailSel
+Aff_LoginAffiliate_Admin
+Aff_BettransInsCancelWithdrawal
+Aff_BettransInsTransaction
+Aff_EarningSelDaily
+Aff_BettransSelTransfer
+Aff_BettransInsTransaction_xpre
+Aff_BettransInsCancelWithdrawal_xpre
+Aff_CustomerCheck12BetPlayerAccountActivated
+Aff_CustomerSelAffInfo
+Aff_CustomerUpdStatus
+Aff_BettransUpdAcceptWithdrawal
+Aff_CustomerSelSummary
+Aff_CustomerSelAffiliate
+Aff_CustomerApproveRejectMonthlyTransfer
+Aff_EarningSelDetail
+Aff_CustomerUpdPositionTaking_xtest
+Aff_LoginAdmin
+Aff_CustomerSelEarning
+Task_Aff_MonthlyTransfer --Also delete the job monthly transfer
+Aff_BettransInsTransaction_xtest
+Aff_PlayersSelDetail
+
+*/
+
+--DB052.bodb02
+select * from sys.procedures (nolock)
+where name like '%Aff_%'
+
+/*
+Aff_CustomerSelInfo
+Aff_CustomerSelMember
+*/
+
+--Delete Job Insert Exchange and DB03.12BETAffiliate also
