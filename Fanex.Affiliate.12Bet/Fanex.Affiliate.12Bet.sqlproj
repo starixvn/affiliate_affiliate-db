@@ -1,0 +1,703 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
+    <SSDTExists Condition="Exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets')">True</SSDTExists>
+    <VisualStudioVersion Condition="'$(SSDTExists)' == ''">10.0</VisualStudioVersion>
+    <PostConversionRemoveFromScc>
+    </PostConversionRemoveFromScc>
+    <PostConversionAddToScc>
+    </PostConversionAddToScc>
+    <TargetDatabaseSet>True</TargetDatabaseSet>
+  </PropertyGroup>
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <PostUpgradeAddToSCC>;D:\WORK\PROJECT\IBC\6.Implementation\DB\Affiliate_12BET\Affiliate_12BET.dbproj;D:\WORK\PROJECT\IBC\6.Implementation\DB\Affiliate_12BET\Connections.txt;D:\WORK\PROJECT\IBC\6.Implementation\DB\Affiliate_12BET\Scripts\Post-Deployment\Script.PostDeployment.sql;D:\WORK\PROJECT\IBC\6.Implementation\DB\Affiliate_12BET\Scripts\Pre-Deployment\Script.PreDeployment.sql</PostUpgradeAddToSCC>
+    <SccProvider>SAK</SccProvider>
+    <SccAuxPath>SAK</SccAuxPath>
+    <SccLocalPath>SAK</SccLocalPath>
+    <SccProjectName>SAK</SccProjectName>
+    <PreviousProjectVersion>4.0</PreviousProjectVersion>
+    <UpgradedFromDBP>True</UpgradedFromDBP>
+    <Name>Fanex.Affiliate.12Bet</Name>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>4.0</ProjectVersion>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql100DatabaseSchemaProvider</DSP>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <ShowWizard>False</ShowWizard>
+    <OutputType>Database</OutputType>
+    <RootPath>
+    </RootPath>
+    <IncludeSchemaNameInFileName>False</IncludeSchemaNameInFileName>
+    <ModelCollation>1033,CI</ModelCollation>
+    <DefaultFileStructure>BySchemaAndSchemaType</DefaultFileStructure>
+    <LoadSqlClrTypes>True</LoadSqlClrTypes>
+    <ValidateCasingOnIdentifiers>False</ValidateCasingOnIdentifiers>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{f040b7cd-cf0e-4f27-8f91-9c42aa303ead}</ProjectGuid>
+    <GenerateDatabaseFile>False</GenerateDatabaseFile>
+    <GenerateCreateScript>False</GenerateCreateScript>
+    <DefaultSchema>dbo</DefaultSchema>
+    <TargetLanguage>CS</TargetLanguage>
+    <DefaultCollation>SQL_Latin1_General_CP1_CI_AS</DefaultCollation>
+    <AnsiNullDefault>True</AnsiNullDefault>
+    <AnsiNulls>True</AnsiNulls>
+    <AnsiPadding>True</AnsiPadding>
+    <AnsiWarnings>True</AnsiWarnings>
+    <ArithAbort>True</ArithAbort>
+    <ConcatNullYieldsNull>True</ConcatNullYieldsNull>
+    <QuotedIdentifier>True</QuotedIdentifier>
+    <NumericRoundAbort>False</NumericRoundAbort>
+    <RecursiveTriggersEnabled>False</RecursiveTriggersEnabled>
+    <DatabaseState>ONLINE</DatabaseState>
+    <UpdateOptions>READ_WRITE</UpdateOptions>
+    <CloseCursorOnCommitEnabled>False</CloseCursorOnCommitEnabled>
+    <DefaultCursor>LOCAL</DefaultCursor>
+    <AutoClose>False</AutoClose>
+    <AutoCreateStatistics>True</AutoCreateStatistics>
+    <AutoShrink>False</AutoShrink>
+    <AutoUpdateStatistics>True</AutoUpdateStatistics>
+    <TornPageDetection>False</TornPageDetection>
+    <DatabaseAccess>MULTI_USER</DatabaseAccess>
+    <Recovery>FULL</Recovery>
+    <EnableFullTextSearch>True</EnableFullTextSearch>
+    <DatabaseChaining>False</DatabaseChaining>
+    <DefaultFilegroup>PRIMARY</DefaultFilegroup>
+    <Trustworthy>False</Trustworthy>
+    <AutoUpdateStatisticsAsynchronously>False</AutoUpdateStatisticsAsynchronously>
+    <PageVerify>NONE</PageVerify>
+    <ServiceBrokerOption>DisableBroker</ServiceBrokerOption>
+    <DateCorrelationOptimizationOn>False</DateCorrelationOptimizationOn>
+    <Parameterization>SIMPLE</Parameterization>
+    <AllowSnapshotIsolation>False</AllowSnapshotIsolation>
+    <ReadCommittedSnapshot>False</ReadCommittedSnapshot>
+    <VardecimalStorageFormatOn>True</VardecimalStorageFormatOn>
+    <SupplementalLoggingOn>False</SupplementalLoggingOn>
+    <DefaultFileStreamFilegroup />
+    <IsChangeTrackingOn>False</IsChangeTrackingOn>
+    <IsChangeTrackingAutoCleanupOn>True</IsChangeTrackingAutoCleanupOn>
+    <ChangeTrackingRetentionPeriod>2</ChangeTrackingRetentionPeriod>
+    <ChangeTrackingRetentionUnit>Days</ChangeTrackingRetentionUnit>
+    <IsEncryptionOn>False</IsEncryptionOn>
+    <IsBrokerPriorityHonored>False</IsBrokerPriorityHonored>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>.\sql\release\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TargetDatabase>Fanex.Affiliate.12Bet</TargetDatabase>
+    <TreatTSqlWarningsAsErrors>False</TreatTSqlWarningsAsErrors>
+    <SuppressTSqlWarnings />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>.\sql\debug\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TargetDatabase>Fanex.Affiliate.12Bet</TargetDatabase>
+    <TreatTSqlWarningsAsErrors>False</TreatTSqlWarningsAsErrors>
+    <SuppressTSqlWarnings />
+  </PropertyGroup>
+  <!--Import the settings-->
+  <Import Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <ItemGroup>
+    <Folder Include="Data Generation Plans" />
+    <Folder Include="Schema Comparisons" />
+    <Folder Include="ExchangeRate\EmailHistory" />
+    <Folder Include="Casino" />
+    <Folder Include="DeployScripts\MoveUserControlFromDB03_20101216" />
+    <Folder Include="Deposit_DB" />
+    <Folder Include="DomainControl" />
+    <Folder Include="IA" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Schema Objects" />
+    <Folder Include="Schema Objects\Schemas" />
+    <Folder Include="Schema Objects\Schemas\dbo" />
+    <Folder Include="Schema Objects\Schemas\dbo\Programmability" />
+    <Folder Include="Schema Objects\Schemas\dbo\Programmability\Defaults" />
+    <Folder Include="Schema Objects\Schemas\dbo\Programmability\Functions" />
+    <Folder Include="Schema Objects\Schemas\dbo\Programmability\Rules" />
+    <Folder Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures" />
+    <Folder Include="Schema Objects\Schemas\dbo\Programmability\Types" />
+    <Folder Include="Schema Objects\Schemas\dbo\Programmability\Types\User Defined Data Types" />
+    <Folder Include="Schema Objects\Schemas\dbo\Programmability\Types\User Defined Types CLR" />
+    <Folder Include="Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types" />
+    <Folder Include="Schema Objects\Schemas\dbo\Programmability\Types\XML Schema Collections" />
+    <Folder Include="Schema Objects\Schemas\dbo\Service Broker" />
+    <Folder Include="Schema Objects\Schemas\dbo\Service Broker\Queues" />
+    <Folder Include="Schema Objects\Schemas\dbo\Synonyms" />
+    <Folder Include="Schema Objects\Schemas\dbo\Tables" />
+    <Folder Include="Schema Objects\Schemas\dbo\Tables\Constraints" />
+    <Folder Include="Schema Objects\Schemas\dbo\Tables\Indexes" />
+    <Folder Include="Schema Objects\Schemas\dbo\Tables\Keys" />
+    <Folder Include="Schema Objects\Schemas\dbo\Tables\Triggers" />
+    <Folder Include="Schema Objects\Schemas\dbo\Tables\Statistics" />
+    <Folder Include="Schema Objects\Schemas\dbo\Views" />
+    <Folder Include="Schema Objects\Schemas\dbo\Views\Indexes" />
+    <Folder Include="Schema Objects\Schemas\dbo\Views\Triggers" />
+    <Folder Include="Schema Objects\Schemas\dbo\Views\Statistics" />
+    <Folder Include="Schema Objects\Database Level Objects" />
+    <Folder Include="Schema Objects\Database Level Objects\Assemblies" />
+    <Folder Include="Schema Objects\Database Level Objects\Database Triggers" />
+    <Folder Include="Schema Objects\Database Level Objects\Security" />
+    <Folder Include="Schema Objects\Database Level Objects\Security\Schemas" />
+    <Folder Include="Schema Objects\Database Level Objects\Security\Users" />
+    <Folder Include="Schema Objects\Database Level Objects\Security\Certificates" />
+    <Folder Include="Schema Objects\Database Level Objects\Security\Asymmetric Keys" />
+    <Folder Include="Schema Objects\Database Level Objects\Security\Master Keys" />
+    <Folder Include="Schema Objects\Database Level Objects\Security\Signatures" />
+    <Folder Include="Schema Objects\Database Level Objects\Security\Symmetric Keys" />
+    <Folder Include="Schema Objects\Database Level Objects\Security\Database Encryption Keys" />
+    <Folder Include="Schema Objects\Database Level Objects\Security\Database Audit Specification" />
+    <Folder Include="Schema Objects\Database Level Objects\Security\Roles" />
+    <Folder Include="Schema Objects\Database Level Objects\Security\Roles\Application Roles" />
+    <Folder Include="Schema Objects\Database Level Objects\Security\Roles\Database Roles" />
+    <Folder Include="Schema Objects\Database Level Objects\Service Broker" />
+    <Folder Include="Schema Objects\Database Level Objects\Service Broker\Broker Priorities" />
+    <Folder Include="Schema Objects\Database Level Objects\Service Broker\Contracts" />
+    <Folder Include="Schema Objects\Database Level Objects\Service Broker\Event Notifications" />
+    <Folder Include="Schema Objects\Database Level Objects\Service Broker\Message Types" />
+    <Folder Include="Schema Objects\Database Level Objects\Service Broker\Remote Service Binding" />
+    <Folder Include="Schema Objects\Database Level Objects\Service Broker\Routes" />
+    <Folder Include="Schema Objects\Database Level Objects\Service Broker\Services" />
+    <Folder Include="Schema Objects\Database Level Objects\Storage" />
+    <Folder Include="Schema Objects\Database Level Objects\Storage\Full Text Stoplists" />
+    <Folder Include="Schema Objects\Database Level Objects\Storage\Filegroups" />
+    <Folder Include="Schema Objects\Database Level Objects\Storage\Files" />
+    <Folder Include="Schema Objects\Database Level Objects\Storage\Full Text Catalogs" />
+    <Folder Include="Schema Objects\Database Level Objects\Storage\Partition Functions" />
+    <Folder Include="Schema Objects\Database Level Objects\Storage\Partition Schemes" />
+    <Folder Include="Admin" />
+    <Folder Include="Affiliate" />
+    <Folder Include="AffiliatePortal" />
+    <Folder Include="AffiliatePortal\Deploy" />
+    <Folder Include="AffiliatePortal\ErrorAndLog" />
+    <Folder Include="AffiliatePortal\Language" />
+    <Folder Include="AffiliatePortal\Menu" />
+    <Folder Include="AffiliatePortal\Page" />
+    <Folder Include="AffiliatePortal\Post" />
+    <Folder Include="AffiliatePortal\Setting" />
+    <Folder Include="AffiliatePortal\Site" />
+    <Folder Include="AffiliatePortal\Tag" />
+    <Folder Include="AffiliatePortal\Taxonomy" />
+    <Folder Include="AffiliatePortal\Term" />
+    <Folder Include="AffiliatePortal\Widget" />
+    <Folder Include="AffiliateTierCommission" />
+    <Folder Include="Banner" />
+    <Folder Include="Banner\InsUpd" />
+    <Folder Include="Banner\Select" />
+    <Folder Include="Common Function" />
+    <Folder Include="DBA" />
+    <Folder Include="DeployScripts" />
+    <Folder Include="DeployScripts\ChangeScripts" />
+    <Folder Include="DeployScripts\CreateScripts" />
+    <Folder Include="DeployScripts\DeleteOldSPScripts" />
+    <Folder Include="DeployScripts\ImportDataScripts" />
+    <Folder Include="DeployScripts\InsertScripts" />
+    <Folder Include="DeployScripts\ReviseFormula20100228" />
+    <Folder Include="DepositDB" />
+    <Folder Include="EmailHistory" />
+    <Folder Include="ExchangeRate" />
+    <Folder Include="HotNews" />
+    <Folder Include="Login-OnUser" />
+    <Folder Include="MediaAffiliate" />
+    <Folder Include="Member" />
+    <Folder Include="Notes" />
+    <Folder Include="Password" />
+    <Folder Include="Report" />
+    <Folder Include="Test" />
+    <Folder Include="Tracking System" />
+    <Folder Include="Transaction" />
+    <Folder Include="UserControl" />
+    <Folder Include="UserLog" />
+    <Folder Include="zDBTask" />
+    <Folder Include="zMisc" />
+    <Folder Include="Properties" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Connections.txt" />
+    <None Include="Admin\Aff_AdminSelDBTime.sql" />
+    <None Include="Admin\Aff_HomeGeneralInfo.sql" />
+    <None Include="Admin\Aff_UserOnlineList.sql" />
+    <None Include="Affiliate\Aff_AffiliateIns.sql" />
+    <None Include="Affiliate\Aff_AffiliateSel.sql" />
+    <None Include="Affiliate\Aff_AffiliateSelAffInfo.sql" />
+    <None Include="Affiliate\Aff_AffiliateSelEditInfo.sql" />
+    <None Include="Affiliate\Aff_AffiliateSelFavorite.sql" />
+    <None Include="Affiliate\Aff_AffiliateSelGeneralInfo.sql" />
+    <None Include="Affiliate\Aff_AffiliateSelLog.sql" />
+    <None Include="Affiliate\Aff_AffiliateSelLogType.sql" />
+    <None Include="Affiliate\Aff_AffiliateStatementHistorySel.sql" />
+    <None Include="Affiliate\Aff_AffiliateUpdClosedStatus.sql" />
+    <None Include="Affiliate\Aff_AffiliateUpdInfo.sql" />
+    <None Include="Affiliate\Aff_AffiliateUpdStatus.sql" />
+    <None Include="Affiliate\Aff_CustomerSelBalBF.sql" />
+    <None Include="Affiliate\Aff_CustomerSelSummary.sql" />
+    <None Include="Affiliate\Aff_CustomerUdpSecurityQuestion.sql" />
+    <None Include="Affiliate\Aff_EarningSelDaily.sql" />
+    <None Include="Affiliate\Aff_EarningSelDetail.sql" />
+    <None Include="Affiliate\Aff_FavoriteDel.sql" />
+    <None Include="Affiliate\Aff_FavoriteIns.sql" />
+    <None Include="Affiliate\Aff_MemberSel.sql" />
+    <None Include="Affiliate\Aff_MinAmountSel.sql" />
+    <None Include="Affiliate\Aff_PreferLangUpd.sql" />
+    <None Include="Affiliate\Aff_StatementHistorySel.sql" />
+    <None Include="Affiliate\Aff_StatisticsSel.sql" />
+    <None Include="AffiliatePortal\Deploy\DB and Users.sql" />
+    <None Include="AffiliatePortal\Deploy\DefaultData.sql" />
+    <None Include="AffiliatePortal\Deploy\Table.sql" />
+    <None Include="AffiliatePortal\ErrorAndLog\ELMAH_GetErrorsXml.sql" />
+    <None Include="AffiliatePortal\ErrorAndLog\ELMAH_GetErrorXml.sql" />
+    <None Include="AffiliatePortal\ErrorAndLog\ELMAH_LogError.sql" />
+    <None Include="AffiliatePortal\Language\DeleteLanguage.sql" />
+    <None Include="AffiliatePortal\Language\GetLanguage.sql" />
+    <None Include="AffiliatePortal\Language\GetLanguages.sql" />
+    <None Include="AffiliatePortal\Language\InsertLanguage.sql" />
+    <None Include="AffiliatePortal\Language\UpdateLanguage.sql" />
+    <None Include="AffiliatePortal\Menu\DeleteMenu.sql" />
+    <None Include="AffiliatePortal\Menu\GetMenu.sql" />
+    <None Include="AffiliatePortal\Menu\GetMenus.sql" />
+    <None Include="AffiliatePortal\Menu\InsertMenu.sql" />
+    <None Include="AffiliatePortal\Menu\UpdateMenu.sql" />
+    <None Include="AffiliatePortal\Page\DeletePage.sql" />
+    <None Include="AffiliatePortal\Page\GetPageByPageId.sql" />
+    <None Include="AffiliatePortal\Page\GetPageByUrl.sql" />
+    <None Include="AffiliatePortal\Page\InsertPage.sql" />
+    <None Include="AffiliatePortal\Page\UpdateHomePage.sql" />
+    <None Include="AffiliatePortal\Post\DeletePost.sql" />
+    <None Include="AffiliatePortal\Post\GetMostUsedPostTags.sql" />
+    <None Include="AffiliatePortal\Post\GetPost.sql" />
+    <None Include="AffiliatePortal\Post\GetPostCategoryWithCount.sql" />
+    <None Include="AffiliatePortal\Post\GetPostsByCategory.sql" />
+    <None Include="AffiliatePortal\Post\GetPostsBySiteId.sql" />
+    <None Include="AffiliatePortal\Post\GetPostTags.sql" />
+    <None Include="AffiliatePortal\Post\InsertPost.sql" />
+    <None Include="AffiliatePortal\Post\UpdatePost.sql" />
+    <None Include="AffiliatePortal\Post\UpdatePostStatus.sql" />
+    <None Include="AffiliatePortal\Setting\GetBasicSetting.sql" />
+    <None Include="AffiliatePortal\Setting\UpdateBasicSetting.sql" />
+    <None Include="AffiliatePortal\Site\CheckHasSite.sql" />
+    <None Include="AffiliatePortal\Site\CopySiteToSite.sql" />
+    <None Include="AffiliatePortal\Site\DeleteSite.sql" />
+    <None Include="AffiliatePortal\Site\GetSiteBySiteHost.sql" />
+    <None Include="AffiliatePortal\Site\GetSiteBySiteId.sql" />
+    <None Include="AffiliatePortal\Site\GetSites.sql" />
+    <None Include="AffiliatePortal\Site\GetTemplateSites.sql" />
+    <None Include="AffiliatePortal\Site\InsertSite.sql" />
+    <None Include="AffiliatePortal\Site\UpdateSite.sql" />
+    <None Include="AffiliatePortal\Site\UpdateSiteLayout.sql" />
+    <None Include="AffiliatePortal\Tag\InsertTag.sql" />
+    <None Include="AffiliatePortal\Taxonomy\InsertTaxonomy.sql" />
+    <None Include="AffiliatePortal\Taxonomy\InsertTermWithTaxonomy.sql" />
+    <None Include="AffiliatePortal\Term\DeleteTerm.sql" />
+    <None Include="AffiliatePortal\Term\DeleteTermRelationship.sql" />
+    <None Include="AffiliatePortal\Term\GetTermsOfPost.sql" />
+    <None Include="AffiliatePortal\Term\InsertTerm.sql" />
+    <None Include="AffiliatePortal\Term\InsertTermRelationship.sql" />
+    <None Include="AffiliatePortal\Term\UpdateTerm.sql" />
+    <None Include="AffiliatePortal\Widget\CheckWidgetBelongToSite.sql" />
+    <None Include="AffiliatePortal\Widget\DeleteWidget.sql" />
+    <None Include="AffiliatePortal\Widget\EditWidgetMeta.sql" />
+    <None Include="AffiliatePortal\Widget\GetAllEmbeddables.sql" />
+    <None Include="AffiliatePortal\Widget\GetEmbeddables.sql" />
+    <None Include="AffiliatePortal\Widget\GetInstanableEmbeddables.sql" />
+    <None Include="AffiliatePortal\Widget\GetWidgetMeta.sql" />
+    <None Include="AffiliatePortal\Widget\GetWidgets.sql" />
+    <None Include="AffiliatePortal\Widget\InsertEmbeddableSample.sql" />
+    <None Include="AffiliatePortal\Widget\InsertWidget.sql" />
+    <None Include="AffiliatePortal\Widget\ToggleEnableEmbeddableSample.sql" />
+    <None Include="AffiliatePortal\Widget\ToggleEnableLanguage.sql" />
+    <None Include="AffiliatePortal\Widget\UpdateEmbeddableSample.sql" />
+    <None Include="AffiliatePortal\Widget\UpdateUpDownWidget.sql" />
+    <None Include="AffiliatePortal\Widget\UpdateWidgetPositions.sql" />
+    <None Include="AffiliateTierCommission\Aff_CommGroupAssign.sql" />
+    <None Include="AffiliateTierCommission\Aff_CommGroupDel.sql" />
+    <None Include="AffiliateTierCommission\Aff_CommGroupIns.sql" />
+    <None Include="AffiliateTierCommission\Aff_CommGroupSel.sql" />
+    <None Include="AffiliateTierCommission\Aff_CommGroupSelCommonSetting.sql" />
+    <None Include="AffiliateTierCommission\Aff_CommGroupSelDetail.sql" />
+    <None Include="AffiliateTierCommission\Aff_CommGroupSelListNormal.sql" />
+    <None Include="AffiliateTierCommission\Aff_CommGroupUpd.sql" />
+    <None Include="Banner\InsUpd\Aff_BannerDel.sql" />
+    <None Include="Banner\InsUpd\Aff_BannerDelType.sql" />
+    <None Include="Banner\InsUpd\Aff_BannerIns.sql" />
+    <None Include="Banner\InsUpd\Aff_BannerInsType.sql" />
+    <None Include="Banner\InsUpd\Aff_BannerUpd.sql" />
+    <None Include="Banner\InsUpd\Aff_BannerUpdType.sql" />
+    <None Include="Banner\Select\Aff_BannerSel.sql" />
+    <None Include="Banner\Select\Aff_BannerSelDetail.sql" />
+    <None Include="Banner\Select\Aff_BannerSelType.sql" />
+    <None Include="Common Function\Aff_CalMonthlyEarning.sql" />
+    <None Include="Common Function\Aff_CalMonthlyEarningCurrent.sql" />
+    <None Include="Common Function\Aff_CheckPermissionOnAff.sql" />
+    <None Include="Common Function\Aff_CheckPermissionReadOnAff.sql" />
+    <None Include="Common Function\Aff_CountMember.sql" />
+    <None Include="Common Function\Aff_GenUsername.sql" />
+    <None Include="Common Function\Aff_GetAffBalance.sql" />
+    <None Include="Common Function\Aff_GetDeductionPercent.sql" />
+    <None Include="Common Function\Aff_GetLogType.sql" />
+    <None Include="Common Function\Aff_GetMemberPSP.sql" />
+    <None Include="Common Function\Aff_GetMemberStatistics.sql" />
+    <None Include="Common Function\Aff_GetMemberWinlost.sql" />
+    <None Include="Common Function\Aff_GetSportID.sql" />
+    <None Include="Common Function\Aff_HasDeduction.sql" />
+    <None Include="Common Function\Aff_SelRefNo.sql" />
+    <None Include="Common Function\Aff_ToString.sql" />
+    <None Include="Common Function\DBA_GetPT.sql" />
+    <None Include="Common Function\Row_Count.sql" />
+    <None Include="DBA\Aff_DBAFixPaymentRequestCannotApproved.sql" />
+    <None Include="DBA\Aff_DBAInsBannerType.sql" />
+    <None Include="DeployScripts\ChangeScripts\UpdateAWinlostABonus.sql" />
+    <None Include="DeployScripts\ChangeScripts\UpdateDefaultGroup.sql" />
+    <None Include="DeployScripts\ChangeScripts\UpdateEmailForTesting.sql" />
+    <None Include="DeployScripts\ChangeScripts\UpdateTurnOverHRNewSystem.sql" />
+    <None Include="DeployScripts\CreateScripts\CommonFunctions.sql" />
+    <None Include="DeployScripts\CreateScripts\DB and User.sql" />
+    <None Include="DeployScripts\CreateScripts\GrantPermission.sql" />
+    <None Include="DeployScripts\CreateScripts\Index.sql" />
+    <None Include="DeployScripts\CreateScripts\Table.sql" />
+    <None Include="DeployScripts\DeleteOldSPScripts\DeleteOldSP.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_AdminNotes.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_AffAdjustment.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_AffCommission.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_AffDetail.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_AffInfo.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_AffPayout.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_BankTrans.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_Banners.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_BannerTypes.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_ClickStatistics.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_ClickStatistics_bk.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_ClickStatisticsSum.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_EmailHistory.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_Exchange.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_Exchange_Current.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_MemberDaily.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_MemberDaily2.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_MemberInfo.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_News.sql" />
+    <None Include="DeployScripts\ImportDataScripts\Import_TrackingCode.sql" />
+    <None Include="DeployScripts\ImportDataScripts\ImportAll.sql" />
+    <None Include="DeployScripts\InsertScripts\DefaultData.sql" />
+    <None Include="DeployScripts\InsertScripts\TruncateTable.sql" />
+    <None Include="DeployScripts\Package20100331.sql" />
+    <None Include="DeployScripts\ReplicationTable.sql" />
+    <None Include="DeployScripts\ReviseFormula20100228\Aff_AffiliateDailySelForImport.sql" />
+    <None Include="DeployScripts\ReviseFormula20100228\CreateScript.sql" />
+    <None Include="DeployScripts\ReviseFormula20100228\ImportData.sql" />
+    <None Include="DeployScripts\ReviseFormula20100228\InsertScript.sql" />
+    <None Include="DeployScripts\UpdateExRate_20100504.sql" />
+    <None Include="DepositDB\DEP_AdminUpdAffID.sql" />
+    <None Include="DepositDB\DEP_AffiliateGeneralInfo.sql" />
+    <None Include="DepositDB\DEP_AffiliateGetPSP.sql" />
+    <None Include="DepositDB\DEP_AffiliateSelMemberList.sql" />
+    <None Include="DepositDB\DEP_AffiliateSelSummary.sql" />
+    <None Include="DepositDB\DEP_AffiliateSelTotalRegistered.sql" />
+    <None Include="DepositDB\DEP_AffiliateSelTotalRegisteredByDate.sql" />
+    <None Include="DepositDB\Deposit_GetCustDataForCreateIBCACByUserName.sql" />
+    <None Include="DepositDB\Deposit_MemberIBCDetail.sql" />
+    <None Include="EmailHistory\Aff_EmailHistoryDel.sql" />
+    <None Include="EmailHistory\Aff_EmailHistoryIns.sql" />
+    <None Include="EmailHistory\Aff_EmailHistorySel.sql" />
+    <None Include="ExchangeRate\Acc_ExchangeUpd.sql" />
+    <None Include="ExchangeRate\Aff_AccUpdateExchange.sql" />
+    <None Include="ExchangeRate\Aff_ExchangeSel.sql" />
+    <None Include="ExchangeRate\Aff_ExchangeUpdate.sql" />
+    <None Include="ExchangeRate\DBA_Aff_ExchangeUpdate.sql" />
+    <None Include="HotNews\Aff_HotNewsDel.sql" />
+    <None Include="HotNews\Aff_HotNewsDetail.sql" />
+    <None Include="HotNews\Aff_HotNewsIns.sql" />
+    <None Include="HotNews\Aff_HotNewsSel.sql" />
+    <None Include="HotNews\Aff_HotNewsUpd.sql" />
+    <None Include="Login-OnUser\Aff_AdminLogin.sql" />
+    <None Include="Login-OnUser\Aff_AffiliateInternalLogin.sql" />
+    <None Include="Login-OnUser\Aff_AffiliateLogin.sql" />
+    <None Include="Login-OnUser\Aff_Logout.sql" />
+    <None Include="Login-OnUser\Aff_OnUserSelNetSessionID.sql" />
+    <None Include="MediaAffiliate\Aff_MediaAffiliateIns.sql" />
+    <None Include="MediaAffiliate\Aff_MediaAffiliateUpd.sql" />
+    <None Include="Member\Aff_CustomerInsMember.sql" />
+    <None Include="Member\Aff_MemberDel.sql" />
+    <None Include="Member\Aff_MemberListSel.sql" />
+    <None Include="Member\Aff_MemberUpdAffID.sql" />
+    <None Include="Member\Aff_PlayersSelDetail.sql" />
+    <None Include="Member\Aff_SportTypeSel.sql" />
+    <None Include="Notes\Aff_AdminNoteDel.sql" />
+    <None Include="Notes\Aff_AdminNoteIns.sql" />
+    <None Include="Notes\Aff_AdminNoteSel.sql" />
+    <None Include="Notes\Aff_AdminNoteUdp.sql" />
+    <None Include="Password\Aff_AdminUpdPwd.sql" />
+    <None Include="Password\Aff_AffiliateForgotPwd.sql" />
+    <None Include="Password\Aff_AffiliateRecoverPwd.sql" />
+    <None Include="Password\Aff_AffiliateUpdPwd.sql" />
+    <None Include="Report\Aff_AffiliateReport.sql" />
+    <None Include="Report\Aff_AffiliateReportDetail.sql" />
+    <None Include="Report\Aff_AffiliateStatistics.sql" />
+    <None Include="Report\Aff_AffiliateStatisticsDetail.sql" />
+    <None Include="Report\Aff_ReportDetailSelAll.sql" />
+    <None Include="Report\Aff_ReportDetailSelByAff.sql" />
+    <None Include="Report\Aff_ReportQM.sql" />
+    <None Include="Report\Aff_ReportQMDetail.sql" />
+    <None Include="Test\MonthlyTransferFixNegativeCommissionScript_20100709.sql" />
+    <None Include="Test\MonthlyTransferTest.sql" />
+    <None Include="Tracking System\Aff_AffiliateInsClickStatistics.sql" />
+    <None Include="Tracking System\Aff_AffiliateSelClickStatisticsAllMonths.sql" />
+    <None Include="Tracking System\Aff_AffiliateSelClickStatisticsMonthDetail.sql" />
+    <None Include="Tracking System\Aff_AffiliateSelClickStatisticsMonthDetailAll.sql" />
+    <None Include="Tracking System\Aff_AffiliateSelTrackingCode.sql" />
+    <None Include="Transaction\Aff_AdjustmentIns.sql" />
+    <None Include="Transaction\Aff_CustomerCheck12BetPlayerAccountActivated.sql" />
+    <None Include="Transaction\Aff_PaymentRequestApprove.sql" />
+    <None Include="Transaction\Aff_PaymentRequestIns.sql" />
+    <None Include="Transaction\Aff_PaymentRequestSelDetail.sql" />
+    <None Include="Transaction\Aff_PaymentRequestSelInfoByAff.sql" />
+    <None Include="Transaction\Aff_PaymentRequestSelList.sql" />
+    <None Include="Transaction\Aff_PaymentRequestUpd.sql" />
+    <None Include="UserControl\Aff_Con_AdminGroupUpd.sql" />
+    <None Include="UserControl\Aff_Con_AdminIns.sql" />
+    <None Include="UserControl\Aff_Con_AdminInsFromExisted.sql" />
+    <None Include="UserControl\Aff_Con_AdminPolicyIns.sql" />
+    <None Include="UserControl\Aff_Con_AdminPolicySelByCustID.sql" />
+    <None Include="UserControl\Aff_Con_AdminPolicyUpd.sql" />
+    <None Include="UserControl\Aff_Con_AdminSelByCustID.sql" />
+    <None Include="UserControl\Aff_Con_AdminSelByGroupID.sql" />
+    <None Include="UserControl\Aff_Con_AdminUpd.sql" />
+    <None Include="UserControl\Aff_Con_AdminUpdClosed.sql" />
+    <None Include="UserControl\Aff_Con_Batch_AdminPolicySel.sql" />
+    <None Include="UserControl\Aff_Con_CheckPermissionRead.sql" />
+    <None Include="UserControl\Aff_Con_FuncInfoDel.sql" />
+    <None Include="UserControl\Aff_Con_FuncInfoIns.sql" />
+    <None Include="UserControl\Aff_Con_FuncInfoSel.sql" />
+    <None Include="UserControl\Aff_Con_FuncInfoSelByFuncID.sql" />
+    <None Include="UserControl\Aff_Con_FuncInfoSelParent.sql" />
+    <None Include="UserControl\Aff_Con_FuncInfoUpd.sql" />
+    <None Include="UserControl\Aff_Con_GroupInfoDel.sql" />
+    <None Include="UserControl\Aff_Con_GroupInfoIns.sql" />
+    <None Include="UserControl\Aff_Con_GroupInfoSel.sql" />
+    <None Include="UserControl\Aff_Con_GroupInfoUpd.sql" />
+    <None Include="UserControl\Aff_Con_GroupPolicySel.sql" />
+    <None Include="UserControl\Aff_Con_GroupPolicyUpd.sql" />
+    <None Include="UserLog\Aff_WriteLog.sql" />
+    <None Include="UserLog\Aff_WriteLog_IISErr.sql" />
+    <None Include="UserLog\Aff_WriteLog_UserLog_RunSP.sql" />
+    <None Include="zDBTask\Task_Aff_GroupSettingBackupMonthly.sql" />
+    <None Include="zDBTask\Task_Aff_MemberDailySummary.sql" />
+    <None Include="zDBTask\Task_Aff_MemberDailySummary_CA2.sql" />
+    <None Include="zDBTask\Task_Aff_MemberDailySummary14_CA2.sql" />
+    <None Include="zDBTask\Task_Aff_MonthlySummaryClickRate.sql" />
+    <None Include="zDBTask\Task_Aff_MonthlyTransfer.sql" />
+    <None Include="zDBTask\Task_DOT_Dep_DailySummary2.sql" />
+    <None Include="Report\Aff_ActiveMemberReport.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Report\Aff_AffiliateCommReport.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Report\Aff_CheckSum.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Report\Aff_PerformanceReport.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Report\Aff_PerformanceReportByAff.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="UserControl\Aff_CheckPermissionOnAff.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="UserControl\Aff_Con_CheckPermission.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="ExchangeRate\EmailHistory\Aff_EmailHistoryDel.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="ExchangeRate\EmailHistory\Aff_EmailHistoryIns.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="ExchangeRate\EmailHistory\Aff_EmailHistorySel.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Tracking System\Aff_ClickStatisticsSelBySite.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Affiliate\Aff_AffiliateUnlockMultiple.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="AffiliateTierCommission\Aff_CurrencyGroupSel.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Casino\Aff_CasinoHasData.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="AffiliatePortal\Deploy\AsemblyAndFunctions.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="AffiliatePortal\Deploy\StoredProcedure.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="AffiliatePortal\Deploy\Notes.txt">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="AffiliatePortal\Site\ToggleDeletableSampleEmbeddable.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="AffiliatePortal\Site\ToggleEditableSampleEmbeddable.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="AffiliatePortal\Widget\GetAllEmbeddableSamples.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="AffiliatePortal\Widget\GetBaseEmbeddableId.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="AffiliatePortal\Widget\GetWidgetsPreview.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Common Function\Aff_CurrencyGroupUpdForDailyData.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Common Function\Aff_CurrencyListByGroupId.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Common Function\Aff_GetCurrencyGroup.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Common Function\Aff_GetMaxWinlostdate.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Common Function\Aff_SplitIndex.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Common Function\strSplit_Key.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DBA\Aff_MoveMemberCheckList.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DBA\RequestFor12BETAff009-20100304-Fan.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DeployScripts\MoveUserControlFromDB03_20101216\CreateTables.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DeployScripts\MoveUserControlFromDB03_20101216\ImportData.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DeployScripts\DeleteUnusedITAdmin20101231.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DeployScripts\DeploymentGuide.txt">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Deposit_DB\DEP_AffiliateGeneralInfo.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="zMisc\RecalculateNov2010DataForRelatedAffiliates.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="zMisc\ScriptFor12BETAFF3532.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="zMisc\ScriptFor12BETAFF3537.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="zDBTask\Task_Aff_ClearLogin.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="zDBTask\Task_Aff_ClearLogin_Loop.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="zDBTask\Task_Aff_MemberDailySummaryForAff.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="zDBTask\Task_Aff_DailySummaryClickRate_New.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="zDBTask\Task_Aff_ClickStatusUpd.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Tracking System\Aff_ClickStatisticsDetailBySite.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Banner\InsUpd\Aff_BannerMediaIns.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DomainControl\Aff_Domain12BetDel.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DomainControl\Aff_Domain12BetIns.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DomainControl\Aff_Domain12BetSel.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DomainControl\Aff_Domain12BetUpd.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DomainControl\Aff_DomainAffClientSel.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DomainControl\Aff_DomainAffDel.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DomainControl\Aff_DomainAffIns.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DomainControl\Aff_DomainAffSel.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DomainControl\Aff_DomainAffUpd.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DomainControl\Aff_DomainControlDel.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DomainControl\Aff_DomainControlIns.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DomainControl\Aff_DomainControlSel.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DomainControl\Aff_DomainControlUpd.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="DomainControl\Aff_MarketSel.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="IA\IA_CheckSum.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="Member\Aff_MemberInfoSel.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <BuildContributorArgument Include="OutDir=$(OutDir)" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="Permissions.sql" />
+    <Build Include="zDBTask\Task_Aff_MemberDailySummary_IA.proc.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Casino\Aff_CasinoImportData.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Common Function\Aff_CommissionForMonth.function.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Common Function\Aff_CommissionForCurrentMonth.function.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Common Function\IsZeroCommissionGroup.function.sql">
+      <SubType>Code</SubType>
+    </Build>
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="Tracking System\Aff_AffiliateInsClickStatistics_New.sql">
+      <SubType>Code</SubType>
+    </Build>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Debug.publish.xml" />
+    <None Include="Release.publish.xml" />
+  </ItemGroup>
+</Project>

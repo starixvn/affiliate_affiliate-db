@@ -1,0 +1,598 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Name>Fanex.Affiliate.Admin</Name>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>4.0</ProjectVersion>
+    <ProjectGuid>{bff0f537-b160-4d55-a40c-c0e97007c15e}</ProjectGuid>
+    <DSP>Microsoft.Data.Schema.Sql.Sql100DatabaseSchemaProvider</DSP>
+    <AllowServerObjects>True</AllowServerObjects>
+    <AllowDatabaseObjects>True</AllowDatabaseObjects>
+    <DAC>true</DAC>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <ShowWizard>False</ShowWizard>
+    <OutputType>Database</OutputType>
+    <RootPath>
+    </RootPath>
+    <IncludeSchemaNameInFileName>False</IncludeSchemaNameInFileName>
+    <ModelCollation>1033, CI</ModelCollation>
+    <DefaultFileStructure>BySchema</DefaultFileStructure>
+    <DeployToDatabaseAddToServerExplorer>False</DeployToDatabaseAddToServerExplorer>
+    <DeployToScript>True</DeployToScript>
+    <CatalogPropertiesFile>Properties\Database.sqlsettings</CatalogPropertiesFile>
+    <DacApplicationName>$(MSBuildProjectName)</DacApplicationName>
+    <DacVersionString>1.0.0.0</DacVersionString>
+    <DacDescription>
+    </DacDescription>
+    <RootNamespace>Fanex.Affiliate.Admin</RootNamespace>
+    <DefaultSchema>dbo</DefaultSchema>
+    <PreviousProjectVersion>4.0</PreviousProjectVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <OutputPath>.\sql\release\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TargetConnectionString>
+    </TargetConnectionString>
+    <TargetDatabase>
+    </TargetDatabase>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <SuppressWarnings>
+    </SuppressWarnings>
+    <DeployToDatabase>False</DeployToDatabase>
+    <DacDatabaseCollation>SQL_Latin1_General_CP1_CI_AS</DacDatabaseCollation>
+    <ValidatePolicy>True</ValidatePolicy>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <OutputPath>.\sql\debug\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TargetConnectionString>
+    </TargetConnectionString>
+    <TargetDatabase>
+    </TargetDatabase>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <SuppressWarnings>
+    </SuppressWarnings>
+    <DeployToDatabase>False</DeployToDatabase>
+    <DacDatabaseCollation>SQL_Latin1_General_CP1_CI_AS</DacDatabaseCollation>
+    <ValidatePolicy>True</ValidatePolicy>
+  </PropertyGroup>
+  <!--Import the settings-->
+  <Import Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v10.0\TeamData\Microsoft.Data.Schema.SqlTasks.targets" />
+  <ItemGroup>
+    <Folder Include="Properties\" />
+    <Folder Include="Login" />
+    <Folder Include="Payment" />
+    <Folder Include="UserManagement" />
+    <Folder Include="Home" />
+    <Folder Include="zMisc" />
+    <Folder Include="Currency" />
+    <Folder Include="Language" />
+    <Folder Include="Affiliate" />
+    <Folder Include="SystemSettings" />
+    <Folder Include="Domain" />
+    <Folder Include="EmailHistory" />
+    <Folder Include="Message" />
+    <Folder Include="GroupManagement" />
+    <Folder Include="Exchange" />
+    <Folder Include="CommGroup" />
+    <Folder Include="Media" />
+    <Folder Include="AffiliateInfo" />
+    <Folder Include="Country" />
+    <Folder Include="Member" />
+    <Folder Include="Notes" />
+    <Folder Include="ViewLog" />
+    <Folder Include="Adjustment" />
+    <Folder Include="ClickStatistic" />
+    <Folder Include="Report" />
+    <Folder Include="Common Function" />
+    <Folder Include="Customer" />
+    <Folder Include="zTask" />
+  </ItemGroup>
+  <ItemGroup>
+    <PropertiesFile Include="Properties\Database.sqlsettings">
+    </PropertiesFile>
+    <DacPropertiesFile Include="Properties\ServerSelection.sqlpolicy">
+    </DacPropertiesFile>
+  </ItemGroup>
+  <ItemGroup>
+    <BuildContributorArgument Include="OutDir=$(OutDir)" />
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Login\AffAdmin_Login.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Payment\AffAdmin_PaymentRequestSelList.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Login\AffAdmin_Recheckin.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Login\AffAdmin_Logout.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="UserManagement\AffAdmin_Con_AdminPolicySelByCustID.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Home\AffAdmin_HomeGeneralInfo.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Home\AffAdmin_UserOnlineList.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="zMisc\AffAdmin_AffiliateSelDBTime.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Currency\AffAdmin_AffiliateCurrenciesSel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Language\AffAdmin_LanguageSel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Payment\AffAdmin_PaymentRequestSelDetail.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Payment\AffAdmin_PlayerPayoutInfoSel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Payment\Aff_DummyAccID.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="zMisc\Aff_Con_CheckPermission.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="EmailHistory\AffAdmin_EmailHistoryDel.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Domain\AffAdmin_DomainMemDel.proc.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Domain\AffAdmin_DomainMemIns.proc.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Domain\AffAdmin_DomainMemSel.proc.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Domain\AffAdmin_DomainMemSelById.proc.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Domain\AffAdmin_DomainMemUpd.proc.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Affiliate\AffAdmin_AffiliateSel.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Affiliate\AffAdmin_FavoriteIns.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Affiliate\AffAdmin_FavoriteDel.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Affiliate\AffAdmin_AffiliateUpdPwd.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="UserManagement\AffAdmin_Con_SelByGroupID.proc.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="UserManagement\AffAdmin_AccountUpdPwd.proc.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="UserManagement\AffAdmin_Con_SelByCustID.proc.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="UserManagement\AffAdmin_Con_GroupInfoSel.proc.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="UserManagement\AffAdmin_Con_AccountUpd.proc.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="GroupManagement\AffAdmin_Con_GroupInfoIns.proc.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="GroupManagement\AffAdmin_Con_GroupInfoUpd.proc.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Exchange\AffAdmin_ExchangeSel.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="SystemSettings\AffAdmin_SystemSupportedCurrencies.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="CommGroup\AffAdmin_CommGroupSelListNormal.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Exchange\AffAdmin_ExchangeUpdate.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="SystemSettings\AffAdmin_DeductionTypeSel.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="CommGroup\AffAdmin_DeductionSettingSel.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="CommGroup\AffAdmin_CommGroupDetailSel.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="CommGroup\AffAdmin_CommGroupSel.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="CommGroup\AffAdmin_CommGroupIns.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="CommGroup\AffAdmin_CommGroupUpd.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="CommGroup\AffAdmin_CommGroupDel.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="CommGroup\AffAdmin_CommGroupSelDetail.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="CommGroup\AffAdmin_GroupSettingSel.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Affiliate\AffAdmin_CheckMemberExist.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="SystemSettings\AffAdmin_SystemAllSupportedCurrencies.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Customer\AffAdmin_CustomerInsMemberManually.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Customer\AffAdmin_MemberDel.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Affiliate\AffAdmin_AffiliateSel.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="CommGroup\AffAdmin_CommGroupSelByID.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Language\AffAdmin_AdminSupportedLanguagesSel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Affiliate\AffAdmin_MemberDel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Affiliate\AffAdmin_MemberListSel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="SystemSettings\AffAdmin_SystemSettingsSelByName.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="SystemSettings\AffAdmin_SystemSettingsSelByType.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Domain\AffAdmin_DomainAffSel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Domain\AffAdmin_DomainAffUpd.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Domain\AffAdmin_DomainAffIns.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Domain\AffAdmin_DomainAffDel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Domain\AffAdmin_DomainAffSelById.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Message\AffAdmin_HotNewsSel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Message\AffAdmin_HotNewsIns.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Message\AffAdmin_HotNewsDetail.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Message\AffAdmin_HotNewsUpd.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Message\AffAdmin_HotNewsDel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Payment\AffAdmin_PaymentRequestUpd.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="UserManagement\AffAdmin_Con_AccountIns.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="UserManagement\AffAdmin_Con_AccountUpdClosed.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="UserManagement\AffAdmin_Con_PolicySelByCustID.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="UserManagement\AffAdmin_Con_PolicyUpd.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="GroupManagement\AffAdmin_Con_GroupInfoDel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="GroupManagement\AffAdmin_Con_GroupPolicyUpd.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="GroupManagement\AffAdmin_Con_GroupPolicySel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="UserManagement\AffAdmin_Con_Batch_PolicySel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="UserManagement\AffAdmin_UserCurrencySel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="UserManagement\AffAdmin_UserCurrencyIns.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Media\AffAdmin_BannerSelType.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Media\AffAdmin_BannerSel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Media\AffAdmin_AffTypeSel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Media\AffAdmin_BannerSelDetail.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Media\AffAdmin_BannerIns.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Media\AffAdmin_BannerUpd.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Media\AffAdmin_BannerDel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Domain\AffAdmin_DomainControlSel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Domain\AffAdmin_DomainControlIns.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Domain\AffAdmin_DomainControlUpd.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Domain\AffAdmin_DomainControlDel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Domain\AffAdmin_DomainControlSelById.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="AffiliateInfo\AffAdmin_AffiliateSelGeneralInfo.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="AffiliateInfo\AffAdmin_StatisticsSel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Login\AffAdmin_AdminUpdPwd.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateInfo\AffAdmin_AffiliateSelEditInfo.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="AffiliateInfo\AffAdmin_AffiliateUpdInfo.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Country\AffAdmin_CountrySelAll.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="SystemSettings\AffAdmin_SystemSettingsExchange.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="AffiliateInfo\AffAdmin_AffiliateUpdClosedStatus.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="AffiliateInfo\AffAdmin_AffiliateUpdStatus.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="AffiliateInfo\AffAdmin_PreferLangUpd.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Language\AffAdmin_AffiliateSupportedLanguagesSel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="AffiliateInfo\AffAdmin_StatementHistorySel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="AffiliateInfo\AffAdmin_TransTypeSel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="SystemSettings\AffAdmin_AffiliatePaymentMethodSel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Notes\AffAdmin_NoteSel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Notes\AffAdmin_NoteIns.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Notes\AffAdmin_NoteUpd.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Notes\AffAdmin_NoteDel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="ViewLog\AffAdmin_AffiliateSelLogType.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Member\AffAdmin_GetMemberStatistics.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Adjustment\AffAdmin_CustomerSelBalBF.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Adjustment\AffAdmin_AdjustmentIns.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="ClickStatistic\AffAdmin_ClickStatisticsSelBySite.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="ClickStatistic\AffAdmin_ClickStatisticsSelByPage.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Report\AffAdmin_CompanyWinlossReport.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Report\AffAdmin_AffiliateListForReport.function.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Report\AffAdmin_CommissionReport.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="ClickStatistic\AffAdmin_ClickStatisticsDetail.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Report\AffAdmin_PlayerWinlossReport.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Common Function\AffAdmin_CalMonthlyEarning.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Common Function\AffAdmin_CalMonthlyEarningCurrent.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="Report\AffAdmin_QualifiedMembersReport.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Common Function\AffAdmin_PermissionOnAffiliate.function.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Common Function\AffAdmin_QualifiedAmount.function.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Report\AffAdmin_MemberStatisticsReport.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Common Function\Aff_f_GetCurrencybyUser.function.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Common Function\AffAdmin_Con_CheckPermission.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Common Function\AffAdmin_CheckPermissionCurrency.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="AffiliateInfo\AffAdmin_AffiliateUnlock.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="EmailHistory\AffAdmin_EmailHistorySel.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <NotInBuild Include="AffiliateInfo\AffAdmin_UpdAffType.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="Common Function\Aff_CommissionForMonth.function.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Common Function\Aff_CommissionForCurrentMonth.function.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <NotInBuild Include="Common Function\Aff_GetAffDeductionAll.function.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Payment\AffAdmin_CashBackUpdate.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Payment\AffAdmin_CommissionSettle.proc.sql">
+      <SubType>Code</SubType>
+    </NotInBuild>
+    <Build Include="Payment\AffAdmin_IsMonthlyTransfer.proc.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="zTask\Task_Aff_MonthlyTransfer.proc.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Common Function\Aff_GetAffDeductionBaseAll.function.sql">
+      <SubType>Code</SubType>
+    </Build>
+  </ItemGroup>
+</Project>
