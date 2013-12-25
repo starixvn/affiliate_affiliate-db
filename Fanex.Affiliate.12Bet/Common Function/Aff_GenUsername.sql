@@ -1,6 +1,6 @@
 ﻿ALTER Procedure [Aff_GenUsername]
 	@AffPrefix varchar(20) = '12BetAff',
-	@username varchar(50) OUTPUT = ''
+	@username varchar(50) = '' OUTPUT
 AS
 /*    
 Created:   

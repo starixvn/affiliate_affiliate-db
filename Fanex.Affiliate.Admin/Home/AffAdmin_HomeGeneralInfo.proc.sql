@@ -139,22 +139,14 @@ select @NextMaxWinlostDate=dateadd(d, 1, @MaxWinLostDateAffComm)
 		@NetWinlostMonth = @NetWinlostMonth Output,
 		@WithdrawalAll = @WithdrawalAll Output,
 		@WithdrawalMonth = @WithdrawalMonth Output
-     
                
- select @DepositMemAllNum = sum(case when CreatedDate is not null then 1 else 0 end),    
-        @DepositMemMonthNum = sum(case when datediff(mm, CreatedDate, @CurrentDate) = 0 then 1 else 0 end),    
-		 @MemInProAllNum = sum(1),    
-		 @MemInProMonthNum =sum(case when datediff(mm, RegisteredDate, @CurrentDate) = 0 then 1 else 0 end)    
+select @DepositMemAllNum = sum(case when CreatedDate is not null then 1 else 0 end),
+		@DepositMemMonthNum = sum(case when datediff(m, CreatedDate, @CurrentDate) = 0 then 1 else 0 end),
+		@MemInProAllNum = count(1),
+		@MemInProMonthNum =sum(case when datediff(m, RegisteredDate, @CurrentDate) = 0 then 1 else 0 end),
+		@NonDepositMemMonthNum= sum(case when datediff(m, RegisteredDate, @CurrentDate) = 0 and CreatedDate is null then 1 else 0 end)
 from MemberInfo with(nolock) 
-where IsRemoved=0    
-     
-	select @DepositMemAllNum = sum(case when CreatedDate is not null then 1 else 0 end),
-		   @DepositMemMonthNum = sum(case when datediff(m, CreatedDate, @CurrentDate) = 0 then 1 else 0 end),
-		   @MemInProAllNum = count(1),
-		   @MemInProMonthNum =sum(case when datediff(m, RegisteredDate, @CurrentDate) = 0 then 1 else 0 end),
-		   @NonDepositMemMonthNum= sum(case when datediff(m, RegisteredDate, @CurrentDate) = 0 and CreatedDate is null then 1 else 0 end)
-	from MemberInfo with(nolock) 
-	where IsRemoved=0        
+where IsRemoved=0              
       
   --final result here    
 select	isnull(@PaymentReqNum,0) as  PaymentReqNum ,    

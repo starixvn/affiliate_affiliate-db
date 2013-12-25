@@ -13,7 +13,7 @@ DB: DBLIC.Affiliate_Alpha
 
 
 Revisions:
-    
+    -20131223@Bobby: delete current setting on AffGroupPermissionDetail
 Param's Explanation:
 @CurrencyXML format:
 
@@ -72,7 +72,8 @@ WHILE (@i<=@max)
 	END
 
 BEGIN
-	DELETE dbo.AffGroupPermissionDetail WHERE ObjectID=@UserID AND GroupID=@GroupID -- LicenseeID
+	DELETE dbo.AffGroupPermissionDetail WHERE ObjectID=@UserID 
+		--AND GroupID=@GroupID -- LicenseeID
 	
 	INSERT INTO dbo.AffGroupPermissionDetail (GroupID,TypeID,AttributeID,ObjectID)
 	SELECT @GroupID,1,CurrencyID,@UserID

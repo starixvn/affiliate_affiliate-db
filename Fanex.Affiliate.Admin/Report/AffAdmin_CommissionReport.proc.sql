@@ -77,7 +77,7 @@ Select	@SportsbookId = dbo.[Aff_GetProductID]('Sportsbook')
 		, @LiveCasino = dbo.[Aff_GetProductID]('Live Casino')
 		, @RNGCasino = dbo.[Aff_GetProductID]('RNG Casino')
 
-Declare @Cashback Table(AffId int,GroupID int, MonthDate datetime, Amount money, SysExRate float, DeductedPercentage float)
+Declare @Cashback Table(AffId int,GroupID int, MonthDate datetime, Amount money, SysExRate float, DeductedPercentage decimal(9,8))
 
 Declare @Result Table(AffId int, Status varchar(50), WinlostDate datetime, Username varchar(50), AffType varchar(50), Language nvarchar(255), ExchangeId int, Currency varchar(5), GroupID int, GroupName nvarchar(100)
 					, Commission money, CommissionBase money, BetCount int, Deposit money, Withdrawal money, Turnover money, Winloss money
@@ -596,18 +596,21 @@ END
 
 -------Get Cashback data---------------------
 insert into @Cashback (AffId, GroupId, MonthDate, Amount, SysExRate, DeductedPercentage)
+Select a.AffId, d.GroupID, d.MonthDate, a.Amount, a.SysExRate, d.DeductedPercentage
+From AffDeductionTransaction a with (nolock) 
+inner join AffGroupHistory ai (nolock) on ai.affid=a.affid and datediff(m,a.MonthDate,ai.MonthDate)=0
+inner JOIN DeductionSettingHistory d with (nolock) on a.DTypeID=d.DeductionID and ai.groupid=d.groupid and ai.MonthDate=d.MonthDate
+inner join DeductionType c with (nolock) on a.DTypeID=c.DTypeID
+Where c.[DTypeName]='Cashback'
+and a.ProductID = 0 and datediff(m,a.MonthDate,current_timestamp)>0 
+Union
 Select AffId, d.GroupID, a.MonthDate, a.Amount, a.SysExRate, d.DeductedPercentage
 From AffDeductionTransaction a with (nolock) 
-		LEFT JOIN DeductionSettingHistory d with (nolock)  on d.DeductionID=a.DTypeID and datediff(m, d.MonthDate, @PreviousMonth) = 0
-Where a.ProductID = 0
-		And a.MonthDate between @FromDate and @ToDate		
-Union ALL
-Select AffId, d.GroupID, @CurrentDate as MonthDate, a.Amount, a.SysExRate, d.DeductedPercentage
-From AffDeductionTransaction a with (nolock) 
-		LEFT JOIN DeductionSetting d with (nolock) on d.DeductionID=a.DTypeID
-Where a.ProductID = 0
+INNER JOIN DeductionSetting d with (nolock) on a.DTypeID=d.DeductionID
+inner join DeductionType c with (nolock) on d.DeductionID=c.DTypeID
+Where c.[DTypeName]='Cashback'
+	and a.ProductID = 0
 	And DATEDIFF(m, @ToDate, @CurrentDate) = 0
-
 
 -------Return Data------------
 IF(@GroupBy = 0) -- By Month
@@ -625,6 +628,7 @@ Begin
 					, isnull(c.DeductedPercentage, 0), isnull(c.Amount, 0) as Cashback, isnull(c.Amount * c.SysExRate, 0) as CashbackBase
 	From @Result as r
 		LEFT JOIN @Cashback c on r.AffId = c.AffId and datediff(m, r.WinlostDate, c.MonthDate) = 0 and c.GroupId = r.GroupID
+		--LEFT JOIN @Cashback c on r.AffId = c.AffId and r.WinlostDate = c.MonthDate and c.GroupId = r.GroupID
 		LEFT JOIN 
 		(
 			Select	AffID
@@ -658,12 +662,12 @@ Begin--By Affiliate
 	Select	r.AffId, r.Status, Username, AffType, Language, Currency
 			, m.ActivePlayers as ActivePlayers
 			, Sum(BetCount) as BetCount
-			, Sum(Commission) as Commission
+			, Sum(ISNULL(Commission,0))-[dbo].[Aff_GetAffDeductionAll] (r.AffId, Winlostdate) as Commission
 			, Sum(Deposit) as Deposit
 			, Sum(Withdrawal) as Withdrawal
 			, Sum(Turnover) as Turnover
 			, Sum(Winloss) as Winloss
-			, Sum(CommissionBase) as CommissionBase
+			, Sum(CommissionBase) - [dbo].[Aff_GetAffDeductionAll] (r.AffId, Winlostdate) as CommissionBase
 			, Sum(DepositBase) as DepositBase
 			, Sum(WithdrawalBase) as WithdrawalBase
 			, Sum(TurnoverBase) as TurnoverBase
@@ -715,6 +719,7 @@ Begin--By Affiliate
 
 	From @Result as r
 		LEFT JOIN @Cashback c on r.AffId = c.AffId and datediff(m, r.WinlostDate, c.MonthDate) = 0 and c.GroupId = r.GroupID
+		--LEFT JOIN @Cashback c on r.AffId = c.AffId and r.WinlostDate=c.MonthDate and c.GroupId = r.GroupID
 		LEFT JOIN 
 		(
 			Select	AffId
@@ -732,7 +737,7 @@ Begin--By Affiliate
 				) as tmp
 			GROUP  by AffId
 		) as m ON r.AffId = m.AffID	
-	Group BY r.AffId, r.Status, Username, AffType, Language, Currency, m.ActivePlayers
+	Group BY r.Winlostdate,r.AffId, r.Status, Username, AffType, Language, Currency, m.ActivePlayers
 	Order by (Case @SortBy 
 				WHEN 0 THEN Sum(r.Commission * [dbo].[Aff_GetExchangeRate](r.ExchangeID, @SystemExchangeId, null))
 				WHEN 1 THEN m.ActivePlayers

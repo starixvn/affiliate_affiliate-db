@@ -45,7 +45,7 @@ select @MinimumNegativeCommission = 0.1
   
 Select @FirstDay = cast(cast(@Year as varchar(5)) + '-' + cast(@Month as varchar(5)) + '-' +'1' as smalldatetime)  
 --Get last day of inputted month  
-Select @LastDay = DATEADD(d,-1,DATEADD(mm, DATEDIFF(m,0,@FirstDay)+1,0))  
+Select @LastDay = MIN(GETDATE(), DATEADD(d,-1,DATEADD(mm, DATEDIFF(m,0,@FirstDay)+1,0)))
   
  Declare @GroupID int  
      
