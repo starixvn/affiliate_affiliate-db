@@ -136,7 +136,9 @@ BEGIN
 					, @RNGCasinoQualifiedMember = (Case WHEN @RNGCasino = ProductID THEN TotalQM ELSE @RNGCasinoQualifiedMember End)
 			From [dbo].[Aff_CommissionForMonth](@AffId, @Month, @Year)
 
-			Select @Amount = @SportsbookAmount + @NumberGameAmount + @LiveCasinoAmount + @RNGCasinoAmount
+			Select @Amount = isnull(@SportsbookAmount,0) + isnull(@NumberGameAmount,0) + isnull(@LiveCasinoAmount,0) + isnull(@RNGCasinoAmount,0)
+
+			--print @Amount
 
 			Select @GroupId = cg.GroupId, @GroupName = cg.GroupName
 			From @Result r
@@ -144,7 +146,7 @@ BEGIN
 				INNER JOIN CommGroupHistory cg with (NOLOCK) on ag.GroupID = cg.GroupID and ag.MonthDate = cg.MonthDate
 			Where r.AffID = @AffId 
 					and DATEDIFF(m, @PreviousMonth, WinlostDate) = 0
-
+					
 			update r
 			set r.GroupName =					@GroupName
 				, r.GroupId =					@GroupId
@@ -179,7 +181,7 @@ BEGIN
 				select a.AffID, a.Amount as CashAmount, b.DeductedPercentage
 				from AffDeductionTransaction  a with (nolock)
 					inner join AffGroupHistory ai (nolock) on ai.affid=a.affid and datediff(m,a.MonthDate,ai.MonthDate)=0
-					join DeductionSettingHistory b with (nolock) on a.DTypeID=b.DeductionID
+					join DeductionSettingHistory b with (nolock) on a.DTypeID=b.DeductionID and ai.groupid=b.groupid and ai.MonthDate=b.MonthDate
 					join DeductionType c with (nolock) on b.DeductionID=c.DTypeID
 				where c.[DTypeName]='Cashback'
 					and datediff(m, a.MonthDate, @PreviousMonth) = 0 and a.ProductID = 0
@@ -224,7 +226,7 @@ BEGIN
 				, @RNGCasinoQualifiedMember = (Case WHEN @RNGCasino = ProductID THEN TotalQM ELSE @RNGCasinoQualifiedMember End)
 		From [dbo].[Aff_CommissionForCurrentMonth](@AffId)
 
-		Select @Amount = @SportsbookAmount + @NumberGameAmount + @LiveCasinoAmount + @RNGCasinoAmount
+		Select @Amount = isnull(@SportsbookAmount,0) + isnull(@NumberGameAmount,0) + isnull(@LiveCasinoAmount,0) + isnull(@RNGCasinoAmount,0)
 		
 		Select @GroupId = cg.GroupId, @GroupName = cg.GroupName
 		From @Result r
@@ -232,18 +234,10 @@ BEGIN
 			INNER JOIN CommGroup cg with (NOLOCK) on AI.GroupID = cg.GroupID
 		Where r.AffID = @AffId 
 
-		select a.AffID, a.Amount as CashAmount, b.DeductedPercentage
-			from AffDeductionTransaction a with (nolock)
-				join DeductionSetting b  with (nolock) on a.DTypeID=b.DeductionID
-				join DeductionType c with (nolock) on b.DeductionID=c.DTypeID
-			where c.[DTypeName]='Cashback'
-				and datediff(m, a.MonthDate, @CurrentDate) = 0 and a.ProductID = 0
-				and b.GroupID=@GroupId
-
 		update r
 		set GroupName =						@GroupName
 			, r.GroupId =					@GroupId
-			, CashbackPercent =				tmp.DeductedPercentage
+			, CashbackPercent =				isnull(tmp.DeductedPercentage,0)
 			, CashbackAmount =				isnull(tmp.CashAmount, 0)
 			, CashbackAmountBase =			isnull(tmp.CashAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
 
@@ -307,16 +301,10 @@ BEGIN
 									Else CommissionBase--Money after converted
 								END)) AS RowNo
 		FROM @Result
-	),
-	SortedResTable AS
-	(
-		SELECT *, ROW_NUMBER() OVER (ORDER BY RowNo*@Direction) AS RowNum
-		FROM ResTable	
 	)
-
 	SELECT * 
-	from SortedResTable
-	ORDER BY WinlostDate, RowNum
+	from ResTable
+	ORDER BY RowNo
 END
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_CommissionSettle] TO [bodbAdminNet] AS [dbo]

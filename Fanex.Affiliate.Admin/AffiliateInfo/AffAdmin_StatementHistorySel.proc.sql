@@ -70,7 +70,7 @@ BEGIN
 		   @NetPercentReceived float  
 	  select @NetPercentReceived=1.0,@CurrentDate=current_timestamp        
   
-	if (@FromDate is null or @ToDate is null or @Currentdate between @FromDate and @ToDate)  
+	if ((@TransType is null or @MonthlyTransferType IN  (SELECT * FROM @TransTypeTable)) and (@DateOption=0 or @Currentdate between @FromDate and @ToDate))  
 	begin  
 		exec [dbo].[Aff_CalMonthlyEarningCurrent]   
 		@AffID =@AffID,  
@@ -82,16 +82,12 @@ BEGIN
 	end  
   
 	--Neu thang roi chua calculate va user duoc approve tu thang roi tro ve truoc  
-	if(not exists 
-		(select top(1) 1 
-		from AffCommission with (nolock) 
-		where AffID=@AffID 
-			and datediff(m,winlostdate,dateadd(m,-1,@CurrentDate))=0) 
-			and datediff(m, (select ApprovedDate from AffInfo with (nolock) where AffID=@AffID),@CurrentDate) >=1  
-			and exists (select top(1) 1 from AffDailySummary with (nolock) where AffID=@AffID and datediff(m,winlostdate,dateadd(m,-1,@CurrentDate))=0)  
-			and (@FromDate is null or @ToDate is null or dateadd(m,-1,@CurrentDate) between @FromDate and @ToDate)  
+	if( (@TransType is null or @MonthlyTransferType IN  (SELECT * FROM @TransTypeTable))
+       and  DateDiff(m, (select isnull(max(winlostdate),Current_timestamp) from AffCommission(nolock) where AffID=@AffID) , Current_timestamp) = 2
+	   and (@DateOption=0 or dateadd(m,-1,@CurrentDate) between @FromDate and @ToDate)  
 		)  
 	BEGIN  
+
 		select @Month=month(dateadd(m,-1,@CurrentDate)),@Year=Year(dateadd(m,-1,@CurrentDate))  
 		exec [dbo].[Aff_CalMonthlyEarning]   
 			@AffID =@AffID,  
@@ -130,7 +126,7 @@ BEGIN
 								OR (@DateOption = 2 AND a.CompletedDate BETWEEN @FromDate AND @ToDate))
 			and (@TransType is null or a.TransType IN  (SELECT * FROM @TransTypeTable))
 			and a.status in (SELECT * FROM @TransStatusTable)
-	order by TransDate desc, TransType desc
+	order by TransDate desc, TransType desc, transID asc 
 
 end
 GO
