@@ -198,10 +198,23 @@ BEGIN
 				and DATEDIFF(m, @PreviousMonth, WinlostDate) = 0
 
 			set @count=@count+1
-				
+			--reset value
+			Select	@SportsbookAmount = 0
+					, @SportsbookCommission = 0
+					, @SportsbookQualifiedMember = 0
+					, @NumberGameAmount = 0
+					, @NumberGameCommission = 0
+					, @NumberGameQualifiedMember = 0
+					, @LiveCasinoAmount = 0
+					, @LiveCasinoCommission = 0
+					, @LiveCasinoQualifiedMember = 0
+					, @RNGCasinoAmount = 0
+					, @RNGCasinoCommission = 0
+					, @RNGCasinoQualifiedMember = 0;
 		end	
 	END
 
+	--update to current month
 	select top(1) @AffId=AffID
 	from @Result
 	where Commission is null
@@ -285,6 +298,20 @@ BEGIN
 			and DATEDIFF(m, @CurrentDate, WinlostDate) = 0
 				
 		set @count=@count+1
+
+		--reset value
+		Select	@SportsbookAmount = 0
+				, @SportsbookCommission = 0
+				, @SportsbookQualifiedMember = 0
+				, @NumberGameAmount = 0
+				, @NumberGameCommission = 0
+				, @NumberGameQualifiedMember = 0
+				, @LiveCasinoAmount = 0
+				, @LiveCasinoCommission = 0
+				, @LiveCasinoQualifiedMember = 0
+				, @RNGCasinoAmount = 0
+				, @RNGCasinoCommission = 0
+				, @RNGCasinoQualifiedMember = 0;
 	END
 
 	-------Return Data------------
