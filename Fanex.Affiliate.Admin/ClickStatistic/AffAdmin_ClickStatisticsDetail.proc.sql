@@ -17,171 +17,133 @@ DB: DB052.Affiliate_12BET
 Original:  
   
 Revisions:  
-- 
+-20131230:Bobby: change to ClickStatistics & ClickStatistics_bk
 */  
+BEGIN
 
-SET NOCOUNT ON  
+	SET NOCOUNT ON  
 
-Declare @LastDateSum smalldatetime
-if(@FromDate > @ToDate)
-	return
+	Declare @LastDateSum smalldatetime
+	if(@FromDate > @ToDate)
+		return
 
-Declare @Result as table(UrlReferrer nvarchar(300), TotalClick int, UniqueClick int, Signups int, FDM int)
+	Declare @Result as table(UrlReferrer nvarchar(300), TotalClick int, UniqueClick int, Signups int, FDM int)
 
-select @LastDateSum = (select MAX(Date) from ClickStatisticsSum)
-		, @FromDate = convert(varchar(10), @FromDate,120)
+	select @LastDateSum = (select MAX(Date) from ClickStatisticsSum)
+			, @FromDate = convert(varchar(10), @FromDate,120)
 
-select @LastDateSum = isnull(@LastDateSum, dateadd(d, -1, @FromDate))
-
-if (@LastDateSum < @FromDate)--get from main table
-Begin
-	insert into @Result
-	select URLReferrer,
-			sum(TotalClick) as TotalClick,
-			sum(UniqueClick) as UniqueClick,
-			sum(Signups) as Signups,
-			sum(FDM) as FDM
-	from 
-		(
-		Select 
-			URLReferrer,
-			sum(ClickCount) as TotalClick,
-			count(distinct IP) as UniqueClick,
-			SUM(isnull(Signups, 0)) as Signups,
-			SUM(isnull(FDM, 0)) as  FDM
-		from ClickStatistics c with(nolock) 
-			left join 
-				(Select ClickId, 
-					SUM(case when m.RegisteredDate is not null then 1 else 0 end) as Signups,
-					SUM(case when m.CreatedDate is not null then 1 else 0 end) as  FDM 
-				from MemberInfo m with (nolock) 
-				where AffId = @AffID
-				group by ClickId
-				) as m on c.ClickId = m.ClickId
+	select @LastDateSum = isnull(@LastDateSum, dateadd(d, -1, @FromDate))
+	
+	if (@LastDateSum < @FromDate)--get from main table
+	Begin
+		insert into @Result
+		select 	URLReferrer,
+				sum(ClickCount) as TotalClick,
+				count(distinct IP) as UniqueClick
+				,
+				SUM(case when m.RegisteredDate is not null then 1 else 0 end) as Signups,
+				SUM(case when m.CreatedDate is not null then 1 else 0 end) as  FDM 
+		from ClickStatistics c
+		left join MemberInfo m with (nolock) 
+			on c.ClickId = m.ClickId
 		where [Date] between @FromDate and @ToDate
-			and c.AffId = @AffID
-			and DomainReferrer = isnull(@Domain, DomainReferrer)
-			and SportCode = isnull(@SportCode, SportCode)
-			and LanguageCode = isnull(@LanguageCode, LanguageCode)
-		group by URLReferrer, [Date]
-		) as t
-	group by URLReferrer
-End
-else if (@LastDateSum > @ToDate)--get from summary table
-Begin
-	insert into @Result
-	select URLReferrer,
-			sum(TotalClick) as TotalClick,
-			sum(UniqueClick) as UniqueClick,
-			sum(Signups) as Signups,
-			sum(FDM) as FDM
-	from 
-		(
-		Select 
-			URLReferrer,
-			sum(ClickCount) as TotalClick,
-			count(distinct IP) as UniqueClick,
-			SUM(isnull(Signups, 0)) as Signups,
-			SUM(isnull(FDM, 0)) as  FDM
-		from ClickStatistics_bk c with(nolock) 
-			left join 
-				(Select ClickId, 
-					SUM(case when m.RegisteredDate is not null then 1 else 0 end) as Signups,
-					SUM(case when m.CreatedDate is not null then 1 else 0 end) as  FDM 
-				from MemberInfo m with (nolock) 
-				where AffId = @AffID
-				group by ClickId
-				) as m on c.ClickId = m.ClickId
+				and c.AffId = @AffID
+				and SportCode = isnull(@SportCode, SportCode)
+				and LanguageCode = isnull(@LanguageCode, LanguageCode)
+				and DomainReferrer = isnull(@Domain, DomainReferrer)
+		group by URLReferrer
+	End
+	else if (@LastDateSum > @ToDate)--get from summary table
+	Begin
+		insert into @Result
+		select 	URLReferrer,
+				sum(ClickCount) as TotalClick,
+				count(distinct IP) as UniqueClick
+				,
+				SUM(case when m.RegisteredDate is not null then 1 else 0 end) as Signups,
+				SUM(case when m.CreatedDate is not null then 1 else 0 end) as  FDM 
+		from ClickStatistics_bk c
+		left join MemberInfo m with (nolock) 
+			on c.ClickId = m.ClickId
 		where [Date] between @FromDate and @ToDate
-			and c.AffId = @AffID
-			and DomainReferrer = isnull(@Domain, DomainReferrer)
-			and SportCode = isnull(@SportCode, SportCode)
-			and LanguageCode = isnull(@LanguageCode, LanguageCode)
-		group by URLReferrer, [Date]
-		) as t
-	group by URLReferrer
-End
-else--@fromdate < @LastDateSum < @ToDate
-Begin
-	insert into @Result
-	select URLReferrer,
-			sum(TotalClick) as TotalClick,
-			sum(UniqueClick) as UniqueClick,
-			sum(Signups) as Signups,
-			sum(FDM) as FDM
-	from 
-		(
-		Select 
-			URLReferrer,
-			sum(ClickCount) as TotalClick,
-			count(distinct IP) as UniqueClick,
-			SUM(isnull(Signups, 0)) as Signups,
-			SUM(isnull(FDM, 0)) as  FDM
-		from ClickStatistics_bk c with(nolock) 
-			left join 
-				(Select ClickId, 
+				and c.AffId = @AffID
+				and SportCode = isnull(@SportCode, SportCode)
+				and LanguageCode = isnull(@LanguageCode, LanguageCode)
+				and DomainReferrer = isnull(@Domain, DomainReferrer)
+		group by URLReferrer
+	End
+	else--@fromdate < @LastDateSum < @ToDate
+	Begin
+		insert into @Result
+		select URLReferrer
+			,SUM(TotalClick) TotalClick
+			,SUM(UniqueClick) UniqueClick
+			,SUM(Signups) Signups
+			,SUM(FDM) FDM
+		from (
+			select 	URLReferrer,
+					sum(ClickCount) as TotalClick,
+					count(distinct IP) as UniqueClick
+					,
 					SUM(case when m.RegisteredDate is not null then 1 else 0 end) as Signups,
 					SUM(case when m.CreatedDate is not null then 1 else 0 end) as  FDM 
-				from MemberInfo m with (nolock) 
-				where AffId = @AffID
-				group by ClickId
-				) as m on c.ClickId = m.ClickId
-		where [Date] between @FromDate and @LastDateSum
-			and c.AffId = @AffID
-			and DomainReferrer = isnull(@Domain, DomainReferrer)
-			and SportCode = isnull(@SportCode, SportCode)
-			and LanguageCode = isnull(@LanguageCode, LanguageCode)
-		group by URLReferrer, [Date]
-
-		Union All
-
-		Select 
-			URLReferrer,
-			sum(ClickCount) as TotalClick,
-			count(distinct IP) as UniqueClick,
-			SUM(isnull(Signups, 0)) as Signups,
-			SUM(isnull(FDM, 0)) as  FDM
-		from ClickStatistics c with(nolock) 
-			left join 
-				(Select ClickId, 
+			from ClickStatistics c
+			left join MemberInfo m with (nolock) 
+				on c.ClickId = m.ClickId
+			where [Date] between @FromDate and @ToDate
+					and c.AffId = @AffID
+					and SportCode = isnull(@SportCode, SportCode)
+					and LanguageCode = isnull(@LanguageCode, LanguageCode)
+					and DomainReferrer = isnull(@Domain, DomainReferrer)
+			group by URLReferrer
+			union
+			select 	URLReferrer,
+					sum(ClickCount) as TotalClick,
+					count(distinct IP) as UniqueClick
+					,
 					SUM(case when m.RegisteredDate is not null then 1 else 0 end) as Signups,
 					SUM(case when m.CreatedDate is not null then 1 else 0 end) as  FDM 
-				from MemberInfo m with (nolock) 
-				where AffId = @AffID
-				group by ClickId
-				) as m on c.ClickId = m.ClickId
-		where [Date] between @LastDateSum and @ToDate
-			and c.AffId = @AffID
-			and DomainReferrer = isnull(@Domain, DomainReferrer)
-			and SportCode = isnull(@SportCode, SportCode)
-			and LanguageCode = isnull(@LanguageCode, LanguageCode)
-		group by URLReferrer, [Date]
-		) tmp
-	group by URLReferrer
+			from ClickStatistics_bk c
+			left join MemberInfo m with (nolock) 
+				on c.ClickId = m.ClickId
+			where [Date] between @FromDate and @ToDate
+					and c.AffId = @AffID
+					and SportCode = isnull(@SportCode, SportCode)
+					and LanguageCode = isnull(@LanguageCode, LanguageCode)
+					and DomainReferrer = isnull(@Domain, DomainReferrer)
+			group by URLReferrer
+		) u
+		group by URLReferrer
 
-End
+	End
 
---Select * from @Result
-
---count nrows
-select @NRows=count(1)
-FROM @Result
-
-if(isnull(@NRows,0)=0)
-   return
-   
-DECLARE @RowStart int, @RowEnd int	
-
-SELECT @TotalPages=@NRows/@PageSize + case when @NRows%@PageSize>0 then 1 else 0 end,
-	   @PageIndex = @PageIndex - 1, @RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1   
-
-SELECT 	*
-FROM(       
-	SELECT TOP(@RowEnd) 
-			ROW_NUMBER() OVER(ORDER BY URLReferrer) AS TheCount,
-			*
+	--count nrows
+	select @NRows=count(1)
 	FROM @Result
-	   ) x
- where x.TheCount between @RowStart and @RowEnd
+
+	if(isnull(@NRows,0)=0)
+	   return
+   
+	DECLARE @RowStart int, @RowEnd int	
+
+	SELECT @TotalPages=@NRows/@PageSize + case when @NRows%@PageSize>0 then 1 else 0 end,
+		   @PageIndex = @PageIndex - 1, @RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1   
+
+	SELECT URLReferrer
+			, TotalClick
+			, UniqueClick
+			, Signups
+			, FDM
+	FROM(       
+		SELECT TOP(@RowEnd) 
+				ROW_NUMBER() OVER(ORDER BY URLReferrer) AS TheCount,
+				*
+		FROM @Result
+		   ) x
+	 where x.TheCount between @RowStart and @RowEnd
 
 
+ END
+
+ go
+ GRANT EXECUTE ON [dbo].[AffAdmin_ClickStatisticsDetail] TO [bodbAdminNet]

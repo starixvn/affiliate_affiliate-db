@@ -69,6 +69,10 @@ BEGIN
 	Declare @CurrentDate datetime
 	Select @CurrentDate = [dbo].[Aff_GetFirstDayOfMonth](CURRENT_TIMESTAMP)
 
+	-- reset to current date
+	if(@ToDate > GETDATE()) 
+		SET @ToDate = GETDATE();
+
 	--Get data from current affinfo table
 	IF(@CommGroups IS NULL 
 		OR datediff(m, @CurrentDate, @ToDate) = 0)
@@ -83,6 +87,10 @@ BEGIN
 				END) as Status
 			, @CurrentDate as MonthDate
 		From AffInfo ai with (nolock)
+			INNER JOIN (SELECT AffId, COUNT(UserName) MemTrans FROM MemberDaily m WITH (NOLOCK) 
+					WHERE m.WinlostDate >= @FromDate AND m.WinlostDate <= @ToDate
+					GROUP BY AffId 
+					HAVING COUNT(UserName) > 0) AS mem on ai.AffId=mem.AffId
 			INNER JOIN AffDetail AD (NOLOCK) ON AD.AffID = AI.AffID
 			INNER JOIN Exchange ex with (nolock) on ai.Currency = ex.ExchangeID
 			INNER JOIN AffType at WITH (NOLOCK) on ai.AffType = at.TypeID
@@ -101,10 +109,7 @@ BEGIN
 	IF (@CommGroups IS NOT NULL 
 		AND DATEDIFF(m, @FromDate, @CurrentDate) > 0)
 	BEGIN
-		--Get from history comm group table
-		Declare @TmpTodate datetime -- last date of the month to get all data
-		Select @TmpTodate = [dbo].[Aff_GetLastDayOfMonth](@ToDate)
-
+		
 
 		Insert INTO @returntable
 		Select ai.AffId, ai.Username, at.Name, l.LanguageName, ex.ExchangeId, Code
@@ -115,6 +120,10 @@ BEGIN
 				END) as Status
 			, tmp.MonthDate
 		From AffInfo ai with (nolock)
+			INNER JOIN (SELECT AffId, COUNT(UserName) MemTrans FROM MemberDaily m WITH (NOLOCK) 
+					WHERE m.WinlostDate >= @FromDate AND m.WinlostDate <= @ToDate
+					GROUP BY AffId 
+					HAVING COUNT(UserName) > 0) AS mem on ai.AffId=mem.AffId
 			INNER JOIN AffDetail AD (NOLOCK) ON AD.AffID = AI.AffID
 			INNER JOIN Exchange ex with (nolock) on ai.Currency = ex.ExchangeID
 			INNER JOIN AffType at WITH (NOLOCK) on ai.AffType = at.TypeID
@@ -124,7 +133,7 @@ BEGIN
 				SELECT AffId, MonthDate
 				FROM AffGroupHistory ag WITH (NOLOCK)
 					--INNER JOIN @CommGroupList c ON ag.GroupId = c.CommGroupID
-				Where MonthDate BETWEEN @FromDate and @TmpTodate						
+				Where MonthDate BETWEEN @FromDate and @ToDate						
 			) AS tmp on ai.AffID = tmp.AffId
 		Where 
 			ai.Status = 'Approved' AND
