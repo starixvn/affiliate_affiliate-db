@@ -617,9 +617,6 @@
     <None Include="Payment\AffAdmin_CashBackUpdate.proc.sql">
       <SubType>Code</SubType>
     </None>
-    <None Include="Payment\AffAdmin_CommissionSettle.proc.sql">
-      <SubType>Code</SubType>
-    </None>
     <Build Include="Payment\AffAdmin_IsMonthlyTransfer.proc.sql">
       <SubType>Code</SubType>
     </Build>
@@ -629,5 +626,7 @@
     <Build Include="Common Function\Aff_GetAffDeductionBaseAll.function.sql">
       <SubType>Code</SubType>
     </Build>
+    <Build Include="Report\AffAdmin_CommissionSettle.proc.sql" />
+    <Build Include="Common Function\Aff_CommissionForMonthAll.function.sql" />
   </ItemGroup>
 </Project>

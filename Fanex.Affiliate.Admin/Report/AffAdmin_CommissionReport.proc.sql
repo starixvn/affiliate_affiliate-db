@@ -270,10 +270,8 @@ End
 -- For Current month
 
 declare @month int, @year int
-
 if(current_timestamp BETWEEN @FromDate AND @ToDate)
 BEGIN
-
     select @month=month(current_timestamp),@year=year(current_timestamp)
 	INSERT INTO @Result(AffId, Status, WinlostDate, Username, AffType, Language, ExchangeId, Currency, GroupID, GroupName
 					, Commission, CommissionBase, BetCount, Deposit, Withdrawal, Turnover, Winloss, DepositBase, WithdrawalBase, TurnoverBase, WinlossBase
@@ -444,7 +442,7 @@ BEGIN
 	Where ac.WinlostDate between @FromDate and @ToDate 
 	Group by ac.AffId, t.Status, WinlostDate, t.Username, t.AffType, t.Language, t.ExchangeId, t.Currency, cg.GroupID, cg.GroupName
 
-    
+    --return;
 End
 
 
@@ -453,7 +451,6 @@ End
 IF (DateDiff(m, @MaxCalculatedDate, @CurrentDate) = 2
 	and  @PreviousMonth between @FromDate and @ToDate)
 BEGIN
-
    select @month=month(@PreviousMonth),@year=year(@PreviousMonth)
    INSERT INTO @Result(AffId, Status, WinlostDate, Username, AffType, Language, ExchangeId, Currency, GroupID, GroupName
 					, Commission, CommissionBase, BetCount, Deposit, Withdrawal, Turnover, Winloss, DepositBase, WithdrawalBase, TurnoverBase, WinlossBase
@@ -645,14 +642,12 @@ INNER JOIN DeductionSetting d with (nolock) on a.DTypeID=d.DeductionID and d.Gro
 inner join DeductionType c with (nolock) on d.DeductionID=c.DTypeID
 Where c.[DTypeName]='Cashback'
 	and a.ProductID = 0
-	And DATEDIFF(m, @ToDate, @CurrentDate) = 0
-
---select * from @Cashback
+	And datediff(m,a.MonthDate,current_timestamp)=0 
 
 -------Return Data------------
 IF(@GroupBy = 0) -- By Month
 Begin
-	Select r.AffId, r.Status, r.WinlostDate, Username, AffType, Language, r.Currency, r.GroupID, r.GroupName
+	Select r.AffId, r.WinlostDate, r.Status,  Username, AffType, Language, r.Currency, r.GroupID, r.GroupName
 					, isnull(m.ActivePlayers, 0) as ActivePlayers, BetCount, (Commission -[dbo].[Aff_GetAffDeductionAll] (r.AffId, r.Winlostdate)) as Commission, Deposit, Withdrawal, Turnover, Winloss, ((Commission -[dbo].[Aff_GetAffDeductionAll] (r.AffId, r.Winlostdate)) *  [dbo].[Aff_GetExchangeRate](r.ExchangeID, @SystemExchangeId, null))  as CommissionBase, DepositBase, WithdrawalBase, TurnoverBase, WinlossBase					
 					, isnull(m.SportsBookActivePlayers, 0) as SportsBookActivePlayers, SportsBookBetCount, SportsbookQM, SportsbookCommissionPercent, SportsBookTurnover, SportsbookWinloss, SportsbookCommission
 					, SportsBookTurnoverBase, SportsbookWinlossBase, SportsbookCommissionBase
@@ -665,7 +660,6 @@ Begin
 					, isnull(c.DeductedPercentage, 0) as DeductedPercentage, isnull(c.Amount, 0) as Cashback, isnull(c.Amount *  [dbo].[Aff_GetExchangeRate](r.ExchangeID, @SystemExchangeId, null), 0) as CashbackBase
 	From @Result as r
 		LEFT JOIN @Cashback c on r.AffId = c.AffId and datediff(m, r.WinlostDate, c.MonthDate) = 0 and c.GroupId = r.GroupID
-		
 		LEFT JOIN 
 		(
 			Select	AffID

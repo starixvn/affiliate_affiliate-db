@@ -83,6 +83,10 @@ BEGIN
 				END) as Status
 			, @CurrentDate as MonthDate
 		From AffInfo ai with (nolock)
+			INNER JOIN (SELECT AffId, COUNT(UserName) MemTrans FROM MemberDaily m WITH (NOLOCK) 
+					WHERE m.WinlostDate >= @FromDate AND m.WinlostDate <= @ToDate
+					GROUP BY AffId 
+					HAVING COUNT(UserName) > 0) AS mem on ai.AffId=mem.AffId
 			INNER JOIN AffDetail AD (NOLOCK) ON AD.AffID = AI.AffID
 			INNER JOIN Exchange ex with (nolock) on ai.Currency = ex.ExchangeID
 			INNER JOIN AffType at WITH (NOLOCK) on ai.AffType = at.TypeID
@@ -115,6 +119,10 @@ BEGIN
 				END) as Status
 			, tmp.MonthDate
 		From AffInfo ai with (nolock)
+			INNER JOIN (SELECT AffId, COUNT(UserName) MemTrans FROM MemberDaily m WITH (NOLOCK) 
+					WHERE m.WinlostDate >= @FromDate AND m.WinlostDate <= @ToDate
+					GROUP BY AffId 
+					HAVING COUNT(UserName) > 0) AS mem on ai.AffId=mem.AffId
 			INNER JOIN AffDetail AD (NOLOCK) ON AD.AffID = AI.AffID
 			INNER JOIN Exchange ex with (nolock) on ai.Currency = ex.ExchangeID
 			INNER JOIN AffType at WITH (NOLOCK) on ai.AffType = at.TypeID

@@ -1,11 +1,4 @@
-﻿USE [Affiliate_AoncashUAT]
-GO
-/****** Object:  StoredProcedure [dbo].[AffAdmin_CommissionSettle]    Script Date: 12/26/2013 4:56:44 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-ALTER PROCEDURE [dbo].[AffAdmin_CommissionSettle]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_CommissionSettle]
 	@UserId int=0, 
 	@AffName NVARCHAR(100) = NULL,
 	@AffTypes varchar(100) = NULL,
@@ -99,9 +92,13 @@ BEGIN
 			-----RNG Casino
 			, SUM(CASE WHEN ad.ProductID = @RNGCasino then ad.MemWinlost_aff ELSE 0 END) as RNGCasinoWinloss
 			, SUM(CASE WHEN ad.ProductID = @RNGCasino then MemWinlost ELSE 0 END) as RNGCasinoWinlossBase
-	From AffDailySummary ad with (nolock)
-		inner JOIN [dbo].[AffAdmin_AffiliateListForReport](@UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) 
+	FROM AffDailySummary ad with (nolock)
+	INNER JOIN [dbo].[AffAdmin_AffiliateListForReport](@UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @CurrentDate) 
 					as t on ad.AffId = t.AffId and DATEDIFF(m, ad.WinlostDate, t.MonthDate) = 0
+	INNER JOIN ( SELECT AffId, COUNT(UserName) MemTrans FROM MemberDaily WITH (NOLOCK) 
+					WHERE WinlostDate > @MaxCalculatedDate
+					GROUP BY AffId 
+					HAVING COUNT(UserName) > 0 ) as trans ON ad.AffId=trans.AffId
 	Where WinlostDate > @MaxCalculatedDate
 	Group BY ad.AffId, t.Status, dateadd(m, datediff(m, 0, Winlostdate), 0), t.Username, t.ExchangeId, t.Currency
 
@@ -215,7 +212,7 @@ BEGIN
 	END
 
 	--update to current month
-	select top(1) @AffId=AffID
+	select top(1) @AffId=AffID, @ExchangeId = ExchangeId
 	from @Result
 	where Commission is null
 		and DATEDIFF(m, @CurrentDate, WinlostDate) = 0
