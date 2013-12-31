@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 ﻿
 ALTER Procedure [dbo].[AffAdmin_ClickStatisticsSelByPage]
+=======
+﻿ALTER Procedure [dbo].[AffAdmin_ClickStatisticsSelByPage]
+>>>>>>> de12fc63ca6f25dff8aaff117b461d45d2e16627
 	@AffID int,  
 	@FromDate smalldatetime,
 	@ToDate smalldatetime,
