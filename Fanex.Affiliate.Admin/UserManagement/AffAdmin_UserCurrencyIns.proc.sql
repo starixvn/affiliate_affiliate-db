@@ -99,15 +99,18 @@ BEGIN
 	SET @endRun = GETDATE()
 	SET @duration  = datediff (millisecond,@startRun,@endRun)
 
-	EXEC bodb_CustomerLog.dbo.WriteLog_UserLog_RunSP 
-		@UserID = @ModifyBy,
-		@CustID = @UserID,
-		@ActionID = 2801,
-		@TrackingValue = @LogSPData,
-		@TrackingValue2 = '',
-		@duration = @duration
+	EXEC [dbo].[Aff_WriteLog_UserLog_RunSP]
+			@Creator=@ModifyBy,	
+			@AffID=@UserID,
+			@SPName='AffAdmin_UserCurrencyIns' ,		
+			@IP =@IP,
+			@Details=@LogSPData	
 
-
+	--EXEC bodb_CustomerLog.dbo.WriteLog_UserLog_RunSP 
+	--	@UserID = @ModifyBy,
+	--	@CustID = @UserID,
+	--	@ActionID = 2801,
+	--	@TrackingValue = @LogSPData,
+	--	@TrackingValue2 = '',
+	--	@duration = @duration
 END
-
-

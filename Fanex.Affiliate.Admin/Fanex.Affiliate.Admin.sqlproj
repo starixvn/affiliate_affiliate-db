@@ -628,5 +628,17 @@
     </Build>
     <Build Include="Report\AffAdmin_CommissionSettle.proc.sql" />
     <Build Include="Common Function\Aff_CommissionForMonthAll.function.sql" />
+    <Build Include="zTask\Task_Aff_MemberDailyImportData.proc.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="zTask\Task_Aff_MemberInfoImportData.proc.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="zTask\Task_Aff_MemberDailyTransactionImportData.proc.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="zTask\Task_Aff_MemberInfoUpdateCreatedDate.proc.sql">
+      <SubType>Code</SubType>
+    </Build>
   </ItemGroup>
 </Project>

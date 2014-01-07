@@ -49,7 +49,8 @@ BEGIN
 	SET NOCOUNT ON    
 	declare @AffID int, @CurrDate smalldatetime    
 
-	select  AttributeID as CurrencyID INTO #tmpCurrency    
+	select  AttributeID as CurrencyID 
+	INTO #AffCurrency    
 	from dbo.Aff_f_GetCurrencybyUser (@UserId,1)   
 
     
@@ -59,9 +60,9 @@ BEGIN
 	 from [dbo].[strSplit] ( @AffType, ',' )
 
 	SELECT a.val
-	INTO #TblCurrency 
+	INTO #MemberCurrency 
 	FROM [dbo].[strSplit] ( @CurrencyList, ',' ) a
-		inner join #tmpCurrency b on a.val = b.CurrencyID
+	--inner join #AffCurrency b on a.val = b.CurrencyID
 
 	If @AffUsername is not null    
 	Begin    
@@ -77,7 +78,7 @@ BEGIN
     
 	select @NRows = count(1)    
 	from MemberInfo m with (nolock)    
-		inner join AffInfo a with(nolock) on m.AffID = a.AffID    
+	inner join AffInfo a with(nolock) on m.AffID = a.AffID    
 	where 
 		(case     
 				when @AffID is null then 1     
@@ -87,7 +88,8 @@ BEGIN
 			) = 1
 		and m.Username like @Username 
 		and (@AffType IS NULL OR AffType in (select val from #TblAffType))    
-		and (@CurrencyList IS NULL OR m.Currency in (select val from #TblCurrency))    
+		and a.Currency in (select CurrencyID from #AffCurrency)
+		and (@CurrencyList IS NULL OR m.Currency in (select val from #MemberCurrency))    
 		and (@MemberType = 0 OR (@MemberType = 1 and m.CreatedDate is not null) or (@MemberType = 2 and m.CreatedDate is null))
 		and (@DateOption = 0 OR (@DateOption = 1 AND m.RegisteredDate BETWEEN @FromDate AND @ToDate)
 							OR (@DateOption = 2 AND m.CreatedDate BETWEEN @FromDate AND @ToDate))
@@ -130,8 +132,9 @@ BEGIN
 						case when @AffID = af.AffID then 1 else 0 end    
 				end ) = 1    
 			and m.Username like @Username
-			and (@AffType IS NULL or AffType in (select val from #TblAffType))    
-			and (@CurrencyList IS NULL OR m.Currency in (select val from #TblCurrency))  
+			and (@AffType IS NULL or AffType in (select val from #TblAffType))
+			and af.Currency in (select CurrencyID from #AffCurrency)
+			and (@CurrencyList IS NULL OR m.Currency in (select val from #MemberCurrency))  
 			and (@MemberType = 0 or (@MemberType = 1 and m.CreatedDate is not null) or (@MemberType = 2 and m.CreatedDate is null))
 			and (@DateOption = 0 OR (@DateOption = 1 AND m.RegisteredDate BETWEEN @FromDate AND @ToDate)
 								OR (@DateOption = 2 AND m.CreatedDate BETWEEN @FromDate AND @ToDate))
@@ -141,9 +144,9 @@ BEGIN
 	where m.TheCount between @RowStart and @RowEnd    
 
 	----------------------    
-	drop table #tmpCurrency    
+	drop table #AffCurrency    
 	drop table #TblAffType    
-	drop table #TblCurrency    
+	drop table #MemberCurrency    
 	---------------------- 
 END
 GO
