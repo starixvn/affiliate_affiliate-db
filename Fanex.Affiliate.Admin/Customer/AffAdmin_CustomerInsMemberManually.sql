@@ -1,26 +1,25 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_CustomerInsMemberManually]	
-	@AffUserName varchar(30),
-	@Username varchar(30),	
-	@DepositCustID varchar(50) = null,
-	@FirstName nvarchar(50)= null,
-	@LastName nvarchar(50)= null,
-	@Currency varchar(6),	
-	@Email nvarchar(50)= null,	
-	@IBCCustID int,	
-	@IBCUserName varchar(30)= null,
-	@AgentID int,	
-	@CreatedDate datetime = null,
-	@RegisterDate datetime,
-	@Btag varchar(100) = null,
-	@ClickID bigint = null,	
-	@Phone varchar(25)=null,
-	@Address nvarchar(255)=null,
-	@IP varchar(22),	
-	@Language varchar(5)= 'en-US',
-	@ErrCode int = 0 OUTPUT,
-	@AffID int = null OUTPUT,
-	@AffStatus varchar(20) = null OUTPUT,
-	@IsMemberExist bit = 0 OUTPUT
+	@AffUserName	VARCHAR(30),
+	@Username		VARCHAR(30),	
+	@DepositCustID	VARCHAR(50) = NULL,
+	@FirstName		NVARCHAR(50)= NULL,
+	@LastName		NVARCHAR(50)= NULL,
+	@Currency		VARCHAR(6),	
+	@Email			NVARCHAR(50)= NULL,	
+	@IBCCustID		INT,	
+	@IBCUserName	VARCHAR(30)= NULL,
+	@AgentID		INT,	
+	@CreatedDate	DATETIME = NULL,
+	@RegisterDate	DATETIME,
+	@Btag			VARCHAR(100) = NULL,
+	@ClickID		BIGINT = NULL,	
+	@Phone			VARCHAR(25)=NULL,
+	@Address		NVARCHAR(255)=NULL,
+	@IP				VARCHAR(22),	
+	@Language		VARCHAR(5)= 'en-US',
+	@AffID			INT OUTPUT,
+	@ErrCode		INT = 0 OUTPUT,
+	@ErrMsg			VARCHAR(100) = '' OUTPUT
 AS
 /*  
 	Created: 20090724@Peter
@@ -30,55 +29,57 @@ AS
 	Revision:
 	    -Peter@20131029 : - Add column Phone & Address
 		                   - Recalculate TotalMembers in AffInfo https://redmine.nexcel.vn/issues/5280
-		-Bobby@20131218: - Update check affInfo & member existing
+		-Bobby@20131218: - Update check affInfo & member existing at https://redmine.nexcel.vn/issues/10583/
 
 */ 
 BEGIN
-	SET NOCOUNT ON
-	DECLARE @CustId INT, @IsClosed BIT, @memberRemoved BIT;
+	SET NOCOUNT ON;
 
-	--affiliate's validation
+	DECLARE @affMemberID INT
+		, @affIsClosed BIT
+		, @memberRemoved BIT
+		, @currencyID INT
+		, @isUpdated BIT;
+
+	/*** affiliate's validation ***/
 	SELECT TOP(1) @AffID=AffID
-		, @AffStatus = [Status]
-		, @IsClosed = IsClosed
-	FROM dbo.AffInfo WITH (nolock)
+		, @affIsClosed = IsClosed
+	FROM dbo.AffInfo WITH (NOLOCK)
 	WHERE username=@AffUserName
 
-	if(@AffID IS NULL)
+	if(@AffID IS NULL OR @affIsClosed = 1)
 	BEGIN
-		SELECT @ErrCode=44 --Invalid Affiliate''s username!
+		SELECT @ErrCode = 44
+			, @ErrMsg = 'Invalid affiliate user';
 		RETURN;
 	END
 
-	IF @AffStatus = 'approved' AND @IsClosed = 1
-	BEGIN 
-		SELECT @AffStatus = 'closed', @ErrCode=46;
-		RETURN;
-	END
+	SELECT TOP(1) @affMemberID = mi.AffID
+		, @memberRemoved = ISNULL(mi.IsRemoved, 0)
+	FROM dbo.MemberInfo mi WITH (NOLOCK) 
+	WHERE mi.UserName = @Username;
 
-	--member's validation
-	SELECT TOP(1) @CustId = DepositCustID, @memberRemoved=ISNULL(IsRemoved,0)
-	FROM dbo.MemberInfo WITH (NOLOCK) 
-	WHERE UserName=@Username;
-
-	IF (@CustId > 0 AND @memberRemoved=0)
+	IF (@affMemberID > 0 AND @memberRemoved = 0)
 	BEGIN
-		 SELECT @ErrCode=45, @IsMemberExist=1; --User has been existed in the system!
+		 SELECT @ErrCode=45
+			, @ErrMsg = 'User has been existed in the system.';
 		 RETURN;
 	END
+	
+	/*** get currency info ***/
+	SELECT @currencyID = ExchangeID 
+	FROM [dbo].[CurrencyConverter] WITH(NOLOCK)
+	WHERE [PartnerCurrency] = @Currency
 
-	DECLARE @CurrencyID INT, @IsUpdated BIT 
-	SELECT @CurrencyID = ExchangeID FROM [dbo].[CurrencyConverter] WHERE [PartnerCurrency] = @Currency
-
-	--update member is removed
-	IF (@CustId>0 AND @memberRemoved=1) 
+	/*** update member is removed ***/
+	IF (@affMemberID > 0 AND @memberRemoved = 1) 
 	BEGIN
 		UPDATE [dbo].[MemberInfo]
 		SET [AffID] = @AffID      
 		  ,[RegisteredDate] = @RegisterDate
 		  ,[CreatedDate]=@CreatedDate
 		  ,[DepositCustID] = @DepositCustID
-		  ,[Currency] = @CurrencyID
+		  ,[Currency] = @currencyID
 		  ,[FirstName] = @FirstName
 		  ,[LastName] = @LastName
 		  ,[Email] = @Email
@@ -89,16 +90,18 @@ BEGIN
 		  ,Btag = @Btag
 		  ,ClickID = @ClickID    
 		  ,Phone=@Phone
-		  ,Address=@Address
+		  ,[Address]=@Address
+		  ,AffAffectedDate = GETDATE()
 		WHERE UserName = @Username
 	
-		DELETE FROM dbo.MemberRemoval WHERE UserName = @Username
-		SET @IsUpdated = 1;
+		DELETE FROM dbo.MemberRemoval 
+		WHERE UserName = @Username
+		SET @isUpdated = 1;
 
 	END
-	ELSE IF (@CustId IS NULL)--add new member
+	ELSE IF (@AffMemberID IS NULL)--add new member
 	BEGIN
-		INSERT INTO MemberInfo (	
+		INSERT INTO dbo.MemberInfo (	
 			AffID,
 			UserName,		
 			IsRemoved,
@@ -115,8 +118,8 @@ BEGIN
 			Btag,
 			ClickID,
 			Phone,
-			Address
-
+			[Address],
+			AffAffectedDate
 		)
 		VALUES( 
 			@AffID,
@@ -125,7 +128,7 @@ BEGIN
 			@DepositCustID,
 			@FirstName,
 			@LastName,
-			@CurrencyID,
+			@currencyID,
 			@Email,
 			@RegisterDate,
 			@CreatedDate,		
@@ -135,20 +138,21 @@ BEGIN
 			@Btag,
 			@ClickID,
 			@Phone,
-			@Address
+			@Address,
+			GETDATE()
 		);
-		SET @IsUpdated = 1;
+		SET @isUpdated = 1;
 	END
 	--check update stats info and write log
-	IF(@IsUpdated=1)
+	IF(@isUpdated = 1)
 	BEGIN
 		-- Update TotalMembers Value for AffInfo
-		UPDATE AffInfo with (rowlock,updlock)
-		set TotalMembers=ISNULL(TotalMembers,0) + 1
-		Where AffID=@AffID
+		UPDATE dbo.AffInfo WITH (ROWLOCK,UPDLOCK)
+		SET TotalMembers = ISNULL(TotalMembers, 0) + 1
+		WHERE AffID=@AffID
 
-		Declare @LogData nvarchar(4000), @SPName varchar(100) 
-		select @SPName = OBJECT_NAME(@@ProcID)
+		DECLARE @LogData nVARCHAR(4000), @SPName VARCHAR(100) 
+		SELECT @SPName = OBJECT_NAME(@@ProcID)
 
 		SELECT @LogData = 'Insert new member. UserName=' + dbo.Aff_ToString(@UserName)                 
 						  + '.PlayerCustID=' + dbo.Aff_ToString(@DepositCustID)

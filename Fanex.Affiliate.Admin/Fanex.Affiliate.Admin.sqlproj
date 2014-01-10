@@ -640,5 +640,11 @@
     <Build Include="zTask\Task_Aff_MemberInfoUpdateCreatedDate.proc.sql">
       <SubType>Code</SubType>
     </Build>
+    <Build Include="zTask\Task_Aff_MemberListImport.proc.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="zTask\Task_Aff_DailyImportExchange.proc.sql">
+      <SubType>Code</SubType>
+    </Build>
   </ItemGroup>
 </Project>
