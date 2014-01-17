@@ -106,7 +106,8 @@ BEGIN
 	select m.RemovedDate,m.IsRemoved,m.UserName,  e.Code as Currency, m.FirstName, m.LastName, 
 			m.Email,m.Phone,m.Address, m.Country,    
 			m.CreatedDate,m.RegisteredDate, m.AffID, m.AffUserName as AffUserName,    
-			m.AffTypeName
+			m.AffTypeName,
+			m.AffAffectedDate
 	from    
 		(select ROW_NUMBER() OVER(ORDER BY (m.IsRemoved * 99) ASC,
 											CASE @SortBy WHEN 0 THEN m.UserName 

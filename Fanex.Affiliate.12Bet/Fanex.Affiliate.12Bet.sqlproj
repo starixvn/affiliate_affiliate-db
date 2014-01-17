@@ -107,6 +107,7 @@
     <Folder Include="Deposit_DB" />
     <Folder Include="DomainControl" />
     <Folder Include="IA" />
+    <Folder Include="EUMigration" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Schema Objects" />

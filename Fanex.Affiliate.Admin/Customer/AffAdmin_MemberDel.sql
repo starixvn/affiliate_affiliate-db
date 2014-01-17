@@ -197,7 +197,7 @@ BEGIN
 					, MemMarketing		= ad.MemMarketing - tmp.MemMarketing
 					, MemPSP			= ad.MemPSP - tmp.MemPSP
 					, MemWinlost		= ad.MemWinlost - tmp.MemWinlost
-					, HouseWinlost		= ad.HouseWinlost + tmp.HouseWinlost --negative balance
+					, HouseWinlost		= ad.HouseWinlost - tmp.HouseWinlost --negative balance
 					, MemWinlostFake	= ad.MemWinlostFake - tmp.MemWinlostFake
 					, MemOddsFee		= ad.MemOddsFee - tmp.MemOddsFee
 					, MemPLayTechFee	= ad.MemPLayTechFee - tmp.MemPLayTechFee
@@ -209,7 +209,7 @@ BEGIN
 					, MemTurnoverNoDraw	= ad.MemTurnoverNoDraw - tmp.MemTurnoverNoDraw
 					, MemBetCountNoDraw	= ad.MemBetCountNoDraw - tmp.MemBetCountNoDraw
 					, MemTurnoverDraw	= ad.MemTurnoverDraw - tmp.MemTurnoverDraw
-					, HouseNetWinLost	= ad.HouseNetWinLost - ((ad.HouseWinlost + tmp.HouseWinlost) 
+					, HouseNetWinLost	= ad.HouseNetWinLost - ((ad.HouseWinlost - tmp.HouseWinlost) 
 																- ((ISNULL(ad.MemBonus, 0) - tmp.MemBonus) * ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ad.ProductID,'Bonus', ad.Winlostdate),0))
 																- (ISNULL(ad.MemAdjustment,0)-tmp.MemAdjustment)  
 																- ((ISNULL(ad.MemPSP,0) - tmp.MemPSP) * ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ad.ProductID,'PSP', ad.Winlostdate),0)) 
@@ -351,26 +351,25 @@ BEGIN
 			INSERT INTO dbo.MemberDailyRemoved
 			SELECT * FROM #tmpMemberRemoval;
 
-			--insert new to MemberRemoval -----------------
-			INSERT INTO dbo.MemberRemoval(UserName
-				, RemovedDate
-				, RemovedBy
-				, AffID
-			)
-			VALUES (@UserName
-				, GETDATE()
-				, @UserID
-				, @AffID
-			);
-
-			--update TotalMembers for this affiliate ------
-			UPDATE dbo.AffInfo WITH (ROWLOCK,UPDLOCK)
-			SET TotalMembers = TotalMembers - 1
-			WHERE AffID = @AffID
-
 			DROP TABLE #tmpMemberRemoval;
 		END
 
+		--insert new to MemberRemoval -----------------
+		INSERT INTO dbo.MemberRemoval(UserName
+			, RemovedDate
+			, RemovedBy
+			, AffID
+		)
+		VALUES (@UserName
+			, GETDATE()
+			, @UserID
+			, @AffID
+		);
+
+		--update TotalMembers for this affiliate ------
+		UPDATE dbo.AffInfo WITH (ROWLOCK,UPDLOCK)
+		SET TotalMembers = TotalMembers - 1
+		WHERE AffID = @AffID
 	END TRY  
 	BEGIN CATCH
 		SELECT @ErrCode = ERROR_NUMBER()

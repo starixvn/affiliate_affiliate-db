@@ -252,7 +252,7 @@ BEGIN
 				, p.Currency
 				, p.CurrencyId
 				, ad.SysExRate
-				, ad.AffExRate
+				--, ad.AffExRate
 				, m.ActivePlayer
 	End
 	Else

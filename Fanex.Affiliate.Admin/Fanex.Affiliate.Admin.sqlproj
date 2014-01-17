@@ -129,6 +129,7 @@
     <Folder Include="Common Function" />
     <Folder Include="Customer" />
     <Folder Include="zTask" />
+    <Folder Include="Service" />
   </ItemGroup>
   <ItemGroup>
     <BuildContributorArgument Include="OutDir=$(OutDir)" />
@@ -646,5 +647,9 @@
     <Build Include="zTask\Task_Aff_DailyImportExchange.proc.sql">
       <SubType>Code</SubType>
     </Build>
+    <None Include="Member\AffAdmin_MemberListSel.proc.sql">
+      <SubType>Code</SubType>
+    </None>
+    <Build Include="Service\Aff_PlayersWinlostByProductSel.proc.sql" />
   </ItemGroup>
 </Project>
