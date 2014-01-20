@@ -651,5 +651,6 @@
       <SubType>Code</SubType>
     </None>
     <Build Include="Service\Aff_PlayersWinlostByProductSel.proc.sql" />
+    <Build Include="Service\Aff_CustomerSelByUserName.proc.sql" />
   </ItemGroup>
 </Project>

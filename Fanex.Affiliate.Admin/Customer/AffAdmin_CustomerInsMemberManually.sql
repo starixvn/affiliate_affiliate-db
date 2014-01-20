@@ -4,16 +4,17 @@
 	@DepositCustID	VARCHAR(50) = NULL,
 	@FirstName		NVARCHAR(50)= NULL,
 	@LastName		NVARCHAR(50)= NULL,
-	@Currency		VARCHAR(6),	
+	@Currency		VARCHAR(6)	= NULL,	
 	@Email			NVARCHAR(50)= NULL,	
-	@IBCCustID		INT,	
-	@IBCUserName	VARCHAR(30)= NULL,
-	@AgentID		INT,	
-	@CreatedDate	DATETIME = NULL,
-	@RegisterDate	DATETIME,
-	@Btag			VARCHAR(100) = NULL,
-	@ClickID		BIGINT = NULL,	
-	@Phone			VARCHAR(25)=NULL,
+	@IBCCustID		INT			= NULL,	
+	@IBCUserName	VARCHAR(30)	= NULL,
+	@AgentID		INT			= NULL,	
+	@CreatedDate	DATETIME	= NULL,
+	@RegisterDate	DATETIME	= NULL,
+	@AffAffectedDate	DATETIME	= NULL,
+	@Btag			VARCHAR(100),
+	@ClickID		BIGINT		= 0,	
+	@Phone			VARCHAR(25)	= NULL,
 	@Address		NVARCHAR(255)=NULL,
 	@IP				VARCHAR(22),	
 	@Language		VARCHAR(5)= 'en-US',
@@ -39,6 +40,7 @@ BEGIN
 		, @affIsClosed BIT
 		, @memberRemoved BIT
 		, @currencyID INT
+		, @memberCurrency INT
 		, @isUpdated BIT;
 
 	/*** affiliate's validation ***/
@@ -56,6 +58,7 @@ BEGIN
 
 	SELECT TOP(1) @affMemberID = mi.AffID
 		, @memberRemoved = ISNULL(mi.IsRemoved, 0)
+		, @memberCurrency = ISNULL(mi.Currency, 0)
 	FROM dbo.MemberInfo mi WITH (NOLOCK) 
 	WHERE mi.UserName = @Username;
 
@@ -66,6 +69,12 @@ BEGIN
 		 RETURN;
 	END
 	
+	--set currency
+	IF (@affMemberID > 0 AND @memberRemoved = 1)
+	BEGIN 
+		SET @Currency = @memberCurrency;
+	END
+
 	/*** get currency info ***/
 	SELECT @currencyID = ExchangeID 
 	FROM [dbo].[CurrencyConverter] WITH(NOLOCK)
@@ -74,28 +83,24 @@ BEGIN
 	/*** update member is removed ***/
 	IF (@affMemberID > 0 AND @memberRemoved = 1) 
 	BEGIN
+		--update Btag
+		SELECT TOP(1) 
+			@Btag = ISNULL(SValue, '0') + '_' + CAST(@AffID AS VARCHAR(10)) + '_0' 
+		FROM dbo.[SystemSettings] WITH(NOLOCK)
+			WHERE SName='LicenseeID'
+
 		UPDATE [dbo].[MemberInfo]
-		SET [AffID] = @AffID      
-		  ,[RegisteredDate] = @RegisterDate
-		  ,[CreatedDate]=@CreatedDate
-		  ,[DepositCustID] = @DepositCustID
-		  ,[Currency] = @currencyID
-		  ,[FirstName] = @FirstName
-		  ,[LastName] = @LastName
-		  ,[Email] = @Email
-		  ,[IsRemoved] = 0
-		  ,[IBCCustID] = @IBCCustID
-		  ,[IBCUserName] = @IBCUserName
-		  ,Recommend = @AgentID
-		  ,Btag = @Btag
-		  ,ClickID = @ClickID    
-		  ,Phone=@Phone
-		  ,[Address]=@Address
-		  ,AffAffectedDate = GETDATE()
+		SET [AffID]			= @AffID      
+		  ,[IsRemoved]		= 0
+		  ,Btag				= @Btag
+		  ,ClickID			= @ClickID    
+		  ,AffAffectedDate	= @AffAffectedDate
 		WHERE UserName = @Username
 	
 		DELETE FROM dbo.MemberRemoval 
 		WHERE UserName = @Username
+			AND AffID = @AffID
+
 		SET @isUpdated = 1;
 
 	END

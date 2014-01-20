@@ -1,31 +1,54 @@
-﻿-- =============================================
--- Script Template
--- =============================================
-ALTER Procedure [dbo].[AffAdmin_CheckMemberExist]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_CheckMemberExist]
 	@MemberName varchar(30),
 	@AffName varchar(30),	
 	@AffID int = null OUTPUT,
 	@AffStatus varchar(20) = null OUTPUT,
-	@IsMemberExist bit = 0 OUTPUT
-	
+	@IsMemberExist bit = 0 OUTPUT,
+	@MemberAffID int = null OUTPUT
 AS
-begin
+/*  
+	Created: 20090724@Peter
+	Task : Check member existing in the system to Affiliate System
+	DB: Affiliate DB  
+	Original: Affiliate_Athena000
 
-SET NOCOUNT ON
+	Revision:
+		-Bobby@2010118: - OUT @MemberAffID in case existing of member but removed
 
-	select @AffID = AffID,@AffStatus = [Status] from AffInfo where UserName = @AffName
+*/ 
+BEGIN
+
+	SET NOCOUNT ON;
+
+	DECLARE @memberUserName VARCHAR(50)
+		, @memberRemoved BIT;
+
+	SELECT @AffID = AffID
+		, @AffStatus = [Status] 
+	FROM dbo.AffInfo 
+	WHERE UserName = @AffName
 	
-	if(@AffID = null)
+	IF(@AffID IS NULL)
 		return
-	if @AffStatus = 'approved'
-	begin 
-		if (exists (Select 1 from AffInfo(nolock) where UserName=@AffName and IsClosed =1 ))
-			set @AffStatus = 'closed'
-	end
+	IF( @AffStatus = 'approved')
+	BEGIN 
+		IF (EXISTS (SELECT 1 FROM AffInfo WITH(NOLOCK) WHERE UserName = @AffName AND IsClosed =1 ))
+			SET @AffStatus = 'closed'
+	END
 	
-	select @IsMemberExist = count(1) from MemberInfo where UserName = @MemberName and IsRemoved != 1
+	SELECT TOP(1) @memberUserName = mi.UserName
+		, @MemberAffID = mi.AffID
+		, @memberRemoved = mi.IsRemoved
+	FROM dbo.MemberInfo mi WITH (NOLOCK)
+	WHERE mi.UserName = @MemberName 
 
-end
+	IF(@memberUserName IS NOT NULL 
+		AND @memberRemoved <> 1)
+	BEGIN
+		SET @IsMemberExist = 1
+	END
+
+END
 
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_CheckMemberExist] TO [bodbAdminNet]
