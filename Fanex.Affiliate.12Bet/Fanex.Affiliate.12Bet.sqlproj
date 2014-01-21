@@ -670,6 +670,7 @@
     <None Include="Member\Aff_MemberInfoSel.sql">
       <SubType>NotInBuild</SubType>
     </None>
+    <None Include="EUMigration\Step1-PrepairGenUserName.sql" />
   </ItemGroup>
   <ItemGroup>
     <BuildContributorArgument Include="OutDir=$(OutDir)" />
@@ -691,6 +692,9 @@
     <Build Include="Common Function\IsZeroCommissionGroup.function.sql">
       <SubType>Code</SubType>
     </Build>
+    <None Include="EUMigration\Step2-PrepairGenClickStats.sql" />
+    <None Include="EUMigration\Step3-InsEUAffiliate.sql" />
+    <None Include="EUMigration\Step4-InsEUMember.sql" />
   </ItemGroup>
   <ItemGroup>
     <Build Include="Tracking System\Aff_AffiliateInsClickStatistics_New.sql">

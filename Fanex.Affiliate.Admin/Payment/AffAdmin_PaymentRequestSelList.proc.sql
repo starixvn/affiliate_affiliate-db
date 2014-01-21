@@ -7,7 +7,7 @@
 	@DateOption			tinyint = 0,
     @Fromdate			DATETIME  = NULL,
     @Todate				DATETIME  = NULL,
-	@BaseCurrency		varchar(5) = '0',
+	@BaseCurrency		INT = 0,
 	@IsITAdmin			bit = 0,
 	@ExcludeTest		bit = 0
 AS
@@ -40,7 +40,7 @@ BEGIN
 	DECLARE @RowStart int, @TransType int, @ToCurrency int, @ToCurrencyCode varchar(10), @SystemCurrency int
 	select @TransType = 202 --payment request
 	select @Username= '%' + Coalesce(@Username, '') + '%'
-			, @BaseCurrency = ISNULL(@BaseCurrency, '')
+			, @BaseCurrency = ISNULL(@BaseCurrency, 0)
 			, @ToDate = [dbo].[Aff_GetEndDate] (@ToDate)
 
 	--Convert aff currency to system currency
@@ -80,7 +80,7 @@ BEGIN
 			a.CompletedDate,
 			ABS(
 			CASE @BaseCurrency 
-				WHEN '0' THEN a.Amount -- no need to convert to system currency
+				WHEN 0 THEN a.Amount -- no need to convert to system currency
 				else cast(a.Amount * dbo.Aff_GetExchangeRate(b.Currency, @ToCurrency, null) as Money)
 			end) as Amt,
 			ABS(cast(a.Amount * dbo.Aff_GetExchangeRate(b.Currency, @ToCurrency, null) as Money)) as ConvertedAmt,

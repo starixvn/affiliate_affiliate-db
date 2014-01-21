@@ -5,7 +5,7 @@
 	@DateOption tinyint = 0, 
 	@FromDate smalldatetime = null,    
 	@ToDate smalldatetime = null,    
-	@BaseCurrency	varchar(5) = ''
+	@BaseCurrency	INT = 0
 AS    
 /*Created: 20090901@Peter  
 Task : Getting all of transactions for an affiliate (Monthly transfer, Payment Request , Adjustment)  
@@ -117,7 +117,7 @@ BEGIN
    
 	select TransId, TransDate,CompletedDate, TransType,
 			CASE @BaseCurrency 
-				WHEN '' THEN Amount 
+				WHEN 0 THEN Amount
 				else Amount * dbo.Aff_GetExchangeRate(@AffCurrency, @SystemCurrency, null) 
 			end as Amount,
 			Status, Creator, Description  
