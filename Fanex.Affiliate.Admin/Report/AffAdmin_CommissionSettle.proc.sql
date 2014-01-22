@@ -71,7 +71,8 @@ BEGIN
 						, LiveCasinoWinloss money, LiveCasinoQM int, LiveCasinoCommissionPercent decimal(9,8), LiveCasinoCommission money
 						, LiveCasinoWinlossBase money, LiveCasinoCommissionBase money					
 						, RNGCasinoWinloss money, RNGCasinoQM int, RNGCasinoCommissionPercent decimal(9,8), RNGCasinoCommission money
-						, RNGCasinoWinlossBase money, RNGCasinoCommissionBase money)
+						, RNGCasinoWinlossBase money, RNGCasinoCommissionBase money
+						, EnableCashback bit default 1)
 
 	----For the month(s) that are not calculated
 	INSERT INTO @Result(AffId, Status, WinlostDate, Username, ExchangeId, Currency
@@ -105,7 +106,7 @@ BEGIN
 	select @AffectedRows=@@ROWCOUNT--ALL Rows that are not calculated
 
 	--Calculate commission Previous month that is not calculated yet
-	IF (DateDiff(m, @MaxCalculatedDate, @CurrentDate) = 2)
+	IF (DateDiff(m, @MaxCalculatedDate, @CurrentDate) >= 2)
 	BEGIN
 		Declare @Month int, @Year int, @ExchangeId int
 
@@ -173,6 +174,7 @@ BEGIN
 				, RNGCasinoQM =					isnull(@RNGCasinoQualifiedMember, 0)
 				, RNGCasinoCommissionPercent =	isnull(@RNGCasinoCommission, 0)
 				, RNGCasinoCommissionBase =		isnull(@RNGCasinoAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, @PreviousMonth),0)
+				, EnableCashback			= isnull(tmp.DeductedPercentage, 0)
 			From @Result r
 			LEFT JOIN (
 				select a.AffID, a.Amount as CashAmount, b.DeductedPercentage
@@ -273,6 +275,7 @@ BEGIN
 			, RNGCasinoQM =					isnull(@RNGCasinoQualifiedMember, 0)
 			, RNGCasinoCommissionPercent =	isnull(@RNGCasinoCommission, 0)
 			, RNGCasinoCommissionBase =	isnull(@RNGCasinoAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+			, EnableCashback			= isnull(tmp.DeductedPercentage, 0)
 		From @Result r
 		LEFT JOIN (
 			select a.AffID, a.Amount as CashAmount, b.DeductedPercentage

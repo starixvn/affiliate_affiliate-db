@@ -1,24 +1,24 @@
-﻿ALTER Procedure [dbo].[AffAdmin_CommGroupIns]  
-	@UserId int,  
-	@GroupId int =-1 Output,  
-	@Currency int,  
-	@QualifiedAmount money,  
-	@GroupName nvarchar(100),  
-	@Description nvarchar(100) = null,  
-	@ProductIDList varchar(300),  
-	@DeductionList varchar(300) = null,  
-	@DeductedPercentageList varchar(300) = null,  
-	@TierList varchar(300),  
-	@MinAmountList varchar(5000),  
-	@MaxAmountList varchar(5000),  
-	@MinQMList varchar(5000),  
-	@MaxQMList varchar(5000),  
-	@CommissionList varchar(5000),   
-	@Language varchar(5) = null,
-	@IP varchar(20),   
-	@ErrCode int = 0 OUTPUT,  
-	@ErrMsg nvarchar(4000) = '' OUTPUT   
-AS  
+﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupIns] 
+	@UserId INT
+	,@GroupId INT = - 1 OUTPUT
+	,@Currency INT
+	,@QualifiedAmount MONEY
+	,@GroupName NVARCHAR(100)
+	,@Description NVARCHAR(100) = NULL
+	,@ProductIDList VARCHAR(300)
+	,@DeductionList VARCHAR(300) = NULL
+	,@DeductedPercentageList VARCHAR(300) = NULL
+	,@TierList VARCHAR(300)
+	,@MinAmountList VARCHAR(5000)
+	,@MaxAmountList VARCHAR(5000)
+	,@MinQMList VARCHAR(5000)
+	,@MaxQMList VARCHAR(5000)
+	,@CommissionList VARCHAR(5000)
+	,@Language VARCHAR(5) = NULL
+	,@IP VARCHAR(20)
+	,@ErrCode INT = 0 OUTPUT
+	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
+AS
 /*  
 Created: 20090719@DungTong  
 Task : Add a new Commission Group  
@@ -84,143 +84,252 @@ Parameters:
                   empty: no error raised  
                   others : the error message detail                            
                             
-*/  
-SET NOCOUNT ON  
---Check permission  
-EXEC [dbo].[Aff_Con_CheckPermission]  
-	@custid=@UserID,@funcname='[CommissionGroup]',  
-	@System = 'AFFILIATE',  
-	@ErrCode=@ErrCode output,  
-	@ErrMsg=@ErrMsg output  
-if(@ErrCode <> 0)  
-  return  
+*/
+BEGIN
+	SET NOCOUNT ON;
 
---Check Currency Permission
-EXEC [dbo].[AffAdmin_CheckPermissionCurrency]
-	@UserId = @UserID,
-	@CurrencyId = @Currency,
-	@ErrCode = @ErrCode output
-if(@ErrCode <> 0)  
-	return  
+	--Check permission  
+	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserID
+		,@funcname = '[CommissionGroup]'
+		,@System = 'AFFILIATE'
+		,@ErrCode = @ErrCode OUTPUT
+		,@ErrMsg = @ErrMsg OUTPUT
 
-  
-if(@GroupName is null or LTRIM(RTRIM(@GroupName))='')  
-  begin  
- select @ErrCode = 20 --Group name is empty. Please choose a name!
- return  
- end  
-  
-   
-if (@GroupID=-1 and exists (select 1 from CommGroup where GroupName = @GroupName  and IsDeleted=0))  
-begin  
- select @ErrCode = 21 --Group name existed. Please choose another name!
- return  
-end  
-  
---Check Qualified Amount  
-if(@QualifiedAmount<0)  
-  begin  
- select @ErrCode = 22 --Invalid qualified amount. Please check.
- return  
- end  
-  
-  
-declare @Identity int   
-select @Identity=max(GroupID) from CommGroup (nolock)
-if(@Identity is null)  
-     select @Identity=100          
- if(@Identity=999 and (@GroupID<0 or @GroupID is null))  
- begin  
- select @ErrCode = 23 --There is no room for a new Group! Please contact to administrator.
- return  
- end  
-  
-  
-Begin transaction               
+	IF (@ErrCode <> 0) RETURN
 
-    if(@GroupID<=0)  
-    begin    
-  set @GroupID=@Identity + 1  
- end   
-  
-    insert into CommGroup([GroupID],[GroupName], [CreatedDate], [Creator], [IsDeleted], [Description],QualifiedAmount,Currency)  
-     values(@GroupID,@GroupName, current_timestamp, @UserId, 0, @Description,@QualifiedAmount,@Currency)     
-  
- IF @@ERROR <> 0  
- BEGIN  
-  ROLLBACK TRANSACTION  
-  Select @ErrCode = 24  --Error occurs. Insert unsuccessfully.
-  return  
- END  
-   
- --Insert Deduction Setting  
-  if(@DeductionList is not null)  
-    begin  
-        Insert into DeductionSetting(GroupID,DeductionID,DeductedPercentage)  
-  select @GroupID,cast(t.val as tinyint),cast(p.val as float)  
-  from dbo.strsplit(@DeductionList, ',') t  
-      inner join dbo.strsplit(@DeductedPercentageList, ',') p on p.rank=t.rank      
-   inner join DeductionType d with (nolock) on d.DTypeID=cast(t.val as tinyint)      
-    
-  IF @@Rowcount<>(select count(1) from dbo.strsplit(@DeductionList, ',')) or @@ERROR <> 0  
-  BEGIN  
-   ROLLBACK TRANSACTION  
-   Select @ErrCode = 25  --Error! Insert Deduction Setting unsuccessfully!
-   return  
-  END  
-   end  
- --Insert Tier Setting  
- declare @rank int,@ProductID int,@NTier int, @i int, @MinQM int, @MaxQM int,@PreMaxQM int  
- declare @MinAmountArr varchar(500),@MaxAmountArr varchar(500),@MinQMArr varchar(500),@MaxQMArr varchar(500),@CommissionArr varchar(500)  
- declare @MinAmount money,@MaxAmount money,@PreMaxAmount money  
- declare @Commission decimal(9,8),@PreCommission decimal(9,8)   
- select @rank=min(rank) from dbo.strsplit(@ProductIDList, ';')          
- if @rank is not null  
-  begin  
-    while @rank is not null  
-     begin  
-        BEGIN TRY  
-         --Voi moi ProductID  
-         select @ProductID=cast(val as tinyint) from dbo.strsplit(@ProductIDList, ';') where rank=@rank  
-         select @NTier=cast(val as tinyint) from dbo.strsplit(@TierList, ';') where rank=@rank  
-         select @MinAmountArr=val from dbo.strsplit(@MinAmountList, ';') where rank=@rank  
-         select @MaxAmountArr=val from dbo.strsplit(@MaxAmountList, ';') where rank=@rank  
-         select @MinQMArr=val from dbo.strsplit(@MinQMList, ';') where rank=@rank  
-         select @MaxQMArr=val from dbo.strsplit(@MaxQMList, ';') where rank=@rank  
-         select @CommissionArr=val from dbo.strsplit(@CommissionList, ';') where rank=@rank  
-  
-         select @i=1  
-         if(@NTier<1)  
-          begin  
-             ROLLBACK TRANSACTION  
-          Select @ErrCode = 26  --Error! Invalid Tier List!
-          return  
-          end  
-          if(@NTier>50)  
-          begin  
-             ROLLBACK TRANSACTION  
-          Select @ErrCode = 27 --Oops, maximum of 50 tiers are allowed!  
-          return  
-          end  
-            
-         while @i<=@NTier  
-         begin  
-        --Voi moi Tier  
-        if(@i<>1) --Store previous setting to compare with current setting  
-        begin  
-         select @PreMaxAmount=@MaxAmount,               
-                @PreMaxQM=@MaxQM,  
-                @PreCommission=@Commission  
-          
-        end  
-  
-        select @MinAmount=cast(val as money) from dbo.strsplit(@MinAmountArr, ',') where rank=@i  
-        select @MaxAmount=cast(val as money) from dbo.strsplit(@MaxAmountArr, ',') where rank=@i  
-        select @MinQM=cast(val as int) from dbo.strsplit(@MinQMArr, ',') where rank=@i  
-        select @MaxQM=cast(val as int) from dbo.strsplit(@MaxQMArr, ',') where rank=@i  
-        select @Commission=cast(val as decimal(9,8)) from dbo.strsplit(@CommissionArr, '@') where rank=@i  
-                  
-        /*Kiem tra du lieu la hop le :   
+	--Check Currency Permission
+	EXEC [dbo].[AffAdmin_CheckPermissionCurrency] @UserId = @UserID
+		,@CurrencyId = @Currency
+		,@ErrCode = @ErrCode OUTPUT
+
+	IF (@ErrCode <> 0) RETURN
+
+
+	IF (@GroupName IS NULL OR LTRIM(RTRIM(@GroupName)) = '')
+	BEGIN
+		SELECT @ErrCode = 20 --Group name is empty. Please choose a name!
+
+		RETURN
+	END
+
+	IF (
+			@GroupID = - 1 AND EXISTS (
+				SELECT 1
+				FROM CommGroup
+				WHERE GroupName = @GroupName AND IsDeleted = 0
+				)
+			)
+	BEGIN
+		SELECT @ErrCode = 21 --Group name existed. Please choose another name!
+
+		RETURN
+	END
+
+	--Check Qualified Amount  
+	IF (@QualifiedAmount < 0)
+	BEGIN
+		SELECT @ErrCode = 22 --Invalid qualified amount. Please check.
+
+		RETURN
+	END
+
+	DECLARE @Identity INT
+
+	IF(@GroupID = -1) -- create normal group
+	BEGIN
+		SELECT @Identity = max(GroupID)
+		FROM dbo.CommGroup WITH(NOLOCK)
+		WHERE GroupID < 1000 
+	END
+	ELSE -- create spacial group
+	BEGIN
+		SELECT @Identity = max(GroupID)
+		FROM dbo.CommGroup WITH(NOLOCK) 
+		WHERE GroupID >= 1000 
+	END
+
+	IF (@Identity IS NULL)
+		SELECT @Identity = 100
+
+	IF (@Identity = 999 AND (@GroupID < 0 OR @GroupID IS NULL))
+	BEGIN
+		SELECT @ErrCode = 23 --There is no room for a new Group! Please contact to administrator.
+
+		RETURN
+	END
+
+	BEGIN TRANSACTION
+
+	IF (@GroupID <= 0)
+	BEGIN
+		SET @GroupID = @Identity + 1
+	END
+
+	INSERT INTO CommGroup (
+		[GroupID]
+		,[GroupName]
+		,[CreatedDate]
+		,[Creator]
+		,[IsDeleted]
+		,[Description]
+		,QualifiedAmount
+		,Currency
+		)
+	VALUES (
+		@GroupID
+		,@GroupName
+		,current_timestamp
+		,@UserId
+		,0
+		,@Description
+		,@QualifiedAmount
+		,@Currency
+		)
+
+	IF @@ERROR <> 0
+	BEGIN
+		ROLLBACK TRANSACTION
+
+		SELECT @ErrCode = 24 --Error occurs. Insert unsuccessfully.
+
+		RETURN
+	END
+
+	--Insert Deduction Setting  
+	IF (@DeductionList IS NOT NULL)
+	BEGIN
+		INSERT INTO DeductionSetting (
+			GroupID
+			,DeductionID
+			,DeductedPercentage
+			)
+		SELECT @GroupID
+			,cast(t.val AS TINYINT)
+			,cast(p.val AS FLOAT)
+		FROM dbo.strsplit(@DeductionList, ',') t
+			INNER JOIN dbo.strsplit(@DeductedPercentageList, ',') p ON p.rank = t.rank
+			INNER JOIN DeductionType d WITH (NOLOCK) ON d.DTypeID = cast(t.val AS TINYINT)
+
+		IF @@Rowcount <> (
+				SELECT count(1)
+				FROM dbo.strsplit(@DeductionList, ',')
+				) OR @@ERROR <> 0
+		BEGIN
+			ROLLBACK TRANSACTION
+
+			SELECT @ErrCode = 25 --Error! Insert Deduction Setting unsuccessfully!
+
+			RETURN
+		END
+	END
+
+	--Insert Tier Setting  
+	DECLARE @rank INT
+		,@ProductID INT
+		,@NTier INT
+		,@i INT
+		,@MinQM INT
+		,@MaxQM INT
+		,@PreMaxQM INT
+	DECLARE @MinAmountArr VARCHAR(500)
+		,@MaxAmountArr VARCHAR(500)
+		,@MinQMArr VARCHAR(500)
+		,@MaxQMArr VARCHAR(500)
+		,@CommissionArr VARCHAR(500)
+	DECLARE @MinAmount MONEY
+		,@MaxAmount MONEY
+		,@PreMaxAmount MONEY
+	DECLARE @Commission DECIMAL(9, 8)
+		,@PreCommission DECIMAL(9, 8)
+
+	SELECT @rank = min(rank)
+	FROM dbo.strsplit(@ProductIDList, ';')
+
+	IF @rank IS NOT NULL
+	BEGIN
+		WHILE @rank IS NOT NULL
+		BEGIN
+			BEGIN TRY
+				--Voi moi ProductID  
+				SELECT @ProductID = cast(val AS TINYINT)
+				FROM dbo.strsplit(@ProductIDList, ';')
+				WHERE rank = @rank
+
+				SELECT @NTier = cast(val AS TINYINT)
+				FROM dbo.strsplit(@TierList, ';')
+				WHERE rank = @rank
+
+				SELECT @MinAmountArr = val
+				FROM dbo.strsplit(@MinAmountList, ';')
+				WHERE rank = @rank
+
+				SELECT @MaxAmountArr = val
+				FROM dbo.strsplit(@MaxAmountList, ';')
+				WHERE rank = @rank
+
+				SELECT @MinQMArr = val
+				FROM dbo.strsplit(@MinQMList, ';')
+				WHERE rank = @rank
+
+				SELECT @MaxQMArr = val
+				FROM dbo.strsplit(@MaxQMList, ';')
+				WHERE rank = @rank
+
+				SELECT @CommissionArr = val
+				FROM dbo.strsplit(@CommissionList, ';')
+				WHERE rank = @rank
+
+				SELECT @i = 1
+
+				IF (@NTier < 1)
+				BEGIN
+					ROLLBACK TRANSACTION
+
+					SELECT @ErrCode = 26 --Error! Invalid Tier List!
+
+					RETURN
+				END
+
+				IF (@NTier > 50)
+				BEGIN
+					ROLLBACK TRANSACTION
+
+					SELECT @ErrCode = 27 --Oops, maximum of 50 tiers are allowed!  
+
+					RETURN
+				END
+
+				WHILE @i <= @NTier
+				BEGIN
+					--Voi moi Tier  
+					IF (@i <> 1) --Store previous setting to compare with current setting  
+					BEGIN
+						SELECT @PreMaxAmount = @MaxAmount
+							,@PreMaxQM = @MaxQM
+							,@PreCommission = @Commission
+					END
+
+					SELECT @MinAmount = cast(val AS MONEY)
+					FROM dbo.strsplit(@MinAmountArr, ',')
+					WHERE rank = @i
+
+					SELECT @MaxAmount = cast(val AS MONEY)
+					FROM dbo.strsplit(@MaxAmountArr, ',')
+					WHERE rank = @i
+
+					SELECT @MinQM = cast(val AS INT)
+					FROM dbo.strsplit(@MinQMArr, ',')
+					WHERE rank = @i
+
+					SELECT @MaxQM = cast(val AS INT)
+					FROM dbo.strsplit(@MaxQMArr, ',')
+					WHERE rank = @i
+
+					SELECT @Commission = cast(val AS DECIMAL(9, 8))
+					FROM dbo.strsplit(@CommissionArr, '@')
+					WHERE rank = @i
+
+					/*Kiem tra du lieu la hop le :   
                  + cac gia tri khong nho hon 0   
                  + min < max  
                  + min sau = max truoc + 1 (@i>1)  
@@ -230,97 +339,110 @@ Begin transaction
                  + Vo Cuc(MaxAmount)= 100000000000000  
                  + Vo Cuc(MaxQM) =1000000000   
           
-        */         
-         
-  
-         if(@MinAmount>=0 and @MaxAmount<=100000000000000 and @MinAmount<=@MaxAmount  
-                            and @MinQM>=0 and @MaxQM<=1000000000 and @MinQM<=@MaxQM  
-                            and (@Commission between 0 and 1)  
-                            and (  
-              case when (@i=1 and @i<@NTier) then 1                     
-                   when (@NTier>1 and @i=@NTier and @MaxQM=1000000000 and @MaxAmount=100000000000000 and @MinAmount=@PreMaxAmount + 1 and @MinQM=@PreMaxQM + 1 and @Commission>= @PreCommission) then 1  
-                      when (@NTier=1 and @i=@NTier and @MaxQM=1000000000 and @MaxAmount=100000000000000 and @MinQM=0 and @MinAmount=0) then 1  
-                   when (@i>1 and @i<@NTier and @MinAmount=@PreMaxAmount + 1 and @MinQM=@PreMaxQM + 1 and @Commission>= @PreCommission) then 1  
-                   else 0  
-               end          
-                            )=1  
-                                  )            
-            begin  
-               --Insert du lieu   
-               Insert into GroupSetting(GroupID,ProductID,TierID,MinAmount,MaxAmount,MinQM,MaxQM,Commission)  
-               values (@GroupID,@ProductID,@i,@MinAmount,@MaxAmount,@MinQM,@MaxQM,@Commission)  
-         --Neu khong dong nao duoc insert thi Rollback <=> @@ROWCOUNT<>1   
-         if(@@ROWCOUNT<>1)  
-         begin  
-            ROLLBACK TRANSACTION  
-            Select @ErrCode = 28 --There was an error when inserting tier setting.  
-            return    
-         end    
-            end  
-          else  
-            begin  
-         ROLLBACK TRANSACTION  
-         Select @ErrCode = 29, @ErrMsg = @ProductID  --Error! Invalid Setting Data(ProductID=
-         return    
-             end    
-                  --Increase @i by 1   
-                  select @i=@i + 1                                     
-         end --end inner while  
-             
-         select @rank=min(rank) from dbo.strsplit(@ProductIDList, ';') where rank>@rank  
-        END TRY  
-        BEGIN CATCH  
-       ROLLBACK TRANSACTION  
-       Select @ErrMsg = ERROR_MESSAGE(), @ErrCode = 9999  
-       return   
-        END CATCH  
-        
-     end --end outer while  
-  end --end if  
-    else ---Invalid Setting Data  
-      begin  
-  ROLLBACK TRANSACTION  
-  Select @ErrCode = 30  --Error! Invalid Setting Data (ProductIDList) !
-  return   
-      end      
+        */
+					IF (
+							@MinAmount >= 0 AND @MaxAmount <= 100000000000000 AND @MinAmount <= @MaxAmount AND @MinQM >= 0 AND @MaxQM <= 1000000000 AND @MinQM <= @MaxQM AND (@Commission BETWEEN 0 AND 1) AND (CASE 
+								WHEN (@i = 1 AND @i < @NTier) THEN 1
+								WHEN (@NTier > 1 AND @i = @NTier AND @MaxQM = 1000000000 AND @MaxAmount = 100000000000000 AND @MinAmount = @PreMaxAmount + 1 AND @MinQM = @PreMaxQM + 1 AND @Commission >= @PreCommission) THEN 1
+								WHEN (@NTier = 1 AND @i = @NTier AND @MaxQM = 1000000000 AND @MaxAmount = 100000000000000 AND @MinQM = 0 AND @MinAmount = 0) THEN 1
+								WHEN (@i > 1 AND @i < @NTier AND @MinAmount = @PreMaxAmount + 1 AND @MinQM = @PreMaxQM + 1 AND @Commission >= @PreCommission) THEN 1
+								ELSE 0 END
+								) = 1
+							)
+					BEGIN
+						--Insert du lieu   
+						INSERT INTO GroupSetting (
+							GroupID
+							,ProductID
+							,TierID
+							,MinAmount
+							,MaxAmount
+							,MinQM
+							,MaxQM
+							,Commission
+							)
+						VALUES (
+							@GroupID
+							,@ProductID
+							,@i
+							,@MinAmount
+							,@MaxAmount
+							,@MinQM
+							,@MaxQM
+							,@Commission
+							)
 
-  
-commit transaction  
- --Write the log   
-DECLARE @LogData nvarchar(4000), @AffID int,@SPName varchar(100)  
- select @AffID=0    
-SELECT @LogData = N'Add a commission group.GroupID=' + dbo.Aff_ToString(@GroupID)  
-                  + '\n GroupName=' + dbo.Aff_ToString(@GroupName)  
-                  + '\n Currency' + dbo.Aff_ToString(@Currency)  
-                  + '\n QualifiedAmount=' + dbo.Aff_ToString(@QualifiedAmount)  
-                  + '\n Description=' + dbo.Aff_ToString(@Description)  
-                  + '\n ProductIDList=' + dbo.Aff_ToString(@ProductIDList)  
-                  + '\n DeductionList=' + dbo.Aff_ToString(@DeductionList)  
-                   + '\n DeductedPercentageList=' + dbo.Aff_ToString(@DeductedPercentageList)  
-                  + '\n TierList=' + dbo.Aff_ToString(@TierList)  
-                  + '\n MinAmountList=' + dbo.Aff_ToString(@MinAmountList)  
-                  + '\n MaxAmountList=' + dbo.Aff_ToString(@MaxAmountList)  
-                  + '\n MinQMList=' + dbo.Aff_ToString(@MinQMList)  
-                  + '\n MaxQMList=' + dbo.Aff_ToString(@MaxQMList)  
-                  + '\n CommissionList=' + dbo.Aff_ToString(@CommissionList)  
-                    
-             
-  
-select @SPName=OBJECT_NAME(@@ProcID)  
-EXEC [dbo].[Aff_WriteLog]  
- @Creator=@UserId,   
- @AffID=@AffID,  
- @Typename= 'CommissionGroup',   
- @SPName=@SPName ,  
- @IP =@IP,  
- @Details=@LogData  
-  
-  
+						--Neu khong dong nao duoc insert thi Rollback <=> @@ROWCOUNT<>1   
+						IF (@@ROWCOUNT <> 1)
+						BEGIN
+							ROLLBACK TRANSACTION
 
+							SELECT @ErrCode = 28 --There was an error when inserting tier setting.  
 
+							RETURN
+						END
+					END
+					ELSE
+					BEGIN
+						ROLLBACK TRANSACTION
 
+						SELECT @ErrCode = 29
+							,@ErrMsg = @ProductID --Error! Invalid Setting Data(ProductID=
 
+						RETURN
+					END
+
+					--Increase @i by 1   
+					SELECT @i = @i + 1
+				END --end inner while  
+
+				SELECT @rank = min(rank)
+				FROM dbo.strsplit(@ProductIDList, ';')
+				WHERE rank > @rank
+			END TRY
+
+			BEGIN CATCH
+				ROLLBACK TRANSACTION
+
+				SELECT @ErrMsg = ERROR_MESSAGE()
+					,@ErrCode = 9999
+
+				RETURN
+			END CATCH
+		END --end outer while  
+	END --end if  
+	ELSE ---Invalid Setting Data  
+	BEGIN
+		ROLLBACK TRANSACTION
+
+		SELECT @ErrCode = 30 --Error! Invalid Setting Data (ProductIDList) !
+
+		RETURN
+	END
+
+	COMMIT TRANSACTION
+
+	--Write the log   
+	DECLARE @LogData NVARCHAR(4000)
+		,@AffID INT
+		,@SPName VARCHAR(100)
+
+	SELECT @AffID = 0
+
+	SELECT @LogData = N'Add a commission group.GroupID=' + dbo.Aff_ToString(@GroupID) + '\n GroupName=' + dbo.Aff_ToString(@GroupName) + '\n Currency' + dbo.Aff_ToString(@Currency) + '\n QualifiedAmount=' + dbo.Aff_ToString(@QualifiedAmount) + '\n Description=' + dbo.Aff_ToString(@Description) + '\n ProductIDList=' + dbo.Aff_ToString(@ProductIDList) + '\n DeductionList=' + dbo.Aff_ToString(@DeductionList) + '\n DeductedPercentageList=' + dbo.Aff_ToString(@DeductedPercentageList) + '\n TierList=' + dbo.Aff_ToString(@TierList) + '\n MinAmountList=' + dbo.Aff_ToString(@MinAmountList) + '\n MaxAmountList=' + dbo.Aff_ToString(@MaxAmountList) + '\n MinQMList=' + dbo.Aff_ToString(@MinQMList) + '\n MaxQMList=' + dbo.Aff_ToString(@MaxQMList) + '\n CommissionList=' + dbo.Aff_ToString(@CommissionList)
+
+	SELECT @SPName = OBJECT_NAME(@@ProcID)
+
+	EXEC [dbo].[Aff_WriteLog] @Creator = @UserId
+		,@AffID = @AffID
+		,@Typename = 'CommissionGroup'
+		,@SPName = @SPName
+		,@IP = @IP
+		,@Details = @LogData
+END
 GO
+
 GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupIns] TO [bodbAdminNet] AS [dbo]
 GO
+
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupIns] TO [vnteam] AS [dbo]

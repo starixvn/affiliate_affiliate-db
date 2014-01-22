@@ -1,19 +1,21 @@
-﻿CREATE PROCEDURE [dbo].[AffAdmin_AffiliateUpdStatus]  
- @AffID int,  
- @UserID int,  
- @Status varchar(30),   
- @Password varchar(40)= NULL,    
- @GroupID int=NULL,   
- @IP varchar(20),   
- @Language varchar(5) = 'en-US',    
- @ErrCode int = 0 OUTPUT
-AS  
+﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateUpdStatus] 
+	@AffID INT
+	,@UserID INT
+	,@Status VARCHAR(30)
+	,@Password VARCHAR(40) = NULL
+	,@GroupID INT = NULL
+	,@IP VARCHAR(20)
+	,@Language VARCHAR(5) = 'en-US'
+	,@ErrCode INT = 0 OUTPUT
+AS
 /*Created: 20090825@Peter  
 Task : Update affiliate status from disapproved->pending , disapproved-> approved,pending-->disapproved,pending-->approved  
 DB: DB052.Affiliate_ZZun  
 Original : [Aff_CustomerUpdStatus]  
 Revisions:  
-  Long@20130911: do not check email existance in case of Kiosk
+  -Long@20130911: do not check email existance in case of Kiosk
+  -20140127@Bobby: inogre currency checking when assign NoCommission group
+
 Param's Explanation:  
 • @AffID : Affiliate ID  
 • @userid : User update  
@@ -25,114 +27,167 @@ Param's Explanation:
                  
 • @ErrCode  
 • @ErrMsg  
-*/  
-SET NOCOUNT ON  
---Check permission-----------------------------  
-EXEC [dbo].[Aff_Con_CheckPermission]   
- @custid=@UserID,@funcname='[Affiliate]',  
- @System = 'AFFILIATE',  
- @ErrCode=@ErrCode output
-   
-If @ErrCode <> 0  
- RETURN  
-  
-IF (select at.Name
-	from afftype at with(nolock), affinfo ai with(nolock)
-	where ai.AffType = at.TypeID and ai.AffID = @AffId) not like '%kiosk%'
-BEGIN 
-	Declare @Email nvarchar(50)  
-	  
-	select @Email = Email from AffInfo with (nolock) where affid=@affid  
-	  
-	if( Exists(select 1 from AffInfo with (nolock) where affid<>@affid and Email = @Email and Status in ('approved','pending')) and @Status in ('approved','pending'))  
-	Begin  
-	 SELECT @ErrCode = 15  
-	 return  
-	End  
-END
-  
-  
-if(not exists(select 1 from AffInfo with (nolock) where affid=@affid))  
-begin  
- SELECT @ErrCode = 1006  
-   return  
-end  
------------------------------------------------  
-if(@Status not in ('approved','disapproved','pending'))  
-begin   
- SELECT @ErrCode = 1007  
-  return  
-end  
-  
-  
-if @Status= 'approved' --from disapproved,pending-->approved  
- Begin  
-  IF Exists(Select 1  
-                  From AffInfo ai with(nolock)   
-                  where ai.email=(select email from AffInfo with (nolock) where affid=@affid)  
-                        and ai.affid <> @affid and lower(ai.Status)='approved')  
-  BEGIN  
-   SELECT @ErrCode = 15  
-   return  
-  END   
-    if(not exists(select 1 from CommGroup with (nolock) where groupid=@groupid and IsDeleted=0))  
-  BEGIN  
-   SELECT @ErrCode = 1008  
-   return  
-  END    
-  --Check Currency is valid  
-  declare @Currency varchar(5)  
-  Select @Currency =currency  
-  from AffINfo (nolock)  
-  where AffID=@AffID  
-  
-  
-  if(not exists (Select 1 from CommGroup with (nolock) where groupid=@groupid and Currency=@Currency) )  
-  begin  
-   SELECT @ErrCode = 1009  
-   return  
-  end  
-End  
-  
-Declare @GroupName nvarchar(100)  
-  
-Select @GroupName = GroupName from commgroup nolock where GroupId = @GroupID  
-  
-BEGIN TRANSACTION   
-UPDATE AffInfo with(rowlock,updlock)   
-SET [Password] = isnull(@Password,[Password]),  
- [Status]=@Status,  
- GroupID=isnull(@GroupID,GroupID),  
- ApprovedDate=(case when @Status in ('approved','disapproved') then current_timestamp else null end),  
- AffType = (case when @GroupName = 'Media' then 2 else AffType end)  
-WHERE affid = @affid  
-IF @@Error <> 0   
-begin  
- SELECT @ErrCode = 1010  
- ROLLBACK TRANSACTION  
- return  
-end  
-  
-COMMIT TRANSACTION  
-  
---Write the log   
-DECLARE @LogData nvarchar(4000),@SPName varchar(100)  
-  
-SELECT @LogData = 'Update Affiliate''s Status. '  
-                  + 'Status=' + dbo.Aff_ToString(@Status)  
-                  + '. Password=' + dbo.Aff_ToString(@Password)  
-                  + '. GroupID=' + dbo.Aff_ToString(@GroupID)    
-select @SPName=OBJECT_NAME(@@ProcID)  
-  
-EXEC [dbo].[Aff_WriteLog]  
- @Creator=@UserId,   
- @AffID=@AffID,  
- @Typename= 'UserInfo',   
- @SPName=@SPName ,  
- @IP =@IP,  
- @Details=@LogData    
-  
+*/
+BEGIN
+	SET NOCOUNT ON;
 
+	--Check permission-----------------------------  
+	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserID
+		,@funcname = '[Affiliate]'
+		,@System = 'AFFILIATE'
+		,@ErrCode = @ErrCode OUTPUT
+
+	IF @ErrCode <> 0 RETURN
+
+	IF (
+			SELECT at.NAME
+			FROM afftype at WITH (NOLOCK)
+				,affinfo ai WITH (NOLOCK)
+			WHERE ai.AffType = at.TypeID AND ai.AffID = @AffId
+			) NOT LIKE '%kiosk%'
+	BEGIN
+		DECLARE @Email NVARCHAR(50)
+
+		SELECT @Email = Email
+		FROM AffInfo WITH (NOLOCK)
+		WHERE affid = @affid
+
+		IF (
+				EXISTS (
+					SELECT 1
+					FROM AffInfo WITH (NOLOCK)
+					WHERE affid <> @affid AND Email = @Email AND STATUS IN ('approved', 'pending')
+					) AND @Status IN ('approved', 'pending')
+				)
+		BEGIN
+			SELECT @ErrCode = 15
+
+			RETURN
+		END
+	END
+
+	IF (
+			NOT EXISTS (
+				SELECT 1
+				FROM AffInfo WITH (NOLOCK)
+				WHERE affid = @affid
+				)
+			)
+	BEGIN
+		SELECT @ErrCode = 1006
+
+		RETURN
+	END
+
+	-----------------------------------------------  
+	IF (@Status NOT IN ('approved', 'disapproved', 'pending'))
+	BEGIN
+		SELECT @ErrCode = 1007
+
+		RETURN
+	END
+
+	IF @Status = 'approved' --from disapproved,pending-->approved  
+	BEGIN
+		IF EXISTS (
+				SELECT 1
+				FROM AffInfo ai WITH (NOLOCK)
+				WHERE ai.email = (
+						SELECT email
+						FROM AffInfo WITH (NOLOCK)
+						WHERE affid = @affid
+						) AND ai.affid <> @affid AND lower(ai.STATUS) = 'approved'
+				)
+		BEGIN
+			SELECT @ErrCode = 15
+
+			RETURN
+		END
+
+		IF (
+				NOT EXISTS (
+					SELECT 1
+					FROM CommGroup WITH (NOLOCK)
+					WHERE groupid = @groupid AND IsDeleted = 0
+					)
+				)
+		BEGIN
+			SELECT @ErrCode = 1008
+
+			RETURN
+		END
+
+		--Check Currency is valid  
+		DECLARE @Currency VARCHAR(5)
+
+		SELECT @Currency = currency
+		FROM AffINfo(NOLOCK)
+		WHERE AffID = @AffID
+
+		IF (
+				NOT EXISTS (
+					SELECT 1
+					FROM CommGroup WITH (NOLOCK)
+					WHERE groupid = @groupid 
+						AND (@groupid=102 OR Currency = @Currency) --inogre currency checking when assign NoCommission group
+					)
+				)
+		BEGIN
+			SELECT @ErrCode = 1009
+
+			RETURN
+		END
+	END
+
+	DECLARE @GroupName NVARCHAR(100)
+
+	SELECT @GroupName = GroupName
+	FROM commgroup NOLOCK
+	WHERE GroupId = @GroupID
+
+	BEGIN TRANSACTION
+
+	UPDATE AffInfo WITH (ROWLOCK, UPDLOCK)
+	SET [Password] = isnull(@Password, [Password])
+		,[Status] = @Status
+		,GroupID = isnull(@GroupID, GroupID)
+		,ApprovedDate = (CASE 
+			WHEN @Status IN ('approved', 'disapproved') THEN current_timestamp
+			ELSE NULL END
+			)
+		,AffType = (CASE 
+			WHEN @GroupName = 'Media' THEN 2
+			ELSE AffType END
+			)
+	WHERE affid = @affid
+
+	IF @@Error <> 0
+	BEGIN
+		SELECT @ErrCode = 1010
+
+		ROLLBACK TRANSACTION
+
+		RETURN
+	END
+
+	COMMIT TRANSACTION
+
+	--Write the log   
+	DECLARE @LogData NVARCHAR(4000)
+		,@SPName VARCHAR(100)
+
+	SELECT @LogData = 'Update Affiliate''s Status. ' + 'Status=' + dbo.Aff_ToString(@Status) + '. Password=' + dbo.Aff_ToString(@Password) + '. GroupID=' + dbo.Aff_ToString(@GroupID)
+
+	SELECT @SPName = OBJECT_NAME(@@ProcID)
+
+	EXEC [dbo].[Aff_WriteLog] @Creator = @UserId
+		,@AffID = @AffID
+		,@Typename = 'UserInfo'
+		,@SPName = @SPName
+		,@IP = @IP
+		,@Details = @LogData
+END
+GO
 
 
 

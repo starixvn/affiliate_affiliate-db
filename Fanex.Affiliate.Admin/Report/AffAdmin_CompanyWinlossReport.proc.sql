@@ -67,6 +67,7 @@ BEGIN
 			p.Currency,
 			p.CurrencyId,
 			ad.SysExRate as ExRate,
+			exr.AffExRate,
 			CAST(Sum(ISNULL(ad.MemDeposit,0))AS money) as Deposit,
 			Sum(ISNULL(ad.MemWithdrawal,0)) as Withdrawal,
 			Sum(ISNULL(ad.MemBonus,0)) as Bonus,
@@ -246,14 +247,25 @@ BEGIN
 				where Winlostdate between @FromDate and @ToDate
 					AND Turnover > 0
 				GROUP  by Winlostdate
-			) as m ON DATEDIFF(d, ad.Winlostdate, m.WinlostDate) = 0	
+			) as m ON DATEDIFF(d, ad.Winlostdate, m.WinlostDate) = 0
+			inner join (SELECT AffID, Winlostdate, CASE @BaseCurrency
+														WHEN 2 THEN AffExRate
+														ELSE 1
+													END AffExRate 
+							FROM dbo.AffDaily WITH(NOLOCK)
+							WHERE Winlostdate between @FromDate and @ToDate) exr	
+				ON ad.AffID = exr.AffID AND ad.Winlostdate = exr.Winlostdate	
 		where ad.Winlostdate between @FromDate and @ToDate
 		Group by ad.Winlostdate
 				, p.Currency
 				, p.CurrencyId
-				, ad.SysExRate
-				--, ad.AffExRate
+				, exr.AffExRate
 				, m.ActivePlayer
+		HAVING SUM(ad.MemDeposit) > 0 
+			AND SUM(ad.MemWinlost) > 0 
+			AND SUM(ad.MemBonus) > 0
+			AND SUM(ad.MemAdjustment) > 0
+			AND SUM(ad.Turnover) > 0
 	End
 	Else
 	Begin --By Month
@@ -504,6 +516,11 @@ BEGIN
 				GROUP  by dateadd(m, datediff(m, 0, Winlostdate), 0)
 			) as m ON DATEDIFF(m, tmp.Winlostdate, m.WinlostDate) = 0	
 		Group by tmp.Winlostdate, tmp.Currency, tmp.CurrencyId
+		HAVING SUM(tmp.MemDeposit) > 0 
+			AND SUM(tmp.MemWinlost) > 0 
+			AND SUM(MemBonus) > 0
+			AND SUM(MemAdjustment) > 0
+			AND SUM(Turnover) > 0
 		order by tmp.Winlostdate
 	End
 
