@@ -652,5 +652,11 @@
     </None>
     <Build Include="Service\Aff_PlayersWinlostByProductSel.proc.sql" />
     <Build Include="Service\Aff_CustomerSelByUserName.proc.sql" />
+    <None Include="SystemSettings\AffAdmin_SystemSettingsIns.prod.sql">
+      <SubType>NotInBuild</SubType>
+    </None>
+    <None Include="AffiliateInfo\AffAdmin_AffiliateUpdAccountType.proc.sql">
+      <SubType>Code</SubType>
+    </None>
   </ItemGroup>
 </Project>

@@ -517,7 +517,7 @@ set a.MemPSP= Cast(a.HasPSP as int)* isnull(a.MemPSP,0)*isnull(a.PSPPercent,1),
     a.OddsFee_aff=Cast(a.HasOddsFee as int) *  abs(isnull(a.MemWinlost_aff,0)) * isnull(a.OddsFeePercent,1) ,   
      
    a.NetWinlost_aff=(-isnull(a.MemWinlost_aff,0) 
-                  - Cast(a.HasPSP as int)* isnull(a.MemPSP,0)*isnull(a.PSPPercent,1)
+                  - Cast(a.HasPSP as int)* isnull(a.MemPSP_aff,0)*isnull(a.PSPPercent,1)
                  -Cast(a.HasOddsFee as int) *  abs(isnull(a.MemWinlost_aff,0)) * isnull(a.OddsFeePercent,1) 
                 -Cast(a.HasMarketing as int) *  abs(isnull(a.MemWinlost_aff,0)) * isnull(a.MarketingPercent,1) 
                 ),  
