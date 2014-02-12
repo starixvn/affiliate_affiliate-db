@@ -17,8 +17,8 @@ CREATE TABLE dbo.SeqClickStats (
 --initial SeqID
 DECLARE @InitSeqID INT;
 
-SELECT @InitSeqID = MAX([TrackingID])
-FROM [dbo].[ClickStatistics] WITH(NOLOCK)
+SELECT @InitSeqID = MAX([ClickID])
+FROM [dbo].[ClickStatistics1] WITH(NOLOCK)
 
 SET @InitSeqID = ISNULL(@InitSeqID, 0)
 
@@ -98,7 +98,7 @@ BEGIN
 	INNER JOIN dbo.AffInfo ai WITH(NOLOCK) 
 		ON mem.EUAffID = ai.EUAffID
 
-	SET IDENTITY_INSERT dbo.ClickStatistics OFF;
+	SET IDENTITY_INSERT dbo.ClickStatistics1 OFF;
 
 	DROP TABLE #tmpPlayers;
 	PRINT 'SeqClickStats init sucessed.'

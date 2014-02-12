@@ -1,0 +1,61 @@
+﻿Alter PROCEDURE [dbo].[Aff_Con_FuncInfoDel]
+	@FuncID int,
+	@Language varchar(5)= 'en-US', 
+	@IP varchar(15) = '',
+	@ErrCode int = 0 OUTPUT,
+	@ErrMsg nvarchar(200) = '' OUTPUT ,
+	@UserID int
+AS
+/*DB03.BODB02 --> DB052.Affiliate_ZZun*/
+-- 20101214@Peter : Move this SP to DB DB052.Affiliate_ZZun
+SET NOCOUNT ON
+--Check permission for account site: @phuc20080213
+EXEC [dbo].[Aff_Con_CheckPermission] @custid=@UserID,@funcname='[UserControl]',@System='AFFILIATE',@ErrCode=@ErrCode output,@ErrMsg=@ErrMsg output
+If @ErrCode <> 0
+	RETURN
+--end
+
+if exists (select 1 from AffFunctionInfo with (nolock) where ParentId = @FuncId and ParentId <> FuncId)
+BEGIN
+	Select @ErrMsg = 	case @Language 
+					when 'en-US' then N'Error occurs. This function has sub function belong to, so you can not delete!'
+					when 'zh-CN' then N'Error occurs. This function has sub function belong to, so you can not delete!'
+					else N'Error occurs. This function has sub function belong to, so you can not delete!'
+			end, @ErrCode = 102
+	return
+END
+BEGIN TRANSACTION
+	DELETE FROM AffGroupPolicy where FuncId=@FuncId
+	DELETE FROM AffMemberPolicy where FuncId=@FuncId
+	DELETE FROM AffFunctionInfo where FuncId=@FuncId
+	IF @@ERROR <> 0
+		BEGIN
+			ROLLBACK TRANSACTION
+			select @ErrMsg = case @Language 
+						when 'en-US' then 'Delete function failed.'
+						when 'zh-CN' then N'Delete function failed.'
+						when 'J' then N'Delete function failed.'
+						else N'Delete function failed.'
+					end, @ErrCode = 103
+			return
+		END
+COMMIT TRANSACTION
+	
+DECLARE @SPName varchar(50), @LogData nvarchar(200)
+select @SPName = OBJECT_NAME(@@ProcID)
+
+SELECT @LogData = '[AFFILIATE] Delete FunctionID:' + dbo.Aff_ToString(@FuncId)
+
+
+EXEC [dbo].[Aff_WriteLog]
+		@Creator=@UserID,	
+		@AffID=0,
+		@Typename= 'UserControl',	
+		@SPName=@SPName ,		
+		@IP =@IP,
+		@Details=@LogData	
+
+GO
+GRANT VIEW DEFINITION ON [dbo].[Aff_Con_FuncInfoDel] TO [vnteam]
+go
+GRANT EXECUTE ON [dbo].[Aff_Con_FuncInfoDel] TO [bodbAdminNet]

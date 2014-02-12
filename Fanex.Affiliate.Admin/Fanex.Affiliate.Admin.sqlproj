@@ -667,5 +667,8 @@
     <None Include="CommGroup\AffAdmin_CommGroupAssign.proc.sql">
       <SubType>NotInBuild</SubType>
     </None>
+    <None Include="Currency\AffAdmin_SystemSupportedCurrencies.proc.sql">
+      <SubType>Code</SubType>
+    </None>
   </ItemGroup>
 </Project>

@@ -1,0 +1,69 @@
+-- select 'truncate table ' + name from Sys.tables
+
+use Affiliate_Licensee
+
+GO
+
+truncate table UserLog_IISErr
+truncate table TransType
+truncate table TrackingCode
+truncate table TaskManager
+truncate table TaskLog
+truncate table SystemSettings
+truncate table RefResources2
+truncate table RefResources
+truncate table Ref
+truncate table Product
+truncate table On_User
+truncate table News
+truncate table MemberRemoval
+truncate table MemberInfo
+truncate table MemberDomain
+truncate table ClickStatistics
+truncate table Branch
+truncate table BannerTypes
+truncate table Banners
+truncate table BankTrans
+truncate table AffType
+truncate table AffTrans
+truncate table AffPayout
+truncate table AffMemberPolicy
+truncate table AffInfo
+truncate table AffGroupPolicy
+truncate table AffGroupInfo
+truncate table AffGroupHistory
+truncate table AffFunctionInfo
+truncate table AffDomainControl
+truncate table AffDomain
+truncate table AffDetail
+truncate table AffDailySummary
+truncate table AffDaily
+truncate table AffCommission
+truncate table AdminUser
+truncate table AdminNotes
+truncate table AdminFavorite
+truncate table AdminBranch
+truncate table LogType
+truncate table Language
+truncate table IP
+truncate table GroupSettingHistory
+truncate table GroupSetting
+truncate table ExchangeDaily
+truncate table Exchange
+truncate table ErrorLog
+truncate table EmailHistory
+truncate table DeductionType
+truncate table DeductionSettingHistory
+truncate table DeductionSetting
+truncate table CurrencyConverter
+truncate table Currency
+truncate table Country
+truncate table CommGroupHistory
+truncate table CommGroup
+truncate table UserLog
+truncate table MemberDailyTransaction
+truncate table MemberDaily
+truncate table ClickStatisticsSum
+truncate table ClickStatistics_bk
+truncate table MemberDailyRemoved
+truncate table UserLog_RunSP

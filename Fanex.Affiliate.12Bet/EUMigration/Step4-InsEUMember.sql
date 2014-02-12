@@ -47,7 +47,7 @@ SELECT mem.IBCCustID			--<IBCCustID, int,>
     ,mem.Email					--<Email, nvarchar(50),>
     ,mem.Recommend				--<Recommend, int,>
     ,seq.SeqID				--<ClickId, bigint,>
-    ,GETDATE() AS AffAffectedDate		--<AffAffectedDate, datetime,>
+    ,CAST(GETDATE() AS DATE) AS AffAffectedDate		--<AffAffectedDate, datetime,>
     ,mem.EUAffID						--<EUAffID, int,>
 FROM dbo.SeqClickStats seq
 INNER JOIN dbo.EUAffPlayers mem
