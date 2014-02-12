@@ -80,8 +80,8 @@ BEGIN
 			a.CompletedDate,
 			ABS(
 			CASE @BaseCurrency 
-				WHEN 0 THEN a.Amount -- no need to convert to system currency
-				else cast(a.Amount * dbo.Aff_GetExchangeRate(b.Currency, @ToCurrency, null) as Money)
+				WHEN 1 THEN cast(a.Amount * dbo.Aff_GetExchangeRate(b.Currency, @ToCurrency, null) as Money)
+				ELSE a.Amount --Aff currency
 			end) as Amt,
 			ABS(cast(a.Amount * dbo.Aff_GetExchangeRate(b.Currency, @ToCurrency, null) as Money)) as ConvertedAmt,
 			dbo.Aff_GetExchangeRate(b.Currency, @SystemCurrency, null) as ExchangeRate, 

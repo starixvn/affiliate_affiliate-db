@@ -74,7 +74,7 @@ BEGIN
 	BEGIN 
 		SET @Currency = @memberCurrency;
 	END
-
+	
 	/*** get currency info ***/
 	SELECT @currencyID = ExchangeID 
 	FROM [dbo].[CurrencyConverter] WITH(NOLOCK)
@@ -85,7 +85,7 @@ BEGIN
 	BEGIN
 		--update Btag
 		SELECT TOP(1) 
-			@Btag = ISNULL(SValue, '0') + '_' + CAST(@AffID AS VARCHAR(10)) + '_0' 
+			@Btag = ISNULL(SValue, '0') + '_' + cast(@AffID as varchar(10)) + '_0' 
 		FROM dbo.[SystemSettings] WITH(NOLOCK)
 			WHERE SName='LicenseeID'
 
@@ -100,7 +100,7 @@ BEGIN
 		DELETE FROM dbo.MemberRemoval 
 		WHERE UserName = @Username
 			AND AffID = @AffID
-
+			
 		SET @isUpdated = 1;
 
 	END
@@ -184,5 +184,7 @@ BEGIN
 			@Details=@LogData
 	END
 END
-go
-GRANT EXECUTE ON [dbo].[Aff_CustomerInsMemberManually] TO [bodbadminNet]
+
+GO
+
+GRANT EXECUTE ON [dbo].[AffAdmin_CustomerInsMemberManually] TO [bodbadminNet]

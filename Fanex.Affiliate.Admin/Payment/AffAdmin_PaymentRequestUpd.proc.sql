@@ -1,18 +1,18 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_PaymentRequestUpd]
-	@TransID bigint,   
-	@Status nvarchar(50),  
-	@AdminDesc nvarchar(300) = null,  
-	@AffDesc nvarchar(300) = null,  
-	@PreferredLanguage varchar(20)='en-US' OUTPUT,  
-	@MailOption bit = 0 OUTPUT,  
-	@UserID int,   
-	@IP varchar(15) = '',  
-	@RefNo bigint=0,
-	@IbcRefNo bigint = 0,  
-	@IbcTransId bigint = 0,  
-	@IBCUsername varchar(50) = '',  
-	@ErrCode int = 0 OUTPUT
-AS  
+﻿ALTER PROCEDURE [dbo].[AffAdmin_PaymentRequestUpd] 
+	@TransID BIGINT
+	,@Status NVARCHAR(50)
+	,@AdminDesc NVARCHAR(300) = NULL
+	,@AffDesc NVARCHAR(300) = NULL
+	,@PreferredLanguage VARCHAR(20) = 'en-US' OUTPUT
+	,@MailOption BIT = 0 OUTPUT
+	,@UserID INT
+	,@IP VARCHAR(15) = ''
+	,@RefNo BIGINT = 0
+	,@IbcRefNo BIGINT = 0
+	,@IbcTransId BIGINT = 0
+	,@IBCUsername VARCHAR(50) = ''
+	,@ErrCode INT = 0 OUTPUT
+AS
 -- DB: DB052.Affiliate_MYM  
 /*  
 Creator : Peter@20090910  
@@ -33,107 +33,125 @@ Revisions:
  = 0: Transaction recorded successfully.  
  > 0: Specific Error.  
 • @ErrMsg: Error description.  
-*/  
-  
-  
---Check whether this is pending payment request   
-SET NOCOUNT ON  
-Declare @AffID int, @RefID bigint , @TransType int  
-Select @TransType = 202  
-Select @AffID=AffID,@RefID=RefID  
-from AffTrans (nolock)  
-where TransID=@TransID and TransType= @TransType and Status='pending'  
-  
-if(@AffID is null or @RefID is null)  
-BEGIN  
-           Select @ErrCode = 1  
- return  
-END  
-  
-/*Check Condition to excute this sp  
+*/
+BEGIN
+	--Check whether this is pending payment request   
+	SET NOCOUNT ON
+
+	DECLARE @AffID INT
+		,@RefID BIGINT
+		,@TransType INT
+
+	SELECT @TransType = 202
+
+	SELECT @AffID = AffID
+		,@RefID = RefID
+	FROM AffTrans(NOLOCK)
+	WHERE TransID = @TransID AND TransType = @TransType AND STATUS = 'pending'
+
+	IF (@AffID IS NULL OR @RefID IS NULL)
+	BEGIN
+		SELECT @ErrCode = 1
+
+		RETURN
+	END
+
+	/*Check Condition to excute this sp  
   + From Affiliate Site : @UserID=@AffID and  @Status='Cancelled'  
   + From AffAdmin Site: @UserID<> @AffID and Status in ('Approved','Rejected')   
-*/  
-if( @UserID<>@AffID)  
-BEGIN  
- --Check permission-----------------------------  
- EXEC [dbo].[Aff_Con_CheckPermission]  
-  @custid=@UserID,@funcname='[Payment]',  
-  @System = 'AFFILIATE',  
-  @ErrCode=@ErrCode output
- If @ErrCode <> 0  
-  RETURN  
-     if(@Status not in ('Approved','Rejected'))  
-  BEGIN  
-       Select @ErrCode = 2  
-   return  
-  END  
-END  
-  
-if(@UserID=@AffID and  @Status<>'Cancelled')  
-BEGIN  
-           Select @ErrCode = 2  
- return  
-END  
-  
-  
-  
-BEGIN TRANSACTION  
-BEGIN TRY  
-    declare @CompletedDate datetime  
-     Select @PreferredLanguage=PreferredLanguage  
-   , @MailOption = MailOption  
-     from AffDetail (nolock)  
-     where AffID=@AffID   
-       
-    Select @CompletedDate=current_timestamp  
-    Update  AffPayout with (rowlock,updlock)  
-    set [Status]=@Status,  
-        CompletedDate=@CompletedDate,  
-        AdminDesc=isnull(@AdminDesc,AdminDesc),  
-        AffDesc=isnull(@AffDesc,AffDesc),  
-	  IbcRefNo = @IbcRefNo,  
-	  IbcTransId = @IbcTransId
-	  ,IBCUsername = (case when isnull(IBCUsername, '') = '' then @IBCUsername else IBCUsername end)  
-    where RefID=@RefID and AffID=@AffID  
-      
-    Update  AffTrans with (rowlock,updlock)  
-    set [Status]=@Status,  
-        CompletedDate=@CompletedDate,  
-        Creator=@UserID  
-    where TransID=@TransID and AffID=@AffID   
-	
-	-- Recalculate BF in AffInfo table  
-	update AffInfo with (rowlock,updlock)  
-	Set BF=dbo.Aff_GetAffBalance (AffID)  
-	where AffID=@AffID      
-END TRY  
-  
-BEGIN CATCH  
- rollback transaction   
-    Select @ErrCode = 3  
- return  
-    RETURN  
-END CATCH  
-  
-COMMIT TRANSACTION   
-  
-  
-declare @SPName varchar(50), @LogData nvarchar(4000)  
-select @SPName = OBJECT_NAME(@@ProcID)   
-  
-Select @LogData =  'Update status for payout Request. TransID = ' + dbo.Aff_ToString(@TransID) + '. Status = ' + dbo.Aff_ToString(@Status)  
-  
-EXEC [dbo].[Aff_WriteLog]  
- @Creator=@UserID,   
- @AffID=@AffID,  
- @Typename= 'Payout',   
- @SPName=@SPName ,  
- @RefNo=@RefNo,  
- @IP =@IP,  
- @Details=@LogData
+*/
+	IF (@UserID <> @AffID)
+	BEGIN
+		--Check permission-----------------------------  
+		EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserID
+			,@funcname = '[Payment]'
+			,@System = 'AFFILIATE'
+			,@ErrCode = @ErrCode OUTPUT
 
- GO
+		IF @ErrCode <> 0 RETURN
+
+		IF (@Status NOT IN ('Approved', 'Rejected'))
+		BEGIN
+			SELECT @ErrCode = 2
+
+			RETURN
+		END
+	END
+
+	IF (@UserID = @AffID AND @Status <> 'Cancelled')
+	BEGIN
+		SELECT @ErrCode = 2
+
+		RETURN
+	END
+
+	BEGIN TRANSACTION
+
+	BEGIN TRY
+		DECLARE @CompletedDate DATETIME
+
+		SELECT @PreferredLanguage = PreferredLanguage
+			,@MailOption = MailOption
+		FROM AffDetail(NOLOCK)
+		WHERE AffID = @AffID
+
+		SELECT @CompletedDate = current_timestamp
+
+		UPDATE AffPayout WITH (ROWLOCK, UPDLOCK)
+		SET [Status] = @Status
+			,CompletedDate = @CompletedDate
+			,AdminDesc = isnull(@AdminDesc, AdminDesc)
+			,AffDesc = isnull(@AffDesc, AffDesc)
+			,IbcRefNo = @IbcRefNo
+			,IbcTransId = @IbcTransId
+			,IBCUsername = (CASE 
+				WHEN isnull(IBCUsername, '') = '' THEN @IBCUsername
+				ELSE IBCUsername END
+				)
+		WHERE RefID = @RefID AND AffID = @AffID
+
+		UPDATE AffTrans WITH (ROWLOCK, UPDLOCK)
+		SET [Status] = @Status
+			,CompletedDate = @CompletedDate
+			,Creator = @UserID
+		WHERE TransID = @TransID AND AffID = @AffID
+
+		-- Recalculate BF in AffInfo table  
+		UPDATE AffInfo WITH (ROWLOCK, UPDLOCK)
+		SET BF = dbo.Aff_GetAffBalance(AffID)
+		WHERE AffID = @AffID
+	END TRY
+
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+
+		SELECT @ErrCode = 3
+
+		RETURN
+
+		RETURN
+	END CATCH
+
+	COMMIT TRANSACTION
+
+	DECLARE @SPName VARCHAR(50)
+		,@LogData NVARCHAR(4000)
+
+	SELECT @SPName = OBJECT_NAME(@@ProcID)
+
+	SELECT @LogData = 'Update status for payout Request. TransID = ' + dbo.Aff_ToString(@TransID) + '. Status = ' + dbo.Aff_ToString(@Status)
+
+	EXEC [dbo].[Aff_WriteLog] @Creator = @UserID
+		,@AffID = @AffID
+		,@Typename = 'Payout'
+		,@SPName = @SPName
+		,@RefNo = @RefNo
+		,@IP = @IP
+		,@Details = @LogData
+END
+GO
+
 GRANT EXECUTE ON [dbo].[AffAdmin_PaymentRequestUpd] TO [bodbAdminNet]
 GO
+
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_PaymentRequestUpd] TO [vnteam]

@@ -127,7 +127,8 @@ BEGIN
 			INNER JOIN AffInfo af with (nolock) on m.AffID = af.AffId    
 			left join AffType at with (nolock) on af.AffType = at.TypeID 
 			left join Country c with (nolock) on m.CountryID = c.CountryID
-			left join MemberRemoval mr with (nolock) on m.UserName = mr.UserName
+			--left join MemberRemoval mr with (nolock) on m.UserName = mr.UserName
+			left join (SELECT DISTINCT UserName FROM dbo.MemberRemoval with (nolock)) mr on m.UserName = mr.UserName
 		where (case     
 					when @AffID IS NULL then 1     
 					else     
