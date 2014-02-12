@@ -1,4 +1,13 @@
-﻿ALTER PROCEDURE [dbo].[Aff_StatisticsSel]
+﻿USE [Affiliate_12BET]
+GO
+/****** Object:  StoredProcedure [dbo].[Aff_StatisticsSel]    Script Date: 02/11/2014 02:24:06 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/****** Object:  Stored Procedure dbo.Aff_StatisticsSel    Script Date: 1/18/2013 6:02:40 AM ******/
+
+ALTER PROCEDURE [dbo].[Aff_StatisticsSel]
 	@AffID int,
 	@MonthDate smalldatetime,
 	@TotalQualifiedMembers int OUTPUT,
@@ -43,8 +52,10 @@ Param's Explanation:
 */
 
 SET NOCOUNT ON
-
-
+DECLARE @FromBeginMonth smalldatetime, @ToNextMonth smalldatetime
+select @FromBeginMonth = DATEADD(month, DATEDIFF(month, 0, @MonthDate), 0)
+select @ToNextMonth = DATEADD(month, 1, @FromBeginMonth)
+	
 
 declare @MaxTransDate smalldatetime, @FromDate smalldatetime, @CurrentDate smalldatetime, @PreviousDate smalldatetime
 	, @SportsBookID int, @HorseRacingID int,@CasinoID int, @SPTurnover money, @HRTurnover money, @CasinoTurnover money, @CasinoDeposit money
@@ -62,8 +73,9 @@ select @FromDate = dateadd(d, 1, @MaxTransDate)
 select @NewSignUpDep = Count(*)
 from MemberInfo m with (nolock)
 where m.AffId = @AffId 	
-	and datediff(m, CreatedDate, @MonthDate) = 0
-	and m.IBCCustId not in (select IBCCustId From MemberRemoval with(nolock) where datediff(m, RemovedDate, @MonthDate) = 0)	
+	and CreatedDate >=  @FromBeginMonth and CreatedDate < @ToNextMonth -- datediff(m, CreatedDate, @MonthDate) = 0
+	and m.IBCCustId not in (select IBCCustId From MemberRemoval with(nolock) 
+							where RemovedDate >=  @FromBeginMonth and RemovedDate < @ToNextMonth)--datediff(m, RemovedDate, @MonthDate) = 0	
 
 select --If member is created and removed in the same month, he/she will not be counted.
 	@TotalPlayerDepUp = Count(*)
@@ -225,7 +237,7 @@ begin
 	where AffID=@AffID
 			   and TrackingID=0
 			   and IsForMonth=1 
-			   and datediff(mm,@MonthDate,[date])=0
+			   and [date] >=  @FromBeginMonth and [date] < @ToNextMonth   --and datediff(mm,@MonthDate,[date])=0
 end
 
 --Tracking statistics for new link
@@ -238,12 +250,11 @@ from [dbo].[Aff_GetClickStatisticsNew_Func](@AffId, @MonthDate, @Todate)
 
 --get Balance broughtForward
 select @BalBroughtforward = isnull(dbo.Aff_GetAffBalance(@AffID), 0)
-		
 GO
-GRANT EXECUTE ON [dbo].[Aff_StatisticsSel] TO [bodbDownlineNet]
+GRANT EXECUTE ON [dbo].[Aff_StatisticsSel] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT EXECUTE ON [dbo].[Aff_StatisticsSel] TO [bodbDownlineNetView]
+GRANT EXECUTE ON [dbo].[Aff_StatisticsSel] TO [bodbDownlineNet] AS [dbo]
 GO
-GRANT EXECUTE ON [dbo].[Aff_StatisticsSel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[Aff_StatisticsSel] TO [bodbDownlineNetView] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_StatisticsSel] TO [VNTeam]
+GRANT VIEW DEFINITION ON [dbo].[Aff_StatisticsSel] TO [vnteam] AS [dbo]
