@@ -248,7 +248,7 @@ BEGIN
 					AND Turnover > 0
 				GROUP  by Winlostdate
 			) as m ON DATEDIFF(d, ad.Winlostdate, m.WinlostDate) = 0
-			inner join (SELECT AffID, Winlostdate, CASE @BaseCurrency
+			inner join (SELECT DISTINCT AffID, Winlostdate, CASE @BaseCurrency
 														WHEN 2 THEN AffExRate
 														ELSE 1
 													END AffExRate 

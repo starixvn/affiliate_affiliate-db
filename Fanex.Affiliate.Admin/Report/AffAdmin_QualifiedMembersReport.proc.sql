@@ -2,6 +2,7 @@
 	@UserId int=0, 
 	@AffId int,
 	@MonthDate datetime
+	, @BaseCurrency tinyint
 AS
 /*    
 Task : Qualified Members Report  
@@ -14,7 +15,7 @@ Param's Explanation:
 • @AffId: Affiliate ID
 • @Month: Month need to view
 */
-
+begin
 SET NOCOUNT ON 
 
 Declare @HasPermission bit
@@ -27,8 +28,8 @@ IF(@HasPermission = 0)
 -- Get productid
 Declare @FromDate datetime, @ToDate datetime, @QualifiedAmount money
 		, @Sportsbook int, @NumberGame int, @LiveCasino int, @RNGCasino int
+		SELECT @Sportsbook = dbo.[Aff_GetProductID]('Sportsbook')
 
-Select	@Sportsbook = dbo.[Aff_GetProductID]('Sportsbook')
 		, @NumberGame = dbo.[Aff_GetProductID]('Number Game')
 		, @LiveCasino = dbo.[Aff_GetProductID]('Live Casino')
 		, @RNGCasino = dbo.[Aff_GetProductID]('RNG Casino')
@@ -49,7 +50,7 @@ From MemberDaily m with (nolock)
 Where AffId = @AffID
 	And WinlostDate between @FromDate AND @ToDate
 Group BY m.Username, e.Code
-
+end
 
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_QualifiedMembersReport] TO [bodbAdminNet] AS [dbo]
