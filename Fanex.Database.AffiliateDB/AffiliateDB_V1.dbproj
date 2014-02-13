@@ -36,7 +36,7 @@
     <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
     <TargetConnectionString>
     </TargetConnectionString>
-    <TargetDatabase>AffiliateDB</TargetDatabase>
+    <TargetDatabase>AffiliateDB_V1</TargetDatabase>
     <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
     <SuppressWarnings>
     </SuppressWarnings>
@@ -49,7 +49,7 @@
     <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
     <TargetConnectionString>
     </TargetConnectionString>
-    <TargetDatabase>AffiliateDB</TargetDatabase>
+    <TargetDatabase>AffiliateDB_V1</TargetDatabase>
     <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
     <SuppressWarnings>
     </SuppressWarnings>

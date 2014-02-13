@@ -695,6 +695,7 @@
     <None Include="EUMigration\Step2-PrepairGenClickStats.sql" />
     <None Include="EUMigration\Step3-InsEUAffiliate.sql" />
     <None Include="EUMigration\Step4-InsEUMember.sql" />
+    <None Include="Password\Aff_AffiliateForceChangePwd.sql" />
   </ItemGroup>
   <ItemGroup>
     <Build Include="Tracking System\Aff_AffiliateInsClickStatistics_New.sql">

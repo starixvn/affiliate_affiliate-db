@@ -7,6 +7,8 @@ Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "Fanex.Affiliate.Admin", "Fa
 EndProject
 Project("{C8D11400-126E-41CD-887F-60BD40844F9E}") = "Fanex.Affiliate.User", "Fanex.Affiliate.User\Fanex.Affiliate.User.dbproj", "{67CBC824-A49E-4E9B-A947-360F3DFE65C3}"
 EndProject
+Project("{C8D11400-126E-41CD-887F-60BD40844F9E}") = "AffiliateDB_V1", "Fanex.Database.AffiliateDB\AffiliateDB_V1.dbproj", "{03834E35-2B8D-4653-B906-ACD18BFA5A50}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -31,6 +33,12 @@ Global
 		{67CBC824-A49E-4E9B-A947-360F3DFE65C3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{67CBC824-A49E-4E9B-A947-360F3DFE65C3}.Release|Any CPU.Build.0 = Release|Any CPU
 		{67CBC824-A49E-4E9B-A947-360F3DFE65C3}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{03834E35-2B8D-4653-B906-ACD18BFA5A50}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{03834E35-2B8D-4653-B906-ACD18BFA5A50}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{03834E35-2B8D-4653-B906-ACD18BFA5A50}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{03834E35-2B8D-4653-B906-ACD18BFA5A50}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{03834E35-2B8D-4653-B906-ACD18BFA5A50}.Release|Any CPU.Build.0 = Release|Any CPU
+		{03834E35-2B8D-4653-B906-ACD18BFA5A50}.Release|Any CPU.Deploy.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
