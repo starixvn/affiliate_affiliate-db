@@ -231,9 +231,6 @@
     <None Include="Exchange\AffAdmin_ExchangeSel.sql">
       <SubType>NotInBuild</SubType>
     </None>
-    <None Include="SystemSettings\AffAdmin_SystemSupportedCurrencies.sql">
-      <SubType>NotInBuild</SubType>
-    </None>
     <None Include="CommGroup\AffAdmin_CommGroupSelListNormal.sql">
       <SubType>NotInBuild</SubType>
     </None>
@@ -667,7 +664,7 @@
     <None Include="CommGroup\AffAdmin_CommGroupAssign.proc.sql">
       <SubType>NotInBuild</SubType>
     </None>
-    <None Include="Currency\AffAdmin_SystemSupportedCurrencies.proc.sql">
+    <None Include="SystemSettings\AffAdmin_SystemSupportedCurrencies.proc.sql">
       <SubType>Code</SubType>
     </None>
   </ItemGroup>

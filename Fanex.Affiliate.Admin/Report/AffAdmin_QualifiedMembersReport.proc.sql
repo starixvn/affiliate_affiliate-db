@@ -1,8 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_QualifiedMembersReport]
-	@UserId int=0, 
-	@AffId int,
-	@MonthDate datetime
-	, @BaseCurrency tinyint
+﻿ALTER PROCEDURE [dbo].[AffAdmin_QualifiedMembersReport] 
+	@UserId			INT = 0
+	,@AffId			INT
+	,@MonthDate		DATETIME
+	,@BaseCurrency	TINYINT
 AS
 /*    
 Task : Qualified Members Report  
@@ -15,44 +15,80 @@ Param's Explanation:
 • @AffId: Affiliate ID
 • @Month: Month need to view
 */
-begin
-SET NOCOUNT ON 
+BEGIN
+	SET NOCOUNT ON
 
-Declare @HasPermission bit
+	DECLARE @HasPermission BIT
 
-Select @HasPermission = [dbo].[AffAdmin_PermissionOnAffiliate](@UserId, @AffId)
+	SELECT @HasPermission = [dbo].[AffAdmin_PermissionOnAffiliate](@UserId, @AffId)
 
-IF(@HasPermission = 0)
-	return
+	IF (@HasPermission = 0) RETURN
 
--- Get productid
-Declare @FromDate datetime, @ToDate datetime, @QualifiedAmount money
-		, @Sportsbook int, @NumberGame int, @LiveCasino int, @RNGCasino int
-		SELECT @Sportsbook = dbo.[Aff_GetProductID]('Sportsbook')
+	-- Get productid
+	DECLARE @FromDate DATETIME
+		,@ToDate DATETIME
+		,@QualifiedAmount MONEY
+		,@Sportsbook INT
+		,@NumberGame INT
+		,@LiveCasino INT
+		,@RNGCasino INT
 
-		, @NumberGame = dbo.[Aff_GetProductID]('Number Game')
-		, @LiveCasino = dbo.[Aff_GetProductID]('Live Casino')
-		, @RNGCasino = dbo.[Aff_GetProductID]('RNG Casino')
-		, @FromDate = dbo.Aff_GetFirstDayOfMonth(@MonthDate)
-		, @ToDate = dbo.Aff_GetLastDayOfMonth(@MonthDate)
+	SELECT @Sportsbook = dbo.[Aff_GetProductID]('Sportsbook')
+		,@NumberGame = dbo.[Aff_GetProductID]('Number Game')
+		,@LiveCasino = dbo.[Aff_GetProductID]('Live Casino')
+		,@RNGCasino = dbo.[Aff_GetProductID]('RNG Casino')
+		,@FromDate = dbo.Aff_GetFirstDayOfMonth(@MonthDate)
+		,@ToDate = dbo.Aff_GetLastDayOfMonth(@MonthDate)
 
-Select @QualifiedAmount = [dbo].[AffAdmin_QualifiedAmount](@AffId, @MonthDate)
+	SELECT @QualifiedAmount = [dbo].[AffAdmin_QualifiedAmount](@AffId, @MonthDate)
 
-SELECT	m.Username
-		, e.Code as Currency
-		, @QualifiedAmount as QualifiedAmount--Get from group setting
-		, Sum(case WHEN ProductId = @Sportsbook THEN Turnover * SysExRate ELSE 0 END) as SportsbookTurnover
-		, Sum(case WHEN ProductId = @NumberGame THEN Turnover * SysExRate ELSE 0 END) as NumberGameTurnover
-		, Sum(case WHEN ProductId = @LiveCasino THEN Turnover * SysExRate ELSE 0 END) as LiveCasinoTurnover
-		, Sum(case WHEN ProductId = @RNGCasino THEN Turnover * SysExRate ELSE 0 END) as RNGCasinoTurnover
-From MemberDaily m with (nolock)	
-	Inner JOIN Exchange e WITH (NOLOCK) on m.Currency = e.ExchangeID
-Where AffId = @AffID
-	And WinlostDate between @FromDate AND @ToDate
-Group BY m.Username, e.Code
-end
+	--get exchange rate base on @BaseCurrency
+	;WITH tmpExRate AS (
+	SELECT DISTINCT UserName
+		,CASE @BaseCurrency
+			WHEN 1 THEN SysExRate
+			WHEN 2 THEN AffExRate
+			ELSE 1
+			END ExRate
+		,WinlostDate
+	FROM dbo.MemberDaily m WITH (NOLOCK)
+	WHERE AffId = @AffID
+		AND WinlostDate BETWEEN @FromDate AND @ToDate
+	)
 
+	SELECT m.Username
+		,e.Code AS Currency
+		,@QualifiedAmount AS QualifiedAmount --Get from group setting
+		,Sum(CASE 
+				WHEN ProductId = @Sportsbook THEN Turnover * ISNULL(ex.ExRate, 1)
+				ELSE 0
+				END) AS SportsbookTurnover
+		,Sum(CASE 
+				WHEN ProductId = @NumberGame THEN Turnover * ISNULL(ex.ExRate, 1)
+				ELSE 0
+				END) AS NumberGameTurnover
+		,Sum(CASE 
+				WHEN ProductId = @LiveCasino THEN Turnover * ISNULL(ex.ExRate, 1)
+				ELSE 0
+				END) AS LiveCasinoTurnover
+		,Sum(CASE 
+				WHEN ProductId = @RNGCasino THEN Turnover * ISNULL(ex.ExRate, 1)
+				ELSE 0
+				END) AS RNGCasinoTurnover
+	FROM MemberDaily m WITH (NOLOCK)
+	INNER JOIN Exchange e WITH (NOLOCK)
+		ON m.Currency = e.ExchangeID
+	LEFT JOIN tmpExRate ex
+		ON (m.Username = ex.UserName
+			AND m.WinlostDate = ex.WinlostDate)
+	WHERE AffId = @AffID
+		AND m.WinlostDate BETWEEN @FromDate AND @ToDate
+	GROUP BY m.Username
+		,e.Code
+END
 GO
+
 GRANT EXECUTE ON [dbo].[AffAdmin_QualifiedMembersReport] TO [bodbAdminNet] AS [dbo]
 GO
+
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_QualifiedMembersReport] TO [vnteam] AS [dbo]

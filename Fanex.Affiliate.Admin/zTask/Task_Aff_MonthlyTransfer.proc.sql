@@ -583,7 +583,7 @@ end*/
 		SELECT a.AffID
 			,@LastDay
 			,@WinlostDate
-			,sum((NetWinlost - Cast(a.HasBonus AS INT) * isnull(a.MemBonus, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0)) - [dbo].[Aff_GetAffDeductionAll](AffID, @LastDay)
+			,sum((NetWinlost_aff - Cast(a.HasBonus AS INT) * isnull(a.MemBonus_aff, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0)) - [dbo].[Aff_GetAffDeductionAll](AffID, @LastDay)
 			,@Status
 			,'Monthly Earning'
 			,9999
