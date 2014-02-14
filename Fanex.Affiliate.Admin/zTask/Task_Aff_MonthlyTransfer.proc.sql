@@ -65,9 +65,9 @@ Revisions:
                    From CNW => AComm  
                    Affiliate Earning=(CNW - Bonus - Adjustement)* AComm         
          
-  - 20131029@Peter : Add more columns to DB https://redmine.nexcel.vn/issues/5280  
+	- 20131029@Peter : Add more columns to DB https://redmine.nexcel.vn/issues/5280  
                     - Calculate Affiliate BF in AffInfo table  
-                   
+	- 20140212@Bobby.Nguyen: Update amount of AffTrans based on aff currency         
   
 Param's Explanation:  
 • @Month: The month to transfer  

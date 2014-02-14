@@ -2,14 +2,15 @@
 	@UserId			INT = 0
 	,@AffId			INT
 	,@MonthDate		DATETIME
-	,@BaseCurrency	TINYINT
+	,@BaseCurrency	TINYINT = 2
 AS
 /*    
 Task : Qualified Members Report  
 DB:    
 Original: [AffAdmin_CommissionReport]
 Revisions:           
-                
+	20140213@Bobbby.Nguyen: Multiply exchange rate
+
 Param's Explanation: 
 • @UserId: Admin user id
 • @AffId: Affiliate ID
@@ -32,6 +33,9 @@ BEGIN
 		,@NumberGame INT
 		,@LiveCasino INT
 		,@RNGCasino INT
+		,@AffCurrency INT
+		,@SysCurrency INT
+		,@SysExRate FLOAT = 1;
 
 	SELECT @Sportsbook = dbo.[Aff_GetProductID]('Sportsbook')
 		,@NumberGame = dbo.[Aff_GetProductID]('Number Game')
@@ -42,6 +46,25 @@ BEGIN
 
 	SELECT @QualifiedAmount = [dbo].[AffAdmin_QualifiedAmount](@AffId, @MonthDate)
 
+	IF(@BaseCurrency = 1) -- convert QualifiedAmount to SysCurrency
+	BEGIN
+		SELECT TOP 1 @AffCurrency = Currency
+		FROM dbo.AffInfo WITH(NOLOCK)
+		WHERE AffID = @AffId
+
+		SELECT TOP 1 @SysCurrency = cur.CurrencyID
+		FROM dbo.SystemSettings se WITH(NOLOCK)
+		INNER JOIN dbo.Currency cur WITH(NOLOCK)
+			ON se.SValue = cur.CurrencyCode
+		WHERE SName = 'SystemCurrency'
+			AND [Type] = 'Meta'
+		
+		IF(@AffCurrency <> @SysCurrency)
+		BEGIN
+			SET @SysExRate = [dbo].[Aff_GetExchangeRate](@AffCurrency, @SysCurrency, null);
+		END
+	END
+
 	--get exchange rate base on @BaseCurrency
 	;WITH tmpExRate AS (
 	SELECT DISTINCT UserName
@@ -49,7 +72,7 @@ BEGIN
 			WHEN 1 THEN SysExRate
 			WHEN 2 THEN AffExRate
 			ELSE 1
-			END ExRate
+		END ExRate
 		,WinlostDate
 	FROM dbo.MemberDaily m WITH (NOLOCK)
 	WHERE AffId = @AffID
@@ -58,19 +81,37 @@ BEGIN
 
 	SELECT m.Username
 		,e.Code AS Currency
+		,(@QualifiedAmount * @SysExRate) AS QualifiedAmountBase 
 		,@QualifiedAmount AS QualifiedAmount --Get from group setting
+		
+		,Sum(CASE 
+				WHEN ProductId = @Sportsbook THEN Turnover
+				ELSE 0
+				END) AS SportsbookTurnoverBase
 		,Sum(CASE 
 				WHEN ProductId = @Sportsbook THEN Turnover * ISNULL(ex.ExRate, 1)
 				ELSE 0
 				END) AS SportsbookTurnover
 		,Sum(CASE 
+				WHEN ProductId = @NumberGame THEN Turnover
+				ELSE 0
+				END) AS NumberGameTurnoverBase
+		,Sum(CASE 
 				WHEN ProductId = @NumberGame THEN Turnover * ISNULL(ex.ExRate, 1)
 				ELSE 0
 				END) AS NumberGameTurnover
 		,Sum(CASE 
+				WHEN ProductId = @LiveCasino THEN Turnover
+				ELSE 0
+				END) AS LiveCasinoTurnoverBase
+		,Sum(CASE 
 				WHEN ProductId = @LiveCasino THEN Turnover * ISNULL(ex.ExRate, 1)
 				ELSE 0
 				END) AS LiveCasinoTurnover
+		,Sum(CASE 
+				WHEN ProductId = @RNGCasino THEN Turnover
+				ELSE 0
+				END) AS RNGCasinoTurnoverBase
 		,Sum(CASE 
 				WHEN ProductId = @RNGCasino THEN Turnover * ISNULL(ex.ExRate, 1)
 				ELSE 0
