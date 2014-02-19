@@ -637,6 +637,12 @@
     <NotInBuild Include="Member\Aff_MemberInfoSel.sql">
       <SubType>NotInBuild</SubType>
     </NotInBuild>
+    <NotInBuild Include="Tracking System\Aff_AffiliateSelClickSummaryByDate.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+    <NotInBuild Include="Tracking System\Aff_ClickStatisticsSelByPage.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
   </ItemGroup>
   <ItemGroup>
     <BuildContributorArgument Include="OutDir=$(OutDir)" />

@@ -1,4 +1,5 @@
-﻿ALTER PROCEDURE [dbo].[Aff_HomeGeneralInfo]		
+﻿/****** Object:  Stored Procedure dbo.Aff_HomeGeneralInfo    Script Date: 10/1/2010 3:42:11 AM ******/
+ALTER PROCEDURE [dbo].[Aff_HomeGeneralInfo]		
 AS
 /*Created: 20090828@Bryan
 Task : Gather overview statistic information of aff-admin site
@@ -13,7 +14,7 @@ Param's Explanation:
 */
 BEGIN
 	--Variables for Normal Affiliate
-	Declare @PaymentReqNum int ,
+    Declare @PaymentReqNum int ,
 		@AffInProAllNum int ,
 		@PendingAllNum int ,
 		@ApprovedAllNum int ,
@@ -41,7 +42,7 @@ BEGIN
 		@PSPFeeMonth MONEY ,
 		@AdjustmentMonth MONEY ,
 		@NetWinlostMonth MONEY 
-	--Variables for Media Affiliate
+	/*--Variables for Media Affiliate
 	Declare 
 		@MediaNum int,
 		@MediaActiveNum int,
@@ -58,7 +59,7 @@ BEGIN
 		@MediaAdjustmentAll money,
 		@MediaAdjustmentMonth money,
 		@MediaNetWinlostAll money,
-		@MediaNetWinlostMonth money
+		@MediaNetWinlostMonth money*/
 		
 	Declare @TransType int
 	declare @CurrentDate smalldatetime, @PreviousDate smalldatetime
@@ -94,7 +95,7 @@ BEGIN
 	FROM AffInfo with(nolock)
 	WHERE AffType = @AffNormal
 	
-	--Media Affiliate statistics
+	/*--Media Affiliate statistics
 	SELECT 
 		@MediaActiveNum = sum(case when IsClosed = 0 then 1 else 0 end),
 		@MediaClosedNum = sum(case when IsClosed = 1 then 1 else 0 end),
@@ -103,7 +104,7 @@ BEGIN
 		@MediaClosedMonthNum = sum(case when IsClosed = 1 and datediff(mm, RegisteredDate, @CurrentDate)=0 then 1 else 0 end),
 		@MediaMonthNum = sum(case when datediff(mm, RegisteredDate, @CurrentDate)=0 then 1 else 0 end)
 	FROM AffInfo with(nolock)
-	WHERE AffType = @AffMedia
+	WHERE AffType = @AffMedia*/
 	
 	
 	-- //all banner statc
@@ -116,10 +117,10 @@ BEGIN
 	declare @MaxWinLostDateAffComm smalldatetime,@NextMaxWinlostDate smalldatetime
 	
 	select @MaxWinLostDateAffComm=max(winlostdate) from  AffCommission with(nolock)
-	select @NextMaxWinlostDate=dateadd(d, 1, @MaxWinLostDateAffComm)
-		   
+    select @NextMaxWinlostDate=dateadd(d, 1, @MaxWinLostDateAffComm)
+	       
 	--Get statistics of normal affiliate
-	Exec Aff_GetMemberStatistics
+		Exec Aff_GetMemberStatistics
 		@AffType = @AffNormal,
 		@DepositAll = @DepositAll Output,
 		@DepositMonth = @DepositMonth Output,
@@ -133,9 +134,9 @@ BEGIN
 		@AdjustmentMonth = @AdjustmentMonth Output,
 		@NetWinlostAll = @NetWinlostAll Output,
 		@NetWinlostMonth = @NetWinlostMonth Output
-	
-	--Get statistics of media affiliate 
-	Exec Aff_GetMemberStatistics
+    
+    --Get statistics of media affiliate 
+    /*Exec Aff_GetMemberStatistics
 		@AffType = @AffMedia,
 		@DepositAll = @MediaDepositAll Output,
 		@DepositMonth = @MediaDepositMonth Output,
@@ -146,12 +147,12 @@ BEGIN
 		@AdjustmentAll = @MediaAdjustmentAll Output,
 		@AdjustmentMonth = @MediaAdjustmentMonth Output,
 		@NetWinlostAll = @MediaNetWinlostAll Output,
-		@NetWinlostMonth = @MediaNetWinlostMonth Output 
+		@NetWinlostMonth = @MediaNetWinlostMonth Output */
 		
-		   
+           
 	select @DepositMemAllNum = sum(1),
-		   @DepositMemMonthNum = sum(case when datediff(mm, CreatedDate, @CurrentDate) = 0 then 1 else 0 end)		  	
-	from MemberInfo with(nolock) where IsRemoved=0
+           @DepositMemMonthNum = sum(case when datediff(mm, CreatedDate, @CurrentDate) = 0 then 1 else 0 end)		  	
+    from MemberInfo with(nolock) where IsRemoved=0
 	
   
   
@@ -185,7 +186,7 @@ BEGIN
 	isnull(@BonusMonth,0) as BonusMonth,
 	isnull(@PSPFeeMonth,0) as PSPFeeMonth ,
 	isnull(@AdjustmentMonth,0) as AdjustmentMonth,
-	isnull(@NetWinlostMonth,0) as NetWinlostMonth,
+	isnull(@NetWinlostMonth,0) as NetWinlostMonth/*,
 	--Media Affiliate
 	isnull(@MediaNum,0) as MediaNum,
 	isnull(@MediaActiveNum,0) as MediaActiveNum,
@@ -208,7 +209,7 @@ BEGIN
 	isnull(@MediaAdjustmentAll ,0) as MediaAdjustmentAll,
 	isnull(@MediaAdjustmentMonth ,0) as MediaAdjustmentMonth,
 	isnull(@MediaNetWinlostAll ,0) as MediaNetWinlostAll,
-	isnull(@MediaNetWinlostMonth  ,0) as MediaNetWinlostMonth
+	isnull(@MediaNetWinlostMonth  ,0) as MediaNetWinlostMonth*/
 END
 
 GO
