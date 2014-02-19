@@ -66,62 +66,46 @@ BEGIN
 	END
 
 	--get exchange rate base on @BaseCurrency
-	;WITH tmpExRate AS (
-	SELECT DISTINCT UserName
-		,CASE @BaseCurrency
-			WHEN 1 THEN SysExRate
-			WHEN 2 THEN AffExRate
-			ELSE 1
-		END ExRate
-		,WinlostDate
-	FROM dbo.MemberDaily m WITH (NOLOCK)
-	WHERE AffId = @AffID
-		AND WinlostDate BETWEEN @FromDate AND @ToDate
-	)
-
 	SELECT m.Username
 		,e.Code AS Currency
 		,(@QualifiedAmount * @SysExRate) AS QualifiedAmountBase 
 		,@QualifiedAmount AS QualifiedAmount --Get from group setting
 		
 		,Sum(CASE 
-				WHEN ProductId = @Sportsbook THEN Turnover
+				WHEN ProductId = @Sportsbook THEN Turnover * ISNULL(m.SysExRate, 0)
 				ELSE 0
 				END) AS SportsbookTurnoverBase
 		,Sum(CASE 
-				WHEN ProductId = @Sportsbook THEN Turnover * ISNULL(ex.ExRate, 1)
+				WHEN ProductId = @Sportsbook THEN Turnover * ISNULL(m.AffExRate, 0)
 				ELSE 0
 				END) AS SportsbookTurnover
 		,Sum(CASE 
-				WHEN ProductId = @NumberGame THEN Turnover
+				WHEN ProductId = @NumberGame THEN Turnover * ISNULL(m.SysExRate, 0)
 				ELSE 0
 				END) AS NumberGameTurnoverBase
 		,Sum(CASE 
-				WHEN ProductId = @NumberGame THEN Turnover * ISNULL(ex.ExRate, 1)
+				WHEN ProductId = @NumberGame THEN Turnover * ISNULL(m.AffExRate, 0)
 				ELSE 0
 				END) AS NumberGameTurnover
 		,Sum(CASE 
-				WHEN ProductId = @LiveCasino THEN Turnover
+				WHEN ProductId = @LiveCasino THEN Turnover * ISNULL(m.SysExRate, 0)
 				ELSE 0
 				END) AS LiveCasinoTurnoverBase
 		,Sum(CASE 
-				WHEN ProductId = @LiveCasino THEN Turnover * ISNULL(ex.ExRate, 1)
+				WHEN ProductId = @LiveCasino THEN Turnover * ISNULL(m.AffExRate, 0)
 				ELSE 0
 				END) AS LiveCasinoTurnover
 		,Sum(CASE 
-				WHEN ProductId = @RNGCasino THEN Turnover
+				WHEN ProductId = @RNGCasino THEN Turnover * ISNULL(m.SysExRate, 0)
 				ELSE 0
 				END) AS RNGCasinoTurnoverBase
 		,Sum(CASE 
-				WHEN ProductId = @RNGCasino THEN Turnover * ISNULL(ex.ExRate, 1)
+				WHEN ProductId = @RNGCasino THEN Turnover * ISNULL(m.AffExRate, 0)
 				ELSE 0
 				END) AS RNGCasinoTurnover
 	FROM MemberDaily m WITH (NOLOCK)
 	INNER JOIN Exchange e WITH (NOLOCK)
 		ON m.Currency = e.ExchangeID
-	LEFT JOIN tmpExRate ex
-		ON (m.Username = ex.UserName
-			AND m.WinlostDate = ex.WinlostDate)
 	WHERE AffId = @AffID
 		AND m.WinlostDate BETWEEN @FromDate AND @ToDate
 	GROUP BY m.Username

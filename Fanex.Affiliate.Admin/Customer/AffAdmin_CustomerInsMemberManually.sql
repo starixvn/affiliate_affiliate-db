@@ -91,10 +91,10 @@ BEGIN
 
 		UPDATE [dbo].[MemberInfo]
 		SET [AffID]			= @AffID      
-		  ,[IsRemoved]		= 0
-		  ,Btag				= @Btag
-		  ,ClickID			= @ClickID    
-		  ,AffAffectedDate	= @AffAffectedDate
+			,[IsRemoved]		= 0
+			,Btag				= @Btag
+			,ClickID			= 0    
+			,AffAffectedDate	= @AffAffectedDate
 		WHERE UserName = @Username
 	
 		DELETE FROM dbo.MemberRemoval 

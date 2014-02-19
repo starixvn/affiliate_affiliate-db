@@ -58,8 +58,8 @@ SELECT seq.AffID
     ,CAST(eu.FirstName AS nvarchar(50)) AS FirstName
     ,CAST(eu.LastName AS nvarchar(50)) AS LastName
     ,CASE eu.PreferredPayment 
-		WHEN 'NoPayment' THEN 102 --NoCommission
-		ELSE 101 --Default CommGroup
+		WHEN 'NoPayment' THEN 121 --EU_NoComm
+		ELSE 120 --EUComm_Default
 		END GroupID
     ,CAST('approved' AS varchar(30)) AS [Status]
     ,CAST(GETDATE() AS smalldatetime) AS ApprovedDate
@@ -129,7 +129,7 @@ INNER JOIN dbo.EUAffiliates eu ON seq.EUAffID = eu.EUAffID
     ,eu.[Address]			--<Address, nvarchar(80),>
     ,eu.Postcode			-- <Postal, nvarchar(50),>
     ,eu.City				--<City, nvarchar(50),>
-    ,eu.State				--<State, nvarchar(50),>
+    ,eu.[State]				--<State, nvarchar(50),>
     ,eu.Country				--<Country, nvarchar(50),>
     ,NULL AS Phone			-- <Phone, varchar(50),>
     ,NULL AS MobilePhone	--<MobilePhone, varchar(50),>
@@ -178,6 +178,7 @@ INNER JOIN dbo.EUAffiliates eu ON seq.EUAffID = eu.EUAffID
 FROM #tmpAffInfo seq 
 INNER JOIN dbo.EUAffiliates eu ON seq.EUAffID = eu.EUAffID
 
-DROP TABLE #tmpAffInfo;           
 SET IDENTITY_INSERT dbo.AffInfo OFF;
+
+DROP TABLE #tmpAffInfo;           
 GO

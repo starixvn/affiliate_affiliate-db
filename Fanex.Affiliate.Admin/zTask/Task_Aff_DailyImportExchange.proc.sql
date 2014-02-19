@@ -72,8 +72,8 @@ BEGIN
 		,SGD=(CASE WHEN code<>'SGD' THEN SGD/(SELECT ISNULL(MultipliedBy,1) FROM Currency WHERE currencycode='SGD') ELSE SGD END)
 		,THB=(CASE WHEN code<>'THB' THEN THB/(SELECT ISNULL(MultipliedBy,1) FROM Currency WHERE currencycode='THB') ELSE THB END)
 		,VND=(CASE WHEN code<>'VND' THEN VND/(SELECT ISNULL(MultipliedBy,1) FROM Currency WHERE currencycode='VND') ELSE VND END)
-		,KRW=(CASE WHEN code<>'KRW' THEN VND/(SELECT ISNULL(MultipliedBy,1) FROM Currency WHERE currencycode='KRW') ELSE KRW END)
-		,JPY=(CASE WHEN code<>'JPY' THEN VND/(SELECT ISNULL(MultipliedBy,1) FROM Currency WHERE currencycode='JPY') ELSE JPY END)
+		,KRW=(CASE WHEN code<>'KRW' THEN KRW/(SELECT ISNULL(MultipliedBy,1) FROM Currency WHERE currencycode='KRW') ELSE KRW END)
+		,JPY=(CASE WHEN code<>'JPY' THEN JPY/(SELECT ISNULL(MultipliedBy,1) FROM Currency WHERE currencycode='JPY') ELSE JPY END)
 
 
 	UPDATE ec
@@ -210,6 +210,7 @@ BEGIN
 			,GBP,GBP_Market
 			,THB,THB_Market
 			,VND,VND_Market
+			,KRW,KRW_Market
 			,JPY,JPY_Market
 			,Code,DepositPercent
 			,WithdrawalPercent,IsAutoRefresh)
@@ -226,6 +227,7 @@ BEGIN
 			,ex.GBP,ex.GBP_Market
 			,ex.THB,ex.THB_Market
 			,ex.VND,ex.VND_Market
+			,ex.KRW,ex.KRW_Market
 			,ex.JPY,ex.JPY_Market
 			,ex.Code,ex.DepositPercent
 			,ex.WithdrawalPercent,ex.IsAutoRefresh);
