@@ -12,8 +12,7 @@ ALTER FUNCTION [dbo].[Aff_GetExchangeRate](
 RETURNS float  
 AS  
 /*  
-  
-   /*	
+    
 	Created: ???
 	Date: 
 	Task: Get ExchangeRate @FromCurrency to @ToCurrency  
@@ -22,7 +21,6 @@ AS
 	Revisions:
 		- 20140218@Dan: add currency KRW, JPY
 		
-*/
 */  
 BEGIN  
 
