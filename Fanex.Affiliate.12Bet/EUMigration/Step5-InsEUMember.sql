@@ -1,11 +1,7 @@
 ﻿USE [Affiliate_12BET];
 GO
 
-IF (NOT EXISTS (
-		SELECT TOP 1 1
-		FROM sys.sysObjects o
-		WHERE o.NAME = 'SeqClickStats')
-	OR NOT EXISTS (
+IF ( NOT EXISTS (
 		SELECT TOP 1 1
 		FROM sys.sysObjects o
 		WHERE o.NAME = 'EUAffPlayers') 
@@ -15,7 +11,7 @@ BEGIN
 	RETURN;
 END
 
---Insert into [AffInfo]
+--Insert into [MemberInfo]
 --INSERT INTO [dbo].[MemberInfo]
 --    ([IBCCustID]
 --    ,[AffID]
@@ -46,30 +42,11 @@ SELECT mem.IBCCustID			--<IBCCustID, int,>
     ,mem.Currency				--<Currency, int,>
     ,mem.Email					--<Email, nvarchar(50),>
     ,mem.Recommend				--<Recommend, int,>
-    ,seq.SeqID				--<ClickId, bigint,>
+    ,0 AS ClickID				--<ClickId, bigint,>
     ,CAST(GETDATE() AS DATE) AS AffAffectedDate		--<AffAffectedDate, datetime,>
     ,mem.EUAffID						--<EUAffID, int,>
-FROM dbo.SeqClickStats seq
-INNER JOIN dbo.EUAffPlayers mem
-	ON seq.[DepositCustID] = mem.[DepositCustID]
-INNER JOIN dbo.AffInfo aff 
+FROM dbo.EUAffPlayers mem
+LEFT JOIN dbo.AffInfo aff 
 	ON mem.EUAffID = aff.EUAffID
---VALUES
---    (<IBCCustID, int,>
---    ,<AffID, int,>
---    ,<UserName, varchar(30),>
---    ,<IBCUserName, varchar(30),>
---    ,<CreatedDate, datetime,>
---    ,<RegisteredDate, datetime,>
---    ,<IsRemoved, bit,>
---    ,<DepositCustID, int,>
---    ,<FirstName, nvarchar(50),>
---    ,<LastName, nvarchar(50),>
---    ,<Currency, int,>
---    ,<Email, nvarchar(50),>
---    ,<Recommend, int,>
---    ,<ClickId, bigint,>
---    ,<AffAffectedDate, datetime,>
---    ,<EUAffID, int,>)
 
 GO

@@ -28,9 +28,9 @@ BEGIN
 		,@AffID INT = 0
 		,@DepositCustID INT = 0;
 
-	SELECT ROW_NUMBER() OVER(ORDER BY DepositCustID ASC) AS NUM
-		,DepositCustID
+	SELECT DISTINCT DepositCustID
 		, EUAffID
+		, ROW_NUMBER() OVER(ORDER BY DepositCustID ASC) AS NUM
 	INTO #tmpPlayers
 	FROM [dbo].[EUAffPlayers]
 
