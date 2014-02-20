@@ -31,25 +31,25 @@ DECLARE @Exchange TABLE (ExchangeDate smalldatetime,ExchangeID int, code varchar
 INSERT INTO @Exchange(ExchangeDate,ExchangeID, code, MYR,USD, EUR, CNY, IDR,AUD, CHF, GBP, SGD, THB, VND, KRW, JPY)
 select ExchangeDate,ed.ExchangeID, ed.code, MYR,USD, EUR, CNY, IDR,AUD, CHF, GBP, SGD, THB, VND, KRW, JPY
 from dbo.exchangedailyoanda ed with(nolock)
-	inner join
-	(
-		select code,min(exchangeID) as exchangeID from Exchange (nolock)
+	--inner join
+	--(
+	--	select code,min(exchangeID) as exchangeID from Exchange (nolock)
 
-		where code in
-		(
-			select distinct Code from exchangedailyoanda (nolock) where exchangedate=@Date
-		)
-		group by code
+	--	where code in
+	--	(
+	--		select distinct Code from exchangedailyoanda (nolock) where exchangedate=@Date
+	--	)
+	--	group by code
 
-	) et on et.exchangeid=ed.exchangeid
+	--) et on et.exchangeid=ed.exchangeid
 WHERE exchangedate = @Date
 
 order by ed.exchangeid
 
-declare @BaseCurrencies table (code varchar(5), multipliedBy float)
+declare @BaseCurrencies table (exchangeid int, code varchar(5), multipliedBy float)
 
-insert into @BaseCurrencies(code,multipliedBy)
-select code,(case when code='USD' then USD 
+insert into @BaseCurrencies(exchangeid, code,multipliedBy)
+select exchangeid, code,(case when code='USD' then USD 
              when code='MYR' then MYR
              when code='EUR' then EUR
              when code='CNY' then CNY
@@ -70,20 +70,20 @@ from @Exchange
 where code in ('MYR','USD', 'EUR', 'CNY', 'IDR','AUD', 'CHF', 'GBP', 'SGD', 'THB', 'VND', 'KRW', 'JPY')
 
 select ExchangeDate,ExchangeID, code
-      ,(case when code='MYR' then MYR/(select multipliedBy from @BaseCurrencies where code='MYR') else MYR end) as MYR
-      ,(case when code='USD' then USD/(select multipliedBy from @BaseCurrencies where code='USD') else USD end) as USD
-      ,(case when code='EUR' then EUR/(select multipliedBy from @BaseCurrencies where code='EUR') else EUR end) as EUR
-      ,(case when code='CNY' then CNY/(select multipliedBy from @BaseCurrencies where code='CNY') else CNY end) as CNY
-      ,(case when code='IDR' then IDR/(select multipliedBy from @BaseCurrencies where code='IDR') else IDR end) as IDR
-      ,(case when code='AUD' then AUD/(select multipliedBy from @BaseCurrencies where code='AUD') else AUD end) as AUD
-      ,(case when code='CHF' then CHF/(select multipliedBy from @BaseCurrencies where code='CHF') else CHF end) as CHF
-      ,(case when code='GBP' then GBP/(select multipliedBy from @BaseCurrencies where code='GBP') else GBP end) as GBP
-      ,(case when code='SGD' then SGD/(select multipliedBy from @BaseCurrencies where code='SGD') else SGD end) as SGD
-      ,(case when code='THB' then THB/(select multipliedBy from @BaseCurrencies where code='THB') else THB end) as THB
-      ,(case when code='VND' then VND/(select multipliedBy from @BaseCurrencies where code='VND') else VND end) as VND
-      ,(case when code='KRW' then KRW/(select multipliedBy from @BaseCurrencies where code='KRW') else KRW end) as KRW
-      ,(case when code='JPY' then JPY/(select multipliedBy from @BaseCurrencies where code='JPY') else JPY end) as JPY
-from  @Exchange       
+      ,(case when code='MYR' then MYR/(select multipliedBy from @BaseCurrencies where code='MYR' and exchangeid=e.ExchangeID) else MYR end) as MYR
+      ,(case when code='USD' then USD/(select multipliedBy from @BaseCurrencies where code='USD' and exchangeid=e.ExchangeID) else USD end) as USD
+      ,(case when code='EUR' then EUR/(select multipliedBy from @BaseCurrencies where code='EUR' and exchangeid=e.ExchangeID) else EUR end) as EUR
+      ,(case when code='CNY' then CNY/(select multipliedBy from @BaseCurrencies where code='CNY' and exchangeid=e.ExchangeID) else CNY end) as CNY
+      ,(case when code='IDR' then IDR/(select multipliedBy from @BaseCurrencies where code='IDR' and exchangeid=e.ExchangeID) else IDR end) as IDR
+      ,(case when code='AUD' then AUD/(select multipliedBy from @BaseCurrencies where code='AUD' and exchangeid=e.ExchangeID) else AUD end) as AUD
+      ,(case when code='CHF' then CHF/(select multipliedBy from @BaseCurrencies where code='CHF' and exchangeid=e.ExchangeID) else CHF end) as CHF
+      ,(case when code='GBP' then GBP/(select multipliedBy from @BaseCurrencies where code='GBP' and exchangeid=e.ExchangeID) else GBP end) as GBP
+      ,(case when code='SGD' then SGD/(select multipliedBy from @BaseCurrencies where code='SGD' and exchangeid=e.ExchangeID) else SGD end) as SGD
+      ,(case when code='THB' then THB/(select multipliedBy from @BaseCurrencies where code='THB' and exchangeid=e.ExchangeID) else THB end) as THB
+      ,(case when code='VND' then VND/(select multipliedBy from @BaseCurrencies where code='VND' and exchangeid=e.ExchangeID) else VND end) as VND
+      ,(case when code='KRW' then KRW/(select multipliedBy from @BaseCurrencies where code='KRW' and exchangeid=e.ExchangeID) else KRW end) as KRW
+      ,(case when code='JPY' then JPY/(select multipliedBy from @BaseCurrencies where code='JPY' and exchangeid=e.ExchangeID) else JPY end) as JPY
+from  @Exchange  e     
 
 
 
