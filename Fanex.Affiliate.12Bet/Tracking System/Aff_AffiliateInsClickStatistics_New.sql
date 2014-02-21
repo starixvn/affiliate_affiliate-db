@@ -1,24 +1,25 @@
-﻿ALTER PROCEDURE [dbo].[Aff_AffiliateInsClickStatistics_New]  
-	@AffiliateID int,  
-	@AffDomain nvarchar(256) = '',--Url is showed in affiliate site
-	@PageCode varchar(50)='sportsbook',   
-	@LanguageCode varchar(6)='en',  
-	@IP varchar(20) = '',  
-	@Browser nvarchar(50) = '',  
-	@URLReferrer nvarchar(300)=NULL, 
-	@DomainReferrer nvarchar(300)=null,
-	@OS nvarchar(50) = '',  
-	@Device nvarchar(50) = '',  
-	@BrowserVersion nvarchar(16) = '',  
-	@BrowserResolution  nvarchar(16) = '',  
-	@BrowserLanguage nvarchar(8) = '',  
-	@UserAgent nvarchar(256) = '',  
-	@Country nvarchar(256) = '',  
-	@RedirectPage nvarchar(256)=NULL OUTPUT,
-	@ClickID bigint = 0 OUTPUT,     
-	@ErrCode int = 0 OUTPUT,  
-	@ErrMsg nvarchar(4000) = '' OUTPUT  
-AS  
+﻿ALTER PROCEDURE [dbo].[Aff_AffiliateInsClickStatistics_New] 
+	@AffiliateID INT
+	,@AffDomain NVARCHAR(256) = ''
+	,--Url is showed in affiliate site
+	@PageCode VARCHAR(50) = 'sportsbook'
+	,@LanguageCode VARCHAR(6) = 'en'
+	,@IP VARCHAR(20) = ''
+	,@Browser NVARCHAR(50) = ''
+	,@URLReferrer NVARCHAR(300) = NULL
+	,@DomainReferrer NVARCHAR(300) = NULL
+	,@OS NVARCHAR(50) = ''
+	,@Device NVARCHAR(50) = ''
+	,@BrowserVersion NVARCHAR(16) = ''
+	,@BrowserResolution NVARCHAR(16) = ''
+	,@BrowserLanguage NVARCHAR(8) = ''
+	,@UserAgent NVARCHAR(256) = ''
+	,@Country NVARCHAR(256) = ''
+	,@RedirectPage NVARCHAR(256) = NULL OUTPUT
+	,@ClickID BIGINT = 0 OUTPUT
+	,@ErrCode INT = 0 OUTPUT
+	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
+AS
 /*  Created: 20111005@Johnny  
 Task : record clicking Banner action with a specific tracking code  
 DB: DB052.Affiliate_12BET  
@@ -27,127 +28,193 @@ Original:
 Revisions:  
 	- 20111228: Get RedirectURL follow affiliate
 	- 20121120: Redirect to the main domain (except list affiliates with pagecode 12betcasino still redirect to 12betcasino.com)
-*/  
+	-20140220@Peter : Support EU aff link
+*/
+BEGIN
+	SET NOCOUNT ON
 
-SET NOCOUNT ON  
+	DECLARE @AffUsername NVARCHAR(30)
+		,@PreferredLanguage VARCHAR(11)
+		,@Default12Betdomain NVARCHAR(100)
+		,@IsCasino BIT
+		,@AffType INT
 
-Declare @AffUsername nvarchar(30), @PreferredLanguage varchar(11), @Default12Betdomain nvarchar(100), @IsCasino bit
+	SELECT @Default12Betdomain = '12ying.com' --If redirect page is null => redirect to this default domain
 
-select @Default12Betdomain = '12ying.com'--If redirect page is null => redirect to this default domain
+	SELECT @AffUsername = ai.Username
+		,@PreferredLanguage = PreferredLanguage
+		,@AffType = ai.AffType
+	FROM AffDetail ad WITH (NOLOCK)
+		INNER JOIN AffInfo ai WITH (NOLOCK)
+		ON ai.AffId = ad.AffId
+	WHERE ai.AffId = @AffiliateID
+		AND STATUS = 'Approved'
 
-select @AffUsername = ai.Username, @PreferredLanguage = PreferredLanguage
-from AffDetail ad with(nolock)
-	inner join AffInfo ai with(nolock) on ai.AffId = ad.AffId
-where ai.AffId = @AffiliateID
-	and status='Approved'
+	--check Affiliate ID  
+	IF (@AffUsername IS NULL)
+	BEGIN
+		SELECT @ErrCode = 101
+			,@ErrMsg = 'This affiliate does not exists. Please contact administrator!'
 
---check Affiliate ID  
-if (@AffUsername is null)
-begin  
-	select @ErrCode=101,@ErrMsg='This affiliate does not exists. Please contact administrator!'                                            
-	return                            
-end 
-  
- --Checking Input member IP
-IF COALESCE(@IP, '') = ''  
-begin  
-	select @ErrCode=102, @ErrMsg='The IP is required. Please check!'   
-	return               
-end  
-  
---Get redirect link
-Select @RedirectPage = (Select top 1 CValue  --Get link for some special affiliate
-						From CommonSettings (nolock)  					
-						Where [Type]=@PageCode
-							and CName = @AffUsername)
+		RETURN
+	END
 
-if(@RedirectPage is null) 
-begin  
-	Declare @AffDomainId int, @AffDomainName nvarchar(255)
+	--Checking Input member IP
+	IF COALESCE(@IP, '') = ''
+	BEGIN
+		SELECT @ErrCode = 102
+			,@ErrMsg = 'The IP is required. Please check!'
 
-	Select @AffDomainId = DomainID, @AffDomainName = DomainName
-	From AffDomain nolock 
-	where @AffDomain like '%' + DomainName + '%'
+		RETURN
+	END
 
-	Select @RedirectPage = b.DomainName
-	from AffDomainControl a with (nolock)
-		inner join [12BetDomain] b with (nolock) on a.[12BetDomainID] = b.DomainID
-	where a.MarketId = @PreferredLanguage and a.AffDomainId = @AffDomainId and [status] = 1
+	--Get redirect link
+	SELECT @RedirectPage = (
+			SELECT TOP 1 CValue --Get link for some special affiliate
+			FROM CommonSettings(NOLOCK)
+			WHERE [Type] = @PageCode
+				AND CName = @AffUsername
+			)
 
-	--Replace Aff Domain by 12bet domain to redirect to 12bet site
-	Select @RedirectPage = 'http://www.' + isnull(@RedirectPage, @Default12Betdomain) + '/' + cast(@AffiliateID as varchar(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx'
-End
-Else
-Begin --This aff is special aff and pagecode = '12betcasino'
-	select @LanguageCode = (case when @LanguageCode = 'ch' then 'cs' 
-						when @LanguageCode = 'eneuro' or @LanguageCode = 'es' then 'en'
-						when @LanguageCode = 'vn' then 'vi'
-						else @LanguageCode
-						end)	
-	select @RedirectPage = replace(@RedirectPage, '{custid}', @AffiliateID)
-	select @RedirectPage = replace(@RedirectPage, '{target}', @pagecode)
-	select @RedirectPage = replace(@RedirectPage, '{lang}', @LanguageCode)
-	select @RedirectPage = replace(@RedirectPage, '{/TrackingCode}', '')
-End
+	IF (@RedirectPage IS NULL)
+	BEGIN
+		DECLARE @AffDomainId INT
+			,@AffDomainName NVARCHAR(255)
 
+		SELECT @AffDomainId = DomainID
+			,@AffDomainName = DomainName
+		FROM AffDomain NOLOCK
+		WHERE @AffDomain LIKE '%' + DomainName + '%'
 
-Declare @CountryCode varchar(5), @IPNum bigint
-select @IPNum = [dbo].[Aff_IPConvertToNumber](@IP)  
-Set @CountryCode=(Select top(1) Code3 from IPv4Addresses (nolock) where @IPNum between [From] and [To])  
+		SELECT @RedirectPage = b.DomainName
+		FROM AffDomainControl a WITH (NOLOCK)
+			INNER JOIN [12BetDomain] b WITH (NOLOCK)
+			ON a.[12BetDomainID] = b.DomainID
+		WHERE a.MarketId = @PreferredLanguage
+			AND a.AffDomainId = @AffDomainId
+			AND [status] = 1
 
+		--Replace Aff Domain by 12bet domain to redirect to 12bet site
+		SELECT @RedirectPage = 'http://www.' + isnull(@RedirectPage, @Default12Betdomain) + '/' + cast(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
+	END
+	ELSE
+	BEGIN --This aff is special aff and pagecode = '12betcasino'
+		SELECT @LanguageCode = (CASE 
+				WHEN @LanguageCode = 'ch' THEN 'cs'
+				WHEN @LanguageCode = 'eneuro'
+					OR @LanguageCode = 'es' THEN 'en'
+				WHEN @LanguageCode = 'vn' THEN 'vi'
+				ELSE @LanguageCode END
+				)
 
+		SELECT @RedirectPage = replace(@RedirectPage, '{custid}', @AffiliateID)
 
-INSERT INTO [ClickStatistics1]  
-           ([AffID]
-           ,[UpdatedTime]  
-           ,[IP]  
-           ,[Date]  
-           ,[Browser]  
-           ,[URLReferrer]
-		   ,[DomainReferrer]  
-           ,[OS]  
-           ,[Device]  
-           ,[BrowserVersion]  
-           ,[BrowserResolution]  
-           ,[BrowserLanguage]  
-           ,[UserAgent]  
-           ,[Country]  
-           ,[LanguageCode] 
-           ,[SportCode] 
-           ,[RedirectURL]
-		   ,[Status])  
-VALUES  
-           (@AffiliateID 
-           ,getdate() 
-           ,@IP  
-           ,CONVERT(varchar(10), CURRENT_TIMESTAMP, 120)  
-           ,@Browser  
-           ,coalesce(@URLReferrer, 'none')  
-		   ,coalesce(@DomainReferrer, 'none')
-           ,@OS  
-           ,@Device  
-           ,@BrowserVersion  
-           ,@BrowserResolution  
-           ,@BrowserLanguage  
-           ,@UserAgent  
-           ,coalesce(@CountryCode,'(not set)',@Country)  
-           ,(case when @LanguageCode = 'vi' then 'vn' else @LanguageCode end)--Only store vn for vietnamese
-           ,@PageCode
-           ,@RedirectPage--if not Casino aff => redirect to main domain
-		   ,0
-           )     
+		SELECT @RedirectPage = replace(@RedirectPage, '{target}', @pagecode)
 
-select @ClickID = SCOPE_IDENTITY()
+		SELECT @RedirectPage = replace(@RedirectPage, '{lang}', @LanguageCode)
 
-select @RedirectPage = replace(@RedirectPage, '{clickid}', @ClickID)
+		SELECT @RedirectPage = replace(@RedirectPage, '{/TrackingCode}', '')
+	END
 
-update [ClickStatistics1] with (rowlock, updlock)
-set [RedirectURL] = @RedirectPage
-where clickId = @ClickID
+	DECLARE @CountryCode VARCHAR(5)
+		,@IPNum BIGINT
 
+	SELECT @IPNum = [dbo].[Aff_IPConvertToNumber](@IP)
+
+	SET @CountryCode = (
+			SELECT TOP (1) Code3
+			FROM IPv4Addresses(NOLOCK)
+			WHERE @IPNum BETWEEN [From] AND [To]
+			)
+
+	--Temporarily hard code afftype, will be removed soon
+	IF @AffType <= 2
+	BEGIN
+		SELECT @AffType = 2
+	END
+
+	-- check whether this aff belongs to Korean's comm group
+	IF EXISTS (
+			SELECT 1
+			FROM [dbo].[AffInfo] a WITH (NOLOCK)
+				JOIN [dbo].[CommGroup] c WITH (NOLOCK)
+				ON a.[GroupID] = c.[GroupID]
+			WHERE a.[AffID] = @AffiliateID
+				AND c.[GroupName] = 'Korean Agent Comm'
+			)
+	BEGIN
+		SELECT @AffType = 5
+
+		IF CHARINDEX('?', @RedirectPage) > 0
+		BEGIN
+			SELECT @RedirectPage = @RedirectPage + '&IsKA=1'
+		END
+		ELSE
+		BEGIN
+			SELECT @RedirectPage = @RedirectPage + '?IsKA=1'
+		END
+	END
+
+	INSERT INTO [ClickStatistics1] (
+		[AffID]
+		,[UpdatedTime]
+		,[IP]
+		,[Date]
+		,[Browser]
+		,[URLReferrer]
+		,[DomainReferrer]
+		,[OS]
+		,[Device]
+		,[BrowserVersion]
+		,[BrowserResolution]
+		,[BrowserLanguage]
+		,[UserAgent]
+		,[Country]
+		,[LanguageCode]
+		,[SportCode]
+		,[RedirectURL]
+		,[Status]
+		)
+	VALUES (
+		@AffiliateID
+		,getdate()
+		,@IP
+		,CONVERT(VARCHAR(10), CURRENT_TIMESTAMP, 120)
+		,@Browser
+		,coalesce(@URLReferrer, 'none')
+		,coalesce(@DomainReferrer, 'none')
+		,@OS
+		,@Device
+		,@BrowserVersion
+		,@BrowserResolution
+		,@BrowserLanguage
+		,@UserAgent
+		,coalesce(@CountryCode, '(not set)', @Country)
+		,(CASE 
+			WHEN @LanguageCode = 'vi' THEN 'vn'
+			ELSE @LanguageCode END
+			) --Only store vn for vietnamese
+		,@PageCode
+		,@RedirectPage --if not Casino aff => redirect to main domain
+		,0
+		)
+
+	SELECT @ClickID = SCOPE_IDENTITY()
+
+	SELECT @RedirectPage = replace(@RedirectPage, '{clickid}', @ClickID)
+
+	SELECT @RedirectPage = replace(@RedirectPage, '{typeid}', @AffType)
+
+	UPDATE [ClickStatistics1] WITH (ROWLOCK, UPDLOCK)
+	SET [RedirectURL] = @RedirectPage
+	WHERE clickId = @ClickID
+END
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_AffiliateInsClickStatistics_New] TO [bodbDownlineNet]
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_AffiliateInsClickStatistics_New] TO [bodbDownlineNetView]
 GO
+
 GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateInsClickStatistics_New] TO [vnteam]

@@ -1,5 +1,6 @@
 ﻿--WARNING! ERRORS ENCOUNTERED DURING SQL PARSING!
-ALTER PROCEDURE [dbo].[Task_Aff_MonthlyTransfer] @UserId INT
+ALTER PROCEDURE [dbo].[Task_Aff_MonthlyTransfer] 
+	@UserId INT
 	,@Month INT
 	,@Year INT
 	,@ErrCode INT = 0 OUTPUT

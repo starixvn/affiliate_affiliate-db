@@ -57,7 +57,7 @@ SELECT seq.AffID
     ,CAST(eu.UserName AS NVARCHAR(30)) AS UserName2
     ,CAST(eu.FirstName AS nvarchar(50)) AS FirstName
     ,CAST(eu.LastName AS nvarchar(50)) AS LastName
-    ,CASE eu.PreferredPayment 
+    ,CASE eu.PreferedPayment 
 		WHEN 'NoPayment' THEN 121 --EU_NoComm
 		ELSE 120 --EUComm_Default
 		END GroupID
@@ -67,7 +67,7 @@ SELECT seq.AffID
     ,3 AS Currency --USD currency
     ,CAST(GETDATE() AS smalldatetime) AS RegisteredDate
     ,CAST(eu.EmailAddress AS nvarchar(50)) AS [Email]
-    ,CAST('' AS varchar(40)) AS [Password]
+    ,CAST(PwdHash AS varchar(40)) AS [Password]
     ,1 AS AffType --European
     ,0 AS IsPageEnabled
     ,0 AS [Level]

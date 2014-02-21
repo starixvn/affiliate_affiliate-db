@@ -1,5 +1,5 @@
 ﻿/*DungTest*/
- SET NOCOUNT ON
+SET NOCOUNT ON
 declare @Month int, 
 		@Year int
 select @Month=05,@Year=2012
