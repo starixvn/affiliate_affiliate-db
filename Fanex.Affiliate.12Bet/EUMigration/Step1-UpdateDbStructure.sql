@@ -1,4 +1,10 @@
-﻿USE [Affiliate_12BET];
+﻿/*
+	Task : 12Bet - EU migration: Update DB structure
+	Author : Bobby.Nguyen@20140124
+	DB: Affiliate_12Bet
+*/
+
+USE [Affiliate_12BET];
 GO
 
 /** update structure of AffInfo **/

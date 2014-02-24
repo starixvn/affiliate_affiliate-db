@@ -1,4 +1,10 @@
-﻿USE [Affiliate_12BET]
+﻿/*
+	Task : 12Bet - EU migration: Import EU imformation 
+	Author : Bobby.Nguyen@20140124
+	DB: Affiliate_12Bet
+*/
+
+USE [Affiliate_12BET]
 GO
 /****** Object:  Table [dbo].[EUAffPlayers]    Script Date: 2/19/2014 1:38:22 PM ******/
 IF (

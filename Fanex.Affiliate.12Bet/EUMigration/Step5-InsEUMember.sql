@@ -1,4 +1,10 @@
-﻿USE [Affiliate_12BET];
+﻿/*
+	Task : 12Bet - EU migration: Insert EU member (player) information
+	Author : Bobby.Nguyen@20140124
+	DB: Affiliate_12Bet
+*/
+
+USE [Affiliate_12BET];
 GO
 
 IF ( NOT EXISTS (
@@ -11,42 +17,64 @@ BEGIN
 	RETURN;
 END
 
---Insert into [MemberInfo]
---INSERT INTO [dbo].[MemberInfo]
---    ([IBCCustID]
---    ,[AffID]
---    ,[UserName]
---    ,[IBCUserName]
---    ,[CreatedDate]
---    ,[RegisteredDate]
---    ,[IsRemoved]
---    ,[DepositCustID]
---    ,[FirstName]
---    ,[LastName]
---    ,[Currency]
---    ,[Email]
---    ,[Recommend]
---    ,[ClickId]
---    ,[AffAffectedDate]
---    ,[EUAffID])
-SELECT mem.IBCCustID			--<IBCCustID, int,>
-    ,aff.AffID					--<AffID, int,> new AFFID
-    ,mem.UserName				--<UserName, varchar(30),>
-    ,mem.IBCUserName			--<IBCUserName, varchar(30),>
-    ,mem.FirstDepositDate		--<CreatedDate, datetime,>
-    ,mem.RegisteredDate			--<RegisteredDate, datetime,>
-    ,0 AS IsRemoved				--<IsRemoved, bit,>
-    ,mem.DepositCustID			--<DepositCustID, int,>
-    ,mem.FirstName				--<FirstName, nvarchar(50),>
-    ,mem.LastName				--<LastName, nvarchar(50),>
-    ,mem.Currency				--<Currency, int,>
-    ,mem.Email					--<Email, nvarchar(50),>
-    ,mem.Recommend				--<Recommend, int,>
-    ,0 AS ClickID				--<ClickId, bigint,>
-    ,CAST(GETDATE() AS DATE) AS AffAffectedDate		--<AffAffectedDate, datetime,>
-    ,mem.EUAffID						--<EUAffID, int,>
-FROM dbo.EUAffPlayers mem
-LEFT JOIN dbo.AffInfo aff 
-	ON mem.EUAffID = aff.EUAffID
+DECLARE @MemberOutput TABLE(IBCCustID INT, AffID INT, EUAction varchar(50))
+
+;WITH MemImport AS (
+	SELECT eu.*
+		, aff.AffID
+		, CAST(GETDATE() AS DATE) AS AffAffectedDate
+		, 0 AS ClickID
+		, 0 AS IsRemoved
+	FROM dbo.EUAffPlayers eu WITH(NOLOCK)
+	LEFT JOIN dbo.AffInfo aff 
+		ON mem.EUAffID = aff.EUAffID
+)
+MERGE INTO dbo.MemberInfo AS mem 
+USING MemImport AS eu
+	ON eu.IBCCustID = mem.IBCCustID
+WHEN NOT MATCHED BY TARGET THEN
+	INSERT ([IBCCustID]
+	    ,[AffID]
+	    ,[UserName]
+	    ,[IBCUserName]
+	    ,[CreatedDate]
+	    ,[RegisteredDate]
+	    ,[IsRemoved]
+	    ,[DepositCustID]
+	    ,[FirstName]
+	    ,[LastName]
+	    ,[Currency]
+	    ,[Email]
+	    ,[Recommend]
+	    ,[ClickId]
+	    ,[AffAffectedDate]
+	    ,[EUAffID])
+	VALUES(eu.IBCCustID	
+		,eu.AffID			
+		,eu.UserName		
+		,eu.IBCUserName	
+		,eu.FirstDepositDate
+		,eu.RegisteredDate	
+		,eu.IsRemoved
+		,eu.DepositCustID
+		,eu.FirstName	
+		,eu.LastName	
+		,eu.Currency	
+		,eu.Email		
+		,eu.Recommend
+		,eu.ClickID
+		,eu.AffAffectedDate
+		,eu.EUAffID)
+
+	--WHEN MATCHED THEN
+
+	OUTPUT Inserted.IBCCustID	
+		, Inserted.AffID, $Action 
+INTO @MemberOutput(IBCCustID, AffID, EUAction);
+
+SELECT * 
+INTO MemberImport_Log
+FROM @MemberOutput
 
 GO
+SELECT * FROM MemberImportLog

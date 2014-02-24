@@ -1,4 +1,10 @@
-﻿USE [Affiliate_12BET];
+﻿/*
+	Task : 12Bet - EU migration: Insert EU affiliate user
+	Author : Bobby.Nguyen@20140124
+	DB: Affiliate_12Bet
+*/
+
+USE [Affiliate_12BET];
 GO
 
 IF (NOT EXISTS (
@@ -17,66 +23,77 @@ END
 
 
 DECLARE @AffPrefix VARCHAR(20) = '12BetAff';
+DECLARE @AffOutput TABLE(AffID INT, EUAffID INT, UserName varchar(50), EUAction varchar(50))
 
-SELECT seq.*
+SELECT seq.AffID
 	, @AffPrefix + CASE 
 				WHEN seq.SeqID < 999  THEN '00' + CAST(seq.SeqID AS VARCHAR(5)) 
 				ELSE
 					CAST(seq.SeqID AS VARCHAR(10)) 
-				END UserName
+				END [12BetUserName]
+	,eu.*
 INTO #tmpAffInfo
 FROM dbo.SeqAffInfo seq
+INNER JOIN dbo.EUAffiliates eu ON seq.EUAffID = eu.EUAffID
 
 -- SET IDENTITY_INSERT to ON.
 SET IDENTITY_INSERT dbo.AffInfo ON;
 
---Insert into [AffInfo]
---INSERT INTO [dbo].[AffInfo]
---           ([AffID]
---			 ,[UserName]
---           ,[UserName2]
---           ,[FirstName]
---           ,[LastName]
---           ,[GroupID]
---           ,[Status]
---           ,[ApprovedDate]
---           ,[IsClosed]
---           ,[Currency]
---           ,[RegisteredDate]
---           ,[Email]
---           ,[Password]
---           ,[AffType]
---           ,[IsPageEnabled]
---           ,[Level]
---           ,[IsLocked]
---           ,[CasinoJoinedDate]
---           ,[EUAffID]
---           ,[ForceChangePass])
-SELECT seq.AffID
-	,CAST(UPPER(seq.UserName) AS NVARCHAR(30)) AS UserName
-    ,CAST(eu.UserName AS NVARCHAR(30)) AS UserName2
-    ,CAST(eu.FirstName AS nvarchar(50)) AS FirstName
-    ,CAST(eu.LastName AS nvarchar(50)) AS LastName
-    ,CASE eu.PreferedPayment 
-		WHEN 'NoPayment' THEN 121 --EU_NoComm
-		ELSE 120 --EUComm_Default
-		END GroupID
-    ,CAST('approved' AS varchar(30)) AS [Status]
-    ,CAST(GETDATE() AS smalldatetime) AS ApprovedDate
-    ,0 AS IsClosed
-    ,3 AS Currency --USD currency
-    ,CAST(GETDATE() AS smalldatetime) AS RegisteredDate
-    ,CAST(eu.EmailAddress AS nvarchar(50)) AS [Email]
-    ,CAST(PwdHash AS varchar(40)) AS [Password]
-    ,1 AS AffType --European
-    ,0 AS IsPageEnabled
-    ,0 AS [Level]
-    ,0 AS IsLocked
-    ,NULL AS CasinoJoinedDate
-    ,eu.EUAffID
-    ,1 AS ForceChangePass
-FROM #tmpAffInfo seq 
-INNER JOIN dbo.EUAffiliates eu ON seq.EUAffID = eu.EUAffID
+MERGE INTO [dbo].[AffInfo] AS ai
+USING #tmpAffInfo AS eu
+	ON ai.AffID = eu.AffID
+WHEN NOT MATCHED BY TARGET THEN
+	INSERT ([AffID]
+			,[UserName]
+			,[UserName2]
+			,[FirstName]
+			,[LastName]
+			,[GroupID]
+			,[Status]
+			,[ApprovedDate]
+			,[IsClosed]
+			,[Currency]
+			,[RegisteredDate]
+			,[Email]
+			,[Password]
+			,[AffType]
+			,[IsPageEnabled]
+			,[Level]
+			,[IsLocked]
+			,[CasinoJoinedDate]
+			,[EUAffID]
+			,[ForceChangePass])
+	VALUES(eu.AffID
+		,eu.[12BetUserName]
+		,eu.UserName
+		,eu.FirstName
+		,eu.LastName
+		,CASE eu.PreferedPayment 
+			WHEN 'NoPayment' THEN 121 --EU_NoComm
+			ELSE 120 --EUComm_Default
+			END -- GroupID
+		,CAST('approved' AS varchar(30)) -- [Status]
+		,CAST(GETDATE() AS smalldatetime) -- ApprovedDate
+		,0 -- IsClosed
+		,3 -- USD currency
+		,CAST(GETDATE() AS smalldatetime) -- RegisteredDate
+		,CAST(eu.EmailAddress AS nvarchar(50)) -- [Email]
+		,CAST(PwdHash AS varchar(40)) -- [Password]
+		,1 --European aff type
+		,0 -- IsPageEnabled
+		,0 -- [Level]
+		,0 -- IsLocked
+		,NULL -- CasinoJoinedDate
+		,eu.EUAffID
+		,1 -- ForceChangePass
+	)
+
+--WHEN MATCHED THEN
+
+OUTPUT Inserted.AffID
+		, Inserted.UserName
+		, Inserted.EUAffID, $Action 
+INTO @AffOutput(AffID, UserName, EUAffID, EUAction);
 
 --Insert into [AffDetail]
 --INSERT INTO [dbo].[AffDetail]
@@ -120,8 +137,8 @@ INNER JOIN dbo.EUAffiliates eu ON seq.EUAffID = eu.EUAffID
 --           ,[CodeExpiry]
 --           ,[MailOption]
 --           ,[NoSiteDesc])
- SELECT seq.AffID
-	,CAST(UPPER(seq.UserName) AS NVARCHAR(30)) AS UserName
+ SELECT ins.AffID
+	,ins.UserName
     ,eu.WebsiteURL			-- varchar(100)
     ,eu.AdditionalURL		-- <MoreSiteURLs, varchar(1000),>
     ,eu.PrefferedLanguage	--<PreferredLanguage, varchar(11),>
@@ -175,10 +192,17 @@ INNER JOIN dbo.EUAffiliates eu ON seq.EUAffID = eu.EUAffID
     ,NULL AS CodeExpiry			--<CodeExpiry, datetime,>
     ,NULL AS MailOption			--<MailOption, bit,>
     ,NULL AS NoSiteDesc			--<NoSiteDesc, nvarchar(1000),>
-FROM #tmpAffInfo seq 
-INNER JOIN dbo.EUAffiliates eu ON seq.EUAffID = eu.EUAffID
+FROM @AffOutput ins
+INNER JOIN dbo.EUAffiliates eu ON ins.AffID = eu.AffID
 
 SET IDENTITY_INSERT dbo.AffInfo OFF;
 
-DROP TABLE #tmpAffInfo;           
+SELECT * 
+INTO AffImport_Log
+FROM @AffOutput
+
+DROP TABLE #tmpAffInfo          
+
 GO
+
+SELECT * FROM AffImportLog
