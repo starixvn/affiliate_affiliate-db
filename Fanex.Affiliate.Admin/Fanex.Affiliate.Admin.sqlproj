@@ -667,5 +667,6 @@
     <None Include="SystemSettings\AffAdmin_SystemSupportedCurrencies.proc.sql">
       <SubType>Code</SubType>
     </None>
+    <Build Include="Service\Aff_API_GetAffInfoByID.proc.sql" />
   </ItemGroup>
 </Project>

@@ -1,16 +1,19 @@
 ﻿USE [Affiliate_12BET]
 GO
+
 /****** Object:  StoredProcedure [dbo].[Aff_CheckPermissionOnAff]    Script Date: 12/14/2010 13:37:52 ******/
 SET ANSI_NULLS ON
 GO
+
 SET QUOTED_IDENTIFIER ON
 GO
-ALTER PROCEDURE [dbo].[Aff_CheckPermissionOnAff]
-	@CustId int,
-	@Username varchar(50) = '',
-	@AffId int = 0,
-	@ErrCode int = 0 OUTPUT,
-	@ErrMsg nvarchar(200) = '' OUTPUT
+
+ALTER PROCEDURE [dbo].[Aff_CheckPermissionOnAff] 
+	@CustId INT
+	,@Username VARCHAR(50) = ''
+	,@AffId INT = 0
+	,@ErrCode INT = 0 OUTPUT
+	,@ErrMsg NVARCHAR(200) = '' OUTPUT
 AS
 /*
 	Created: 20090730@Peter
@@ -18,55 +21,47 @@ AS
 	DB: DB052.Affiliate_12BET
 
 	Revisions:
-	  .20090823@Peter : Rewrite the sp for new DB DB052.Affiliate_12BET
+		20090823@Peter : Rewrite the sp for new DB DB052.Affiliate_12BET
 	                    Remove the theory of pending commission and CurrCommEarning   
 	                    Get PreferredPayment to check approve 
+		20140225@Bobby: Update checking AffType for media affiliate
 	                    
 	Param's Explanation:
 	• @Username : Affiliate username
 */
-SET NOCOUNT ON
+BEGIN
+	SET NOCOUNT ON
 
-Declare @AffType tinyint
+	DECLARE @AffType TINYINT
 
-if @AffId != 0
-Begin
-	select @AffType = AffType
-	From AffInfo with (nolock)
-	where AffId = @AffId
-End
-else
-Begin
-	select @AffType = AffType
-	From AffInfo with (nolock)
-	where Username = @Username
-End
+	IF (@AffId > 0)
+	BEGIN
+		SELECT @AffType = AffType
+		FROM AffInfo WITH (NOLOCK)
+		WHERE AffId = @AffId
+	END
+	ELSE
+	BEGIN
+		SELECT @AffType = AffType
+		FROM AffInfo WITH (NOLOCK)
+		WHERE Username = @Username
+	END
 
-select @AffId, @Username, @AffType
+	SELECT @AffId
+		,@Username
+		,@AffType
 
-if @AffType is null
-Begin
-	SELECT @ErrMsg = 'You are not authorized on this function', @ErrCode = 500
-	RETURN 
-End
+	IF (@AffType IS NULL)
+	BEGIN
+		SELECT @ErrMsg = 'You are not authorized on this function'
+			,@ErrCode = 500
 
-If @AffType = 2
-Begin
-	EXEC [dbo].[Aff_Con_CheckPermission] 
-		@custid=@CustId,
-		@funcname='[MediaAffiliate]',
-		@System = 'AFFILIATE',
-		@ErrCode=@ErrCode output,
-		@ErrMsg=@ErrMsg output
-	
-End
-Else
-Begin
-	EXEC [dbo].[Aff_Con_CheckPermission]
-		@custid=@CustId,@funcname='[Affiliate]',
-		@System = 'AFFILIATE',
-		@ErrCode=@ErrCode output,
-		@ErrMsg=@ErrMsg output	
-End
+		RETURN
+	END
 
-
+	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @CustId
+			,@funcname = '[Affiliate]'
+			,@System = 'AFFILIATE'
+			,@ErrCode = @ErrCode OUTPUT
+			,@ErrMsg = @ErrMsg OUTPUT
+END
