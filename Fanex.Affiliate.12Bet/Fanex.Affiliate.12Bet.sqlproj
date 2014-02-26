@@ -329,7 +329,6 @@
     <None Include="Banner\Select\Aff_BannerSelType.sql" />
     <None Include="Common Function\Aff_CalMonthlyEarning.sql" />
     <None Include="Common Function\Aff_CalMonthlyEarningCurrent.sql" />
-    <None Include="Common Function\Aff_CheckPermissionOnAff.sql" />
     <None Include="Common Function\Aff_CheckPermissionReadOnAff.sql" />
     <None Include="Common Function\Aff_CountMember.sql" />
     <None Include="Common Function\Aff_GenUsername.sql" />
@@ -698,6 +697,26 @@
     <None Include="EUMigration\Step1-UpdateDbStructure.sql" />
     <None Include="EUMigration\Step2-ImportEUInfoTmp.sql" />
     <None Include="EUMigration\Step6-CleanupMigratedData.sql" />
+    <None Include="Affiliate\Aff_AffTypeSel.proc.sql" />
+    <None Include="Banner\Select\Aff_BannerSelDetail_1.proc.sql" />
+    <Build Include="Banner\InsUpd\Aff_BannerDel_1.sql" />
+    <Build Include="Banner\InsUpd\Aff_BannerDelType_1.sql" />
+    <Build Include="Banner\InsUpd\Aff_BannerIns_1.sql" />
+    <Build Include="Banner\InsUpd\Aff_BannerInsType_1.sql" />
+    <Build Include="Banner\InsUpd\Aff_BannerUpd_1.sql" />
+    <Build Include="Banner\Select\Aff_BannerSel_1.sql" />
+    <Build Include="Banner\Select\Aff_BannerSelByParentCate.sql" />
+    <Build Include="Banner\Select\Aff_BannerSelDetail_1.sql" />
+    <Build Include="Banner\Select\Aff_BannerSelType_1.sql" />
+    <Build Include="Affiliate\Aff_SporttypeSelByAff.sql" />
+    <Build Include="Casino\Aff_CasinoSel.proc.sql" />
+    <Build Include="Common Function\Aff_AffDailySummaryForCurrentDate.function.sql" />
+    <Build Include="ExchangeRate\Aff_ExchangeUpdateMemberDaily.sql" />
+    <Build Include="Login-OnUser\Aff_CheckIn.sql" />
+    <Build Include="Login-OnUser\Aff_CustomerSelOnline.sql" />
+    <Build Include="Login-OnUser\Aff_RecheckIn.sql" />
+    <Build Include="Member\Aff_CasinoImportData.proc.sql" />
+    <None Include="Affiliate\Aff_UpdAffType.proc.sql" />
   </ItemGroup>
   <ItemGroup>
     <Build Include="Tracking System\Aff_AffiliateInsClickStatistics_New.sql">

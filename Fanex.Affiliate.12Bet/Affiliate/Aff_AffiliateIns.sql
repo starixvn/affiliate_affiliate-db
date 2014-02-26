@@ -1,4 +1,4 @@
-﻿ALTER PROC [dbo].[Aff_AffiliateIns] 
+﻿ALTER PROCEDURE [dbo].[Aff_AffiliateIns] 
 	@AffMaster VARCHAR(50)--'12BetAff'  
 	,@AffType TINYINT = 0	-- 0, 1: Asia Affiliate; 2: EU Affiliate
 	,@AffId INT OUTPUT

@@ -38,6 +38,8 @@ DECLARE @MemberOutput TABLE(IBCCustID INT, AffID INT, EUAction varchar(50))
 	FROM dbo.EUAffPlayers eu WITH(NOLOCK)
 	LEFT JOIN dbo.AffInfo aff 
 		ON eu.EUAffID = aff.EUAffID
+	WHERE eu.IBCCustID > 0
+		AND aff.AffID > 0
 )
 MERGE INTO dbo.MemberInfo AS mem 
 USING MemImport AS eu
@@ -86,5 +88,7 @@ SELECT *
 INTO MemberImport_Log
 FROM @MemberOutput
 
-GO
 SELECT * FROM MemberImport_Log
+
+GO
+

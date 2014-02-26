@@ -1,24 +1,16 @@
-﻿-- =============================================
--- Script Template
--- =============================================
-use Affiliate_12BET
-go
-set ANSI_NULLS ON
-set QUOTED_IDENTIFIER ON
-go
-
-ALTER PROCEDURE [dbo].[Aff_BannerUpd_1]
-	@BannerID int ,
-	@FileName varchar(100)=null,
-	@Category varchar(50)=null,
-	@Language varchar(50)=null,
-	@ImageType varchar(50)=null,
-	@Size varchar(50)=null,
-	@Currency varchar(5)=null,
-	@UserID int,	
-	@IP nvarchar(15)='',
-	@ErrCode int = 0 OUTPUT,
-	@ErrMsg nvarchar(4000) = '' OUTPUT
+﻿ALTER PROCEDURE [dbo].[Aff_BannerUpd_1] 
+	@BannerID INT
+	,@FileName VARCHAR(100) = NULL
+	,@Category VARCHAR(50) = NULL
+	,@Language VARCHAR(50) = NULL
+	,@ImageType VARCHAR(50) = NULL
+	,@Size VARCHAR(50) = NULL
+	,@Currency VARCHAR(5) = NULL
+	,@UserID INT
+	,@AffType TINYINT
+	,@IP NVARCHAR(15) = ''
+	,@ErrCode INT = 0 OUTPUT
+	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
 AS
 /*
 Created: 20090331@DungTong
@@ -27,7 +19,8 @@ DB: DB052.Affiliate_12BET
 Original:
 
 Revisions:
-- 20090122@[Reviewer]: [Description of revision] 
+	- 20090122@[Reviewer]: [Description of revision] 
+	- 20140226@Bobby: Apply AffType	
 
 Param's Explanation:
 
@@ -39,108 +32,121 @@ Param's Explanation:
 
 • @ErrMsg: Error description.
 */
-SET NOCOUNT ON
---Check permission-----------------------------
-EXEC [dbo].[Aff_Con_CheckPermission] 
-	@custid=@UserID,@funcname='[Media]',
-	@System = 'AFFILIATE',
-	@ErrCode=@ErrCode output,
-	@ErrMsg=@ErrMsg output
-	
-If @ErrCode <> 0
-	RETURN
------------------------------------------------
-
-BEGIN TRANSACTION
-
---Get the old size of the banner
-Declare @OldSize varchar(50)
-SET @OldSize =	(SELECT	b.Size
-				FROM	Banners_1 b
-				WHERE	b.BannerID = @BannerID)
-
-UPDATE Banners_1 with(rowlock,updlock)
-SET 	
-	LastUpdate = getdate(),
-	UpdatedBy=@UserID,
-	FileName=coalesce(@FileName,FileName),
-	Category=coalesce(@Category,Category),
-	Language=coalesce(@Language,Language),
-	ImageType=coalesce(@ImageType,ImageType),
-	Size=coalesce(@Size,@Size),
-	Currency=coalesce(@Currency,Currency)
-WHERE BannerID=@BannerID
-IF @@Error <> 0 
 BEGIN
-	ROLLBACK TRANSACTION
-	Select @ErrMsg = N'Error occurs.Update unsuccessfully.', @Errcode=1001
-	return
-END 
+	SET NOCOUNT ON
 
---Delete the old size if there is no banner uses it
-Declare @ExistSize tinyint
-SET @ExistSize=	(SELECT	COUNT(b.Size)
-				FROM	Banners_1 b
-				WHERE	b.Size like @OldSize)
-IF @ExistSize=0
-BEGIN
-	EXEC [dbo].[Aff_BannerDelType_1] 
-	@TypeName='Size',
-	@Value=@OldSize,
-	@UserID = @UserID,
-	@ErrCode=@ErrCode output,
-	@ErrMsg=@ErrMsg output
+	--Check permission-----------------------------
+	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserID
+		,@funcname = '[Media]'
+		,@System = 'AFFILIATE'
+		,@ErrCode = @ErrCode OUTPUT
+		,@ErrMsg = @ErrMsg OUTPUT
 
-	If @ErrCode <> 0
+	IF @ErrCode <> 0 RETURN
+
+	-----------------------------------------------
+	BEGIN TRANSACTION
+
+	--Get the old size of the banner
+	DECLARE @OldSize VARCHAR(50)
+
+	SET @OldSize = (
+			SELECT b.Size
+			FROM Banners_1 b
+			WHERE b.BannerID = @BannerID
+			)
+
+	UPDATE Banners_1 WITH (ROWLOCK, UPDLOCK)
+	SET LastUpdate = getdate()
+		,UpdatedBy = @UserID
+		,FileName = coalesce(@FileName, FileName)
+		,Category = coalesce(@Category, Category)
+		,LANGUAGE = coalesce(@Language, LANGUAGE)
+		,ImageType = coalesce(@ImageType, ImageType)
+		,Size = coalesce(@Size, @Size)
+		,Currency = coalesce(@Currency, Currency)
+		,AffType = @AffType
+	WHERE BannerID = @BannerID
+
+	IF @@Error <> 0
 	BEGIN
 		ROLLBACK TRANSACTION
-		return
+
+		SELECT @ErrMsg = N'Error occurs.Update unsuccessfully.'
+			,@Errcode = 1001
+
+		RETURN
 	END
-END
 
---Add new size to BannerTypes table if it is new
-SET @ExistSize=	(SELECT	COUNT(b.Value)
-				FROM	BannerTypes_1 b
-				WHERE	b.Value like @Size)
-IF @ExistSize=0
-BEGIN
-	EXEC [dbo].[Aff_BannerInsType_1] 
-	@TypeName='Size',
-	@Value=@Size,
-	@UserID = @UserID,
-	@ErrCode=@ErrCode output,
-	@ErrMsg=@ErrMsg output
+	--Delete the old size if there is no banner uses it
+	DECLARE @ExistSize TINYINT
 
-	If @ErrCode <> 0
+	SET @ExistSize = (
+			SELECT COUNT(b.Size)
+			FROM Banners_1 b
+			WHERE b.Size LIKE @OldSize
+			)
+
+	IF @ExistSize = 0
 	BEGIN
-		ROLLBACK TRANSACTION
-		return
+		EXEC [dbo].[Aff_BannerDelType_1] @TypeName = 'Size'
+			,@Value = @OldSize
+			,@UserID = @UserID
+			,@ErrCode = @ErrCode OUTPUT
+			,@ErrMsg = @ErrMsg OUTPUT
+
+		IF @ErrCode <> 0
+		BEGIN
+			ROLLBACK TRANSACTION
+
+			RETURN
+		END
 	END
+
+	--Add new size to BannerTypes table if it is new
+	SET @ExistSize = (
+			SELECT COUNT(b.Value)
+			FROM BannerTypes_1 b
+			WHERE b.Value LIKE @Size
+			)
+
+	IF @ExistSize = 0
+	BEGIN
+		EXEC [dbo].[Aff_BannerInsType_1] @TypeName = 'Size'
+			,@Value = @Size
+			,@UserID = @UserID
+			,@ErrCode = @ErrCode OUTPUT
+			,@ErrMsg = @ErrMsg OUTPUT
+
+		IF @ErrCode <> 0
+		BEGIN
+			ROLLBACK TRANSACTION
+
+			RETURN
+		END
+	END
+
+	COMMIT TRANSACTION
+
+	SELECT @Errcode = 0
+
+	DECLARE @SPName VARCHAR(50)
+		,@Detail NVARCHAR(4000)
+
+	SELECT @SPName = OBJECT_NAME(@@ProcID)
+
+	SELECT @Detail = 'Update bannerID:' + dbo.Aff_ToString(@BannerID) + ' FileName:' + dbo.Aff_ToString(@FileName) + ' Category:' + dbo.Aff_ToString(@Category) + ' Language:' + dbo.Aff_ToString(@Language) + ' ImageType:' + dbo.Aff_ToString(@ImageType) + ' Size:' + dbo.Aff_ToString(@Size) + ' Currency:' + dbo.Aff_ToString(@Currency) + ' AffType:' + dbo.Aff_ToString(@AffType)
+
+	EXEC [dbo].[Aff_WriteLog] @Creator = @UserID
+		,@Typename = 'Banner'
+		,-- refer to table LogType
+		@SPName = @SPName
+		,@Details = @Detail
+		,@IP = @IP
 END
-
-COMMIT TRANSACTION
-
-Select @Errcode=0
-
-declare @SPName varchar(50), @Detail nvarchar(4000) 
-select @SPName = OBJECT_NAME(@@ProcID)
-select @Detail = 'Update bannerID:' + dbo.Aff_ToString(@BannerID) 
-				  +  ' FileName:' + dbo.Aff_ToString(@FileName)
-				  +  ' Category:' + dbo.Aff_ToString(@Category)
-				  +  ' Language:' + dbo.Aff_ToString(@Language)
-				  +  ' ImageType:' + dbo.Aff_ToString(@ImageType)
-				  +  ' Size:' + dbo.Aff_ToString(@Size)
-				  +  ' Currency:' + dbo.Aff_ToString(@Currency)
-
-EXEC [dbo].[Aff_WriteLog] 
-	@Creator = @UserID,
-	@Typename = 'Banner', -- refer to table LogType
-	@SPName = @SPName,
-	@Details = @Detail,
-	@IP = @IP
-
-
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_BannerUpd_1] TO [bodbAdminNet]
 GO
+
 GRANT VIEW DEFINITION ON [dbo].[Aff_BannerUpd_1] TO [VNTeam]

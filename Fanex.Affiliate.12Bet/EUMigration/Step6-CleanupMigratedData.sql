@@ -55,8 +55,4 @@ IF (
 			WHERE o.NAME = 'MemberImport_Log'
 			)
 		) DROP TABLE [dbo].[MemberImport_Log];
-
-
-
-
 GO

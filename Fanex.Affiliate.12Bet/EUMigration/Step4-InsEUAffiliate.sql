@@ -213,6 +213,6 @@ FROM @AffOutput
 
 DROP TABLE #tmpAffInfo          
 
+SELECT * FROM AffImport_Log
 GO
 
-SELECT * FROM AffImport_Log

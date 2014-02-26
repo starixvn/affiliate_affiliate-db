@@ -12,6 +12,10 @@ AS
 */
 BEGIN
 	SET NOCOUNT ON;
+	
+	SELECT @ErrorCode = 0
+		, @ErrorMsg = '';
+
 	IF(@AffID IS NULL OR @AffID <= 0)
 	BEGIN
 		SELECT @ErrorCode = 101
@@ -19,13 +23,43 @@ BEGIN
 		RETURN;
 	END
 
-	SELECT TOP(1) AffID
-		, UserName
-		, (FirstName + ' ' + LastName) AS FullName
-		, Email
+	DECLARE @UserName	VARCHAR(50)
+		, @FullName		VARCHAR(100)
+		, @Email		VARCHAR(100)
+		, @Status		VARCHAR(30)
+		, @IsClosed	BIT;
+
+	SELECT TOP(1) 
+		@UserName	= UserName
+		, @FullName = (FirstName + ' ' + LastName)
+		, @Email	= Email
+		, @Status	= [Status]
+		, @IsClosed = [IsClosed]
 	FROM [dbo].[AffInfo] ai WITH(NOLOCK)
 	WHERE AffID = @AffID
+
+	IF(@UserName IS NOT NULL
+		AND @Status='approved' 
+		AND @IsClosed = 0)
+	BEGIN
+		SELECT @AffID AS AffID 
+			, @UserName AS UserName
+			, @FullName AS FullName
+			, @Email AS Email
+	END
+	ELSE IF(@UserName IS NOT NULL
+		AND (@Status <> 'approved' 
+		OR @IsClosed <> 0))
+	BEGIN
+		SELECT @ErrorCode = 103
+			, @ErrorMsg = 'Sorry! This affiliate is ' +  @Status + ' now.'
+	END
+	ELSE
+	BEGIN
+		SELECT @ErrorCode = 102
+			, @ErrorMsg = 'Affiliate does not exist.'
+	END
+	RETURN;	
 END
-GO
 
 GRANT EXECUTE ON [dbo].[Aff_API_GetAffInfoByID] TO [bodbDownlineNet] AS [dbo]
