@@ -1,5 +1,4 @@
-﻿--WARNING! ERRORS ENCOUNTERED DURING SQL PARSING!
-ALTER PROCEDURE [dbo].[Task_Aff_MonthlyTransfer] 
+﻿ALTER PROCEDURE [dbo].[Task_Aff_MonthlyTransfer] 
 	@UserId INT
 	,@Month INT
 	,@Year INT
@@ -113,7 +112,8 @@ BEGIN
 				SELECT TOP (1) 1
 				FROM CommGroupHistory(NOLOCK)
 				WHERE monthdate = @LastDay
-				) OR NOT EXISTS (
+				)
+			OR NOT EXISTS (
 				SELECT TOP (1) 1
 				FROM GroupSettingHistory(NOLOCK)
 				WHERE monthdate = @LastDay
@@ -381,9 +381,14 @@ end*/
 		,Sum(isnull([MemTurnoverDraw], 0))
 		,Sum(isnull([MemTurnoverDraw_aff], 0))
 	FROM AffInfo ai WITH (NOLOCK)
-		INNER JOIN AffGroupHistory gh(NOLOCK) ON gh.AffID = ai.AffID AND gh.MonthDate = @LastDay
-		INNER JOIN CommGroupHistory ch(NOLOCK) ON ch.groupid = gh.groupid AND ch.MonthDate = @LastDay
-		INNER JOIN #MemberSummary r ON r.AffID = ai.AffID
+		INNER JOIN AffGroupHistory gh(NOLOCK)
+		ON gh.AffID = ai.AffID
+			AND gh.MonthDate = @LastDay
+		INNER JOIN CommGroupHistory ch(NOLOCK)
+		ON ch.groupid = gh.groupid
+			AND ch.MonthDate = @LastDay
+		INNER JOIN #MemberSummary r
+		ON r.AffID = ai.AffID
 	WHERE ai.STATUS = @Status
 	GROUP BY ai.AffID
 		,ai.Currency
@@ -403,7 +408,8 @@ end*/
 		FROM #MemberSummary m
 		WHERE m.MemTurnover > 0 --or m.MemDeposit>0  
 		GROUP BY m.AffID
-		) t ON a.AffID = t.AffID
+		) t
+		ON a.AffID = t.AffID
 
 	--Choose commission value and calculate Total Balance after deduction for each Affiliate and ProductID  
 	UPDATE a
@@ -421,14 +427,20 @@ end*/
 					SELECT isnull((
 								SELECT Commission
 								FROM GroupSettingHistory(NOLOCK)
-								WHERE GroupID = a.GroupID AND ProductID = a.ProductID AND MonthDate = @LastDay AND floor(abs(- isnull(a.MemWinlost_aff, 0) - Cast(a.HasPSP AS INT) * isnull(a.MemPSP_aff, 0) * isnull(a.PSPPercent, 1) - Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost_aff, 0)) * isnull(a.OddsFeePercent, 1) - Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost_aff, 0)) * isnull(a.MarketingPercent, 1))) BETWEEN MinAmount AND MaxAmount
+								WHERE GroupID = a.GroupID
+									AND ProductID = a.ProductID
+									AND MonthDate = @LastDay
+									AND floor(abs(- isnull(a.MemWinlost_aff, 0) - Cast(a.HasPSP AS INT) * isnull(a.MemPSP_aff, 0) * isnull(a.PSPPercent, 1) - Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost_aff, 0)) * isnull(a.OddsFeePercent, 1) - Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost_aff, 0)) * isnull(a.MarketingPercent, 1))) BETWEEN MinAmount AND MaxAmount
 								), 0) AS Commission
 					
 					UNION ALL
 					SELECT isnull((
 								SELECT TOP (1) Commission
 								FROM GroupSettingHistory(NOLOCK)
-								WHERE GroupID = a.GroupID AND ProductID = a.ProductID AND MonthDate = @LastDay AND a.TotalQM BETWEEN MinQM AND MaxQM
+								WHERE GroupID = a.GroupID
+									AND ProductID = a.ProductID
+									AND MonthDate = @LastDay
+									AND a.TotalQM BETWEEN MinQM AND MaxQM
 								), 0) AS Commission
 					) t
 				ORDER BY t.Commission ASC
@@ -438,10 +450,14 @@ end*/
 	UPDATE a
 	SET a.Commission = @MinimumNegativeCommission
 	FROM #AffSummary a
-	WHERE a.NetWinlost_aff < 0 AND a.Commission = 0 AND [dbo].[IsZeroCommissionGroup](a.GroupID, @LastDay) <> 0 AND a.ProductID IN (
+	WHERE a.NetWinlost_aff < 0
+		AND a.Commission = 0
+		AND [dbo].[IsZeroCommissionGroup](a.GroupID, @LastDay) <> 0
+		AND a.ProductID IN (
 			SELECT DISTINCT ProductID
 			FROM GroupSettingHistory(NOLOCK)
-			WHERE GroupID = a.GroupID AND DATEDIFF(m, MonthDate, @LastDay) = 0
+			WHERE GroupID = a.GroupID
+				AND DATEDIFF(m, MonthDate, @LastDay) = 0
 			)
 
 	--Insert transaction to AffTrans and AffCommission  
@@ -561,7 +577,8 @@ end*/
 		SET d.RelNo = (
 				SELECT TOP (1) RefID
 				FROM @Temp d1
-				WHERE d1.AffID = d.AffID AND d1.RefID > 0
+				WHERE d1.AffID = d.AffID
+					AND d1.RefID > 0
 				)
 		FROM AffCommission d WITH (ROWLOCK, UPDLOCK)
 		WHERE d.WinlostDate = @LastDay
@@ -600,10 +617,12 @@ end*/
 		SET d.RefID = (
 				SELECT TOP (1) RefID
 				FROM @Temp d1
-				WHERE d1.AffID = d.AffID AND d1.RefID > 0
+				WHERE d1.AffID = d.AffID
+					AND d1.RefID > 0
 				)
 		FROM AffTrans d WITH (ROWLOCK, UPDLOCK)
-		WHERE d.TransDate = @LastDay AND d.TransType = @TransType
+		WHERE d.TransDate = @LastDay
+			AND d.TransType = @TransType
 
 		UPDATE ad
 		SET ad.AffWinlost = - isnull(ad.MemWinlost, 0) * isnull(a.commission, 0)
@@ -617,7 +636,9 @@ end*/
 				/*-Cast(isnull(a.HasAdjustment,0) as int) *  isnull(ad.MemAdjustment,0) * isnull(a.AdjustmentPercent,1) */
 				) * (1 - isnull(a.commission, 0))
 		FROM AffDaily ad WITH (ROWLOCK, UPDLOCK)
-			LEFT JOIN #AffSummary a WITH (NOLOCK) ON a.AffID = ad.AffID AND a.ProductID = ad.ProductID
+			LEFT JOIN #AffSummary a WITH (NOLOCK)
+			ON a.AffID = ad.AffID
+				AND a.ProductID = ad.ProductID
 		WHERE datediff(mm, ad.Winlostdate, @FirstDay) = 0
 
 		UPDATE ad
@@ -644,14 +665,17 @@ end*/
 				/*-Cast(isnull(a.HasAdjustment,0) as int) *  isnull(ad.MemAdjustment_aff,0) * isnull(a.AdjustmentPercent,1) */
 				) * (1 - isnull(a.commission, 0))
 		FROM AffDailySummary ad WITH (ROWLOCK, UPDLOCK)
-			LEFT JOIN #AffSummary a WITH (NOLOCK) ON a.AffID = ad.AffID AND a.ProductID = ad.ProductID
+			LEFT JOIN #AffSummary a WITH (NOLOCK)
+			ON a.AffID = ad.AffID
+				AND a.ProductID = ad.ProductID
 		WHERE datediff(mm, ad.Winlostdate, @FirstDay) = 0
 
 		-- Update BF for AffInfo  
 		UPDATE ai
 		SET ai.BF = dbo.[Aff_GetAffBalance](ad.AffID)
 		FROM AffInfo ai WITH (ROWLOCK, UPDLOCK)
-			INNER JOIN #AffSummary ad(NOLOCK) ON ad.AffID = ai.AffID
+			INNER JOIN #AffSummary ad(NOLOCK)
+			ON ad.AffID = ai.AffID
 	END TRY
 
 	BEGIN CATCH

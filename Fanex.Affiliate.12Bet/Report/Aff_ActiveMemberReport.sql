@@ -1,4 +1,4 @@
-﻿ALTER Procedure [dbo].[Aff_ActiveMemberReport]
+﻿ALTER PROCEDURE [dbo].[Aff_ActiveMemberReport]
 	@Fromdate datetime=null,
 	@Todate datetime=null,
 	@IsGetAll bit=0,

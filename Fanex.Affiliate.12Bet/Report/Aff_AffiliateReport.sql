@@ -15,7 +15,6 @@ Revisions:
 	- 20101228@Henry: change bettype to new range
 	- 20110420@Johnny: Filter by Sporttype and restore code to old bettype range
 	 - 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
-	 - 20120606@Peter : Exclude waiting tickets
 Param's Explanation:
 	• @Fromdate Time search From
 	• @Todate Time search To,
@@ -24,11 +23,11 @@ Param's Explanation:
 Set Nocount On
 
 Declare @CurrDate smalldatetime, @OldReportDate smalldatetime, @TmpToDate smalldatetime, @TmpFromDate smalldatetime, @TmpOldWayDate smalldatetime
-		, @SportsBookID int, @HorseRacingID int, @CasinoID int
+		, @SportsBookID int, @HorseRacingID int
 	
-select @SportsBookID=dbo.Aff_GetSportID('SportsBook'),@HorseRacingID=dbo.Aff_GetSportID('Horse Racing'), @CasinoID = dbo.Aff_GetSportID('Casino')
+select @SportsBookID=dbo.Aff_GetSportID('SportsBook'),@HorseRacingID=dbo.Aff_GetSportID('Horse Racing')
 
-if(@IsGetAll = 0 and (@Fromdate > @Todate or @Fromdate > current_timestamp)) RETURN
+if(@Fromdate > @Todate or @Fromdate > current_timestamp) RETURN
 	
 select @CurrDate = convert(varchar(10),current_timestamp,120)
 
@@ -49,7 +48,6 @@ Begin
 	select @TmpFromDate = dateadd(d, 1, @OldReportDate)--From date for new way calculate winlost
 	select @TmpToDate = dateadd(d, -1, @CurrDate)--To date for new way calculate winlost
 	select @TmpOldWayDate = @OldReportDate	
-
 End
 Else
 Begin
@@ -58,6 +56,8 @@ Begin
 	select @TmpOldWayDate = case when @ToDate >= @OldReportDate then @OldReportDate else @ToDate end
 	
 End
+
+	--select @FromDate as FromDate, @ToDate as ToDate , @TmpFromDate as TmpFromDate, @TmpToDate as TmpToDate, @TmpOldWayDate as TmpOldWayDate
 	
 select t.AffId,
 	t.Username,
@@ -76,8 +76,9 @@ From
 	Select ai.AffId, ai.Username
 	From AffDetail ad with (nolock)
 		inner join AffInfo ai with(nolock) on ad.AffId = ai.AffId
-	where ai.AffType = @AffType
-		and isnull(@PreferredLanguage, PreferredLanguage) = PreferredLanguage
+		inner join AffType at with(nolock) on ai.AffType = at.TypeId
+	where PreferredLanguage = isnull(@PreferredLanguage, PreferredLanguage)
+		and at.IsShown = 1
 	) t
 	inner join 
 	(	
@@ -93,10 +94,7 @@ From
 			0 as AffWithdrawal,
 			sum(AffNetWinlost * ExRate2) as AffBF
 		From AffDaily with(nolock)
-		Where 
-			(case when SportId <> @CasinoID and WinlostDate Between @FromDate and @TmpToDate then 1
-					when SportId = @CasinoID and WinlostDate Between @FromDate and @ToDate then 1
-					else 0 end) = 1
+		Where WinlostDate Between @FromDate and @TmpToDate
 			and isnull(@SportId, SPortId) = SPortId
 		Group by AffID
 		
@@ -151,8 +149,8 @@ From
 		where @ToDate >= @CurrDate and b.WinlostDate = @CurrDate
 			and (Bettype < 19000 or Bettype in (21001, 21002, 21003, 21004, 21005, 22001, 22002,22003, 22004, 22005))
 			 and bettype not between 71 and 120 --Not include Casino and Number Game
-			and StatusID not in (101, 102, 103, 121,1) 
-			--and status not in ('VOID', 'REJECT', 'REFUND','DONE','WAITING')
+			and StatusID not in (101, 102, 103, 121) 
+			--and status not in ('VOID', 'REJECT', 'REFUND','DONE')
 		Group by m.AffId,e.DepositPercent,e.WithdrawalPercent, b.Bettype
 		
 		Union All		

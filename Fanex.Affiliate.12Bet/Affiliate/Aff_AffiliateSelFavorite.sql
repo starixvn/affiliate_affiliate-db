@@ -1,4 +1,4 @@
-﻿Alter Procedure [Aff_AffiliateSelFavorite]  
+﻿ALTER Procedure [dbo].[Aff_AffiliateSelFavorite]  
 	@UserId int=-1,
 	@GroupID int=-1,
 	@GroupName nvarchar(100)=NULL Output,
@@ -68,6 +68,7 @@ select @NRows=count(1)
 FROM     
 	AffInfo ai with (nolock)  
 	inner join AdminFavorite f with (nolock) on ai.AffId = f.AffId 
+	inner join AffType at with(nolock) on ai.AffType = at.TypeId
 WHERE f.AdminId = @UserId  
 	and (case when @AffID = -1 then 1   
 				  when ai.AffId=@AffID then 1  
@@ -83,7 +84,8 @@ WHERE f.AdminId = @UserId
 			  else 0
 		  end 
 		)=1	
-	and (@AffType is null or AffType = @AffType)
+	--and (@AffType is null or AffType = @AffType)
+	and at.IsShown = 1
 	
 if(isnull(@NRows,0)=0)    
    return    
@@ -104,6 +106,7 @@ from
 	from AffInfo ai with (nolock)		
 		inner join AffDetail ad with(nolock) on ai.AffId = ad.AffId
 		inner join AdminFavorite f with (nolock) on ai.AffId = f.AffId   
+		inner join AffType at with(nolock) on ai.AffType = at.TypeId
 	where f.AdminId = @UserId
 		and (case when @AffID = -1 then 1   
 				  when ai.AffId=@AffID then 1  
@@ -119,7 +122,8 @@ from
 			  else 0
 		  end 
 		)=1	
-	and (@AffType is null or AffType = @AffType)
+	--and (@AffType is null or AffType = @AffType)
+	and at.IsShown = 1
 	)m
 where m.TheCount between @RowStart and @RowEnd 
 		
@@ -140,7 +144,7 @@ from @TempMember x
 	left join CommGroup cg with (nolock) on x.GroupId = cg.GroupId  
 ORDER BY IsClosed, Username  
 	
-  
+
 GO
 GRANT EXECUTE ON [dbo].[Aff_AffiliateSelFavorite] TO [bodbAdminNet]
 GO

@@ -1,13 +1,6 @@
-﻿USE [Affiliate_12BET]
-GO
-/****** Object:  StoredProcedure [dbo].[Aff_AffiliateCommReport]    Script Date: 12/23/2010 13:05:19 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
- ALTER Procedure [dbo].[Aff_AffiliateCommReport]
+﻿ ALTER PROCEDURE [dbo].[Aff_AffiliateCommReport]
 	@MonthDate datetime=null,		
-	@SportId tinyint=null,
+	@SportId tinyint=1,
 	@UserName nvarchar(50)=NULL,
 	@PreferredLanguage varchar(11) = null,
 	@AffType tinyint = 0,
@@ -56,7 +49,7 @@ WHERE ai.Status='Approved'
 	--and ai.IsClosed=0
 	and ai.Username like @UserName
 	and isnull(@PreferredLanguage, ad.PreferredLanguage) = ad.PreferredLanguage
-	and AffType = @AffType
+	--and AffType = @AffType
 	and ai.ApprovedDate < @ToDate  
 
 if(isnull(@NRows,0)=0)    
@@ -80,8 +73,8 @@ from
 		--and ai.IsClosed=0
 		and ai.Username like @UserName  
 		and isnull(@PreferredLanguage, ad.PreferredLanguage) = ad.PreferredLanguage
-		and AffType = @AffType	
-		and ai.ApprovedDate < @ToDate  
+		--and AffType = @AffType	
+        and ai.ApprovedDate < @ToDate  
 	)m 
 where m.TheCount between @RowStart and @RowEnd      
 select @AffectedRows=@@ROWCOUNT
@@ -93,24 +86,24 @@ begin
 		begin
 			--calculate for current month and display the data
 
-			update t
-			set t.Commission=coalesce(a.commission,0),
-			   t.AffComm=coalesce(a.Amount,0)
-			from   @TempAff as t 
-			  CROSS APPLY [dbo].[Aff_CommissionForCurrentMonth](t.AffID) as a
-			where ISNULL(@SportId, a.SportID)=a.SportID
+            update t
+            set t.Commission=coalesce(a.commission,0),
+               t.AffComm=coalesce(a.Amount,0)
+            from   @TempAff as t 
+              CROSS APPLY [dbo].[Aff_CommissionForCurrentMonth](t.AffID) as a
+            where  a.SportID=@SportId
 		
 		end
 		else
 		begin
 		  
 			
-			update t
-			set t.Commission=coalesce(a.commission,0),
-			   t.AffComm=coalesce(a.Amount,0)
-			from   @TempAff as t 
-			  CROSS APPLY [dbo].[Aff_CommissionForMonth](t.AffID,@Month,@Year) as a
-			where  ISNULL(@SportId, a.SportID)=a.SportID
+            update t
+            set t.Commission=coalesce(a.commission,0),
+               t.AffComm=coalesce(a.Amount,0)
+            from   @TempAff as t 
+              CROSS APPLY [dbo].[Aff_CommissionForMonth](t.AffID,@Month,@Year) as a
+            where  a.SportID=@SportId
 
 		
 		end	
@@ -142,6 +135,7 @@ else
 			) t2 on t.AffId = t2.AffId
 			order by t.IsClosed,t.AffId, t.Username	
 	end
+
 
 GO
 GRANT EXECUTE ON [dbo].[Aff_AffiliateCommReport] TO [bodbAdminNet]

@@ -155,24 +155,28 @@ GO
 INSERT [dbo].[Product] ([TypeId], [TypeName], [ListSport]) VALUES (2, N'Sportbook and Casino', N'1,3')
 GO
 
---Update Asean affiliate
-UPDATE ai
-SET AffType = 2
-FROM dbo.AffInfo ai WITH(ROWLOCK ,UPDLOCK)
-WHERE AffType = 0
-
 --Update Media affiliate
 UPDATE ai
 SET AffType = 3
 FROM dbo.AffInfo ai WITH(ROWLOCK ,UPDLOCK)
 WHERE AffType = 2
 
---Update AffType to Asean AFF
+--Update Asean affiliate
+UPDATE ai
+SET AffType = 2
+FROM dbo.AffInfo ai WITH(ROWLOCK ,UPDLOCK)
+WHERE AffType IN (0,1) 
+	OR AffType IS NULL
+
+--Update Media banner
+UPDATE bn
+SET AffType = 3
+FROM dbo.Banners_1 bn WITH(ROWLOCK ,UPDLOCK)
+WHERE bn.[type] = 1
+
+--Update Asean banner
 UPDATE bn
 SET AffType = 2
 FROM dbo.Banners_1 bn WITH(ROWLOCK ,UPDLOCK)
-
-
-
-
-
+WHERE bn.[type] IS NULL 
+	OR bn.[type] = 0
