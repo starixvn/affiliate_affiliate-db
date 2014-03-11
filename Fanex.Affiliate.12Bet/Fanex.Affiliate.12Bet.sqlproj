@@ -108,6 +108,7 @@
     <Folder Include="DomainControl" />
     <Folder Include="IA" />
     <Folder Include="EUMigration" />
+    <Folder Include="EUMigration\Batch2" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Schema Objects" />
@@ -717,6 +718,10 @@
     <Build Include="Login-OnUser\Aff_RecheckIn.sql" />
     <Build Include="Member\Aff_CasinoImportData.proc.sql" />
     <None Include="Affiliate\Aff_UpdAffType.proc.sql" />
+    <None Include="EUMigration\Batch2\Step1-ImportEUInfoTmp.sql" />
+    <None Include="EUMigration\Batch2\Step4-InsEUMember.sql" />
+    <None Include="EUMigration\Batch2\Step2-PrepairGenUserName.sql" />
+    <None Include="EUMigration\Batch2\Step3-InsEUAffiliate.sql" />
   </ItemGroup>
   <ItemGroup>
     <Build Include="Tracking System\Aff_AffiliateInsClickStatistics_New.sql">
