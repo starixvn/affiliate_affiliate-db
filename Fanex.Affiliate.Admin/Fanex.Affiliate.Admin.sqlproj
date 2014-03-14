@@ -130,6 +130,8 @@
     <Folder Include="Customer" />
     <Folder Include="zTask" />
     <Folder Include="Service" />
+    <Folder Include="Scripts" />
+    <Folder Include="Scripts\NewAdminLivebet365" />
   </ItemGroup>
   <ItemGroup>
     <BuildContributorArgument Include="OutDir=$(OutDir)" />
@@ -282,6 +284,7 @@
     <None Include="CommGroup\AffAdmin_CommGroupSelByID.sql">
       <SubType>NotInBuild</SubType>
     </None>
+    <None Include="Scripts\NewAdminLivebet365\UpdateDbStructure.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Language\AffAdmin_AdminSupportedLanguagesSel.proc.sql">
