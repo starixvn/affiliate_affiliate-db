@@ -475,20 +475,20 @@ BEGIN
 			,EnableCashback = isnull(tmp.DeductedPercentage, 0)
 		FROM @Result r
 			LEFT JOIN (
-			SELECT a.AffID
-				,a.Amount AS CashAmount
-				,b.DeductedPercentage
-			FROM AffDeductionTransaction a WITH (NOLOCK)
-				JOIN DeductionSetting b WITH (NOLOCK)
-				ON a.DTypeID = b.DeductionID
-				JOIN DeductionType c WITH (NOLOCK)
+			SELECT TOP(1) 
+				@AffId AS AffId
+				, b.GroupID
+				, b.DeductedPercentage
+				, a.Amount AS CashAmount
+			FROM DeductionSetting b WITH (NOLOCK)
+				INNER JOIN DeductionType c WITH (NOLOCK)
 				ON b.DeductionID = c.DTypeID
+				LEFT JOIN AffDeductionTransaction a WITH (NOLOCK)
+				ON (c.DTypeID = a.DTypeID AND (datediff(m, a.MonthDate, @CurrentDate) = 0) AND AffID = @AffId)
 			WHERE c.[DTypeName] = 'Cashback'
-				AND datediff(m, a.MonthDate, @CurrentDate) = 0
-				AND a.ProductID = 0
 				AND b.GroupID = @GroupId
 			) tmp
-			ON r.AffID = tmp.AffID
+			ON r.AffId = tmp.AffId
 		WHERE r.AffID = @AffId
 			AND DATEDIFF(m, @CurrentDate, WinlostDate) = 0
 
