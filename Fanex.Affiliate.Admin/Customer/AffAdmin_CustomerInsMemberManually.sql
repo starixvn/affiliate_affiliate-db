@@ -83,6 +83,7 @@ BEGIN
 	/*** update member is removed ***/
 	IF (@affMemberID > 0 AND @memberRemoved = 1) 
 	BEGIN
+		SET @AffAffectedDate = CURRENT_TIMESTAMP
 		--update Btag
 		SELECT TOP(1) 
 			@Btag = ISNULL(SValue, '0') + '_' + cast(@AffID as varchar(10)) + '_0' 

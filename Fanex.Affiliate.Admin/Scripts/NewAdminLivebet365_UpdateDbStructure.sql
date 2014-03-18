@@ -118,4 +118,19 @@ VALUES (
 PRINT 'insert new DeductionType - Cashback'
 GO
 
+--update system sestting
+INSERT INTO [Affiliate_LB365_test].[dbo].[SystemSettings]
+           ([Type]
+           ,[SName]
+           ,[SValue]
+           ,[Description]
+           ,[Environment])
+   SELECT [Type]
+      ,[SName]
+      ,[SValue]
+      ,[Description]
+      ,[Environment]
+  FROM [Affiliate_Athena000].[dbo].[SystemSettings]
+  where Type = 'Environment'
+GO
 

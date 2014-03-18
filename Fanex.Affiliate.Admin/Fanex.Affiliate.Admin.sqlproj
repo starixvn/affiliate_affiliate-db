@@ -131,7 +131,6 @@
     <Folder Include="zTask" />
     <Folder Include="Service" />
     <Folder Include="Scripts" />
-    <Folder Include="Scripts\NewAdminLivebet365" />
   </ItemGroup>
   <ItemGroup>
     <BuildContributorArgument Include="OutDir=$(OutDir)" />
@@ -284,7 +283,6 @@
     <None Include="CommGroup\AffAdmin_CommGroupSelByID.sql">
       <SubType>NotInBuild</SubType>
     </None>
-    <None Include="Scripts\NewAdminLivebet365\UpdateDbStructure.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Language\AffAdmin_AdminSupportedLanguagesSel.proc.sql">
@@ -672,5 +670,7 @@
     </None>
     <Build Include="Service\Aff_API_GetAffInfoByID.proc.sql" />
     <Build Include="Exchange\AffAdmin_CopyRateFromMarket.proc.sql" />
+    <Build Include="Currency\Aff_UserCurrencyIns.proc.sql" />
+    <Build Include="Scripts\NewAdminLivebet365_UpdateDbStructure.sql" />
   </ItemGroup>
 </Project>
