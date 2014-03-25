@@ -1,4 +1,4 @@
-﻿ALTER Procedure [dbo].[Task_Aff_MemberDailyTransactionImportData]	
+﻿ALTER PROCEDURE [dbo].[Task_Aff_MemberDailyTransactionImportData]	
 	@AdminID int,	
 	@XmlData XML,	
 	@WinlostDate smalldatetime,	
@@ -27,7 +27,7 @@ Declare @SportsBookID tinyint, @SystemCurrency smallint--Deposit, withdraw,... i
 select @SportsBookID = dbo.Aff_GetSportID('SportsBook') 
 Exec Aff_GetSystemCurrency @SystemCurrency = @SystemCurrency output
 
-DECLARE @MemberTrans table(UserName varchar(30), AffID int, [Action] varchar(30), WinlostDate smalldatetime)
+DECLARE @TmpTable TABLE (UserName  VARCHAR(30), WinlostDate smalldatetime)
 --Import new Data here
 DECLARE @TempTrans TABLE(
 	UserName varchar(30),
@@ -39,7 +39,6 @@ DECLARE @TempTrans TABLE(
 	Adjustment money,
 	AffTransfer money,
 	Transfer3rd money);
-
 
 INSERT INTO @TempTrans --Convert xml to table
 SELECT				
@@ -54,36 +53,25 @@ SELECT
 		[Table].[Column].value('./@transfer3rd', 'money') as [Transfer3rd]
 	FROM @XmlData.nodes('/root/trans') as [Table]([Column]);
 
-;WITH TData AS
-(
-	SELECT temp.*
-		, mi.AffID
-		, mi.Currency
-		, ai.Currency AS AffCurrency
-		, mi.IsRemoved
-	FROM @TempTrans AS temp
-	INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON temp.UserName = mi.UserName
-	INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON tmp.AffId = ai.AffId
-	WHERE temp.WinlostDate=@WinlostDate 
-		AND LEN(temp.UserName) > 0
-		AND LEN(temp.Currency) > 0
-		AND mi.IsRemoved=0
-)
-MERGE INTO dbo.MemberDaily AS md
-USING TData AS tmp 
-	ON tmp.UserName = md.UserName AND md.WinlostDate = tmp.WinlostDate
+DELETE  @TempTrans where isnull(UserName,'')='' or ISNULL(Currency,'')='' or WinlostDate <> @WinlostDate
 
-WHEN MATCHED AND md.ProductID=@SportsBookID  THEN
-	UPDATE
-	SET [Deposit] = tmp.Deposit,
-		[Withdrawal] = tmp.Withdrawal,
-		[Bonus] = tmp.Bonus,
-		[Adjustment] = tmp.Adjustment,     
-		[AffTransfer] = tmp.AffTransfer,     
-		[Transfer3rd] = tmp.Transfer3rd   
+UPDATE m with (rowlock,updlock)    
+SET 
+      m.[Deposit] = temp.Deposit,
+      m.[Withdrawal] = temp.Withdrawal,
+      m.[Bonus] = temp.Bonus,
+      m.[Adjustment] = temp.Adjustment,     
+	  m.[AffTransfer] = temp.AffTransfer,     
+	  m.[Transfer3rd] = temp.Transfer3rd   
+	   
+OUTPUT Inserted.UserName,Inserted.WinlostDate INTO @TmpTable
+FROM MemberDaily AS m 
+	INNER JOIN @TempTrans AS temp ON m.UserName = temp.UserName	AND m.WinlostDate = temp.WinlostDate		
+Where m.ProductID = @SportsBookID        			
+      and m.WinlostDate=@WinlostDate
 
-WHEN NOT MATCHED BY TARGET THEN
-	INSERT([UserName]
+INSERT INTO MemberDaily
+			([UserName]
 			,[WinlostDate]
 			,[ProductID]       
 			,[AffID]       
@@ -99,55 +87,60 @@ WHEN NOT MATCHED BY TARGET THEN
 			,AffTransfer
 			,Transfer3rd
 			,[Turnover]
-			,[Outstanding]
-			,[Winlost]
-			,[DrawGame]
-			,[PSP]
-			,[Marketing]
-			,[MemWinlostFake]
-			,[MemOddsFee]
-			,[MemPLayTechFee]
-			,[BetCount]
-			,[PlayerComm]
-			,[TurnoverNoDraw]
-			,[BetCountNoDraw]
-			,[TurnoverDraw]
-		)
-	VALUES(tmp.UserName, 
-			tmp.WinlostDate, 
+           ,[Outstanding]
+           ,[Winlost]
+           ,[DrawGame]
+           ,[PSP]
+           ,[Marketing]
+           ,[MemWinlostFake]
+           ,[MemOddsFee]
+           ,[MemPLayTechFee]
+		   ,[BetCount]
+           ,[PlayerComm]
+           ,[TurnoverNoDraw]
+           ,[BetCountNoDraw]
+           ,[TurnoverDraw]
+
+           ) 	
+SELECT		t1.UserName, 
+			WinlostDate, 
 			@SportsBookID,--is not bet transaction -> productid = sportbook ID
-			tmp.AffID,
-			tmp.Currency, 
-			tmp.AffCurrency,   
-			dbo.Aff_GetExchangeRate(tmp.Currency, tmp.AffCurrency, @WinlostDate),
+			mi.AffId,
+			mi.Currency, 
+			ai.Currency,   
+			dbo.Aff_GetExchangeRate(mi.Currency, ai.Currency, @WinlostDate) as AffExRate,
 			@SystemCurrency,
-			dbo.Aff_GetExchangeRate(tmp.Currency, @SystemCurrency, @WinlostDate), 
-			tmp.Deposit,
-			tmp.Withdrawal,
-			tmp.Bonus,	
-			tmp.Adjustment,			
-			tmp.AffTransfer,
-			tmp.Transfer3rd
-			,0 --Turnover
-			,0 -- [Outstanding]
-			,0 -- [Winlost]
-			,0 -- [DrawGame]
-			,0 -- [PSP]
-			,0 -- [Marketing]
-			,0 -- [MemWinlostFake]
-			,0 -- [MemOddsFee]
-			,0 -- [MemPLayTechFee]
-			,0 -- [BetCount]
-			,0 -- [PlayerComm]
-			,0 -- [TurnoverNoDraw]
-			,0 -- [BetCountNoDraw]
-			,0 -- [TurnoverDraw])
-		)
-OUTPUT $action, Inserted.AffID, Inserted.UserName,  Inserted.WinlostDate
-INTO @MemberTrans([Action], AffID, UserName, WinlostDate);
+			dbo.Aff_GetExchangeRate(mi.Currency, @SystemCurrency, @WinlostDate) as SysExRate, 
+			Deposit,
+			Withdrawal,
+			Bonus,	
+			Adjustment,			
+			t1.AffTransfer,
+			t1.Transfer3rd
+			,0 as Turnover
+           ,0 as [Outstanding]
+           ,0 as [Winlost]
+           ,0 as [DrawGame]
+           ,0 as [PSP]
+           ,0 as [Marketing]
+           ,0 as [MemWinlostFake]
+           ,0 as [MemOddsFee]
+           ,0 as [MemPLayTechFee]
+		   ,0 as [BetCount]
+           ,0 as [PlayerComm]
+           ,0 as [TurnoverNoDraw]
+           ,0 as [BetCountNoDraw]
+           ,0 as [TurnoverDraw]
+			
+
+FROM @TempTrans t1
+	INNER JOIN MemberInfo AS mi (nolock) ON t1.UserName = mi.UserName  
+	inner join affinfo as ai with (nolock) on mi.AffId = ai.AffId
+WHERE t1.UserName not in (select UserName from @TmpTable) AND mi.IsRemoved = 0
+
 
 --Update MemberDaily PSP, Marketting fee,...
-Update m
+Update m with (updlock, rowlock)
 set PSP = ((abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPercent) * isnull(dbo.Aff_GetDeductionPercent(AffID,@SportsBookID,'PSP',@WinlostDate),0)  ),
 	Marketing = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductId, 'Marketing',@WinlostDate),0),
 	MemOddsFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductId, 'Odds Fee',@WinlostDate),0),
@@ -158,11 +151,10 @@ set PSP = ((abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPerc
 						   - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductId, 'Odds Fee', @WinlostDate),0)  
 						   - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductId, 'PlayTech Royalties', @WinlostDate),0)  
 						)
-FROM dbo.MemberDaily AS m WITH (NOLOCK)
-INNER JOIN @MemberTrans AS trans 
-	ON (m.UserName=trans.UserName AND m.AffID=trans.AffID AND m.WinlostDate=trans.WinlostDate)
-INNER JOIN Exchange AS e (nolock) on m.Currency = e.ExchangeId
-WHERE m.WinlostDate=@WinlostDate
+from MemberDaily as m 
+	inner join Exchange as e (nolock) on m.Currency = e.ExchangeId
+
+where m.WinlostDate=@WinlostDate
 
 
 ------------Update others field MemberDaily, insert data for AffDaily, AffDailySummary table
@@ -466,3 +458,10 @@ where d1.previousMaxWinlostDate < d1.maxWinlostDate
   
 
 END
+
+
+
+GO
+GRANT EXECUTE ON [dbo].[Task_Aff_MemberDailyTransactionImportData] TO [bodbAdminNet] AS [dbo]
+GO
+GRANT VIEW DEFINITION ON [dbo].[Task_Aff_MemberDailyTransactionImportData] TO [vnteam] AS [dbo]
