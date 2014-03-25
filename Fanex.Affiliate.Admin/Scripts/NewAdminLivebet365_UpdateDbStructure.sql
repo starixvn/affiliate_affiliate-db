@@ -81,7 +81,7 @@ DECLARE @FuncId INT = 0
 	,@ErrCode INT = 0
 	,@ErrMsg NVARCHAR(200);
 
-EXEC [dbo].[Aff_Con_FuncInfoIns] @FuncName = '[Monthly Transfer]'
+EXEC [dbo].[Aff_Con_FuncInfoIns] @FuncName = '[MonthlyTransfer]'
 	,@FuncNote = 'Monthly Transfer'
 	,@FuncDesc = 'Monthly Transfer'
 	,@DisplayOrder = 1

@@ -15,6 +15,7 @@ Original : [Aff_CustomerUpdStatus]
 Revisions:  
   -Long@20130911: do not check email existance in case of Kiosk
   -20140127@Bobby: inogre currency checking when assign NoCommission group
+  -20140325@Bobby: check/remove unique email
 
 Param's Explanation:  
 • @AffID : Affiliate ID  
@@ -39,40 +40,15 @@ BEGIN
 
 	IF @ErrCode <> 0 RETURN
 
-	IF (
-			SELECT at.NAME
-			FROM afftype at WITH (NOLOCK)
-				,affinfo ai WITH (NOLOCK)
-			WHERE ai.AffType = at.TypeID AND ai.AffID = @AffId
-			) NOT LIKE '%kiosk%'
-	BEGIN
-		DECLARE @Email NVARCHAR(50)
+	DECLARE @Email NVARCHAR(50)
+		,@AffUserName NVARCHAR(50)
 
-		SELECT @Email = Email
-		FROM AffInfo WITH (NOLOCK)
-		WHERE affid = @affid
+	SELECT @AffUserName = UserName
+		, @Email = Email
+	FROM AffInfo WITH (NOLOCK)
+	WHERE affid = @affid
 
-		IF (
-				EXISTS (
-					SELECT 1
-					FROM AffInfo WITH (NOLOCK)
-					WHERE affid <> @affid AND Email = @Email AND STATUS IN ('approved', 'pending')
-					) AND @Status IN ('approved', 'pending')
-				)
-		BEGIN
-			SELECT @ErrCode = 15
-
-			RETURN
-		END
-	END
-
-	IF (
-			NOT EXISTS (
-				SELECT 1
-				FROM AffInfo WITH (NOLOCK)
-				WHERE affid = @affid
-				)
-			)
+	IF (@AffUserName IS NULL)
 	BEGIN
 		SELECT @ErrCode = 1006
 
@@ -188,6 +164,15 @@ BEGIN
 		,@Details = @LogData
 END
 GO
+
+
+GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateUpdStatus] TO [bodbDownlineNet]
+GO
+
+GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateUpdStatus] TO bodbAdminNet
+GO
+
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateUpdStatus] TO [VNTeam]
 
 
 
