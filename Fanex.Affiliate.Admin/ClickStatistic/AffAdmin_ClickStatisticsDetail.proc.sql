@@ -17,7 +17,8 @@ DB: DB052.Affiliate_12BET
 Original:  
   
 Revisions:  
--20131230:Bobby: change to ClickStatistics & ClickStatistics_bk
+	-20131230:Bobby: change to ClickStatistics & ClickStatistics_bk
+	-20140327:Bobby: fixbug https://redmine.nexcel.vn/issues/13595
 */  
 BEGIN
 

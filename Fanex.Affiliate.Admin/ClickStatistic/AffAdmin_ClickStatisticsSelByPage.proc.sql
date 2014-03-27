@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-﻿
+
 ALTER Procedure [dbo].[AffAdmin_ClickStatisticsSelByPage]
-=======
-﻿ALTER Procedure [dbo].[AffAdmin_ClickStatisticsSelByPage]
->>>>>>> de12fc63ca6f25dff8aaff117b461d45d2e16627
 	@AffID int,  
 	@FromDate smalldatetime,
 	@ToDate smalldatetime,
@@ -17,7 +13,8 @@ DB: DB052.Affiliate_AoncashUAT
 Original:  
   
 Revisions:  
--20131230:Bobby: change to ClickStatistics & ClickStatistics_bk
+	-20131230:Bobby: change to ClickStatistics & ClickStatistics_bk
+	-20140327:Bobby: fixbug https://redmine.nexcel.vn/issues/13595
 */  
 BEGIN
 	SET NOCOUNT ON  

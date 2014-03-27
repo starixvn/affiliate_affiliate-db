@@ -28,7 +28,8 @@ Original:
 Revisions:  
 	- 20111228: Get RedirectURL follow affiliate
 	- 20121120: Redirect to the main domain (except list affiliates with pagecode 12betcasino still redirect to 12betcasino.com)
-	-20140220@Peter : Support EU aff link
+	- 20140220@Peter : Support EU aff link
+	- 20140326@Bobby : check IsCLosed affiliate user
 */
 BEGIN
 	SET NOCOUNT ON
@@ -38,12 +39,14 @@ BEGIN
 		,@Default12Betdomain NVARCHAR(100)
 		,@IsCasino BIT
 		,@AffType INT
+		,@IsClosed BIT
 
 	SELECT @Default12Betdomain = '12ying.com' --If redirect page is null => redirect to this default domain
 
 	SELECT @AffUsername = ai.Username
 		,@PreferredLanguage = PreferredLanguage
 		,@AffType = ai.AffType
+		,@IsClosed = ai.IsClosed
 	FROM AffDetail ad WITH (NOLOCK)
 		INNER JOIN AffInfo ai WITH (NOLOCK)
 		ON ai.AffId = ad.AffId
@@ -51,7 +54,8 @@ BEGIN
 		AND STATUS = 'Approved'
 
 	--check Affiliate ID  
-	IF (@AffUsername IS NULL)
+	IF (@AffUsername IS NULL
+		OR (@IsClosed = 1 AND @AffUsername = '12BETAFF9151'))
 	BEGIN
 		SELECT @ErrCode = 101
 			,@ErrMsg = 'This affiliate does not exists. Please contact administrator!'
@@ -211,10 +215,10 @@ BEGIN
 END
 GO
 
-GRANT EXECUTE ON [dbo].[Aff_AffiliateInsClickStatistics_New] TO [bodbDownlineNet]
+GRANT EXECUTE ON [dbo].[Aff_AffiliateInsClickStatistics_New] TO [bodbDownlineNet] AS [dbo]
 GO
 
-GRANT EXECUTE ON [dbo].[Aff_AffiliateInsClickStatistics_New] TO [bodbDownlineNetView]
+GRANT EXECUTE ON [dbo].[Aff_AffiliateInsClickStatistics_New] TO [bodbDownlineNetView] AS [dbo]
 GO
 
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateInsClickStatistics_New] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateInsClickStatistics_New] TO [vnteam] AS [dbo]
