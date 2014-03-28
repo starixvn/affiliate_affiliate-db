@@ -672,5 +672,6 @@
     <Build Include="Exchange\AffAdmin_CopyRateFromMarket.proc.sql" />
     <Build Include="Currency\Aff_UserCurrencyIns.proc.sql" />
     <Build Include="Scripts\NewAdminLivebet365_UpdateDbStructure.sql" />
+    <Build Include="Customer\Aff_GetMembers.sql" />
   </ItemGroup>
 </Project>
