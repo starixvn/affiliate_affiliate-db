@@ -1,4 +1,5 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_CompanyWinlossReport] 
+﻿
+ALTER PROCEDURE [dbo].[AffAdmin_CompanyWinlossReport] 
 	@UserId INT = 0
 	,@AffName NVARCHAR(100) = NULL
 	,@AffTypes VARCHAR(100) = NULL
@@ -15,6 +16,7 @@
 	,@PageCurrent INT = 1
 	,@PageSize INT = 25
 	,@NRows INT = 0 OUTPUT
+	,@duration INT = 0 OUTPUT
 AS
 /*    
 	Task : Company winloss report      
@@ -45,6 +47,11 @@ AS
 */
 BEGIN
 	SET NOCOUNT ON
+
+	DECLARE @startRun DATETIME
+		,@endRun DATETIME
+
+	SET @startRun = GETDATE()
 
 	--Reset todate to ending of date
 	SELECT @ToDate = dbo.Aff_GetEndDate(@ToDate)
@@ -82,7 +89,7 @@ BEGIN
 			,SUM(CASE 
 					WHEN @DrawFilter = 0 THEN ISNULL(ad.MemTurnover, 0)
 					ELSE ISNULL(ad.MemTurnoverNoDraw, 0)
-					END) AS Turnover
+					END) AS TotalTurnover
 			,Sum(CASE 
 					WHEN ad.ProductID = @SportsbookId THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ISNULL(ad.MemTurnover, 0)
@@ -116,7 +123,7 @@ BEGIN
 						ELSE ISNULL(ad.MemBetCount, 0)
 						END) AS INT) AS BetCount
 			,CAST(isnull(m.ActivePlayer, 0) AS INT) AS ActivePlayer
-			,Sum(ISNULL(ad.MemWinlost, 0)) AS Winlost
+			,Sum(ISNULL(ad.MemWinlost, 0)) AS TotalWinlost
 			,- (
 				Sum(CASE 
 						WHEN ad.ProductID = @SportsbookId THEN ISNULL(ad.MemWinlost, 0)
@@ -141,7 +148,6 @@ BEGIN
 						ELSE 0
 						END)
 				) AS RNGCasinoWinlost
-			,- (Sum(ISNULL(ad.MemWinlost, 0))) AS Total
 			,
 			--Convert to system currency
 			Sum(ISNULL(ad.MemDeposit, 0) * SysExRate) AS DepositBase
@@ -152,7 +158,7 @@ BEGIN
 			,SUM(CASE 
 					WHEN @DrawFilter = 0 THEN ISNULL(ad.MemTurnover, 0)
 					ELSE ISNULL(ad.MemTurnoverNoDraw, 0)
-					END * SysExRate) AS TurnoverBase
+					END * SysExRate) AS TotalTurnoverBase
 			,Sum(CASE 
 					WHEN ad.ProductID = @SportsbookId THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ISNULL(ad.MemTurnover, 0)
@@ -181,7 +187,7 @@ BEGIN
 							)
 					ELSE 0
 					END * SysExRate) AS RNGCasinoTurnoverBase
-			,Sum(ad.MemWinlost * SysExRate) AS WinlostBase
+			,Sum(ad.MemWinlost * SysExRate) AS TotalWinlostBase
 			,- (
 				Sum(CASE 
 						WHEN ad.ProductID = @SportsbookId THEN ISNULL(ad.MemWinlost, 0) * SysExRate
@@ -206,7 +212,6 @@ BEGIN
 						ELSE 0
 						END)
 				) AS RNGCasinoWinlostBase
-			,- (Sum(ISNULL(ad.MemWinlost, 0) * SysExRate)) AS TotalBase
 			,
 			--Convert to Aff Currency
 			Sum(ISNULL(ad.MemDeposit, 0) * ad.AffExRate) AS Deposit_Aff
@@ -217,7 +222,7 @@ BEGIN
 			,SUM(CASE 
 					WHEN @DrawFilter = 0 THEN ISNULL(ad.MemTurnover, 0)
 					ELSE ISNULL(ad.MemTurnoverNoDraw, 0)
-					END * ad.AffExRate) AS Turnover_Aff
+					END * ad.AffExRate) AS TotalTurnover_Aff
 			,Sum(CASE 
 					WHEN ad.ProductID = @SportsbookId THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ISNULL(ad.MemTurnover, 0)
@@ -246,7 +251,7 @@ BEGIN
 							)
 					ELSE 0
 					END * ad.AffExRate) AS RNGCasinoTurnover_Aff
-			,Sum(ad.MemWinlost * ad.AffExRate) AS Winlost_Aff
+			,Sum(ad.MemWinlost * ad.AffExRate) AS TotalWinlost_Aff
 			,- (
 				Sum(CASE 
 						WHEN ad.ProductID = @SportsbookId THEN ad.MemWinlost * ad.AffExRate
@@ -271,9 +276,8 @@ BEGIN
 						ELSE 0
 						END)
 				) AS RNGCasinoWinlost_Aff
-			,- (Sum(ad.MemWinlost * ad.AffExRate)) AS Total_Aff
 			,ROW_NUMBER() OVER (
-				ORDER BY ad.Winlostdate DESC
+				ORDER BY ad.Winlostdate
 				) AS RowNum
 		INTO #rptWinlossDate
 		FROM AffDaily ad WITH (NOLOCK)
@@ -322,67 +326,15 @@ BEGIN
 		SELECT @NRows = count(1)
 		FROM #rptWinlossDate rpt
 
-		IF(@NRows = 0) RETURN;
-
 		--select rpt data
 		SELECT *
 		FROM #rptWinlossDate rpt
 		WHERE rpt.RowNum BETWEEN ((@PageCurrent - 1) * @PageSize) + 1 AND @PageSize * (@PageCurrent)
 
-		--select sum data by date/MemberCurrency
-		SELECT Winlostdate
-			,Currency
-			,SUM(Deposit) Deposit
-			,SUM(Withdrawal) Withdrawal
-			,SUM(Bonus) Bonus
-			,SUM(Adjustment) Adjustment
-			,SUM(PSP) PSP
-			,SUM(SportsBookTurnover) SportsBookTurnover
-			,SUM(NumberGameTurnover) NumberGameTurnover
-			,SUM(LiveCasinoTurnover) LiveCasinoTurnover
-			,SUM(RNGCasinoTurnover) RNGCasinoTurnover
-			,SUM(TotalTurnover) TotalTurnover
-			,SUM(SportsBookWinlost) SportsBookWinlost
-			,SUM(NumberGameWinlost) NumberGameWinlost
-			,SUM(LiveCasinoWinlost) LiveCasinoWinlost
-			,SUM(RNGCasinoWinlost) RNGCasinoWinlost
-			,SUM(TotalWinlost) TotalWinlost
-			,SUM(DepositBase) DepositBase
-			,SUM(WithdrawalBase) WithdrawalBase
-			,SUM(BonusBase) BonusBase
-			,SUM(AdjustmentBase) AdjustmentBase
-			,SUM(PSPBase) PSPBase
-			,SUM(SportsBookTurnoverBase) SportsBookTurnoverBase
-			,SUM(NumberGameTurnoverBase) NumberGameTurnoverBase
-			,SUM(LiveCasinoTurnoverBase) LiveCasinoTurnoverBase
-			,SUM(RNGCasinoTurnoverBase) RNGCasinoTurnoverBase
-			,SUM(TotalTurnoverBase) TotalTurnoverBase
-			,SUM(SportsBookWinlostBase) SportsBookWinlostBase
-			,SUM(NumberGameWinlostBase) NumberGameWinlostBase
-			,SUM(LiveCasinoWinlostBase) LiveCasinoWinlostBase
-			,SUM(RNGCasinoWinlostBase) RNGCasinoWinlostBase
-			,SUM(TotalWinlostBase) TotalWinlostBase
-			,SUM(Deposit_Aff) Deposit_Aff
-			,SUM(Withdrawal_Aff) Withdrawal_Aff
-			,SUM(Bonus_Aff) Bonus_Aff
-			,SUM(Adjustment_Aff) Adjustment_Aff
-			,SUM(PSP_Aff) PSP_Aff
-			,SUM(SportsBookTurnover_Aff) SportsBookTurnover_Aff
-			,SUM(NumberGameTurnover_Aff) NumberGameTurnover_Aff
-			,SUM(LiveCasinoTurnover_Aff) LiveCasinoTurnover_Aff
-			,SUM(RNGCasinoTurnover_Aff) RNGCasinoTurnover_Aff
-			,SUM(TotalTurnover_Aff) TotalTurnover_Aff
-			,SUM(SportsBookWinlost_Aff) SportsBookWinlost_Aff
-			,SUM(NumberGameWinlost_Aff) NumberGameWinlost_Aff
-			,SUM(LiveCasinoWinlost_Aff) LiveCasinoWinlost_Aff
-			,SUM(RNGCasinoWinlost_Aff) RNGCasinoWinlost_Aff
-			,SUM(TotalWinlost_Aff) TotalWinlost_Aff
-		FROM #rptWinlossDate
-		GROUP BY Winlostdate
-			, Currency
-
 		--select sum data by MemberCurrency
 		SELECT Currency
+			,SUM(ActivePlayer) ActivePlayer
+			,SUM(BetCount) BetCount
 			,SUM(Deposit) Deposit
 			,SUM(Withdrawal) Withdrawal
 			,SUM(Bonus) Bonus
@@ -432,7 +384,9 @@ BEGIN
 		GROUP BY Currency
 
 		--select sum data by SysCurrency
-		SELECT SUM(DepositBase) DepositBase
+		SELECT SUM(ActivePlayer) ActivePlayer
+			,SUM(BetCount) BetCount
+			,SUM(DepositBase) DepositBase
 			,SUM(WithdrawalBase) WithdrawalBase
 			,SUM(BonusBase) BonusBase
 			,SUM(AdjustmentBase) AdjustmentBase
@@ -463,53 +417,50 @@ BEGIN
 			,Sum(MemBonus) AS Bonus
 			,Sum(MemAdjustment) AS Adjustment
 			,Sum(MemPSP) AS PSP
-			,SUM(Turnover) AS Turnover
+			,SUM(Turnover) AS TotalTurnover
 			,Sum(SportsbookTurnover) AS SportsbookTurnover
 			,Sum(NumberGameTurnover) AS NumberGameTurnover
 			,Sum(LiveCasinoTurnover) AS LiveCasinoTurnover
 			,Sum(RNGCasinoTurnover) AS RNGCasinoTurnover
 			,CAST(Sum(BetCount) AS INT) AS BetCount
 			,CAST(Sum(m.ActivePlayer) AS INT) AS ActivePlayer
-			,Sum(MemWinlost) AS Winlost
+			,Sum(MemWinlost) AS TotalWinlost
 			,Sum(SportsbookWinlost) AS SportsbookWinlost
 			,Sum(NumberGameWinlost) AS NumberGameWinlost
 			,Sum(LiveCasinoWinlost) AS LiveCasinoWinlost
 			,Sum(RNGCasinoWinlost) AS RNGCasinoWinlost
-			,Sum(Total) AS Total
 			,Sum(MemDepositBase) AS DepositBase
 			,Sum(MemWithdrawalBase) AS WithdrawalBase
 			,Sum(MemBonusBase) AS BonusBase
 			,Sum(MemAdjustmentBase) AS AdjustmentBase
 			,Sum(MemPSPBase) AS PSPBase
-			,Sum(TurnoverBase) AS TurnoverBase
+			,Sum(TurnoverBase) AS TotalTurnoverBase
 			,Sum(SportsbookTurnoverBase) AS SportsbookTurnoverBase
 			,Sum(NumberGameTurnoverBase) AS NumberGameTurnoverBase
 			,Sum(LiveCasinoTurnoverBase) AS LiveCasinoTurnoverBase
 			,Sum(RNGCasinoTurnoverBase) AS RNGCasinoTurnoverBase
-			,Sum(MemWinlostBase) AS WinlostBase
+			,Sum(MemWinlostBase) AS TotalWinlostBase
 			,Sum(SportsbookWinlostBase) AS SportsbookWinlostBase
 			,Sum(NumberGameWinlostBase) AS NumberGameWinlostBase
 			,Sum(LiveCasinoWinlostBase) AS LiveCasinoWinlostBase
 			,Sum(RNGCasinoWinlostBase) AS RNGCasinoWinlostBase
-			,Sum(TotalBase) AS TotalBase
 			,Sum(MemDeposit_Aff) AS Deposit_Aff
 			,Sum(MemWithdrawal_Aff) AS Withdrawal_Aff
 			,Sum(MemBonus_Aff) AS Bonus_Aff
 			,Sum(MemAdjustment_Aff) AS Adjustment_Aff
 			,Sum(MemPSP_Aff) AS PSP_Aff
-			,Sum(Turnover_Aff) AS Turnover_Aff
+			,Sum(Turnover_Aff) AS TotalTurnover_Aff
 			,Sum(SportsbookTurnover_Aff) AS SportsbookTurnover_Aff
 			,Sum(NumberGameTurnover_Aff) AS NumberGameTurnover_Aff
 			,Sum(LiveCasinoTurnover_Aff) AS LiveCasinoTurnover_Aff
 			,Sum(RNGCasinoTurnover_Aff) AS RNGCasinoTurnover_Aff
-			,Sum(MemWinlost_Aff) AS Winlost_Aff
+			,Sum(MemWinlost_Aff) AS TotalWinlost_Aff
 			,Sum(SportsbookWinlost_Aff) AS SportsbookWinlost_Aff
 			,Sum(NumberGameWinlost_Aff) AS NumberGameWinlost_Aff
 			,Sum(LiveCasinoWinlost_Aff) AS LiveCasinoWinlost_Aff
 			,Sum(RNGCasinoWinlost_Aff) AS RNGCasinoWinlost_Aff
-			,Sum(Total_Aff) AS Total_Aff
 			,ROW_NUMBER() OVER (
-				ORDER BY tmp.WinlostDate DESC
+				ORDER BY tmp.WinlostDate
 				) AS RowNum
 		INTO #rptWinlossMonth
 		FROM (
@@ -582,7 +533,6 @@ BEGIN
 							ELSE 0
 							END)
 					) AS RNGCasinoWinlost
-				,- (Sum(ISNULL(ad.MemWinlost, 0))) AS Total
 				,
 				--Convert to System ex.Rate
 				Sum(ISNULL(ad.MemDeposit, 0) * ad.SysExRate) AS MemDepositBase
@@ -712,7 +662,6 @@ BEGIN
 							ELSE 0
 							END * ad.AffExRate)
 					) AS RNGCasinoWinlost_Aff
-				,- (Sum(ISNULL(ad.MemWinlost, 0) * ad.AffExRate)) AS Total_Aff
 			FROM AffDaily ad WITH (NOLOCK)
 				INNER JOIN #PlayerCurrencies AS p
 				ON ad.MemCurrency = p.CurrencyId
@@ -727,12 +676,11 @@ BEGIN
 			LEFT JOIN (
 			SELECT dateadd(m, datediff(m, 0, Winlostdate), 0) AS WinlostDate
 				,COUNT(DISTINCT m.Username) AS ActivePlayer
-			FROM MemberDaily m WITH (NOLOCK)
+			FROM MemberDaily m WITH (NOLOCK, INDEX = [CIX-MemberDaily])
 				INNER JOIN [dbo].[AffAdmin_AffiliateListForReport](@UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, 'All', @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
 				ON m.AffId = t.AffId
 					AND DATEDIFF(m, m.WinlostDate, t.MonthDate) = 0
 			WHERE Winlostdate BETWEEN @FromDate AND @ToDate
-				AND Turnover > 0
 			GROUP BY dateadd(m, datediff(m, 0, Winlostdate), 0)
 			) AS m
 			ON DATEDIFF(m, tmp.Winlostdate, m.WinlostDate) = 0
@@ -748,67 +696,15 @@ BEGIN
 		SELECT @NRows = count(1)
 		FROM #rptWinlossMonth rpt
 
-		IF(@NRows = 0) RETURN;
-
 		--select rpt data
 		SELECT *
 		FROM #rptWinlossMonth rpt
 		WHERE rpt.RowNum BETWEEN ((@PageCurrent - 1) * @PageSize) + 1 AND @PageSize * (@PageCurrent)
 
-		--select sum data by date/MemberCurrency
-		SELECT Winlostdate
-			,Currency
-			,SUM(Deposit) Deposit
-			,SUM(Withdrawal) Withdrawal
-			,SUM(Bonus) Bonus
-			,SUM(Adjustment) Adjustment
-			,SUM(PSP) PSP
-			,SUM(SportsBookTurnover) SportsBookTurnover
-			,SUM(NumberGameTurnover) NumberGameTurnover
-			,SUM(LiveCasinoTurnover) LiveCasinoTurnover
-			,SUM(RNGCasinoTurnover) RNGCasinoTurnover
-			,SUM(TotalTurnover) TotalTurnover
-			,SUM(SportsBookWinlost) SportsBookWinlost
-			,SUM(NumberGameWinlost) NumberGameWinlost
-			,SUM(LiveCasinoWinlost) LiveCasinoWinlost
-			,SUM(RNGCasinoWinlost) RNGCasinoWinlost
-			,SUM(TotalWinlost) TotalWinlost
-			,SUM(DepositBase) DepositBase
-			,SUM(WithdrawalBase) WithdrawalBase
-			,SUM(BonusBase) BonusBase
-			,SUM(AdjustmentBase) AdjustmentBase
-			,SUM(PSPBase) PSPBase
-			,SUM(SportsBookTurnoverBase) SportsBookTurnoverBase
-			,SUM(NumberGameTurnoverBase) NumberGameTurnoverBase
-			,SUM(LiveCasinoTurnoverBase) LiveCasinoTurnoverBase
-			,SUM(RNGCasinoTurnoverBase) RNGCasinoTurnoverBase
-			,SUM(TotalTurnoverBase) TotalTurnoverBase
-			,SUM(SportsBookWinlostBase) SportsBookWinlostBase
-			,SUM(NumberGameWinlostBase) NumberGameWinlostBase
-			,SUM(LiveCasinoWinlostBase) LiveCasinoWinlostBase
-			,SUM(RNGCasinoWinlostBase) RNGCasinoWinlostBase
-			,SUM(TotalWinlostBase) TotalWinlostBase
-			,SUM(Deposit_Aff) Deposit_Aff
-			,SUM(Withdrawal_Aff) Withdrawal_Aff
-			,SUM(Bonus_Aff) Bonus_Aff
-			,SUM(Adjustment_Aff) Adjustment_Aff
-			,SUM(PSP_Aff) PSP_Aff
-			,SUM(SportsBookTurnover_Aff) SportsBookTurnover_Aff
-			,SUM(NumberGameTurnover_Aff) NumberGameTurnover_Aff
-			,SUM(LiveCasinoTurnover_Aff) LiveCasinoTurnover_Aff
-			,SUM(RNGCasinoTurnover_Aff) RNGCasinoTurnover_Aff
-			,SUM(TotalTurnover_Aff) TotalTurnover_Aff
-			,SUM(SportsBookWinlost_Aff) SportsBookWinlost_Aff
-			,SUM(NumberGameWinlost_Aff) NumberGameWinlost_Aff
-			,SUM(LiveCasinoWinlost_Aff) LiveCasinoWinlost_Aff
-			,SUM(RNGCasinoWinlost_Aff) RNGCasinoWinlost_Aff
-			,SUM(TotalWinlost_Aff) TotalWinlost_Aff
-		FROM #rptWinlossMonth
-		GROUP BY Winlostdate
-			, Currency
-
 		--select sum data by MemberCurrency
 		SELECT Currency
+			,SUM(ActivePlayer) ActivePlayer
+			,SUM(BetCount) BetCount
 			,SUM(Deposit) Deposit
 			,SUM(Withdrawal) Withdrawal
 			,SUM(Bonus) Bonus
@@ -858,7 +754,9 @@ BEGIN
 		GROUP BY Currency
 
 		--select sum data by SysCurrency
-		SELECT SUM(DepositBase) DepositBase
+		SELECT SUM(ActivePlayer) ActivePlayer
+			,SUM(BetCount) BetCount
+			,SUM(DepositBase) DepositBase
 			,SUM(WithdrawalBase) WithdrawalBase
 			,SUM(BonusBase) BonusBase
 			,SUM(AdjustmentBase) AdjustmentBase
@@ -879,6 +777,9 @@ BEGIN
 	END
 
 	DROP TABLE #PlayerCurrencies
+
+	SET @endRun = getdate()
+	SET @duration = datediff(millisecond, @startRun, @endRun)
 END
 GO
 

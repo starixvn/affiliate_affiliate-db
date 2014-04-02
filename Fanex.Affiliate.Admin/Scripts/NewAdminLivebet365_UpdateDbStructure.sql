@@ -134,3 +134,24 @@ INSERT INTO [Affiliate_LB365_test].[dbo].[SystemSettings]
   where Type = 'Environment'
 GO
 
+--update Affiliate TotalMembers/BF Info
+UPDATE ai
+SET TotalMembers = ISNULL(tmp.Total, ai.TotalMembers)
+FROM dbo.AffInfo ai WITH (ROWLOCK, UPDLOCK)
+LEFT JOIN (
+	SELECT AffID, COUNT(1) Total
+	FROM dbo.MemberInfo WITH (NOLOCK)
+	WHERE IsRemoved = 0
+	GROUP BY AffID
+) tmp ON ai.AffID = tmp.AffID
+
+-- Update BF for AffInfo  
+UPDATE ai
+SET ai.BF = ISNULL(tmp.Amount, ai.BF)
+FROM AffInfo ai WITH (ROWLOCK, UPDLOCK)
+LEFT JOIN (
+	SELECT at.AffID, SUM(at.Amount) Amount
+	FROM dbo.AffTrans at WITH (NOLOCK)
+	WHERE at.[status] IN ('approved','pending','completed')  
+	GROUP BY at.AffID
+) tmp ON ai.AffID = tmp.AffID
