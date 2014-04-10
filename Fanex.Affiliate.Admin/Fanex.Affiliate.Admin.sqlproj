@@ -673,5 +673,6 @@
     <Build Include="Currency\Aff_UserCurrencyIns.proc.sql" />
     <Build Include="Scripts\NewAdminLivebet365_UpdateDbStructure.sql" />
     <Build Include="Customer\Aff_GetMembers.sql" />
+    <Build Include="Common Function\AffAdmin_AffiliateListForReport.function.sql" />
   </ItemGroup>
 </Project>

@@ -1,13 +1,12 @@
-﻿ ALTER PROCEDURE [dbo].[Aff_ReportQMDetail]
-	@AffID int,
-	@Month int,
-	@Year int,
-	@PageSize int=50,    
-	@PageIndex int=1,    
-	@TotalPages int=0 OUTPUT,    
-	@NRows int=0 OUTPUT    
+﻿ALTER PROCEDURE [dbo].[Aff_ReportQMDetail] 
+	@AffID INT
+	,@Month INT
+	,@Year INT
+	,@PageSize INT = 50
+	,@PageIndex INT = 1
+	,@TotalPages INT = 0 OUTPUT
+	,@NRows INT = 0 OUTPUT
 AS
-
 /*
 Created: 20091213@Peter
 Task : Get List of Qualifying members report for one affiliate.
@@ -17,156 +16,237 @@ Revisions:
 	- 20110523@Henry: change bettype to new range
 	- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
 	- 20120606@Peter : Exclude waiting tickets
+	- 20140403@Bobby:  exclude Keno product & other sports
+
 Param's Explanation:
 	
 */
-SET NOCOUNT ON
- 
-DECLARE @TblResult TABLE(IBCCustId int PRIMARY KEY, SPTurnOver money, HRTurnOver money, CATurnover money, CADeposit money)
+BEGIN
+	SET NOCOUNT ON
 
-DECLARE @MemList TABLE(IBCCustId int, AffExRate float)
+	DECLARE @TblResult TABLE (
+		IBCCustId INT PRIMARY KEY
+		,SPTurnOver MONEY
+		,HRTurnOver MONEY
+		,CATurnover MONEY
+		,CADeposit MONEY
+		)
+	DECLARE @MemList TABLE (
+		IBCCustId INT
+		,AffExRate FLOAT
+		)
 
-insert into @MemList
-select m.IBCCustId, e.ActualRate2
-From MemberInfo m with (nolock) 
-	inner join Exchange_Current e with (nolock) on m.Currency = e.ExchangeId
-where m.AffId = @AffId and IsRemoved = 0
+	INSERT INTO @MemList
+	SELECT m.IBCCustId
+		,e.ActualRate2
+	FROM MemberInfo m WITH (NOLOCK)
+		INNER JOIN Exchange_Current e WITH (NOLOCK)
+		ON m.Currency = e.ExchangeId
+	WHERE m.AffId = @AffId
+		AND IsRemoved = 0
 
---select * from @MemList
+	--select * from @MemList
+	DECLARE @FirstDay SMALLDATETIME
+		,@LastDay SMALLDATETIME
+		,@CurrDate SMALLDATETIME
+		,@SportsBookID INT
+		,@HorseRacingID INT
+		,@CasinoID INT
+		,@SPQMAmount MONEY
+		,@HRQMAmount MONEY
+		,@CAQMAmount MONEY
+		,@CAQMDeposit MONEY
 
-Declare @FirstDay smalldatetime,@LastDay smalldatetime,@CurrDate smalldatetime,@SportsBookID int,@HorseRacingID int,@CasinoID int,@SPQMAmount money,@HRQMAmount money,@CAQMAmount money,@CAQMDeposit money
+	SELECT @SportsBookID = dbo.Aff_GetSportID('SportsBook')
+		,@HorseRacingID = dbo.Aff_GetSportID('Horse Racing')
+		,@CasinoID = dbo.Aff_GetSportID('Casino')
 
-select @SportsBookID=dbo.Aff_GetSportID('SportsBook'),@HorseRacingID=dbo.Aff_GetSportID('Horse Racing'), @CasinoID = dbo.Aff_GetSportID('Casino')
+	SELECT @SPQMAmount = QMTurnOver
+	FROM SportType(NOLOCK)
+	WHERE SportID = @SportsBookID
 
-select @SPQMAmount=QMTurnOver
-from SportType (nolock)
-where SportID=  @SportsBookID
+	SELECT @HRQMAmount = QMTurnOver
+	FROM SportType(NOLOCK)
+	WHERE SportID = @HorseRacingID
 
-select @HRQMAmount=QMTurnOver
-from SportType (nolock)
-where SportID= @HorseRacingID
+	SELECT @CAQMAmount = QMTurnOver
+		,@CAQMDeposit = QMDeposit
+	FROM SportType(NOLOCK)
+	WHERE SportID = @CasinoID
 
-select @CAQMAmount=QMTurnOver, @CAQMDeposit = QMDeposit
-from SportType (nolock)
-where SportID= @CasinoID
+	--Get First date and last date and current date in order to calculate turnover
+	SELECT @CurrDate = convert(VARCHAR(10), current_timestamp, 120)
+		,@FirstDay = cast(cast(@Year AS VARCHAR(5)) + '-' + cast(@Month AS VARCHAR(5)) + '-' + '1' AS SMALLDATETIME)
+		,@LastDay = DATEADD(d, - 1, DATEADD(mm, DATEDIFF(m, 0, @FirstDay) + 1, 0))
 
+	SELECT @LastDay = (CASE 
+			WHEN @LastDay >= @CurrDate THEN dateadd(d, - 1, @CurrDate)
+			ELSE @LastDay END
+			)
 
- --Get First date and last date and current date in order to calculate turnover
-Select @CurrDate =  convert(varchar(10),current_timestamp,120),
-	@FirstDay = cast(cast(@Year as varchar(5)) + '-' + cast(@Month as varchar(5)) + '-' +'1' as smalldatetime),
-	@LastDay = DATEADD(d,-1,DATEADD(mm, DATEDIFF(m,0,@FirstDay)+1,0))
-	
-Select @LastDay = (case when @LastDay >= @CurrDate then dateadd(d, -1, @CurrDate) else @LastDay end)
-	
-insert into @TblResult
-Select IBCCustId, Sum(SPTurnOver) as SPTurnOver, Sum(HRTurnOver) as HRTurnOver, Sum(CATurnOver) as CATurnOver, Sum(CADeposit) as CADeposit
-From
-(
-	--Calculate for SP
-	Select IBCCustID,--MemberDaily
-		sum(TurnOver* AffExRate) as SPTurnOver,
-		0 as HRTurnOver,
-		0 as CATurnOver,
-		0 as CADeposit
-	From MemberDaily with (nolock)
-	where SportType=@SportsBookID and Winlostdate  between @FirstDay and @LastDay and AffID=@AffID
-	Group by IBCCustID
-	
-	Union All
-	
-	Select m.IBCCustID,--Bettrans
-		sum(abs(b.Stake) * m.AffExRate) as SPTurnOver,
-		0 as HRTurnOver,
-		0 as CATurnOver,
-		0 as CADeposit
-	From bodb02.dbo.Bettrans b with (nolock)
-		inner join @MemList m on b.CustId = m.IBCCustId
-	where datediff(m, @FirstDay, @CurrDate) = 0
-		and Winlostdate = @CurrDate
-		and bettype < 19000 and bettype not in (31,32,33,41,42,43)
-		  and bettype not between 71 and 120 --Not include Casino and Number Game
-		and StatusID not in (101, 102, 103, 121,1)
-		--and status not in ('VOID', 'REJECT', 'REFUND','DONE','WAITING')		
-	Group by IBCCustID
+	INSERT INTO @TblResult
+	SELECT IBCCustId
+		,Sum(SPTurnOver) AS SPTurnOver
+		,Sum(HRTurnOver) AS HRTurnOver
+		,Sum(CATurnOver) AS CATurnOver
+		,Sum(CADeposit) AS CADeposit
+	FROM (
+		--Calculate for SP
+		SELECT IBCCustID
+			,--MemberDaily
+			sum(TurnOver * AffExRate) AS SPTurnOver
+			,0 AS HRTurnOver
+			,0 AS CATurnOver
+			,0 AS CADeposit
+		FROM MemberDaily WITH (NOLOCK)
+		WHERE SportType = @SportsBookID
+			AND Winlostdate BETWEEN @FirstDay AND @LastDay
+			AND AffID = @AffID
+		GROUP BY IBCCustID
 		
-	Union All
-	
-	--Calculate for HR	
-	Select IBCCustID,
-		0 as SPTurnOver,
-		sum(TurnOver* AffExRate) as HRTurnOver,
-		0 as CATurnOver,
-		0 as CADeposit
-	From MemberDaily with (nolock)
-	where SportType=@HorseRacingID and Winlostdate  between @FirstDay and @LastDay and AffID=@AffID
-	Group by IBCCustID
-	
-	Union All
-	
-	Select m.IBCCustID,--Bettrans
-		0 as SPTurnOver,
-		Sum(case when bettype in (33,43) AND liveawayscore = 0 THEN isnull(abs(stake),0)/2 else isnull(abs(stake),0) end * isnull(m.AffExRate, 0)) as HrTurnOver,
-		0 as CATurnOver,
-		0 as CADeposit
-	From bodb02.dbo.Bettrans b with (nolock)
-		inner join @MemList m on b.CustId = m.IBCCustId
-	where datediff(m, @FirstDay, @CurrDate) = 0
-		and Winlostdate = @CurrDate
-		and bettype in (31,32,33,41,42,43)
-		and StatusID not in (101, 102, 103, 121,1)
-		--and status not in ('VOID', 'REJECT', 'REFUND','DONE','WAITING')		
-	Group by IBCCustID
+		UNION ALL
+		SELECT m.IBCCustID
+			,--Bettrans
+			sum(abs(b.Stake) * m.AffExRate) AS SPTurnOver
+			,0 AS HRTurnOver
+			,0 AS CATurnOver
+			,0 AS CADeposit
+		FROM bodb02.dbo.Bettrans b WITH (NOLOCK)
+			INNER JOIN @MemList m
+			ON b.CustId = m.IBCCustId
+		WHERE datediff(m, @FirstDay, @CurrDate) = 0
+			AND Winlostdate = @CurrDate
+			AND (
+				b.bettype <= 999
+				OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
+				) --get SB only
+			AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
+			AND b.bettype NOT IN (1000) --games
+			AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
+			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
+			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+					--and bettype not in (31,32,33,41,42,43)   
+			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
+		--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  	
+		GROUP BY IBCCustID
+		
+		UNION ALL
+		--Calculate for HR	
+		SELECT IBCCustID
+			,0 AS SPTurnOver
+			,sum(TurnOver * AffExRate) AS HRTurnOver
+			,0 AS CATurnOver
+			,0 AS CADeposit
+		FROM MemberDaily WITH (NOLOCK)
+		WHERE SportType = @HorseRacingID
+			AND Winlostdate BETWEEN @FirstDay AND @LastDay
+			AND AffID = @AffID
+		GROUP BY IBCCustID
+		
+		UNION ALL
+		SELECT m.IBCCustID
+			,--Bettrans
+			0 AS SPTurnOver
+			,Sum(CASE 
+					WHEN bettype IN (33, 43)
+						AND liveawayscore = 0 THEN isnull(abs(stake), 0) / 2
+					ELSE isnull(abs(stake), 0)
+					END * isnull(m.AffExRate, 0)) AS HrTurnOver
+			,0 AS CATurnOver
+			,0 AS CADeposit
+		FROM bodb02.dbo.Bettrans b WITH (NOLOCK)
+			INNER JOIN @MemList m
+			ON b.CustId = m.IBCCustId
+		WHERE datediff(m, @FirstDay, @CurrDate) = 0
+			AND Winlostdate = @CurrDate
+			AND (
+				b.bettype <= 999
+				OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
+				) --get SB only
+			AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
+			AND b.bettype NOT IN (1000) --games
+			AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
+			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
+			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+					--and bettype not in (31,32,33,41,42,43)   
+			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
+		--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  	
+		GROUP BY IBCCustID
+		
+		UNION ALL
+		--Calculate for CA	
+		SELECT IBCCustID
+			,0 AS SPTurnOver
+			,0 AS HRTurnOver
+			,sum(TurnOver * AffExRate) AS CATurnOver
+			,sum(Deposit * AffExRate) AS CADeposit
+		FROM MemberDaily WITH (NOLOCK)
+		WHERE SportType = @CasinoID
+			AND Winlostdate BETWEEN @FirstDay AND @LastDay
+			AND AffID = @AffID
+		GROUP BY IBCCustID
+		) tmp
+	GROUP BY IBCCustId
+	HAVING Sum(SPTurnOver) > 0
+		OR Sum(HRTurnOver) > 0
+		OR Sum(CATurnOver) > 0
+		OR Sum(CADeposit) > 0
 
-	Union All
+	SELECT @NRows = count(DISTINCT IBCCustID)
+	FROM @TblResult
 
-	--Calculate for CA	
-	Select IBCCustID,
-		0 as SPTurnOver,
-		0 as HRTurnOver,
-		sum(TurnOver * AffExRate) as CATurnOver,
-		sum(Deposit * AffExRate) as CADeposit
-	From MemberDaily with (nolock)
-	where SportType=@CasinoID and Winlostdate  between @FirstDay and @LastDay and AffID=@AffID
-	Group by IBCCustID
-) tmp
-Group by IBCCustId
-Having Sum(SPTurnOver) > 0 or Sum(HRTurnOver) > 0 or Sum(CATurnOver) > 0 or Sum(CADeposit) > 0
-	
+	IF (isnull(@NRows, 0) = 0) RETURN
 
-select @NRows=count(distinct IBCCustID)    
-FROM @TblResult
+	DECLARE @RowStart INT
+		,@RowEnd INT
 
-if(isnull(@NRows,0)=0)    
-   return    
-  
-DECLARE @RowStart int, @RowEnd int  
-	
-SELECT @TotalPages=@NRows/@PageSize + case when @NRows%@PageSize>0 then 1 else 0 end,    
-	   @PageIndex = @PageIndex - 1, @RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1       
+	SELECT @TotalPages = @NRows / @PageSize + CASE 
+			WHEN @NRows % @PageSize > 0 THEN 1
+			ELSE 0
+			END
+		,@PageIndex = @PageIndex - 1
+		,@RowStart = @PageSize * @PageIndex + 1
+		,@RowEnd = @RowStart + @PageSize - 1
 
-select mi.username as username,
-	mi.IBCUserName,
-	m.SPTurnOver, 
-	m.IsSPQM,
-	m.HRTurnOver, 
-	m.IsHRQM,
-	m.CATurnOver,
-	m.IsCAQM
-from MemberInfo mi (nolock)
-	inner join 
-	(select ROW_NUMBER() OVER(ORDER BY coalesce(SPTurnOver, HRTurnOver) desc, IBCCustID) AS TheCount,  
-		IBCCustId,
-		SPTurnOver, 
-		(case when isnull(SPTurnOver,0)>=@SPQMAmount then 1 else 0 end) as IsSPQM,
-		HRTurnOver, 
-		(case when isnull(HRTurnOver,0)>=@HRQMAmount then 1 else 0 end) as IsHRQM,
-		CATurnOver, 
-		(case when isnull(CATurnOver,0)>=@CAQMAmount and isnull(CADeposit,0)>=@CAQMDeposit then 1 else 0 end) as IsCAQM
-	from @TblResult
-	) m on mi.IBCCustId = m.IBCCustId
-where m.TheCount between @RowStart and @RowEnd    
-
+	SELECT mi.username AS username
+		,mi.IBCUserName
+		,m.SPTurnOver
+		,m.IsSPQM
+		,m.HRTurnOver
+		,m.IsHRQM
+		,m.CATurnOver
+		,m.IsCAQM
+	FROM MemberInfo mi(NOLOCK)
+		INNER JOIN (
+		SELECT ROW_NUMBER() OVER (
+				ORDER BY coalesce(SPTurnOver, HRTurnOver) DESC
+					,IBCCustID
+				) AS TheCount
+			,IBCCustId
+			,SPTurnOver
+			,(CASE 
+				WHEN isnull(SPTurnOver, 0) >= @SPQMAmount THEN 1
+				ELSE 0 END
+				) AS IsSPQM
+			,HRTurnOver
+			,(CASE 
+				WHEN isnull(HRTurnOver, 0) >= @HRQMAmount THEN 1
+				ELSE 0 END
+				) AS IsHRQM
+			,CATurnOver
+			,(CASE 
+				WHEN isnull(CATurnOver, 0) >= @CAQMAmount
+					AND isnull(CADeposit, 0) >= @CAQMDeposit THEN 1
+				ELSE 0 END
+				) AS IsCAQM
+		FROM @TblResult
+		) m
+		ON mi.IBCCustId = m.IBCCustId
+	WHERE m.TheCount BETWEEN @RowStart AND @RowEnd
+END
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_ReportQMDetail] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_ReportQMDetail] TO [VNTeam] 
+
+GRANT VIEW DEFINITION ON [dbo].[Aff_ReportQMDetail] TO [VNTeam]

@@ -109,6 +109,7 @@
     <Folder Include="IA" />
     <Folder Include="EUMigration" />
     <Folder Include="EUMigration\Batch2" />
+    <Folder Include="Monthly" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Schema Objects" />
@@ -329,7 +330,6 @@
     <None Include="Banner\Select\Aff_BannerSelDetail.sql" />
     <None Include="Banner\Select\Aff_BannerSelType.sql" />
     <None Include="Common Function\Aff_CalMonthlyEarning.sql" />
-    <None Include="Common Function\Aff_CalMonthlyEarningCurrent.sql" />
     <None Include="Common Function\Aff_CheckPermissionReadOnAff.sql" />
     <None Include="Common Function\Aff_CountMember.sql" />
     <None Include="Common Function\Aff_GenUsername.sql" />
@@ -337,7 +337,6 @@
     <None Include="Common Function\Aff_GetDeductionPercent.sql" />
     <None Include="Common Function\Aff_GetLogType.sql" />
     <None Include="Common Function\Aff_GetMemberPSP.sql" />
-    <None Include="Common Function\Aff_GetMemberStatistics.sql" />
     <None Include="Common Function\Aff_GetMemberWinlost.sql" />
     <None Include="Common Function\Aff_GetSportID.sql" />
     <None Include="Common Function\Aff_HasDeduction.sql" />
@@ -722,6 +721,8 @@
     <None Include="EUMigration\Batch2\Step4-InsEUMember.sql" />
     <None Include="EUMigration\Batch2\Step2-PrepairGenUserName.sql" />
     <None Include="EUMigration\Batch2\Step3-InsEUAffiliate.sql" />
+    <None Include="Monthly\Aff_CalMonthlyEarningCurrent.proc.sql" />
+    <None Include="Member\Aff_GetMemberStatistics.sql" />
   </ItemGroup>
   <ItemGroup>
     <Build Include="Tracking System\Aff_AffiliateInsClickStatistics_New.sql">

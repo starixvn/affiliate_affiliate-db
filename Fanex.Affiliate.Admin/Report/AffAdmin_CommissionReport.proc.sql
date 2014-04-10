@@ -1310,7 +1310,9 @@ BEGIN
 		FROM #rptWinlossMonth rpt
 		WHERE rpt.RowNum BETWEEN ((@PageCurrent - 1) * @PageSize) + 1 AND @PageSize * (@PageCurrent)
 
-		SELECT SUM(ActivePlayers) ActivePlayers
+		--sum total/ aff currency
+		SELECT Currency
+			,SUM(ActivePlayers) ActivePlayers
 			,SUM(BetCount) BetCount
 			,SUM(Commission) Commission
 			,SUM(Deposit) Deposit
@@ -1366,6 +1368,74 @@ BEGIN
 			,SUM(Cashback) Cashback
 			,SUM(CashbackBase) CashbackBase
 		FROM #rptWinlossMonth rpt
+		GROUP BY Currency
+
+		--sum total
+		DECLARE @activePlayers INT
+		SELECT @activePlayers = COUNT(DISTINCT UserName)
+					FROM MemberDaily WITH (NOLOCK)
+					WHERE Winlostdate BETWEEN @FromDate AND @ToDate
+						AND Turnover > 0
+		SELECT @activePlayers AS ActivePlayers
+			,SUM(BetCount) BetCount
+			,SUM(Commission) Commission
+			,SUM(Deposit) Deposit
+			,SUM(Withdrawal) Withdrawal
+			,SUM(Turnover) Turnover
+			,SUM(Winloss) Winloss
+			,SUM(CommissionBase) CommissionBase
+			,SUM(DepositBase) DepositBase
+			,SUM(WithdrawalBase) WithdrawalBase
+			,SUM(TurnoverBase) TurnoverBase
+			,SUM(WinlossBase) WinlossBase
+			,SUM(SportsBookActivePlayers) SportsBookActivePlayers
+			,SUM(SportsBookBetCount) SportsBookBetCount
+			,SUM(SportsbookQM) SportsbookQM
+			,'N/A' SportsbookCommissionPercent
+			,SUM(SportsBookTurnover) SportsBookTurnover
+			,SUM(SportsbookWinloss) SportsbookWinloss
+			,SUM(SportsbookCommission) SportsbookCommission
+			,SUM(SportsBookTurnoverBase) SportsBookTurnoverBase
+			,SUM(SportsbookWinlossBase) SportsbookWinlossBase
+			,SUM(SportsbookCommissionBase) SportsbookCommissionBase
+			,SUM(NumberGameActivePlayers) NumberGameActivePlayers
+			,SUM(NumberGameBetCount) NumberGameBetCount
+			,SUM(NumberGameQM) NumberGameQM
+			,'N/A' NumberGameCommissionPercent
+			,SUM(NumberGameTurnover) NumberGameTurnover
+			,SUM(NumberGameWinloss) NumberGameWinloss
+			,SUM(NumberGameCommission) NumberGameCommission
+			,SUM(NumberGameTurnoverBase) NumberGameTurnoverBase
+			,SUM(NumberGameWinlossBase) NumberGameWinlossBase
+			,SUM(NumberGameCommissionBase) NumberGameCommissionBase
+			,SUM(LiveCasinoActivePlayers) LiveCasinoActivePlayers
+			,SUM(LiveCasinoBetCount) LiveCasinoBetCount
+			,SUM(LiveCasinoQM) LiveCasinoQM
+			,'N/A' LiveCasinoCommissionPercent
+			,SUM(LiveCasinoTurnover) LiveCasinoTurnover
+			,SUM(LiveCasinoWinloss) LiveCasinoWinloss
+			,SUM(LiveCasinoCommission) LiveCasinoCommission
+			,SUM(LiveCasinoTurnoverBase) LiveCasinoTurnoverBase
+			,SUM(LiveCasinoWinlossBase) LiveCasinoWinlossBase
+			,SUM(LiveCasinoCommissionBase) LiveCasinoCommissionBase
+			,SUM(RNGCasinoActivePlayers) RNGCasinoActivePlayers
+			,SUM(RNGCasinoBetCount) RNGCasinoBetCount
+			,SUM(RNGCasinoQM) RNGCasinoQM
+			,'N/A' RNGCasinoCommissionPercent
+			,SUM(RNGCasinoTurnover) RNGCasinoTurnover
+			,SUM(RNGCasinoWinloss) RNGCasinoWinloss
+			,SUM(RNGCasinoCommission) RNGCasinoCommission
+			,SUM(RNGCasinoTurnoverBase) RNGCasinoTurnoverBase
+			,SUM(RNGCasinoWinlossBase) RNGCasinoWinlossBase
+			,SUM(RNGCasinoCommissionBase) RNGCasinoCommissionBase
+			,'N/A' DeductedPercentage
+			,SUM(Cashback) Cashback
+			,SUM(CashbackBase) CashbackBase
+		FROM #rptWinlossMonth rpt
+		cross apply (SELECT count(distinct UserName) ActivePlayers
+					FROM MemberDaily WITH (NOLOCK)
+					WHERE Winlostdate BETWEEN @FromDate AND @ToDate
+						AND Turnover > 0) m
 
 		DROP TABLE #rptWinlossMonth
 	END
@@ -1392,6 +1462,7 @@ BEGIN
 			--Sportbooks
 			,Sum(isnull(m.SportsbookActivePlayers, 0)) AS SportsbookActivePlayers
 			,Sum(SportsbookBetCount) AS SportsbookBetCount
+			,Sum(SportsbookTurnover) AS SportsbookTurnover
 			,Sum(SportsbookWinloss) AS SportsbookWinloss
 			,Sum(SportsbookCommission) AS SportsbookCommission
 			,Sum(SportsBookTurnoverBase) AS SportsBookTurnoverBase
@@ -1449,35 +1520,38 @@ BEGIN
 			ON r.AffId = ca.AffID
 				AND datediff(m, r.WinlostDate, ca.MonthDate) = 0
 			LEFT JOIN (
-			SELECT AffId
-				,COUNT(DISTINCT tmp.UserName) AS ActivePlayers
-				,SUM(CASE 
-						WHEN ProductId = @SportsbookId THEN 1
-						ELSE 0
-						END) AS SportsbookActivePlayers
-				,SUM(CASE 
-						WHEN ProductId = @NumberGame THEN 1
-						ELSE 0
-						END) AS NumberGameActivePlayers
-				,SUM(CASE 
-						WHEN ProductId = @LiveCasino THEN 1
-						ELSE 0
-						END) AS LiveCasinoActivePlayers
-				,SUM(CASE 
-						WHEN ProductId = @RNGCasino THEN 1
-						ELSE 0
-						END) AS RNGCasinoActivePlayers
-			FROM
-				--Each users is unique counted in Range Date
-				(
-				SELECT DISTINCT AffId
-					,ProductID
-					,UserName
-				FROM MemberDaily WITH (NOLOCK)
-				WHERE Winlostdate BETWEEN @FromDate AND @ToDate
-					AND Turnover > 0
-				) AS tmp
-			GROUP BY AffId
+				SELECT AffId
+					,COUNT(DISTINCT tmp.UserName) AS ActivePlayers
+					,SUM(CASE 
+							WHEN ProductId = @SportsbookId THEN 1
+							ELSE 0
+							END) AS SportsbookActivePlayers
+					,SUM(CASE 
+							WHEN ProductId = @NumberGame THEN 1
+							ELSE 0
+							END) AS NumberGameActivePlayers
+					,SUM(CASE 
+							WHEN ProductId = @LiveCasino THEN 1
+							ELSE 0
+							END) AS LiveCasinoActivePlayers
+					,SUM(CASE 
+							WHEN ProductId = @RNGCasino THEN 1
+							ELSE 0
+							END) AS RNGCasinoActivePlayers
+				FROM
+					--Each users is unique counted in Range Date
+					(
+					SELECT AffId
+						,ProductID
+						,UserName
+					FROM MemberDaily WITH (NOLOCK)
+					WHERE Winlostdate BETWEEN @FromDate AND @ToDate
+						AND Turnover > 0
+					GROUP BY AffId
+						,ProductID
+						,UserName
+					) AS tmp
+				GROUP BY AffId
 			) AS m
 			ON r.AffId = m.AffID
 		GROUP BY r.AffId
@@ -1498,6 +1572,64 @@ BEGIN
 		FROM #rptWinlossAff rpt
 		WHERE rpt.RowNum BETWEEN ((@PageCurrent - 1) * @PageSize) + 1 AND @PageSize * (@PageCurrent)
 
+		--Sum total/aff currency
+		SELECT Currency
+			,SUM(ActivePlayers) ActivePlayers
+			,SUM(BetCount) BetCount
+			,SUM(Commission) Commission
+			,SUM(Deposit) Deposit
+			,SUM(Withdrawal) Withdrawal
+			,SUM(Turnover) Turnover
+			,SUM(Winloss) Winloss
+			,SUM(CommissionBase) CommissionBase
+			,SUM(DepositBase) DepositBase
+			,SUM(WithdrawalBase) WithdrawalBase
+			,SUM(TurnoverBase) TurnoverBase
+			,SUM(WinlossBase) WinlossBase
+			--Sportbooks
+			,SUM(SportsbookActivePlayers) SportsbookActivePlayers
+			,SUM(SportsbookBetCount) SportsbookBetCount
+			,SUM(SportsbookTurnover) SportsbookTurnover
+			,SUM(SportsbookWinloss) SportsbookWinloss
+			,SUM(SportsbookCommission) SportsbookCommission
+			,SUM(SportsBookTurnoverBase) SportsBookTurnoverBase
+			,SUM(SportsbookWinlossBase) SportsbookWinlossBase
+			,SUM(SportsbookCommissionBase) SportsbookCommissionBase
+			--NumberGame
+			,SUM(NumberGameActivePlayers) NumberGameActivePlayers
+			,SUM(NumberGameBetCount) NumberGameBetCount
+			,SUM(NumberGameTurnover) NumberGameTurnover
+			,SUM(NumberGameWinloss) NumberGameWinloss
+			,SUM(NumberGameCommission) NumberGameCommission
+			,SUM(NumberGameTurnoverBase) NumberGameTurnoverBase
+			,SUM(NumberGameWinlossBase) NumberGameWinlossBase
+			,SUM(NumberGameCommissionBase) NumberGameCommissionBase
+			--LiveCasino
+			,SUM(LiveCasinoActivePlayers) LiveCasinoActivePlayers
+			,SUM(LiveCasinoBetCount) LiveCasinoBetCount
+			,SUM(LiveCasinoTurnover) LiveCasinoTurnover
+			,SUM(LiveCasinoWinloss) LiveCasinoWinloss
+			,SUM(LiveCasinoCommission) LiveCasinoCommission
+			,SUM(LiveCasinoTurnoverBase) LiveCasinoTurnoverBase
+			,SUM(LiveCasinoWinlossBase) LiveCasinoWinlossBase
+			,SUM(LiveCasinoCommissionBase) LiveCasinoCommissionBase
+			--RNGCasino
+			,SUM(RNGCasinoActivePlayers) RNGCasinoActivePlayers
+			,SUM(RNGCasinoBetCount) RNGCasinoBetCount
+			,SUM(RNGCasinoTurnover) RNGCasinoTurnover
+			,SUM(RNGCasinoWinloss) RNGCasinoWinloss
+			,SUM(RNGCasinoCommission) RNGCasinoCommission
+			,SUM(RNGCasinoTurnoverBase) RNGCasinoTurnoverBase
+			,SUM(RNGCasinoWinlossBase) RNGCasinoWinlossBase
+			,SUM(RNGCasinoCommissionBase) RNGCasinoCommissionBase
+			--Cashback
+			,'N/A' AS DeductedPercentage
+			,SUM(Cashback) Cashback
+			,SUM(CashbackBase) CashbackBase
+		FROM #rptWinlossAff rpt
+		GROUP BY Currency
+
+		--Sum total
 		SELECT SUM(ActivePlayers) ActivePlayers
 			,SUM(BetCount) BetCount
 			,SUM(Commission) Commission
@@ -1513,6 +1645,7 @@ BEGIN
 			--Sportbooks
 			,SUM(SportsbookActivePlayers) SportsbookActivePlayers
 			,SUM(SportsbookBetCount) SportsbookBetCount
+			,SUM(SportsbookTurnover) SportsbookTurnover
 			,SUM(SportsbookWinloss) SportsbookWinloss
 			,SUM(SportsbookCommission) SportsbookCommission
 			,SUM(SportsBookTurnoverBase) SportsBookTurnoverBase

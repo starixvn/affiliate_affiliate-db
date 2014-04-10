@@ -130,7 +130,7 @@ BEGIN
 			,SUM(tmp.RNGCasinoWinlost * tmp.AffExRate) AS RNGCasinoWinlost_Aff
 			,SUM(tmp.TotalWinlost * tmp.AffExRate) AS TotalWinlost_Aff
 			,ROW_NUMBER() OVER (
-				ORDER BY tmp.WinlostDate DESC
+				ORDER BY tmp.WinlostDate
 				) AS RowNum
 		INTO #rptWinlossDate
 		FROM (
@@ -235,7 +235,8 @@ BEGIN
 
 		--select sum data - PlayerCurrency
 		SELECT PlayerCurrency
-			, SUM(Deposit) Deposit
+			,SUM(BetCount) BetCount
+			,SUM(Deposit) Deposit
 			,SUM(Withdrawal) Withdrawal
 			,SUM(Bonus) Bonus
 			,SUM(Adjustment) Adjustment
@@ -284,7 +285,8 @@ BEGIN
 		GROUP BY PlayerCurrency
 		
 		--select sum data - SysCurrency
-		SELECT SUM(DepositBase) DepositBase
+		SELECT SUM(BetCount) BetCount
+			,SUM(DepositBase) DepositBase
 			,SUM(WithdrawalBase) WithdrawalBase
 			,SUM(BonusBase) BonusBase
 			,SUM(AdjustmentBase) AdjustmentBase
@@ -358,7 +360,7 @@ BEGIN
 			,SUM(tmp.RNGCasinoWinlost * tmp.AffExRate) AS RNGCasinoWinlost_Aff
 			,SUM(tmp.TotalWinlost * tmp.AffExRate) AS TotalWinlost_Aff
 			,ROW_NUMBER() OVER (
-				ORDER BY tmp.Username DESC
+				ORDER BY tmp.Username
 				) AS RowNum
 		INTO #rptWinlossPlayer
 		FROM (
@@ -458,7 +460,8 @@ BEGIN
 		
 		--select sum data - PlayerCurrency
 		SELECT PlayerCurrency
-			, SUM(Deposit) Deposit
+			,SUM(BetCount) BetCount
+			,SUM(Deposit) Deposit
 			,SUM(Withdrawal) Withdrawal
 			,SUM(Bonus) Bonus
 			,SUM(Adjustment) Adjustment
@@ -507,7 +510,8 @@ BEGIN
 		GROUP BY PlayerCurrency
 		
 		--select sum data - SysCurrency
-		SELECT SUM(DepositBase) DepositBase
+		SELECT SUM(BetCount) BetCount
+			,SUM(DepositBase) DepositBase
 			,SUM(WithdrawalBase) WithdrawalBase
 			,SUM(BonusBase) BonusBase
 			,SUM(AdjustmentBase) AdjustmentBase

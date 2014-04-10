@@ -1,78 +1,116 @@
-﻿ALTER function [dbo].[Aff_GetMemberWinlost] (
-@AffID int,@SportID tinyint, @MonthDate smalldatetime)
-RETURNS money
+﻿ALTER FUNCTION [dbo].[Aff_GetMemberWinlost] (
+	@AffID INT
+	,@SportID TINYINT
+	,@MonthDate SMALLDATETIME
+	)
+RETURNS MONEY
 AS
 /*
 	Task : Get MemberWinlost for Affiliate
 	Author : Peter@20100508
-	@MonthDate=null : current month
-	- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
-	- 20120606@Peter : Exclude waiting tickets
-	*/
-BEGIN	 
-	declare @MemberWinlost money
-	select @MemberWinlost=0
-	
-	If Datediff(m, @monthdate, current_timestamp) = 0
+	Revisions:
+		- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
+		- 20120606@Peter : Exclude waiting tickets
+		- 20140403@Bobby:  exclude Keno product & other sports
+
+	Params explaination:
+		@MonthDate=null : current month
+*/
+BEGIN
+	DECLARE @MemberWinlost MONEY
+
+	SELECT @MemberWinlost = 0
+
+	IF Datediff(m, @monthdate, current_timestamp) = 0
 	BEGIN
-			Declare @Today smalldatetime,@FirstDay smalldatetime,@LastDay smalldatetime,@SportsBookID int,@HorseRacingID int,@MemberWinlostCurrentDate money
+		DECLARE @Today SMALLDATETIME
+			,@FirstDay SMALLDATETIME
+			,@LastDay SMALLDATETIME
+			,@SportsBookID INT
+			,@HorseRacingID INT
+			,@MemberWinlostCurrentDate MONEY
 
-			select @SportsBookID=dbo.Aff_GetSportID('SportsBook'),@HorseRacingID=dbo.Aff_GetSportID('Horse Racing')
+		SELECT @SportsBookID = dbo.Aff_GetSportID('SportsBook')
+			,@HorseRacingID = dbo.Aff_GetSportID('Horse Racing')
 
-			Select @FirstDay = cast(cast(year(getdate()) as varchar(5)) + '-' + cast(Month(getdate()) as varchar(5)) + '-' +'1' as smalldatetime)
-			--Get last day of inputted month
-			Select @Today = convert (varchar(12),current_timestamp)
-			select @LastDay=dateadd(d,-1,@Today)  
-			
-			select @MemberWinlost=sum(isnull(MemWinlost,0) * isnull(ExRate2,0))
-			from AffDaily (nolock) 
-			where AffId=@AffID and SportId=@SportID and winlostdate between @FirstDay and @LastDay
-			
-			Select @MemberWinlostCurrentDate=sum(isnull(MemberWinlost,0) * isnull(ExRate2,0))
-			from
-			(
-			select 
-						ci.IBCCustID, 
-						case when bettype in (31,32,33,41,42,43) then @HorseRacingID else @SportsBookID end as SportID,						
-						sum(isnull(winlost,0)-isnull(abs(actual_stake),0)+ isnull(playercomm,0)) as MemberWinlost, 					
-						e.Actualrate2 as ExRate2
-					from MemberInfo ci with (nolock)
-						inner join bodb02.dbo.bettrans b with (nolock) on b.custid = ci.IBCCustID
-						INNER JOIN Exchange_Current e with (nolock) on e.exchangeid=ci.currency  
-					where b.winlostdate=@Today
-						and b.ruben=1 
-						and ci.AffID=@AffID
-						and ci.IsRemoved = 0
-						AND Bettype < 19000
-						 and bettype not between 71 and 120 --Not include Casino and Number Game
-						and StatusID not in (101, 102, 103, 121,1) 
-					Group by ci.IBCCustID, case when bettype in (31,32,33,41,42,43) then @HorseRacingID else @SportsBookID end,e.Actualrate2
-					
-				) as a
-			where SportID=@SportID	
-			
-			select @MemberWinlost=isnull(@MemberWinlost ,0) +  isnull(@MemberWinlostCurrentDate,0)
-		
-		
-			
+		SELECT @FirstDay = cast(cast(year(getdate()) AS VARCHAR(5)) + '-' + cast(Month(getdate()) AS VARCHAR(5)) + '-' + '1' AS SMALLDATETIME)
+
+		--Get last day of inputted month
+		SELECT @Today = convert(VARCHAR(12), current_timestamp)
+
+		SELECT @LastDay = dateadd(d, - 1, @Today)
+
+		SELECT @MemberWinlost = sum(isnull(MemWinlost, 0) * isnull(ExRate2, 0))
+		FROM AffDaily(NOLOCK)
+		WHERE AffId = @AffID
+			AND SportId = @SportID
+			AND winlostdate BETWEEN @FirstDay AND @LastDay
+
+		SELECT @MemberWinlostCurrentDate = sum(isnull(MemberWinlost, 0) * isnull(ExRate2, 0))
+		FROM (
+			SELECT ci.IBCCustID
+				,CASE 
+					WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN @HorseRacingID
+					ELSE @SportsBookID
+					END AS SportID
+				,sum(isnull(winlost, 0) - isnull(abs(actual_stake), 0) + isnull(playercomm, 0)) AS MemberWinlost
+				,e.Actualrate2 AS ExRate2
+			FROM MemberInfo ci WITH (NOLOCK)
+				INNER JOIN bodb02.dbo.bettrans b WITH (NOLOCK)
+				ON b.custid = ci.IBCCustID
+				INNER JOIN Exchange_Current e WITH (NOLOCK)
+				ON e.exchangeid = ci.currency
+			WHERE b.winlostdate = @Today
+				AND b.ruben = 1
+				AND ci.AffID = @AffID
+				AND ci.IsRemoved = 0
+				AND (
+					b.bettype <= 999
+					OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
+					) --get SB only
+				AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
+				AND b.bettype NOT IN (1000) --games
+				AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
+				AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
+				AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+						--and bettype not in (31,32,33,41,42,43)   
+				AND b.StatusID NOT IN (101, 102, 103, 121, 1)
+			--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
+			GROUP BY ci.IBCCustID
+				,CASE 
+					WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN @HorseRacingID
+					ELSE @SportsBookID
+					END
+				,e.Actualrate2
+			) AS a
+		WHERE SportID = @SportID
+
+		SELECT @MemberWinlost = isnull(@MemberWinlost, 0) + isnull(@MemberWinlostCurrentDate, 0)
 	END
 	ELSE
 	BEGIN
-		Declare @MaxTransDate smalldatetime	
-		select @MaxTransDate = Max(winlostdate) From AffCommission(nolock)
-		If @MaxTransDate < @monthdate
-			BEGIN
-				select @MemberWinlost=sum(isnull(MemWinlost,0) * isnull(ExRate2,0))
-				from AffDaily (nolock) 
-				where AffId=@AffID and SportId=@SportID and datediff(m,WinlostDate,@MonthDate) = 0
-			END
+		DECLARE @MaxTransDate SMALLDATETIME
+
+		SELECT @MaxTransDate = Max(winlostdate)
+		FROM AffCommission(NOLOCK)
+
+		IF @MaxTransDate < @monthdate
+		BEGIN
+			SELECT @MemberWinlost = sum(isnull(MemWinlost, 0) * isnull(ExRate2, 0))
+			FROM AffDaily(NOLOCK)
+			WHERE AffId = @AffID
+				AND SportId = @SportID
+				AND datediff(m, WinlostDate, @MonthDate) = 0
+		END
 		ELSE
-			BEGIN
-				Select @MemberWinlost = isnull(MemberWinlost, 0) From AffCommission nolock where AffId = @AffId and WinlostDate = @monthdate and SportID=@SportID
-			END
-	END    
-		 
-	return  isnull(@MemberWinlost,0)
+		BEGIN
+			SELECT @MemberWinlost = isnull(MemberWinlost, 0)
+			FROM AffCommission NOLOCK
+			WHERE AffId = @AffId
+				AND WinlostDate = @monthdate
+				AND SportID = @SportID
+		END
+	END
+
+	RETURN isnull(@MemberWinlost, 0)
 END
-
-

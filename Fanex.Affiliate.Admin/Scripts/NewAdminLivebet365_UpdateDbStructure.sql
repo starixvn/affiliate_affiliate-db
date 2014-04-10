@@ -155,3 +155,10 @@ LEFT JOIN (
 	WHERE at.[status] IN ('approved','pending','completed')  
 	GROUP BY at.AffID
 ) tmp ON ai.AffID = tmp.AffID
+
+
+-- Update TestLevel Info
+UPDATE ai
+SET TestLevel = 0
+FROM AffInfo ai WITH (ROWLOCK, UPDLOCK)
+WHERE TestLevel IS NULL

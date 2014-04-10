@@ -1,10 +1,10 @@
-﻿ALTER PROCEDURE [dbo].[Aff_AffiliateReport]
-	@PreferredLanguage varchar(11) = null,
-	@Fromdate datetime,
-	@Todate datetime,
-	@IsGetAll bit,
-	@AffType smallint = 0,
-	@SportId smallint = null
+﻿ALTER PROCEDURE [dbo].[Aff_AffiliateReport] 
+	@PreferredLanguage VARCHAR(11) = NULL
+	,@Fromdate DATETIME
+	,@Todate DATETIME
+	,@IsGetAll BIT
+	,@AffType SMALLINT = 0
+	,@SportId SMALLINT = NULL
 AS
 /*
 Created: @VinhTrinh
@@ -14,169 +14,267 @@ Original: [Aff_AffiliateReport]
 Revisions:
 	- 20101228@Henry: change bettype to new range
 	- 20110420@Johnny: Filter by Sporttype and restore code to old bettype range
-	 - 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
+	- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
+	- 20140403@Bobby:  exclude Keno product & other sports
+
+
 Param's Explanation:
 	• @Fromdate Time search From
 	• @Todate Time search To,
 	• @IsGetAll if getall = 1 => get data in all date,
 */
-Set Nocount On
+BEGIN
+	SET NOCOUNT ON
 
-Declare @CurrDate smalldatetime, @OldReportDate smalldatetime, @TmpToDate smalldatetime, @TmpFromDate smalldatetime, @TmpOldWayDate smalldatetime
-		, @SportsBookID int, @HorseRacingID int
-	
-select @SportsBookID=dbo.Aff_GetSportID('SportsBook'),@HorseRacingID=dbo.Aff_GetSportID('Horse Racing')
+	DECLARE @CurrDate SMALLDATETIME
+		,@OldReportDate SMALLDATETIME
+		,@TmpToDate SMALLDATETIME
+		,@TmpFromDate SMALLDATETIME
+		,@TmpOldWayDate SMALLDATETIME
+		,@SportsBookID INT
+		,@HorseRacingID INT
 
-if(@Fromdate > @Todate or @Fromdate > current_timestamp) RETURN
-	
-select @CurrDate = convert(varchar(10),current_timestamp,120)
+	SELECT @SportsBookID = dbo.Aff_GetSportID('SportsBook')
+		,@HorseRacingID = dbo.Aff_GetSportID('Horse Racing')
 
-select @ToDate = dateadd(s, -60, dateadd(d, datediff(d, 0, @ToDate) + 1, 0))
+	IF (
+			@Fromdate > @Todate
+			OR @Fromdate > current_timestamp
+			) RETURN
 
-Select @OldReportDate=SValue
-from SystemSettings with (nolock)
-where SName='AFF_OldReportDate'
+	SELECT @CurrDate = convert(VARCHAR(10), current_timestamp, 120)
 
-if(@OldReportDate is null)
-  select @OldReportDate='31 Oct 2009'
-  
-if @IsGetAll = 1
-Begin
-	select @FromDate = min(WinlostDate) from MemberDaily with (nolock)
-	select @ToDate = current_timestamp
-	
-	select @TmpFromDate = dateadd(d, 1, @OldReportDate)--From date for new way calculate winlost
-	select @TmpToDate = dateadd(d, -1, @CurrDate)--To date for new way calculate winlost
-	select @TmpOldWayDate = @OldReportDate	
-End
-Else
-Begin
-	select @TmpFromDate = case when @FromDate <= @OldReportDate then dateadd(d, 1, @OldReportDate) else @FromDate end
-	select @TmpToDate = case when @ToDate >= @CurrDate then dateadd(d, -1, @CurrDate) else @ToDate end
-	select @TmpOldWayDate = case when @ToDate >= @OldReportDate then @OldReportDate else @ToDate end
-	
-End
+	SELECT @ToDate = dateadd(s, - 60, dateadd(d, datediff(d, 0, @ToDate) + 1, 0))
+
+	SELECT @OldReportDate = SValue
+	FROM SystemSettings WITH (NOLOCK)
+	WHERE SName = 'AFF_OldReportDate'
+
+	IF (@OldReportDate IS NULL)
+		SELECT @OldReportDate = '31 Oct 2009'
+
+	IF @IsGetAll = 1
+	BEGIN
+		SELECT @FromDate = min(WinlostDate)
+		FROM MemberDaily WITH (NOLOCK)
+
+		SELECT @ToDate = current_timestamp
+
+		SELECT @TmpFromDate = dateadd(d, 1, @OldReportDate) --From date for new way calculate winlost
+
+		SELECT @TmpToDate = dateadd(d, - 1, @CurrDate) --To date for new way calculate winlost
+
+		SELECT @TmpOldWayDate = @OldReportDate
+	END
+	ELSE
+	BEGIN
+		SELECT @TmpFromDate = CASE 
+				WHEN @FromDate <= @OldReportDate THEN dateadd(d, 1, @OldReportDate)
+				ELSE @FromDate
+				END
+
+		SELECT @TmpToDate = CASE 
+				WHEN @ToDate >= @CurrDate THEN dateadd(d, - 1, @CurrDate)
+				ELSE @ToDate
+				END
+
+		SELECT @TmpOldWayDate = CASE 
+				WHEN @ToDate >= @OldReportDate THEN @OldReportDate
+				ELSE @ToDate
+				END
+	END
 
 	--select @FromDate as FromDate, @ToDate as ToDate , @TmpFromDate as TmpFromDate, @TmpToDate as TmpToDate, @TmpOldWayDate as TmpOldWayDate
-	
-select t.AffId,
-	t.Username,
-	Sum(b.Deposit) as Deposit,
-	Sum(b.Withdrawal) as Withdrawal,
-	Sum(b.Turnover) as Turnover,
-	Sum(b.Winlost) as Winlost,
-	Sum(b.Bonus) as Bonus,
-	Sum(b.PSP) as PSP,
-	Sum(b.Adjustment) as Adjustment,
-	Sum(b.AffAdjustment) as AffAdjustment,
-	Sum(b.AffWithdrawal) as AffWithdrawal,
-	Sum(b.AffBF) as AffBF
-From 
-	(
-	Select ai.AffId, ai.Username
-	From AffDetail ad with (nolock)
-		inner join AffInfo ai with(nolock) on ad.AffId = ai.AffId
-		inner join AffType at with(nolock) on ai.AffType = at.TypeId
-	where PreferredLanguage = isnull(@PreferredLanguage, PreferredLanguage)
-		and at.IsShown = 1
-	) t
-	inner join 
-	(	
-		Select AffId,--Calculate winlost member below Aff in MemberDaily
-			Sum(MemDeposit * ExRate2) as Deposit,
-			Sum(MemWithdrawal * ExRate2) as Withdrawal,
-			Sum(MemTurnover * ExRate2) as Turnover,
-			Sum(MemWinlost * ExRate2) as Winlost,
-			Sum(MemBonus * ExRate2) as Bonus,
-			Sum(MemPSP * ExRate2) as PSP,
-			Sum(MemAdjustment * ExRate2) as Adjustment,
-			0 as AffAdjustment,
-			0 as AffWithdrawal,
-			sum(AffNetWinlost * ExRate2) as AffBF
-		From AffDaily with(nolock)
-		Where WinlostDate Between @FromDate and @TmpToDate
-			and isnull(@SportId, SPortId) = SPortId
-		Group by AffID
+	SELECT t.AffId
+		,t.Username
+		,Sum(b.Deposit) AS Deposit
+		,Sum(b.Withdrawal) AS Withdrawal
+		,Sum(b.Turnover) AS Turnover
+		,Sum(b.Winlost) AS Winlost
+		,Sum(b.Bonus) AS Bonus
+		,Sum(b.PSP) AS PSP
+		,Sum(b.Adjustment) AS Adjustment
+		,Sum(b.AffAdjustment) AS AffAdjustment
+		,Sum(b.AffWithdrawal) AS AffWithdrawal
+		,Sum(b.AffBF) AS AffBF
+	FROM (
+		SELECT ai.AffId
+			,ai.Username
+		FROM AffDetail ad WITH (NOLOCK)
+			INNER JOIN AffInfo ai WITH (NOLOCK)
+			ON ad.AffId = ai.AffId
+			INNER JOIN AffType at WITH (NOLOCK)
+			ON ai.AffType = at.TypeId
+		WHERE PreferredLanguage = isnull(@PreferredLanguage, PreferredLanguage)
+			AND at.IsShown = 1
+		) t
+		INNER JOIN (
+		SELECT AffId
+			,--Calculate winlost member below Aff in MemberDaily
+			Sum(MemDeposit * ExRate2) AS Deposit
+			,Sum(MemWithdrawal * ExRate2) AS Withdrawal
+			,Sum(MemTurnover * ExRate2) AS Turnover
+			,Sum(MemWinlost * ExRate2) AS Winlost
+			,Sum(MemBonus * ExRate2) AS Bonus
+			,Sum(MemPSP * ExRate2) AS PSP
+			,Sum(MemAdjustment * ExRate2) AS Adjustment
+			,0 AS AffAdjustment
+			,0 AS AffWithdrawal
+			,sum(AffNetWinlost * ExRate2) AS AffBF
+		FROM AffDaily WITH (NOLOCK)
+		WHERE WinlostDate BETWEEN @FromDate AND @TmpToDate
+			AND isnull(@SportId, SPortId) = SPortId
+		GROUP BY AffID
 		
-		Union All
+		UNION ALL
+		SELECT m.AffID
+			,--Get winlost member in Bettrans table
+			CASE 
+				WHEN (
+						@SportId IS NULL
+						OR @SportId = @SportsBookID
+						)
+					AND bettype = 22001 THEN isnull(sum((winlost - abs(actual_stake)) * e.ActualRate2), 0)
+				ELSE 0
+				END AS Deposit
+			,CASE 
+				WHEN (
+						@SportId IS NULL
+						OR @SportId = @SportsBookID
+						)
+					AND bettype IN (22002, 22003) THEN - isnull(sum((winlost - abs(actual_stake)) * e.ActualRate2), 0)
+				ELSE 0
+				END AS Withdrawal
+			,CASE 
+				WHEN @SportId IS NULL
+					AND bettype <= 999 THEN isnull(sum(CASE 
+								WHEN Bettype IN (33, 43)
+									AND liveawayscore = 0 THEN isnull(abs(stake), 0) / 2 * e.ActualRate2
+								ELSE isnull(abs(stake), 0) * e.ActualRate2
+								END), 0)
+				WHEN @SportId = @SportsBookID
+					AND BetType <= 999
+					AND bettype NOT IN (31, 32, 33, 41, 42, 43) THEN isnull(sum(isnull(abs(stake), 0) * e.ActualRate2), 0)
+				WHEN @SportId = @HorseRacingID
+					AND bettype IN (31, 32, 33, 41, 42, 43) THEN isnull(sum(CASE 
+								WHEN Bettype IN (33, 43)
+									AND liveawayscore = 0 THEN isnull(abs(stake), 0) / 2 * e.ActualRate2
+								ELSE isnull(abs(stake), 0) * e.ActualRate2
+								END), 0)
+				ELSE 0
+				END AS Turnover
+			,CASE 
+				WHEN @SportId IS NULL THEN isnull(sum(CASE 
+								WHEN bettype <= 999
+									AND ruben = 1 THEN (winlost - abs(actual_stake)) * e.ActualRate2
+								ELSE 0
+								END), 0)
+				WHEN @SportId = @SportsBookID THEN isnull(sum(CASE 
+								WHEN bettype <= 999
+									AND ruben = 1
+									AND bettype NOT IN (31, 32, 33, 41, 42, 43) THEN (winlost - abs(actual_stake)) * e.ActualRate2
+								ELSE 0
+								END), 0)
+				WHEN @SportId = @HorseRacingID THEN isnull(sum(CASE 
+								WHEN bettype IN (31, 32, 33, 41, 42, 43)
+									AND ruben = 1 THEN (winlost - abs(actual_stake)) * e.ActualRate2
+								ELSE 0
+								END), 0)
+				ELSE 0
+				END AS Winlost
+			,CASE 
+				WHEN (
+						@SportId IS NULL
+						OR @SportId = @SportsBookID
+						)
+					AND bettype = 22004 THEN isnull(sum((winlost - abs(actual_stake)) * e.ActualRate2), 0)
+				ELSE 0
+				END AS Bonus
+			,CASE 
+				WHEN @SportId IS NULL
+					OR @SportId = @SportsBookID THEN isnull(sum(CASE bettype
+								WHEN 22001 THEN (winlost - abs(actual_stake)) * e.ActualRate2
+								ELSE 0
+								END), 0) * e.DepositPercent + abs(- isnull(sum(CASE 
+									WHEN bettype IN (22002, 22003) THEN (winlost - abs(actual_stake)) * e.ActualRate2
+									ELSE 0
+									END), 0)) * e.WithdrawalPercent
+				ELSE 0
+				END AS PSP
+			,CASE 
+				WHEN @SportId IS NULL
+					OR @SportId = @SportsBookID
+					AND bettype IN (21001, 21002, 21003, 21004, 21005, 22005) THEN isnull(sum((winlost - abs(actual_stake)) * e.ActualRate2), 0)
+				ELSE 0
+				END AS Adjustment
+			,0 AS AffAdjustment
+			,0 AS AffWithdrawal
+			,0 AS AffBF
+		FROM bodb02.dbo.Bettrans b WITH (NOLOCK)
+			INNER JOIN MemberInfo m WITH (NOLOCK)
+			ON m.IBCCustID = b.CustId
+				AND m.IsRemoved = 0
+			INNER JOIN Exchange_Current e WITH (NOLOCK)
+			ON m.Currency = e.ExchangeId
+		WHERE @ToDate >= @CurrDate
+			AND b.WinlostDate = @CurrDate
+			AND (
+				Bettype <= 999
+				OR Bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
+				)
+			AND bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game
+			AND bettype NOT IN (1000) --games
+			AND bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
+			AND bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
+			AND bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+			AND StatusID NOT IN (101, 102, 103, 121, 1)
+			--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
+			AND b.custid > 0
+		GROUP BY m.AffId
+			,e.DepositPercent
+			,e.WithdrawalPercent
+			,b.Bettype
 		
-		Select m.AffID,--Get winlost member in Bettrans table
-			case when (@SportId is null or @SportId = @SportsBookID) and bettype=22001 then 
-					isnull(sum((winlost-abs(actual_stake)) * e.ActualRate2),0)
-				else 0 end as Deposit,
-				
-			case when (@SportId is null or @SportId = @SportsBookID) and bettype in (22002,22003) then 
-					-isnull(sum((winlost-abs(actual_stake)) * e.ActualRate2),0)
-				else 0 end as Withdrawal,
-				
-			case when @SportId is null and bettype < 19000 then 
-					isnull(sum(case when Bettype in (33,43) and liveawayscore = 0 then isnull(abs(stake), 0) / 2 * e.ActualRate2 else isnull(abs(stake), 0) * e.ActualRate2 end)
-							,0)
-				when @SportId = @SportsBookID and BetType < 19000 and bettype not in (31,32,33,41,42,43) then
-					isnull(sum(isnull(abs(stake), 0) * e.ActualRate2), 0)
-																	
-				When @SportId = @HorseRacingID and bettype in (31,32,33,41,42,43) then
-					isnull(sum(case when Bettype in (33,43) and liveawayscore = 0 then isnull(abs(stake), 0) / 2 * e.ActualRate2 else isnull(abs(stake), 0) * e.ActualRate2 end),0)
-				else 0 end as Turnover,
-							
-			case when @SportId is null then  
-					isnull(sum(case when bettype < 19000 and ruben=1 then (winlost-abs(actual_stake)) * e.ActualRate2 else 0 end),0)
-				when @SportId = @SportsBookID then
-					isnull(sum(case when bettype < 19000 and ruben=1 and bettype not in(31,32,33,41,42,43) then (winlost-abs(actual_stake)) * e.ActualRate2 else 0 end),0)
-				when @SportId = @HorseRacingID then
-					isnull(sum(case when bettype in(31,32,33,41,42,43) and ruben=1 then (winlost-abs(actual_stake)) * e.ActualRate2 else 0 end),0)				
-				else 0 end as Winlost,
-			
-			case when (@SportId is null or @SportId = @SportsBookID) and bettype = 22004 then  
-					isnull(sum((winlost-abs(actual_stake)) * e.ActualRate2),0)
-				else 0 end  as Bonus,
-				
-			case when @SportId is null or @SportId = @SportsBookID then  
-					isnull(sum(case bettype when 22001 then (winlost-abs(actual_stake)) * e.ActualRate2 else 0 end),0) * e.DepositPercent
-					+ abs(-isnull(sum(case when bettype in (22002,22003) then (winlost-abs(actual_stake)) * e.ActualRate2 else 0 end),0)) * e.WithdrawalPercent
-				else 0 end as PSP,
-				
-			case when @SportId is null or @SportId = @SportsBookID and bettype in (21001, 21002, 21003, 21004, 21005, 22005) then  
-					isnull(sum((winlost-abs(actual_stake)) * e.ActualRate2),0)
-				else 0 end as Adjustment,
-				
-			0 as AffAdjustment,
-			0 as AffWithdrawal,
-			0 as AffBF
-		From bodb02.dbo.Bettrans b with (nolock)
-			inner join MemberInfo m with (nolock) on m.IBCCustID = b.CustId	and m.IsRemoved = 0
-			inner join Exchange_Current e with (nolock) on m.Currency = e.ExchangeId
-		where @ToDate >= @CurrDate and b.WinlostDate = @CurrDate
-			and (Bettype < 19000 or Bettype in (21001, 21002, 21003, 21004, 21005, 22001, 22002,22003, 22004, 22005))
-			 and bettype not between 71 and 120 --Not include Casino and Number Game
-			and StatusID not in (101, 102, 103, 121) 
-			--and status not in ('VOID', 'REJECT', 'REFUND','DONE')
-		Group by m.AffId,e.DepositPercent,e.WithdrawalPercent, b.Bettype
-		
-		Union All		
-		select AffId,--Get Aff Adjusment and Aff Widthrawal
-			0 as Deposit,
-			0 as Withdrawal,
-			0 as Turnover,
-			0 as Winlost,
-			0 as Bonus,
-			0 as PSP,
-			0 as Adjustment,
-			Sum(case when Transtype = 203 then Amount else 0 end) as AffAdjustment,
-			Sum(case when Transtype = 202 then abs(Amount) else 0 end) as AffWithdrawal,
-			0 as AffBF
-		From AffTrans a with (nolock)
-			--inner join #TmpTable t on a.AffID = t.AffId
-		where (@IsGetAll = 1 or dateadd(d, datediff(d, 0, TransDate), 0) between @FromDate and dateadd(d, datediff(d, 0, @ToDate), 0))
-			and Transtype in (202, 203)
-			and status in ('Pending', 'Approved', 'Completed')
-		Group by AffId
-	) b on t.AffId = b.AffId
-Group by t.AffId, t.Username
-Order by t.AffId
-
+		UNION ALL
+		SELECT AffId
+			,--Get Aff Adjusment and Aff Widthrawal
+			0 AS Deposit
+			,0 AS Withdrawal
+			,0 AS Turnover
+			,0 AS Winlost
+			,0 AS Bonus
+			,0 AS PSP
+			,0 AS Adjustment
+			,Sum(CASE 
+					WHEN Transtype = 203 THEN Amount
+					ELSE 0
+					END) AS AffAdjustment
+			,Sum(CASE 
+					WHEN Transtype = 202 THEN abs(Amount)
+					ELSE 0
+					END) AS AffWithdrawal
+			,0 AS AffBF
+		FROM AffTrans a WITH (NOLOCK)
+		--inner join #TmpTable t on a.AffID = t.AffId
+		WHERE (
+				@IsGetAll = 1
+				OR dateadd(d, datediff(d, 0, TransDate), 0) BETWEEN @FromDate AND dateadd(d, datediff(d, 0, @ToDate), 0)
+				)
+			AND Transtype IN (202, 203)
+			AND STATUS IN ('Pending', 'Approved', 'Completed')
+		GROUP BY AffId
+		) b
+		ON t.AffId = b.AffId
+	GROUP BY t.AffId
+		,t.Username
+	ORDER BY t.AffId
+END
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_AffiliateReport] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateReport] TO [VNTeam] 
+
+GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateReport] TO [VNTeam]
 GO
+
+

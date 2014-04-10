@@ -676,7 +676,7 @@ BEGIN
 			LEFT JOIN (
 			SELECT dateadd(m, datediff(m, 0, Winlostdate), 0) AS WinlostDate
 				,COUNT(DISTINCT m.Username) AS ActivePlayer
-			FROM MemberDaily m WITH (NOLOCK, INDEX = [CIX-MemberDaily])
+			FROM MemberDaily m WITH (NOLOCK)
 				INNER JOIN [dbo].[AffAdmin_AffiliateListForReport](@UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, 'All', @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
 				ON m.AffId = t.AffId
 					AND DATEDIFF(m, m.WinlostDate, t.MonthDate) = 0

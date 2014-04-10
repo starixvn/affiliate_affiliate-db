@@ -1,117 +1,205 @@
-﻿ALTER PROCEDURE [dbo].[Aff_MemberListSel]
-	@AffUsername nvarchar(50) = null,
-	@Username nvarchar(30) = null,    
-	@IBCUserName nvarchar(50) = null,
-	@PageSize int=50,
-	@PageIndex int=1 OUTPUT,
-	@TotalPages int=0 OUTPUT,
-	@NRows int=0 OUTPUT
+﻿ALTER PROCEDURE [dbo].[Aff_MemberListSel] 
+	@AffUsername NVARCHAR(50) = NULL
+	,@Username NVARCHAR(30) = NULL
+	,@IBCUserName NVARCHAR(50) = NULL
+	,@PageSize INT = 50
+	,@PageIndex INT = 1 OUTPUT
+	,@TotalPages INT = 0 OUTPUT
+	,@NRows INT = 0 OUTPUT
 AS
 /*
 	Created: 20090701@VinhTrinh	
 	DB: DBAFF12BET/Affiliate_12Bet
 
 	Revisions:		
-			   -20100112@Peter : 	Shorting the page by CreatedDate . Request from Fan	
-			   -20140217@Dan: optimize perf
+		-20100112@Peter : 	Shorting the page by CreatedDate . Request from Fan	
+		-20140217@Dan: optimize perf
+		- 20140403@Bobby:  exclude Keno product & other sports
 */
-SET NOCOUNT ON
-declare @AffID int, @CurrDate smalldatetime
-
-If @AffUsername is not null
-Begin
-	select @AffID = AffId from AffInfo with (nolock) where Username = @AffUsername
-End
-
-select @CurrDate = dateadd(d, 0, (datediff(d, 0, current_timestamp)))
-
-select @Username = '%' + isnull(@Username, '') + '%', @IBCUserName = '%' + isnull(@IBCUserName, '') + '%'
-
-IF (@AffID IS NULL)
 BEGIN
-	SELECT @NRows = count(1)
-	FROM MemberInfo m with (nolock)
+	SET NOCOUNT ON
+
+	DECLARE @AffID INT
+		,@CurrDate SMALLDATETIME
+
+	IF @AffUsername IS NOT NULL
+	BEGIN
+		SELECT @AffID = AffId
+		FROM AffInfo WITH (NOLOCK)
+		WHERE Username = @AffUsername
+	END
+
+	SELECT @CurrDate = dateadd(d, 0, (datediff(d, 0, current_timestamp)))
+
+	SELECT @Username = '%' + isnull(@Username, '') + '%'
+		,@IBCUserName = '%' + isnull(@IBCUserName, '') + '%'
+
+	IF (@AffID IS NULL)
+	BEGIN
+		SELECT @NRows = count(1)
+		FROM MemberInfo m WITH (NOLOCK)
 		--inner join AffInfo a with(nolock) on m.AffID = a.AffID
-	WHERE m.Username like @Username
-		and IBCUserName like @IBCUserName
-		and m.IsRemoved=0
-END
-ELSE
-BEGIN
-	SELECT @NRows = count(1)
-	FROM MemberInfo m with (nolock)
+		WHERE m.Username LIKE @Username
+			AND IBCUserName LIKE @IBCUserName
+			AND m.IsRemoved = 0
+	END
+	ELSE
+	BEGIN
+		SELECT @NRows = count(1)
+		FROM MemberInfo m WITH (NOLOCK)
 		--inner join AffInfo a with(nolock) on m.AffID = a.AffID
-	WHERE  @AffID = m.AffID 
-		and m.Username like @Username
-		and IBCUserName like @IBCUserName
-		and m.IsRemoved=0
-END
-	
-if(isnull(@NRows,0)=0) 
-	return	
-   
-DECLARE @RowStart int, @RowEnd int
+		WHERE @AffID = m.AffID
+			AND m.Username LIKE @Username
+			AND IBCUserName LIKE @IBCUserName
+			AND m.IsRemoved = 0
+	END
 
-SELECT @TotalPages=@NRows/@PageSize + case when @NRows%@PageSize>0 then 1 else 0 end,
-	   @PageIndex=(case when @PageIndex > @TotalPages then @TotalPages else @PageIndex end),
-	   @RowStart = @PageSize * (@PageIndex-1) + 1, @RowEnd = @RowStart + @PageSize - 1
-		 
+	IF (isnull(@NRows, 0) = 0) RETURN
 
-DECLARE @TempMember TABLE(IBCCustId int PRIMARY KEY, UserName nvarchar(30), IBCUserName nvarchar(50), Currency int, FirstName nvarchar(50), LastName nvarchar(50), CreatedDate datetime, AffId int, AffUserName nvarchar(30) ) 
---CREATE TABLE #TempMember (IBCCustId int PRIMARY KEY, UserName nvarchar(30), IBCUserName nvarchar(50), Currency int, FirstName nvarchar(50), LastName nvarchar(50), CreatedDate datetime, AffId int, AffUserName nvarchar(30)) 
+	DECLARE @RowStart INT
+		,@RowEnd INT
 
-IF (@AffID IS NULL)
-BEGIN
-	insert into @TempMember
-	select m.IBCCustId, m.UserName, m.IBCUserName, m.Currency, m.FirstName, m.LastName, m.CreatedDate, m.AffID, m.AffUserName as AffUserName
-	from
-		(select ROW_NUMBER() OVER(ORDER BY m.CreatedDate desc) AS TheCount,
-			m.IBCCustID, m.UserName, m.IBCUserName, m.Currency as Currency, m.FirstName, m.LastName, m.CreatedDate, m.AffID, af.UserName as AffUserName 
-		from MemberInfo m with (nolock)
-			INNER JOIN AffInfo af with (nolock) on m.AffID = af.AffId
-		where m.Username like @Username
-			and m.IBCUserName like @IBCUserName
-			and m.IsRemoved = 0
-		)m
-	where m.TheCount between @RowStart and @RowEnd
-END
-ELSE 
-BEGIN
-	insert into @TempMember
-	select m.IBCCustId, m.UserName, m.IBCUserName, m.Currency, m.FirstName, m.LastName, m.CreatedDate, m.AffID, m.AffUserName as AffUserName
-	from
-		(select ROW_NUMBER() OVER(ORDER BY m.CreatedDate desc) AS TheCount,
-			m.IBCCustID, m.UserName, m.IBCUserName, m.Currency as Currency, m.FirstName, m.LastName, m.CreatedDate, m.AffID, af.UserName as AffUserName
-		from MemberInfo m with (nolock)
-			INNER JOIN AffInfo af with (nolock) on m.AffID = af.AffId
-		where @AffID = af.AffID 
-			and m.Username like @Username
-			and m.IBCUserName like @IBCUserName
-			and m.IsRemoved = 0
-		)m
-	where m.TheCount between @RowStart and @RowEnd
-END
+	SELECT @TotalPages = @NRows / @PageSize + CASE 
+			WHEN @NRows % @PageSize > 0 THEN 1
+			ELSE 0
+			END
+		,@PageIndex = (CASE 
+			WHEN @PageIndex > @TotalPages THEN @TotalPages
+			ELSE @PageIndex END
+			)
+		,@RowStart = @PageSize * (@PageIndex - 1) + 1
+		,@RowEnd = @RowStart + @PageSize - 1
 
+	DECLARE @TempMember TABLE (
+		IBCCustId INT PRIMARY KEY
+		,UserName NVARCHAR(30)
+		,IBCUserName NVARCHAR(50)
+		,Currency INT
+		,FirstName NVARCHAR(50)
+		,LastName NVARCHAR(50)
+		,CreatedDate DATETIME
+		,AffId INT
+		,AffUserName NVARCHAR(30)
+		)
 
-SELECT UserName, t.IBCCustID, IBCUserName, FirstName, LastName, CreatedDate, CurrBalance, AffUserName
-FROM @TempMember m
-	LEFT JOIN (
-		SELECT m.IBCCustID, 
-			isnull(sum(case when ruben = 1 then (winlost-abs(actual_stake) + playercomm)*isnull(e.actualrate2,1) else 0 end), 0) as CurrBalance	
+	--CREATE TABLE #TempMember (IBCCustId int PRIMARY KEY, UserName nvarchar(30), IBCUserName nvarchar(50), Currency int, FirstName nvarchar(50), LastName nvarchar(50), CreatedDate datetime, AffId int, AffUserName nvarchar(30)) 
+	IF (@AffID IS NULL)
+	BEGIN
+		INSERT INTO @TempMember
+		SELECT m.IBCCustId
+			,m.UserName
+			,m.IBCUserName
+			,m.Currency
+			,m.FirstName
+			,m.LastName
+			,m.CreatedDate
+			,m.AffID
+			,m.AffUserName AS AffUserName
+		FROM (
+			SELECT ROW_NUMBER() OVER (
+					ORDER BY m.CreatedDate DESC
+					) AS TheCount
+				,m.IBCCustID
+				,m.UserName
+				,m.IBCUserName
+				,m.Currency AS Currency
+				,m.FirstName
+				,m.LastName
+				,m.CreatedDate
+				,m.AffID
+				,af.UserName AS AffUserName
+			FROM MemberInfo m WITH (NOLOCK)
+				INNER JOIN AffInfo af WITH (NOLOCK)
+				ON m.AffID = af.AffId
+			WHERE m.Username LIKE @Username
+				AND m.IBCUserName LIKE @IBCUserName
+				AND m.IsRemoved = 0
+			) m
+		WHERE m.TheCount BETWEEN @RowStart AND @RowEnd
+	END
+	ELSE
+	BEGIN
+		INSERT INTO @TempMember
+		SELECT m.IBCCustId
+			,m.UserName
+			,m.IBCUserName
+			,m.Currency
+			,m.FirstName
+			,m.LastName
+			,m.CreatedDate
+			,m.AffID
+			,m.AffUserName AS AffUserName
+		FROM (
+			SELECT ROW_NUMBER() OVER (
+					ORDER BY m.CreatedDate DESC
+					) AS TheCount
+				,m.IBCCustID
+				,m.UserName
+				,m.IBCUserName
+				,m.Currency AS Currency
+				,m.FirstName
+				,m.LastName
+				,m.CreatedDate
+				,m.AffID
+				,af.UserName AS AffUserName
+			FROM MemberInfo m WITH (NOLOCK)
+				INNER JOIN AffInfo af WITH (NOLOCK)
+				ON m.AffID = af.AffId
+			WHERE @AffID = af.AffID
+				AND m.Username LIKE @Username
+				AND m.IBCUserName LIKE @IBCUserName
+				AND m.IsRemoved = 0
+			) m
+		WHERE m.TheCount BETWEEN @RowStart AND @RowEnd
+	END
+
+	SELECT UserName
+		,t.IBCCustID
+		,IBCUserName
+		,FirstName
+		,LastName
+		,CreatedDate
+		,CurrBalance
+		,AffUserName
+	FROM @TempMember m
+		LEFT JOIN (
+		SELECT m.IBCCustID
+			,isnull(sum(CASE 
+						WHEN ruben = 1 THEN (winlost - abs(actual_stake) + playercomm) * isnull(e.actualrate2, 1)
+						ELSE 0
+						END), 0) AS CurrBalance
 		FROM @TempMember m
-			LEFT JOIN bodb02.dbo.bettrans b with(nolock) on b.CustID = m.IbcCustID	
-			LEFT JOIN exchange e with(nolock) on e.exchangeid=m.currency 
-												 and e.UpdatedTime=(
-																	 select max(e1.UpdatedTime) 
-																	 from Exchange e1 with (nolock) 
-																	 where e1.ExchangeID=e.ExchangeID and UpdatedTime<=b.winlostdate
-																   ) 
-							 
+			LEFT JOIN bodb02.dbo.bettrans b WITH (NOLOCK)
+			ON b.CustID = m.IbcCustID
+			LEFT JOIN exchange e WITH (NOLOCK)
+			ON e.exchangeid = m.currency
+				AND e.UpdatedTime = (
+					SELECT max(e1.UpdatedTime)
+					FROM Exchange e1 WITH (NOLOCK)
+					WHERE e1.ExchangeID = e.ExchangeID
+						AND UpdatedTime <= b.winlostdate
+					)
+			WHERE b.winlostdate = @CurrDate
+				AND (
+					b.bettype <= 999
+					OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
+					) --get SB only
+				AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
+				AND b.bettype NOT IN (1000) --games
+				AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
+				AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
+				AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+						--and bettype not in (31,32,33,41,42,43)   
+				AND b.StatusID NOT IN (101, 102, 103, 121, 1)
+				--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
 		GROUP BY m.IBCCustID
-	) t on m.IBCCustId = t.IBCCustID
-order by CreatedDate desc
-
+		) t
+		ON m.IBCCustId = t.IBCCustID
+	ORDER BY CreatedDate DESC
+END
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_MemberListSel] TO [bodbAdminNet]
 GO
+
 GRANT VIEW DEFINITION ON [dbo].[Aff_MemberListSel] TO [vnteam]

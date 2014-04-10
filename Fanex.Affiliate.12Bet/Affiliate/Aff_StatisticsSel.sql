@@ -1,34 +1,24 @@
-﻿USE [Affiliate_12BET]
-GO
-/****** Object:  StoredProcedure [dbo].[Aff_StatisticsSel]    Script Date: 02/11/2014 02:24:06 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Aff_StatisticsSel    Script Date: 1/18/2013 6:02:40 AM ******/
-
-ALTER PROCEDURE [dbo].[Aff_StatisticsSel]
-	@AffID int,
-	@MonthDate smalldatetime,
-	@TotalQualifiedMembers int OUTPUT,
-	@TotalQualifiedCasino int = 0 OUTPUT,	
-	@TotalQualifiedMembersHR int OUTPUT,	
-	@TotalActivePlayer int OUTPUT,
-	@TotalPlayerDepUp int OUTPUT,
-	@NewSignUpDep int OUTPUT,	
-	@BalBroughtforward money = 0 OUTPUT,
-	@TotalDeposit money OUTPUT,
-	@TotalDepositUp money OUTPUT,
-	@TotalTurnover money OUTPUT,
-	@TotalTurnoverUp money OUTPUT,
-	@TotalWinlostUp money OUTPUT,
-	@TotalWinlost money OUTPUT,
-	@TotalUniqueClicks int = 0 OUTPUT,
-	@TotalClicks int = 0 OUTPUT,
-	@TotalUniqueClicksBySite int = 0 OUTPUT,
-	@TotalClicksBySite int = 0 OUTPUT
+﻿ALTER PROCEDURE [dbo].[Aff_StatisticsSel] 
+	@AffID INT
+	,@MonthDate SMALLDATETIME
+	,@TotalQualifiedMembers INT OUTPUT
+	,@TotalQualifiedCasino INT = 0 OUTPUT
+	,@TotalQualifiedMembersHR INT OUTPUT
+	,@TotalActivePlayer INT OUTPUT
+	,@TotalPlayerDepUp INT OUTPUT
+	,@NewSignUpDep INT OUTPUT
+	,@BalBroughtforward MONEY = 0 OUTPUT
+	,@TotalDeposit MONEY OUTPUT
+	,@TotalDepositUp MONEY OUTPUT
+	,@TotalTurnover MONEY OUTPUT
+	,@TotalTurnoverUp MONEY OUTPUT
+	,@TotalWinlostUp MONEY OUTPUT
+	,@TotalWinlost MONEY OUTPUT
+	,@TotalUniqueClicks INT = 0 OUTPUT
+	,@TotalClicks INT = 0 OUTPUT
+	,@TotalUniqueClicksBySite INT = 0 OUTPUT
+	,@TotalClicksBySite INT = 0 OUTPUT
 AS
-
 /*Created: 20090325@VinhTrinh
 Task : Get statistics for affiliate
 DB: DB052.Affiliate_12BET
@@ -40,221 +30,327 @@ Revisions:
 	- 20101228@Henry: change bettype to new range
 	- 20120507@Johnny: Get Casino qualified Active players
 	- 20120606@Peter : Exclude waiting tickets 
+	- 20140403@Bobby:  exclude Keno product & other sports
+
 Param's Explanation:
-• @AffID : Affiliate custid
-• @MonthDate : Date search(format:first day of the month).
-• @TotalActivePlayer : Get Active player in Month
-• @TotalPlayerDepUp int OUTPUT,--Get player deposited in our system
-• @NewSignUpDep : Get new signups of the month
-• @TotalDeposit : total deposit money for month search
-• @TotalDepositUp money OUTPUT,--total deposit money up to now
-• @TotalTurnover money OUTPUT,--total turnover money up to now
+	• @AffID : Affiliate custid
+	• @MonthDate : Date search(format:first day of the month).
+	• @TotalActivePlayer : Get Active player in Month
+	• @TotalPlayerDepUp int OUTPUT,--Get player deposited in our system
+	• @NewSignUpDep : Get new signups of the month
+	• @TotalDeposit : total deposit money for month search
+	• @TotalDepositUp money OUTPUT,--total deposit money up to now
+	• @TotalTurnover money OUTPUT,--total turnover money up to now
+
 */
+BEGIN
+	SET NOCOUNT ON
 
-SET NOCOUNT ON
-DECLARE @FromBeginMonth smalldatetime, @ToNextMonth smalldatetime
-select @FromBeginMonth = DATEADD(month, DATEDIFF(month, 0, @MonthDate), 0)
-select @ToNextMonth = DATEADD(month, 1, @FromBeginMonth)
+	DECLARE @FromBeginMonth SMALLDATETIME
+		,@ToNextMonth SMALLDATETIME
+
+	SELECT @FromBeginMonth = DATEADD(month, DATEDIFF(month, 0, @MonthDate), 0)
+
+	SELECT @ToNextMonth = DATEADD(month, 1, @FromBeginMonth)
+
+	DECLARE @MaxTransDate SMALLDATETIME
+		,@FromDate SMALLDATETIME
+		,@CurrentDate SMALLDATETIME
+		,@PreviousDate SMALLDATETIME
+		,@SportsBookID INT
+		,@HorseRacingID INT
+		,@CasinoID INT
+		,@SPTurnover MONEY
+		,@HRTurnover MONEY
+		,@CasinoTurnover MONEY
+		,@CasinoDeposit MONEY
+
+	SELECT @SportsBookID = dbo.Aff_GetSportID('SportsBook')
+		,@HorseRacingID = dbo.Aff_GetSportID('Horse Racing')
+		,@CasinoID = dbo.Aff_GetSportID('Casino')
+
+	SELECT @SPTurnover = QMTurnOver
+	FROM Sporttype WITH (NOLOCK)
+	WHERE SportID = @SportsBookID
+
+	SELECT @HRTurnover = QMTurnOver
+	FROM Sporttype WITH (NOLOCK)
+	WHERE SportID = @HorseRacingID
+
+	SELECT @CasinoTurnover = QMTurnOver
+		,@CasinoDeposit = QMDeposit
+	FROM Sporttype WITH (NOLOCK)
+	WHERE SportID = @CasinoID
+
+	SELECT @CurrentDate = convert(VARCHAR(10), current_timestamp, 120)
+		,@PreviousDate = dateadd(d, - 1, @CurrentDate)
+
+	SELECT @MaxTransDate = max(WinlostDate)
+	FROM AffCommission WITH (NOLOCK)
+
+	SELECT @FromDate = dateadd(d, 1, @MaxTransDate)
+
+	SELECT @NewSignUpDep = Count(*)
+	FROM MemberInfo m WITH (NOLOCK)
+	WHERE m.AffId = @AffId
+		AND CreatedDate >= @FromBeginMonth
+		AND CreatedDate < @ToNextMonth -- datediff(m, CreatedDate, @MonthDate) = 0
+		AND m.IBCCustId NOT IN (
+			SELECT IBCCustId
+			FROM MemberRemoval WITH (NOLOCK)
+			WHERE RemovedDate >= @FromBeginMonth
+				AND RemovedDate < @ToNextMonth
+			) --datediff(m, RemovedDate, @MonthDate) = 0	
+
+	SELECT --If member is created and removed in the same month, he/she will not be counted.
+		@TotalPlayerDepUp = Count(*)
+	FROM MemberInfo m WITH (NOLOCK)
+	WHERE m.AffId = @AffId
+		AND IsRemoved = 0
+
+	DECLARE @TblStatistics AS TABLE (
+		IBCCustID INT
+		,Sporttype INT
+		,QualifiedMember INT
+		,Turnover MONEY
+		,Deposit MONEY
+		,Winlost MONEY
+		,MonthDate SMALLDATETIME
+		)
+
+	INSERT INTO @TblStatistics
+	SELECT 0
+		,SportId
+		,QualifiedMember
+		,MemberTurnover
+		,MemberDeposit
+		,MemberWinlost
+		,WinlostDate
+	FROM AffCommission WITH (NOLOCK)
+	WHERE AffId = @AffId
+		AND WinlostDate <= @MaxTransDate
 	
-
-declare @MaxTransDate smalldatetime, @FromDate smalldatetime, @CurrentDate smalldatetime, @PreviousDate smalldatetime
-	, @SportsBookID int, @HorseRacingID int,@CasinoID int, @SPTurnover money, @HRTurnover money, @CasinoTurnover money, @CasinoDeposit money
-
-select @SportsBookID = dbo.Aff_GetSportID('SportsBook'), @HorseRacingID = dbo.Aff_GetSportID('Horse Racing'),@CasinoID=dbo.Aff_GetSportID('Casino')
-
-select @SPTurnover = QMTurnOver from Sporttype with (nolock) where SportID = @SportsBookID
-select @HRTurnover = QMTurnOver from Sporttype with (nolock) where SportID = @HorseRacingID
-select @CasinoTurnover = QMTurnOver, @CasinoDeposit = QMDeposit from Sporttype with (nolock) where SportID = @CasinoID
-
-select @CurrentDate=convert(varchar(10),current_timestamp,120), @PreviousDate=dateadd(d, -1, @CurrentDate)
-select @MaxTransDate = max(WinlostDate) from AffCommission with(nolock)
-select @FromDate = dateadd(d, 1, @MaxTransDate)     
-
-select @NewSignUpDep = Count(*)
-from MemberInfo m with (nolock)
-where m.AffId = @AffId 	
-	and CreatedDate >=  @FromBeginMonth and CreatedDate < @ToNextMonth -- datediff(m, CreatedDate, @MonthDate) = 0
-	and m.IBCCustId not in (select IBCCustId From MemberRemoval with(nolock) 
-							where RemovedDate >=  @FromBeginMonth and RemovedDate < @ToNextMonth)--datediff(m, RemovedDate, @MonthDate) = 0	
-
-select --If member is created and removed in the same month, he/she will not be counted.
-	@TotalPlayerDepUp = Count(*)
-from MemberInfo m with (nolock)
-where m.AffId = @AffId 
-	and IsRemoved = 0 
+	UNION ALL
+	SELECT b.IBCCustID
+		,SportType
+		,0
+		,sum(isnull(TurnOver, 0) * isnull(AffExRate, 1)) AS Turnover
+		,sum(isnull(Deposit, 0) * isnull(AffExRate, 1)) AS Deposit
+		,sum((isnull(Winlost, 0)) * isnull(AffExRate, 1)) AS Winlost
+		,dateadd(mm, DATEDIFF(m, 0, b.WinlostDate), 0)
+	FROM MemberDaily b WITH (NOLOCK)
+		INNER JOIN MemberInfo ci WITH (NOLOCK)
+		ON ci.IBCCustID = b.IBCCustID
+	WHERE b.AffID = @AffID
+		AND b.winlostdate BETWEEN @FromDate AND @PreviousDate --this condition use up index on winlostdate	
+	GROUP BY b.IBCCustID
+		,SportType
+		,dateadd(mm, DATEDIFF(m, 0, b.winlostdate), 0)
 	
-	
-Declare @TblStatistics as  table(IBCCustID int, Sporttype int, QualifiedMember int, Turnover money, Deposit money, Winlost money, MonthDate smalldatetime)
+	UNION ALL
+	SELECT ci.IBCCustID
+		,CASE 
+			WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN @HorseRacingID
+			ELSE @SportsBookID
+			END
+		,0
+		,isnull(sum(CASE 
+					WHEN bettype < 99 THEN (CASE 
+							WHEN Bettype IN (33, 43)
+								AND liveawayscore = 0 THEN isnull(stake, 0) / 2 * e.Actualrate2
+							ELSE isnull(stake, 0) * e.Actualrate2 END
+							)
+					ELSE 0
+					END), 0) AS Turnover
+		,isnull(sum(CASE bettype
+					WHEN 22001 THEN (winlost - actual_stake) * e.Actualrate2
+					ELSE 0
+					END), 0) AS Deposit
+		,isnull(sum(CASE 
+					WHEN (
+							bettype < 99
+							OR bettype IN (21001, 21002, 21003, 21004, 21005, 22004, 22005)
+							)
+						AND ruben = 1 THEN (b.Winlost - b.Actual_Stake) * e.actualrate2
+					ELSE 0
+					END), 0) AS Winlost
+		,convert(VARCHAR(10), current_timestamp, 120)
+	FROM MemberInfo ci WITH (NOLOCK)
+		INNER JOIN bodb02.dbo.bettrans b WITH (NOLOCK, INDEX = IX_custid_matchid_bettype)
+		ON b.custid = ci.IBCCustID
+		INNER JOIN Exchange_Current e WITH (NOLOCK)
+		ON ci.currency = e.exchangeid
+	WHERE b.winlostdate = @CurrentDate
+		AND ci.AffID = @AffID
+		AND ci.IsRemoved = 0
+		AND (
+			b.bettype <= 999
+			OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
+			) --get SB only
+		AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
+		AND b.bettype NOT IN (1000) --games
+		AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
+		AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
+		AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+				--and bettype not in (31,32,33,41,42,43)   
+		AND b.StatusID NOT IN (101, 102, 103, 121, 1)
+	--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
+	GROUP BY ci.IBCCustID
+		,CASE 
+			WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN @HorseRacingID
+			ELSE @SportsBookID
+			END
 
-insert into @TblStatistics
-select 0,
-	SportId, 
-	QualifiedMember, 
-	MemberTurnover, 
-	MemberDeposit, 
-	MemberWinlost,
-	WinlostDate
-from AffCommission with (nolock)
-where AffId = @AffId 
-	and WinlostDate <= @MaxTransDate	
-Union All
-select b.IBCCustID,
-	SportType,
-	0,
-	sum(isnull(TurnOver,0) * isnull(AffExRate,1)) as Turnover,
-	sum(isnull(Deposit,0) * isnull(AffExRate,1)) as Deposit,    
-	sum((isnull(Winlost,0)) * isnull(AffExRate,1)) as Winlost,
-	dateadd(mm, DATEDIFF(m,0,b.WinlostDate), 0)
-from MemberDaily b with (nolock) 
-	 inner join MemberInfo ci with (nolock) on ci.IBCCustID=b.IBCCustID
-where b.AffID=@AffID 
-	and b.winlostdate between @FromDate and @PreviousDate--this condition use up index on winlostdate	
-group by b.IBCCustID, SportType,
-	dateadd(mm, DATEDIFF(m,0,b.winlostdate), 0)
-Union All
-select 
-	ci.IBCCustID, 
-	case when bettype in (31,32,33,41,42,43) then @HorseRacingID else @SportsBookID end,
-	0,
-	isnull(sum(case when bettype < 99 then 
-				(case when Bettype in (33,43) and liveawayscore = 0 then isnull(stake, 0) / 2 * e.Actualrate2 else isnull(stake, 0) * e.Actualrate2 end)
-			else 0 end),0) as Turnover,	
-	isnull(sum(case bettype when 22001 then (winlost-actual_stake)* e.Actualrate2 else 0 end),0) as Deposit,
-	isnull(sum(case when (bettype < 99 or bettype in (21001, 21002, 21003, 21004, 21005, 22004, 22005)) AND ruben = 1 then (b.Winlost - b.Actual_Stake) * e.actualrate2 else 0 end), 0) as Winlost, 
-	convert(varchar(10),current_timestamp,120)
-from MemberInfo ci with (nolock)
-	inner join bodb02.dbo.bettrans b with (nolock, index=IX_custid_matchid_bettype) on b.custid = ci.IBCCustID
-	INNER JOIN Exchange_Current e with (nolock) on ci.currency = e.exchangeid
-where b.winlostdate=@CurrentDate
-	and ci.AffID=@AffID
-	and ci.IsRemoved = 0
-	AND (Bettype < 99  or bettype in (21001, 21002, 21003, 21004, 21005, 22001, 22002 ,22003, 22004, 22005))		
-	--AND bettype not in (71,72,73,74,75,76,77,78,79)
-	and bettype not between 71 and 120
-	and StatusID not in (101, 102, 103, 121,1) 
-	--and status not in ('VOID', 'REJECT', 'REFUND','DONE','WAITING')	
-Group by ci.IBCCustID, case when bettype in (31,32,33,41,42,43) then @HorseRacingID else @SportsBookID end
+	--Calculate total up to now
+	SELECT @TotalWinlostUp = Sum(Winlost)
+		,@TotalTurnoverUp = Sum(Turnover)
+		,@TotalDepositUp = Sum(CASE 
+				WHEN Sporttype = @SportsBookID THEN Deposit
+				ELSE 0
+				END)
+	FROM @TblStatistics
 
---Calculate total up to now
-select @TotalWinlostUp = Sum(Winlost)
-	, @TotalTurnoverUp = Sum(Turnover)
-	, @TotalDepositUp = Sum(case when Sporttype = @SportsBookID then Deposit else 0 end)
-from @TblStatistics
---calculate month search
-select @TotalWinlost = Sum(Winlost)
-	, @TotalTurnover = Sum(Turnover)
-	, @TotalDeposit = Sum(case when Sporttype = @SportsBookID then Deposit else 0 end)
-from @TblStatistics
-where DATEDIFF(m, MonthDate, @MonthDate) = 0
-	
---Calculate for ActivePlayer and Qualified players
-If @MonthDate > @MaxTransDate
-Begin
-	select @TotalActivePlayer = count(IBCCustID)
-	from (select distinct IBCCustID--Get from table existed 
-		from @TblStatistics
-		where DATEDIFF(m, MonthDate, @MonthDate) = 0
-		group by IBCCustId
-		Having sum(isnull(TurnOver,0)) > 0 or sum(isnull(Deposit,0)) > 0
-		) a
-		
-	select @TotalQualifiedMembers = count(IBCCustID)
-	from (select distinct IBCCustID
-		from @TblStatistics p
-		where datediff(m, MonthDate, @MonthDate) = 0
-			and Sporttype = @SportsBookID
-		group by IBCCustID
-		having sum(Turnover) >= @SPTurnover) a
-		
-	select @TotalQualifiedMembersHR = count(IBCCustID)
-	from (select distinct IBCCustID
-		from @TblStatistics p
-		where datediff(m, MonthDate, @MonthDate) = 0
-			and Sporttype = @HorseRacingID
-		group by IBCCustID
-		having sum(Turnover) >= @HRTurnover) a	
+	--calculate month search
+	SELECT @TotalWinlost = Sum(Winlost)
+		,@TotalTurnover = Sum(Turnover)
+		,@TotalDeposit = Sum(CASE 
+				WHEN Sporttype = @SportsBookID THEN Deposit
+				ELSE 0
+				END)
+	FROM @TblStatistics
+	WHERE DATEDIFF(m, MonthDate, @MonthDate) = 0
 
-	select @TotalQualifiedCasino = count(IBCCustID)
-	from (select distinct IBCCustID
-		from @TblStatistics p
-		where datediff(m, MonthDate, @MonthDate) = 0
-			and Sporttype = @CasinoID
-		group by IBCCustID
-		having sum(Turnover) >= @CasinoTurnover and SUM(Deposit) >= @CasinoDeposit) a	
+	--Calculate for ActivePlayer and Qualified players
+	IF @MonthDate > @MaxTransDate
+	BEGIN
+		SELECT @TotalActivePlayer = count(IBCCustID)
+		FROM (
+			SELECT DISTINCT IBCCustID --Get from table existed 
+			FROM @TblStatistics
+			WHERE DATEDIFF(m, MonthDate, @MonthDate) = 0
+			GROUP BY IBCCustId
+			HAVING sum(isnull(TurnOver, 0)) > 0
+				OR sum(isnull(Deposit, 0)) > 0
+			) a
 
-End
-Else--Get Data in AffCommission
-Begin
-	Declare @FirstDate smalldatetime, @LastDate smallDatetime	
-	select @FirstDate = dateadd(m, datediff(m, 0, @MonthDate), 0)
-		, @LastDate = dateadd(d, -1, dateadd(m, datediff(m, 0, @MonthDate) + 1, 0))
-		
-	
-	select @TotalActivePlayer = count(*)
-	from (select distinct IBCCustId--Get from Memberdaily
-		from MemberDaily b with (nolock) 		 
-		where b.AffID=@AffID 
-			and b.winlostdate between @FirstDate and @LastDate--this condition use up index on winlostdate	
-		group by IBCCustId
-		Having sum(isnull(TurnOver,0)) > 0 or sum(isnull(Deposit,0)) > 0
-		) a
-	
-	select @TotalQualifiedMembers = QualifiedMember
-	from @TblStatistics
-	where datediff(m, MonthDate, @MonthDate) = 0
-		and Sporttype = @SportsBookID
-		
-	select @TotalQualifiedMembersHR = QualifiedMember
-	from @TblStatistics
-	where datediff(m, MonthDate, @MonthDate) = 0
-		and Sporttype = @HorseRacingID
+		SELECT @TotalQualifiedMembers = count(IBCCustID)
+		FROM (
+			SELECT DISTINCT IBCCustID
+			FROM @TblStatistics p
+			WHERE datediff(m, MonthDate, @MonthDate) = 0
+				AND Sporttype = @SportsBookID
+			GROUP BY IBCCustID
+			HAVING sum(Turnover) >= @SPTurnover
+			) a
 
-  select @TotalQualifiedCasino = QualifiedMember
-	from @TblStatistics
-	where datediff(m, MonthDate, @MonthDate) = 0
-		and Sporttype = @CasinoID
+		SELECT @TotalQualifiedMembersHR = count(IBCCustID)
+		FROM (
+			SELECT DISTINCT IBCCustID
+			FROM @TblStatistics p
+			WHERE datediff(m, MonthDate, @MonthDate) = 0
+				AND Sporttype = @HorseRacingID
+			GROUP BY IBCCustID
+			HAVING sum(Turnover) >= @HRTurnover
+			) a
 
-End
---End Calculate for Month Search	
---Get tracking information
-if(datediff(mm,@MonthDate,current_timestamp)=0)
-begin
-	select @TotalClicks=count(1)
-	from ClickStatistics s (nolock)
-	 inner join TrackingCode a (nolock)  on a.TrackingID=s.TrackingID and a.AffID=@AffID
-	where s.date >= @MonthDate
+		SELECT @TotalQualifiedCasino = count(IBCCustID)
+		FROM (
+			SELECT DISTINCT IBCCustID
+			FROM @TblStatistics p
+			WHERE datediff(m, MonthDate, @MonthDate) = 0
+				AND Sporttype = @CasinoID
+			GROUP BY IBCCustID
+			HAVING sum(Turnover) >= @CasinoTurnover
+				AND SUM(Deposit) >= @CasinoDeposit
+			) a
+	END
+	ELSE --Get Data in AffCommission
+	BEGIN
+		DECLARE @FirstDate SMALLDATETIME
+			,@LastDate SMALLDATETIME
 
-	select @TotalUniqueClicks=count(distinct s.IP)
-	from ClickStatistics s (nolock)
-	 inner join TrackingCode a (nolock)  on a.TrackingID=s.TrackingID and a.AffID=@AffID
-	where s.date >= @MonthDate
-	--group by a.AffiliateID,month(s.Date),year(s.Date)
-end
-else
-begin
-	select @TotalClicks=TotalClick,@TotalUniqueClicks=UniqueClick
-	from ClickStatisticsSum (nolock)
-	where AffID=@AffID
-			   and TrackingID=0
-			   and IsForMonth=1 
-			   and [date] >=  @FromBeginMonth and [date] < @ToNextMonth   --and datediff(mm,@MonthDate,[date])=0
-end
+		SELECT @FirstDate = dateadd(m, datediff(m, 0, @MonthDate), 0)
+			,@LastDate = dateadd(d, - 1, dateadd(m, datediff(m, 0, @MonthDate) + 1, 0))
 
---Tracking statistics for new link
-declare @ToDate smalldatetime
-select @ToDate = dateadd(d, -1, dateadd(mm, 1, @MonthDate))
+		SELECT @TotalActivePlayer = count(*)
+		FROM (
+			SELECT DISTINCT IBCCustId --Get from Memberdaily
+			FROM MemberDaily b WITH (NOLOCK)
+			WHERE b.AffID = @AffID
+				AND b.winlostdate BETWEEN @FirstDate AND @LastDate --this condition use up index on winlostdate	
+			GROUP BY IBCCustId
+			HAVING sum(isnull(TurnOver, 0)) > 0
+				OR sum(isnull(Deposit, 0)) > 0
+			) a
 
-Select @TotalClicksBySite = TotalClicks,
-	@TotalUniqueClicksBySite = UniqueClicks
-from [dbo].[Aff_GetClickStatisticsNew_Func](@AffId, @MonthDate, @Todate)
+		SELECT @TotalQualifiedMembers = QualifiedMember
+		FROM @TblStatistics
+		WHERE datediff(m, MonthDate, @MonthDate) = 0
+			AND Sporttype = @SportsBookID
 
---get Balance broughtForward
-select @BalBroughtforward = isnull(dbo.Aff_GetAffBalance(@AffID), 0)
+		SELECT @TotalQualifiedMembersHR = QualifiedMember
+		FROM @TblStatistics
+		WHERE datediff(m, MonthDate, @MonthDate) = 0
+			AND Sporttype = @HorseRacingID
+
+		SELECT @TotalQualifiedCasino = QualifiedMember
+		FROM @TblStatistics
+		WHERE datediff(m, MonthDate, @MonthDate) = 0
+			AND Sporttype = @CasinoID
+	END
+
+	--End Calculate for Month Search	
+	--Get tracking information
+	IF (datediff(mm, @MonthDate, current_timestamp) = 0)
+	BEGIN
+		SELECT @TotalClicks = count(1)
+		FROM ClickStatistics s(NOLOCK)
+			INNER JOIN TrackingCode a(NOLOCK)
+			ON a.TrackingID = s.TrackingID
+				AND a.AffID = @AffID
+		WHERE s.DATE >= @MonthDate
+
+		SELECT @TotalUniqueClicks = count(DISTINCT s.IP)
+		FROM ClickStatistics s(NOLOCK)
+			INNER JOIN TrackingCode a(NOLOCK)
+			ON a.TrackingID = s.TrackingID
+				AND a.AffID = @AffID
+		WHERE s.DATE >= @MonthDate
+			--group by a.AffiliateID,month(s.Date),year(s.Date)
+	END
+	ELSE
+	BEGIN
+		SELECT @TotalClicks = TotalClick
+			,@TotalUniqueClicks = UniqueClick
+		FROM ClickStatisticsSum(NOLOCK)
+		WHERE AffID = @AffID
+			AND TrackingID = 0
+			AND IsForMonth = 1
+			AND [date] >= @FromBeginMonth
+			AND [date] < @ToNextMonth --and datediff(mm,@MonthDate,[date])=0
+	END
+
+	--Tracking statistics for new link
+	DECLARE @ToDate SMALLDATETIME
+
+	SELECT @ToDate = dateadd(d, - 1, dateadd(mm, 1, @MonthDate))
+
+	SELECT @TotalClicksBySite = TotalClicks
+		,@TotalUniqueClicksBySite = UniqueClicks
+	FROM [dbo].[Aff_GetClickStatisticsNew_Func](@AffId, @MonthDate, @Todate)
+
+	--get Balance broughtForward
+	SELECT @BalBroughtforward = isnull(dbo.Aff_GetAffBalance(@AffID), 0)
+END
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_StatisticsSel] TO [bodbAdminNet] AS [dbo]
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_StatisticsSel] TO [bodbDownlineNet] AS [dbo]
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_StatisticsSel] TO [bodbDownlineNetView] AS [dbo]
 GO
+
 GRANT VIEW DEFINITION ON [dbo].[Aff_StatisticsSel] TO [vnteam] AS [dbo]

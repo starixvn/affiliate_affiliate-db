@@ -1,7 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[Aff_ReportDetailSelByAff]
-	@AffID int,
-	@Fromdate datetime,
-	@Todate datetime
+﻿ALTER PROCEDURE [dbo].[Aff_ReportDetailSelByAff] 
+	@AffID INT
+	,@Fromdate DATETIME
+	,@Todate DATETIME
 AS
 /*
 Created: @VinhTrinh
@@ -22,87 +22,132 @@ Original: [Aff_CustomerSelDetailsByAff]
 Revisions:
 	- 20101228@Henry: change bettype to new range
 	- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
-	- 20120606@Peter : Exclude waiting tickets
+	- 20140403@Bobby:  exclude Keno product & other sports
+
 Param's Explanation:
 	• @Fromdate Month search from
 	• @Todate To month.
 */
-SET NOCOUNT ON
-if(@Fromdate > @Todate or @Fromdate > current_timestamp) RETURN
+BEGIN
+	SET NOCOUNT ON
 
-declare @CurrDate smalldatetime, @MaxTransDate smalldatetime,@OldReportDate smalldatetime,@TmpToDate smalldatetime
-Select @OldReportDate=SValue
-from SystemSettings with (nolock)
-where SName='AFF_OldReportDate'
-if(@OldReportDate is null)
-	select @OldReportDate='31 Oct 2009'
+	IF (
+			@Fromdate > @Todate
+			OR @Fromdate > current_timestamp
+			) RETURN
 
+	DECLARE @CurrDate SMALLDATETIME
+		,@MaxTransDate SMALLDATETIME
+		,@OldReportDate SMALLDATETIME
+		,@TmpToDate SMALLDATETIME
 
-select @CurrDate =  convert(varchar(10),current_timestamp,120),
-	@Fromdate = convert(varchar(10),@Fromdate,120),
-	@Todate = convert(varchar(10),@Todate,120)
-Select @TmpToDate=@ToDate
-	  if(@Todate>=@CurrDate)
-		 select @TmpToDate=dateadd(d,-1,@CurrDate)	
-	
+	SELECT @OldReportDate = SValue
+	FROM SystemSettings WITH (NOLOCK)
+	WHERE SName = 'AFF_OldReportDate'
 
-   
-Select t.* 
-from
-(         
-	(
-		Select Winlostdate, 
-			a.Currency as exchangeID, 
-			e.Currency, 
-			a.ExRate2 as Actualrate, 
-			isnull(Sum(MemDeposit), 0) as Deposit,
-			isnull(Sum(MemTurnover), 0) as Turnover,			
-			isnull(Sum(MemBonus), 0) as Bonus,
-			isnull(Sum(MemWinLost), 0) as MemberWinLost,
-			isnull(Sum(AffWinLost), 0) as AffiliateWinLost,
-			isnull(Sum(HouseWinLost), 0) as HouseWinLost,
-			isnull(Sum(AffNetWinLost), 0) as AffiliateNetWinLost,
-			isnull(Sum(HouseNetWinLost), 0) as HouseNetWinLost
-		From AffDaily a with(nolock)
-			inner join Exchange_Current e with(nolock) on a.Currency = e.ExchangeID
-		Where winlostdate between @FromDate and @TmpToDate and a.AffID = @AffId
-		Group By Winlostdate, a.Currency, e.Currency, a.ExRate2
-	)
-	union all
-	(
-		select 
-			@CurrDate as Winlostdate, 
-			b.Currency as exchangeID, 
-			e.Currency, 
-			e.ActualRate2 as Actualrate, 
-			isnull(sum(case bettype when 22001 then b.winlost-abs(b.actual_stake) else 0 end),0) as Deposit,
-			sum(case when bettype < 19000 then 
-					(case when Bettype in (33,43) and liveawayscore = 0 then isnull(abs(stake), 0) / 2 else isnull(abs(stake), 0) end)
-				else 0 end) as Turnover,
-			--isnull(sum(case when bettype < 19000 then stake else 0 end),0) as Turnover,
-			isnull(sum(case bettype when 22004 then winlost-abs(actual_stake) else 0 end),0) as Bonus,
-			isnull(sum(case when bettype < 19000 and ruben=1 then winlost-abs(actual_stake)+playercomm else 0 end),0) as MemberWinLost,
-			null as AffiliateWinLost,
-			null as HouseWinLost,
-			null as AffiliateNetWinLost,
-			null as HouseNetWinLost
-		FROM bodb02.dbo.bettrans b with(nolock)	
-			inner join MemberInfo m with(nolock) on m.IBCCustId=b.CustId and m.IsRemoved = 0 and m.AffID=@AffID								   						
-			inner join Exchange_Current e with (nolock) on e.exchangeid=b.currency 		
-		WHERE @ToDate>=@CurrDate 
-		   and b.Winlostdate = @CurrDate
-		   and (bettype<19000 or bettype in (22001,22004))
-		    and bettype not between 71 and 120 --Not include Casino and Number Game
-		   and StatusID not in (101, 102, 103, 121,1)
-		   --and status not in ('VOID', 'REJECT', 'REFUND','DONE','WAITING')
-		group by b.Currency, e.Currency, e.ActualRate2
-	)
+	IF (@OldReportDate IS NULL)
+		SELECT @OldReportDate = '31 Oct 2009'
 
-) t
-order by t.Winlostdate, t.Currency
+	SELECT @CurrDate = convert(VARCHAR(10), current_timestamp, 120)
+		,@Fromdate = convert(VARCHAR(10), @Fromdate, 120)
+		,@Todate = convert(VARCHAR(10), @Todate, 120)
 
+	SELECT @TmpToDate = @ToDate
 
+	IF (@Todate >= @CurrDate)
+		SELECT @TmpToDate = dateadd(d, - 1, @CurrDate)
+
+	SELECT t.*
+	FROM (
+		(
+			SELECT Winlostdate
+				,a.Currency AS exchangeID
+				,e.Currency
+				,a.ExRate2 AS Actualrate
+				,isnull(Sum(MemDeposit), 0) AS Deposit
+				,isnull(Sum(MemTurnover), 0) AS Turnover
+				,isnull(Sum(MemBonus), 0) AS Bonus
+				,isnull(Sum(MemWinLost), 0) AS MemberWinLost
+				,isnull(Sum(AffWinLost), 0) AS AffiliateWinLost
+				,isnull(Sum(HouseWinLost), 0) AS HouseWinLost
+				,isnull(Sum(AffNetWinLost), 0) AS AffiliateNetWinLost
+				,isnull(Sum(HouseNetWinLost), 0) AS HouseNetWinLost
+			FROM AffDaily a WITH (NOLOCK)
+				INNER JOIN Exchange_Current e WITH (NOLOCK)
+				ON a.Currency = e.ExchangeID
+			WHERE winlostdate BETWEEN @FromDate AND @TmpToDate
+				AND a.AffID = @AffId
+			GROUP BY Winlostdate
+				,a.Currency
+				,e.Currency
+				,a.ExRate2
+			)
+		
+		UNION ALL
+		(
+			SELECT @CurrDate AS Winlostdate
+				,b.Currency AS exchangeID
+				,e.Currency
+				,e.ActualRate2 AS Actualrate
+				,isnull(sum(CASE bettype
+							WHEN 22001 THEN b.winlost - abs(b.actual_stake)
+							ELSE 0
+							END), 0) AS Deposit
+				,sum(CASE 
+						WHEN BetType <= 999 THEN (CASE 
+								WHEN Bettype IN (33, 43)
+									AND liveawayscore = 0 THEN isnull(abs(stake), 0) / 2
+								ELSE isnull(abs(stake), 0) END
+								)
+						ELSE 0
+						END) AS Turnover
+				,
+				--isnull(sum(case when BetType <= 999  then stake else 0 end),0) as Turnover,
+				isnull(sum(CASE bettype
+							WHEN 22004 THEN winlost - abs(actual_stake)
+							ELSE 0
+							END), 0) AS Bonus
+				,isnull(sum(CASE 
+							WHEN BetType <= 999
+								AND ruben = 1 THEN winlost - abs(actual_stake) + playercomm
+							ELSE 0
+							END), 0) AS MemberWinLost
+				,NULL AS AffiliateWinLost
+				,NULL AS HouseWinLost
+				,NULL AS AffiliateNetWinLost
+				,NULL AS HouseNetWinLost
+			FROM bodb02.dbo.bettrans b WITH (NOLOCK)
+				INNER JOIN MemberInfo m WITH (NOLOCK)
+				ON m.IBCCustId = b.CustId
+					AND m.IsRemoved = 0
+					AND m.AffID = @AffID
+				INNER JOIN Exchange_Current e WITH (NOLOCK)
+				ON e.exchangeid = b.currency
+			WHERE @ToDate >= @CurrDate
+				AND b.Winlostdate = @CurrDate
+				AND (
+					b.bettype <= 999
+					OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
+					) --get SB only
+				AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
+				AND b.bettype NOT IN (1000) --games
+				AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
+				AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
+				AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+						--and bettype not in (31,32,33,41,42,43)   
+				AND b.StatusID NOT IN (101, 102, 103, 121, 1)
+			--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
+			GROUP BY b.Currency
+				,e.Currency
+				,e.ActualRate2
+			)
+		) t
+	ORDER BY t.Winlostdate
+		,t.Currency
+END
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_ReportDetailSelByAff] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_ReportDetailSelByAff] TO [VNTeam] 
+
+GRANT VIEW DEFINITION ON [dbo].[Aff_ReportDetailSelByAff] TO [VNTeam]
