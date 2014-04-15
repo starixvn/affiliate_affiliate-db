@@ -1,143 +1,184 @@
-﻿ ALTER PROCEDURE [dbo].[Aff_AffiliateCommReport]
-	@MonthDate datetime=null,		
-	@SportId tinyint=1,
-	@UserName nvarchar(50)=NULL,
-	@PreferredLanguage varchar(11) = null,
-	@AffType tinyint = 0,
-	@PageSize int=50,
-	@PageIndex int=1,
-	@TotalPages int=0 OUTPUT,
-	@NRows int=0 OUTPUT
+﻿ALTER PROCEDURE [dbo].[Aff_AffiliateCommReport] 
+	@MonthDate DATETIME = NULL
+	,@SportId TINYINT = 1
+	,@UserName NVARCHAR(50) = NULL
+	,@PreferredLanguage VARCHAR(11) = NULL
+	,@AffType TINYINT = 0
+	,@PageSize INT = 50
+	,@PageIndex INT = 1
+	,@TotalPages INT = 0 OUTPUT
+	,@NRows INT = 0 OUTPUT
 AS
 /*
-Created: @Peter
-Task : Get report of Active members 
-DB: DB052.Affiliate_12BET
-Original: [Aff_AffiliateCommReport]
-Revisions:
-	-20120508@Johnny: Add dropdown box for sport type
-Param's Explanation:
-	• @Fromdate Time search From
-	• @Todate Time search To,
-	• @IsGetAll if getall = 1 => get data in all date,
-	• @UserName Affiliate username need to search(must match username),
-	• @PageSize Page Size,
-	• @PageIndex Current page,
-	• @TotalPages num pages return,
-	• @NRows num rows return
+	Created: @Peter
+	Task : Get report of Active members 
+	DB: DB052.Affiliate_12BET
+	Original: [Aff_AffiliateCommReport]
+
+	Revisions:
+		-20120508@Johnny: Add dropdown box for sport type
+
+	Param's Explanation:
+		• @Fromdate Time search From
+		• @Todate Time search To,
+		• @IsGetAll if getall = 1 => get data in all date,
+		• @UserName Affiliate username need to search(must match username),
+		• @PageSize Page Size,
+		• @PageIndex Current page,
+		• @TotalPages num pages return,
+		• @NRows num rows return
 */
-Set Nocount On
+BEGIN
+	SET NOCOUNT ON
 
-declare @Todate datetime
-select @UserName= '%' + Coalesce(@UserName, '') + '%'
+	DECLARE @Todate DATETIME
 
-select @MonthDate=convert(varchar(10),DATEADD(s,-1,DATEADD(mm, DATEDIFF(m,0,@MonthDate)+1,0)),120),
-	   @ToDate = dateadd(d, -1, dateadd(m, datediff(m, 0, @MonthDate) + 1, 0))--Assign todate to last date of month of todate
+	SELECT @UserName = '%' + Coalesce(@UserName, '') + '%'
 
-declare @SportbookId int, @CasinoId int
+	SELECT @MonthDate = convert(VARCHAR(10), DATEADD(s, - 1, DATEADD(mm, DATEDIFF(m, 0, @MonthDate) + 1, 0)), 120)
+		,@ToDate = dateadd(d, - 1, dateadd(m, datediff(m, 0, @MonthDate) + 1, 0)) --Assign todate to last date of month of todate
 
-select @SportbookId=dbo.Aff_GetSportID('SportsBook'), @CasinoId=dbo.Aff_GetSportID('Casino')
+	DECLARE @SportbookId INT
+		,@CasinoId INT
 
- declare @month int, @year int
-select @month=MONTH(@MonthDate),@year= YEAR(@MonthDate)
+	SELECT @SportbookId = dbo.Aff_GetSportID('SportsBook')
+		,@CasinoId = dbo.Aff_GetSportID('Casino')
 
---count nrows
-select @NRows=count(1)    
-FROM  AffInfo ai with (nolock)  
-	inner join AffDetail ad with (nolock) on ai.AffId = ad.AffId
-WHERE ai.Status='Approved'
-	--and ai.IsClosed=0
-	and ai.Username like @UserName
-	and isnull(@PreferredLanguage, ad.PreferredLanguage) = ad.PreferredLanguage
-	--and AffType = @AffType
-	and ai.ApprovedDate < @ToDate  
+	DECLARE @month INT
+		,@year INT
 
-if(isnull(@NRows,0)=0)    
-	return  
+	SELECT @month = MONTH(@MonthDate)
+		,@year = YEAR(@MonthDate)
 
-DECLARE @RowStart int, @RowEnd int,@AffectedRows int     
-	
-SELECT @TotalPages=@NRows/@PageSize + case when @NRows%@PageSize>0 then 1 else 0 end,    
-	   @PageIndex = @PageIndex - 1, @RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1       
-		
-DECLARE @TempAff TABLE(AffId int PRIMARY KEY, UserName nvarchar(30),IsClosed bit,Commission decimal(9,8), AffComm money)
-
-insert into @TempAff
-select m.AffId, m.username,m.IsClosed,0,0
-from  
-	(select ROW_NUMBER() OVER(ORDER BY ai.IsClosed,ai.AffId) AS TheCount,  
-		ai.AffID, ai.UserName, ad.PreferredLanguage,ai.IsClosed
-	from AffInfo ai with (nolock)    
-		inner join AffDetail ad with (nolock) on ai.AffId = ad.AffId
-	where ai.Status = 'Approved'
+	--count nrows
+	SELECT @NRows = count(1)
+	FROM AffInfo ai WITH (NOLOCK)
+		INNER JOIN AffDetail ad WITH (NOLOCK)
+		ON ai.AffId = ad.AffId
+	WHERE ai.STATUS = 'Approved'
 		--and ai.IsClosed=0
-		and ai.Username like @UserName  
-		and isnull(@PreferredLanguage, ad.PreferredLanguage) = ad.PreferredLanguage
-		--and AffType = @AffType	
-        and ai.ApprovedDate < @ToDate  
-	)m 
-where m.TheCount between @RowStart and @RowEnd      
-select @AffectedRows=@@ROWCOUNT
+		AND ai.Username LIKE @UserName
+		AND isnull(@PreferredLanguage, ad.PreferredLanguage) = ad.PreferredLanguage
+		--and AffType = @AffType
+		AND ai.ApprovedDate < @ToDate
 
-if(not exists (select top(1) 1 from AffCommission(nolock) where winlostdate=@MonthDate))			
-begin	
-		
-		if(datediff(m,current_timestamp,@MonthDate)=0)
-		begin
+	IF (isnull(@NRows, 0) = 0) RETURN
+
+	DECLARE @RowStart INT
+		,@RowEnd INT
+		,@AffectedRows INT
+
+	SELECT @TotalPages = @NRows / @PageSize + CASE 
+			WHEN @NRows % @PageSize > 0 THEN 1
+			ELSE 0
+			END
+		,@PageIndex = @PageIndex - 1
+		,@RowStart = @PageSize * @PageIndex + 1
+		,@RowEnd = @RowStart + @PageSize - 1
+
+	DECLARE @TempAff TABLE (
+		AffId INT PRIMARY KEY
+		,UserName NVARCHAR(30)
+		,IsClosed BIT
+		,Commission DECIMAL(9, 8)
+		,AffComm MONEY
+		)
+
+	INSERT INTO @TempAff
+	SELECT m.AffId
+		,m.username
+		,m.IsClosed
+		,0
+		,0
+	FROM (
+		SELECT ROW_NUMBER() OVER (
+				ORDER BY ai.IsClosed
+					,ai.AffId
+				) AS TheCount
+			,ai.AffID
+			,ai.UserName
+			,ad.PreferredLanguage
+			,ai.IsClosed
+		FROM AffInfo ai WITH (NOLOCK)
+			INNER JOIN AffDetail ad WITH (NOLOCK)
+			ON ai.AffId = ad.AffId
+		WHERE ai.STATUS = 'Approved'
+			--and ai.IsClosed=0
+			AND ai.Username LIKE @UserName
+			AND isnull(@PreferredLanguage, ad.PreferredLanguage) = ad.PreferredLanguage
+			--and AffType = @AffType	
+			AND ai.ApprovedDate < @ToDate
+		) m
+	WHERE m.TheCount BETWEEN @RowStart AND @RowEnd
+
+	SELECT @AffectedRows = @@ROWCOUNT
+
+	IF (
+			NOT EXISTS (
+				SELECT TOP (1) 1
+				FROM AffCommission(NOLOCK)
+				WHERE winlostdate = @MonthDate
+				)
+			)
+	BEGIN
+		IF (datediff(m, current_timestamp, @MonthDate) = 0)
+		BEGIN
 			--calculate for current month and display the data
+			UPDATE t
+			SET t.Commission = coalesce(a.commission, 0)
+				,t.AffComm = coalesce(a.Amount, 0)
+			FROM @TempAff AS t
+				CROSS APPLY [dbo].[Aff_CommissionForCurrentMonth](t.AffID) AS a
+			WHERE a.SportID = @SportId
+		END
+		ELSE
+		BEGIN
+			UPDATE t
+			SET t.Commission = coalesce(a.commission, 0)
+				,t.AffComm = coalesce(a.Amount, 0)
+			FROM @TempAff AS t
+				CROSS APPLY [dbo].[Aff_CommissionForMonth](t.AffID, @Month, @Year) AS a
+			WHERE a.SportID = @SportId
+		END
 
-            update t
-            set t.Commission=coalesce(a.commission,0),
-               t.AffComm=coalesce(a.Amount,0)
-            from   @TempAff as t 
-              CROSS APPLY [dbo].[Aff_CommissionForCurrentMonth](t.AffID) as a
-            where  a.SportID=@SportId
-		
-		end
-		else
-		begin
-		  
-			
-            update t
-            set t.Commission=coalesce(a.commission,0),
-               t.AffComm=coalesce(a.Amount,0)
-            from   @TempAff as t 
-              CROSS APPLY [dbo].[Aff_CommissionForMonth](t.AffID,@Month,@Year) as a
-            where  a.SportID=@SportId
-
-		
-		end	
 		--Select the result Data in order
-		Select t.AffId,
-			t.Username,
-			t.IsClosed,
-			Commission,
-			t.AffComm
-			From @TempAff as t
-			order by t.IsClosed,t.AffId, t.Username
-	end
-else
-	begin
-			Select t.AffId,
-			t.Username,
-			t.IsClosed,
-			isnull(t2.Commission, 0) as Commission,
-			isnull(t2.AffWinlost, 0) as AffComm		
-			From @TempAff t left join
-			(		
-				Select ac.AffId,
-					ac.Commission,
-					ac.AffWinlost
-				From AffCommission ac with(nolock)						
-					inner join @TempAff t1 on t1.AffId=ac.AffId			
-				where winlostdate=@MonthDate
-						and SportId=@SportId
-			) t2 on t.AffId = t2.AffId
-			order by t.IsClosed,t.AffId, t.Username	
-	end
-
-
+		SELECT t.AffId
+			,t.Username
+			,t.IsClosed
+			,Commission
+			,t.AffComm
+		FROM @TempAff AS t
+		ORDER BY t.IsClosed
+			,t.AffId
+			,t.Username
+	END
+	ELSE
+	BEGIN
+		SELECT t.AffId
+			,t.Username
+			,t.IsClosed
+			,isnull(t2.Commission, 0) AS Commission
+			,isnull(t2.AffWinlost, 0) AS AffComm
+		FROM @TempAff t
+			LEFT JOIN (
+			SELECT ac.AffId
+				,ac.Commission
+				,ac.AffWinlost
+			FROM AffCommission ac WITH (NOLOCK)
+				INNER JOIN @TempAff t1
+				ON t1.AffId = ac.AffId
+			WHERE winlostdate = @MonthDate
+				AND SportId = @SportId
+			) t2
+			ON t.AffId = t2.AffId
+		ORDER BY t.IsClosed
+			,t.AffId
+			,t.Username
+	END
+END
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_AffiliateCommReport] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateCommReport] TO [VNTeam] 
+
+GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateCommReport] TO [VNTeam]

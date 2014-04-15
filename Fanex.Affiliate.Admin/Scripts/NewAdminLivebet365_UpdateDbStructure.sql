@@ -162,3 +162,27 @@ UPDATE ai
 SET TestLevel = 0
 FROM AffInfo ai WITH (ROWLOCK, UPDLOCK)
 WHERE TestLevel IS NULL
+
+/****** Script for reset languaue setting  ******/
+declare @AFF_AffiliateSupportedLanguages varchar(255)
+	,@defaultLan varchar(10)
+
+SELECT TOP 1 @AFF_AffiliateSupportedLanguages = [SValue] 
+FROM [dbo].[SystemSettings] with(nolock)
+where [SName]='AFF_AffiliateSupportedLanguages'
+
+select top 1 @defaultLan = val 
+from dbo.strSplit(@AFF_AffiliateSupportedLanguages, ',')
+
+select @AFF_AffiliateSupportedLanguages AffiliateSupportedLanguages, @defaultLan DefaultLanguaue
+
+update upd
+	set PreferredLanguage = @defaultLan
+from dbo.AffDetail upd with (rowlock,updlock)
+where [PreferredLanguage] not in (select val from dbo.strSplit(@AFF_AffiliateSupportedLanguages, ','))
+
+delete del
+from dbo.[Language] del
+where LanguageID not in (select val from dbo.strSplit(@AFF_AffiliateSupportedLanguages, ','))
+
+

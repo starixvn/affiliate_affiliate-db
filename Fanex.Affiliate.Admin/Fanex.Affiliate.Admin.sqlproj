@@ -542,9 +542,6 @@
     <None Include="Report\AffAdmin_CompanyWinlossReport.proc.sql">
       <SubType>Code</SubType>
     </None>
-    <None Include="Report\AffAdmin_AffiliateListForReport.function.sql">
-      <SubType>Code</SubType>
-    </None>
     <None Include="Report\AffAdmin_CommissionReport.proc.sql">
       <SubType>Code</SubType>
     </None>
