@@ -27,6 +27,7 @@ AS
 	Original: [AffAdmin_AffiliateListForReport]
 	Revisions:
 		- 20140204@bobby.nguyen: Get AffGroupHistory info by moving @ToDate to the end date of month
+		- 20140216@bobby.nguyen: Hotfix#15018 - filter commgroup for old month data
 
 	Param's Explanation: 
 */
@@ -219,12 +220,15 @@ BEGIN
 			ON AD.PreferredLanguage = l.LanguageID
 			INNER JOIN (
 			SELECT AffId
+				,GroupId
 				,MonthDate
 			FROM AffGroupHistory ag WITH (NOLOCK)
-			--INNER JOIN @CommGroupList c ON ag.GroupId = c.CommGroupID
+				INNER JOIN @CommGroupList c
+				ON ag.GroupId = c.CommGroupID
 			WHERE MonthDate BETWEEN @FromDate AND dbo.Aff_GetLastDayOfMonth(@toDate)
 			) AS tmp
 			ON ai.AffID = tmp.AffId
+				AND ai.GroupID = tmp.GroupId
 		WHERE ai.STATUS = 'Approved'
 			AND AI.UserName LIKE @AffName
 			AND (

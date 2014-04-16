@@ -163,7 +163,7 @@ SET TestLevel = 0
 FROM AffInfo ai WITH (ROWLOCK, UPDLOCK)
 WHERE TestLevel IS NULL
 
-/****** Script for reset languaue setting  ******/
+/****** Script for reseting languaue setting  ******/
 declare @AFF_AffiliateSupportedLanguages varchar(255)
 	,@defaultLan varchar(10)
 
