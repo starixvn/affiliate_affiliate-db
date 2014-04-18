@@ -1,5 +1,4 @@
-﻿ALTER PROCEDURE [dbo].[Task_Aff_MonthlyTransfer] 
-	@UserId INT
+﻿ALTER PROCEDURE [dbo].[Task_Aff_MonthlyTransfer] @UserId INT
 	,@Month INT
 	,@Year INT
 	,@ErrCode INT = 0 OUTPUT
@@ -68,6 +67,7 @@ Revisions:
 	- 20131029@Peter : Add more columns to DB https://redmine.nexcel.vn/issues/5280  
                     - Calculate Affiliate BF in AffInfo table  
 	- 20140212@Bobby.Nguyen: Update amount of AffTrans based on aff currency         
+	- 20140418@Bobby.Nguyen: Validate amount of NoCommission group
   
 Param's Explanation:  
 • @Month: The month to transfer  
@@ -303,6 +303,7 @@ end*/
 		,[MemWithdrawal_aff] MONEY
 		,[MemTurnoverDraw] MONEY
 		,[MemTurnoverDraw_aff] MONEY
+		,IsZeroCommission INT
 		)
 
 	INSERT INTO #AffSummary (
@@ -341,6 +342,7 @@ end*/
 		,[MemWithdrawal_aff]
 		,[MemTurnoverDraw]
 		,[MemTurnoverDraw_aff]
+		,IsZeroCommission
 		)
 	SELECT ai.AffID AS AffID
 		,ai.Currency AS Currency
@@ -380,6 +382,7 @@ end*/
 		,Sum(isnull([MemWithdrawal_aff], 0))
 		,Sum(isnull([MemTurnoverDraw], 0))
 		,Sum(isnull([MemTurnoverDraw_aff], 0))
+		,dbo.IsZeroCommissionGroup(gh.GroupID, @LastDay)
 	FROM AffInfo ai WITH (NOLOCK)
 		INNER JOIN AffGroupHistory gh(NOLOCK)
 		ON gh.AffID = ai.AffID
@@ -553,7 +556,7 @@ end*/
 			,MemDeposit
 			,Marketing
 			,OddsFee
-			,(NetWinlost_aff - Cast(a.HasBonus AS INT) * isnull(a.MemBonus_aff, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0)
+			,(NetWinlost_aff - Cast(a.HasBonus AS INT) * isnull(a.MemBonus_aff, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0) 
 			,MemWinlost_aff
 			,MemBonus_aff
 			,MemAdjustment_aff
@@ -601,7 +604,10 @@ end*/
 		SELECT a.AffID
 			,@LastDay
 			,@WinlostDate
-			,sum((NetWinlost_aff - Cast(a.HasBonus AS INT) * isnull(a.MemBonus_aff, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0)) - [dbo].[Aff_GetAffDeductionAll](AffID, @LastDay)
+			,(sum((NetWinlost_aff - Cast(a.HasBonus AS INT) * isnull(a.MemBonus_aff, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0)) - [dbo].[Aff_GetAffDeductionAll](AffID, @LastDay)) * CASE 
+				WHEN a.IsZeroCommission = 1 THEN 0
+				ELSE 1
+				END
 			,@Status
 			,'Monthly Earning'
 			,9999

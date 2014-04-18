@@ -1,0 +1,201 @@
+﻿ALTER PROCEDURE [dbo].[Aff_CalMonthlyEarning] (
+	@AffID INT
+	,@Month INT
+	,@Year INT
+	,@ProductID INT = 0
+	,@Amount MONEY OUTPUT
+	)
+AS
+/*
+    Task : Calculate monthy earning for affiliate
+    Author : Peter@20090909
+    -20100709@Peter:
+                    http://ccs.sunplus.vn/viewtopic.php?f=4&t=2890&st=0&sk=t&sd=a&start=10
+                    Change the way to calculation:
+
+                    if CNW <0 then we must also use the condition of Qualifying Members ( old way does not have)
+                     and the minimum commission in this case is 10%  if the qualifying members <5. 
+    -20100927@Peter:
+                 http://ccs.sunplus.vn/viewtopic.php?f=4&t=3845&p=19236#p19236  
+                 Change the way to calculation:
+                   PSP=deposit * depositpercent + withdrawal * withdrawalpercent
+                      For European Currencies: EURO,AUD,GBP, US$
+                          + depositpercent=0.06
+                          + withdrawalpercent=0.03
+                      For Asian Currencies:
+                          + depositpercent=0.02
+                          + withdrawalpercent=0.02
+                   PSP now follow tier commission
+                   New Fee:  Odds Management Fee = 17 % MemberWinlost
+                   CNW= MemberWinlost - Odds Management Fee - Marketing Fee - PSP Fee
+                   From CNW => AComm
+                   Affiliate Earning=(CNW - Bonus - Adjustement)* AComm
+
+	- 20140418@Bobby: Check NoCommission group
+                                
+    
+*/
+BEGIN
+	SET NOCOUNT ON
+
+	DECLARE @FirstDay SMALLDATETIME
+		,@LastDay SMALLDATETIME
+		,@MinimumNegativeCommission FLOAT
+
+	SELECT @MinimumNegativeCommission = 0.1
+
+	SELECT @FirstDay = cast(cast(@Year AS VARCHAR(5)) + '-' + cast(@Month AS VARCHAR(5)) + '-' + '1' AS SMALLDATETIME)
+
+	--Get last day of inputted month
+	SELECT @LastDay = DATEADD(d, - 1, DATEADD(mm, DATEDIFF(m, 0, @FirstDay) + 1, 0))
+
+	DECLARE @GroupID INT
+		,@IsNotZeroCommission INT
+
+	SELECT @GroupID = GroupID
+	FROM AffGroupHistory(NOLOCK)
+	WHERE AffID = @AffID
+		AND MonthDate = @LastDay
+
+	DECLARE @AffSummary TABLE (
+		ProductID INT
+		,MemWinlost MONEY
+		,MemBonus MONEY
+		,MemPSP MONEY
+		,MemTurnover MONEY
+		,Commission DECIMAL(9, 8)
+		,TotalQM INT
+		,NetWinlost MONEY
+		,HasBonus BIT
+		,HasMarketing BIT
+		,HasPSP BIT
+		,HasOddsFee BIT
+		,BonusPercent FLOAT
+		,MarketingPercent FLOAT
+		,PSPPercent FLOAT
+		,OddsFeePercent FLOAT
+		)
+
+	INSERT INTO @AffSummary (
+		ProductID
+		,MemWinlost
+		,MemBonus
+		,MemPSP
+		,MemTurnover
+		,TotalQM
+		,HasBonus
+		,HasMarketing
+		,HasPSP
+		,HasOddsFee
+		,BonusPercent
+		,MarketingPercent
+		,PSPPercent
+		,OddsFeePercent
+		)
+	SELECT r.ProductID AS ProductID
+		,sum(isnull(r.Winlost, 0)) AS MemWinlost
+		,sum(isnull(r.Bonus, 0)) AS MemBonus
+		,sum(isnull(r.PSP, 0)) AS MemPSP
+		,sum(isnull(r.Turnover, 0)) AS MemTurnover
+		,sum(CASE 
+				WHEN r.TurnOver >= dbo.[Aff_GetQMTurnOver](@AffID, current_timestamp) THEN 1
+				ELSE 0
+				END) AS TotalQM
+		,dbo.Aff_HasDeduction(@GroupID, r.ProductID, 'Bonus', @LastDay) AS HasBonus
+		,dbo.Aff_HasDeduction(@GroupID, r.ProductID, 'Marketing', @LastDay) AS HasMarketing
+		,dbo.Aff_HasDeduction(@GroupID, r.ProductID, 'PSP', @LastDay) AS HasPSP
+		,dbo.Aff_HasDeduction(@GroupID, r.ProductID, 'Odds Fee', @LastDay) AS HasOddsFee
+		,dbo.Aff_GetDeductionPercent(@AffID, r.ProductID, 'Bonus', @LastDay) AS BonusPercent
+		,dbo.Aff_GetDeductionPercent(@AffID, r.ProductID, 'Marketing', @LastDay) AS MarketingPercent
+		,dbo.Aff_GetDeductionPercent(@AffID, r.ProductID, 'PSP', @LastDay) AS PercentPSP
+		,dbo.Aff_GetDeductionPercent(@AffID, r.ProductID, 'Odds Fee', @LastDay) AS OddsFeePercent
+	FROM (
+		SELECT md.username
+			,md.ProductID
+			,sum(isnull(md.Winlost, 0) * isnull(md.AffExRate, 1)) AS Winlost
+			,sum(isnull(md.Bonus, 0) * isnull(md.AffExRate, 1)) AS Bonus
+			,sum(isnull(PSP, 0) * isnull(AffExRate, 1)) AS PSP
+			,sum(isnull(Marketing, 0) * isnull(AffExRate, 1)) AS Marketing
+			,sum(isnull(TurnOver, 0) * isnull(AffExRate, 1)) AS TurnOver
+		FROM MemberDaily md(NOLOCK)
+		WHERE AffID = @AffID
+			AND WinlostDate BETWEEN @FirstDay AND @LastDay
+			AND (
+				@ProductID = 0
+				OR md.ProductID = @ProductID
+				)
+		GROUP BY md.username
+			,ProductID
+		) r
+	--left join Product s (nolock) on s.ProductID=r.ProductID 
+	GROUP BY r.ProductID
+
+	--Choose commission value and calculate Total Balance after deduction for each Affiliate and ProductID
+	UPDATE a
+	SET a.NetWinlost = (- isnull(a.MemWinlost, 0) - Cast(a.HasPSP AS INT) * isnull(a.MemPSP, 0) * isnull(a.PSPPercent, 1) - Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.OddsFeePercent, 1) - Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.MarketingPercent, 1))
+		,a.commission = isnull((
+				SELECT TOP (1) Commission
+				FROM (
+					SELECT isnull((
+								SELECT Commission
+								FROM GroupSettingHistory(NOLOCK)
+								WHERE GroupID = @GroupID
+									AND ProductID = a.ProductID
+									AND MonthDate = @LastDay
+									AND floor(abs(- isnull(a.MemWinlost, 0) - Cast(a.HasPSP AS INT) * isnull(a.MemPSP, 0) * isnull(a.PSPPercent, 1) - Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.OddsFeePercent, 1) - Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.MarketingPercent, 1))) BETWEEN MinAmount AND MaxAmount
+								), 0) AS Commission
+					
+					UNION ALL
+					SELECT isnull((
+								SELECT TOP (1) Commission
+								FROM GroupSettingHistory(NOLOCK)
+								WHERE GroupID = @GroupID
+									AND ProductID = a.ProductID
+									AND MonthDate = @LastDay
+									AND a.TotalQM BETWEEN MinQM AND MaxQM
+								), 0) AS Commission
+					) t
+				ORDER BY t.Commission ASC
+				), 0)
+	FROM @AffSummary a
+
+	SELECT @IsNotZeroCommission = CASE 
+			WHEN [dbo].[IsZeroCommissionGroup](@GroupID, @LastDay) = 0 THEN 1
+			ELSE 0
+			END
+
+	IF @IsNotZeroCommission = 0
+	BEGIN
+		UPDATE a
+		SET a.Commission = @MinimumNegativeCommission
+		FROM @AffSummary a
+		WHERE a.NetWinlost < 0
+			AND a.Commission = 0
+			AND a.ProductID IN (
+				SELECT DISTINCT ProductID
+				FROM GroupSettingHistory(NOLOCK)
+				WHERE GroupID = @GroupID
+					AND DATEDIFF(m, MonthDate, @LastDay) = 0
+				)
+	END
+
+	SELECT @Amount = sum((a.NetWinlost - Cast(a.HasBonus AS INT) * isnull(a.MemBonus, 0) * isnull(a.BonusPercent, 1)) * isnull(a.Commission, 0))
+	FROM @AffSummary a
+
+	IF @ProductID = 0
+	BEGIN
+		SELECT @Amount = isnull(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @LastDay) * @IsNotZeroCommission
+	END
+END
+GO
+
+GRANT EXECUTE ON [dbo].[AffAdmin_CalMonthlyEarning] TO [bodbAdminNet]
+GO
+
+GRANT EXECUTE ON [dbo].[AffAdmin_CalMonthlyEarning] TO [bodbDownlineNet]
+GO
+
+GRANT EXECUTE ON [dbo].[AffAdmin_CalMonthlyEarning] TO [bodbDownlineNetView]
+GO
+
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CalMonthlyEarning] TO [vnteam]

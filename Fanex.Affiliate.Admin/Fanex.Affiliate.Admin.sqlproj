@@ -671,5 +671,7 @@
     <Build Include="Scripts\NewAdminLivebet365_UpdateDbStructure.sql" />
     <Build Include="Customer\Aff_GetMembers.sql" />
     <Build Include="Common Function\AffAdmin_AffiliateListForReport.function.sql" />
+    <Build Include="Common Function\Aff_CalMonthlyEarning.proc.sql" />
+    <Build Include="Common Function\Aff_CalMonthlyEarningCurrent.proc.sql" />
   </ItemGroup>
 </Project>

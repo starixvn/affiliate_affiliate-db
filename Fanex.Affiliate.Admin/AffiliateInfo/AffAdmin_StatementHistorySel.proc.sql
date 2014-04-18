@@ -1,4 +1,5 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_StatementHistorySel] @AffId INT
+﻿ALTER PROCEDURE [dbo].[AffAdmin_StatementHistorySel] 
+	@AffId INT
 	,@TransType VARCHAR(100) = NULL
 	,@Status VARCHAR(100) = NULL
 	,@DateOption TINYINT = 0
@@ -25,7 +26,11 @@ Param's Explanation:
 BEGIN
 	SET NOCOUNT ON
 
-	IF (@FromDate IS NOT NULL AND @ToDate IS NOT NULL AND @FromDate > @ToDate) RETURN
+	IF (
+			@FromDate IS NOT NULL
+			AND @ToDate IS NOT NULL
+			AND @FromDate > @ToDate
+			) RETURN
 
 	IF (@ToDate > current_timestamp)
 		SELECT @ToDate = current_timestamp
@@ -64,7 +69,8 @@ BEGIN
 	WHERE CurrencyCode = (
 			SELECT TOP 1 SValue
 			FROM SystemSettings NOLOCK
-			WHERE SName = 'SystemCurrency' AND Type = 'Meta'
+			WHERE SName = 'SystemCurrency'
+				AND Type = 'Meta'
 			)
 
 	SELECT @AffCurrency = Currency
@@ -93,11 +99,16 @@ BEGIN
 
 	IF (
 			(
-				@TransType IS NULL OR @MonthlyTransferType IN (
+				@TransType IS NULL
+				OR @MonthlyTransferType IN (
 					SELECT *
 					FROM @TransTypeTable
 					)
-				) AND (@DateOption = 0 OR @Currentdate BETWEEN @FromDate AND @ToDate)
+				)
+			AND (
+				@DateOption = 0
+				OR @Currentdate BETWEEN @FromDate AND @ToDate
+				)
 			)
 	BEGIN
 		EXEC [dbo].[Aff_CalMonthlyEarningCurrent] @AffID = @AffID
@@ -118,22 +129,27 @@ BEGIN
 	--Neu thang roi chua calculate va user duoc approve tu thang roi tro ve truoc  
 	IF (
 			(
-				@TransType IS NULL OR @MonthlyTransferType IN (
+				@TransType IS NULL
+				OR @MonthlyTransferType IN (
 					SELECT *
 					FROM @TransTypeTable
 					)
-				) AND DateDiff(m, (
+				)
+			AND DateDiff(m, (
 					SELECT isnull(max(winlostdate), Current_timestamp)
 					FROM AffCommission(NOLOCK)
 					WHERE AffID = @AffID
-					), Current_timestamp) = 2 AND (@DateOption = 0 OR dateadd(m, - 1, @CurrentDate) BETWEEN @FromDate AND @ToDate)
+					), Current_timestamp) = 2
+			AND (
+				@DateOption = 0
+				OR dateadd(m, - 1, @CurrentDate) BETWEEN @FromDate AND @ToDate
+				)
 			)
 	BEGIN
 		SELECT @Month = month(dateadd(m, - 1, @CurrentDate))
 			,@Year = Year(dateadd(m, - 1, @CurrentDate))
 
-		EXEC [dbo].[Aff_CalMonthlyEarning] 
-			@AffID = @AffID
+		EXEC [dbo].[Aff_CalMonthlyEarning] @AffID = @AffID
 			,@Month = @Month
 			,@Year = @Year
 			,@Amount = @Amount OUTPUT
@@ -159,7 +175,8 @@ BEGIN
 			ELSE a.Amount END
 			) AS Amount
 		,(CASE 
-			WHEN transtype = @MonthlyTransferType OR transtype = @AdjustmentType THEN 'B/F'
+			WHEN transtype = @MonthlyTransferType
+				OR transtype = @AdjustmentType THEN 'B/F'
 			WHEN a.STATUS = 'Pending' THEN 'Processing'
 			WHEN a.STATUS = 'Completed' THEN 'Approved'
 			ELSE a.STATUS END
@@ -170,11 +187,14 @@ BEGIN
 			ELSE a.Description END
 			)
 	FROM AffTrans a(NOLOCK)
-		LEFT JOIN AffPayout ap(NOLOCK) ON ap.RefID = a.RefID
-		LEFT JOIN AdminUser i WITH (NOLOCK) ON i.custid = a.Creator
+		LEFT JOIN AffPayout ap(NOLOCK)
+		ON ap.RefID = a.RefID
+		LEFT JOIN AdminUser i WITH (NOLOCK)
+		ON i.custid = a.Creator
 	WHERE a.AffID = @AffID
 	ORDER BY (CASE 
-			WHEN a.STATUS = 'pending' OR a.STATUS = 'Processing' THEN 1
+			WHEN a.STATUS = 'pending'
+				OR a.STATUS = 'Processing' THEN 1
 			ELSE 2 END
 			)
 		,a.CompletedDate DESC
@@ -188,17 +208,30 @@ BEGIN
 		,CASE @BaseCurrency
 			WHEN 1 THEN Amount * dbo.Aff_GetExchangeRate(@AffCurrency, @SystemCurrency, NULL) --sys currency
 			ELSE Amount --aff currency
-		END AS Amount
+			END AS Amount
 		,STATUS
 		,Creator
 		,Description
 	FROM @AffTrans AS a
-	WHERE (@DateOption = 0 OR (@DateOption = 1 AND a.TransDate BETWEEN @FromDate AND @ToDate) OR (@DateOption = 2 AND a.CompletedDate BETWEEN @FromDate AND @ToDate)) AND (
-			@TransType IS NULL OR a.TransType IN (
+	WHERE (
+			@DateOption = 0
+			OR (
+				@DateOption = 1
+				AND a.TransDate BETWEEN @FromDate AND @ToDate
+				)
+			OR (
+				@DateOption = 2
+				AND a.CompletedDate BETWEEN @FromDate AND @ToDate
+				)
+			)
+		AND (
+			@TransType IS NULL
+			OR a.TransType IN (
 				SELECT *
 				FROM @TransTypeTable
 				)
-			) AND a.STATUS IN (
+			)
+		AND a.STATUS IN (
 			SELECT *
 			FROM @TransStatusTable
 			)

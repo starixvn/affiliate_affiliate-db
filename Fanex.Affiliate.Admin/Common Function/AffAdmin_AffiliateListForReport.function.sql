@@ -28,6 +28,7 @@ AS
 	Revisions:
 		- 20140204@bobby.nguyen: Get AffGroupHistory info by moving @ToDate to the end date of month
 		- 20140216@bobby.nguyen: Hotfix#15018 - filter commgroup for old month data
+		- 20140218@bobby.nguyen: Fixbug#15128 - Check NoCommission Group
 
 	Param's Explanation: 
 */
@@ -74,6 +75,7 @@ BEGIN
 			AND CG.IsDeleted = 0
 	WHERE (
 			@Currencies = 'All'
+			OR CG.GroupName IN ('NoCommission')
 			OR CG.Currency IN (
 				SELECT CurrencyID
 				FROM @tmpCurrency
@@ -186,6 +188,8 @@ BEGIN
 			AND DATEDIFF(m, @FromDate, @CurrentDate) > 0
 			)
 	BEGIN
+		SET @toDate = dbo.Aff_GetLastDayOfMonth(@toDate)
+
 		INSERT INTO @returntable
 		SELECT ai.AffId
 			,ai.Username
@@ -225,10 +229,9 @@ BEGIN
 			FROM AffGroupHistory ag WITH (NOLOCK)
 				INNER JOIN @CommGroupList c
 				ON ag.GroupId = c.CommGroupID
-			WHERE MonthDate BETWEEN @FromDate AND dbo.Aff_GetLastDayOfMonth(@toDate)
+			WHERE MonthDate BETWEEN @FromDate AND @toDate
 			) AS tmp
 			ON ai.AffID = tmp.AffId
-				AND ai.GroupID = tmp.GroupId
 		WHERE ai.STATUS = 'Approved'
 			AND AI.UserName LIKE @AffName
 			AND (
@@ -271,3 +274,4 @@ BEGIN
 
 	RETURN
 END
+
