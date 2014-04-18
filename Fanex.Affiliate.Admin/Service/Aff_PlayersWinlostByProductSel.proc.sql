@@ -1,6 +1,6 @@
 USE [bodb02]
 GO
-/****** Object:  StoredProcedure [dbo].[Aff_PlayersWinlostByProductSel]    Script Date: 01/10/2014 06:37:25 ******/
+/****** Object:  StoredProcedure [dbo].[Aff_PlayersWinlostByProductSel]    Script Date: 04/16/2014 04:10:57 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -17,7 +17,8 @@ DB: DB052/DB054.bodb02
   
   
 Revisions:  
-          - Peter@20131028 : Add more DB columns https://redmine.nexcel.vn/issues/5280
+          - 20131028@Peter : Add more DB columns https://redmine.nexcel.vn/issues/5280
+		  - 20140416@Dan: include Keno
   
 Param's Explanation:  
   
@@ -89,6 +90,7 @@ begin
 		WHEN bettype BETWEEN 1101 AND 1199 THEN 162 -- Live Casino
 		WHEN bettype BETWEEN 1201 AND 1299 THEN 180 --Virtual Sport	
 		WHEN bettype BETWEEN 51 AND 69 THEN 201	 -- Financial	
+		WHEN bettype BETWEEN 1501 AND 1599 THEN 202-- Keno  
 		WHEN b.bettype<31 OR (b.bettype BETWEEN 121 AND 999) THEN 0 -- sportsbook
 	ELSE -1 END, -- undefined productid
 
@@ -110,10 +112,10 @@ begin
 	 
 
 FROM bettrans b with(nolock, index(IX_custid_matchid_bettype))   
-inner join #LicenseeCust c WITH (NOLOCK) ON b.custid=c.custid 
+	INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid=c.custid 
 WHERE winlostdate = @date	
-	and bettype < 19999	
-	and StatusID not in (101, 102, 103, 121, 1)  
+	AND bettype < 19999	
+	AND StatusID not in (101, 102, 103, 121, 1)  
     --and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'      
 GROUP BY b.custid,c.username,
 	CASE
@@ -124,6 +126,7 @@ GROUP BY b.custid,c.username,
 		WHEN bettype BETWEEN 1101 AND 1199 THEN 162 -- Live Casino
 		WHEN bettype BETWEEN 1201 AND 1299 THEN 180 --Virtual Sport	
 		WHEN bettype BETWEEN 51 AND 69 THEN 201	 -- Financial
+		WHEN bettype BETWEEN 1501 AND 1599 THEN 202-- Keno  
 		WHEN b.bettype<31 OR (b.bettype BETWEEN 121 AND 999) THEN 0 -- sportsbook 
 	ELSE -1 END
 
@@ -152,12 +155,12 @@ BEGIN
 	    ,SUM(CASE WHEN b.statusID = 111 THEN 0 ELSE BetCount END) -- Betcount No Draw
 
 	FROM bodb_licensee.dbo.rptLicWinloss2 b with(nolock)    
-	     inner join #LicenseeCust c WITH (NOLOCK) ON b.custid=c.custid and b.recommend=c.recommend and b.srecommend=c.srecommend  		
+	     INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid=c.custid and b.recommend=c.recommend and b.srecommend=c.srecommend  		
 	WHERE b.winlostdate = @Date 
 	 
 		and b.BetCount>0
 		and b.roleid=1
-		and b.sporttype in (0,151,161,162,180,201,251,253)
+		and b.sporttype in (0,151,161,162,180,201,251,253,202)
 		-- and b.isBA=0
 		and StatusID not in (101, 102, 103, 121, 1)  
 
@@ -197,7 +200,7 @@ BEGIN
 	 
 		and b.BetCount>0
 		and b.roleid=1
-		and b.sporttype in (0,151,161,162,180,201,251,253)
+		and b.sporttype in (0,151,161,162,180,201,251,253,202)
 		-- and b.isBA=0
 		and StatusID not in (101, 102, 103, 121, 1)  
 
@@ -216,12 +219,10 @@ SELECT * FROM #tmpRpt b with (nolock)
 DROP TABLE  #tmpRpt
 DROP table #LicenseeCust 
   
-
-  
-
 GO
 GRANT EXECUTE ON [dbo].[Aff_PlayersWinlostByProductSel] TO [bodbAdminNet] AS [dbo]
 GO
 GRANT EXECUTE ON [dbo].[Aff_PlayersWinlostByProductSel] TO [vnteam] AS [dbo]
 GO
 GRANT VIEW DEFINITION ON [dbo].[Aff_PlayersWinlostByProductSel] TO [vnteam] AS [dbo]
+  
