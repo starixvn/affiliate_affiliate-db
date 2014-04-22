@@ -27,7 +27,7 @@ Original:
   
 Revisions:  
 	- 20131121@Joseph: allow updating currency 'All'
-	- 20140312@Bobby: Update MemberDaily, AffDaily and AffDailySummary
+	- 20140312@Peter: Update MemberDaily, AffDaily and AffDailySummary
 
 
 Parameters:  
@@ -558,27 +558,43 @@ BEGIN
 
 		RETURN
 	END
+	
 
-	--Update MemberDaily PSP, Marketting fee,...
-	UPDATE m
-	SET PSP = ((abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPercent) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PSP', NULL), 0))
-		,Marketing = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing', NULL), 0)
-		,MemOddsFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', NULL), 0)
-		,MemPLayTechFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL), 0)
-		,MemWinlostFake = - (- Winlost - ((abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPercent)) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PSP', NULL), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing', NULL), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', NULL), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL), 0))
-	FROM dbo.MemberDaily AS m WITH (ROWLOCK, UPDLOCK)
-		INNER JOIN AffInfo ai WITH (NOLOCK)
-		ON m.AffId = ai.AffId
-		INNER JOIN Exchange AS e(NOLOCK)
-		ON m.Currency = e.ExchangeId
-	WHERE datediff(m, m.WinlostDate, CURRENT_TIMESTAMP) = 0
+Declare @SportsBookID tinyint
+
+select @SportsBookID = dbo.Aff_GetSportID('SportsBook') 	
+
+
+--Update MemberDaily PSP, Marketting fee,...
+Update m
+set PSP = ((abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPercent) * isnull(dbo.Aff_GetDeductionPercent(m.AffID,@SportsBookID,'PSP',NULL),0)  ),
+	Marketing = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing',NULL),0),
+	MemOddsFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee',NULL),0),
+	MemPLayTechFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL),0),
+	MemWinlostFake = -(-Winlost  
+						   - ((abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPercent))* isnull(dbo.Aff_GetDeductionPercent(m.AffID,@SportsBookID,'PSP',NULL),0)  
+						   -  abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing', NULL),0)  
+						   - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', NULL),0)  
+						   - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL),0)  
+						)
+from MemberDaily as m with (rowlock,updlock)
+    INNER JOIN AffInfo ai WITH (NOLOCK) ON m.AffId = ai.AffId
+	inner join Exchange as e (nolock) on m.Currency = e.ExchangeId
+
+where datediff(m, m.WinlostDate, CURRENT_TIMESTAMP) = 0
 		AND ai.GroupId = @GroupId
+
+/*
+CREATE TABLE #MemberDailySum (AffID int, MemCurrency int,Winlostdate smalldatetine, ProductID tinyint,SysExRate float, AffExRate float, MemMarketing money, MemPSP money,
+                               MemWinlostFake money, MemOddsFee money, MemPlayTechFee money)*/
+
 	
 	SELECT m.[AffID]
 		,m.[Currency] AS [MemCurrency]
 		,m.[WinlostDate]
 		,m.[ProductID]
 		,m.[SysExRate]
+		,m.AffExRate
 		,Sum(Marketing) AS MemMarketing
 		,Sum(PSP) AS MemPSP
 		,Sum(MemWinlostFake) AS MemWinlostFake
@@ -595,47 +611,83 @@ BEGIN
 		,m.Winlostdate
 		,m.ProductID
 		,m.[SysExRate]
+		,m.[AffExRate]
 
 	--Update AffDaily
 	UPDATE ad
-	SET MemMarketing = md.MemMarketing
-		,MemPSP = md.MemPSP
-		,MemOddsFee = md.MemOddsFee
-		,MemPLayTechFee = md.MemPLayTechFee
-		,MemWinlostFake = md.MemWinlostFake
+	SET ad.MemMarketing = md.MemMarketing
+		,ad.MemPSP = md.MemPSP
+		,ad.MemOddsFee=md.MemOddsFee
+		, ad.MemPLayTechFee=md.MemPlayTechFee  
 	FROM AffDaily ad WITH (ROWLOCK, UPDLOCK)
-		INNER JOIN #MemberDailySum md
+		INNER JOIN #MemberDailySum md (nolock)
 		ON ad.AffID = md.AffId
 			AND ad.MemCurrency = md.MemCurrency
 			AND ad.Winlostdate = md.Winlostdate
 			AND ad.ProductID = md.ProductID
+			
+			
+update ad    
+set 
+	HouseNetWinLost=HouseWinLost  
+		 - isnull(MemBonus,0) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Bonus',Winlostdate),0))     
+		 -isnull(MemAdjustment,0)  * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Adjustment',Winlostdate),0))  
+		 - abs(isnull(MemWinlost,0)) * (1- isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Marketing',Winlostdate),0))  
+		 - abs(isnull(MemWinlost,0)) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Odds Fee',Winlostdate),0))
+		 - abs(isnull(MemWinlost,0)) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'PlayTech Royalties',Winlostdate),0)) 
+From  AffDaily  ad with (rowlock,updlock)		
+ INNER JOIN AffInfo ai WITH (NOLOCK)
+		ON ad.AffId = ai.AffId
+	WHERE datediff(m, ad.WinlostDate, CURRENT_TIMESTAMP) = 0
+		AND ai.GroupId = @GroupId
+		  
 
-	;WITH MemberDailySum2
-	AS (
-		SELECT m.[AffID]
-			,m.[WinlostDate]
-			,m.[ProductID]
-			,Sum(MemMarketing * [SysExRate]) AS MemMarketing
-			,Sum(MemPSP * [SysExRate]) AS MemPSP
-			,Sum(MemOddsFee * [SysExRate]) AS MemOddsFee
-			,Sum(MemPLayTechFee * [SysExRate]) AS MemPLayTechFee
-		FROM #MemberDailySum m
-		GROUP BY m.AffID
-			,m.Winlostdate
-			,m.ProductID
-		)
-	--AffDailySummary
-	UPDATE ads
-	SET MemMarketing = md.MemMarketing
-		,MemPSP = md.MemPSP
-		,MemOddsFee = md.MemOddsFee
-		,MemPLayTechFee = md.MemPLayTechFee
-	FROM AffDailySummary ads WITH (ROWLOCK, UPDLOCK)
-		INNER JOIN MemberDailySum2 md
-		ON ads.AffID = md.AffId
-			AND ads.Winlostdate = md.Winlostdate
-			AND ads.ProductID = md.ProductID
-	;
+--AffDailySummary
+
+	UPDATE ad
+	SET ad.MemMarketing = tmp.MemMarketing
+		,ad.MemPSP = tmp.MemPSP
+		,ad.MemOddsFee=tmp.MemOddsFee
+		, ad.MemPLayTechFee=tmp.MemPlayTechFee  
+	FROM AffDaily ad WITH (ROWLOCK, UPDLOCK)
+		INNER JOIN 
+		
+		( Select md.AffID, md.Winlostdate,md.ProductID,
+		         Sum(MemMarketing)* SysExRate as MemMarketing,
+		         Sum(MemMarketing)* AffExRate as MemMarketing_aff, 
+		         Sum(MemPSP)* SysExRate as MemPSP,
+		         Sum(MemPSP)* AffExRate as MemPSP_aff,
+		         Sum(MemOddsFee)* SysExRate as MemOddsFee,
+		         Sum(MemOddsFee)* AffExRate as MemOddsFee_aff,
+		         Sum(MemPlayTechFee)* SysExRate as MemPlayTechFee,
+		         Sum(MemPlayTechFee)* AffExRate as MemPlayTechFee_aff
+		From #MemberDailySum md (nolock)
+		Group by md.AffID,md.Winlostdate, md.SysExRate,md.AffExRate, md.ProductID
+		
+		) tmp on tmp.AffID=ad.AffID and tmp.Winlostdate=ad.Winlostdate and tmp.ProductID=ad.ProductID
+		
+update ad    
+set 
+	HouseNetWinLost=HouseWinLost  
+		 - isnull(MemBonus,0) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Bonus',Winlostdate),0))     
+		 -isnull(MemAdjustment,0)  * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Adjustment',Winlostdate),0))  
+		 - abs(isnull(MemWinlost,0)) * (1- isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Marketing',Winlostdate),0))  
+		 - abs(isnull(MemWinlost,0)) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Odds Fee',Winlostdate),0))
+		 - abs(isnull(MemWinlost,0)) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'PlayTech Royalties',Winlostdate),0)),
+	HouseNetWinLost_aff=HouseWinLost_aff  
+		 - isnull(MemBonus_aff,0) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Bonus',Winlostdate),0))     
+		 -isnull(MemAdjustment_aff,0)  * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Adjustment',Winlostdate),0))  
+		 - abs(isnull(MemWinlost_aff,0)) * (1- isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Marketing',Winlostdate),0))  
+		 - abs(isnull(MemWinlost_aff,0)) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Odds Fee',Winlostdate),0))
+		 - abs(isnull(MemWinlost_aff,0)) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'PlayTech Royalties',Winlostdate),0))	  
+From  AffDailySummary  ad with (rowlock,updlock)		
+ INNER JOIN AffInfo ai WITH (NOLOCK)
+		ON ad.AffId = ai.AffId
+	WHERE datediff(m, ad.WinlostDate, CURRENT_TIMESTAMP) = 0
+		AND ai.GroupId = @GroupId
+		  	
+		
+			
 	DROP TABLE #MemberDailySum;
 	
 	COMMIT TRANSACTION
@@ -661,13 +713,7 @@ BEGIN
 		,@IP = @IP
 		,@Details = @LogData
 END
-
-
-GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupUpd] TO [bodbAdminNet]
 GO
-
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupUpd] TO [vnteam]
-
 
 GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupUpd] TO [bodbAdminNet]
 GO

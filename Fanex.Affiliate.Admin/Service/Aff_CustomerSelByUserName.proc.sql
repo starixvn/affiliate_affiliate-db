@@ -35,3 +35,6 @@ BEGIN
 		WHERE c.username = @UserName
 	END
 END
+GO 
+
+GRANT EXECUTE ON [dbo].[Aff_CustomerSelByUserName] TO [bodbAdminNet] AS [dbo]
