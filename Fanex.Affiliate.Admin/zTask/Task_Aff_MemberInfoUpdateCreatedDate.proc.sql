@@ -1,8 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[Task_Aff_MemberInfoUpdateCreatedDate]   
-	@XmlData XML,  
-	@ErrCode int = 0 OUTPUT,  
-	@ErrMsg nvarchar(500) = '' OUTPUT  
-AS   
+﻿ALTER PROCEDURE [dbo].[Task_Aff_MemberInfoUpdateCreatedDate] 
+	@XmlData XML
+	,@ErrCode INT = 0 OUTPUT
+	,@ErrMsg NVARCHAR(500) = '' OUTPUT
+AS
 /*
 	Task : Update created date for users deposited
 	Author : Johnny@20130328
@@ -11,94 +11,123 @@ AS
 	Revisions: 		
 		Johnny@2013Mar27: Fix to update Clickstatistics, Clickstatistics_bk and ClickstatisticsSum table
 */
-
 --Import new Data here 
-DECLARE @TmpClick TABLE (ClickId  bigint)
- 
-DECLARE @TempTrans TABLE(UserName varchar(30), IBCUserName varchar(50), Date datetime,
-	Email varchar(50),
-	FirstName nvarchar(50),
-	LastName nvarchar(50),
-	Phone varchar(25),
-	Address nvarchar(250)
-	)  
-  
-insert into @TempTrans(UserName, IBCUserName, Date,
-	Email,
-	FirstName,
-	LastName,
-	Phone,
-	Address
-	)  
-  
-Select      
-	[Table].[Column].value('./@username', 'varchar(30)') as [UserName],    
-	[Table].[Column].value('./@ibcusername', 'varchar(50)') as [IBCUserName],    
-	[Table].[Column].value('./@date', 'datetime') as [Date],  
-	[Table].[Column].value('./@email', 'varchar(50)') as [Email],
-	[Table].[Column].value('./@firstname', 'nvarchar(50)') as [FirstName],
-	[Table].[Column].value('./@lastname', 'nvarchar(50)') as [LastName],
-	[Table].[Column].value('./@phone', 'varchar(25)') as [Phone],
-	[Table].[Column].value('./@address', 'nvarchar(250)') as [Address]
-from @XmlData.nodes('/root/trans') as [Table]([Column])  
+DECLARE @TmpClick TABLE (ClickId BIGINT)
+DECLARE @TempTrans TABLE (
+	UserName VARCHAR(30)
+	,IBCUserName VARCHAR(50)
+	,DATE DATETIME
+	,Email VARCHAR(50)
+	,FirstName NVARCHAR(50)
+	,LastName NVARCHAR(50)
+	,Phone VARCHAR(20)
+	,Address NVARCHAR(255)
+	)
 
-UPDATE m  
-SET m.CreatedDate= temp.Date   
-	, m.IBCUsername = temp.IBCUserName
-	, m.Email= temp.Email
-	, m.FirstName=temp.FirstName
-	, m.LastName=temp.LastName
-	, m.Phone=temp.Phone
-	, m.Address=temp.Address
-OUTPUT Inserted.ClickId INTO @TmpClick
-FROM MemberInfo AS m   
-	INNER JOIN @TempTrans AS temp ON m.UserName = temp.UserName;  
+INSERT INTO @TempTrans (
+	UserName
+	,IBCUserName
+	,DATE
+	,Email
+	,FirstName
+	,LastName
+	,Phone
+	,Address
+	)
+SELECT [Table].[Column].value('./@username', 'varchar(30)') AS [UserName]
+	,[Table].[Column].value('./@ibcusername', 'varchar(50)') AS [IBCUserName]
+	,[Table].[Column].value('./@date', 'datetime') AS [Date]
+	,[Table].[Column].value('./@email', 'varchar(50)') AS [Email]
+	,[Table].[Column].value('./@firstname', 'nvarchar(50)') AS [FirstName]
+	,[Table].[Column].value('./@lastname', 'nvarchar(50)') AS [LastName]
+	,[Table].[Column].value('./@phone', 'varchar(20)') AS [Phone]
+	,[Table].[Column].value('./@address', 'nvarchar(255)') AS [Address]
+FROM @XmlData.nodes('/root/trans') AS [Table]([Column])
 
-
+UPDATE m
+SET m.CreatedDate = TEMP.DATE
+	,m.IBCUsername = TEMP.IBCUserName
+	,m.Email = TEMP.Email
+	,m.FirstName = TEMP.FirstName
+	,m.LastName = TEMP.LastName
+	,m.Phone = TEMP.Phone
+	,m.Address = TEMP.Address
+	,m.AffAffectedDate = ISNULL(TEMP.DATE, m.RegisteredDate)
+OUTPUT Inserted.ClickId
+INTO @TmpClick
+FROM MemberInfo AS m
+	INNER JOIN @TempTrans AS TEMP
+	ON m.UserName = TEMP.UserName;
 
 --Update Click Statistics
-Declare @MinClickID bigint, @MinClickID_Statistics bigint
+DECLARE @MinClickID BIGINT
+	,@MinClickID_Statistics BIGINT
 
-Select @MinClickID = min(ClickId)
-from @TmpClick
+SELECT @MinClickID = min(ClickId)
+FROM @TmpClick
 
-select @MinClickID_Statistics = min(ClickId)
-from ClickStatistics nolock
+SELECT @MinClickID_Statistics = min(ClickId)
+FROM ClickStatistics NOLOCK
 
-if @MinClickID < @MinClickID_Statistics
-begin
+IF @MinClickID < @MinClickID_Statistics
+BEGIN
 	--Temp table to insert click value to update to clickstatisticsSum table
-	Declare @TmpClickDetail table ([date] smalldatetime)
+	DECLARE @TmpClickDetail TABLE ([date] SMALLDATETIME)
 
-	insert into @TmpClickDetail(date)
-	Select distinct c.date
-	from @TmpClick as t
-		inner join ClickStatistics_bk as c on t.[clickId] = c.ClickID
-	where c.ClickId < @MinClickID_Statistics
-	
-	Delete ClickStatisticsSum
-	where Date in (Select [DATE] from @TmpClickDetail)
-	 --Summary for Daily by Domain and Date
-	insert into ClickStatisticsSum(AffID, [DomainReferrer], [Date], [SportCode], [LanguageCode], TotalClick, UniqueClick, TotalSignup, TotalDeposit)
-	select  c.AffID,
-			DomainReferrer,
-			c.[Date] as [Date],
-			SportCode,
-			LanguageCode,
-			sum(ClickCount) as TotalClick,
-			count(distinct IP) as UniqueClick,
-			SUM(isnull(Signups, 0)) as Signups,
-			SUM(isnull(FDM, 0)) as  FDM 
-	from ClickStatistics_bk c with (nolock)
-		inner join @TmpClickDetail t on c.Date = t.Date
-		left join 
-			(Select ClickId, 
-				SUM(case when m.RegisteredDate is not null then 1 else 0 end) as Signups,
-				SUM(case when m.CreatedDate is not null then 1 else 0 end) as  FDM 
-			from MemberInfo m with (nolock) 			
-			group by ClickId
-			) as m on c.ClickId = m.ClickId
-	group by c.AffID, DomainReferrer, c.[Date], SportCode, LanguageCode
-end
+	INSERT INTO @TmpClickDetail (DATE)
+	SELECT DISTINCT c.DATE
+	FROM @TmpClick AS t
+		INNER JOIN ClickStatistics_bk AS c
+		ON t.[clickId] = c.ClickID
+	WHERE c.ClickId < @MinClickID_Statistics
 
+	DELETE ClickStatisticsSum
+	WHERE DATE IN (
+			SELECT [DATE]
+			FROM @TmpClickDetail
+			)
 
+	--Summary for Daily by Domain and Date
+	INSERT INTO ClickStatisticsSum (
+		AffID
+		,[DomainReferrer]
+		,[Date]
+		,[SportCode]
+		,[LanguageCode]
+		,TotalClick
+		,UniqueClick
+		,TotalSignup
+		,TotalDeposit
+		)
+	SELECT c.AffID
+		,DomainReferrer
+		,c.[Date] AS [Date]
+		,SportCode
+		,LanguageCode
+		,sum(ClickCount) AS TotalClick
+		,count(DISTINCT IP) AS UniqueClick
+		,SUM(isnull(Signups, 0)) AS Signups
+		,SUM(isnull(FDM, 0)) AS FDM
+	FROM ClickStatistics_bk c WITH (NOLOCK)
+		INNER JOIN @TmpClickDetail t
+		ON c.DATE = t.DATE
+		LEFT JOIN (
+		SELECT ClickId
+			,SUM(CASE 
+					WHEN m.RegisteredDate IS NOT NULL THEN 1
+					ELSE 0
+					END) AS Signups
+			,SUM(CASE 
+					WHEN m.CreatedDate IS NOT NULL THEN 1
+					ELSE 0
+					END) AS FDM
+		FROM MemberInfo m WITH (NOLOCK)
+		GROUP BY ClickId
+		) AS m
+		ON c.ClickId = m.ClickId
+	GROUP BY c.AffID
+		,DomainReferrer
+		,c.[Date]
+		,SportCode
+		,LanguageCode
+END

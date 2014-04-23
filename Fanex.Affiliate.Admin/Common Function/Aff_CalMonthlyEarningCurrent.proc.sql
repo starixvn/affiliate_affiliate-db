@@ -70,7 +70,7 @@ BEGIN
 		,OddsFeePercent FLOAT
 		)
 	DECLARE @GroupID INT
-		,@IsNotZeroCommission INT
+		,@ZeroCommission INT
 
 
 	SELECT @GroupID = a.GroupID
@@ -158,13 +158,9 @@ BEGIN
 				), 0)
 	FROM @AffSummary a
 
-	SELECT @IsNotZeroCommission = CASE 
-		WHEN [dbo].[IsZeroCommissionGroup](@GroupID, @Today) = 0 THEN 1
-		ELSE 0
-		END
+	SET @ZeroCommission = CAST([dbo].[IsZeroCommissionGroup](@GroupID, @Today) AS INT)
 
-
-	IF @IsNotZeroCommission = 0
+	IF @ZeroCommission = 0
 	BEGIN
 		UPDATE a
 		SET a.Commission = @MinimumNegativeCommission
@@ -183,7 +179,10 @@ BEGIN
 
 	IF @ProductID = 0
 	BEGIN
-		SELECT @Amount = isnull(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @Today) * @IsNotZeroCommission
+		SELECT @Amount = (isnull(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @Today)) * CASE 
+				WHEN @ZeroCommission = 1 THEN 0
+				ELSE 1
+				END
 	END
 END
 GO

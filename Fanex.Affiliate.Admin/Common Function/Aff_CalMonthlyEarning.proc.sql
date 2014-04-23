@@ -50,7 +50,7 @@ BEGIN
 	SELECT @LastDay = DATEADD(d, - 1, DATEADD(mm, DATEDIFF(m, 0, @FirstDay) + 1, 0))
 
 	DECLARE @GroupID INT
-		,@IsNotZeroCommission INT
+		,@ZeroCommission INT
 
 	SELECT @GroupID = GroupID
 	FROM AffGroupHistory(NOLOCK)
@@ -159,12 +159,9 @@ BEGIN
 				), 0)
 	FROM @AffSummary a
 
-	SELECT @IsNotZeroCommission = CASE 
-			WHEN [dbo].[IsZeroCommissionGroup](@GroupID, @LastDay) = 0 THEN 1
-			ELSE 0
-			END
+	SET @ZeroCommission = CAST([dbo].[IsZeroCommissionGroup](@GroupID, @LastDay) AS INT)
 
-	IF @IsNotZeroCommission = 0
+	IF @ZeroCommission = 0
 	BEGIN
 		UPDATE a
 		SET a.Commission = @MinimumNegativeCommission
@@ -184,7 +181,10 @@ BEGIN
 
 	IF @ProductID = 0
 	BEGIN
-		SELECT @Amount = isnull(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @LastDay) * @IsNotZeroCommission
+		SELECT @Amount = (isnull(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @LastDay)) * CASE 
+				WHEN @ZeroCommission = 1 THEN 0
+				ELSE 1
+				END
 	END
 END
 GO

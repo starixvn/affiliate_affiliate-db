@@ -303,7 +303,7 @@ end*/
 		,[MemWithdrawal_aff] MONEY
 		,[MemTurnoverDraw] MONEY
 		,[MemTurnoverDraw_aff] MONEY
-		,IsZeroCommission INT
+		,ZeroCommission INT
 		)
 
 	INSERT INTO #AffSummary (
@@ -342,7 +342,7 @@ end*/
 		,[MemWithdrawal_aff]
 		,[MemTurnoverDraw]
 		,[MemTurnoverDraw_aff]
-		,IsZeroCommission
+		,ZeroCommission
 		)
 	SELECT ai.AffID AS AffID
 		,ai.Currency AS Currency
@@ -455,7 +455,7 @@ end*/
 	FROM #AffSummary a
 	WHERE a.NetWinlost_aff < 0
 		AND a.Commission = 0
-		AND [dbo].[IsZeroCommissionGroup](a.GroupID, @LastDay) <> 0
+		AND a.ZeroCommission = 0
 		AND a.ProductID IN (
 			SELECT DISTINCT ProductID
 			FROM GroupSettingHistory(NOLOCK)
@@ -605,7 +605,7 @@ end*/
 			,@LastDay
 			,@WinlostDate
 			,(sum((NetWinlost_aff - Cast(a.HasBonus AS INT) * isnull(a.MemBonus_aff, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0)) - [dbo].[Aff_GetAffDeductionAll](AffID, @LastDay)) * CASE 
-				WHEN a.IsZeroCommission = 1 THEN 0
+				WHEN a.ZeroCommission = 1 THEN 0
 				ELSE 1
 				END
 			,@Status

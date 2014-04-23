@@ -1,22 +1,21 @@
-﻿ALTER Procedure [dbo].[AffAdmin_StatisticsSel]  
-	@AffID int,  
-	@MonthDate smalldatetime,
-	@TotalActivePlayer int OUTPUT,  
-	@TotalPlayerDepUp int OUTPUT,  
-	@NewSignUpDep int OUTPUT,  
-	@NewSignUp int OUTPUT,  
-	@TotalPlayer int OUTPUT,   
-	@BalBroughtforward money = 0 OUTPUT,  
-	@TotalDeposit money OUTPUT,  
-	@TotalDepositUp money OUTPUT,  
-	@TotalTurnover money OUTPUT,  
-	@TotalTurnoverUp money OUTPUT,  
-	@TotalWinlostUp money OUTPUT,  
-	@TotalWinlost money OUTPUT,  
-	@TotalUniqueClicks int = 0 OUTPUT,  
-	@TotalClicks int = 0 OUTPUT 
-AS  
-  
+﻿ALTER PROCEDURE [dbo].[AffAdmin_StatisticsSel] 
+	@AffID INT
+	,@MonthDate SMALLDATETIME
+	,@TotalActivePlayer INT OUTPUT
+	,@TotalPlayerDepUp INT OUTPUT
+	,@NewSignUpDep INT OUTPUT
+	,@NewSignUp INT OUTPUT
+	,@TotalPlayer INT OUTPUT
+	,@BalBroughtforward MONEY = 0 OUTPUT
+	,@TotalDeposit MONEY OUTPUT
+	,@TotalDepositUp MONEY OUTPUT
+	,@TotalTurnover MONEY OUTPUT
+	,@TotalTurnoverUp MONEY OUTPUT
+	,@TotalWinlostUp MONEY OUTPUT
+	,@TotalWinlost MONEY OUTPUT
+	,@TotalUniqueClicks INT = 0 OUTPUT
+	,@TotalClicks INT = 0 OUTPUT
+AS
 /*Created: 20090325@VinhTrinh  
 Task : Get statistics for affiliate  
 DB: DB052.Affiliate_MYM  
@@ -34,144 +33,202 @@ Param's Explanation:
 	• @TotalDeposit : total deposit money for month search  
 	• @TotalDepositUp money OUTPUT,--total deposit money up to now  
 	• @TotalTurnover money OUTPUT,--total turnover money up to now  
-*/  
-  
-SET NOCOUNT ON  
-  
-SELECT @NewSignUp = sum(case when DATEDIFF(MONTH,@MonthDate,RegisteredDate) = 0 then 1  else 0 end)  
-	,@NewSignUpDep = sum(case when CreatedDate is not null and datediff(m, CreatedDate, @MonthDate) = 0  then 1 else 0 end)  
-	,@TotalPlayerDepUp=sum(case when  CreatedDate is not null and IsRemoved=0 then 1 else 0 end)   
-	,@TotalPlayer=sum(case when IsRemoved=0 then 1 else 0 end)   
-FROM MemberInfo WITH(NOLOCK)  
-WHERE AffID = @AffID        
-	and username not in (select username From MemberRemoval with(nolock) where datediff(m, RemovedDate, @MonthDate) = 0)   
-  
-create table #TblStatistics (username varchar(30), ProductID int, QualifiedMember int,ActivePlayer int, Turnover money, Deposit money, Winlost money, MonthDate smalldatetime)  
+*/
+BEGIN
+	SET NOCOUNT ON
 
-insert into #TblStatistics  
-select '',  
-	ProductID,   
-	QualifiedMember,   
-	ActivePlayer,  
-	MemberTurnover_aff, --Turnover has been change to AffExRate  
-	MemberDeposit_aff, --Deposit has been change to AffExRate  
-	MemberWinlost_aff as MemberWinlost,--Winlost has been change to AffExRate  
-	WinlostDate  
-from AffCommission with (nolock)  
-where AffId = @AffId   
+	SELECT @NewSignUp = sum(CASE 
+				WHEN DATEDIFF(MONTH, @MonthDate, RegisteredDate) = 0 THEN 1
+				ELSE 0
+				END)
+		,@NewSignUpDep = sum(CASE 
+				WHEN CreatedDate IS NOT NULL
+					AND datediff(m, CreatedDate, @MonthDate) = 0 THEN 1
+				ELSE 0
+				END)
+		,@TotalPlayerDepUp = sum(CASE 
+				WHEN CreatedDate IS NOT NULL
+					AND IsRemoved = 0 THEN 1
+				ELSE 0
+				END)
+		,@TotalPlayer = sum(CASE 
+				WHEN IsRemoved = 0 THEN 1
+				ELSE 0
+				END)
+	FROM MemberInfo WITH (NOLOCK)
+	WHERE AffID = @AffID
+		AND username NOT IN (
+			SELECT username
+			FROM MemberRemoval WITH (NOLOCK)
+			WHERE datediff(m, RemovedDate, @MonthDate) = 0
+			)
 
-declare @MaxTransDate datetime, @FromDate datetime, @CurrentDate datetime, @QMTurnover money  
-  
-select @QMTurnover=dbo.[Aff_GetQMTurnOver](@AffID,@MonthDate), @CurrentDate= current_timestamp
-select @MaxTransDate = max(MonthDate) from #TblStatistics with(nolock)  
-if @MaxTransDate is not null  
-   select @FromDate = dateadd(d,1,@MaxTransDate)  
-else 
-      select @FromDate = MIN(WinlostDate) from AffDailySummary(nolock) 
-   
+	CREATE TABLE #TblStatistics (
+		username VARCHAR(30)
+		,ProductID INT
+		,QualifiedMember INT
+		,ActivePlayer INT
+		,Turnover MONEY
+		,Deposit MONEY
+		,Winlost MONEY
+		,MonthDate SMALLDATETIME
+		)
 
-insert into #TblStatistics  
-  
-select ci.username,  
-	ProductID,  
-	0 as QualifiedMember,  
-	0 as ActivePlayer,  
-	sum(isnull(TurnOver,0) * isnull(AffExRate,1)) as Turnover,  
-	sum(isnull(Deposit,0) * isnull(AffExRate,1)) as Deposit,      
-	sum(isnull(Winlost,0) * isnull(AffExRate,1)) as Winlost,  
-	dateadd(mm, DATEDIFF(m,0,b.WinlostDate), 0)  
-from MemberDaily b with (nolock)   
-	inner join MemberInfo ci with (nolock) on ci.username=b.username  
-where ci.AffID=@AffID   
-	and b.winlostdate between @FromDate and @CurrentDate--this condition use up index on winlostdate      
-group by ci.username, ProductID,  
-	dateadd(mm, DATEDIFF(m,0,b.winlostdate), 0)  
+	INSERT INTO #TblStatistics
+	SELECT ''
+		,ProductID
+		,QualifiedMember
+		,ActivePlayer
+		,MemberTurnover_aff
+		,--Turnover has been change to AffExRate  
+		MemberDeposit_aff
+		,--Deposit has been change to AffExRate  
+		MemberWinlost_aff AS MemberWinlost
+		,--Winlost has been change to AffExRate  
+		WinlostDate
+	FROM AffCommission WITH (NOLOCK)
+	WHERE AffId = @AffId
 
+	DECLARE @MaxTransDate DATETIME
+		,@FromDate DATETIME
+		,@CurrentDate DATETIME
+		,@QMTurnover MONEY
 
-update #TblStatistics
+	SELECT @QMTurnover = dbo.[Aff_GetQMTurnOver](@AffID, @MonthDate)
+		,@CurrentDate = current_timestamp
 
-set QualifiedMember=(case when Turnover>=@QMTurnover then 1 else 0 end)    
+	SELECT @MaxTransDate = max(MonthDate)
+	FROM #TblStatistics WITH (NOLOCK)
 
-where username<>''
+	IF @MaxTransDate IS NOT NULL
+		SELECT @FromDate = dateadd(d, 1, @MaxTransDate)
+	ELSE
+		SELECT @FromDate = MIN(WinlostDate)
+		FROM AffDailySummary(NOLOCK)
 
+	INSERT INTO #TblStatistics
+	SELECT ci.username
+		,ProductID
+		,0 AS QualifiedMember
+		,0 AS ActivePlayer
+		,sum(isnull(TurnOver, 0) * isnull(AffExRate, 1)) AS Turnover
+		,sum(isnull(Deposit, 0) * isnull(AffExRate, 1)) AS Deposit
+		,sum(isnull(Winlost, 0) * isnull(AffExRate, 1)) AS Winlost
+		,dateadd(mm, DATEDIFF(m, 0, b.WinlostDate), 0)
+	FROM MemberDaily b WITH (NOLOCK)
+		INNER JOIN MemberInfo ci WITH (NOLOCK)
+		ON ci.username = b.username
+	WHERE ci.AffID = @AffID
+		AND b.winlostdate BETWEEN @FromDate AND @CurrentDate --this condition use up index on winlostdate      
+	GROUP BY ci.username
+		,ProductID
+		,dateadd(mm, DATEDIFF(m, 0, b.winlostdate), 0)
 
-Select @TotalWinlostUp = Sum(a.Winlost)  
-	, @TotalTurnoverUp = Sum(a.Turnover)  
-	, @TotalDepositUp = Sum(a.Deposit)  
-	,@TotalWinlost = Sum(case when DATEDIFF(m, a.MonthDate, @MonthDate) = 0 then a.Winlost else 0 end)  
-	, @TotalTurnover = Sum(case when DATEDIFF(m, a.MonthDate, @MonthDate) = 0 then a.Turnover else 0 end)  
-	, @TotalDeposit = Sum(case when DATEDIFF(m, a.MonthDate, @MonthDate) = 0 then a.Deposit else 0 end)  
+	UPDATE #TblStatistics
+	SET QualifiedMember = (CASE 
+			WHEN Turnover >= @QMTurnover THEN 1
+			ELSE 0 END
+			)
+	WHERE username <> ''
+
+	SELECT @TotalWinlostUp = Sum(a.Winlost)
+		,@TotalTurnoverUp = Sum(a.Turnover)
+		,@TotalDepositUp = Sum(a.Deposit)
+		,@TotalWinlost = Sum(CASE 
+				WHEN DATEDIFF(m, a.MonthDate, @MonthDate) = 0 THEN a.Winlost
+				ELSE 0
+				END)
+		,@TotalTurnover = Sum(CASE 
+				WHEN DATEDIFF(m, a.MonthDate, @MonthDate) = 0 THEN a.Turnover
+				ELSE 0
+				END)
+		,@TotalDeposit = Sum(CASE 
+				WHEN DATEDIFF(m, a.MonthDate, @MonthDate) = 0 THEN a.Deposit
+				ELSE 0
+				END)
 	--,@TotalActivePlayer=sum(case when DATEDIFF(m, a.MonthDate, @MonthDate) = 0  then isnull(a.ActivePlayer,0) else 0 end)   
+	FROM #TblStatistics a WITH (NOLOCK)
 
-  
-From #TblStatistics a with (nolock)  
+	DECLARE @DateTemp DATETIME
 
-declare @DateTemp datetime
+	SET @DateTemp = dbo.Date_Only(dbo.Aff_GetLastDayOfMonth(@MonthDate))
 
-set @DateTemp=dbo.Date_Only(dbo.Aff_GetLastDayOfMonth(@MonthDate))
+	IF (
+			EXISTS (
+				SELECT TOP (1) 1
+				FROM AffCommission(NOLOCK)
+				WHERE winlostdate = @DateTemp
+				)
+			)
+	BEGIN
+		SELECT @TotalActivePlayer = max(ActivePlayer)
+		FROM #TblStatistics a WITH (NOLOCK)
+		WHERE DATEDIFF(m, a.MonthDate, @MonthDate) = 0
+			AND username = ''
+	END
+	ELSE
+	BEGIN
+		SELECT @TotalActivePlayer = count(DISTINCT username)
+		FROM #TblStatistics a WITH (NOLOCK)
+		WHERE DATEDIFF(m, a.MonthDate, @MonthDate) = 0
+			AND username <> ''
+			AND (
+				a.Turnover > 0
+				OR a.Deposit > 0
+				)
+	END
 
+	--Get Click Statistics  
+	SELECT @TotalClicks = sum(TotalClick)
+		,@TotalUniqueClicks = sum(UniqueClick)
+	FROM (
+		SELECT sum(TotalClick) AS TotalClick
+			,Sum(UniqueClick) AS UniqueClick
+		FROM ClickStatisticsSum(NOLOCK)
+		WHERE AffID = @AffID
+			AND datediff(mm, @MonthDate, [date]) = 0
+		
+		UNION ALL
+		SELECT sum(ClickCount) AS TotalClick
+			,count(DISTINCT s.IP) AS UniqueClick
+		FROM ClickStatistics s(NOLOCK)
+		WHERE datediff(mm, @MonthDate, s.DATE) = 0
+			AND s.AffID = @AffID
+		GROUP BY dbo.Date_Only(DATE)
+			,DomainReferrer
+			,SportCode
+			,LanguageCode
+		) t
 
+	SELECT @BalBroughtforward = isnull(dbo.Aff_GetAffBalance(@AffID), 0)
 
-if(exists(select top(1) 1 from AffCommission (nolock) where winlostdate=@DateTemp))
-BEGIN
- select @TotalActivePlayer=max(ActivePlayer)
- From #TblStatistics a with (nolock)  
- where DATEDIFF(m, a.MonthDate, @MonthDate) = 0 and username=''
+	IF (DATEDIFF(m, current_timestamp, @MonthDate) > 0)
+	BEGIN
+		SELECT p.ProductID
+			,p.ProductName
+			,0 AS TotalQualifiedMembers
+		FROM Product p WITH (NOLOCK)
+		WHERE [dbo].[Aff_IsProductInGroupOfAff](@AffID, p.ProductID, current_timestamp) > 0
+		ORDER BY p.ProductID
+	END
+	ELSE
+	BEGIN
+		SELECT p.ProductID
+			,p.ProductName
+			,isnull(t.TotalQualifiedMembers, 0) AS TotalQualifiedMembers
+		FROM Product p WITH (NOLOCK)
+			LEFT JOIN (
+			SELECT a.ProductID
+				,sum(a.QualifiedMember) AS TotalQualifiedMembers
+			FROM #TblStatistics a(NOLOCK)
+			WHERE DATEDIFF(m, a.MonthDate, @MonthDate) = 0
+				AND [dbo].[Aff_IsProductInGroupOfAff](@AffID, a.ProductID, @MonthDate) > 0
+			GROUP BY a.ProductID
+			) t
+			ON t.ProductID = p.ProductID
+		WHERE [dbo].[Aff_IsProductInGroupOfAff](@AffID, p.ProductID, @MonthDate) > 0
+		ORDER BY p.ProductID
+	END
+
+	DROP TABLE #TblStatistics
 END
-else
-BEGIN
-   select @TotalActivePlayer=count(distinct username)
-  From #TblStatistics a with (nolock)  
-  where DATEDIFF(m, a.MonthDate, @MonthDate) = 0 and username<>''
-              and (a.Turnover>0 or a.Deposit>0) 
-END
-
-
-
-  
---Get Click Statistics  
-  
-select @TotalClicks= sum(TotalClick),  @TotalUniqueClicks=sum(UniqueClick)  
-FROM  
-(  
-	select sum(TotalClick) as TotalClick,Sum(UniqueClick) as UniqueClick  
-	from ClickStatisticsSum (nolock)  
-	where AffID=@AffID              
-		and datediff(mm,@MonthDate,[date])=0  
-	
-	union all  
-
-	select sum(ClickCount) as TotalClick,count(distinct s.IP) as UniqueClick  
-	from ClickStatistics s (nolock)   
-	where datediff(mm,@MonthDate,s.date)=0 and s.AffID=@AffID  
-	group by dbo.Date_Only(Date),DomainReferrer, SportCode, LanguageCode  
-) t  
-  
-select @BalBroughtforward = isnull(dbo.Aff_GetAffBalance(@AffID), 0)     
-
-
-if(DATEDIFF(m, current_timestamp, @MonthDate) >0 )
-begin
-		  Select p.ProductID,p.ProductName,0  as TotalQualifiedMembers 
-		  From Product p  with (nolock)  
-		  where  [dbo].[Aff_IsProductInGroupOfAff](@AffID,p.ProductID ,current_timestamp) >0   
-		  order by p.ProductID
-end
-else
-begin
-		Select p.ProductID,p.ProductName,isnull(t.TotalQualifiedMembers,0)  as TotalQualifiedMembers 
-		 From Product p  with (nolock)  
-		left join 
-		(
-		   select a.ProductID, sum(a.QualifiedMember) as TotalQualifiedMembers
-		   from #TblStatistics a (nolock)  
-		   where DATEDIFF(m, a.MonthDate, @MonthDate) = 0 and [dbo].[Aff_IsProductInGroupOfAff](@AffID,a.ProductID ,@MonthDate) >0
-		   group by a.ProductID
-
-		) t on t.ProductID=p.ProductID
-		where  [dbo].[Aff_IsProductInGroupOfAff](@AffID,p.ProductID ,@MonthDate) >0   
-		  order by p.ProductID
-
-end
-
-Drop table #TblStatistics
