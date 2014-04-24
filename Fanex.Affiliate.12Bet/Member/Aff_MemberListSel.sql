@@ -14,7 +14,7 @@ AS
 	Revisions:		
 		-20100112@Peter : 	Shorting the page by CreatedDate . Request from Fan	
 		-20140217@Dan: optimize perf
-		- 20140403@Bobby:  exclude Keno product & other sports
+		-20140424@Bobby: formating code
 */
 BEGIN
 	SET NOCOUNT ON
@@ -154,7 +154,7 @@ BEGIN
 	END
 
 	SELECT UserName
-		,t.IBCCustID
+		,m.IBCCustID
 		,IBCUserName
 		,FirstName
 		,LastName
@@ -179,19 +179,6 @@ BEGIN
 					WHERE e1.ExchangeID = e.ExchangeID
 						AND UpdatedTime <= b.winlostdate
 					)
-			WHERE b.winlostdate = @CurrDate
-				AND (
-					b.bettype <= 999
-					OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
-					) --get SB only
-				AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
-				AND b.bettype NOT IN (1000) --games
-				AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
-				AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
-				AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
-						--and bettype not in (31,32,33,41,42,43)   
-				AND b.StatusID NOT IN (101, 102, 103, 121, 1)
-				--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
 		GROUP BY m.IBCCustID
 		) t
 		ON m.IBCCustId = t.IBCCustID
@@ -203,3 +190,6 @@ GRANT EXECUTE ON [dbo].[Aff_MemberListSel] TO [bodbAdminNet]
 GO
 
 GRANT VIEW DEFINITION ON [dbo].[Aff_MemberListSel] TO [vnteam]
+GO
+
+

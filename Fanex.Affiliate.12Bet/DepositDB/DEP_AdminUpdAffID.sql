@@ -1,10 +1,9 @@
-﻿ALTER PROCEDURE [dbo].[DEP_AdminUpdAffID]
-	@DepositCustID int,
-	@ErrCode int = 0 OUTPUT,
-	@ErrMsg nvarchar(4000) = '' OUTPUT
+﻿ALTER PROCEDURE [dbo].[DEP_AdminUpdAffID] @DepositCustID INT
+	,@ErrCode INT = 0 OUTPUT
+	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
 AS
-begin
-/*
+BEGIN
+	/*
 Created: 20090910@Peter
 Task : Remove a member  from Affiliate
 DB: [DBDeposit].Deposit_DB
@@ -19,33 +18,46 @@ Param's Explanation:
 > 0: Insert unsuccessful.
 @ErrMsg: Error description.
 */
-SET NOCOUNT ON
---Check DepositCustID
-if(not exists (select top(1) 1 from Deposit_Customer with (nolock) where CustID=@DepositCustID and isnull(AffiliateID,0)>0))
-begin
-	SELECT @ErrMsg ='This member does not exist in Affiliate System or be removed before!', @ErrCode = 1001
-	RETURN
-end
+	BEGIN
+		SET NOCOUNT ON
 
+		--Check DepositCustID
+		IF (
+				NOT EXISTS (
+					SELECT TOP (1) 1
+					FROM Deposit_Customer WITH (NOLOCK)
+					WHERE CustID = @DepositCustID
+						AND isnull(AffiliateID, 0) > 0
+					)
+				)
+		BEGIN
+			SELECT @ErrMsg = 'This member does not exist in Affiliate System or be removed before!'
+				,@ErrCode = 1001
 
- begin try
+			RETURN
+		END
 
-  update Deposit_Customer with (rowlock,updlock)
-  set AffiliateID = 0,
-	  LastModifyDate=current_timestamp
-  where CustID=@DepositCustID
-  
- end try
- begin catch
-		
-		SELECT @ErrMsg ='Remove member failed!', @ErrCode = 1002  
-		return
- end catch 
+		BEGIN TRY
+			UPDATE Deposit_Customer WITH (ROWLOCK, UPDLOCK)
+			SET AffiliateID = 0
+				,LastModifyDate = current_timestamp
+			WHERE CustID = @DepositCustID
+		END TRY
 
-end 
+		BEGIN CATCH
+			SELECT @ErrMsg = 'Remove member failed!'
+				,@ErrCode = 1002
 
+			RETURN
+		END CATCH
+	END
+END
 GO
+
 GRANT EXECUTE ON [dbo].[DEP_AdminUpdAffID] TO [bodbAffiliateNet]
 GO
+
 GRANT VIEW DEFINITION ON [dbo].[DEP_AdminUpdAffID] TO [vnTeam]
 GO
+
+
