@@ -1,4 +1,11 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupUpd] 
+﻿USE [Affiliate_Athena000]
+GO
+/****** Object:  StoredProcedure [dbo].[AffAdmin_CommGroupUpd]    Script Date: 04/28/2014 05:58:25 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[AffAdmin_CommGroupUpd] 
 	@UserId INT
 	,@GroupId INT
 	,@Currency INT
@@ -567,7 +574,7 @@ select @SportsBookID = dbo.Aff_GetSportID('SportsBook')
 
 --Update MemberDaily PSP, Marketting fee,...
 Update m
-set PSP = ((abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPercent) * isnull(dbo.Aff_GetDeductionPercent(m.AffID,@SportsBookID,'PSP',NULL),0)  ),
+set PSP = abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPercent,
 	Marketing = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing',NULL),0),
 	MemOddsFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee',NULL),0),
 	MemPLayTechFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL),0),
@@ -630,6 +637,7 @@ CREATE TABLE #MemberDailySum (AffID int, MemCurrency int,Winlostdate smalldateti
 update ad    
 set 
 	HouseNetWinLost=HouseWinLost  
+	      - isnull(MemPSP,0) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'PSP',Winlostdate),0))
 		 - isnull(MemBonus,0) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Bonus',Winlostdate),0))     
 		 -isnull(MemAdjustment,0)  * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Adjustment',Winlostdate),0))  
 		 - abs(isnull(MemWinlost,0)) * (1- isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Marketing',Winlostdate),0))  
@@ -669,12 +677,14 @@ From  AffDaily  ad with (rowlock,updlock)
 update ad    
 set 
 	HouseNetWinLost=HouseWinLost  
+	      - isnull(MemPSP,0) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'PSP',Winlostdate),0))
 		 - isnull(MemBonus,0) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Bonus',Winlostdate),0))     
 		 -isnull(MemAdjustment,0)  * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Adjustment',Winlostdate),0))  
 		 - abs(isnull(MemWinlost,0)) * (1- isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Marketing',Winlostdate),0))  
 		 - abs(isnull(MemWinlost,0)) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Odds Fee',Winlostdate),0))
 		 - abs(isnull(MemWinlost,0)) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'PlayTech Royalties',Winlostdate),0)),
 	HouseNetWinLost_aff=HouseWinLost_aff  
+	     - isnull(MemPSP_aff,0) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'PSP',Winlostdate),0))
 		 - isnull(MemBonus_aff,0) * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Bonus',Winlostdate),0))     
 		 -isnull(MemAdjustment_aff,0)  * (1-isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Adjustment',Winlostdate),0))  
 		 - abs(isnull(MemWinlost_aff,0)) * (1- isnull(dbo.Aff_GetDeductionPercent(ad.AffID,ProductID,'Marketing',Winlostdate),0))  
@@ -713,9 +723,8 @@ From  AffDailySummary  ad with (rowlock,updlock)
 		,@IP = @IP
 		,@Details = @LogData
 END
-GO
 
-GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupUpd] TO [bodbAdminNet]
 GO
-
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupUpd] TO [vnteam]
+GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupUpd] TO [bodbAdminNet] AS [dbo]
+GO
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupUpd] TO [vnteam] AS [dbo]
