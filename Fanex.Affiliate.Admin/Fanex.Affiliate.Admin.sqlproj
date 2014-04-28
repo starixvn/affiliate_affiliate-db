@@ -673,5 +673,6 @@
     <Build Include="Common Function\AffAdmin_AffiliateListForReport.function.sql" />
     <Build Include="Common Function\Aff_CalMonthlyEarning.proc.sql" />
     <Build Include="Common Function\Aff_CalMonthlyEarningCurrent.proc.sql" />
+    <Build Include="Common Function\IsZeroCommissionGroup.sql" />
   </ItemGroup>
 </Project>
