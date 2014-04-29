@@ -53,7 +53,8 @@ AS
 	Author : Peter@20090909
 
 	Revisions:
-		20140328@Bobby: Fix bug [https://redmine.nexcel.vn/issues/13974]
+		-20140328@Bobby: Fix bug [https://redmine.nexcel.vn/issues/13974]
+		-20140425@Bobby: fixing NoCommision group
 */
 BEGIN
 	DECLARE @FirstDay SMALLDATETIME
@@ -211,6 +212,7 @@ BEGIN
 		,[MemWithdrawal_aff] MONEY
 		,[MemTurnoverDraw] MONEY
 		,[MemTurnoverDraw_aff] MONEY
+		,ZeroCommission INT
 		)
 
 	IF datediff(m, @FirstDay, current_timestamp) = 0
@@ -251,6 +253,7 @@ BEGIN
 			,[MemWithdrawal_aff]
 			,[MemTurnoverDraw]
 			,[MemTurnoverDraw_aff]
+			,ZeroCommission
 			)
 		SELECT ai.AffID AS AffID
 			,ai.Currency AS Currency
@@ -290,6 +293,7 @@ BEGIN
 			,Sum(isnull([MemWithdrawal_aff], 0))
 			,Sum(isnull([MemTurnoverDraw], 0))
 			,Sum(isnull([MemTurnoverDraw_aff], 0))
+			,[dbo].[IsZeroCommissionGroup](ai.GroupID, @LastDay)
 		FROM AffInfo ai WITH (NOLOCK)
 			INNER JOIN CommGroup ch(NOLOCK)
 			ON ch.groupid = ai.groupid
@@ -339,6 +343,7 @@ BEGIN
 			,[MemWithdrawal_aff]
 			,[MemTurnoverDraw]
 			,[MemTurnoverDraw_aff]
+			,ZeroCommission
 			)
 		SELECT ai.AffID AS AffID
 			,ai.Currency AS Currency
@@ -378,6 +383,7 @@ BEGIN
 			,Sum(isnull([MemWithdrawal_aff], 0))
 			,Sum(isnull([MemTurnoverDraw], 0))
 			,Sum(isnull([MemTurnoverDraw_aff], 0))
+			,[dbo].[IsZeroCommissionGroup](gh.GroupID, @LastDay)
 		FROM AffInfo ai WITH (NOLOCK)
 			INNER JOIN AffGroupHistory gh(NOLOCK)
 			ON gh.AffID = ai.AffID
@@ -453,7 +459,7 @@ BEGIN
 		FROM @AffSummary a
 		WHERE a.NetWinlost_aff < 0
 			AND a.Commission = 0
-			AND [dbo].[IsZeroCommissionGroup](a.GroupID, @LastDay) <> 0
+			AND a.ZeroCommission = 0
 			AND a.ProductID IN (
 				SELECT DISTINCT ProductID
 				FROM GroupSettingHistory(NOLOCK)
@@ -503,7 +509,7 @@ BEGIN
 		FROM @AffSummary a
 		WHERE a.NetWinlost_aff < 0
 			AND a.Commission = 0
-			AND [dbo].[IsZeroCommissionGroup](a.GroupID, @LastDay) <> 0
+			AND a.ZeroCommission = 0
 			AND a.ProductID IN (
 				SELECT DISTINCT ProductID
 				FROM GroupSetting(NOLOCK)
@@ -580,7 +586,7 @@ BEGIN
 		,HasPSP
 		,HasOddsFee
 		,@Status
-		,(NetWinlost - Cast(a.HasBonus AS INT) * isnull(a.MemBonus, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0)
+		,(NetWinlost - Cast(a.HasBonus AS INT) * isnull(a.MemBonus, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0) 
 		,MemWinlost
 		,MemBonus
 		,MemAdjustment
@@ -590,7 +596,10 @@ BEGIN
 		,MemDeposit
 		,Marketing
 		,OddsFee
-		,(NetWinlost_aff - Cast(a.HasBonus AS INT) * isnull(a.MemBonus_aff, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0)
+		,((NetWinlost_aff - Cast(a.HasBonus AS INT) * isnull(a.MemBonus_aff, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0)) * CASE 
+				WHEN a.ZeroCommission = 1 THEN 0
+				ELSE 1
+				END
 		,MemWinlost_aff
 		,MemBonus_aff
 		,MemAdjustment_aff

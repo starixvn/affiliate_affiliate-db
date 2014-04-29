@@ -673,5 +673,7 @@
     <Build Include="Common Function\AffAdmin_AffiliateListForReport.function.sql" />
     <Build Include="Common Function\Aff_CalMonthlyEarning.proc.sql" />
     <Build Include="Common Function\Aff_CalMonthlyEarningCurrent.proc.sql" />
+    <Build Include="zTask\Task_Aff_DailySummaryClickRate.proc.sql" />
+    <Build Include="zTask\Task_Aff_MonthlyTransfer_Job.proc.sql" />
   </ItemGroup>
 </Project>

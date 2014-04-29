@@ -152,7 +152,7 @@ FROM AffInfo ai WITH (ROWLOCK, UPDLOCK)
 LEFT JOIN (
 	SELECT at.AffID, SUM(at.Amount) Amount
 	FROM dbo.AffTrans at WITH (NOLOCK)
-	WHERE at.[status] IN ('approved','pending','completed')  
+	WHERE at.[status] IN ('approved','completed')  
 	GROUP BY at.AffID
 ) tmp ON ai.AffID = tmp.AffID
 

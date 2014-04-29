@@ -1,4 +1,5 @@
-﻿ALTER PROCEDURE [dbo].[Task_Aff_MemberDailyTransactionImportData] @AdminID INT
+﻿ALTER PROCEDURE [dbo].[Task_Aff_MemberDailyTransactionImportData] 
+	@AdminID INT
 	,@XmlData XML
 	,@WinlostDate SMALLDATETIME
 	,@ErrCode INT = 0 OUTPUT
@@ -155,7 +156,7 @@ BEGIN
 
 	--Update MemberDaily PSP, Marketting fee,...
 	UPDATE m WITH (UPDLOCK, ROWLOCK)
-	SET PSP = ((abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPercent) * isnull(dbo.Aff_GetDeductionPercent(AffID, @SportsBookID, 'PSP', @WinlostDate), 0))
+	SET PSP = abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPercent
 		,Marketing = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductId, 'Marketing', @WinlostDate), 0)
 		,MemOddsFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductId, 'Odds Fee', @WinlostDate), 0)
 		,MemPLayTechFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductId, 'PlayTech Royalties', @WinlostDate), 0)
@@ -254,7 +255,7 @@ BEGIN
 		,m.[SysExRate]
 
 	UPDATE AffDaily WITH (ROWLOCK, UPDLOCK)
-	SET HouseNetWinLost = HouseWinLost - isnull(MemBonus, 0) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Bonus', Winlostdate), 0) - isnull(MemAdjustment, 0) - isnull(MemPSP, 0) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'PSP', Winlostdate), 0) - abs(isnull(MemWinlost, 0)) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Marketing', Winlostdate), 0) - abs(isnull(MemWinlost, 0)) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Odds Fee', Winlostdate), 0) - abs(isnull(MemWinlost, 0)) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'PlayTech Royalties', Winlostdate), 0)
+	SET HouseNetWinLost = HouseWinLost - isnull(MemPSP, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'PSP', Winlostdate), 0)) - isnull(MemBonus, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Bonus', Winlostdate), 0)) - isnull(MemAdjustment, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Adjustment', Winlostdate), 0)) - abs(isnull(MemWinlost, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Marketing', Winlostdate), 0)) - abs(isnull(MemWinlost, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Odds Fee', Winlostdate), 0)) - abs(isnull(MemWinlost, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'PlayTech Royalties', Winlostdate), 0))
 	WHERE WinlostDate = @winlostdate
 
 	--Update [AffDailySummary] table
@@ -363,15 +364,8 @@ BEGIN
 		,SysCurrency
 
 	UPDATE AffDailySummary WITH (ROWLOCK, UPDLOCK)
-	SET
-		/*MemWinlostFake=  -(-MemWinlost  
-		  - abs(MemWinlost) * dbo.Aff_GetDeductionPercent(AffID,ProductID,'Odds Fee',WinlostDate)  
-		  - abs(MemWinlost) * dbo.Aff_GetDeductionPercent(AffID,ProductID,'Marketing',WinlostDate)  
-		  - abs(MemWinlost) * dbo.Aff_GetDeductionPercent(AffID,ProductID,'PlayTech Royalties',WinlostDate)
-		  - MemPSP * dbo.Aff_GetDeductionPercent(AffID,ProductID,'PSP',WinlostDate)) ,      
-     */
-		HouseNetWinlost = (- MemWinlost - MemBonus * dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Bonus', WinlostDate) - MemAdjustment - MemPSP * dbo.Aff_GetDeductionPercent(AffID, ProductID, 'PSP', WinlostDate) - abs(MemWinlost) * dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Marketing', WinlostDate) - abs(MemWinlost) * dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Odds Fee', WinlostDate) - abs(MemWinlost) * dbo.Aff_GetDeductionPercent(AffID, ProductID, 'PlayTech Royalties', WinlostDate))
-		,HouseNetWinlost_aff = (- MemWinlost_aff - MemBonus_aff * dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Bonus', WinlostDate) - MemAdjustment_aff - MemPSP_aff * dbo.Aff_GetDeductionPercent(AffID, ProductID, 'PSP', WinlostDate) - abs(MemWinlost_aff) * dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Marketing', WinlostDate) - abs(MemWinlost_aff) * dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Odds Fee', WinlostDate) - abs(MemWinlost_aff) * dbo.Aff_GetDeductionPercent(AffID, ProductID, 'PlayTech Royalties', WinlostDate))
+	SET HouseNetWinlost = (- MemWinlost - isnull(MemPSP, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'PSP', Winlostdate), 0)) - isnull(MemBonus, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Bonus', Winlostdate), 0)) - isnull(MemAdjustment, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Adjustment', Winlostdate), 0)) - abs(isnull(MemWinlost, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Marketing', Winlostdate), 0)) - abs(isnull(MemWinlost, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Odds Fee', Winlostdate), 0)) - abs(isnull(MemWinlost, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'PlayTech Royalties', Winlostdate), 0)))
+		,HouseNetWinlost_aff = (- MemWinlost_aff - isnull(MemPSP_aff, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'PSP', Winlostdate), 0)) - isnull(MemBonus_aff, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Bonus', Winlostdate), 0)) - isnull(MemAdjustment_aff, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Adjustment', Winlostdate), 0)) - abs(isnull(MemWinlost_aff, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Marketing', Winlostdate), 0)) - abs(isnull(MemWinlost_aff, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'Odds Fee', Winlostdate), 0)) - abs(isnull(MemWinlost_aff, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(AffID, ProductID, 'PlayTech Royalties', Winlostdate), 0)))
 	WHERE WinlostDate = @winlostdate
 
 	-----------Update MemwinlostFake for last date (forex winlost for previous date) of each account
@@ -465,4 +459,3 @@ BEGIN
 	WHERE d1.previousMaxWinlostDate < d1.maxWinlostDate
 		--and d.ProductID = @SportsBookID
 END
-GO

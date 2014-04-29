@@ -1,8 +1,6 @@
-
-/****** Object:  Stored Procedure dbo.Task_Aff_MonthlyTransfer    Script Date: 3/2/2014 11:41:38 PM ******/
-CREATE PROCEDURE [dbo].[Task_Aff_MonthlyTransfer_Job] 	
+ï»¿ALTER PROCEDURE [dbo].[Task_Aff_MonthlyTransfer_Job] 
 	@Month INT
-	,@Year INT	
+	,@Year INT
 AS
 /*  
 Created: 20090812@DungTong  
@@ -68,10 +66,12 @@ Revisions:
   - 20131029@Peter : Add more columns to DB https://redmine.nexcel.vn/issues/5280  
                     - Calculate Affiliate BF in AffInfo table                     
   - 20140212@Bobby.Nguyen: Update amount of AffTrans based on aff currency        
+  - 20140418@Bobby.Nguyen: Validate amount of NoCommission group
+  - 20140429@Bobby.Nguyen: Update calculating amount of NoCommission group
 
 Param's Explanation:  
-• @Month: The month to transfer  
-• @Year :  The year to transfer       
+â€¢ @Month: The month to transfer  
+â€¢ @Year :  The year to transfer       
 */
 BEGIN
 	SET NOCOUNT ON
@@ -296,6 +296,7 @@ end*/
 		,[MemWithdrawal_aff] MONEY
 		,[MemTurnoverDraw] MONEY
 		,[MemTurnoverDraw_aff] MONEY
+		,ZeroCommission INT
 		)
 
 	INSERT INTO #AffSummary (
@@ -334,6 +335,7 @@ end*/
 		,[MemWithdrawal_aff]
 		,[MemTurnoverDraw]
 		,[MemTurnoverDraw_aff]
+		,ZeroCommission
 		)
 	SELECT ai.AffID AS AffID
 		,ai.Currency AS Currency
@@ -373,6 +375,7 @@ end*/
 		,Sum(isnull([MemWithdrawal_aff], 0))
 		,Sum(isnull([MemTurnoverDraw], 0))
 		,Sum(isnull([MemTurnoverDraw_aff], 0))
+		,dbo.IsZeroCommissionGroup(gh.GroupID, @LastDay)
 	FROM AffInfo ai WITH (NOLOCK)
 		INNER JOIN AffGroupHistory gh(NOLOCK)
 		ON gh.AffID = ai.AffID
@@ -445,12 +448,12 @@ end*/
 	FROM #AffSummary a
 	WHERE a.NetWinlost_aff < 0
 		AND a.Commission = 0
-		AND [dbo].[IsZeroCommissionGroup](a.GroupID, @LastDay) <> 0
+		AND a.ZeroCommission = 0
 		AND a.ProductID IN (
 			SELECT DISTINCT ProductID
 			FROM GroupSettingHistory(NOLOCK)
 			WHERE GroupID = a.GroupID
-				AND DATEDIFF(m, MonthDate, @LastDay) = 0
+				AND MonthDate BETWEEN @FirstDay AND @LastDay
 			)
 
 	--Insert transaction to AffTrans and AffCommission  
@@ -546,7 +549,10 @@ end*/
 			,MemDeposit
 			,Marketing
 			,OddsFee
-			,(NetWinlost_aff - Cast(a.HasBonus AS INT) * isnull(a.MemBonus_aff, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0)
+			,((NetWinlost_aff - Cast(a.HasBonus AS INT) * isnull(a.MemBonus_aff, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0)) * CASE 
+				WHEN a.ZeroCommission = 1 THEN 0
+				ELSE 1
+				END
 			,MemWinlost_aff
 			,MemBonus_aff
 			,MemAdjustment_aff
@@ -594,7 +600,10 @@ end*/
 		SELECT a.AffID
 			,@LastDay
 			,@WinlostDate
-			,sum((NetWinlost_aff - Cast(a.HasBonus AS INT) * isnull(a.MemBonus_aff, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0)) - [dbo].[Aff_GetAffDeductionAll](AffID, @LastDay)
+			,(sum((NetWinlost_aff - Cast(a.HasBonus AS INT) * isnull(a.MemBonus_aff, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0)) - [dbo].[Aff_GetAffDeductionAll](AffID, @LastDay)) * CASE 
+				WHEN MAX(a.ZeroCommission) = 1 THEN 0
+				ELSE 1
+				END
 			,@Status
 			,'Monthly Earning'
 			,9999
@@ -632,7 +641,7 @@ end*/
 			LEFT JOIN #AffSummary a WITH (NOLOCK)
 			ON a.AffID = ad.AffID
 				AND a.ProductID = ad.ProductID
-		WHERE datediff(mm, ad.Winlostdate, @FirstDay) = 0
+		WHERE ad.Winlostdate BETWEEN @FirstDay AND @LastDay
 
 		UPDATE ad
 		SET /*ad.MemMarketing=Cast(isnull(a.HasMarketing,0) as int) *  abs(isnull(ad.MemWinlost,0)) * isnull(a.MarketingPercent,0) ,  
@@ -661,7 +670,7 @@ end*/
 			LEFT JOIN #AffSummary a WITH (NOLOCK)
 			ON a.AffID = ad.AffID
 				AND a.ProductID = ad.ProductID
-		WHERE datediff(mm, ad.Winlostdate, @FirstDay) = 0
+		WHERE ad.Winlostdate BETWEEN @FirstDay AND @LastDay
 
 		-- Update BF for AffInfo  
 		UPDATE ai
