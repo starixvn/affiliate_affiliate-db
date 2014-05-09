@@ -19,6 +19,7 @@ DB: DB052/DB054.bodb02
 Revisions:  
           - 20131028@Peter : Add more DB columns https://redmine.nexcel.vn/issues/5280
 		  - 20140416@Dan: include Keno
+		  - 20140502@Dan: optimize perfomance
   
 Param's Explanation:  
   
@@ -30,7 +31,8 @@ SET NOCOUNT ON
   
 select @Date=dateadd(dd, datediff(dd,0, @DATE), 0)
      
-create table #LicenseeCust ( custID INT PRIMARY KEY,currency int,username varchar(100), srecommend int, mrecommend int, recommend int)  
+--create table #LicenseeCust(custID INT PRIMARY KEY,currency int,username varchar(100), srecommend int, mrecommend int, recommend int)  
+create table #LicenseeCust(custID INT,currency int,username varchar(100), srecommend int, mrecommend int, recommend int)  
 DECLARE @CutDate datetime , @MaxDate datetime 
   
 SELECT @CutDate =  min(winlostdate), @MaxDate=MAX(Winlostdate)   
@@ -53,21 +55,20 @@ CREATE TABLE #tmpRpt (
  )   
   
   
-  DECLARE @TempTrans TABLE(
-	UserName varchar(30))
+  DECLARE @TempTrans TABLE
+  --CREATE TABLE #TempTrans
+	(UserName varchar(30))
 
-insert into @TempTrans --Convert xml to table
+insert into @TempTrans(UserName) --Convert xml to table
 Select	[Table].[Column].value('./@username', 'varchar(30)') as UserName
 	from @Xml.nodes('/root/trans') as [Table]([Column])
 
 --print @sqlCommand
 
-
 INSERT INTO #LicenseeCust  
-
-Select c.CustID,c.Currency,t.UserName, c.srecommend, c.mrecommend, c.recommend  
+Select c.CustID, c.Currency, t.UserName, c.srecommend, c.mrecommend, c.recommend  
 from bodb02.dbo.customer c with(nolock) 
-inner join @TempTrans as t on  @Prefix + t.username=c.username2
+	inner join @TempTrans as t on  @Prefix + t.username=c.username2	
 where c.roleid=1
 
 -- select * from #LicenseeCust  (nolock)
@@ -111,9 +112,9 @@ begin
 	SUM(CASE WHEN b.statusID = 111 THEN 0 ELSE 1 END)
 	 
 
-FROM bettrans b with(nolock, index(IX_custid_matchid_bettype))   
-	INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid=c.custid 
-WHERE winlostdate = @date	
+FROM bettrans b with(nolock, index(IX_recommend_transid))   
+	INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid=c.custid and b.recommend=c.recommend
+WHERE winlostdate = @date		
 	AND bettype < 19999	
 	AND StatusID not in (101, 102, 103, 121, 1)  
     --and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'      
