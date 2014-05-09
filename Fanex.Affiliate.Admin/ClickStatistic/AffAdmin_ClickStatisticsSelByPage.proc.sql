@@ -1,11 +1,10 @@
-
-ALTER Procedure [dbo].[AffAdmin_ClickStatisticsSelByPage]
-	@AffID int,  
-	@FromDate smalldatetime,
-	@ToDate smalldatetime,
-	@SportCode varchar(200) = null,
-	@LanguageCode varchar(100) = null
-AS  
+ALTER PROCEDURE [dbo].[AffAdmin_ClickStatisticsSelByPage] 
+	@AffID INT
+	,@FromDate SMALLDATETIME
+	,@ToDate SMALLDATETIME
+	,@SportCode VARCHAR(200) = NULL
+	,@LanguageCode VARCHAR(100) = NULL
+AS
 /*  
 Created: 20111005@Johnny  
 Task :   Report click statistics by Landing page and language of landing page
@@ -15,152 +14,193 @@ Original:
 Revisions:  
 	-20131230:Bobby: change to ClickStatistics & ClickStatistics_bk
 	-20140327:Bobby: fixbug https://redmine.nexcel.vn/issues/13595
-*/  
+	-20140509:Bobby: update UniqueClick by date
+*/
 BEGIN
-	SET NOCOUNT ON  
+	SET NOCOUNT ON
 
-	Declare @LastDateSum smalldatetime
-	if(@FromDate > @ToDate)
-		return
+	DECLARE @LastDateSum SMALLDATETIME
 
-	DECLARE @SportCodeTable TABLE (SportCode varchar(20))
+	IF (@FromDate > @ToDate) RETURN
+
+	DECLARE @SportCodeTable TABLE (SportCode VARCHAR(20))
+
 	INSERT INTO @SportCodeTable
-	SELECT CAST(val AS varchar(20)) 
-	FROM [dbo].[strSplit] ( @SportCode, ',' )
+	SELECT CAST(val AS VARCHAR(20))
+	FROM [dbo].[strSplit](@SportCode, ',')
 
-	DECLARE @LanguageCodeTable TABLE (LanguageCode varchar(20))
+	DECLARE @LanguageCodeTable TABLE (LanguageCode VARCHAR(20))
+
 	INSERT INTO @LanguageCodeTable
-	SELECT CAST(val AS varchar(20))
-	FROM [dbo].[strSplit] ( @LanguageCode, ',' )
+	SELECT CAST(val AS VARCHAR(20))
+	FROM [dbo].[strSplit](@LanguageCode, ',')
 
-	Declare @Result as table(SportCode varchar(50), LanguageCode varchar(10), TotalClick int, UniqueClick int, Signups int, FDM int)
+	DECLARE @Result AS TABLE (
+		SportCode VARCHAR(50)
+		,LanguageCode VARCHAR(10)
+		,TotalClick INT
+		,UniqueClick INT
+		,Signups INT
+		,FDM INT
+		)
 
-	select @LastDateSum = (select MAX(Date) from ClickStatisticsSum)
+	SELECT @LastDateSum = (
+			SELECT MAX(DATE)
+			FROM ClickStatisticsSum
+			)
 
-	select @LastDateSum = isnull(@LastDateSum, dateadd(d, -1, @FromDate))
-			, @FromDate = convert(varchar(10), @FromDate,120)
+	SELECT @LastDateSum = isnull(@LastDateSum, dateadd(d, - 1, @FromDate))
+		,@FromDate = convert(VARCHAR(10), @FromDate, 120)
+	
+	-- member stats info
+	SELECT m.clickId
+		,SUM(CASE 
+				WHEN m.RegisteredDate IS NOT NULL THEN 1
+				ELSE 0
+				END) AS Signups
+		,SUM(CASE 
+				WHEN m.CreatedDate IS NOT NULL THEN 1
+				ELSE 0
+				END) AS FDM
+	INTO #memStatsInfo
+	FROM MemberInfo m WITH (NOLOCK)
+	WHERE AffId = @AffID
+		AND RegisteredDate BETWEEN @FromDate AND @ToDate
+		OR CreatedDate BETWEEN @FromDate AND @ToDate
+	GROUP BY ClickID
 
-	if (@FromDate > @LastDateSum)--get from main table
-	Begin
-		insert into @Result
-		select SportCode,LanguageCode
-			, sum(TotalClick) TotalClick
-			, sum(UniqueClick) UniqueClick
-			, sum(Signups) Signups
-			, sum(FDM) FDM
-		from (
-			select 	URLReferrer,c.SportCode,c.LanguageCode,
-					sum(ClickCount) as TotalClick,
-					count(distinct IP) as UniqueClick
-					,
-					SUM(case when m.RegisteredDate is not null then 1 else 0 end) as Signups,
-					SUM(case when m.CreatedDate is not null then 1 else 0 end) as  FDM 
-			from ClickStatistics c
-			INNER JOIN @SportCodeTable s on c.SportCode = s.SportCode
-			INNER JOIN @LanguageCodeTable l on c.LanguageCode = l.LanguageCode
-			left join MemberInfo m with (nolock) 
-				on c.ClickId = m.ClickId
-			where [Date] between @FromDate and @ToDate
-					and c.AffId = @AffID
-			group by URLReferrer,c.SportCode,c.LanguageCode
-		) as t
-		group by SportCode,LanguageCode
-		order by SportCode, LanguageCode
-	End
-	else if (@ToDate < @LastDateSum)--get from summary table
-	Begin
-		insert into @Result
-		select SportCode,LanguageCode
-			, sum(TotalClick) TotalClick
-			, sum(UniqueClick) UniqueClick
-			, sum(Signups) Signups
-			, sum(FDM) FDM
-		from (
-			select 	URLReferrer,c.SportCode,c.LanguageCode,
-					sum(ClickCount) as TotalClick,
-					count(distinct IP) as UniqueClick
-					,
-					SUM(case when m.RegisteredDate is not null then 1 else 0 end) as Signups,
-					SUM(case when m.CreatedDate is not null then 1 else 0 end) as  FDM 
-			from ClickStatistics_bk c
-			INNER JOIN @SportCodeTable s on c.SportCode = s.SportCode
-			INNER JOIN @LanguageCodeTable l on c.LanguageCode = l.LanguageCode
-			left join MemberInfo m with (nolock) 
-				on c.ClickId = m.ClickId
-			where [Date] between @FromDate and @ToDate
-					and c.AffId = @AffID
-			group by URLReferrer,c.SportCode,c.LanguageCode
-		) as t
-		group by SportCode,LanguageCode
-		order by SportCode, LanguageCode
-	End
-	else--@fromdate < @LastDateSum < @ToDate
-	Begin
-		insert into @Result
-		select SportCode,LanguageCode
-			, sum(TotalClick) TotalClick
-			, sum(UniqueClick) UniqueClick
-			, sum(Signups) Signups
-			, sum(FDM) FDM
-		from (
-			select SportCode,LanguageCode
-				, sum(TotalClick) TotalClick
-				, sum(UniqueClick) UniqueClick
-				, sum(Signups) Signups
-				, sum(FDM) FDM
-			from (
-				select 	URLReferrer,c.SportCode,c.LanguageCode,
-						sum(ClickCount) as TotalClick,
-						count(distinct IP) as UniqueClick
-						,
-						SUM(case when m.RegisteredDate is not null then 1 else 0 end) as Signups,
-						SUM(case when m.CreatedDate is not null then 1 else 0 end) as  FDM 
-				from ClickStatistics c
-				INNER JOIN @SportCodeTable s on c.SportCode = s.SportCode
-				INNER JOIN @LanguageCodeTable l on c.LanguageCode = l.LanguageCode
-				left join MemberInfo m with (nolock) 
-					on c.ClickId = m.ClickId
-				where [Date] between @FromDate and @ToDate
-						and c.AffId = @AffID
-				group by URLReferrer,c.SportCode,c.LanguageCode
-			) as t
-			group by SportCode,LanguageCode
-			union
-			select SportCode,LanguageCode
-				, sum(TotalClick) TotalClick
-				, sum(UniqueClick) UniqueClick
-				, sum(Signups) Signups
-				, sum(FDM) FDM
-			from (
-				select 	URLReferrer,c.SportCode,c.LanguageCode,
-						sum(ClickCount) as TotalClick,
-						count(distinct IP) as UniqueClick
-						,
-						SUM(case when m.RegisteredDate is not null then 1 else 0 end) as Signups,
-						SUM(case when m.CreatedDate is not null then 1 else 0 end) as  FDM 
-				from ClickStatistics_bk c
-				INNER JOIN @SportCodeTable s on c.SportCode = s.SportCode
-				INNER JOIN @LanguageCodeTable l on c.LanguageCode = l.LanguageCode
-				left join MemberInfo m with (nolock) 
-					on c.ClickId = m.ClickId
-				where [Date] between @FromDate and @ToDate
-						and c.AffId = @AffID
-				group by URLReferrer,c.SportCode,c.LanguageCode
-			) as t2
-			group by SportCode,LanguageCode
-		) t3
-		group by SportCode,LanguageCode
-		order by SportCode,LanguageCode
+	IF (@FromDate > @LastDateSum) --get from main table
+	BEGIN
+		WITH clickStats
+		AS (
+			SELECT SportCode
+				,LanguageCode
+				,Date AS DateClick
+				,SUM(ClickCount) AS TotalClick
+				,COUNT(DISTINCT IP) AS UniqueClick
+				,SUM(ISNULL(m.Signups, 0)) Signups
+				,SUM(ISNULL(m.FDM, 0)) FDM
+			FROM dbo.ClickStatistics c WITH (NOLOCK)
+				LEFT JOIN #memStatsInfo m 
+				ON m.clickId = c.clickId
+			WHERE c.[Date] BETWEEN @FromDate AND @ToDate
+				AND c.AffId = @AffID
+			GROUP BY SportCode
+				,LanguageCode
+				,[Date]
+		)
+		INSERT INTO @Result
+		SELECT SportCode
+			,LanguageCode
+			,SUM(TotalClick) AS TotalClick
+			,SUM(UniqueClick) AS UniqueClick
+			,SUM(ISNULL(Signups, 0)) Signups
+			,SUM(ISNULL(FDM, 0)) FDM
+		FROM clickStats c WITH (NOLOCK)
+		GROUP BY SportCode
+			,LanguageCode
+		ORDER BY SportCode
+			,LanguageCode
+	END
+	ELSE IF (@ToDate < @LastDateSum) --get from summary table
+	BEGIN
+		WITH clickStats
+		AS (
+			SELECT SportCode
+				,LanguageCode
+				,Date AS DateClick
+				,SUM(ClickCount) AS TotalClick
+				,COUNT(DISTINCT IP) AS UniqueClick
+				,SUM(ISNULL(m.Signups, 0)) Signups
+				,SUM(ISNULL(m.FDM, 0)) FDM
+			FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
+				LEFT JOIN #memStatsInfo m 
+				ON m.clickId = c.clickId
+			WHERE c.[Date] BETWEEN @FromDate AND @ToDate
+				AND c.AffId = @AffID
+			GROUP BY SportCode
+				,LanguageCode
+				,[Date]
+		)
+		INSERT INTO @Result
+		SELECT SportCode
+			,LanguageCode
+			,SUM(TotalClick) AS TotalClick
+			,SUM(UniqueClick) AS UniqueClick
+			,SUM(ISNULL(Signups, 0)) Signups
+			,SUM(ISNULL(FDM, 0)) FDM
+		FROM clickStats c WITH (NOLOCK)
+		GROUP BY SportCode
+			,LanguageCode
+		ORDER BY SportCode
+			,LanguageCode
+	END
+	ELSE --@fromdate < @LastDateSum < @ToDate
+	BEGIN
+		WITH clickAll
+		AS (
+			SELECT ClickId 
+				,Date
+				,SportCode
+				,LanguageCode
+				,ClickCount
+				,IP
+			FROM dbo.ClickStatistics c WITH (NOLOCK)
+			WHERE c.[Date] BETWEEN @FromDate AND @ToDate
+				AND c.AffId = @AffID
+			
+			UNION
+			SELECT ClickId 
+				,Date
+				,SportCode
+				,LanguageCode
+				,ClickCount
+				,IP
+			FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
+			WHERE c.[Date] BETWEEN @FromDate AND @ToDate
+				AND c.AffId = @AffID
+			)
+		,clickStats
+		AS (
+			SELECT SportCode
+				,LanguageCode
+				,Date AS DateClick
+				,sum(ClickCount) AS TotalClick
+				,COUNT(DISTINCT IP) AS UniqueClick
+				,SUM(ISNULL(m.Signups, 0)) Signups
+				,SUM(ISNULL(m.FDM, 0)) FDM
+			FROM clickAll c WITH (NOLOCK)
+				LEFT JOIN #memStatsInfo m 
+				ON m.clickId = c.clickId
+			GROUP BY SportCode
+				,LanguageCode
+				,[Date]
+		)
+		INSERT INTO @Result
+		SELECT SportCode
+			,LanguageCode
+			,SUM(TotalClick) AS TotalClick
+			,SUM(UniqueClick) AS UniqueClick
+			,SUM(ISNULL(Signups, 0)) Signups
+			,SUM(ISNULL(FDM, 0)) FDM
+		FROM clickStats c WITH (NOLOCK)
+		GROUP BY SportCode
+			,LanguageCode
+		ORDER BY SportCode
+			,LanguageCode
+	END
 
-	End
+	DROP TABLE #memStatsInfo
 
 	SELECT r.*
-		, ISNULL(lan.LanguageName,'N/A') AS LanguageName
+		,ISNULL(lan.LanguageName, 'N/A') AS LanguageName
 	FROM @Result AS r
-	LEFT JOIN dbo.[Language] AS lan WITH (NOLOCK) 
-		ON r.LanguageCode=lan.LanguageID
+		LEFT JOIN dbo.[Language] AS lan WITH (NOLOCK)
+		ON r.LanguageCode = lan.LanguageID
 END
 GO
+
 GRANT EXECUTE ON [dbo].[AffAdmin_ClickStatisticsSelByPage] TO [bodbAdminNet]
 GO
+
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_ClickStatisticsSelByPage] TO [vnteam]
