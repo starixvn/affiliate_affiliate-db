@@ -85,7 +85,7 @@ BEGIN
 		)
 		INSERT INTO @Result
 		SELECT URLReferrer
-			,SUM(ClickCount) AS TotalClick
+			,SUM(TotalClick) AS TotalClick
 			,SUM(UniqueClick) AS UniqueClick
 			,SUM(ISNULL(Signups, 0)) Signups
 			,SUM(ISNULL(FDM, 0)) FDM
@@ -114,7 +114,7 @@ BEGIN
 		)
 		INSERT INTO @Result
 		SELECT URLReferrer
-			,SUM(ClickCount) AS TotalClick
+			,SUM(TotalClick) AS TotalClick
 			,SUM(UniqueClick) AS UniqueClick
 			,SUM(ISNULL(Signups, 0)) Signups
 			,SUM(ISNULL(FDM, 0)) FDM
@@ -141,7 +141,6 @@ BEGIN
 			SELECT ClickId 
 				,[Date]
 				,URLReferrer
-				,LanguageCode
 				,ClickCount
 				,IP
 			FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
@@ -166,7 +165,7 @@ BEGIN
 		)
 		INSERT INTO @Result
 		SELECT URLReferrer
-			,SUM(ClickCount) AS TotalClick
+			,SUM(TotalClick) AS TotalClick
 			,SUM(UniqueClick) AS UniqueClick
 			,SUM(ISNULL(Signups, 0)) Signups
 			,SUM(ISNULL(FDM, 0)) FDM

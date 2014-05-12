@@ -672,8 +672,9 @@
     <Build Include="Common Function\Aff_CalMonthlyEarningCurrent.proc.sql" />
     <Build Include="zTask\Task_Aff_DailySummaryClickRate.proc.sql" />
     <Build Include="zTask\Task_Aff_MonthlyTransfer_Job.proc.sql" />
-    <None Include="ClickStatistic\AffAdmin_MemberStatisticsReport.proc.sql">
+    <None Include="Report\AffAdmin_MemberStatisticsReport.proc.sql">
       <SubType>Code</SubType>
     </None>
+    <Build Include="Common Function\Aff_IsProductInGroupOfAff.sql" />
   </ItemGroup>
 </Project>

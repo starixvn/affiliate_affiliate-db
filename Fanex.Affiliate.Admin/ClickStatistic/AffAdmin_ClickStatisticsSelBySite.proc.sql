@@ -62,8 +62,8 @@ BEGIN
 		AS (
 			SELECT DomainReferrer
 				,Date AS DateClick
-				,sum(ClickCount) AS TotalClick
-				,count(DISTINCT IP) AS UniqueClick
+				,SUM(ClickCount) AS TotalClick
+				,COUNT(DISTINCT IP) AS UniqueClick
 				,SUM(ISNULL(m.Signups, 0)) Signups
 				,SUM(ISNULL(m.FDM, 0)) FDM
 			FROM dbo.ClickStatistics c WITH (NOLOCK)
@@ -75,7 +75,7 @@ BEGIN
 		)
 		INSERT INTO @Result
 		SELECT DomainReferrer
-			,sum(TotalClick) AS TotalClick
+			,SUM(TotalClick) AS TotalClick
 			,SUM(UniqueClick) AS UniqueClick
 			,SUM(ISNULL(Signups, 0)) Signups
 			,SUM(ISNULL(FDM, 0)) FDM
@@ -88,20 +88,18 @@ BEGIN
 		AS (
 			SELECT DomainReferrer
 				,Date AS DateClick
-				,sum(ClickCount) AS TotalClick
-				,count(DISTINCT IP) AS UniqueClick
-				,SUM(ISNULL(m.Signups, 0)) Signups
-				,SUM(ISNULL(m.FDM, 0)) FDM
-			FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
-				LEFT JOIN #memStatsInfo m 
-				ON m.clickId = c.clickId
+				,SUM(TotalClick) AS TotalClick
+				,SUM(UniqueClick) AS UniqueClick
+				,SUM(TotalSignup) AS Signups
+				,SUM(TotalDeposit) AS FDM
+			FROM ClickStatisticsSum c WITH(NOLOCK)
 			WHERE c.[Date] BETWEEN @FromDate AND @ToDate
 				AND c.AffId = @AffID
 			GROUP BY DomainReferrer, [Date]
 		)
 		INSERT INTO @Result
 		SELECT DomainReferrer
-			,sum(TotalClick) AS TotalClick
+			,SUM(TotalClick) AS TotalClick
 			,SUM(UniqueClick) AS UniqueClick
 			,SUM(ISNULL(Signups, 0)) Signups
 			,SUM(ISNULL(FDM, 0)) FDM
@@ -110,43 +108,36 @@ BEGIN
 	END
 	ELSE --@fromdate < @LastDateSum < @ToDate  
 	BEGIN
-		WITH clickAll
-		AS (
-			SELECT ClickId 
-				,Date
-				,DomainReferrer
-				,ClickCount
-				,IP
-			FROM dbo.ClickStatistics c WITH (NOLOCK)
-			WHERE c.[Date] BETWEEN @FromDate AND @ToDate
-				AND c.AffId = @AffID
-			
-			UNION
-			SELECT ClickId 
-				,Date
-				,DomainReferrer
-				,ClickCount
-				,IP
-			FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
-			WHERE c.[Date] BETWEEN @FromDate AND @ToDate
-				AND c.AffId = @AffID
-			)
-		,clickStats
+		WITH clickStats
 		AS (
 			SELECT DomainReferrer
 				,Date AS DateClick
-				,sum(ClickCount) AS TotalClick
-				,count(DISTINCT IP) AS UniqueClick
+				,SUM(ClickCount) AS TotalClick
+				,COUNT(DISTINCT IP) AS UniqueClick
 				,SUM(ISNULL(m.Signups, 0)) Signups
 				,SUM(ISNULL(m.FDM, 0)) FDM
-			FROM clickAll c WITH (NOLOCK)
+			FROM dbo.ClickStatistics c WITH (NOLOCK)
 				LEFT JOIN #memStatsInfo m 
 				ON m.clickId = c.clickId
+			WHERE c.[Date] BETWEEN @FromDate AND @ToDate
+				AND c.AffId = @AffID
+			GROUP BY DomainReferrer, [Date]
+
+			UNION
+			SELECT DomainReferrer
+				,Date AS DateClick
+				,SUM(TotalClick) AS TotalClick
+				,SUM(UniqueClick) AS UniqueClick
+				,SUM(TotalSignup) AS Signups
+				,SUM(TotalDeposit) AS FDM
+			FROM ClickStatisticsSum c WITH(NOLOCK)
+			WHERE c.[Date] BETWEEN @FromDate AND @ToDate
+				AND c.AffId = @AffID
 			GROUP BY DomainReferrer, [Date]
 		)
 		INSERT INTO @Result
 		SELECT DomainReferrer
-			,sum(TotalClick) AS TotalClick
+			,SUM(TotalClick) AS TotalClick
 			,SUM(UniqueClick) AS UniqueClick
 			,SUM(ISNULL(Signups, 0)) Signups
 			,SUM(ISNULL(FDM, 0)) FDM
