@@ -151,58 +151,57 @@ BEGIN
 		INSERT INTO @clickStats
 		SELECT c.AffId
 			,c.DATE AS DateClick
-			,SUM(ClickCount) AS TotalClick
-			,COUNT(DISTINCT IP) AS UniqueClick
-			,SUM(m.Signups) AS Signups
-			,SUM(m.FDM) AS FDM
-		FROM ClickStatistics_bk c(NOLOCK)
+			,SUM(TotalClick) AS TotalClick
+			,SUM(UniqueClick) AS UniqueClick
+			,SUM(TotalSignup) AS Signups
+			,SUM(TotalDeposit) AS FDM
+		FROM ClickStatisticsSum c(NOLOCK)
 			INNER JOIN @AffList ai
 			ON c.AffId = ai.AffId
-			LEFT JOIN #memStatsInfo m
-			ON c.ClickId = m.ClickId
 		WHERE [Date] BETWEEN @FromDate AND @ToDate
 		GROUP BY c.AffId
 			,c.[date]
-			,IP
 	END
 	ELSE --@fromdate < @LastDateSum < @ToDate  
 	BEGIN
-		WITH clickAll
-		AS (
+		INSERT INTO @clickStats
+		SELECT AffId
+			, DateClick
+			, TotalClick
+			, UniqueClick
+			, Signups
+			, FDM
+		FROM (
 			SELECT c.AffId
-				,ClickID
 				,c.DATE AS DateClick
-				,IP
-				,ClickCount
+				,SUM(ClickCount) AS TotalClick
+				,COUNT(DISTINCT IP) AS UniqueClick
+				,SUM(m.Signups) AS Signups
+				,SUM(m.FDM) AS FDM
 			FROM ClickStatistics c(NOLOCK)
 				INNER JOIN @AffList ai
 				ON c.AffId = ai.AffId
+				LEFT JOIN #memStatsInfo m
+				ON c.ClickId = m.ClickId
 			WHERE [Date] BETWEEN @FromDate AND @ToDate
-			
-			UNION
-			SELECT c.AffId
-				,ClickID
-				,c.DATE AS DateClick
+			GROUP BY c.AffId
+				,c.[date]
 				,IP
-				,ClickCount
-			FROM ClickStatistics_bk c(NOLOCK)
+
+			UNION 
+			SELECT c.AffId
+				,c.DATE AS DateClick
+				,SUM(TotalClick) AS TotalClick
+				,SUM(UniqueClick) AS UniqueClick
+				,SUM(TotalSignup) AS Signups
+				,SUM(TotalDeposit) AS FDM
+			FROM ClickStatisticsSum c WITH(NOLOCK)
 				INNER JOIN @AffList ai
-			ON c.AffId = ai.AffId
+				ON c.AffId = ai.AffId
 			WHERE [Date] BETWEEN @FromDate AND @ToDate
-			)
-		INSERT INTO @clickStats
-		SELECT c.AffId
-			,c.DateClick
-			,SUM(ClickCount) AS TotalClick
-			,COUNT(DISTINCT IP) AS UniqueClick
-			,SUM(m.Signups) AS Signups
-			,SUM(m.FDM) AS FDM
-		FROM clickAll c(NOLOCK)
-			LEFT JOIN #memStatsInfo m
-			ON c.ClickId = m.ClickId
-		GROUP BY c.AffId
-			,c.[DateClick]
-			,IP
+			GROUP BY c.AffId
+				,c.[date]
+		) AS T
 	END
 
 	INSERT INTO @Result
@@ -251,21 +250,20 @@ BEGIN
 				,LANGUAGE
 				,Currency
 				,STATUS
-			HAVING SUM(TotalClick) > 0
-				OR SUM(UniqueClick) > 0
-				OR SUM(Signups) > 0
-				OR SUM(FDM) > 0
-				OR SUM(Signups - FDM) > 0
 			) r
 			LEFT JOIN (
-			SELECT AffId
-				,COUNT(DISTINCT UserName) AS ActivePlayers
-			FROM MemberDaily WITH (NOLOCK)
-			WHERE Turnover > 0
-			GROUP BY AffID
+				SELECT AffId
+					,COUNT(DISTINCT md.UserName) AS ActivePlayers
+				FROM MemberDaily md WITH (NOLOCK)
+				WHERE md.Turnover > 0
+				GROUP BY AffID
 			) AS tmp
 			ON r.AffId = tmp.AffId
-		WHERE tmp.ActivePlayers > 0
+		WHERE TotalClick > 0
+			OR UniqueClick > 0
+			OR Signups > 0
+			OR FDM > 0
+			OR tmp.ActivePlayers > 0
 		ORDER BY (CASE 
 				WHEN @SortBy = 1 THEN Signups
 				WHEN @SortBy = 2 THEN ActivePlayers END
@@ -274,27 +272,51 @@ BEGIN
 	END
 	ELSE IF (@GroupBy = 1) -- By Date  
 	BEGIN
-		SELECT r.AffId
-			,Username
-			,DateClick
-			,AffType
-			,LANGUAGE
-			,Currency
-			,STATUS
-			,TotalClick
-			,UniqueClick
-			,Signups
-			,FDM
-			,NonDeposit
-			,ISNULL(ActivePlayers, 0) ActivePlayers
-		FROM (
+		WITH activePlayer
+		AS (
+			SELECT md.AffID
+				,COUNT(DISTINCT md.UserName) AS ActivePlayers
+				,WinlostDate
+			FROM MemberDaily md WITH (NOLOCK)
+				INNER JOIN @AffList ai 
+				ON md.AffId = ai.AffId
+				INNER JOIN MemberInfo mi WITH (NOLOCK)
+				ON md.UserName = mi.UserName
+			WHERE md.Winlostdate BETWEEN @FromDate AND @ToDate
+				AND md.Turnover > 0
+				AND (RegisteredDate BETWEEN @FromDate AND @ToDate
+					OR CreatedDate BETWEEN @FromDate AND @ToDate)
+			GROUP BY md.AffID
+				,Winlostdate
+		)
+		, rptDate
+		AS (
+			SELECT AffId 
+				, WinlostDate AS DateClick
+			FROM activePlayer
+
+			UNION
+			SELECT AffId, DateClick
+			FROM @Result
+		)
+		SELECT rpt.AffId
+			,rpt.DateClick
+			,ai.Username
+			,ai.AffType
+			,ai.[LANGUAGE]
+			,ai.Currency
+			,ai.[STATUS]
+			,ISNULL(ck.TotalClick, 0) TotalClick
+			,ISNULL(ck.UniqueClick, 0) UniqueClick
+			,ISNULL(ck.Signups, 0) Signups
+			,ISNULL(ck.FDM, 0) FDM
+			,ISNULL(ck.NonDeposit, 0) NonDeposit
+			,ISNULL(at.ActivePlayers, 0) ActivePlayers
+		FROM rptDate rpt
+		LEFT JOIN @AffList ai ON rpt.AffId = ai.AffId
+		LEFT JOIN (
 			SELECT r.AffId
-				,Username
 				,DateClick
-				,AffType
-				,LANGUAGE
-				,Currency
-				,STATUS
 				,SUM(TotalClick) AS TotalClick
 				,SUM(UniqueClick) AS UniqueClick
 				,SUM(Signups) AS Signups
@@ -302,46 +324,44 @@ BEGIN
 				,SUM(Signups - FDM) AS NonDeposit
 			FROM @Result AS r
 			GROUP BY r.AffId
-				,Username
 				,DateClick
-				,AffType
-				,LANGUAGE
-				,Currency
-				,STATUS
-			HAVING SUM(TotalClick) > 0
-				OR SUM(UniqueClick) > 0
-				OR SUM(Signups) > 0
-				OR SUM(FDM) > 0
-				OR SUM(Signups - FDM) > 0
-			) r
-			LEFT JOIN (
-			SELECT AffID
-				,COUNT(DISTINCT UserName) AS ActivePlayers
-				,WinlostDate
-			FROM MemberDaily WITH (NOLOCK)
-			WHERE Winlostdate BETWEEN @FromDate AND @ToDate
-				AND Turnover > 0
-			GROUP BY AffID
-				,Winlostdate
-			) AS tmp
-			ON r.AffId = tmp.AffId
-				AND (
-					r.DateClick = tmp.Winlostdate
-					OR r.DateClick IS NULL
-					OR tmp.WinlostDate IS NULL
-					)
+			) ck
+			ON rpt.AffId = ck.AffId AND rpt.DateClick = ck.DateClick
+			LEFT JOIN activePlayer at ON rpt.AffId = at.AffId AND rpt.DateClick = at.WinlostDate
+		WHERE ck.TotalClick > 0
+			OR ck.UniqueClick > 0
+			OR ck.Signups > 0
+			OR ck.FDM > 0
+			OR at.ActivePlayers > 0
 		ORDER BY (CASE 
 				WHEN @SortBy = 1 THEN Signups
 				WHEN @SortBy = 2 THEN ActivePlayers END
 				) DESC
 			,(CASE 
-				WHEN @SortBy = 3 THEN r.AffId END
+				WHEN @SortBy = 3 THEN rpt.AffId END
 				)
-			,r.DateClick DESC
-			,r.Username
+			,DateClick DESC
+			,Username
 	END
 	ELSE IF (@GroupBy = 2) -- By Month  
 	BEGIN
+		WITH activePlayer
+		AS (
+			SELECT md.AffID
+				,COUNT(DISTINCT md.UserName) AS ActivePlayers
+				,dateadd(m, datediff(m, 0, Winlostdate), 0) AS WinlostDate
+			FROM MemberDaily md WITH (NOLOCK)
+				INNER JOIN @AffList ai 
+				ON md.AffId = ai.AffId
+				INNER JOIN MemberInfo mi WITH (NOLOCK)
+				ON md.UserName = mi.UserName
+			WHERE md.Winlostdate BETWEEN @FromDate AND @ToDate
+				AND md.Turnover > 0
+				AND (RegisteredDate BETWEEN @FromDate AND @ToDate
+					OR CreatedDate BETWEEN @FromDate AND @ToDate)
+			GROUP BY md.AffID
+				,dateadd(m, datediff(m, 0, Winlostdate), 0)
+		)
 		SELECT r.AffId
 			,Username
 			,DateClick
@@ -377,16 +397,7 @@ BEGIN
 				,Currency
 				,STATUS
 			) AS r
-			LEFT JOIN (
-			SELECT AffID
-				,COUNT(DISTINCT UserName) AS ActivePlayers
-				,dateadd(m, datediff(m, 0, Winlostdate), 0) AS WinlostDate
-			FROM MemberDaily WITH (NOLOCK)
-			WHERE Winlostdate BETWEEN @FromDate AND @ToDate
-				AND Turnover > 0
-			GROUP BY AffID
-				,dateadd(m, datediff(m, 0, Winlostdate), 0)
-			) AS tmp
+			LEFT JOIN activePlayer tmp
 			ON r.AffId = tmp.AffId
 				AND (
 					datediff(m, r.DateClick, tmp.Winlostdate) = 0
@@ -397,6 +408,7 @@ BEGIN
 			OR UniqueClick > 0
 			OR Signups > 0
 			OR FDM > 0
+			OR NonDeposit > 0
 			OR tmp.ActivePlayers > 0
 		ORDER BY (CASE 
 				WHEN @SortBy = 1 THEN Signups
