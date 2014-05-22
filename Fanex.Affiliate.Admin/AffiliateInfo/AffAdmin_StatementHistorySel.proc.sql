@@ -1,4 +1,4 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_StatementHistorySel] 
+﻿ALTER PROCEDURE [dbo].[AffAdmin_StatementHistorySel_xtest] 
 	@AffId INT
 	,@TransType VARCHAR(100) = NULL
 	,@Status VARCHAR(100) = NULL
@@ -12,7 +12,9 @@ Task : Getting all of transactions for an affiliate (Monthly transfer, Payment R
 DB:   
 Original: [Aff_CustomerSelStatementHistory]    
 Revisions:     
-	- 20131126@Johnny: Fix filter by transaction type and status
+    - 20131126@Johnny: Fix filter by transaction type and status
+	- 20140520@Bobby: check data existing in MemberDaily for previous month
+
 Param's Explanation:    
 • @AffID : Affiliate custid    
 • @TransType :   
@@ -83,10 +85,9 @@ BEGIN
 		,CompletedDate SMALLDATETIME
 		,TransType INT
 		,Amount MONEY
-		,[STATUS] VARCHAR(20)
+		,STATUS VARCHAR(20)
 		,Creator NVARCHAR(50)
-		,[Description] NVARCHAR(300)
-		,Currency INT
+		,Description NVARCHAR(300)
 		)
 	DECLARE @Month INT
 		,@Year INT
@@ -123,7 +124,6 @@ BEGIN
 			,'Processing' AS STATUS
 			,'' AS Creator
 			,'Current month statistics' AS Description
-			,@AffCurrency
 	END
 
 	--Neu thang roi chua calculate va user duoc approve tu thang roi tro ve truoc  
@@ -144,6 +144,21 @@ BEGIN
 				@DateOption = 0
 				OR dateadd(m, - 1, @CurrentDate) BETWEEN @FromDate AND @ToDate
 				)
+			-- check data existing in MemberDaily
+			AND EXISTS (
+					SELECT TOP 1 1
+					FROM dbo.MemberDaily m (NOLOCK)
+						INNER JOIN (
+						SELECT sg.ProductId 
+						FROM AffGroupHistory ag (NOLOCK)
+							INNER JOIN GroupSettingHistory sg (NOLOCK)
+							ON ag.GroupId = sg.GroupId AND ag.MonthDate = sg.MonthDate
+						WHERE ag.AffId = @AffId AND ag.MonthDate = dbo.Aff_GetLastDayOfMonth(DATEADD(m, - 1, @CurrentDate))
+						) g ON m.ProductId = g.ProductId
+					WHERE AffId = @AffId
+						AND Winlostdate BETWEEN dbo.Aff_GetFirstDayOfMonth(DATEADD(m, - 1, @CurrentDate)) AND dbo.Aff_GetLastDayOfMonth(DATEADD(m, - 1, @CurrentDate))
+					)
+
 			)
 	BEGIN
 		SELECT @Month = month(dateadd(m, - 1, @CurrentDate))
@@ -206,8 +221,8 @@ BEGIN
 		,CompletedDate
 		,TransType
 		,CASE @BaseCurrency
-			WHEN 1 THEN Amount * dbo.Aff_GetExchangeRate(@AffCurrency, @SystemCurrency, NULL) --sys currency
-			ELSE Amount --aff currency
+			WHEN 0 THEN Amount
+			ELSE Amount * dbo.Aff_GetExchangeRate(@AffCurrency, @SystemCurrency, NULL)
 			END AS Amount
 		,STATUS
 		,Creator
@@ -241,4 +256,4 @@ BEGIN
 END
 GO
 
-GRANT EXECUTE ON [dbo].[AffAdmin_StatementHistorySel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_StatementHistorySel_xtest] TO [bodbAdminNet]

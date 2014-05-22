@@ -1,4 +1,5 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_HomeGeneralInfo] @UserId INT = 0
+﻿ALTER PROCEDURE [dbo].[AffAdmin_HomeGeneralInfo] 
+	@UserId INT = 0
 AS
 /*Created: 20090828@Bryan    
 Task : Gather overview statistic information of aff-admin site    
@@ -9,6 +10,8 @@ Revisions:
  - 20100520@Johnny: apply StatusID in bettrans table    
  - 20100729@Johnny: Apply Media affiliate statistics    
  - 20131007@Johnny: Get Turnover
+ - 20140515@bobby: Exclude member test account
+
 Param's Explanation:    
     
 */
@@ -216,8 +219,11 @@ BEGIN
 				WHEN datediff(m, RegisteredDate, @CurrentDate) = 0 AND CreatedDate IS NULL THEN 1
 				ELSE 0
 				END)
-	FROM MemberInfo WITH (NOLOCK)
-	WHERE IsRemoved = 0
+	FROM MemberInfo m WITH (NOLOCK)
+		INNER JOIN AffInfo ai WITH (NOLOCK)
+		ON m.AffId = ai.AffId
+	WHERE m.IsRemoved = 0
+		AND ai.TestLevel = 0
 
 	--final result here    
 	SELECT isnull(@PaymentReqNum, 0) AS PaymentReqNum

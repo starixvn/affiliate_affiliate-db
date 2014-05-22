@@ -15,6 +15,7 @@
 	,@IsITAdmin BIT = 0
 	,@PageCurrent INT = 1
 	,@PageSize INT = 25
+	,@ProductIds VARCHAR(100) = NULL
 	,@NRows INT = 0 OUTPUT
 AS
 /*    
@@ -22,8 +23,10 @@ Task : Commission Report - Company View
 DB:    
 Original: [AffAdmin_CommissionReport]
 Revisions:      
-	-20140326@Bobby: Fix bug: https://redmine.nexcel.vn/issues/13939     
-	-20140401@Bobby: Apply paging       
+	- 20140326@Bobby: Fix bug: https://redmine.nexcel.vn/issues/13939     
+	- 20140401@Bobby: Apply paging       
+	- 20140514@Bobby: Add Playtech Casio product   
+	- 20140520@Bobby: Add filter product by commgroup setting
                 
 Param's Explanation: 
 • @UserId: Admin user id
@@ -78,6 +81,9 @@ BEGIN
 		,@RNGCasinoAmount MONEY
 		,@RNGCasinoCommission DECIMAL
 		,@RNGCasinoQualifiedMember DECIMAL
+		,@PlaytechCasinoAmount MONEY
+		,@PlaytechCasinoCommission DECIMAL
+		,@PlaytechCasinoQualifiedMember DECIMAL
 
 	--Reset todate to ending of date
 	SELECT @ToDate = dbo.Aff_GetLastDayOfMonth(@ToDate)
@@ -95,11 +101,27 @@ BEGIN
 		,@NumberGame INT
 		,@LiveCasino INT
 		,@RNGCasino INT
+		,@PlaytechCasino INT
 
 	SELECT @SportsbookId = dbo.[Aff_GetProductID]('Sportsbook')
 		,@NumberGame = dbo.[Aff_GetProductID]('Number Game')
 		,@LiveCasino = dbo.[Aff_GetProductID]('Live Casino')
 		,@RNGCasino = dbo.[Aff_GetProductID]('RNG Casino')
+		,@PlaytechCasino = dbo.[Aff_GetProductID]('Playtech Casino')
+
+	DECLARE @ProductFilter AS TABLE (ProductId INT)
+	IF (LEN(@ProductIds) > 0)
+	BEGIN
+		INSERT INTO @ProductFilter (ProductId)
+		SELECT Val
+		FROM [dbo].[strSplit_key](@ProductIds, ',')
+	END
+	ELSE
+	BEGIN
+		INSERT INTO @ProductFilter (ProductId)
+		SELECT ProductId
+		FROM dbo.Product WITH (NOLOCK)
+	END
 
 	DECLARE @Cashback TABLE (
 		GroupID INT
@@ -168,6 +190,17 @@ BEGIN
 		,RNGCasinoTurnoverBase MONEY
 		,RNGCasinoWinlossBase MONEY
 		,RNGCasinoCommissionBase MONEY
+		-- add Playtech CS product
+		,PlaytechCasinoActivePlayers INT
+		,PlaytechCasinoBetCount INT
+		,PlaytechCasinoTurnover MONEY
+		,PlaytechCasinoWinloss MONEY
+		,PlaytechCasinoQM INT
+		,PlaytechCasinoCommissionPercent DECIMAL(9, 8)
+		,PlaytechCasinoCommission MONEY
+		,PlaytechCasinoTurnoverBase MONEY
+		,PlaytechCasinoWinlossBase MONEY
+		,PlaytechCasinoCommissionBase MONEY
 		)
 
 	--For the old month that is calculated.
@@ -241,6 +274,17 @@ BEGIN
 			,RNGCasinoTurnoverBase
 			,RNGCasinoWinlossBase
 			,RNGCasinoCommissionBase
+			-- add Playtech CS product
+			,PlaytechCasinoActivePlayers
+			,PlaytechCasinoBetCount
+			,PlaytechCasinoTurnover
+			,PlaytechCasinoWinloss
+			,PlaytechCasinoQM
+			,PlaytechCasinoCommissionPercent
+			,PlaytechCasinoCommission
+			,PlaytechCasinoTurnoverBase
+			,PlaytechCasinoWinlossBase
+			,PlaytechCasinoCommissionBase
 			)
 		SELECT ac.AffId
 			,t.STATUS
@@ -253,7 +297,6 @@ BEGIN
 			,cg.GroupId
 			,cg.GroupName
 			,Sum(ac.AffWinlost_aff) AS Commission
-			--, sum((AffWinlost_aff - Cast(ac.HasBonus AS INT) * isnull(ac.MemberBonus_aff, 0)) * isnull(Commission, 0)) AS Commission
 			,Sum(ac.AffWinlost) AS CommissionBase
 			,Sum(CASE 
 					WHEN @DrawFilter = 1 THEN ac.MemberBetCountNoDraw
@@ -275,204 +318,254 @@ BEGIN
 			,Sum(ac.MemberWinlost) AS WinlossBase
 			--Sportbook
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.ActivePlayer
+					WHEN ac.ProductID = @SportsbookId THEN ac.ActivePlayer
 					ELSE 0
 					END) AS SportsbookActivePlayer
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN CASE 
+					WHEN ac.ProductID = @SportsbookId THEN CASE 
 							WHEN @DrawFilter = 1 THEN ac.MemberBetCountNoDraw
 							ELSE ac.MemberBetCount
 							END
 					ELSE 0
 					END) AS SportsbookBetCount
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN (CASE 
+					WHEN ac.ProductID = @SportsbookId THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover_aff
 							ELSE ac.MemberTurnoverNoDraw_aff END
 							)
 					ELSE 0
 					END) AS SportsbookTurnover
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.MemberWinlost_aff
+					WHEN ac.ProductID = @SportsbookId THEN ac.MemberWinlost_aff
 					ELSE 0
 					END) AS SportsbookWinloss
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.QualifiedMember
+					WHEN ac.ProductID = @SportsbookId THEN ac.QualifiedMember
 					ELSE 0
 					END) AS SportsbookQM
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.Commission
+					WHEN ac.ProductID = @SportsbookId THEN ac.Commission
 					ELSE 0
 					END) AS SportsbookCommissionPercent
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.AffWinlost_aff
+					WHEN ac.ProductID = @SportsbookId THEN ac.AffWinlost_aff
 					ELSE 0
 					END) AS SportsbookCommission
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN (CASE 
+					WHEN ac.ProductID = @SportsbookId THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover
 							ELSE ac.MemberTurnoverDraw END
 							)
 					ELSE 0
 					END) AS SportsbookTurnoverBase
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.MemberWinlost
+					WHEN ac.ProductID = @SportsbookId THEN ac.MemberWinlost
 					ELSE 0
 					END) AS SportsbookWinlossBase
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.AffWinlost
+					WHEN ac.ProductID = @SportsbookId THEN ac.AffWinlost
 					ELSE 0
 					END) AS SportsbookCommissionBase
 			--NumberGame
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.ActivePlayer
+					WHEN ac.ProductID = @NumberGame THEN ac.ActivePlayer
 					ELSE 0
 					END) AS NumberGameActivePlayer
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN CASE 
+					WHEN ac.ProductID = @NumberGame THEN CASE 
 							WHEN @DrawFilter = 1 THEN ac.MemberBetCountNoDraw
 							ELSE ac.MemberBetCount
 							END
 					ELSE 0
 					END) AS NumberGameBetCount
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN (CASE 
+					WHEN ac.ProductID = @NumberGame THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover_aff
 							ELSE ac.MemberTurnoverNoDraw_aff END
 							)
 					ELSE 0
 					END) AS NumberGameTurnover
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.MemberWinlost_aff
+					WHEN ac.ProductID = @NumberGame THEN ac.MemberWinlost_aff
 					ELSE 0
 					END) AS NumberGameWinloss
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.QualifiedMember
+					WHEN ac.ProductID = @NumberGame THEN ac.QualifiedMember
 					ELSE 0
 					END) AS NumberGameQM
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.Commission
+					WHEN ac.ProductID = @NumberGame THEN ac.Commission
 					ELSE 0
 					END) AS NumberGameCommissionPercent
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.AffWinlost_aff
+					WHEN ac.ProductID = @NumberGame THEN ac.AffWinlost_aff
 					ELSE 0
 					END) AS NumberGameCommission
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN (CASE 
+					WHEN ac.ProductID = @NumberGame THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover
 							ELSE ac.MemberTurnoverDraw END
 							)
 					ELSE 0
 					END) AS NumberGameTurnoverBase
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.MemberWinlost
+					WHEN ac.ProductID = @NumberGame THEN ac.MemberWinlost
 					ELSE 0
 					END) AS NumberGameWinlossBase
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.AffWinlost
+					WHEN ac.ProductID = @NumberGame THEN ac.AffWinlost
 					ELSE 0
 					END) AS NumberGameCommissionBase
 			--LiveCasino
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.ActivePlayer
+					WHEN ac.ProductID = @LiveCasino THEN ac.ActivePlayer
 					ELSE 0
 					END) AS LiveCasinoActivePlayer
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN CASE 
+					WHEN ac.ProductID = @LiveCasino THEN CASE 
 							WHEN @DrawFilter = 1 THEN ac.MemberBetCountNoDraw
 							ELSE ac.MemberBetCount
 							END
 					ELSE 0
 					END) AS LiveCasinoBetCount
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN (CASE 
+					WHEN ac.ProductID = @LiveCasino THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover_aff
 							ELSE ac.MemberTurnoverNoDraw_aff END
 							)
 					ELSE 0
 					END) AS LiveCasinoTurnover
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.MemberWinlost_aff
+					WHEN ac.ProductID = @LiveCasino THEN ac.MemberWinlost_aff
 					ELSE 0
 					END) AS LiveCasinoWinloss
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.QualifiedMember
+					WHEN ac.ProductID = @LiveCasino THEN ac.QualifiedMember
 					ELSE 0
 					END) AS LiveCasinoQM
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.Commission
+					WHEN ac.ProductID = @LiveCasino THEN ac.Commission
 					ELSE 0
 					END) AS LiveCasinoCommissionPercent
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.AffWinlost_aff
+					WHEN ac.ProductID = @LiveCasino THEN ac.AffWinlost_aff
 					ELSE 0
 					END) AS LiveCasinoCommission
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN (CASE 
+					WHEN ac.ProductID = @LiveCasino THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover
 							ELSE ac.MemberTurnoverDraw END
 							)
 					ELSE 0
 					END) AS LiveCasinoTurnoverBase
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.MemberWinlost
+					WHEN ac.ProductID = @LiveCasino THEN ac.MemberWinlost
 					ELSE 0
 					END) AS LiveCasinoWinlossBase
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.AffWinlost
+					WHEN ac.ProductID = @LiveCasino THEN ac.AffWinlost
 					ELSE 0
 					END) AS LiveCasinoCommissionBase
 			--RNGCasino
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.ActivePlayer
+					WHEN ac.ProductID = @RNGCasino THEN ac.ActivePlayer
 					ELSE 0
 					END) AS RNGCasinoActivePlayer
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN CASE 
+					WHEN ac.ProductID = @RNGCasino THEN CASE 
 							WHEN @DrawFilter = 1 THEN ac.MemberBetCountNoDraw
 							ELSE ac.MemberBetCount
 							END
 					ELSE 0
 					END) AS RNGCasinoBetCount
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN (CASE 
+					WHEN ac.ProductID = @RNGCasino THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover_aff
 							ELSE ac.MemberTurnoverNoDraw_aff END
 							)
 					ELSE 0
 					END) AS RNGCasinoTurnover
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.MemberWinlost_aff
+					WHEN ac.ProductID = @RNGCasino THEN ac.MemberWinlost_aff
 					ELSE 0
 					END) AS RNGCasinoWinloss
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.QualifiedMember
+					WHEN ac.ProductID = @RNGCasino THEN ac.QualifiedMember
 					ELSE 0
 					END) AS RNGCasinoQM
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.Commission
+					WHEN ac.ProductID = @RNGCasino THEN ac.Commission
 					ELSE 0
 					END) AS RNGCasinoCommissionPercent
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.AffWinlost_aff
+					WHEN ac.ProductID = @RNGCasino THEN ac.AffWinlost_aff
 					ELSE 0
 					END) AS RNGCasinoCommission
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN (CASE 
+					WHEN ac.ProductID = @RNGCasino THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover
 							ELSE ac.MemberTurnoverDraw END
 							)
 					ELSE 0
 					END) AS RNGCasinoTurnoverBase
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.MemberWinlost
+					WHEN ac.ProductID = @RNGCasino THEN ac.MemberWinlost
 					ELSE 0
 					END) AS RNGCasinoWinlossBase
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.AffWinlost
+					WHEN ac.ProductID = @RNGCasino THEN ac.AffWinlost
 					ELSE 0
 					END) AS RNGCasinoCommissionBase
+			-- add Playtech CS product
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.ActivePlayer
+					ELSE 0
+					END) AS PlaytechCasinoActivePlayer
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN CASE 
+							WHEN @DrawFilter = 1 THEN ac.MemberBetCountNoDraw
+							ELSE ac.MemberBetCount
+							END
+					ELSE 0
+					END) AS PlaytechCasinoBetCount
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN (CASE 
+							WHEN @DrawFilter = 0 THEN ac.MemberTurnover_aff
+							ELSE ac.MemberTurnoverNoDraw_aff END
+							)
+					ELSE 0
+					END) AS PlaytechCasinoTurnover
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.MemberWinlost_aff
+					ELSE 0
+					END) AS PlaytechCasinoWinloss
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.QualifiedMember
+					ELSE 0
+					END) AS PlaytechCasinoQM
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.Commission
+					ELSE 0
+					END) AS PlaytechCasinoCommissionPercent
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.AffWinlost_aff
+					ELSE 0
+					END) AS PlaytechCasinoCommission
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN (CASE 
+							WHEN @DrawFilter = 0 THEN ac.MemberTurnover
+							ELSE ac.MemberTurnoverDraw END
+							)
+					ELSE 0
+					END) AS PlaytechCasinoTurnoverBase
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.MemberWinlost
+					ELSE 0
+					END) AS PlaytechCasinoWinlossBase
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.AffWinlost
+					ELSE 0
+					END) AS PlaytechCasinoCommissionBase
 		FROM AffCommission ac WITH (NOLOCK)
 			INNER JOIN [dbo].[AffAdmin_AffiliateListForReport](@UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
 			ON ac.AffId = t.AffId
@@ -483,7 +576,10 @@ BEGIN
 			INNER JOIN CommGroupHistory cg WITH (NOLOCK)
 			ON ag.GroupID = cg.GroupID
 				AND ag.MonthDate = cg.MonthDate
+			INNER JOIN @ProductFilter p
+			ON ac.ProductId = p.ProductId
 		WHERE WinlostDate BETWEEN @FromDate AND @ToDate
+			AND [dbo].[Aff_IsProductInGroupOfAff](ac.AffID, ac.ProductID, ac.WinlostDate) > 0
 		GROUP BY ac.AffId
 			,t.STATUS
 			,WinlostDate
@@ -567,6 +663,17 @@ BEGIN
 			,RNGCasinoTurnoverBase
 			,RNGCasinoWinlossBase
 			,RNGCasinoCommissionBase
+			--add Playtech CS product
+			,PlaytechCasinoActivePlayers
+			,PlaytechCasinoBetCount
+			,PlaytechCasinoTurnover
+			,PlaytechCasinoWinloss
+			,PlaytechCasinoQM
+			,PlaytechCasinoCommissionPercent
+			,PlaytechCasinoCommission
+			,PlaytechCasinoTurnoverBase
+			,PlaytechCasinoWinlossBase
+			,PlaytechCasinoCommissionBase
 			)
 		SELECT ac.AffId
 			,t.[Status]
@@ -600,212 +707,264 @@ BEGIN
 			,Sum(ac.MemberWinlost) AS WinlossBase
 			--Sportbook
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.ActivePlayer
+					WHEN ac.ProductID = @SportsbookId THEN ac.ActivePlayer
 					ELSE 0
 					END) AS SportsbookActivePlayer
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN CASE 
+					WHEN ac.ProductID = @SportsbookId THEN CASE 
 							WHEN @DrawFilter = 1 THEN ac.MemberBetCountNoDraw
 							ELSE ac.MemberBetCount
 							END
 					ELSE 0
 					END) AS SportsbookBetCount
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN (CASE 
+					WHEN ac.ProductID = @SportsbookId THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover_aff
 							ELSE ac.MemberTurnoverNoDraw_aff END
 							)
 					ELSE 0
 					END) AS SportsbookTurnover
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.MemberWinlost_aff
+					WHEN ac.ProductID = @SportsbookId THEN ac.MemberWinlost_aff
 					ELSE 0
 					END) AS SportsbookWinloss
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.QualifiedMember
+					WHEN ac.ProductID = @SportsbookId THEN ac.QualifiedMember
 					ELSE 0
 					END) AS SportsbookQM
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.Commission
+					WHEN ac.ProductID = @SportsbookId THEN ac.Commission
 					ELSE 0
 					END) AS SportsbookCommissionPercent
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.AffWinlost_aff
+					WHEN ac.ProductID = @SportsbookId THEN ac.AffWinlost_aff
 					ELSE 0
 					END) AS SportsbookCommission
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN (CASE 
+					WHEN ac.ProductID = @SportsbookId THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover
 							ELSE ac.MemberTurnoverDraw END
 							)
 					ELSE 0
 					END) AS SportsbookTurnoverBase
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.MemberWinlost
+					WHEN ac.ProductID = @SportsbookId THEN ac.MemberWinlost
 					ELSE 0
 					END) AS SportsbookWinlossBase
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.AffWinlost
+					WHEN ac.ProductID = @SportsbookId THEN ac.AffWinlost
 					ELSE 0
 					END) AS SportsbookCommissionBase
 			--NumberGame
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.ActivePlayer
+					WHEN ac.ProductID = @NumberGame THEN ac.ActivePlayer
 					ELSE 0
 					END) AS NumberGameActivePlayer
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN CASE 
+					WHEN ac.ProductID = @NumberGame THEN CASE 
 							WHEN @DrawFilter = 1 THEN ac.MemberBetCountNoDraw
 							ELSE ac.MemberBetCount
 							END
 					ELSE 0
 					END) AS NumberGameBetCount
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN (CASE 
+					WHEN ac.ProductID = @NumberGame THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover_aff
 							ELSE ac.MemberTurnoverNoDraw_aff END
 							)
 					ELSE 0
 					END) AS NumberGameTurnover
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.MemberWinlost_aff
+					WHEN ac.ProductID = @NumberGame THEN ac.MemberWinlost_aff
 					ELSE 0
 					END) AS NumberGameWinloss
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.QualifiedMember
+					WHEN ac.ProductID = @NumberGame THEN ac.QualifiedMember
 					ELSE 0
 					END) AS NumberGameQM
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.Commission
+					WHEN ac.ProductID = @NumberGame THEN ac.Commission
 					ELSE 0
 					END) AS NumberGameCommissionPercent
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.AffWinlost_aff
+					WHEN ac.ProductID = @NumberGame THEN ac.AffWinlost_aff
 					ELSE 0
 					END) AS NumberGameCommission
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN (CASE 
+					WHEN ac.ProductID = @NumberGame THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover
 							ELSE ac.MemberTurnoverDraw END
 							)
 					ELSE 0
 					END) AS NumberGameTurnoverBase
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.MemberWinlost
+					WHEN ac.ProductID = @NumberGame THEN ac.MemberWinlost
 					ELSE 0
 					END) AS NumberGameWinlossBase
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.AffWinlost
+					WHEN ac.ProductID = @NumberGame THEN ac.AffWinlost
 					ELSE 0
 					END) AS NumberGameCommissionBase
 			--LiveCasino
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.ActivePlayer
+					WHEN ac.ProductID = @LiveCasino THEN ac.ActivePlayer
 					ELSE 0
 					END) AS LiveCasinoActivePlayer
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN CASE 
+					WHEN ac.ProductID = @LiveCasino THEN CASE 
 							WHEN @DrawFilter = 1 THEN ac.MemberBetCountNoDraw
 							ELSE ac.MemberBetCount
 							END
 					ELSE 0
 					END) AS LiveCasinoBetCount
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN (CASE 
+					WHEN ac.ProductID = @LiveCasino THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover_aff
 							ELSE ac.MemberTurnoverNoDraw_aff END
 							)
 					ELSE 0
 					END) AS LiveCasinoTurnover
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.MemberWinlost_aff
+					WHEN ac.ProductID = @LiveCasino THEN ac.MemberWinlost_aff
 					ELSE 0
 					END) AS LiveCasinoWinloss
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.QualifiedMember
+					WHEN ac.ProductID = @LiveCasino THEN ac.QualifiedMember
 					ELSE 0
 					END) AS LiveCasinoQM
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.Commission
+					WHEN ac.ProductID = @LiveCasino THEN ac.Commission
 					ELSE 0
 					END) AS LiveCasinoCommissionPercent
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.AffWinlost_aff
+					WHEN ac.ProductID = @LiveCasino THEN ac.AffWinlost_aff
 					ELSE 0
 					END) AS LiveCasinoCommission
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN (CASE 
+					WHEN ac.ProductID = @LiveCasino THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover
 							ELSE ac.MemberTurnoverDraw END
 							)
 					ELSE 0
 					END) AS LiveCasinoTurnoverBase
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.MemberWinlost
+					WHEN ac.ProductID = @LiveCasino THEN ac.MemberWinlost
 					ELSE 0
 					END) AS LiveCasinoWinlossBase
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.AffWinlost
+					WHEN ac.ProductID = @LiveCasino THEN ac.AffWinlost
 					ELSE 0
 					END) AS LiveCasinoCommissionBase
 			--RNGCasino
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.ActivePlayer
+					WHEN ac.ProductID = @RNGCasino THEN ac.ActivePlayer
 					ELSE 0
 					END) AS RNGCasinoActivePlayer
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN CASE 
+					WHEN ac.ProductID = @RNGCasino THEN CASE 
 							WHEN @DrawFilter = 1 THEN ac.MemberBetCountNoDraw
 							ELSE ac.MemberBetCount
 							END
 					ELSE 0
 					END) AS RNGCasinoBetCount
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN (CASE 
+					WHEN ac.ProductID = @RNGCasino THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover_aff
 							ELSE ac.MemberTurnoverNoDraw_aff END
 							)
 					ELSE 0
 					END) AS RNGCasinoTurnover
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.MemberWinlost_aff
+					WHEN ac.ProductID = @RNGCasino THEN ac.MemberWinlost_aff
 					ELSE 0
 					END) AS RNGCasinoWinloss
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.QualifiedMember
+					WHEN ac.ProductID = @RNGCasino THEN ac.QualifiedMember
 					ELSE 0
 					END) AS RNGCasinoQM
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.Commission
+					WHEN ac.ProductID = @RNGCasino THEN ac.Commission
 					ELSE 0
 					END) AS RNGCasinoCommissionPercent
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.AffWinlost_aff
+					WHEN ac.ProductID = @RNGCasino THEN ac.AffWinlost_aff
 					ELSE 0
 					END) AS RNGCasinoCommission
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN (CASE 
+					WHEN ac.ProductID = @RNGCasino THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover
 							ELSE ac.MemberTurnoverDraw END
 							)
 					ELSE 0
 					END) AS RNGCasinoTurnoverBase
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.MemberWinlost
+					WHEN ac.ProductID = @RNGCasino THEN ac.MemberWinlost
 					ELSE 0
 					END) AS RNGCasinoWinlossBase
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.AffWinlost
+					WHEN ac.ProductID = @RNGCasino THEN ac.AffWinlost
 					ELSE 0
 					END) AS RNGCasinoCommissionBase
+			--add Playtech CS product
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.ActivePlayer
+					ELSE 0
+					END) AS PlaytechCasinoActivePlayer
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN CASE 
+							WHEN @DrawFilter = 1 THEN ac.MemberBetCountNoDraw
+							ELSE ac.MemberBetCount
+							END
+					ELSE 0
+					END) AS PlaytechCasinoBetCount
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN (CASE 
+							WHEN @DrawFilter = 0 THEN ac.MemberTurnover_aff
+							ELSE ac.MemberTurnoverNoDraw_aff END
+							)
+					ELSE 0
+					END) AS PlaytechCasinoTurnover
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.MemberWinlost_aff
+					ELSE 0
+					END) AS PlaytechCasinoWinloss
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.QualifiedMember
+					ELSE 0
+					END) AS PlaytechCasinoQM
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.Commission
+					ELSE 0
+					END) AS PlaytechCasinoCommissionPercent
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.AffWinlost_aff
+					ELSE 0
+					END) AS PlaytechCasinoCommission
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN (CASE 
+							WHEN @DrawFilter = 0 THEN ac.MemberTurnover
+							ELSE ac.MemberTurnoverDraw END
+							)
+					ELSE 0
+					END) AS PlaytechCasinoTurnoverBase
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.MemberWinlost
+					ELSE 0
+					END) AS PlaytechCasinoWinlossBase
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.AffWinlost
+					ELSE 0
+					END) AS PlaytechCasinoCommissionBase
 		FROM [dbo].[Aff_CommissionForMonthAll](@month, @year) ac
 			INNER JOIN [dbo].[AffAdmin_AffiliateListForReport](@UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
 			ON ac.AffId = t.AffId
 				AND DATEDIFF(m, ac.WinlostDate, t.MonthDate) = 0
 			INNER JOIN CommGroup cg WITH (NOLOCK)
 			ON ac.GroupID = cg.GroupID
+			INNER JOIN @ProductFilter p
+			ON ac.ProductId = p.ProductId
 		WHERE ac.WinlostDate BETWEEN @FromDate AND @ToDate
-		--Group by ac.AffId, t.Status, WinlostDate, t.Username, t.AffType, t.[Language], t.ExchangeId, t.Currency, cg.GroupID, cg.GroupName
+			AND [dbo].[Aff_IsProductInGroupOfAff](ac.AffID, ac.ProductID, ac.WinlostDate) > 0
 		GROUP BY ac.AffId
 			,t.[Status]
 			,WinlostDate
@@ -889,6 +1048,17 @@ BEGIN
 			,RNGCasinoTurnoverBase
 			,RNGCasinoWinlossBase
 			,RNGCasinoCommissionBase
+			-- Add Playtech CS product
+			,PlaytechCasinoActivePlayers
+			,PlaytechCasinoBetCount
+			,PlaytechCasinoTurnover
+			,PlaytechCasinoWinloss
+			,PlaytechCasinoQM
+			,PlaytechCasinoCommissionPercent
+			,PlaytechCasinoCommission
+			,PlaytechCasinoTurnoverBase
+			,PlaytechCasinoWinlossBase
+			,PlaytechCasinoCommissionBase
 			)
 		SELECT ac.AffId
 			,t.STATUS
@@ -922,204 +1092,254 @@ BEGIN
 			,Sum(ac.MemberWinlost) AS WinlossBase
 			--Sportbook
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.ActivePlayer
+					WHEN ac.ProductID = @SportsbookId THEN ac.ActivePlayer
 					ELSE 0
 					END) AS SportsbookActivePlayer
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN CASE 
+					WHEN ac.ProductID = @SportsbookId THEN CASE 
 							WHEN @DrawFilter = 1 THEN ac.MemberBetCountNoDraw
 							ELSE ac.MemberBetCount
 							END
 					ELSE 0
 					END) AS SportsbookBetCount
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN (CASE 
+					WHEN ac.ProductID = @SportsbookId THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover_aff
 							ELSE ac.MemberTurnoverNoDraw_aff END
 							)
 					ELSE 0
 					END) AS SportsbookTurnover
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.MemberWinlost_aff
+					WHEN ac.ProductID = @SportsbookId THEN ac.MemberWinlost_aff
 					ELSE 0
 					END) AS SportsbookWinloss
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.QualifiedMember
+					WHEN ac.ProductID = @SportsbookId THEN ac.QualifiedMember
 					ELSE 0
 					END) AS SportsbookQM
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.Commission
+					WHEN ac.ProductID = @SportsbookId THEN ac.Commission
 					ELSE 0
 					END) AS SportsbookCommissionPercent
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.AffWinlost_aff
+					WHEN ac.ProductID = @SportsbookId THEN ac.AffWinlost_aff
 					ELSE 0
 					END) AS SportsbookCommission
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN (CASE 
+					WHEN ac.ProductID = @SportsbookId THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover
 							ELSE ac.MemberTurnoverDraw END
 							)
 					ELSE 0
 					END) AS SportsbookTurnoverBase
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.MemberWinlost
+					WHEN ac.ProductID = @SportsbookId THEN ac.MemberWinlost
 					ELSE 0
 					END) AS SportsbookWinlossBase
 			,Sum(CASE 
-					WHEN ProductID = @SportsbookId THEN ac.AffWinlost
+					WHEN ac.ProductID = @SportsbookId THEN ac.AffWinlost
 					ELSE 0
 					END) AS SportsbookCommissionBase
 			--NumberGame
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.ActivePlayer
+					WHEN ac.ProductID = @NumberGame THEN ac.ActivePlayer
 					ELSE 0
 					END) AS NumberGameActivePlayer
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN CASE 
+					WHEN ac.ProductID = @NumberGame THEN CASE 
 							WHEN @DrawFilter = 1 THEN ac.MemberBetCountNoDraw
 							ELSE ac.MemberBetCount
 							END
 					ELSE 0
 					END) AS NumberGameBetCount
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN (CASE 
+					WHEN ac.ProductID = @NumberGame THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover_aff
 							ELSE ac.MemberTurnoverNoDraw_aff END
 							)
 					ELSE 0
 					END) AS NumberGameTurnover
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.MemberWinlost_aff
+					WHEN ac.ProductID = @NumberGame THEN ac.MemberWinlost_aff
 					ELSE 0
 					END) AS NumberGameWinloss
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.QualifiedMember
+					WHEN ac.ProductID = @NumberGame THEN ac.QualifiedMember
 					ELSE 0
 					END) AS NumberGameQM
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.Commission
+					WHEN ac.ProductID = @NumberGame THEN ac.Commission
 					ELSE 0
 					END) AS NumberGameCommissionPercent
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.AffWinlost_aff
+					WHEN ac.ProductID = @NumberGame THEN ac.AffWinlost_aff
 					ELSE 0
 					END) AS NumberGameCommission
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN (CASE 
+					WHEN ac.ProductID = @NumberGame THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover
 							ELSE ac.MemberTurnoverDraw END
 							)
 					ELSE 0
 					END) AS NumberGameTurnoverBase
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.MemberWinlost
+					WHEN ac.ProductID = @NumberGame THEN ac.MemberWinlost
 					ELSE 0
 					END) AS NumberGameWinlossBase
 			,Sum(CASE 
-					WHEN ProductID = @NumberGame THEN ac.AffWinlost
+					WHEN ac.ProductID = @NumberGame THEN ac.AffWinlost
 					ELSE 0
 					END) AS NumberGameCommissionBase
 			--LiveCasino
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.ActivePlayer
+					WHEN ac.ProductID = @LiveCasino THEN ac.ActivePlayer
 					ELSE 0
 					END) AS LiveCasinoActivePlayer
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN CASE 
+					WHEN ac.ProductID = @LiveCasino THEN CASE 
 							WHEN @DrawFilter = 1 THEN ac.MemberBetCountNoDraw
 							ELSE ac.MemberBetCount
 							END
 					ELSE 0
 					END) AS LiveCasinoBetCount
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN (CASE 
+					WHEN ac.ProductID = @LiveCasino THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover_aff
 							ELSE ac.MemberTurnoverNoDraw_aff END
 							)
 					ELSE 0
 					END) AS LiveCasinoTurnover
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.MemberWinlost_aff
+					WHEN ac.ProductID = @LiveCasino THEN ac.MemberWinlost_aff
 					ELSE 0
 					END) AS LiveCasinoWinloss
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.QualifiedMember
+					WHEN ac.ProductID = @LiveCasino THEN ac.QualifiedMember
 					ELSE 0
 					END) AS LiveCasinoQM
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.Commission
+					WHEN ac.ProductID = @LiveCasino THEN ac.Commission
 					ELSE 0
 					END) AS LiveCasinoCommissionPercent
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.AffWinlost_aff
+					WHEN ac.ProductID = @LiveCasino THEN ac.AffWinlost_aff
 					ELSE 0
 					END) AS LiveCasinoCommission
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN (CASE 
+					WHEN ac.ProductID = @LiveCasino THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover
 							ELSE ac.MemberTurnoverDraw END
 							)
 					ELSE 0
 					END) AS LiveCasinoTurnoverBase
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.MemberWinlost
+					WHEN ac.ProductID = @LiveCasino THEN ac.MemberWinlost
 					ELSE 0
 					END) AS LiveCasinoWinlossBase
 			,Sum(CASE 
-					WHEN ProductID = @LiveCasino THEN ac.AffWinlost
+					WHEN ac.ProductID = @LiveCasino THEN ac.AffWinlost
 					ELSE 0
 					END) AS LiveCasinoCommissionBase
 			--RNGCasino
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.ActivePlayer
+					WHEN ac.ProductID = @RNGCasino THEN ac.ActivePlayer
 					ELSE 0
 					END) AS RNGCasinoActivePlayer
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN CASE 
+					WHEN ac.ProductID = @RNGCasino THEN CASE 
 							WHEN @DrawFilter = 1 THEN ac.MemberBetCountNoDraw
 							ELSE ac.MemberBetCount
 							END
 					ELSE 0
 					END) AS RNGCasinoBetCount
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN (CASE 
+					WHEN ac.ProductID = @RNGCasino THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover_aff
 							ELSE ac.MemberTurnoverNoDraw_aff END
 							)
 					ELSE 0
 					END) AS RNGCasinoTurnover
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.MemberWinlost_aff
+					WHEN ac.ProductID = @RNGCasino THEN ac.MemberWinlost_aff
 					ELSE 0
 					END) AS RNGCasinoWinloss
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.QualifiedMember
+					WHEN ac.ProductID = @RNGCasino THEN ac.QualifiedMember
 					ELSE 0
 					END) AS RNGCasinoQM
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.Commission
+					WHEN ac.ProductID = @RNGCasino THEN ac.Commission
 					ELSE 0
 					END) AS RNGCasinoCommissionPercent
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.AffWinlost_aff
+					WHEN ac.ProductID = @RNGCasino THEN ac.AffWinlost_aff
 					ELSE 0
 					END) AS RNGCasinoCommission
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN (CASE 
+					WHEN ac.ProductID = @RNGCasino THEN (CASE 
 							WHEN @DrawFilter = 0 THEN ac.MemberTurnover
 							ELSE ac.MemberTurnoverDraw END
 							)
 					ELSE 0
 					END) AS RNGCasinoTurnoverBase
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.MemberWinlost
+					WHEN ac.ProductID = @RNGCasino THEN ac.MemberWinlost
 					ELSE 0
 					END) AS RNGCasinoWinlossBase
 			,Sum(CASE 
-					WHEN ProductID = @RNGCasino THEN ac.AffWinlost
+					WHEN ac.ProductID = @RNGCasino THEN ac.AffWinlost
 					ELSE 0
 					END) AS RNGCasinoCommissionBase
+			-- Add Playtech CS product
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.ActivePlayer
+					ELSE 0
+					END) AS PlaytechCasinoActivePlayer
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN CASE 
+							WHEN @DrawFilter = 1 THEN ac.MemberBetCountNoDraw
+							ELSE ac.MemberBetCount
+							END
+					ELSE 0
+					END) AS PlaytechCasinoBetCount
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN (CASE 
+							WHEN @DrawFilter = 0 THEN ac.MemberTurnover_aff
+							ELSE ac.MemberTurnoverNoDraw_aff END
+							)
+					ELSE 0
+					END) AS PlaytechCasinoTurnover
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.MemberWinlost_aff
+					ELSE 0
+					END) AS PlaytechCasinoWinloss
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.QualifiedMember
+					ELSE 0
+					END) AS PlaytechCasinoQM
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.Commission
+					ELSE 0
+					END) AS PlaytechCasinoCommissionPercent
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.AffWinlost_aff
+					ELSE 0
+					END) AS PlaytechCasinoCommission
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN (CASE 
+							WHEN @DrawFilter = 0 THEN ac.MemberTurnover
+							ELSE ac.MemberTurnoverDraw END
+							)
+					ELSE 0
+					END) AS PlaytechCasinoTurnoverBase
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.MemberWinlost
+					ELSE 0
+					END) AS PlaytechCasinoWinlossBase
+			,Sum(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN ac.AffWinlost
+					ELSE 0
+					END) AS PlaytechCasinoCommissionBase
 		FROM [dbo].[Aff_CommissionForMonthAll](@month, @year) ac
 			INNER JOIN [dbo].[AffAdmin_AffiliateListForReport](@UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
 			ON ac.AffId = t.AffId
@@ -1130,7 +1350,10 @@ BEGIN
 			INNER JOIN CommGroupHistory cg WITH (NOLOCK)
 			ON ag.GroupID = cg.GroupID
 				AND ag.MonthDate = cg.MonthDate
+			INNER JOIN @ProductFilter p
+			ON ac.ProductId = p.ProductId
 		WHERE WinlostDate BETWEEN @FromDate AND @ToDate
+			AND [dbo].[Aff_IsProductInGroupOfAff](ac.AffID, ac.ProductID, ac.WinlostDate) > 0
 		GROUP BY ac.AffId
 			,t.STATUS
 			,WinlostDate
@@ -1240,6 +1463,17 @@ BEGIN
 			,RNGCasinoTurnoverBase
 			,RNGCasinoWinlossBase
 			,RNGCasinoCommissionBase
+			--add Playtech CS product
+			,isnull(m.PlaytechCasinoActivePlayers, 0) AS PlaytechCasinoActivePlayers
+			,PlaytechCasinoBetCount
+			,PlaytechCasinoQM
+			,PlaytechCasinoCommissionPercent
+			,PlaytechCasinoTurnover
+			,PlaytechCasinoWinloss
+			,PlaytechCasinoCommission
+			,PlaytechCasinoTurnoverBase
+			,PlaytechCasinoWinlossBase
+			,PlaytechCasinoCommissionBase
 			,isnull(c.DeductedPercentage, 0) AS DeductedPercentage
 			,isnull(ca.Amount, 0) AS Cashback
 			,isnull(ca.Amount * [dbo].[Aff_GetExchangeRate](r.ExchangeID, @SystemExchangeId, NULL), 0) AS CashbackBase
@@ -1268,30 +1502,36 @@ BEGIN
 			SELECT AffID
 				,COUNT(DISTINCT tmp.UserName) AS ActivePlayers
 				,SUM(CASE 
-						WHEN ProductId = @SportsbookId THEN 1
+						WHEN tmp.ProductID = @SportsbookId THEN 1
 						ELSE 0
 						END) AS SportsbookActivePlayers
 				,SUM(CASE 
-						WHEN ProductId = @NumberGame THEN 1
+						WHEN tmp.ProductID = @NumberGame THEN 1
 						ELSE 0
 						END) AS NumberGameActivePlayers
 				,SUM(CASE 
-						WHEN ProductId = @LiveCasino THEN 1
+						WHEN tmp.ProductID = @LiveCasino THEN 1
 						ELSE 0
 						END) AS LiveCasinoActivePlayers
 				,SUM(CASE 
-						WHEN ProductId = @RNGCasino THEN 1
+						WHEN tmp.ProductID = @RNGCasino THEN 1
 						ELSE 0
 						END) AS RNGCasinoActivePlayers
+				,SUM(CASE 
+						WHEN tmp.ProductID = @PlaytechCasino THEN 1
+						ELSE 0
+						END) AS PlaytechCasinoActivePlayers
 				,WinlostDate
 			FROM
 				--Each users is unique counted in the month
 				(
 				SELECT DISTINCT AffId
 					,dateadd(m, datediff(m, 0, Winlostdate), 0) AS Winlostdate
-					,ProductID
+					,md.ProductID
 					,UserName
-				FROM MemberDaily WITH (NOLOCK)
+				FROM MemberDaily md WITH (NOLOCK)
+				INNER JOIN @ProductFilter p
+				ON md.ProductId = p.ProductId
 				WHERE Winlostdate BETWEEN @FromDate AND @ToDate
 					AND Turnover > 0
 				) AS tmp
@@ -1364,6 +1604,17 @@ BEGIN
 			,SUM(RNGCasinoTurnoverBase) RNGCasinoTurnoverBase
 			,SUM(RNGCasinoWinlossBase) RNGCasinoWinlossBase
 			,SUM(RNGCasinoCommissionBase) RNGCasinoCommissionBase
+			-- add Playtech CS product
+			,SUM(PlaytechCasinoActivePlayers) PlaytechCasinoActivePlayers
+			,SUM(PlaytechCasinoBetCount) PlaytechCasinoBetCount
+			,SUM(PlaytechCasinoQM) PlaytechCasinoQM
+			,'N/A' PlaytechCasinoCommissionPercent
+			,SUM(PlaytechCasinoTurnover) PlaytechCasinoTurnover
+			,SUM(PlaytechCasinoWinloss) PlaytechCasinoWinloss
+			,SUM(PlaytechCasinoCommission) PlaytechCasinoCommission
+			,SUM(PlaytechCasinoTurnoverBase) PlaytechCasinoTurnoverBase
+			,SUM(PlaytechCasinoWinlossBase) PlaytechCasinoWinlossBase
+			,SUM(PlaytechCasinoCommissionBase) PlaytechCasinoCommissionBase
 			,'N/A' DeductedPercentage
 			,SUM(Cashback) Cashback
 			,SUM(CashbackBase) CashbackBase
@@ -1373,9 +1624,12 @@ BEGIN
 		--sum total
 		DECLARE @activePlayers INT
 		SELECT @activePlayers = COUNT(DISTINCT UserName)
-					FROM MemberDaily WITH (NOLOCK)
+					FROM MemberDaily md WITH (NOLOCK)
+					INNER JOIN @ProductFilter p
+					ON md.ProductId = p.ProductId
 					WHERE Winlostdate BETWEEN @FromDate AND @ToDate
 						AND Turnover > 0
+
 		SELECT @activePlayers AS ActivePlayers
 			,SUM(BetCount) BetCount
 			,SUM(Commission) Commission
@@ -1428,14 +1682,22 @@ BEGIN
 			,SUM(RNGCasinoTurnoverBase) RNGCasinoTurnoverBase
 			,SUM(RNGCasinoWinlossBase) RNGCasinoWinlossBase
 			,SUM(RNGCasinoCommissionBase) RNGCasinoCommissionBase
+			-- add Playtech CS product
+			,SUM(PlaytechCasinoActivePlayers) PlaytechCasinoActivePlayers
+			,SUM(PlaytechCasinoBetCount) PlaytechCasinoBetCount
+			,SUM(PlaytechCasinoQM) PlaytechCasinoQM
+			,'N/A' PlaytechCasinoCommissionPercent
+			,SUM(PlaytechCasinoTurnover) PlaytechCasinoTurnover
+			,SUM(PlaytechCasinoWinloss) PlaytechCasinoWinloss
+			,SUM(PlaytechCasinoCommission) PlaytechCasinoCommission
+			,SUM(PlaytechCasinoTurnoverBase) PlaytechCasinoTurnoverBase
+			,SUM(PlaytechCasinoWinlossBase) PlaytechCasinoWinlossBase
+			,SUM(PlaytechCasinoCommissionBase) PlaytechCasinoCommissionBase
+
 			,'N/A' DeductedPercentage
 			,SUM(Cashback) Cashback
 			,SUM(CashbackBase) CashbackBase
 		FROM #rptWinlossMonth rpt
-		cross apply (SELECT count(distinct UserName) ActivePlayers
-					FROM MemberDaily WITH (NOLOCK)
-					WHERE Winlostdate BETWEEN @FromDate AND @ToDate
-						AND Turnover > 0) m
 
 		DROP TABLE #rptWinlossMonth
 	END
@@ -1495,6 +1757,15 @@ BEGIN
 			,Sum(RNGCasinoTurnoverBase) AS RNGCasinoTurnoverBase
 			,Sum(RNGCasinoWinlossBase) AS RNGCasinoWinlossBase
 			,Sum(RNGCasinoCommissionBase) AS RNGCasinoCommissionBase
+			--Add Playtech CS product
+			,Sum(isnull(m.PlaytechCasinoActivePlayers, 0)) AS PlaytechCasinoActivePlayers
+			,Sum(PlaytechCasinoBetCount) AS PlaytechCasinoBetCount
+			,Sum(PlaytechCasinoTurnover) AS PlaytechCasinoTurnover
+			,Sum(PlaytechCasinoWinloss) AS PlaytechCasinoWinloss
+			,Sum(PlaytechCasinoCommission) AS PlaytechCasinoCommission
+			,Sum(PlaytechCasinoTurnoverBase) AS PlaytechCasinoTurnoverBase
+			,Sum(PlaytechCasinoWinlossBase) AS PlaytechCasinoWinlossBase
+			,Sum(PlaytechCasinoCommissionBase) AS PlaytechCasinoCommissionBase
 			--Cashback
 			,Sum(isnull(c.DeductedPercentage, 0)) AS DeductedPercentage
 			,Sum(isnull(ca.Amount, 0)) AS Cashback
@@ -1523,32 +1794,38 @@ BEGIN
 				SELECT AffId
 					,COUNT(DISTINCT tmp.UserName) AS ActivePlayers
 					,SUM(CASE 
-							WHEN ProductId = @SportsbookId THEN 1
+							WHEN tmp.ProductID = @SportsbookId THEN 1
 							ELSE 0
 							END) AS SportsbookActivePlayers
 					,SUM(CASE 
-							WHEN ProductId = @NumberGame THEN 1
+							WHEN tmp.ProductID = @NumberGame THEN 1
 							ELSE 0
 							END) AS NumberGameActivePlayers
 					,SUM(CASE 
-							WHEN ProductId = @LiveCasino THEN 1
+							WHEN tmp.ProductID = @LiveCasino THEN 1
 							ELSE 0
 							END) AS LiveCasinoActivePlayers
 					,SUM(CASE 
-							WHEN ProductId = @RNGCasino THEN 1
+							WHEN tmp.ProductID = @RNGCasino THEN 1
 							ELSE 0
 							END) AS RNGCasinoActivePlayers
+					,SUM(CASE 
+							WHEN tmp.ProductID = @PlaytechCasino THEN 1
+							ELSE 0
+							END) AS PlaytechCasinoActivePlayers
 				FROM
 					--Each users is unique counted in Range Date
 					(
 					SELECT AffId
-						,ProductID
+						,md.ProductID
 						,UserName
-					FROM MemberDaily WITH (NOLOCK)
+					FROM MemberDaily md WITH (NOLOCK)
+						INNER JOIN @ProductFilter p
+						ON md.ProductId = p.ProductId
 					WHERE Winlostdate BETWEEN @FromDate AND @ToDate
 						AND Turnover > 0
 					GROUP BY AffId
-						,ProductID
+						,md.ProductID
 						,UserName
 					) AS tmp
 				GROUP BY AffId
@@ -1622,6 +1899,15 @@ BEGIN
 			,SUM(RNGCasinoTurnoverBase) RNGCasinoTurnoverBase
 			,SUM(RNGCasinoWinlossBase) RNGCasinoWinlossBase
 			,SUM(RNGCasinoCommissionBase) RNGCasinoCommissionBase
+			--Add Playtech CS product
+			,SUM(PlaytechCasinoActivePlayers) PlaytechCasinoActivePlayers
+			,SUM(PlaytechCasinoBetCount) PlaytechCasinoBetCount
+			,SUM(PlaytechCasinoTurnover) PlaytechCasinoTurnover
+			,SUM(PlaytechCasinoWinloss) PlaytechCasinoWinloss
+			,SUM(PlaytechCasinoCommission) PlaytechCasinoCommission
+			,SUM(PlaytechCasinoTurnoverBase) PlaytechCasinoTurnoverBase
+			,SUM(PlaytechCasinoWinlossBase) PlaytechCasinoWinlossBase
+			,SUM(PlaytechCasinoCommissionBase) PlaytechCasinoCommissionBase
 			--Cashback
 			,'N/A' AS DeductedPercentage
 			,SUM(Cashback) Cashback
@@ -1678,6 +1964,15 @@ BEGIN
 			,SUM(RNGCasinoTurnoverBase) RNGCasinoTurnoverBase
 			,SUM(RNGCasinoWinlossBase) RNGCasinoWinlossBase
 			,SUM(RNGCasinoCommissionBase) RNGCasinoCommissionBase
+			--Add Playtech CS product
+			,SUM(PlaytechCasinoActivePlayers) PlaytechCasinoActivePlayers
+			,SUM(PlaytechCasinoBetCount) PlaytechCasinoBetCount
+			,SUM(PlaytechCasinoTurnover) PlaytechCasinoTurnover
+			,SUM(PlaytechCasinoWinloss) PlaytechCasinoWinloss
+			,SUM(PlaytechCasinoCommission) PlaytechCasinoCommission
+			,SUM(PlaytechCasinoTurnoverBase) PlaytechCasinoTurnoverBase
+			,SUM(PlaytechCasinoWinlossBase) PlaytechCasinoWinlossBase
+			,SUM(PlaytechCasinoCommissionBase) PlaytechCasinoCommissionBase
 			--Cashback
 			,'N/A' AS DeductedPercentage
 			,SUM(Cashback) Cashback

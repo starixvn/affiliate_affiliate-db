@@ -675,5 +675,8 @@
     <None Include="Report\AffAdmin_MemberStatisticsReport.proc.sql">
       <SubType>Code</SubType>
     </None>
+    <Build Include="Home\AffAdmin_GetMemberStatistics.sql" />
+    <Build Include="Common Function\Aff_IsProductInGroupOfAff.sql" />
+    <Build Include="Common Function\IsZeroCommissionGroup.sql" />
   </ItemGroup>
 </Project>

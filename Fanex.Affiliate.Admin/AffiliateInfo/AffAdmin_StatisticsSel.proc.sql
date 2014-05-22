@@ -24,6 +24,8 @@ Revisions:
 	- 20090513@VinhTrinh: return 2 more result(winlost up to now and winlos for search month).  
 	- 20090827@DungTong: Convert to new DB version  
 	- 20100511@Johnny: correct output params "@TotalPlayerDepUp" and "@NewSignUpDep"  
+	- 20140520@Bobby: add filtering product by commgroup
+
 Param's Explanation:  
 	• @AffID : Affiliate custid  
 	• @MonthDate : Date search(format:first day of the month).  
@@ -36,6 +38,12 @@ Param's Explanation:
 */
 BEGIN
 	SET NOCOUNT ON
+
+	DECLARE @ProductFilter AS TABLE (ProductId INT)
+	INSERT INTO @ProductFilter
+	SELECT p.ProductID
+	FROM Product p WITH (NOLOCK)
+	WHERE [dbo].[Aff_IsProductInGroupOfAff](@AffID, p.ProductID, @MonthDate) > 0
 
 	SELECT @NewSignUp = sum(CASE 
 				WHEN DATEDIFF(MONTH, @MonthDate, RegisteredDate) = 0 THEN 1
@@ -76,7 +84,7 @@ BEGIN
 
 	INSERT INTO #TblStatistics
 	SELECT ''
-		,ProductID
+		,a.ProductID
 		,QualifiedMember
 		,ActivePlayer
 		,MemberTurnover_aff
@@ -86,7 +94,9 @@ BEGIN
 		MemberWinlost_aff AS MemberWinlost
 		,--Winlost has been change to AffExRate  
 		WinlostDate
-	FROM AffCommission WITH (NOLOCK)
+	FROM AffCommission a WITH (NOLOCK)
+		INNER JOIN @ProductFilter p
+		ON a.ProductId = p.ProductId
 	WHERE AffId = @AffId
 
 	DECLARE @MaxTransDate DATETIME
@@ -108,7 +118,7 @@ BEGIN
 
 	INSERT INTO #TblStatistics
 	SELECT ci.username
-		,ProductID
+		,b.ProductID
 		,0 AS QualifiedMember
 		,0 AS ActivePlayer
 		,sum(isnull(TurnOver, 0) * isnull(AffExRate, 1)) AS Turnover
@@ -118,10 +128,12 @@ BEGIN
 	FROM MemberDaily b WITH (NOLOCK)
 		INNER JOIN MemberInfo ci WITH (NOLOCK)
 		ON ci.username = b.username
+		INNER JOIN @ProductFilter p
+		ON b.ProductId = p.ProductId
 	WHERE ci.AffID = @AffID
 		AND b.winlostdate BETWEEN @FromDate AND @CurrentDate --this condition use up index on winlostdate      
 	GROUP BY ci.username
-		,ProductID
+		,b.ProductID
 		,dateadd(mm, DATEDIFF(m, 0, b.winlostdate), 0)
 
 	UPDATE #TblStatistics
@@ -208,7 +220,8 @@ BEGIN
 			,p.ProductName
 			,0 AS TotalQualifiedMembers
 		FROM Product p WITH (NOLOCK)
-		WHERE [dbo].[Aff_IsProductInGroupOfAff](@AffID, p.ProductID, current_timestamp) > 0
+			INNER JOIN @ProductFilter f
+			ON p.ProductId = f.ProductId
 		ORDER BY p.ProductID
 	END
 	ELSE
@@ -222,13 +235,39 @@ BEGIN
 				,sum(a.QualifiedMember) AS TotalQualifiedMembers
 			FROM #TblStatistics a(NOLOCK)
 			WHERE DATEDIFF(m, a.MonthDate, @MonthDate) = 0
-				AND [dbo].[Aff_IsProductInGroupOfAff](@AffID, a.ProductID, @MonthDate) > 0
 			GROUP BY a.ProductID
 			) t
 			ON t.ProductID = p.ProductID
-		WHERE [dbo].[Aff_IsProductInGroupOfAff](@AffID, p.ProductID, @MonthDate) > 0
+		INNER JOIN @ProductFilter f
+			ON p.ProductId = f.ProductId
 		ORDER BY p.ProductID
 	END
 
+	-- get commgroup information
+	IF (DATEDIFF(m, current_timestamp, @MonthDate) >= 0)
+	BEGIN
+		SELECT a.GroupId, g.GroupName AS CommGroupName
+		FROM AffInfo a (NOLOCK)
+			INNER JOIN CommGroup g (nolock)
+			ON a.GroupId = g.GroupId
+		WHERE AffId = @AffID
+	END
+	ELSE
+	BEGIN
+		SELECT ag.GroupId, sg.GroupName AS CommGroupName
+		FROM AffGroupHistory ag (NOLOCK)
+			INNER JOIN CommGroupHistory sg (NOLOCK)
+			ON ag.GroupId = sg.GroupId 
+			AND DATEDIFF(m, ag.MonthDate, sg.MonthDate) = 0
+		WHERE ag.AffId = @AffId 
+			AND DATEDIFF(m, ag.MonthDate, @MonthDate) = 0
+		
+	END
 	DROP TABLE #TblStatistics
 END
+GO
+
+GRANT EXECUTE ON [dbo].[AffAdmin_StatisticsSel] TO [bodbAdminNet] AS [dbo]
+GO
+
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_StatisticsSel] TO [vnteam] AS [dbo]
