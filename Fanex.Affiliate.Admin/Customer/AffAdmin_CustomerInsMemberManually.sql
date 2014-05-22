@@ -30,7 +30,8 @@ AS
 	Revision:
 	    -Peter@20131029 : - Add column Phone & Address
 		                   - Recalculate TotalMembers in AffInfo https://redmine.nexcel.vn/issues/5280
-		-Bobby@20131218: - Update check affInfo & member existing at https://redmine.nexcel.vn/issues/10583/
+		-Bobby@20131218:- Update check affInfo & member existing at https://redmine.nexcel.vn/issues/10583/
+		-Bobby@20140512: Update @AffAffectedDate to Date only
 
 */ 
 BEGIN
@@ -80,10 +81,10 @@ BEGIN
 	FROM [dbo].[CurrencyConverter] WITH(NOLOCK)
 	WHERE [PartnerCurrency] = @Currency
 
+	SET @AffAffectedDate = CONVERT(DATE, CURRENT_TIMESTAMP)
 	/*** update member is removed ***/
 	IF (@affMemberID > 0 AND @memberRemoved = 1) 
 	BEGIN
-		SET @AffAffectedDate = CURRENT_TIMESTAMP
 		--update Btag
 		SELECT TOP(1) 
 			@Btag = ISNULL(SValue, '0') + '_' + cast(@AffID as varchar(10)) + '_0' 
@@ -145,7 +146,7 @@ BEGIN
 			@ClickID,
 			@Phone,
 			@Address,
-			GETDATE()
+			@AffAffectedDate
 		);
 		SET @isUpdated = 1;
 	END

@@ -132,6 +132,7 @@ BEGIN
 		ON b.ProductId = p.ProductId
 	WHERE ci.AffID = @AffID
 		AND b.winlostdate BETWEEN @FromDate AND @CurrentDate --this condition use up index on winlostdate      
+		and [dbo].[Aff_IsProductInGroupOfAff](@AffID,ProductID ,@MonthDate) >0    
 	GROUP BY ci.username
 		,b.ProductID
 		,dateadd(mm, DATEDIFF(m, 0, b.winlostdate), 0)
