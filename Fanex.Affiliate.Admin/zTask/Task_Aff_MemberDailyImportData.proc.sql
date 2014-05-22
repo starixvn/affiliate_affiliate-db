@@ -129,7 +129,7 @@ BEGIN
 	-- inner join Exchange as ex with (nolock) on ai.Currency = ex.ExchangeId
 		INNER JOIN Product AS p WITH (NOLOCK) ON t1.ProductID = p.API_ProductId
 		AND IsEnabled = 1
-		AND EffectiveDate >= @WinlostDate
+		AND EffectiveDate <= @WinlostDate
 	WHERE t1.WinlostDate = @WinlostDate
 		AND mi.IsRemoved = 0
 END
