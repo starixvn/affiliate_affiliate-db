@@ -19,6 +19,8 @@ RETURNS @returntable TABLE (
 	,Currency VARCHAR(5)
 	,STATUS VARCHAR(50)
 	,MonthDate DATETIME
+	,GroupId INT
+	,GroupName NVARCHAR(100)
 	)
 AS
 /*    
@@ -29,6 +31,7 @@ AS
 		- 20140204@bobby.nguyen: Get AffGroupHistory info by moving @ToDate to the end date of month
 		- 20140216@bobby.nguyen: Hotfix#15018 - filter commgroup for old month data
 		- 20140218@bobby.nguyen: Fixbug#15128 - Check NoCommission Group
+		- 20140513@Bobby: Add GroupId & GroupName
 
 	Param's Explanation: 
 */
@@ -117,6 +120,8 @@ BEGIN
 				ELSE STATUS END
 				) AS STATUS
 			,@CurrentDate AS MonthDate
+			,ai.GroupId
+			,cg.GroupName
 		FROM AffInfo ai WITH (NOLOCK)
 			INNER JOIN (
 			SELECT AffId
@@ -136,6 +141,8 @@ BEGIN
 			ON ai.AffType = at.TypeID
 			INNER JOIN LANGUAGE l WITH (NOLOCK)
 			ON AD.PreferredLanguage = l.LanguageID
+			INNER JOIN CommGroup cg WITH (NOLOCK)
+			ON ai.GroupID = cg.GroupID
 		WHERE ai.STATUS = 'Approved'
 			AND AI.UserName LIKE @AffName
 			AND (
@@ -203,6 +210,8 @@ BEGIN
 				ELSE STATUS END
 				) AS STATUS
 			,tmp.MonthDate
+			,tmp.GroupId
+			,tmp.GroupName
 		FROM AffInfo ai WITH (NOLOCK)
 			INNER JOIN (
 			SELECT AffId
@@ -224,12 +233,16 @@ BEGIN
 			ON AD.PreferredLanguage = l.LanguageID
 			INNER JOIN (
 			SELECT AffId
-				,GroupId
-				,MonthDate
+				,ag.GroupId
+				,cg.GroupName
+				,ag.MonthDate
 			FROM AffGroupHistory ag WITH (NOLOCK)
 				INNER JOIN @CommGroupList c
 				ON ag.GroupId = c.CommGroupID
-			WHERE MonthDate BETWEEN @FromDate AND @toDate
+				INNER JOIN CommGroupHistory cg WITH (NOLOCK)
+				ON ag.GroupID = cg.GroupID
+					AND ag.MonthDate = cg.MonthDate
+			WHERE ag.MonthDate BETWEEN @FromDate AND @toDate
 			) AS tmp
 			ON ai.AffID = tmp.AffId
 		WHERE ai.STATUS = 'Approved'

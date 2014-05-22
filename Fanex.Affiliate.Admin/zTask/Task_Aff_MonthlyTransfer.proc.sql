@@ -70,6 +70,7 @@ Revisions:
 	- 20140212@Bobby.Nguyen: Update amount of AffTrans based on aff currency         
 	- 20140418@Bobby.Nguyen: Validate amount of NoCommission group
 	- 20140429@Bobby.Nguyen: Update calculating amount of NoCommission group
+	- 20140520@Bobby.Nguyen: Update calculating TotalQM by comparing MemberTurnover_Aff value
   
 Param's Explanation:  
 • @Month: The month to transfer  
@@ -363,7 +364,7 @@ end*/
 		,sum(isnull(r.MemDeposit_aff, 0)) AS MemDeposit_aff
 		,sum(isnull(r.MemTurnover_aff, 0)) AS MemTurnover_aff
 		,sum(CASE 
-				WHEN isnull(r.MemTurnover, 0) >= ch.QualifiedAmount THEN 1
+				WHEN isnull(r.MemTurnover_aff, 0) >= ch.QualifiedAmount THEN 1
 				ELSE 0
 				END) AS TotalQM
 		,dbo.Aff_HasDeduction(gh.GroupID, r.ProductID, 'Bonus', @LastDay) AS HasBonus

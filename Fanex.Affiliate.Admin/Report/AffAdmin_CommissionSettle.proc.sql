@@ -1,21 +1,24 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_CommissionSettle] 
-	@UserId				INT = 0
-	,@AffName			NVARCHAR(100) = NULL
-	,@AffTypes			VARCHAR(100) = NULL
-	,@CommGroups		VARCHAR(1000) = NULL
-	,@PreferLanguages	VARCHAR(1000) = NULL
-	,@Currencies		VARCHAR(100) = NULL
-	,@BaseCurrency		TINYINT = 0
-	,@SortBy			TINYINT = 0
-	,@ExcludeTest		BIT = 1
-	,@IsITAdmin			BIT = 0
+	@UserId INT = 0
+	,@AffName NVARCHAR(100) = NULL
+	,@AffTypes VARCHAR(100) = NULL
+	,@CommGroups VARCHAR(1000) = NULL
+	,@PreferLanguages VARCHAR(1000) = NULL
+	,@Currencies VARCHAR(100) = NULL
+	,@BaseCurrency TINYINT = 0
+	,@SortBy TINYINT = 0
+	,@ExcludeTest BIT = 1
+	,@IsITAdmin BIT = 0
+	,@ProductIds VARCHAR(100) = NULL
 AS
 /*    
 Task : Commission Report - Company View     
 DB:    
 Original: [AffAdmin_CommissionReport]
-Revisions:           
-                
+Revisions:
+	- 20140513@Bobby: Add Playtech Casio product
+	- 20140519@Bobby: Add filter no data
+
 Param's Explanation: 
 • @UserId: Admin user id
 • @AffName: Affiliate username
@@ -62,6 +65,10 @@ BEGIN
 		,@RNGCasinoAmount MONEY
 		,@RNGCasinoCommission DECIMAL(9, 8)
 		,@RNGCasinoQualifiedMember DECIMAL
+		-- add Playtech Casino product
+		,@PlaytechCasinoAmount MONEY
+		,@PlaytechCasinoCommission DECIMAL(9, 8)
+		,@PlaytechCasinoQualifiedMember DECIMAL
 
 	--Reset todate to ending of date
 	SELECT @ToDate = GETDATE()
@@ -69,7 +76,7 @@ BEGIN
 		,@PreviousMonth = DATEADD(m, - 1, @CurrentDate)
 		,@SystemExchangeId = [dbo].[Aff_GetSystemCurrencyID]()
 
-	SELECT @MaxCalculatedDate = isnull(max(WinlostDate), @PreviousMonth)
+	SELECT @MaxCalculatedDate = ISNULL(MAX(WinlostDate), @PreviousMonth)
 	FROM AffCommission NOLOCK
 
 	SET @FromDate = DATEADD(d, 1, @MaxCalculatedDate);
@@ -79,11 +86,28 @@ BEGIN
 		,@NumberGame INT
 		,@LiveCasino INT
 		,@RNGCasino INT
+		,@PlaytechCasino INT
 
 	SELECT @SportsbookId = dbo.[Aff_GetProductID]('Sportsbook')
 		,@NumberGame = dbo.[Aff_GetProductID]('Number Game')
 		,@LiveCasino = dbo.[Aff_GetProductID]('Live Casino')
 		,@RNGCasino = dbo.[Aff_GetProductID]('RNG Casino')
+		,@PlaytechCasino = dbo.[Aff_GetProductID]('Playtech Casino')
+
+	DECLARE @ProductFilter AS TABLE (ProductId INT)
+
+	IF (LEN(@ProductIds) > 0)
+	BEGIN
+		INSERT INTO @ProductFilter (ProductId)
+		SELECT Val
+		FROM [dbo].[strSplit_key](@ProductIds, ',')
+	END
+	ELSE
+	BEGIN
+		INSERT INTO @ProductFilter (ProductId)
+		SELECT ProductId
+		FROM dbo.Product WITH (NOLOCK)
+	END
 
 	DECLARE @Result TABLE (
 		AffId INT
@@ -123,7 +147,14 @@ BEGIN
 		,RNGCasinoCommission MONEY
 		,RNGCasinoWinlossBase MONEY
 		,RNGCasinoCommissionBase MONEY
-		,EnableCashback BIT DEFAULT 1
+		-- add Playtech Casino product
+		,PlaytechCasinoWinloss MONEY
+		,PlaytechCasinoQM INT
+		,PlaytechCasinoCommissionPercent DECIMAL(9, 8)
+		,PlaytechCasinoCommission MONEY
+		,PlaytechCasinoWinlossBase MONEY
+		,PlaytechCasinoCommissionBase MONEY
+		,EnableCashback BIT DEFAULT(0)
 		)
 
 	----For the month(s) that are not calculated
@@ -134,6 +165,8 @@ BEGIN
 		,Username
 		,ExchangeId
 		,Currency
+		,GroupID
+		,GroupName
 		,SportsbookWinloss
 		,SportsbookWinlossBase
 		,NumberGameWinloss
@@ -142,13 +175,17 @@ BEGIN
 		,LiveCasinoWinlossBase
 		,RNGCasinoWinloss
 		,RNGCasinoWinlossBase
+		,PlaytechCasinoWinloss
+		,PlaytechCasinoWinlossBase
 		)
 	SELECT ad.AffId
 		,t.STATUS
-		,dateadd(m, datediff(m, 0, Winlostdate), 0) AS WinlostDate
+		,DATEADD(m, DATEDIFF(m, 0, Winlostdate), 0) AS WinlostDate
 		,t.Username
 		,t.ExchangeId
 		,t.Currency
+		,t.GroupId
+		,t.GroupName
 		-----Sportsbook
 		,SUM(CASE 
 				WHEN ad.ProductID = @SportsbookId THEN MemWinlost_aff
@@ -185,7 +222,18 @@ BEGIN
 				WHEN ad.ProductID = @RNGCasino THEN MemWinlost
 				ELSE 0
 				END) AS RNGCasinoWinlossBase
+		-----Playtech Casino
+		,SUM(CASE 
+				WHEN ad.ProductID = @PlaytechCasino THEN ad.MemWinlost_aff
+				ELSE 0
+				END) AS PlaytechCasinoWinloss
+		,SUM(CASE 
+				WHEN ad.ProductID = @PlaytechCasino THEN MemWinlost
+				ELSE 0
+				END) AS PlaytechCasinoWinlossBase
 	FROM AffDailySummary ad WITH (NOLOCK)
+		INNER JOIN @ProductFilter p
+		ON ad.ProductId = p.ProductId
 		INNER JOIN [dbo].[AffAdmin_AffiliateListForReport](@UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @CurrentDate) AS t
 		ON ad.AffId = t.AffId
 			AND DATEDIFF(m, ad.WinlostDate, t.MonthDate) = 0
@@ -199,37 +247,43 @@ BEGIN
 		) AS trans
 		ON ad.AffId = trans.AffId
 	WHERE WinlostDate > @MaxCalculatedDate
+		AND [dbo].[Aff_IsProductInGroupOfAff](ad.AffID, ad.ProductID, ad.WinlostDate) > 0
 	GROUP BY ad.AffId
 		,t.STATUS
-		,dateadd(m, datediff(m, 0, Winlostdate), 0)
+		,DATEADD(m, DATEDIFF(m, 0, Winlostdate), 0)
 		,t.Username
 		,t.ExchangeId
 		,t.Currency
+		,t.GroupId
+		,t.GroupName
 
 	SELECT @AffectedRows = @@ROWCOUNT --ALL Rows that are not calculated
 
 	--Calculate commission Previous month that is not calculated yet
-	IF (DateDiff(m, @MaxCalculatedDate, @CurrentDate) >= 2)
+	IF (DATEDIFF(m, @MaxCalculatedDate, @CurrentDate) >= 2)
 	BEGIN
 		DECLARE @Month INT
 			,@Year INT
 			,@ExchangeId INT
+			,@MonthDate DATETIME
 
-		SELECT TOP (1) @AffId = AffID
-			,@ExchangeId = ExchangeId
-		FROM @Result
-		WHERE Commission IS NULL
-			AND DATEDIFF(m, @PreviousMonth, WinlostDate) = 0
-
-		SELECT @Month = MONTH(@PreviousMonth)
-			,@Year = YEAR(@PreviousMonth)
-			,@count = 0
-
-		WHILE (
-				@AffId IS NOT NULL
-				AND @count < @AffectedRows
+		WHILE EXISTS (
+				SELECT TOP 1 1
+				FROM @Result
+				WHERE Commission IS NULL
+					AND DATEDIFF(m, @PreviousMonth, WinlostDate) = 0
 				)
 		BEGIN
+			SELECT TOP (1) @AffId = AffID
+				,@ExchangeId = ExchangeId
+				,@MonthDate = Winlostdate
+			FROM @Result
+			WHERE Commission IS NULL
+				AND DATEDIFF(m, @PreviousMonth, WinlostDate) = 0
+
+			SELECT @Month = MONTH(@MonthDate)
+				,@Year = YEAR(@MonthDate)
+
 			--------All Product----------
 			SELECT @SportsbookAmount = (CASE 
 					WHEN @SportsbookId = ProductID THEN Amount
@@ -279,57 +333,102 @@ BEGIN
 					WHEN @RNGCasino = ProductID THEN TotalQM
 					ELSE @RNGCasinoQualifiedMember END
 					)
-			FROM [dbo].[Aff_CommissionForMonth](@AffId, @Month, @Year)
+				--add Playtech Casino product
+				,@PlaytechCasinoAmount = (CASE 
+					WHEN @PlaytechCasino = ProductID THEN Amount
+					ELSE @PlaytechCasinoAmount END
+					)
+				,@PlaytechCasinoCommission = (CASE 
+					WHEN @PlaytechCasino = ProductID THEN commission
+					ELSE @PlaytechCasinoCommission END
+					)
+				,@PlaytechCasinoQualifiedMember = (CASE 
+					WHEN @PlaytechCasino = ProductID THEN TotalQM
+					ELSE @PlaytechCasinoQualifiedMember END
+					)
+			FROM [dbo].[Aff_CommissionForMonth](@AffId, @Month, @Year) ac
+			WHERE [dbo].[Aff_IsProductInGroupOfAff](@AffId, ac.ProductID, @MonthDate) > 0
 
-			SELECT @Amount = isnull(@SportsbookAmount, 0) + isnull(@NumberGameAmount, 0) + isnull(@LiveCasinoAmount, 0) + isnull(@RNGCasinoAmount, 0)
+			-- calculate @Amount base on product filter
+			;WITH ProductAmount
+			AS (
+				SELECT AffId
+					,t.ProductId
+					,Amount
+				FROM (
+					SELECT @AffId AS AffId
+						,@SportsbookId AS ProductId
+						,@SportsbookAmount AS Amount
+					
+					UNION
+					SELECT @AffId AS AffId
+						,@NumberGame AS ProductId
+						,@NumberGameAmount AS Amount
 
-			--print @Amount
-			SELECT @GroupId = cg.GroupId
-				,@GroupName = cg.GroupName
-			FROM @Result r
-				INNER JOIN AffGroupHistory ag WITH (NOLOCK)
-				ON r.AffId = ag.AffID
-					AND DATEDIFF(m, r.WinlostDate, ag.MonthDate) = 0
-				INNER JOIN CommGroupHistory cg WITH (NOLOCK)
-				ON ag.GroupID = cg.GroupID
-					AND ag.MonthDate = cg.MonthDate
-			WHERE r.AffID = @AffId
-				AND DATEDIFF(m, @PreviousMonth, WinlostDate) = 0
+					UNION
+					SELECT @AffId AS AffId
+						,@LiveCasino AS ProductId
+						,@LiveCasinoAmount AS Amount
+					
+					UNION
+					SELECT @AffId AS AffId
+						,@RNGCasino AS ProductId
+						,@RNGCasinoAmount AS Amount
+					
+					UNION
+					SELECT @AffId AS AffId
+						,@PlaytechCasino AS ProductId
+						,@PlaytechCasinoAmount AS Amount
+					) t
+					INNER JOIN @ProductFilter p
+					ON t.ProductId = p.ProductId
+				)
+			SELECT @Amount = SUM(ISNULL(Amount, 0))
+			FROM ProductAmount a
+			GROUP BY a.AffId
+
+			SELECT @GroupId = GroupId
+			FROM @Result
+			WHERE AffID = @AffId
 
 			UPDATE r
-			SET r.GroupName = @GroupName
-				,r.GroupId = @GroupId
-				,CashbackPercent = isnull(tmp.DeductedPercentage, 0)
-				,CashbackAmount = isnull(tmp.CashAmount, 0)
-				,CashbackAmountBase = isnull(tmp.CashAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
-				,Commission = isnull(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @PreviousMonth) --All Product
-				,CommissionBase = isnull((@Amount - isnull((tmp.DeductedPercentage * tmp.CashAmount), 0)) * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
-				,SportsbookCommission = isnull(@SportsbookAmount, 0)
-				,SportsbookQM = isnull(@SportsbookQualifiedMember, 0)
-				,SportsbookCommissionPercent = isnull(@SportsbookCommission, 0)
-				,SportsbookCommissionBase = isnull(@SportsbookAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
-				,NumberGameCommission = isnull(@NumberGameAmount, 0)
-				,NumberGameQM = isnull(@NumberGameQualifiedMember, 0)
-				,NumberGameCommissionPercent = isnull(@NumberGameCommission, 0)
-				,NumberGameCommissionBase = isnull(@NumberGameAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
-				,LiveCasinoCommission = isnull(@LiveCasinoAmount, 0)
-				,LiveCasinoQM = isnull(@LiveCasinoQualifiedMember, 0)
-				,LiveCasinoCommissionPercent = isnull(@LiveCasinoCommission, 0)
-				,LiveCasinoCommissionBase = isnull(@LiveCasinoAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
-				,RNGCasinoCommission = isnull(@RNGCasinoAmount, 0)
-				,RNGCasinoQM = isnull(@RNGCasinoQualifiedMember, 0)
-				,RNGCasinoCommissionPercent = isnull(@RNGCasinoCommission, 0)
-				,RNGCasinoCommissionBase = isnull(@RNGCasinoAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
-				,EnableCashback = isnull(tmp.DeductedPercentage, 0)
+			SET CashbackPercent = ISNULL(tmp.DeductedPercentage, 0)
+				,CashbackAmount = ISNULL(tmp.CashAmount, 0)
+				,CashbackAmountBase = ISNULL(tmp.CashAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+				,Commission = ISNULL(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @PreviousMonth) --All Product
+				,CommissionBase = ISNULL((@Amount - ISNULL((tmp.DeductedPercentage * tmp.CashAmount), 0)) * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+				,SportsbookCommission = ISNULL(@SportsbookAmount, 0)
+				,SportsbookQM = ISNULL(@SportsbookQualifiedMember, 0)
+				,SportsbookCommissionPercent = ISNULL(@SportsbookCommission, 0)
+				,SportsbookCommissionBase = ISNULL(@SportsbookAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+				,NumberGameCommission = ISNULL(@NumberGameAmount, 0)
+				,NumberGameQM = ISNULL(@NumberGameQualifiedMember, 0)
+				,NumberGameCommissionPercent = ISNULL(@NumberGameCommission, 0)
+				,NumberGameCommissionBase = ISNULL(@NumberGameAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+				,LiveCasinoCommission = ISNULL(@LiveCasinoAmount, 0)
+				,LiveCasinoQM = ISNULL(@LiveCasinoQualifiedMember, 0)
+				,LiveCasinoCommissionPercent = ISNULL(@LiveCasinoCommission, 0)
+				,LiveCasinoCommissionBase = ISNULL(@LiveCasinoAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+				,RNGCasinoCommission = ISNULL(@RNGCasinoAmount, 0)
+				,RNGCasinoQM = ISNULL(@RNGCasinoQualifiedMember, 0)
+				,RNGCasinoCommissionPercent = ISNULL(@RNGCasinoCommission, 0)
+				,RNGCasinoCommissionBase = ISNULL(@RNGCasinoAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+				--add Playtech Casino product
+				,PlaytechCasinoCommission = ISNULL(@PlaytechCasinoAmount, 0)
+				,PlaytechCasinoQM = ISNULL(@PlaytechCasinoQualifiedMember, 0)
+				,PlaytechCasinoCommissionPercent = ISNULL(@PlaytechCasinoCommission, 0)
+				,PlaytechCasinoCommissionBase = ISNULL(@PlaytechCasinoAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+				,EnableCashback = ISNULL(tmp.DeductedPercentage, 0)
 			FROM @Result r
 				LEFT JOIN (
 				SELECT a.AffID
 					,a.Amount AS CashAmount
 					,b.DeductedPercentage
+					,a.MonthDate
 				FROM AffDeductionTransaction a WITH (NOLOCK)
 					INNER JOIN AffGroupHistory ai(NOLOCK)
 					ON ai.affid = a.affid
-						AND datediff(m, a.MonthDate, ai.MonthDate) = 0
+						AND DATEDIFF(m, a.MonthDate, ai.MonthDate) = 0
 					JOIN DeductionSettingHistory b WITH (NOLOCK)
 					ON a.DTypeID = b.DeductionID
 						AND ai.groupid = b.groupid
@@ -337,24 +436,14 @@ BEGIN
 					JOIN DeductionType c WITH (NOLOCK)
 					ON b.DeductionID = c.DTypeID
 				WHERE c.[DTypeName] = 'Cashback'
-					AND datediff(m, a.MonthDate, @PreviousMonth) = 0
+					AND DATEDIFF(m, a.MonthDate, @PreviousMonth) = 0
 					AND a.ProductID = 0
 					AND b.GroupID = @GroupId
 				) tmp
 				ON r.AffID = tmp.AffID
+					AND DATEDIFF(m, r.WinlostDate, tmp.MonthDate) = 0
 			WHERE r.AffID = @AffId
 				AND DATEDIFF(m, @PreviousMonth, r.WinlostDate) = 0
-
-			--LEFT JOIN AffDeductionTransaction a with (nolock) on r.AffId = a.AffID and datediff(m, a.MonthDate, @PreviousMonth) = 0 and a.ProductID = 0
-			--LEFT JOIN DeductionSettingHistory d with (nolock)  on d.DeductionID=a.DTypeID and datediff(m, d.MonthDate, @PreviousMonth) = 0 and d.GroupID = r.GroupId
-			--Get next AffID
-			SELECT TOP (1) @AffId = AffID
-				,@ExchangeId = ExchangeId
-			FROM @Result
-			WHERE Commission IS NULL
-				AND DATEDIFF(m, @PreviousMonth, WinlostDate) = 0
-
-			SET @count = @count + 1
 
 			--reset value
 			SELECT @SportsbookAmount = 0
@@ -368,24 +457,27 @@ BEGIN
 				,@LiveCasinoQualifiedMember = 0
 				,@RNGCasinoAmount = 0
 				,@RNGCasinoCommission = 0
-				,@RNGCasinoQualifiedMember = 0;
+				,@RNGCasinoQualifiedMember = 0
+				,@PlaytechCasinoAmount = 0
+				,@PlaytechCasinoCommission = 0
+				,@PlaytechCasinoQualifiedMember = 0
 		END
 	END
 
 	--update to current month
-	SELECT TOP (1) @AffId = AffID
-		,@ExchangeId = ExchangeId
-	FROM @Result
-	WHERE Commission IS NULL
-		AND DATEDIFF(m, @CurrentDate, WinlostDate) = 0
-
-	SELECT @count = 0
-
-	WHILE (
-			@AffId IS NOT NULL
-			AND @count < @AffectedRows
+	WHILE EXISTS (
+			SELECT TOP 1 1
+			FROM @Result
+			WHERE Commission IS NULL
+				AND DATEDIFF(m, @CurrentDate, WinlostDate) = 0
 			)
 	BEGIN
+		SELECT TOP (1) @AffId = AffID
+			,@ExchangeId = ExchangeId
+		FROM @Result
+		WHERE Commission IS NULL
+			AND DATEDIFF(m, @CurrentDate, WinlostDate) = 0
+
 		--------All Product----------
 		SELECT @SportsbookAmount = (CASE 
 				WHEN @SportsbookId = ProductID THEN Amount
@@ -435,73 +527,113 @@ BEGIN
 				WHEN @RNGCasino = ProductID THEN TotalQM
 				ELSE @RNGCasinoQualifiedMember END
 				)
-		FROM [dbo].[Aff_CommissionForCurrentMonth](@AffId)
+			--add Playtech Casino product
+			,@PlaytechCasinoAmount = (CASE 
+				WHEN @PlaytechCasino = ProductID THEN Amount
+				ELSE @PlaytechCasinoAmount END
+				)
+			,@PlaytechCasinoCommission = (CASE 
+				WHEN @PlaytechCasino = ProductID THEN commission
+				ELSE @PlaytechCasinoCommission END
+				)
+			,@PlaytechCasinoQualifiedMember = (CASE 
+				WHEN @PlaytechCasino = ProductID THEN TotalQM
+				ELSE @PlaytechCasinoQualifiedMember END
+				)
+		FROM [dbo].[Aff_CommissionForCurrentMonth](@AffId) ac
+		WHERE [dbo].[Aff_IsProductInGroupOfAff](@AffId, ac.ProductID, @CurrentDate) > 0
 
-		SELECT @Amount = isnull(@SportsbookAmount, 0) + isnull(@NumberGameAmount, 0) + isnull(@LiveCasinoAmount, 0) + isnull(@RNGCasinoAmount, 0)
+		-- calculate @Amount base on product filter
+		;WITH ProductAmount
+		AS (
+			SELECT AffId
+				,t.ProductId
+				,Amount
+			FROM (
+				SELECT @AffId AS AffId
+					,@SportsbookId AS ProductId
+					,@SportsbookAmount AS Amount
+				
+				UNION
+					SELECT @AffId AS AffId
+						,@NumberGame AS ProductId
+						,@NumberGameAmount AS Amount
 
-		SELECT @GroupId = cg.GroupId
-			,@GroupName = cg.GroupName
+				UNION
+				SELECT @AffId AS AffId
+					,@LiveCasino AS ProductId
+					,@LiveCasinoAmount AS Amount
+				
+				UNION
+				SELECT @AffId AS AffId
+					,@RNGCasino AS ProductId
+					,@RNGCasinoAmount AS Amount
+				
+				UNION
+				SELECT @AffId AS AffId
+					,@PlaytechCasino AS ProductId
+					,@PlaytechCasinoAmount AS Amount
+				) t
+				INNER JOIN @ProductFilter p
+				ON t.ProductId = p.ProductId
+			)
+		SELECT @Amount = SUM(ISNULL(Amount, 0))
+		FROM ProductAmount a
+		GROUP BY a.AffId
+
+		SELECT @GroupId = r.GroupId
 		FROM @Result r
-			INNER JOIN AffInfo AI WITH (NOLOCK)
-			ON r.AffId = AI.AffID
-			INNER JOIN CommGroup cg WITH (NOLOCK)
-			ON AI.GroupID = cg.GroupID
 		WHERE r.AffID = @AffId
 
 		UPDATE r
-		SET GroupName = @GroupName
-			,r.GroupId = @GroupId
-			,CashbackPercent = isnull(tmp.DeductedPercentage, 0)
-			,CashbackAmount = isnull(tmp.CashAmount, 0)
-			,CashbackAmountBase = isnull(tmp.CashAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
-			,Commission = isnull(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @CurrentDate) --All Product
-			,CommissionBase = isnull((@Amount - isnull((tmp.DeductedPercentage * tmp.CashAmount), 0)) * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
-			,SportsbookCommission = isnull(@SportsbookAmount, 0)
-			,SportsbookQM = isnull(@SportsbookQualifiedMember, 0)
-			,SportsbookCommissionPercent = isnull(@SportsbookCommission, 0)
-			,SportsbookCommissionBase = isnull(@SportsbookAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
-			,NumberGameCommission = isnull(@NumberGameAmount, 0)
-			,NumberGameQM = isnull(@NumberGameQualifiedMember, 0)
-			,NumberGameCommissionPercent = isnull(@NumberGameCommission, 0)
-			,NumberGameCommissionBase = isnull(@NumberGameAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
-			,LiveCasinoCommission = isnull(@LiveCasinoAmount, 0)
-			,LiveCasinoQM = isnull(@LiveCasinoQualifiedMember, 0)
-			,LiveCasinoCommissionPercent = isnull(@LiveCasinoCommission, 0)
-			,LiveCasinoCommissionBase = isnull(@LiveCasinoAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
-			,RNGCasinoCommission = isnull(@RNGCasinoAmount, 0)
-			,RNGCasinoQM = isnull(@RNGCasinoQualifiedMember, 0)
-			,RNGCasinoCommissionPercent = isnull(@RNGCasinoCommission, 0)
-			,RNGCasinoCommissionBase = isnull(@RNGCasinoAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
-			,EnableCashback = isnull(tmp.DeductedPercentage, 0)
+		SET CashbackPercent = ISNULL(tmp.DeductedPercentage, 0)
+			,CashbackAmount = ISNULL(tmp.CashAmount, 0)
+			,CashbackAmountBase = ISNULL(tmp.CashAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+			,Commission = ISNULL(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @CurrentDate) --All Product
+			,CommissionBase = ISNULL((@Amount - ISNULL((tmp.DeductedPercentage * tmp.CashAmount), 0)) * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+			,SportsbookCommission = ISNULL(@SportsbookAmount, 0)
+			,SportsbookQM = ISNULL(@SportsbookQualifiedMember, 0)
+			,SportsbookCommissionPercent = ISNULL(@SportsbookCommission, 0)
+			,SportsbookCommissionBase = ISNULL(@SportsbookAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+			,NumberGameCommission = ISNULL(@NumberGameAmount, 0)
+			,NumberGameQM = ISNULL(@NumberGameQualifiedMember, 0)
+			,NumberGameCommissionPercent = ISNULL(@NumberGameCommission, 0)
+			,NumberGameCommissionBase = ISNULL(@NumberGameAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+			,LiveCasinoCommission = ISNULL(@LiveCasinoAmount, 0)
+			,LiveCasinoQM = ISNULL(@LiveCasinoQualifiedMember, 0)
+			,LiveCasinoCommissionPercent = ISNULL(@LiveCasinoCommission, 0)
+			,LiveCasinoCommissionBase = ISNULL(@LiveCasinoAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+			,RNGCasinoCommission = ISNULL(@RNGCasinoAmount, 0)
+			,RNGCasinoQM = ISNULL(@RNGCasinoQualifiedMember, 0)
+			,RNGCasinoCommissionPercent = ISNULL(@RNGCasinoCommission, 0)
+			,RNGCasinoCommissionBase = ISNULL(@RNGCasinoAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+			--add Playtech Casino product
+			,PlaytechCasinoCommission = ISNULL(@PlaytechCasinoAmount, 0)
+			,PlaytechCasinoQM = ISNULL(@PlaytechCasinoQualifiedMember, 0)
+			,PlaytechCasinoCommissionPercent = ISNULL(@PlaytechCasinoCommission, 0)
+			,PlaytechCasinoCommissionBase = ISNULL(@PlaytechCasinoAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+			,EnableCashback = ISNULL(tmp.DeductedPercentage, 0)
 		FROM @Result r
 			LEFT JOIN (
-			SELECT TOP(1) 
-				@AffId AS AffId
-				, b.GroupID
-				, b.DeductedPercentage
-				, a.Amount AS CashAmount
+			SELECT TOP (1) @AffId AS AffId
+				,b.GroupID
+				,b.DeductedPercentage
+				,a.Amount AS CashAmount
 			FROM DeductionSetting b WITH (NOLOCK)
 				INNER JOIN DeductionType c WITH (NOLOCK)
 				ON b.DeductionID = c.DTypeID
 				LEFT JOIN AffDeductionTransaction a WITH (NOLOCK)
-				ON (c.DTypeID = a.DTypeID AND (datediff(m, a.MonthDate, @CurrentDate) = 0) AND AffID = @AffId)
+				ON (
+						c.DTypeID = a.DTypeID
+						AND (DATEDIFF(m, a.MonthDate, @CurrentDate) = 0)
+						AND AffID = @AffId
+						)
 			WHERE c.[DTypeName] = 'Cashback'
 				AND b.GroupID = @GroupId
 			) tmp
 			ON r.AffId = tmp.AffId
 		WHERE r.AffID = @AffId
 			AND DATEDIFF(m, @CurrentDate, WinlostDate) = 0
-
-		--LEFT JOIN AffDeductionTransaction a with (nolock) on r.AffId = a.AffID and datediff(m, a.MonthDate, @CurrentDate) = 0 and a.ProductID = 0 and a.DTypeID=5
-		--LEFT JOIN DeductionSetting d with (nolock)  on d.DeductionID=a.DTypeID  and d.GroupID = @GroupId
-		--Get next AffID
-		SELECT TOP (1) @AffId = AffID
-			,@ExchangeId = ExchangeId
-		FROM @Result
-		WHERE Commission IS NULL
-			AND DATEDIFF(m, @CurrentDate, WinlostDate) = 0
-
-		SET @count = @count + 1
 
 		--reset value
 		SELECT @SportsbookAmount = 0
@@ -515,7 +647,10 @@ BEGIN
 			,@LiveCasinoQualifiedMember = 0
 			,@RNGCasinoAmount = 0
 			,@RNGCasinoCommission = 0
-			,@RNGCasinoQualifiedMember = 0;
+			,@RNGCasinoQualifiedMember = 0
+			,@PlaytechCasinoAmount = 0
+			,@PlaytechCasinoCommission = 0
+			,@PlaytechCasinoQualifiedMember = 0
 	END
 
 	-------Return Data------------
