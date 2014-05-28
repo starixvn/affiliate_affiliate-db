@@ -53,6 +53,7 @@
   <ItemGroup>
     <Folder Include="Properties\" />
     <Folder Include="AffiliateUser" />
+    <Folder Include="IBC-bodb02" />
   </ItemGroup>
   <ItemGroup>
     <PropertiesFile Include="Properties\Database.sqlsettings">
@@ -222,5 +223,22 @@
     <NotInBuild Include="AffiliateUser\Aff_AffiliateStatistics.sql">
       <SubType>NotInBuild</SubType>
     </NotInBuild>
+    <NotInBuild Include="IBC-bodb02\Aff_User_BetList.sql">
+      <SubType>NotInBuild</SubType>
+    </NotInBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="IBC-bodb02\Aff_User_BetListResult_SelMatch.proc.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="IBC-bodb02\Aff_User_BetListResult_SelMatchNumberGame.proc.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="IBC-bodb02\Aff_User_BetListResult_SelMatchParlay.proc.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="IBC-bodb02\Aff_User_DummyAccID.proc.sql">
+      <SubType>Code</SubType>
+    </Build>
   </ItemGroup>
 </Project>
