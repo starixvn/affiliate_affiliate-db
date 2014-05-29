@@ -9,6 +9,8 @@ Revisions:
 	- 20100520@Johnny: apply StatusID in bettrans table
 	- 20100729@Johnny: Apply Media affiliate statistics
 	- 20140228@Bobby: Apply AffType
+	- 20140521@Bobby: Update @BannerNum = @FlashBannerNum + @ImageBannerNum
+
 Param's Explanation:
 
 */
@@ -148,7 +150,10 @@ BEGIN
 	FROM AffInfo with(nolock)
 	WHERE AffType = @AffMedia*/
 	-- //all banner statc
-	SELECT @BannerNum = sum(1)
+	SELECT @BannerNum = sum(CASE 
+				WHEN ImageType = 'Image' OR ImageType = 'Flash' THEN 1
+				ELSE 0
+				END)
 		,@ImageBannerNum = sum(CASE 
 				WHEN ImageType = 'Image' THEN 1
 				ELSE 0
@@ -204,8 +209,8 @@ BEGIN
 				WHEN datediff(mm, CreatedDate, @CurrentDate) = 0 THEN 1
 				ELSE 0
 				END)
-	FROM MemberInfo WITH (NOLOCK)
-	WHERE IsRemoved = 0
+	FROM MemberInfo m WITH (NOLOCK)
+	WHERE m.IsRemoved = 0
 
 	--final result here
 	SELECT isnull(@PaymentReqNum, 0) AS PaymentReqNum

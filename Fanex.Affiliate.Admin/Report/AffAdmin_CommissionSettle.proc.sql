@@ -247,7 +247,6 @@ BEGIN
 		) AS trans
 		ON ad.AffId = trans.AffId
 	WHERE WinlostDate > @MaxCalculatedDate
-		AND [dbo].[Aff_IsProductInGroupOfAff](ad.AffID, ad.ProductID, ad.WinlostDate) > 0
 	GROUP BY ad.AffId
 		,t.STATUS
 		,DATEADD(m, DATEDIFF(m, 0, Winlostdate), 0)
@@ -347,7 +346,6 @@ BEGIN
 					ELSE @PlaytechCasinoQualifiedMember END
 					)
 			FROM [dbo].[Aff_CommissionForMonth](@AffId, @Month, @Year) ac
-			WHERE [dbo].[Aff_IsProductInGroupOfAff](@AffId, ac.ProductID, @MonthDate) > 0
 
 			-- calculate @Amount base on product filter
 			;WITH ProductAmount
@@ -541,7 +539,6 @@ BEGIN
 				ELSE @PlaytechCasinoQualifiedMember END
 				)
 		FROM [dbo].[Aff_CommissionForCurrentMonth](@AffId) ac
-		WHERE [dbo].[Aff_IsProductInGroupOfAff](@AffId, ac.ProductID, @CurrentDate) > 0
 
 		-- calculate @Amount base on product filter
 		;WITH ProductAmount

@@ -579,7 +579,6 @@ BEGIN
 			INNER JOIN @ProductFilter p
 			ON ac.ProductId = p.ProductId
 		WHERE WinlostDate BETWEEN @FromDate AND @ToDate
-			AND [dbo].[Aff_IsProductInGroupOfAff](ac.AffID, ac.ProductID, ac.WinlostDate) > 0
 		GROUP BY ac.AffId
 			,t.STATUS
 			,WinlostDate
@@ -964,7 +963,6 @@ BEGIN
 			INNER JOIN @ProductFilter p
 			ON ac.ProductId = p.ProductId
 		WHERE ac.WinlostDate BETWEEN @FromDate AND @ToDate
-			AND [dbo].[Aff_IsProductInGroupOfAff](ac.AffID, ac.ProductID, ac.WinlostDate) > 0
 		GROUP BY ac.AffId
 			,t.[Status]
 			,WinlostDate
@@ -1353,7 +1351,6 @@ BEGIN
 			INNER JOIN @ProductFilter p
 			ON ac.ProductId = p.ProductId
 		WHERE WinlostDate BETWEEN @FromDate AND @ToDate
-			AND [dbo].[Aff_IsProductInGroupOfAff](ac.AffID, ac.ProductID, ac.WinlostDate) > 0
 		GROUP BY ac.AffId
 			,t.STATUS
 			,WinlostDate

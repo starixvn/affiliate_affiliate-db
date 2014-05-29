@@ -12,6 +12,7 @@ Original: [AffAdmin_CommissionReport]
 Revisions:           
 	- 20140213@Bobbby.Nguyen: Multiply exchange rate
 	- 20140514@Bobby: Add Playtech Casio product    
+	- 20140523@Bobby: Rollback check QualifiedAmount
 
 Param's Explanation: 
 • @UserId: Admin user id
@@ -84,70 +85,60 @@ BEGIN
 	END
 
 	--get exchange rate base on @BaseCurrency
-	;WITH QMData AS
-	(
-		SELECT m.Username
-			,e.Code AS Currency
-			,(@QualifiedAmount * @SysExRate) AS QualifiedAmountBase 
-			,@QualifiedAmount AS QualifiedAmount --Get from group setting
+	SELECT m.Username
+		,e.Code AS Currency
+		,(@QualifiedAmount * @SysExRate) AS QualifiedAmountBase 
+		,@QualifiedAmount AS QualifiedAmount --Get from group setting
 		
-			,Sum(CASE 
-					WHEN m.ProductId = @Sportsbook THEN Turnover * ISNULL(m.SysExRate, 0)
-					ELSE 0
-					END) AS SportsbookTurnoverBase
-			,Sum(CASE 
-					WHEN m.ProductId = @Sportsbook THEN Turnover * ISNULL(m.AffExRate, 0)
-					ELSE 0
-					END) AS SportsbookTurnover
-			,Sum(CASE 
-					WHEN m.ProductId = @NumberGame THEN Turnover * ISNULL(m.SysExRate, 0)
-					ELSE 0
-					END) AS NumberGameTurnoverBase
-			,Sum(CASE 
-					WHEN m.ProductId = @NumberGame THEN Turnover * ISNULL(m.AffExRate, 0)
-					ELSE 0
-					END) AS NumberGameTurnover
-			,Sum(CASE 
-					WHEN m.ProductId = @LiveCasino THEN Turnover * ISNULL(m.SysExRate, 0)
-					ELSE 0
-					END) AS LiveCasinoTurnoverBase
-			,Sum(CASE 
-					WHEN m.ProductId = @LiveCasino THEN Turnover * ISNULL(m.AffExRate, 0)
-					ELSE 0
-					END) AS LiveCasinoTurnover
-			,Sum(CASE 
-					WHEN m.ProductId = @RNGCasino THEN Turnover * ISNULL(m.SysExRate, 0)
-					ELSE 0
-					END) AS RNGCasinoTurnoverBase
-			,Sum(CASE 
-					WHEN m.ProductId = @RNGCasino THEN Turnover * ISNULL(m.AffExRate, 0)
-					ELSE 0
-					END) AS RNGCasinoTurnover
-			,Sum(CASE 
-					WHEN m.ProductId = @PlaytechCasino THEN Turnover * ISNULL(m.SysExRate, 0)
-					ELSE 0
-					END) AS PlaytechCasinoTurnoverBase
-			,Sum(CASE 
-					WHEN m.ProductId = @PlaytechCasino THEN Turnover * ISNULL(m.AffExRate, 0)
-					ELSE 0
-					END) AS PlaytechCasinoTurnover
-		FROM MemberDaily m WITH (NOLOCK)
-			INNER JOIN Exchange e WITH (NOLOCK)
-			ON m.Currency = e.ExchangeID
-			INNER JOIN @ProductFilter p
-			ON m.ProductId = p.ProductId
-		WHERE AffId = @AffID
-			AND m.WinlostDate BETWEEN @FromDate AND @ToDate
-		GROUP BY m.Username
-			,e.Code
-	)
-	SELECT d.* 
-	FROM QMData d
-	WHERE SportsbookTurnover >= @QualifiedAmount
-		OR NumberGameTurnover >= @QualifiedAmount
-		OR LiveCasinoTurnover >= @QualifiedAmount
-		OR RNGCasinoTurnover >= @QualifiedAmount
-		OR PlaytechCasinoTurnover >= @QualifiedAmount
+		,Sum(CASE 
+				WHEN m.ProductId = @Sportsbook THEN Turnover * ISNULL(m.SysExRate, 0)
+				ELSE 0
+				END) AS SportsbookTurnoverBase
+		,Sum(CASE 
+				WHEN m.ProductId = @Sportsbook THEN Turnover * ISNULL(m.AffExRate, 0)
+				ELSE 0
+				END) AS SportsbookTurnover
+		,Sum(CASE 
+				WHEN m.ProductId = @NumberGame THEN Turnover * ISNULL(m.SysExRate, 0)
+				ELSE 0
+				END) AS NumberGameTurnoverBase
+		,Sum(CASE 
+				WHEN m.ProductId = @NumberGame THEN Turnover * ISNULL(m.AffExRate, 0)
+				ELSE 0
+				END) AS NumberGameTurnover
+		,Sum(CASE 
+				WHEN m.ProductId = @LiveCasino THEN Turnover * ISNULL(m.SysExRate, 0)
+				ELSE 0
+				END) AS LiveCasinoTurnoverBase
+		,Sum(CASE 
+				WHEN m.ProductId = @LiveCasino THEN Turnover * ISNULL(m.AffExRate, 0)
+				ELSE 0
+				END) AS LiveCasinoTurnover
+		,Sum(CASE 
+				WHEN m.ProductId = @RNGCasino THEN Turnover * ISNULL(m.SysExRate, 0)
+				ELSE 0
+				END) AS RNGCasinoTurnoverBase
+		,Sum(CASE 
+				WHEN m.ProductId = @RNGCasino THEN Turnover * ISNULL(m.AffExRate, 0)
+				ELSE 0
+				END) AS RNGCasinoTurnover
+		,Sum(CASE 
+				WHEN m.ProductId = @PlaytechCasino THEN Turnover * ISNULL(m.SysExRate, 0)
+				ELSE 0
+				END) AS PlaytechCasinoTurnoverBase
+		,Sum(CASE 
+				WHEN m.ProductId = @PlaytechCasino THEN Turnover * ISNULL(m.AffExRate, 0)
+				ELSE 0
+				END) AS PlaytechCasinoTurnover
+	FROM MemberDaily m WITH (NOLOCK)
+		INNER JOIN Exchange e WITH (NOLOCK)
+		ON m.Currency = e.ExchangeID
+		INNER JOIN @ProductFilter p
+		ON m.ProductId = p.ProductId
+	WHERE AffId = @AffID
+		AND m.WinlostDate BETWEEN @FromDate AND @ToDate
+	GROUP BY m.Username
+		,e.Code
 	
 END
 GO
