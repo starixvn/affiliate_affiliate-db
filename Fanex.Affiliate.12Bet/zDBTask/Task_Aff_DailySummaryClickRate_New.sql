@@ -1,5 +1,5 @@
-﻿ALTER PROCEDURE [dbo].[Task_Aff_DailySummaryClickRate_New]
-	@date smalldatetime = null
+﻿ALTER PROCEDURE [dbo].[Task_Aff_DailySummaryClickRate_New] 
+	@date SMALLDATETIME = NULL
 AS
 /*
 	Created: 20120109@Johnny
@@ -7,18 +7,24 @@ AS
 	DB: DBAFF12BET/Affiliate_12BET
 	Revisions:	
 		- @20140214: optimize performance (to use index)
+		- 20140613@Bobby: Update @date to 7 days (date backup)
 	
 */
 BEGIN
 	SET NOCOUNT ON
 
+	SELECT @date = convert(VARCHAR(10), ISNULL(@date, dateAdd(DD, - 7, current_timestamp)), 120)
 
-	select @date = convert(varchar(10), ISNULL(@date, dateAdd(d, -30, current_timestamp)), 120)
-
-	if(exists (select 1 from ClickStatistics1Sum (nolock) where @date = [Date]))
-	begin
-	   return
-	end 
+	IF (
+			EXISTS (
+				SELECT 1
+				FROM ClickStatistics1Sum(NOLOCK)
+				WHERE @date = [Date]
+				)
+			)
+	BEGIN
+		RETURN
+	END
 
 	/* 
 	--Store Total number of deposit user
@@ -29,71 +35,86 @@ BEGIN
 	where datediff(d, CreatedDate, @date) = 0
 	Group by AffId 
 	 */
+	--Summary for Daily by Domain and Date
+	INSERT INTO ClickStatistics1Sum (
+		AffID
+		,[DomainReferrer]
+		,[Date]
+		,[SportCode]
+		,[LanguageCode]
+		,TotalClick
+		,UniqueClick
+		,TotalSignup
+		,TotalDeposit
+		)
+	SELECT AffID
+		,DomainReferrer
+		,@date AS [Date]
+		,SportCode
+		,LanguageCode
+		,sum(1) AS TotalClick
+		,count(DISTINCT IP) AS UniqueClick
+		,SUM(CASE 
+				WHEN STATUS > 0 THEN 1
+				ELSE 0
+				END) AS TotalSignup
+		,SUM(CASE 
+				WHEN STATUS = 2 THEN 1
+				ELSE 0
+				END) AS TotalDeposit
+	FROM ClickStatistics1(NOLOCK)
+	WHERE @date = [Date] --datediff(d, @date, [date])=0
+	GROUP BY AffID
+		,DomainReferrer
+		,SportCode
+		,LanguageCode
 
-	 --Summary for Daily by Domain and Date
-	insert into ClickStatistics1Sum(AffID, [DomainReferrer], [Date], [SportCode], [LanguageCode], TotalClick, UniqueClick, TotalSignup, TotalDeposit)
-	select  AffID,
-			DomainReferrer,
-			@date as [Date],
-			SportCode,
-			LanguageCode,
-			sum(1) as TotalClick,
-			count(distinct IP) as UniqueClick,
-			SUM(case when status > 0 then 1 else 0 end) as TotalSignup,
-			SUM(case when status = 2 then 1 else 0 end) as  TotalDeposit
-	from ClickStatistics1 (nolock)
-	where @date = [Date] --datediff(d, @date, [date])=0
-	group by AffID, DomainReferrer, SportCode, LanguageCode
+	INSERT INTO ClickStatistics1_bk (
+		[ClickID]
+		,[AffID]
+		,[UpdatedTime]
+		,[IP]
+		,[Date]
+		,[Browser]
+		,[URLReferrer]
+		,[DomainReferrer]
+		,[OS]
+		,[Device]
+		,[BrowserVersion]
+		,[BrowserResolution]
+		,[BrowserLanguage]
+		,[UserAgent]
+		,[Country]
+		,[LanguageCode]
+		,[SportCode]
+		,[RedirectURL]
+		,[Status]
+		)
+	SELECT [ClickID]
+		,[AffID]
+		,[UpdatedTime]
+		,[IP]
+		,[Date]
+		,[Browser]
+		,[URLReferrer]
+		,[DomainReferrer]
+		,[OS]
+		,[Device]
+		,[BrowserVersion]
+		,[BrowserResolution]
+		,[BrowserLanguage]
+		,[UserAgent]
+		,[Country]
+		,[LanguageCode]
+		,[SportCode]
+		,[RedirectURL]
+		,[Status]
+	FROM ClickStatistics1
+	WHERE @date = [Date] -- datediff(d, @date, [date])=0
 
-
-	insert into ClickStatistics1_bk (
-			[ClickID]
-			,[AffID]
-			,[UpdatedTime]
-			,[IP]
-			,[Date]
-			,[Browser]
-			,[URLReferrer]
-			,[DomainReferrer]
-			,[OS]
-			,[Device]
-			,[BrowserVersion]
-			,[BrowserResolution]
-			,[BrowserLanguage]
-			,[UserAgent]
-			,[Country]
-			,[LanguageCode]
-			,[SportCode]
-			,[RedirectURL]
-			,[Status])
-	select 
-			[ClickID]
-			,[AffID]
-			,[UpdatedTime]
-			,[IP]
-			,[Date]
-			,[Browser]
-			,[URLReferrer]
-			,[DomainReferrer]
-			,[OS]
-			,[Device]
-			,[BrowserVersion]
-			,[BrowserResolution]
-			,[BrowserLanguage]
-			,[UserAgent]
-			,[Country]
-			,[LanguageCode]
-			,[SportCode]
-			,[RedirectURL]
-			,[Status]
-	from ClickStatistics1
-	where @date = [Date]-- datediff(d, @date, [date])=0
-
-	delete ClickStatistics1
-	where @date = [Date] -- datediff(d, @date, [date])=0
-
+	DELETE ClickStatistics1
+	WHERE @date = [Date] -- datediff(d, @date, [date])=0
 END
-
-
 GO
+
 GRANT VIEW DEFINITION ON [dbo].[Task_Aff_DailySummaryClickRate_New] TO [vnteam]
