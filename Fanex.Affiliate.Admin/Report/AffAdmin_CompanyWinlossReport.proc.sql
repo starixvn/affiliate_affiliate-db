@@ -25,7 +25,8 @@ AS
 	Original:[[AffAdmin_CompanyWinlossReport]]      
 	Revisions:
 		- 20140326@Bobby: Apply paging
-		- 20140513@Bobby: Add Playtech Casio product    
+		- 20140513@Bobby: Add Playtech Casio product
+		- 20140612@Bobby: Add PShare & PWin columns    
                 
 	Param's Explanation: 
 	• @UserId: Admin user id
@@ -219,6 +220,18 @@ BEGIN
 							ELSE 0
 							END)
 					) AS PlaytechCasinoWinlost
+				,SUM(CASE 
+							WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(ad.PShare, 0)
+							ELSE 0
+							END) AS PShare
+				,SUM(CASE 
+							WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(ad.PWin, 0)
+							ELSE 0
+							END) AS PWin
+				,-SUM(CASE 
+							WHEN ad.ProductID = @PlaytechCasino THEN (ISNULL(ad.MemWinlost, 0) - ISNULL(ad.PShare, 0))
+							ELSE 0
+							END) AS NetGaming
 			FROM AffDaily ad WITH (NOLOCK)
 				INNER JOIN @ProductFilter p
 				ON ad.ProductId = p.ProductId
@@ -319,6 +332,16 @@ BEGIN
 			,ISNULL(rpt.LiveCasinoWinlost, 0) * rpt.AffExRate AS LiveCasinoWinlost_Aff
 			,ISNULL(rpt.RNGCasinoWinlost, 0) * rpt.AffExRate AS RNGCasinoWinlost_Aff
 			,ISNULL(rpt.PlaytechCasinoWinlost, 0) * rpt.AffExRate AS PlaytechCasinoWinlost_Aff
+			--Add PShare & PWin
+			,rpt.PShare
+			,rpt.PWin
+			,rpt.NetGaming AS NetGaming
+			,(rpt.PShare * rpt.ExRate) AS PShareBase
+			,(rpt.PWin * rpt.ExRate) AS PWinBase
+			,(rpt.NetGaming * rpt.ExRate) AS NetGamingBase
+			,(rpt.PShare * rpt.AffExRate) AS PShare_aff
+			,(rpt.PWin * rpt.AffExRate) AS PWin_aff
+			,(rpt.NetGaming * rpt.AffExRate) AS NetGaming_aff
 			,ROW_NUMBER() OVER (
 				ORDER BY rpt.Winlostdate
 			) AS RowNum
@@ -389,6 +412,16 @@ BEGIN
 			,SUM(RNGCasinoWinlost_Aff) RNGCasinoWinlost_Aff
 			,SUM(PlaytechCasinoWinlost_Aff) PlaytechCasinoWinlost_Aff
 			,SUM(TotalWinlost_Aff) TotalWinlost_Aff
+			--Add PShare & PWin
+			,SUM(PShare) AS PShare
+			,SUM(PWin) AS PWin
+			,SUM(NetGaming) AS NetGaming
+			,SUM(PShareBase) AS PShareBase
+			,SUM(PWinBase) AS PWinBase
+			,SUM(NetGamingBase) AS NetGamingBase
+			,SUM(PShare_aff) AS PShare_aff
+			,SUM(PWin_aff) AS PWin_aff
+			,SUM(NetGaming_aff) AS NetGaming_aff
 		FROM #rptWinlossDate
 		GROUP BY Currency
 
@@ -412,6 +445,10 @@ BEGIN
 			,SUM(RNGCasinoWinlostBase) RNGCasinoWinlostBase
 			,SUM(PlaytechCasinoWinlostBase) PlaytechCasinoWinlostBase
 			,SUM(TotalWinlostBase) TotalWinlostBase
+			--Add PShare & PWin
+			,SUM(PShareBase) AS PShareBase
+			,SUM(PWinBase) AS PWinBase
+			,SUM(NetGamingBase) AS NetGamingBase			
 		FROM #rptWinlossDate
 
 
@@ -479,6 +516,16 @@ BEGIN
 			,SUM(LiveCasinoWinlost_Aff) AS LiveCasinoWinlost_Aff
 			,SUM(RNGCasinoWinlost_Aff) AS RNGCasinoWinlost_Aff
 			,SUM(PlaytechCasinoWinlost_Aff) AS PlaytechCasinoWinlost_Aff
+			--Add PShare & PWin
+			,SUM(PShare) AS PShare
+			,SUM(PWin) AS PWin
+			,SUM(NetGaming) AS NetGaming
+			,SUM(PShareBase) AS PShareBase
+			,SUM(PWinBase) AS PWinBase
+			,SUM(NetGamingBase) AS NetGamingBase
+			,SUM(PShare_aff) AS PShare_aff
+			,SUM(PWin_aff) AS PWin_aff
+			,SUM(NetGaming_aff) AS NetGaming_aff
 			,ROW_NUMBER() OVER (
 				ORDER BY tmp.WinlostDate
 				) AS RowNum
@@ -721,6 +768,44 @@ BEGIN
 							ELSE 0
 							END * ad.AffExRate)
 					) AS PlaytechCasinoWinlost_Aff
+				--Add PShare & PWin
+				,SUM(CASE 
+						WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(ad.PShare, 0)
+						ELSE 0
+						END) AS PShare
+				,SUM(CASE 
+						WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(ad.PWin, 0)
+						ELSE 0
+						END) AS PWin
+				,-SUM(CASE 
+						WHEN ad.ProductID = @PlaytechCasino THEN (ISNULL(ad.MemWinlost, 0) - ISNULL(ad.PShare, 0))
+						ELSE 0
+						END) AS NetGaming
+				,SUM(CASE 
+						WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(ad.PShare, 0)
+						ELSE 0
+						END * ad.SysExRate) AS PShareBase
+				,SUM(CASE 
+						WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(ad.PWin, 0)
+						ELSE 0
+						END * ad.SysExRate) AS PWinBase
+				,-SUM(CASE 
+						WHEN ad.ProductID = @PlaytechCasino THEN (ISNULL(ad.MemWinlost, 0) - ISNULL(ad.PShare, 0))
+						ELSE 0
+						END * ad.SysExRate) AS NetGamingBase
+				,SUM(CASE 
+						WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(ad.PShare, 0)
+						ELSE 0
+						END * ad.AffExRate) AS PShare_aff
+				,SUM(CASE 
+						WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(ad.PWin, 0)
+						ELSE 0
+						END * ad.AffExRate) AS PWin_aff
+				,-SUM(CASE 
+						WHEN ad.ProductID = @PlaytechCasino THEN (ISNULL(ad.MemWinlost, 0) - ISNULL(ad.PShare, 0))
+						ELSE 0
+						END * ad.AffExRate) AS NetGaming_aff
+
 			FROM AffDaily ad WITH (NOLOCK)
 				INNER JOIN @ProductFilter p
 				ON ad.ProductId = p.ProductId
@@ -822,6 +907,16 @@ BEGIN
 			,SUM(RNGCasinoWinlost_Aff) RNGCasinoWinlost_Aff
 			,SUM(PlaytechCasinoWinlost_Aff) PlayetchCasinoWinlost_Aff
 			,SUM(TotalWinlost_Aff) TotalWinlost_Aff
+			--Add PShare & PWin
+			,SUM(PShare) AS PShare
+			,SUM(PWin) AS PWin
+			,SUM(NetGaming) AS NetGaming
+			,SUM(PShareBase) AS PShareBase
+			,SUM(PWinBase) AS PWinBase
+			,SUM(NetGamingBase) AS NetGamingBase
+			,SUM(PShare_aff) AS PShare_aff
+			,SUM(PWin_aff) AS PWin_aff
+			,SUM(NetGaming_aff) AS NetGaming_aff
 		FROM #rptWinlossMonth
 		GROUP BY Currency
 
@@ -845,6 +940,10 @@ BEGIN
 			,SUM(RNGCasinoWinlostBase) RNGCasinoWinlostBase
 			,SUM(PlaytechCasinoWinlostBase) PlaytechCasinoWinlostBase
 			,SUM(TotalWinlostBase) TotalWinlostBase
+			--Add PShare & PWin
+			,SUM(PShareBase) AS PShareBase
+			,SUM(PWinBase) AS PWinBase
+			,SUM(NetGamingBase) AS NetGamingBase
 		FROM #rptWinlossMonth
 
 		DROP TABLE #rptWinlossMonth

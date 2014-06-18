@@ -1,4 +1,5 @@
-﻿ALTER PROCEDURE [dbo].[Task_Aff_MemberDailyImportData] @AdminID INT
+﻿ALTER PROCEDURE [dbo].[Task_Aff_MemberDailyImportData] 
+	@AdminID INT
 	,@XmlData XML
 	,@WinlostDate SMALLDATETIME
 	,@ErrCode INT = 0 OUTPUT
@@ -11,6 +12,7 @@ AS
 	Original: [Aff_MemberDailyImportData]
 	Revisions: 		
 		- 20140509@Dan: support Playtech casino
+		- 20140610@Bobby: Add PShare & PWin columns
 */
 BEGIN
 	SET NOCOUNT ON
@@ -44,7 +46,9 @@ BEGIN
 		,PlayerComm MONEY
 		,TurnoverNoDraw MONEY
 		,BetCountNoDraw INT
-		);
+		,PShare MONEY
+		,PWin MONEY
+	);
 
 	INSERT INTO @TempTrans (
 		UserName
@@ -58,7 +62,9 @@ BEGIN
 		,PlayerComm
 		,TurnoverNoDraw
 		,BetCountNoDraw
-		)
+		,PShare
+		,PWin
+	)
 	SELECT [Table].[Column].value('./@username', 'varchar(30)') AS [UserName]
 		,[Table].[Column].value('./@winlostdate', 'smalldatetime') AS [WinlostDate]
 		,[Table].[Column].value('./@productid', 'tinyint') AS [ProductID]
@@ -70,6 +76,8 @@ BEGIN
 		,[Table].[Column].value('./@playercomm', 'money') AS [PlayerComm]
 		,[Table].[Column].value('./@turnovernodraw', 'money') AS [TurnoverNoDraw]
 		,[Table].[Column].value('./@betcountnodraw', 'int') AS [BetCountNoDraw]
+		,[Table].[Column].value('./@progressiveshare', 'money') AS [PShare]
+		,[Table].[Column].value('./@progressivewin', 'money') AS [PWin]
 	FROM @XmlData.nodes('/root/trans') AS [Table]([Column]);
 
 	DELETE MemberDaily
@@ -99,6 +107,8 @@ BEGIN
 		,[BetCountNoDraw]
 		,[TurnoverDraw]
 		,[TurnoverNoDraw]
+		,[PShare]
+		,[PWin]
 		)
 	SELECT t1.UserName
 		,t1.WinlostDate
@@ -123,6 +133,8 @@ BEGIN
 		,t1.BetCountNoDraw
 		,t1.DrawGame
 		,t1.TurnoverNoDraw
+		,t1.PShare
+		,t1.PWin
 	FROM @TempTrans AS t1
 		INNER JOIN MemberInfo AS mi ON t1.UserName = mi.UserName
 		INNER JOIN affinfo AS ai WITH (NOLOCK) ON mi.AffId = ai.AffId

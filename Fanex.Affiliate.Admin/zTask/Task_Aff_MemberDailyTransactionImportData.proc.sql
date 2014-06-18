@@ -208,6 +208,8 @@ BEGIN
 		,[MemTurnoverNoDraw]
 		,[MemBetCountNoDraw]
 		,[MemTurnoverDraw]
+		,[PShare]
+		,[PWin]
 		)
 	SELECT m.[AffID]
 		,m.[Currency] AS [MemCurrency]
@@ -243,6 +245,8 @@ BEGIN
 		,SUM(TurnoverNoDraw)
 		,SUM(BetCountNoDraw)
 		,SUM(TurnoverDraw)
+		,SUM(ISNULL([PShare],0))
+		,SUM(ISNULL([PWin], 0))
 	FROM MemberDaily(NOLOCK) AS m
 	WHERE m.WinlostDate = @WinlostDate
 	GROUP BY m.AffID
@@ -307,6 +311,10 @@ BEGIN
 		,[MemTurnoverNoDraw_aff]
 		,[MemTurnoverDraw]
 		,[MemTurnoverDraw_aff]
+		,[PShare]
+		,[PShare_aff]
+		,[PWin]
+		,[PWin_aff]
 		)
 	SELECT [AffID]
 		,[Winlostdate]
@@ -355,6 +363,10 @@ BEGIN
 		,SUM([MemTurnoverNoDraw] * AffExRate) AS MemTurnoverNoDraw_aff
 		,SUM([MemTurnoverDraw] * SysExRate) AS MemTurnoverDraw
 		,SUM([MemTurnoverDraw] * AffExRate) AS MemTurnoverDraw_aff
+		,SUM([PShare] * SysExRate) AS PShare
+		,SUM([PShare] * AffExRate) AS PShare_aff
+		,SUM([PWin] * SysExRate) AS PWin
+		,SUM([PWin] * AffExRate) AS PWin_aff
 	FROM AffDaily(NOLOCK)
 	WHERE WinlostDate = @winlostdate
 	GROUP BY AffID

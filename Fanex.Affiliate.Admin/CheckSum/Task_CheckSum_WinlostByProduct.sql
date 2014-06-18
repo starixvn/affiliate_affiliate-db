@@ -83,5 +83,6 @@ BEGIN
 	DROP TABLE #rptData
 END
 GO
+GRANT EXECUTE ON [dbo].[Task_CheckSum_WinlostByProduct] TO [bodbAdminNet] AS [dbo]
 --exec [dbo].[Task_CheckSum_WinlostByProduct]
 --	@Date = '2014-04-23 00:00:00'

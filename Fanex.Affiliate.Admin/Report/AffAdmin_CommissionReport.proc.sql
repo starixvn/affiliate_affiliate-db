@@ -27,6 +27,7 @@ Revisions:
 	- 20140401@Bobby: Apply paging       
 	- 20140514@Bobby: Add Playtech Casio product   
 	- 20140520@Bobby: Add filter product by commgroup setting
+	- 20140611@Bobby: Add PShare & PWin columns
                 
 Param's Explanation: 
 • @UserId: Admin user id
@@ -201,6 +202,13 @@ BEGIN
 		,PlaytechCasinoTurnoverBase MONEY
 		,PlaytechCasinoWinlossBase MONEY
 		,PlaytechCasinoCommissionBase MONEY
+		-- add PShare, PWin & NetGaming
+		,PShare MONEY
+		,PWin MONEY
+		,NetGaming MONEY
+		,PShareBase MONEY
+		,PWinBase MONEY
+		,NetGamingBase MONEY
 		)
 
 	--For the old month that is calculated.
@@ -285,6 +293,12 @@ BEGIN
 			,PlaytechCasinoTurnoverBase
 			,PlaytechCasinoWinlossBase
 			,PlaytechCasinoCommissionBase
+			,PShare
+			,PShareBase
+			,PWin
+			,PWinBase
+			,NetGaming
+			,NetGamingBase
 			)
 		SELECT ac.AffId
 			,t.STATUS
@@ -566,6 +580,31 @@ BEGIN
 					WHEN ac.ProductID = @PlaytechCasino THEN ac.AffWinlost
 					ELSE 0
 					END) AS PlaytechCasinoCommissionBase
+			-----PShare,PWin & NetGaming
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN PShare_Aff
+					ELSE 0
+					END) AS PShare
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN PShare
+					ELSE 0
+					END) AS PShareBase
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN PWin_Aff
+					ELSE 0
+					END) AS PWin
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN PWin
+					ELSE 0
+					END) AS PWinBase
+			,-SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN MemberWinlost_aff - PShare_Aff
+					ELSE 0
+					END) AS NetGaming
+			,-SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN MemberWinlost - PShare
+					ELSE 0
+					END) AS NetGamingBase
 		FROM AffCommission ac WITH (NOLOCK)
 			INNER JOIN [dbo].[AffAdmin_AffiliateListForReport](@UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
 			ON ac.AffId = t.AffId
@@ -673,6 +712,12 @@ BEGIN
 			,PlaytechCasinoTurnoverBase
 			,PlaytechCasinoWinlossBase
 			,PlaytechCasinoCommissionBase
+			,PShare
+			,PShareBase
+			,PWin
+			,PWinBase
+			,NetGaming
+			,NetGamingBase
 			)
 		SELECT ac.AffId
 			,t.[Status]
@@ -954,6 +999,31 @@ BEGIN
 					WHEN ac.ProductID = @PlaytechCasino THEN ac.AffWinlost
 					ELSE 0
 					END) AS PlaytechCasinoCommissionBase
+			-----PShare,PWin & NetGaming
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN PShare_Aff
+					ELSE 0
+					END) AS PShare
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN PShare
+					ELSE 0
+					END) AS PShareBase
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN PWin_Aff
+					ELSE 0
+					END) AS PWin
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN PWin
+					ELSE 0
+					END) AS PWinBase
+			,-SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN MemberWinlost_aff - PShare_Aff
+					ELSE 0
+					END) AS NetGaming
+			,-SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN MemberWinlost - PShare
+					ELSE 0
+					END) AS NetGamingBase
 		FROM [dbo].[Aff_CommissionForMonthAll](@month, @year) ac
 			INNER JOIN [dbo].[AffAdmin_AffiliateListForReport](@UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
 			ON ac.AffId = t.AffId
@@ -1057,6 +1127,12 @@ BEGIN
 			,PlaytechCasinoTurnoverBase
 			,PlaytechCasinoWinlossBase
 			,PlaytechCasinoCommissionBase
+			,PShare
+			,PShareBase
+			,PWin
+			,PWinBase
+			,NetGaming
+			,NetGamingBase
 			)
 		SELECT ac.AffId
 			,t.STATUS
@@ -1338,6 +1414,31 @@ BEGIN
 					WHEN ac.ProductID = @PlaytechCasino THEN ac.AffWinlost
 					ELSE 0
 					END) AS PlaytechCasinoCommissionBase
+			-----PShare,PWin & NetGaming
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN PShare_Aff
+					ELSE 0
+					END) AS PShare
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN PShare
+					ELSE 0
+					END) AS PShareBase
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN PWin_Aff
+					ELSE 0
+					END) AS PWin
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN PWin
+					ELSE 0
+					END) AS PWinBase
+			,-SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN MemberWinlost_aff - PShare_Aff
+					ELSE 0
+					END) AS NetGaming
+			,-SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN MemberWinlost - PShare
+					ELSE 0
+					END) AS NetGamingBase
 		FROM [dbo].[Aff_CommissionForMonthAll](@month, @year) ac
 			INNER JOIN [dbo].[AffAdmin_AffiliateListForReport](@UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
 			ON ac.AffId = t.AffId
@@ -1474,6 +1575,12 @@ BEGIN
 			,isnull(c.DeductedPercentage, 0) AS DeductedPercentage
 			,isnull(ca.Amount, 0) AS Cashback
 			,isnull(ca.Amount * [dbo].[Aff_GetExchangeRate](r.ExchangeID, @SystemExchangeId, NULL), 0) AS CashbackBase
+			,PShare
+			,PShareBase
+			,PWin
+			,PWinBase
+			,NetGaming
+			,NetGamingBase
 			,ROW_NUMBER() OVER (
 				ORDER BY (CASE @SortBy
 						WHEN 0 THEN ((Commission - [dbo].[Aff_GetAffDeductionAll](r.AffId, r.Winlostdate)) * [dbo].[Aff_GetExchangeRate](r.ExchangeID, @SystemExchangeId, NULL))
@@ -1615,6 +1722,12 @@ BEGIN
 			,'N/A' DeductedPercentage
 			,SUM(Cashback) Cashback
 			,SUM(CashbackBase) CashbackBase
+			,SUM(PShare) PShare
+			,SUM(PShareBase) PShareBase
+			,SUM(PWin) PWin
+			,SUM(PWinBase) PWinBase
+			,SUM(NetGaming) NetGaming
+			,SUM(NetGamingBase) NetGamingBase
 		FROM #rptWinlossMonth rpt
 		GROUP BY Currency
 
@@ -1694,6 +1807,9 @@ BEGIN
 			,'N/A' DeductedPercentage
 			,SUM(Cashback) Cashback
 			,SUM(CashbackBase) CashbackBase
+			,SUM(PShareBase) PShareBase
+			,SUM(PWinBase) PWinBase
+			,SUM(NetGamingBase) NetGamingBase
 		FROM #rptWinlossMonth rpt
 
 		DROP TABLE #rptWinlossMonth
@@ -1767,6 +1883,12 @@ BEGIN
 			,Sum(isnull(c.DeductedPercentage, 0)) AS DeductedPercentage
 			,Sum(isnull(ca.Amount, 0)) AS Cashback
 			,Sum(isnull(ca.Amount, 0)) * [dbo].[Aff_GetExchangeRate](r.ExchangeID, @SystemExchangeId, NULL) AS CashbackBase
+			,SUM(PShare) AS PShare
+			,SUM(PShareBase) AS PShareBase
+			,SUM(PWin) AS PWin
+			,SUM(PWinBase) AS PWinBase
+			,SUM(NetGaming) AS NetGaming
+			,SUM(NetGamingBase) AS NetGamingBase
 			,ROW_NUMBER() OVER (
 				ORDER BY (CASE @SortBy
 						WHEN 0 THEN Sum(ISNULL(Commission, 0)) - Sum([dbo].[Aff_GetAffDeductionAll](r.AffId, Winlostdate)) * [dbo].[Aff_GetExchangeRate](r.ExchangeID, @SystemExchangeId, NULL)
@@ -1909,6 +2031,12 @@ BEGIN
 			,'N/A' AS DeductedPercentage
 			,SUM(Cashback) Cashback
 			,SUM(CashbackBase) CashbackBase
+			,SUM(PShare) PShare
+			,SUM(PShareBase) PShareBase
+			,SUM(PWin) PWin
+			,SUM(PWinBase) PWinBase
+			,SUM(NetGaming) NetGaming
+			,SUM(NetGamingBase) NetGamingBase
 		FROM #rptWinlossAff rpt
 		GROUP BY Currency
 
@@ -1974,6 +2102,9 @@ BEGIN
 			,'N/A' AS DeductedPercentage
 			,SUM(Cashback) Cashback
 			,SUM(CashbackBase) CashbackBase
+			,SUM(PShareBase) PShareBase
+			,SUM(PWinBase) PWinBase
+			,SUM(NetGamingBase) NetGamingBase
 		FROM #rptWinlossAff rpt
 
 		DROP TABLE #rptWinlossAff;

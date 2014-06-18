@@ -18,6 +18,7 @@ Original: [AffAdmin_CommissionReport]
 Revisions:
 	- 20140513@Bobby: Add Playtech Casio product
 	- 20140519@Bobby: Add filter no data
+	- 20140610@Bobby: Add PShare & PWin columns
 
 Param's Explanation: 
 • @UserId: Admin user id
@@ -154,6 +155,12 @@ BEGIN
 		,PlaytechCasinoCommission MONEY
 		,PlaytechCasinoWinlossBase MONEY
 		,PlaytechCasinoCommissionBase MONEY
+		,PShare MONEY
+		,PWin MONEY
+		,NetGaming MONEY
+		,PShareBase MONEY
+		,PWinBase MONEY
+		,NetGamingBase MONEY
 		,EnableCashback BIT DEFAULT(0)
 		)
 
@@ -177,6 +184,12 @@ BEGIN
 		,RNGCasinoWinlossBase
 		,PlaytechCasinoWinloss
 		,PlaytechCasinoWinlossBase
+		,PShare
+		,PShareBase
+		,PWin
+		,PWinBase
+		,NetGaming
+		,NetGamingBase
 		)
 	SELECT ad.AffId
 		,t.STATUS
@@ -231,6 +244,31 @@ BEGIN
 				WHEN ad.ProductID = @PlaytechCasino THEN MemWinlost
 				ELSE 0
 				END) AS PlaytechCasinoWinlossBase
+		-----PShare,PWin & NetGaming
+		,SUM(CASE 
+				WHEN ad.ProductID = @PlaytechCasino THEN PShare_Aff
+				ELSE 0
+				END) AS PShare
+		,SUM(CASE 
+				WHEN ad.ProductID = @PlaytechCasino THEN PShare
+				ELSE 0
+				END) AS PShareBase
+		,SUM(CASE 
+				WHEN ad.ProductID = @PlaytechCasino THEN PWin_Aff
+				ELSE 0
+				END) AS PWin
+		,SUM(CASE 
+				WHEN ad.ProductID = @PlaytechCasino THEN PWin
+				ELSE 0
+				END) AS PWinBase
+		,-SUM(CASE 
+				WHEN ad.ProductID = @PlaytechCasino THEN ad.MemWinlost_aff - PShare_Aff
+				ELSE 0
+				END) AS NetGaming
+		,-SUM(CASE 
+				WHEN ad.ProductID = @PlaytechCasino THEN ad.MemWinlost - PShare
+				ELSE 0
+				END) AS NetGamingBase
 	FROM AffDailySummary ad WITH (NOLOCK)
 		INNER JOIN @ProductFilter p
 		ON ad.ProductId = p.ProductId

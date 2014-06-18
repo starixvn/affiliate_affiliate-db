@@ -20,10 +20,11 @@ DB: DB052/DB054.bodb02
   
   
 Revisions:  
-          - 20131028@Peter : Add more DB columns https://redmine.nexcel.vn/issues/5280
-		  - 20140416@Dan: include Keno
-		  - 20140502@Dan: optimize perfomance
-		  - 20140502@Dan: support Playtech casino
+    - 20131028@Peter : Add more DB columns https://redmine.nexcel.vn/issues/5280
+	- 20140416@Dan: include Keno
+	- 20140502@Dan: optimize perfomance
+	- 20140502@Dan: support Playtech casino
+	- 20140610@Bobby: Add ProgressiveShare & ProgressiveWin columns
   
 Param's Explanation:  
   
@@ -64,7 +65,9 @@ BEGIN
 		,BetCount INT
 		,TurnoverNoDraw MONEY
 		,BetCountNoDraw INT
-		)
+		,ProgressiveShare MONEY DEFAULT(0)
+		,ProgressiveWin MONEY DEFAULT(0)
+	)
 
 	DECLARE @TempTrans TABLE
 		--CREATE TABLE #TempTrans
@@ -343,7 +346,9 @@ BEGIN
 		,BetCount
 		,TurnoverNoDraw
 		,BetCountNoDraw
-		)
+		,ProgressiveShare
+		,ProgressiveWin
+	)
 	SELECT b.winlostdate
 		,b.CustID
 		,c.username
@@ -356,6 +361,8 @@ BEGIN
 		,b.BetCount
 		,(b.turnover - b.drawTO) AS TurnoverNoDraw
 		,(b.BetCount - drawBetCount) AS BetCountNoDraw
+		,ProgressiveShare
+		,ProgressiveWin
 	FROM DBRPT.bodb_Report.dbo.rptDepWinlost_PlaytechCS b WITH (NOLOCK)
 		INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid = c.custid
 	WHERE b.winlostdate = @Date

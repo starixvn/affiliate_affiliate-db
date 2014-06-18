@@ -46,6 +46,10 @@ RETURNS @AffComm TABLE (
 	,[MemberWithdrawal_aff] MONEY
 	,[MemberTurnoverDraw] MONEY
 	,[MemberTurnoverDraw_aff] MONEY
+	,PShare MONEY
+	,PWin MONEY
+	,PShare_aff MONEY
+	,PWin_aff MONEY
 	)
 AS
 /*
@@ -105,7 +109,11 @@ BEGIN
 		,MemWithdrawal_aff MONEY
 		,MemTurnoverDraw_aff MONEY
 		,MemTurnoverNoDraw_aff MONEY
-		)
+		,PShare MONEY
+		,PWin MONEY
+		,PShare_aff MONEY
+		,PWin_aff MONEY
+	)
 
 	INSERT INTO @MemberSummary (
 		UserName
@@ -131,6 +139,10 @@ BEGIN
 		,MemWithdrawal_aff
 		,MemTurnoverDraw_aff
 		,MemTurnoverNoDraw_aff
+		,PShare
+		,PWin
+		,PShare_aff
+		,PWin_aff
 		)
 	SELECT username
 		,AffID
@@ -155,6 +167,10 @@ BEGIN
 		,sum(isnull(Withdrawal, 0) * isnull(AffExRate, 1)) AS Withdrawal_aff
 		,sum(isnull(TurnOverDraw, 0) * isnull(AffExRate, 1)) AS TurnOverDraw_aff
 		,sum(isnull(TurnOverNoDraw, 0) * isnull(AffExRate, 1)) AS TurnOverNoDraw_aff
+		,sum(isnull(PShare, 0) * isnull(SysExRate, 1)) AS PShare
+		,sum(isnull(PWin, 0) * isnull(SysExRate, 1)) AS PWin
+		,sum(isnull(PShare, 0) * isnull(AffExRate, 1)) AS PShare_aff
+		,sum(isnull(PWin, 0) * isnull(AffExRate, 1)) AS PWin_aff
 	FROM MemberDaily md(NOLOCK)
 	WHERE WinlostDate BETWEEN @FirstDay AND @LastDay
 	GROUP BY username
@@ -213,6 +229,10 @@ BEGIN
 		,[MemTurnoverDraw] MONEY
 		,[MemTurnoverDraw_aff] MONEY
 		,ZeroCommission INT
+		,PShare MONEY
+		,PWin MONEY
+		,PShare_aff MONEY
+		,PWin_aff MONEY
 		)
 
 	IF datediff(m, @FirstDay, current_timestamp) = 0
@@ -254,6 +274,10 @@ BEGIN
 			,[MemTurnoverDraw]
 			,[MemTurnoverDraw_aff]
 			,ZeroCommission
+			,PShare
+			,PWin
+			,PShare_aff
+			,PWin_aff
 			)
 		SELECT ai.AffID AS AffID
 			,ai.Currency AS Currency
@@ -294,6 +318,10 @@ BEGIN
 			,Sum(isnull([MemTurnoverDraw], 0))
 			,Sum(isnull([MemTurnoverDraw_aff], 0))
 			,[dbo].[IsZeroCommissionGroup](ai.GroupID, @LastDay)
+			,SUM(ISNULL(PShare, 0)) PShare
+			,SUM(ISNULL(PWin, 0)) PWin
+			,SUM(ISNULL(PShare_aff, 0)) PShare_aff
+			,SUM(ISNULL(PWin_aff, 0)) PWin_aff
 		FROM AffInfo ai WITH (NOLOCK)
 			INNER JOIN CommGroup ch(NOLOCK)
 			ON ch.groupid = ai.groupid
@@ -344,6 +372,10 @@ BEGIN
 			,[MemTurnoverDraw]
 			,[MemTurnoverDraw_aff]
 			,ZeroCommission
+			,PShare
+			,PWin
+			,PShare_aff
+			,PWin_aff
 			)
 		SELECT ai.AffID AS AffID
 			,ai.Currency AS Currency
@@ -384,6 +416,10 @@ BEGIN
 			,Sum(isnull([MemTurnoverDraw], 0))
 			,Sum(isnull([MemTurnoverDraw_aff], 0))
 			,[dbo].[IsZeroCommissionGroup](gh.GroupID, @LastDay)
+			,SUM(ISNULL(PShare, 0)) PShare
+			,SUM(ISNULL(PWin, 0)) PWin
+			,SUM(ISNULL(PShare_aff, 0)) PShare_aff
+			,SUM(ISNULL(PWin_aff, 0)) PWin_aff
 		FROM AffInfo ai WITH (NOLOCK)
 			INNER JOIN AffGroupHistory gh(NOLOCK)
 			ON gh.AffID = ai.AffID
@@ -570,6 +606,10 @@ BEGIN
 		,[MemberWithdrawal_aff]
 		,[MemberTurnoverDraw]
 		,[MemberTurnoverDraw_aff]
+		,PShare
+		,PWin
+		,PShare_aff
+		,PWin_aff
 		)
 	SELECT AffID
 		,GroupID
@@ -617,6 +657,10 @@ BEGIN
 		,[MemWithdrawal_aff]
 		,[MemTurnoverDraw]
 		,[MemTurnoverDraw_aff]
+		,PShare
+		,PWin
+		,PShare_aff
+		,PWin_aff
 	FROM @AffSummary a
 
 	RETURN

@@ -466,6 +466,7 @@ BEGIN
 	DROP TABLE #LicenseeCust
 END
 GO
+GRANT EXECUTE ON [dbo].[Aff_CheckSum_WinlostByProduct] TO [bodbAdminNet] AS [dbo]
 --exec [dbo].[Aff_CheckSum_WinlostByProduct] 
 --	@Xml = '<root>
 --		<trans username="LBUUSMem001"></trans>
