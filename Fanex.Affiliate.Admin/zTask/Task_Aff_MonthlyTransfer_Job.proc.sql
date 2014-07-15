@@ -70,6 +70,7 @@ Revisions:
   - 20140429@Bobby.Nguyen: Update calculating amount of NoCommission group
   - 20140520@Bobby.Nguyen: Update calculating TotalQM by comparing MemberTurnover_Aff value
   - 20140610@Bobby: Add PShare & PWin columns
+  - 20140702@Bobby.Nguyen: Force to update Commission when Company Net Win is negative
 
 Param's Explanation:  
 • @Month: The month to transfer  
@@ -81,9 +82,13 @@ BEGIN
 	DECLARE @FirstDay SMALLDATETIME
 		,@LastDay SMALLDATETIME
 		,@TransType INT
-		,@MinimumNegativeCommission FLOAT
+		,@IsForceMinNegativeCommission BIT = 0
+		,@MinimumNegativeCommission FLOAT = 0.1
 
-	SELECT @MinimumNegativeCommission = 0.1
+	SELECT @MinimumNegativeCommission = CASE WHEN SName = 'AFF_MinNegativeCommission' THEN ISNULL(SValue, @MinimumNegativeCommission) ELSE @MinimumNegativeCommission END
+		,@IsForceMinNegativeCommission = CASE WHEN SName = 'AFF_ForceMinNegativeCommission' THEN ISNULL(SValue, 0.1) ELSE @IsForceMinNegativeCommission END
+	FROM dbo.SystemSettings with(nolock)
+	WHERE SName IN ('AFF_ForceMinNegativeCommission', 'AFF_MinNegativeCommission')
 
 	SELECT @FirstDay = cast(cast(@Year AS VARCHAR(5)) + '-' + cast(@Month AS VARCHAR(5)) + '-' + '1' AS SMALLDATETIME)
 
@@ -469,18 +474,22 @@ end*/
 				), 0)
 	FROM #AffSummary a
 
+	/*
+	-- check/update Negative Commission
+	-- force update min comm (inorge tier rule ITCBET[OR @IsForceMinNegativeCommission = 1])
+	*/
 	UPDATE a
 	SET a.Commission = @MinimumNegativeCommission
 	FROM #AffSummary a
 	WHERE a.NetWinlost_aff < 0
-		AND a.Commission = 0
+		AND (a.Commission = 0 OR @IsForceMinNegativeCommission = 1) 
 		AND a.ZeroCommission = 0
 		AND a.ProductID IN (
 			SELECT DISTINCT ProductID
 			FROM GroupSettingHistory(NOLOCK)
 			WHERE GroupID = a.GroupID
 				AND MonthDate BETWEEN @FirstDay AND @LastDay
-			)
+		)
 
 	--Insert transaction to AffTrans and AffCommission  
 	DECLARE @WinlostDate SMALLDATETIME

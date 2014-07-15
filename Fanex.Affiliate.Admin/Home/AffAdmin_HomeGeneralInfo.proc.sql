@@ -11,6 +11,7 @@ Revisions:
  - 20100729@Johnny: Apply Media affiliate statistics    
  - 20131007@Johnny: Get Turnover
  - 20140515@bobby: Exclude member test account
+ - 20140703@bobby: Exclude Payment info that belongs to affiliate test account
 
 Param's Explanation:    
     
@@ -85,10 +86,16 @@ BEGIN
 
 	SELECT @PaymentReqNum = sum(1)
 	FROM AffTrans af WITH (NOLOCK)
-	WHERE af.TransType = @TransType AND af.AffCurrency IN (
+		INNER JOIN AffInfo ai WITH(NOLOCK)
+		ON af.AffId = ai.AffId 
+	WHERE af.TransType = @TransType 
+		AND af.AffCurrency IN (
 			SELECT CurrencyID
 			FROM @tmpCurrency
-			) AND af.STATUS = 'Pending'
+		) 
+		AND af.STATUS = 'Pending'
+		AND ai.TestLevel = 0
+		AND ai.STATUS = 'Approved'
 
 	-- all affiliate statc      
 	SELECT @PendingAllNum = sum(CASE 

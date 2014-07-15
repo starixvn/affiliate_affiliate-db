@@ -255,8 +255,8 @@ BEGIN
 						WHEN m.ProductID = @PlaytechCasino THEN ISNULL(m.PWin, 0)
 						ELSE 0
 						END) AS PWin
-				,-SUM(CASE 
-						WHEN m.ProductID = @PlaytechCasino THEN (ISNULL(m.Winlost, 0) - ISNULL(m.PShare, 0))
+				,SUM(CASE 
+						WHEN m.ProductID = @PlaytechCasino THEN -ISNULL(m.Winlost, 0) - ISNULL(m.PShare, 0)
 						ELSE 0
 						END) AS NetGaming
 			FROM MemberDaily m WITH (NOLOCK)
@@ -548,8 +548,8 @@ BEGIN
 						WHEN m.ProductID = @PlaytechCasino THEN ISNULL(m.PWin, 0)
 						ELSE 0
 						END) AS PWin
-				,-SUM(CASE 
-						WHEN m.ProductID = @PlaytechCasino THEN (ISNULL(m.Winlost, 0) - ISNULL(m.PShare, 0))
+				,SUM(CASE 
+						WHEN m.ProductID = @PlaytechCasino THEN -ISNULL(m.Winlost, 0) - ISNULL(m.PShare, 0)
 						ELSE 0
 						END) AS NetGaming
 			FROM MemberDaily m WITH (NOLOCK)

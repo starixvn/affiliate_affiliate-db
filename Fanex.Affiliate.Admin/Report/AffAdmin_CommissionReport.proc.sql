@@ -582,27 +582,27 @@ BEGIN
 					END) AS PlaytechCasinoCommissionBase
 			-----PShare,PWin & NetGaming
 			,SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN PShare_Aff
+					WHEN ac.ProductID = @PlaytechCasino THEN ISNULL(PShare_Aff,0)
 					ELSE 0
 					END) AS PShare
 			,SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN PShare
+					WHEN ac.ProductID = @PlaytechCasino THEN ISNULL(PShare,0)
 					ELSE 0
 					END) AS PShareBase
 			,SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN PWin_Aff
+					WHEN ac.ProductID = @PlaytechCasino THEN ISNULL(PWin_Aff,0)
 					ELSE 0
 					END) AS PWin
 			,SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN PWin
+					WHEN ac.ProductID = @PlaytechCasino THEN ISNULL(PWin,0)
 					ELSE 0
 					END) AS PWinBase
-			,-SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN MemberWinlost_aff - PShare_Aff
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN -ISNULL(MemberWinlost_aff,0) - ISNULL(PShare_Aff,0)
 					ELSE 0
 					END) AS NetGaming
-			,-SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN MemberWinlost - PShare
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN -ISNULL(MemberWinlost,0) - ISNULL(PShare,0)
 					ELSE 0
 					END) AS NetGamingBase
 		FROM AffCommission ac WITH (NOLOCK)
@@ -1001,27 +1001,27 @@ BEGIN
 					END) AS PlaytechCasinoCommissionBase
 			-----PShare,PWin & NetGaming
 			,SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN PShare_Aff
+					WHEN ac.ProductID = @PlaytechCasino THEN ISNULL(PShare_Aff,0)
 					ELSE 0
 					END) AS PShare
 			,SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN PShare
+					WHEN ac.ProductID = @PlaytechCasino THEN ISNULL(PShare,0)
 					ELSE 0
 					END) AS PShareBase
 			,SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN PWin_Aff
+					WHEN ac.ProductID = @PlaytechCasino THEN ISNULL(PWin_Aff,0)
 					ELSE 0
 					END) AS PWin
 			,SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN PWin
+					WHEN ac.ProductID = @PlaytechCasino THEN ISNULL(PWin,0)
 					ELSE 0
 					END) AS PWinBase
-			,-SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN MemberWinlost_aff - PShare_Aff
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN -ISNULL(MemberWinlost_aff,0) - ISNULL(PShare_Aff,0)
 					ELSE 0
 					END) AS NetGaming
-			,-SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN MemberWinlost - PShare
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN -ISNULL(MemberWinlost,0) - ISNULL(PShare,0)
 					ELSE 0
 					END) AS NetGamingBase
 		FROM [dbo].[Aff_CommissionForMonthAll](@month, @year) ac
@@ -1416,27 +1416,27 @@ BEGIN
 					END) AS PlaytechCasinoCommissionBase
 			-----PShare,PWin & NetGaming
 			,SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN PShare_Aff
+					WHEN ac.ProductID = @PlaytechCasino THEN ISNULL(PShare_Aff,0)
 					ELSE 0
 					END) AS PShare
 			,SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN PShare
+					WHEN ac.ProductID = @PlaytechCasino THEN ISNULL(PShare,0)
 					ELSE 0
 					END) AS PShareBase
 			,SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN PWin_Aff
+					WHEN ac.ProductID = @PlaytechCasino THEN ISNULL(PWin_Aff,0)
 					ELSE 0
 					END) AS PWin
 			,SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN PWin
+					WHEN ac.ProductID = @PlaytechCasino THEN ISNULL(PWin,0)
 					ELSE 0
 					END) AS PWinBase
-			,-SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN MemberWinlost_aff - PShare_Aff
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN -ISNULL(MemberWinlost_aff,0) - ISNULL(PShare_Aff,0)
 					ELSE 0
 					END) AS NetGaming
-			,-SUM(CASE 
-					WHEN ac.ProductID = @PlaytechCasino THEN MemberWinlost - PShare
+			,SUM(CASE 
+					WHEN ac.ProductID = @PlaytechCasino THEN -ISNULL(MemberWinlost,0) - ISNULL(PShare,0)
 					ELSE 0
 					END) AS NetGamingBase
 		FROM [dbo].[Aff_CommissionForMonthAll](@month, @year) ac

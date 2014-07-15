@@ -228,8 +228,8 @@ BEGIN
 							WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(ad.PWin, 0)
 							ELSE 0
 							END) AS PWin
-				,-SUM(CASE 
-							WHEN ad.ProductID = @PlaytechCasino THEN (ISNULL(ad.MemWinlost, 0) - ISNULL(ad.PShare, 0))
+				,SUM(CASE 
+							WHEN ad.ProductID = @PlaytechCasino THEN -ISNULL(ad.MemWinlost, 0) - ISNULL(ad.PShare, 0)
 							ELSE 0
 							END) AS NetGaming
 			FROM AffDaily ad WITH (NOLOCK)
@@ -777,8 +777,8 @@ BEGIN
 						WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(ad.PWin, 0)
 						ELSE 0
 						END) AS PWin
-				,-SUM(CASE 
-						WHEN ad.ProductID = @PlaytechCasino THEN (ISNULL(ad.MemWinlost, 0) - ISNULL(ad.PShare, 0))
+				,SUM(CASE 
+						WHEN ad.ProductID = @PlaytechCasino THEN -ISNULL(ad.MemWinlost, 0) - ISNULL(ad.PShare, 0)
 						ELSE 0
 						END) AS NetGaming
 				,SUM(CASE 
@@ -789,8 +789,8 @@ BEGIN
 						WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(ad.PWin, 0)
 						ELSE 0
 						END * ad.SysExRate) AS PWinBase
-				,-SUM(CASE 
-						WHEN ad.ProductID = @PlaytechCasino THEN (ISNULL(ad.MemWinlost, 0) - ISNULL(ad.PShare, 0))
+				,SUM(CASE 
+						WHEN ad.ProductID = @PlaytechCasino THEN -ISNULL(ad.MemWinlost, 0) - ISNULL(ad.PShare, 0)
 						ELSE 0
 						END * ad.SysExRate) AS NetGamingBase
 				,SUM(CASE 
@@ -801,8 +801,8 @@ BEGIN
 						WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(ad.PWin, 0)
 						ELSE 0
 						END * ad.AffExRate) AS PWin_aff
-				,-SUM(CASE 
-						WHEN ad.ProductID = @PlaytechCasino THEN (ISNULL(ad.MemWinlost, 0) - ISNULL(ad.PShare, 0))
+				,SUM(CASE 
+						WHEN ad.ProductID = @PlaytechCasino THEN -ISNULL(ad.MemWinlost, 0) - ISNULL(ad.PShare, 0)
 						ELSE 0
 						END * ad.AffExRate) AS NetGaming_aff
 

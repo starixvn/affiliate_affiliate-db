@@ -40,15 +40,20 @@ AS
                    Affiliate Earning=(CNW - Bonus - Adjustement)* AComm
 
 	-20140425@Bobby: fixing NoCommision group
+	- 20140702@Bobby.Nguyen: Force to update Commission  when Company Net Win is negative
                                 
 	
 */
 BEGIN
 	DECLARE @FirstDay SMALLDATETIME
 		,@LastDay SMALLDATETIME
-		,@MinimumNegativeCommission FLOAT
+		,@IsForceMinNegativeCommission BIT = 0
+		,@MinimumNegativeCommission FLOAT = 0.1
 
-	SELECT @MinimumNegativeCommission = 0.1
+	SELECT @MinimumNegativeCommission = CASE WHEN SName = 'AFF_MinNegativeCommission' THEN ISNULL(SValue, @MinimumNegativeCommission) ELSE @MinimumNegativeCommission END
+		,@IsForceMinNegativeCommission = CASE WHEN SName = 'AFF_ForceMinNegativeCommission' THEN ISNULL(SValue, @IsForceMinNegativeCommission) ELSE @IsForceMinNegativeCommission END
+	FROM dbo.SystemSettings with(nolock)
+	WHERE SName IN ('AFF_ForceMinNegativeCommission', 'AFF_MinNegativeCommission')
 
 	SELECT @FirstDay = cast(cast(@Year AS VARCHAR(5)) + '-' + cast(@Month AS VARCHAR(5)) + '-' + '1' AS SMALLDATETIME)
 
@@ -168,13 +173,18 @@ BEGIN
 
 	SET @ZeroCommission = CAST([dbo].[IsZeroCommissionGroup](@GroupID, @LastDay) AS INT)
 
+	/* 
+	-- HotFix #18485:
+	-- check/update Negative Commission
+	-- force update min comm (inorge tier rule ITCBET[OR @IsForceMinNegativeCommission = 1])
+	*/
 	IF @ZeroCommission = 0
 	BEGIN
 		UPDATE a
 		SET a.Commission = @MinimumNegativeCommission
 		FROM @AffSummary a
 		WHERE a.NetWinlost < 0
-			AND a.Commission = 0
+			AND (a.Commission = 0 OR @IsForceMinNegativeCommission = 1) 
 			AND a.ProductID IN (
 				SELECT DISTINCT ProductID
 				FROM GroupSettingHistory(NOLOCK)

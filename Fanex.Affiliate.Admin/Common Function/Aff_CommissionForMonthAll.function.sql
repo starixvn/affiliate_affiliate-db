@@ -57,17 +57,23 @@ AS
 	Author : Peter@20090909
 
 	Revisions:
-		-20140328@Bobby: Fix bug [https://redmine.nexcel.vn/issues/13974]
-		-20140425@Bobby: fixing NoCommision group
+		- 20140328@Bobby: Fix bug [https://redmine.nexcel.vn/issues/13974]
+		- 20140425@Bobby: fixing NoCommision group
+		- 20140610@Bobby: Add ProgressiveShare & ProgressiveWin columns
+		- 20140702@Bobby.Nguyen: Force to update Commission  when Company Net Win is negative
 */
 BEGIN
 	DECLARE @FirstDay SMALLDATETIME
 		,@LastDay SMALLDATETIME
 		,@Today SMALLDATETIME
 		,@TransType INT
-		,@MinimumNegativeCommission FLOAT
+		,@IsForceMinNegativeCommission BIT = 0
+		,@MinimumNegativeCommission FLOAT = 0.1
 
-	SELECT @MinimumNegativeCommission = 0.1
+	SELECT @MinimumNegativeCommission = CASE WHEN SName = 'AFF_MinNegativeCommission' THEN ISNULL(SValue, @MinimumNegativeCommission) ELSE @MinimumNegativeCommission END
+		,@IsForceMinNegativeCommission = CASE WHEN SName = 'AFF_ForceMinNegativeCommission' THEN ISNULL(SValue, 0.1) ELSE @IsForceMinNegativeCommission END
+	FROM dbo.SystemSettings with(nolock)
+	WHERE SName IN ('AFF_ForceMinNegativeCommission', 'AFF_MinNegativeCommission')
 
 	SELECT @FirstDay = cast(cast(@Year AS VARCHAR(5)) + '-' + cast(@Month AS VARCHAR(5)) + '-' + '1' AS SMALLDATETIME)
 
@@ -490,11 +496,16 @@ BEGIN
 					), 0)
 		FROM @AffSummary a
 
+		/* 
+		-- HotFix #18485:
+		-- check/update Negative Commission
+		-- force update min comm (inorge tier rule ITCBET[OR @IsForceMinNegativeCommission = 1])
+		*/
 		UPDATE a
 		SET a.Commission = @MinimumNegativeCommission
 		FROM @AffSummary a
 		WHERE a.NetWinlost_aff < 0
-			AND a.Commission = 0
+			AND (a.Commission = 0 OR @IsForceMinNegativeCommission = 1) 
 			AND a.ZeroCommission = 0
 			AND a.ProductID IN (
 				SELECT DISTINCT ProductID
@@ -539,12 +550,17 @@ BEGIN
 					ORDER BY t.Commission ASC
 					), 0)
 		FROM @AffSummary a
-
+		
+		/* 
+		-- HotFix #18485:
+		-- check/update Negative Commission
+		-- force update min comm (inorge tier rule ITCBET[OR @IsForceMinNegativeCommission = 1])
+		*/
 		UPDATE a
 		SET a.Commission = @MinimumNegativeCommission
 		FROM @AffSummary a
 		WHERE a.NetWinlost_aff < 0
-			AND a.Commission = 0
+			AND (a.Commission = 0 OR @IsForceMinNegativeCommission = 1) 
 			AND a.ZeroCommission = 0
 			AND a.ProductID IN (
 				SELECT DISTINCT ProductID

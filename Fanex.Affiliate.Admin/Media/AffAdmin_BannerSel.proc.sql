@@ -1,22 +1,23 @@
-﻿CREATE PROCEDURE [dbo].[AffAdmin_BannerSel]
-	@Category smallint=NULL,
-	@Language varchar(8)=NULL,
-	@ImageType smallint=NULL,
-	@Size smallint=NULL,
-	@Currency smallint=NULL,
-	@Type tinyint=0,
-	@PageSize int=50,
-	@PageIndex int=1,
-	@TotalPages int=0 OUTPUT,
-	@NRows int=0 OUTPUT
+﻿ALTER PROCEDURE [dbo].[AffAdmin_BannerSel] 
+	@Category SMALLINT = NULL
+	,@SubCategory SMALLINT = NULL
+	,@Language VARCHAR(8) = NULL
+	,@ImageType SMALLINT = NULL
+	,@Size SMALLINT = NULL
+	,@Currency SMALLINT = NULL
+	,@Type TINYINT = 0
+	,@PageSize INT = 50
+	,@PageIndex INT = 1
+	,@TotalPages INT = 0 OUTPUT
+	,@NRows INT = 0 OUTPUT
 AS
-
 /*Created: 20090328@DungTong
 Task : Search all Aff Banner Paging
 DB:  DB052.Affiliate_12BET
 
 Revisions:    
 	- 20130207@Johnny: Filter by Type(1: normal banner; 2: media banners)
+	- 20140624@bobby: suport filter by sub category
 			  
 Param's Explanation:
 • @Category : Search by Category value=null :search all
@@ -32,97 +33,142 @@ Param's Explanation:
 • @NRows OUTPUT,--total of rows
 
 */
+BEGIN
+	SET NOCOUNT ON
 
-SET NOCOUNT ON
- declare @SubCategory table(id int)
- 
-if isnull(@Category,0)<>0
-begin
-INSERT INTO @SubCategory (id)
-	SELECT
-		typeid
-	FROM BannerTypes
-	WHERE parentid = @Category UNION SELECT
-		@Category
-end
+	DECLARE @SubCategories TABLE (id INT)
 
+	IF (
+			isnull(@Category, 0) <> 0
+			AND isnull(@SubCategory, 0) = 0
+			)
+	BEGIN
+		INSERT INTO @SubCategories (id)
+		SELECT typeid
+		FROM BannerTypes
+		WHERE parentid = @Category
+		
+		UNION
+		SELECT @Category
+	END
+	ELSE IF (
+			isnull(@Category, 0) <> 0
+			AND isnull(@SubCategory, 0) <> 0
+			)
+	BEGIN
+		INSERT INTO @SubCategories (id)
+		SELECT @SubCategory
+	END
 
---count nrows
-SELECT
-	@NRows = COUNT(1)
-FROM Banners WITH (NOLOCK)
-WHERE (@Category IS NULL OR Category IN (SELECT
-	id
-FROM @SubCategory)
-)
-AND (@Language IS NULL OR Language = @Language)
-AND (@ImageType IS NULL OR ImageType = @ImageType)
-AND (@Size IS NULL OR size = @Size)
-AND (@Currency IS NULL OR Currency = @Currency)
-AND (@Type IS NULL OR Type = @Type)
-	  
-DECLARE @RowStart int, @RowEnd int
+	--count nrows
+	SELECT @NRows = COUNT(1)
+	FROM Banners WITH (NOLOCK)
+	WHERE (
+			@Category IS NULL
+			OR Category IN (
+				SELECT id
+				FROM @SubCategories
+				)
+			)
+		AND (
+			@Language IS NULL
+			OR LANGUAGE = @Language
+			)
+		AND (
+			@ImageType IS NULL
+			OR ImageType = @ImageType
+			)
+		AND (
+			@Size IS NULL
+			OR size = @Size
+			)
+		AND (
+			@Currency IS NULL
+			OR Currency = @Currency
+			)
+		AND (
+			@Type IS NULL
+			OR Type = @Type
+			)
 
-SELECT
-	@TotalPages = @NRows / @PageSize + CASE
-		WHEN @NRows % @PageSize > 0 THEN 1 ELSE 0
-	END,
-	@PageIndex = @PageIndex - 1,
-	@RowStart = @PageSize * @PageIndex + 1,
-	@RowEnd = @RowStart + @PageSize - 1
+	DECLARE @RowStart INT
+		,@RowEnd INT
 
-SELECT
-	BannerID,
-	[Content],
-	Category,
-	[Language],
-	LanguageCode,
-	ImageType,
-	[Size],
-	Lastupdate,
-	Currency,
-	Type,
-	Version,
-	TotalRequest,
-	LastRequest
-FROM (SELECT TOP (@RowEnd)
-	ROW_NUMBER() OVER (ORDER BY bannerid DESC) AS TheCount,
-	BannerID,
-	[Content],
-	btc.Value AS Category,
-	l.LanguageID AS LanguageCode,
-	l.LanguageName AS [Language],
-	bti.Value AS ImageType,
-	bts.Value AS [Size],
-	Lastupdate,
-	c.CurrencyName AS Currency,
-	b.Type,
-	Version,
-	TotalRequest,
-	LastRequest
-FROM Banners b WITH (NOLOCK)
-LEFT JOIN BannerTypes bts
-	ON bts.TypeID = b.Size
-LEFT JOIN BannerTypes bti
-	ON bti.TypeID = b.ImageType
-INNER JOIN BannerTypes btc
-	ON btc.TypeID = b.Category
-INNER JOIN Language l
-	ON l.LanguageID = b.Language
-INNER JOIN Currency c
-	ON c.CurrencyID = b.Currency
+	SELECT @TotalPages = @NRows / @PageSize + CASE 
+			WHEN @NRows % @PageSize > 0 THEN 1
+			ELSE 0
+			END
+		,@PageIndex = @PageIndex - 1
+		,@RowStart = @PageSize * @PageIndex + 1
+		,@RowEnd = @RowStart + @PageSize - 1
 
-WHERE (@Category IS NULL OR b.Category IN (SELECT
-	id
-FROM @SubCategory)
-)
-AND (@Language IS NULL OR b.Language = @Language)
-AND (@ImageType IS NULL OR b.ImageType = @ImageType)
-AND (@Size IS NULL OR b.size = @Size)
-AND (@Currency IS NULL OR b.Currency = @Currency)
-AND (@Type IS NULL OR b.Type = @Type)) x
-WHERE x.TheCount BETWEEN @RowStart AND @RowEnd
-
+	SELECT BannerID
+		,[Content]
+		,Category
+		,[Language]
+		,LanguageCode
+		,ImageType
+		,[Size]
+		,Lastupdate
+		,Currency
+		,Type
+		,Version
+		,TotalRequest
+		,LastRequest
+	FROM (
+		SELECT TOP (@RowEnd) ROW_NUMBER() OVER (
+				ORDER BY bannerid DESC
+				) AS TheCount
+			,BannerID
+			,[Content]
+			,btc.Value AS Category
+			,l.LanguageID AS LanguageCode
+			,l.LanguageName AS [Language]
+			,bti.Value AS ImageType
+			,bts.Value AS [Size]
+			,Lastupdate
+			,c.CurrencyName AS Currency
+			,b.Type
+			,Version
+			,TotalRequest
+			,LastRequest
+		FROM Banners b WITH (NOLOCK)
+			LEFT JOIN BannerTypes bts ON bts.TypeID = b.Size
+			LEFT JOIN BannerTypes bti ON bti.TypeID = b.ImageType
+			INNER JOIN BannerTypes btc ON btc.TypeID = b.Category
+			INNER JOIN LANGUAGE l ON l.LanguageID = b.LANGUAGE
+			INNER JOIN Currency c ON c.CurrencyID = b.Currency
+		WHERE (
+				@Category IS NULL
+				OR b.Category IN (
+					SELECT id
+					FROM @SubCategories
+					)
+				)
+			AND (
+				@Language IS NULL
+				OR b.LANGUAGE = @Language
+				)
+			AND (
+				@ImageType IS NULL
+				OR b.ImageType = @ImageType
+				)
+			AND (
+				@Size IS NULL
+				OR b.size = @Size
+				)
+			AND (
+				@Currency IS NULL
+				OR b.Currency = @Currency
+				)
+			AND (
+				@Type IS NULL
+				OR b.Type = @Type
+				)
+		) x
+	WHERE x.TheCount BETWEEN @RowStart
+			AND @RowEnd
+END
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_BannerSel] TO [bodbAdminNet]
 GO

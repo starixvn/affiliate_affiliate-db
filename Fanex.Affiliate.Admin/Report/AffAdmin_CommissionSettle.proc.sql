@@ -246,27 +246,27 @@ BEGIN
 				END) AS PlaytechCasinoWinlossBase
 		-----PShare,PWin & NetGaming
 		,SUM(CASE 
-				WHEN ad.ProductID = @PlaytechCasino THEN PShare_Aff
+				WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(PShare_Aff,0)
 				ELSE 0
 				END) AS PShare
 		,SUM(CASE 
-				WHEN ad.ProductID = @PlaytechCasino THEN PShare
+				WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(PShare,0)
 				ELSE 0
 				END) AS PShareBase
 		,SUM(CASE 
-				WHEN ad.ProductID = @PlaytechCasino THEN PWin_Aff
+				WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(PWin_Aff,0)
 				ELSE 0
 				END) AS PWin
 		,SUM(CASE 
-				WHEN ad.ProductID = @PlaytechCasino THEN PWin
+				WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(PWin,0)
 				ELSE 0
 				END) AS PWinBase
-		,-SUM(CASE 
-				WHEN ad.ProductID = @PlaytechCasino THEN ad.MemWinlost_aff - PShare_Aff
+		,SUM(CASE 
+				WHEN ad.ProductID = @PlaytechCasino THEN -ISNULL(ad.MemWinlost_aff,0) - ISNULL(PShare_Aff,0)
 				ELSE 0
 				END) AS NetGaming
-		,-SUM(CASE 
-				WHEN ad.ProductID = @PlaytechCasino THEN ad.MemWinlost - PShare
+		,SUM(CASE 
+				WHEN ad.ProductID = @PlaytechCasino THEN -ISNULL(ad.MemWinlost,0) - ISNULL(PShare,0)
 				ELSE 0
 				END) AS NetGamingBase
 	FROM AffDailySummary ad WITH (NOLOCK)

@@ -1,11 +1,7 @@
-﻿-- =============================================
--- Script Template
--- =============================================
-ALTER Procedure [dbo].[AffAdmin_CommGroupSelListNormal]		
-	@UserID int = null,
-	@Currency varchar(255)=null    
+﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupSelListNormal] 
+	@UserID INT = NULL
+	,@Currency VARCHAR(255) = NULL
 AS
-
 /*
 Created: 20130903@Joseph
 Task : Get Commission Group List (groupid<1000) for dropdown list
@@ -16,59 +12,54 @@ Params Explaination:
    if AffID<> -1: need to check whether this private group is already assigned to this Aff
    output : Change AffID=0 if existed
 Revisions:	
-	- Get NoCommission group (for all currency)
+	- 20130903@Joseph: Get NoCommission group (for all currency)
+	- 20140704@Bobby: Include commgroup from CommGroupHistory
 */
-SET NOCOUNT ON
+BEGIN
+	SET NOCOUNT ON
 
-if @Currency = 'All'
-begin 
-	SELECT AttributeID as CurrencyID INTO #tmpCurrency
-	FROM dbo.Aff_f_GetCurrencybyUser (@UserID,1)
+	DECLARE @TblCurrency TABLE (CurrencyID INT)
+
+	SET @Currency = ISNULL(@Currency, '')
+
+	INSERT INTO @TblCurrency (CurrencyID)
+	SELECT AttributeID AS CurrencyID
+	FROM dbo.Aff_f_GetCurrencybyUser(@UserID, 1)
+	GROUP BY AttributeID
+
+	IF (@Currency <> 'All')
+	BEGIN
+		DELETE d
+		FROM @TblCurrency d
+		WHERE CurrencyID NOT IN (
+				SELECT val
+				FROM [dbo].[strSplit](@Currency, ',')
+				)
+	END
+
+	-- fecth commgroup info
+	SELECT GroupId
+		,GroupName
+	FROM CommGroup WITH (NOLOCK)
+	WHERE GroupName = 'NoCommission'
 	
-	Select GroupId,	
-		   GroupName
-	From CommGroup with (nolock)
-	Where GroupName = 'NoCommission'
-
-	Union ALL
-
-	select 
-		cg.GroupId,	
-		cg.GroupName    
-	from CommGroup cg with (nolock)     
-		inner join #tmpCurrency tmp  ON cg.Currency=tmp.CurrencyID
-	where cg.IsDeleted=0 
-		and @Currency is not null 
-		and (@Currency ='All' or cg.currency=coalesce(@Currency,0))
-
-	
-end
-else
-begin
-	declare @TblCurrency table (id int primary key, rank int, val nvarchar( 6) )
-
-	insert into @TblCurrency 
-	select a.id, a.rank, a.val
-	from [dbo].[strSplit] ( @Currency, ',' ) a
-		inner JOIN dbo.Aff_f_GetCurrencybyUser (@UserID,1) b on a.val = b.AttributeID 
-
-	Select GroupId,	
-		   GroupName
-	From CommGroup with (nolock)
-	Where GroupName = 'NoCommission'
-
-	Union ALL
-
-	select 
-		cg.GroupId,	
-		cg.GroupName    
-	from CommGroup cg with (nolock)     
-		inner join @TblCurrency tmp on cg.Currency = tmp.val
-	where cg.IsDeleted=0
-end
-
-
+	UNION
+	SELECT cg.GroupId
+		,cg.GroupName
+	FROM CommGroup cg WITH (NOLOCK)
+		INNER JOIN @TblCurrency tmp ON cg.Currency = tmp.CurrencyID
+		LEFT JOIN CommGroupHistory ch WITH (NOLOCK) ON cg.GroupID = ch.GroupID
+	WHERE cg.IsDeleted = 0
+		OR (
+			cg.IsDeleted = 1
+			AND ch.IsDeleted = 0
+			)
+	GROUP BY cg.GroupId
+		,cg.GroupName
+END
 GO
+
 GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupSelListNormal] TO [bodbAdminNet]
 GO
+
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupSelListNormal] TO [vnteam]

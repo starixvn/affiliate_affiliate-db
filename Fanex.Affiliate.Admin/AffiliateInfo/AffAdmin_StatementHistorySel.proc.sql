@@ -1,4 +1,4 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_StatementHistorySel_xtest] 
+﻿ALTER PROCEDURE [dbo].[AffAdmin_StatementHistorySel] 
 	@AffId INT
 	,@TransType VARCHAR(100) = NULL
 	,@Status VARCHAR(100) = NULL
@@ -13,7 +13,7 @@ DB:
 Original: [Aff_CustomerSelStatementHistory]    
 Revisions:     
     - 20131126@Johnny: Fix filter by transaction type and status
-	- 20140520@Bobby: check data existing in MemberDaily for previous month
+	- 20140703@Bobby: check data existing of settlement for previous month
 
 Param's Explanation:    
 • @AffID : Affiliate custid    
@@ -135,11 +135,15 @@ BEGIN
 					FROM @TransTypeTable
 					)
 				)
-			AND DateDiff(m, (
+			AND (DateDiff(m, (
 					SELECT isnull(max(winlostdate), Current_timestamp)
 					FROM AffCommission(NOLOCK)
 					WHERE AffID = @AffID
 					), Current_timestamp) = 2
+				OR NOT EXISTS(SELECT top 1 1
+					FROM AffCommission ac(NOLOCK)
+					WHERE ac.AffID = @AffID)
+				)
 			AND (
 				@DateOption = 0
 				OR dateadd(m, - 1, @CurrentDate) BETWEEN @FromDate AND @ToDate
@@ -256,4 +260,4 @@ BEGIN
 END
 GO
 
-GRANT EXECUTE ON [dbo].[AffAdmin_StatementHistorySel_xtest] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_StatementHistorySel] TO [bodbAdminNet]
