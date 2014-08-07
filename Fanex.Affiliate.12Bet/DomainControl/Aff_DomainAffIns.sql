@@ -12,6 +12,7 @@ Task : Add a new AffDomain
 DB: DB052.Affiliate_12BET
 Revisions:
 	- 20140613@Bobby: check validation of @DomainName
+	- 20140713@Bobby: add checking IsDeleted
 */
 BEGIN
 	SET NOCOUNT ON
@@ -33,6 +34,7 @@ BEGIN
 			SELECT 1
 			FROM [AffDomain] NOLOCK
 			WHERE DomainName = @DomainName
+				AND IsDeleted = 0
 			)
 	BEGIN
 		SELECT @ErrCode = 1001

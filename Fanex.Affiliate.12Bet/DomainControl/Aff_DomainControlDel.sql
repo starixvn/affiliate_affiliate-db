@@ -1,50 +1,67 @@
-ALTER PROCEDURE [dbo].[Aff_DomainControlDel]
-	@Id int,
-	@UserID int,	
-	@IP nvarchar(15)='',
-	@ErrCode int = 0 OUTPUT,
-	@ErrMsg nvarchar(4000) = '' OUTPUT
+ALTER PROCEDURE [dbo].[Aff_DomainControlDel] 
+	@Id INT
+	,@UserID INT
+	,@IP NVARCHAR(15) = ''
+	,@ErrCode INT = 0 OUTPUT
+	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
 AS
 /*
 Created: 20121115@Johnny.Trinh
 Task : Add a new AffDomainControl
 DB: DB052.Affiliate_12BET
+
+Revisions:  
+	- 20140708@Bobby : Apply IsDeleted info
 */
-SET NOCOUNT ON
---Check permission-----------------------------
-EXEC [dbo].[Aff_Con_CheckPermission]
-	@custid=@UserID,@funcname='[Domain]',
-	@System = 'AFFILIATE',
-	@ErrCode=@ErrCode output,
-	@ErrMsg=@ErrMsg output
-	
-If @ErrCode <> 0
-	RETURN
------------------------------------------------
-declare @AffDomainID int, @12BetDomainID int, @MarketID nvarchar(10)
+BEGIN
+	SET NOCOUNT ON
 
-select @AffDomainID = AffDomainID, @12BetDomainID = [12BetDomainID], @MarketID = MarketId
-from [AffDomainControl]
-where Id = @Id
+	--Check permission-----------------------------
+	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserID
+		,@funcname = '[Domain]'
+		,@System = 'AFFILIATE'
+		,@ErrCode = @ErrCode OUTPUT
+		,@ErrMsg = @ErrMsg OUTPUT
 
-delete [AffDomainControl]
-where Id = @Id
+	IF @ErrCode <> 0 RETURN
 
---Write log
-declare @SPName varchar(50), @Detail nvarchar(4000) 
-select @SPName = OBJECT_NAME(@@ProcID)
-select @Detail = 'Delete AffDomainID:' + dbo.Aff_ToString(@AffDomainID)                     
-                    + ' 12BetDomainID:' + dbo.Aff_ToString(@12BetDomainID)                    
-					+ ' MarketID:' + dbo.Aff_ToString(@MarketID)                    
+	-----------------------------------------------
+	DECLARE @AffDomainID INT
+		,@12BetDomainID INT
+		,@MarketID NVARCHAR(10)
 
-EXEC [dbo].[Aff_WriteLog] 
-	@Creator = @UserID,
-	@Typename = 'AffDomainControl', -- refer to table LogType
-	@SPName = @SPName,
-	@Details = @Detail,
-	@IP = @IP
+	SELECT @AffDomainID = AffDomainID
+		,@12BetDomainID = [12BetDomainID]
+		,@MarketID = MarketId
+	FROM [AffDomainControl]
+	WHERE Id = @Id
 
+	UPDATE d
+	SET IsDeleted = 1
+	FROM [AffDomainControl] d WITH (ROWLOCK, UPDLOCK)
+	WHERE Id = @Id
+
+	--Write log
+	DECLARE @SPName VARCHAR(50)
+		,@Detail NVARCHAR(4000)
+
+	SELECT @SPName = OBJECT_NAME(@@ProcID)
+
+	SELECT @Detail = 'Delete AffDomainID:' + dbo.Aff_ToString(@AffDomainID) + ' 12BetDomainID:' + dbo.Aff_ToString(@12BetDomainID) + ' MarketID:' + dbo.Aff_ToString(@MarketID)
+
+	EXEC [dbo].[Aff_WriteLog] @Creator = @UserID
+		,@Typename = 'AffDomainControl'
+		,-- refer to table LogType
+		@SPName = @SPName
+		,@Details = @Detail
+		,@IP = @IP
+END
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_DomainControlDel] TO [bodbAdminNet]
 GO
+
 GRANT VIEW DEFINITION ON [dbo].[Aff_DomainControlDel] TO [vnteam]
+GO
+
+

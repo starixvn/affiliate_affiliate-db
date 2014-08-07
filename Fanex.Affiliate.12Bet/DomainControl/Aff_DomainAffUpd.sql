@@ -25,6 +25,23 @@ EXEC [dbo].[Aff_Con_CheckPermission]
 	
 If @ErrCode <> 0
 	RETURN
+
+--------------------------------------------
+SET @DomainName = RTRIM(LTRIM(@DomainName))
+IF EXISTS (
+			SELECT 1
+			FROM [AffDomain] NOLOCK
+			WHERE DomainID <> @DomainID
+				AND DomainName = @DomainName
+				AND IsDeleted = 0
+			)
+	BEGIN
+		SELECT @ErrCode = 1001
+			,@ErrMsg = 'This Affiliate domain has been existed!'
+
+		RETURN
+	END
+	
 -----------------------------------------------
 BEGIN TRANSACTION
 UPDATE [AffDomain] with (rowlock,updlock)

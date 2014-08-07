@@ -1,6 +1,5 @@
 ﻿ALTER PROCEDURE [dbo].[Aff_BannerMediaIns] 
-	@BannerID INT OUTPUT
-	,@FileName VARCHAR(100)
+	@FileName VARCHAR(100)
 	,@Category VARCHAR(50)
 	,@Language VARCHAR(50) = 'English'
 	,@ImageType VARCHAR(50)
@@ -10,8 +9,10 @@
 	,@AffType TINYINT = 0
 	,@UserID INT
 	,@IP NVARCHAR(15) = ''
+	,@DeviceType TINYINT = 0
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
+	,@BannerID INT OUTPUT
 AS
 /*
 Created: @VinhTrinh
@@ -29,6 +30,7 @@ Param's Explanation:
 
 Revisions:    
 	- 20140226@Bobby: Apply AffType
+	- 20140708@Bobby: Apply DeviceType
 */
 BEGIN
 	SET NOCOUNT ON
@@ -77,6 +79,7 @@ BEGIN
 		,Creator
 		,[Type]
 		,[AffType]
+		,[DeviceType]
 		)
 	VALUES (
 		@FileName
@@ -90,6 +93,7 @@ BEGIN
 		,@UserID
 		,@Type
 		,@AffType
+		,@DeviceType
 		)
 
 	IF @@ERROR <> 0
@@ -144,3 +148,9 @@ BEGIN
 		,@Details = @Detail
 		,@IP = @IP
 END
+GO
+
+GRANT EXECUTE ON [dbo].[Aff_BannerMediaIns] TO [bodbAdminNet]
+GO
+GRANT VIEW DEFINITION ON [dbo].[Aff_BannerMediaIns] TO [vnteam]
+GO

@@ -1,10 +1,13 @@
-﻿ALTER PROCEDURE [dbo].[Aff_ClickStatisticsSelBySite]  
-	@AffID int,  
-	@FromDate smalldatetime,
-	@ToDate smalldatetime,
-	@TotalClicks int = 0 output,
-	@UniqueClicks int = 0 output
-AS  
+﻿ALTER PROCEDURE [dbo].[Aff_ClickStatisticsSelBySite] 
+	@AffID INT
+	,@FromDate SMALLDATETIME
+	,@ToDate SMALLDATETIME
+	,@DeviceType TINYINT = 0
+	,@TotalClicks INT = 0 OUTPUT
+	,@UniqueClicks INT = 0 OUTPUT
+	,@TotalSignUps INT = 0 OUTPUT
+	,@TotalFDMs INT = 0 OUTPUT
+AS
 /*  
 Created: 20111005@Johnny  
 Task :   Report click statistics by Referrer site
@@ -12,108 +15,152 @@ DB: DB052.Affiliate_12BET
 Original:  
   
 Revisions:  
-- 
-*/  
+	- 20140708@Bobby : Apply Device type info
+	- 20140805@Bobby : Support sum TotalSignUps & TotalFDMs
+*/
+BEGIN
+	SET NOCOUNT ON
 
-SET NOCOUNT ON  
+	DECLARE @LastDateSum SMALLDATETIME
 
-Declare @LastDateSum smalldatetime
-if(@FromDate > @ToDate)
-	return
+	IF (@FromDate > @ToDate) RETURN
 
-Declare @Result as table(DomainReferrer nvarchar(300), TotalClick int, UniqueClick int, Signups int, FDM int)
+	DECLARE @Result AS TABLE (
+		DomainReferrer NVARCHAR(300)
+		,TotalClick INT
+		,UniqueClick INT
+		)
 
-select @LastDateSum = (select MAX(Date) from ClickStatistics1Sum)
+	SELECT @ToDate = dbo.Aff_GetEndDate(@ToDate)
 
-select @LastDateSum = isnull(@LastDateSum, dateadd(d, -1, @FromDate))
-		, @FromDate = convert(varchar(10), @FromDate,120)
+	SELECT @LastDateSum = (
+			SELECT MAX(DATE)
+			FROM ClickStatistics1Sum
+			)
 
-if (@LastDateSum < @FromDate)--get from main table
-Begin
-	insert into @Result
-	select DomainReferrer,
-			sum(TotalClick) as TotalClick,
-			sum(UniqueClick) as UniqueClick,
-			sum(Signups) as Signups,
-			sum(FDM) as FDM
-	from 
-		(
-		Select 
-			DomainReferrer,
-			sum(1) as TotalClick,
-			count(distinct IP) as UniqueClick,
-			sum(case when status > 0 then 1 else 0 end) as Signups,
-			sum(case when status = 2 then 1 else 0 end) as FDM
-		from ClickStatistics1 with(nolock) 
-		where [Date] between @FromDate and @ToDate
-			and AffId = @AffID
-		group by DomainReferrer, [Date]
-		) as t
-	group by DomainReferrer
-End
-else if (@LastDateSum > @ToDate)--get from summary table
-Begin
-	insert into @Result
-	Select 
-		DomainReferrer,
-		sum(TotalClick) as TotalClick,
-		sum(UniqueClick) as UniqueClick,
-		sum(TotalSignup) as Signups,
-		sum(TotalDeposit) as FDM
-	from ClickStatistics1Sum with(nolock) 
-	where [Date] between @FromDate and @ToDate
-			and AffId = @AffID
-	group by DomainReferrer
-End
-else--@fromdate < @LastDateSum < @ToDate
-Begin
-	insert into @Result
-	select DomainReferrer,
-			sum(TotalClick) as TotalClick,
-			sum(UniqueClick) as UniqueClick,
-			sum(Signups) as Signups,
-			sum(FDM) as FDM
-	from 
-		(
-		Select 
-			DomainReferrer,
-			sum(TotalClick) as TotalClick,
-			sum(UniqueClick) as UniqueClick,
-			sum(TotalSignup) as Signups,
-			sum(TotalDeposit) as FDM
-		from ClickStatistics1Sum with(nolock) 
-		where [Date] between @FromDate and @LastDateSum
-			and AffId = @AffID
-		group by DomainReferrer
+	SELECT @LastDateSum = isnull(@LastDateSum, dateadd(d, - 1, @FromDate))
+		,@FromDate = convert(VARCHAR(10), @FromDate, 120)
 
-		Union All
+	IF (@LastDateSum < @FromDate) --get from main table
+	BEGIN
+		INSERT INTO @Result
+		SELECT DomainReferrer
+			,sum(TotalClick) AS TotalClick
+			,sum(UniqueClick) AS UniqueClick
+		FROM (
+			SELECT DomainReferrer
+				,sum(1) AS TotalClick
+				,count(DISTINCT IP) AS UniqueClick
+			FROM ClickStatistics1 c WITH (NOLOCK)
+			WHERE [Date] BETWEEN @FromDate
+					AND @ToDate
+				AND AffId = @AffID
+				AND DeviceType = @DeviceType
+			GROUP BY DomainReferrer
+				,[Date]
+			) AS t
+		GROUP BY DomainReferrer
+	END
+	ELSE IF (@LastDateSum > @ToDate) --get from summary table
+	BEGIN
+		INSERT INTO @Result
+		SELECT DomainReferrer
+			,sum(TotalClick) AS TotalClick
+			,sum(UniqueClick) AS UniqueClick
+		FROM ClickStatistics1Sum WITH (NOLOCK)
+		WHERE [Date] BETWEEN @FromDate
+				AND @ToDate
+			AND AffId = @AffID
+			AND DeviceType = @DeviceType
+		GROUP BY DomainReferrer
+	END
+	ELSE --@fromdate < @LastDateSum < @ToDate
+	BEGIN
+		INSERT INTO @Result
+		SELECT DomainReferrer
+			,sum(TotalClick) AS TotalClick
+			,sum(UniqueClick) AS UniqueClick
+		FROM (
+			SELECT DomainReferrer
+				,sum(TotalClick) AS TotalClick
+				,sum(UniqueClick) AS UniqueClick
+			FROM ClickStatistics1Sum WITH (NOLOCK)
+			WHERE [Date] BETWEEN @FromDate
+					AND @LastDateSum
+				AND AffId = @AffID
+				AND DeviceType = @DeviceType
+			GROUP BY DomainReferrer
+				,[Date]
+			
+			UNION ALL
+			SELECT DomainReferrer
+				,sum(1) AS TotalClick
+				,count(DISTINCT IP) AS UniqueClick
+			FROM ClickStatistics1 c WITH (NOLOCK)
+			WHERE [Date] BETWEEN @LastDateSum
+					AND @ToDate
+				AND AffId = @AffID
+				AND DeviceType = @DeviceType
+			GROUP BY DomainReferrer
+				,[Date]
+			) tmp
+		GROUP BY DomainReferrer
+	END
 
-		Select 
-			DomainReferrer,
-			sum(1) as TotalClick,
-			count(distinct IP) as UniqueClick,
-			sum(case when status > 0 then 1 else 0 end) as TotalSignup,
-			sum(case when status = 2 then 1 else 0 end) as TotalDeposit
-		from ClickStatistics1 with(nolock) 
-		where [Date] between @LastDateSum and @ToDate
-			and AffId = @AffID
-		group by DomainReferrer, [Date]
-		) tmp
-	group by DomainReferrer
+	/**
+	count total Signups & FDM info
+	*/
+	SELECT md.DomainReferrer
+		,md.DeviceType
+		,COUNT(1) AS Signups
+		,SUM(CASE 
+				WHEN md.IBCCustID IS NOT NULL THEN 1
+				ELSE 0
+				END) AS FDM
+	INTO #memberStats
+	FROM dbo.MemberClickDetail md WITH (NOLOCK)
+	WHERE md.CreatedDate BETWEEN @FromDate
+			AND @ToDate
+		AND md.AffId = @AffID
+	GROUP BY md.DomainReferrer
+		,md.DeviceType
 
-End
+	--megre member signup & FDM result
+	SELECT r.DomainReferrer
+		,r.TotalClick
+		,r.UniqueClick
+		,ISNULL(m.Signups, 0) AS Signups
+		,ISNULL(m.FDM, 0) AS FDM
+	FROM @Result r
+		LEFT JOIN (
+		SELECT *
+		FROM #memberStats
+		WHERE DeviceType = @DeviceType
+		) m ON r.DomainReferrer = m.DomainReferrer
 
-Select * from @Result
+	--sum total click & unique click
+	SELECT @TotalClicks = SUM(TotalClick)
+		,@UniqueClicks = SUM(UniqueClick)
+	FROM @Result
 
-select @TotalClicks = SUM(TotalClick)
-	   , @UniqueClicks = SUM(UniqueClick)
-from @Result
+	--sum total signup & fdm
+	SELECT @TotalSignUps = ISNULL(SUM(m.Signups), 0)
+		,@TotalFDMs = ISNULL(SUM(m.FDM), 0)
+	FROM #memberStats m
+
+	DROP TABLE #memberStats
+
+	RETURN;
+END
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_ClickStatisticsSelBySite] TO [bodbAdminNet]
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_ClickStatisticsSelBySite] TO [bodbDownlineNet]
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_ClickStatisticsSelBySite] TO [bodbDownlineNetView]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_ClickStatisticsSelBySite] TO [vnteam]
-GO
+
+

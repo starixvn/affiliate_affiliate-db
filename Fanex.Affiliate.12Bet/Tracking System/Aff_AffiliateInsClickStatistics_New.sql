@@ -15,6 +15,7 @@
 	,@BrowserLanguage NVARCHAR(8) = ''
 	,@UserAgent NVARCHAR(256) = ''
 	,@Country NVARCHAR(256) = ''
+	,@DeviceType TINYINT = 0
 	,@RedirectPage NVARCHAR(256) = NULL OUTPUT
 	,@ClickID BIGINT = 0 OUTPUT
 	,@ErrCode INT = 0 OUTPUT
@@ -30,6 +31,7 @@ Revisions:
 	- 20121120: Redirect to the main domain (except list affiliates with pagecode 12betcasino still redirect to 12betcasino.com)
 	- 20140220@Peter : Support EU aff link
 	- 20140326@Bobby : check IsCLosed affiliate user
+	- 20140708@Bobby : Apply DeviceType info
 */
 BEGIN
 	SET NOCOUNT ON
@@ -40,22 +42,30 @@ BEGIN
 		,@IsCasino BIT
 		,@AffType INT
 		,@IsClosed BIT
+		,@DomainDeviceType TINYINT = 0
+		,@DomainName NVARCHAR(100)
+		,@W3Http VARCHAR(5) = ''
 
-	SELECT @Default12Betdomain = '12ying.com' --If redirect page is null => redirect to this default domain
+	--Off default domain
+	--SELECT @Default12Betdomain = NULL --If redirect page is null => redirect to this default domain
 
 	SELECT @AffUsername = ai.Username
 		,@PreferredLanguage = PreferredLanguage
 		,@AffType = ai.AffType
 		,@IsClosed = ai.IsClosed
 	FROM AffDetail ad WITH (NOLOCK)
-		INNER JOIN AffInfo ai WITH (NOLOCK)
-		ON ai.AffId = ad.AffId
+		INNER JOIN AffInfo ai WITH (NOLOCK) ON ai.AffId = ad.AffId
 	WHERE ai.AffId = @AffiliateID
 		AND STATUS = 'Approved'
 
 	--check Affiliate ID  
-	IF (@AffUsername IS NULL
-		OR (@IsClosed = 1 AND @AffUsername = '12BETAFF9151'))
+	IF (
+			@AffUsername IS NULL
+			OR (
+				@IsClosed = 1
+				AND @AffUsername = '12BETAFF9151'
+				)
+			)
 	BEGIN
 		SELECT @ErrCode = 101
 			,@ErrMsg = 'This affiliate does not exists. Please contact administrator!'
@@ -87,19 +97,28 @@ BEGIN
 
 		SELECT @AffDomainId = DomainID
 			,@AffDomainName = DomainName
-		FROM AffDomain NOLOCK
-		WHERE @AffDomain LIKE '%' + DomainName + '%'
+		FROM AffDomain WITH(NOLOCK)
+		WHERE DomainName = @AffDomain
+			AND IsDeleted = 0
 
-		SELECT @RedirectPage = b.DomainName
+		SELECT TOP 1 @DomainName = b.DomainName
+			,@DomainDeviceType = a.DeviceType
+			,@W3Http = CASE WHEN ISNULL(b.IsSSL, 0) = 1 THEN 'https' ELSE 'http' END
 		FROM AffDomainControl a WITH (NOLOCK)
-			INNER JOIN [12BetDomain] b WITH (NOLOCK)
-			ON a.[12BetDomainID] = b.DomainID
+			INNER JOIN [12BetDomain] b WITH (NOLOCK) 
+			ON a.[12BetDomainID] = b.DomainID AND a.DeviceType = b.DeviceType
 		WHERE a.MarketId = @PreferredLanguage
 			AND a.AffDomainId = @AffDomainId
-			AND [status] = 1
+			AND a.[status] = 1
+			AND a.IsDeleted = 0
+			AND b.IsDeleted = 0
+			AND a.DeviceType = @DeviceType
 
 		--Replace Aff Domain by 12bet domain to redirect to 12bet site
-		SELECT @RedirectPage = 'http://www.' + isnull(@RedirectPage, @Default12Betdomain) + '/' + cast(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
+		SET @RedirectPage = CASE 
+				WHEN @DomainName IS NOT NULL THEN @W3Http + '://' + @DomainName + '/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
+				ELSE @Default12Betdomain
+				END
 	END
 	ELSE
 	BEGIN --This aff is special aff and pagecode = '12betcasino'
@@ -120,6 +139,14 @@ BEGIN
 		SELECT @RedirectPage = replace(@RedirectPage, '{/TrackingCode}', '')
 	END
 
+	IF (@RedirectPage IS NULL)
+	BEGIN
+		SELECT @ErrCode = 103
+			,@ErrMsg = 'This link does not exists. Please contact administrator!'
+		RETURN;
+	END
+	
+	-- process aff link
 	DECLARE @CountryCode VARCHAR(5)
 		,@IPNum BIGINT
 
@@ -128,7 +155,8 @@ BEGIN
 	SET @CountryCode = (
 			SELECT TOP (1) Code3
 			FROM IPv4Addresses(NOLOCK)
-			WHERE @IPNum BETWEEN [From] AND [To]
+			WHERE @IPNum BETWEEN [From]
+					AND [To]
 			)
 
 	--Temporarily hard code afftype, will be removed soon
@@ -141,8 +169,7 @@ BEGIN
 	IF EXISTS (
 			SELECT 1
 			FROM [dbo].[AffInfo] a WITH (NOLOCK)
-				JOIN [dbo].[CommGroup] c WITH (NOLOCK)
-				ON a.[GroupID] = c.[GroupID]
+				JOIN [dbo].[CommGroup] c WITH (NOLOCK) ON a.[GroupID] = c.[GroupID]
 			WHERE a.[AffID] = @AffiliateID
 				AND c.[GroupName] = 'Korean Agent Comm'
 			)
@@ -178,6 +205,7 @@ BEGIN
 		,[SportCode]
 		,[RedirectURL]
 		,[Status]
+		,[DeviceType]
 		)
 	VALUES (
 		@AffiliateID
@@ -201,6 +229,7 @@ BEGIN
 		,@PageCode
 		,@RedirectPage --if not Casino aff => redirect to main domain
 		,0
+		,@DomainDeviceType
 		)
 
 	SELECT @ClickID = SCOPE_IDENTITY()
@@ -212,6 +241,8 @@ BEGIN
 	UPDATE [ClickStatistics1] WITH (ROWLOCK, UPDLOCK)
 	SET [RedirectURL] = @RedirectPage
 	WHERE clickId = @ClickID
+
+	RETURN;
 END
 GO
 
@@ -220,5 +251,3 @@ GO
 
 GRANT EXECUTE ON [dbo].[Aff_AffiliateInsClickStatistics_New] TO [bodbDownlineNetView] AS [dbo]
 GO
-
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateInsClickStatistics_New] TO [vnteam] AS [dbo]

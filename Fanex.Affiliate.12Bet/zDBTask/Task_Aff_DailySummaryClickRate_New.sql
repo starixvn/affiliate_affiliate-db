@@ -1,19 +1,26 @@
 ﻿ALTER PROCEDURE [dbo].[Task_Aff_DailySummaryClickRate_New] 
-	@date SMALLDATETIME = NULL
+@date SMALLDATETIME = NULL
 AS
 /*
-	Created: 20120109@Johnny
-	Task:	Task to summary Click Statistics daily
-	DB: DBAFF12BET/Affiliate_12BET
-	Revisions:	
-		- @20140214: optimize performance (to use index)
-		- 20140613@Bobby: Update @date to 7 days (date backup)
+Created: 20120109@Johnny
+Task:	Task to summary Click Statistics daily
+DB: DBAFF12BET/Affiliate_12BET
+Revisions:	
+	- @20140214: optimize performance (to use index)
+	- 20140613@Bobby: Update @date to 7 days (date backup)
+	- 20140708@Bobby: Apply DeviceType to SUM table
 	
 */
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT @date = convert(VARCHAR(10), ISNULL(@date, dateAdd(DD, - 7, current_timestamp)), 120)
+	DECLARE @fromDate SMALLDATETIME
+		,@toDate SMALLDATETIME
+
+	SET @date = convert(VARCHAR(10), ISNULL(@date, dateAdd(DD, - 7, current_timestamp)), 120)
+
+	SELECT @fromDate = @date
+		,@toDate = DATEADD(DD, 1, @fromdate)
 
 	IF (
 			EXISTS (
@@ -25,8 +32,7 @@ BEGIN
 	BEGIN
 		RETURN
 	END
-
-	/* 
+			/* 
 	--Store Total number of deposit user
 	Declare @TmpDeposit as table(AffId int, TotalDeposit int)
 	insert into @TmpDeposit(AffId, TotalDeposit)
@@ -35,40 +41,47 @@ BEGIN
 	where datediff(d, CreatedDate, @date) = 0
 	Group by AffId 
 	 */
+
 	--Summary for Daily by Domain and Date
+	;WITH clickStats
+	AS (
+		SELECT AffID
+			,DomainReferrer
+			,@date AS [Date]
+			,DeviceType
+			,SportCode
+			,LanguageCode
+			,sum(1) AS TotalClick
+			,count(DISTINCT IP) AS UniqueClick
+		FROM ClickStatistics1 c WITH (NOLOCK)
+		WHERE [Date] = @date
+		GROUP BY AffID
+			,DomainReferrer
+			,DeviceType
+			,SportCode
+			,LanguageCode
+	)
 	INSERT INTO ClickStatistics1Sum (
 		AffID
 		,[DomainReferrer]
 		,[Date]
+		,[DeviceType]
 		,[SportCode]
 		,[LanguageCode]
 		,TotalClick
 		,UniqueClick
-		,TotalSignup
-		,TotalDeposit
 		)
-	SELECT AffID
-		,DomainReferrer
-		,@date AS [Date]
-		,SportCode
-		,LanguageCode
-		,sum(1) AS TotalClick
-		,count(DISTINCT IP) AS UniqueClick
-		,SUM(CASE 
-				WHEN STATUS > 0 THEN 1
-				ELSE 0
-				END) AS TotalSignup
-		,SUM(CASE 
-				WHEN STATUS = 2 THEN 1
-				ELSE 0
-				END) AS TotalDeposit
-	FROM ClickStatistics1(NOLOCK)
-	WHERE @date = [Date] --datediff(d, @date, [date])=0
-	GROUP BY AffID
-		,DomainReferrer
-		,SportCode
-		,LanguageCode
+	SELECT c.AffID
+		,c.DomainReferrer
+		,c.[Date]
+		,c.DeviceType
+		,c.SportCode
+		,c.LanguageCode
+		,c.TotalClick
+		,c.UniqueClick
+	FROM clickStats c
 
+	-- Archive to ClickStatistics1_bk table
 	INSERT INTO ClickStatistics1_bk (
 		[ClickID]
 		,[AffID]
@@ -89,6 +102,7 @@ BEGIN
 		,[SportCode]
 		,[RedirectURL]
 		,[Status]
+		,[DeviceType]
 		)
 	SELECT [ClickID]
 		,[AffID]
@@ -109,11 +123,13 @@ BEGIN
 		,[SportCode]
 		,[RedirectURL]
 		,[Status]
-	FROM ClickStatistics1
-	WHERE @date = [Date] -- datediff(d, @date, [date])=0
+		,[DeviceType]
+	FROM ClickStatistics1 WITH (NOLOCK)
+	WHERE [Date] = @date
 
-	DELETE ClickStatistics1
-	WHERE @date = [Date] -- datediff(d, @date, [date])=0
+	-- remove data from ClickStatistics1
+	DELETE ClickStatistics1 WITH (ROWLOCK)
+	WHERE [Date] = @date
 END
 GO
 

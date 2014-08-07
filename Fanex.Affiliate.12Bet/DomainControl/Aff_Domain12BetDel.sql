@@ -1,51 +1,71 @@
-ALTER PROCEDURE [dbo].[Aff_Domain12BetDel]
-	@DomainID int OUTPUT,
-	@DomainName nvarchar(50), 	
-	@UserID int,	
-	@IP nvarchar(15)='',
-	@ErrCode int = 0 OUTPUT,
-	@ErrMsg nvarchar(4000) = '' OUTPUT
+ALTER PROCEDURE [dbo].[Aff_Domain12BetDel] 
+	@DomainID INT OUTPUT
+	,@DomainName NVARCHAR(50)
+	,@UserID INT
+	,@IP NVARCHAR(15) = ''
+	,@ErrCode INT = 0 OUTPUT
+	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
 AS
 /*
 Created: 20121115@ThaiTran
 Task : Del a 12BetDomain
 DB: DB052.Affiliate_12BET
+
+Revisions:  
+	- 20140708@Bobby : Apply IsDeleted info
 */
-SET NOCOUNT ON
---Check permission-----------------------------
-EXEC [dbo].[Aff_Con_CheckPermission]
-	@custid=@UserID,@funcname='[Domain]',
-	@System = 'AFFILIATE',
-	@ErrCode=@ErrCode output,
-	@ErrMsg=@ErrMsg output
-	
-If @ErrCode <> 0
-	RETURN
------------------------------------------------
-If Exists(select 1 from AffDomainControl nolock where [12BetDomainID] = @DomainID)
-Begin
-	select @ErrCode = 1001,
-			@ErrMsg = 'This 12Bet domain has been used!'
-	return
-End
+BEGIN
+	SET NOCOUNT ON
 
-delete [12BetDomain]
-where DomainID = @DomainID
+	--Check permission-----------------------------
+	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserID
+		,@funcname = '[Domain]'
+		,@System = 'AFFILIATE'
+		,@ErrCode = @ErrCode OUTPUT
+		,@ErrMsg = @ErrMsg OUTPUT
 
---Write log
-declare @SPName varchar(50), @Detail nvarchar(4000) 
-select @SPName = OBJECT_NAME(@@ProcID)
-select @Detail = 'Delete DomainID:' + dbo.Aff_ToString(@DomainID)                     
-                    + ' DomainName:' + dbo.Aff_ToString(@DomainName)                    					
+	IF @ErrCode <> 0 RETURN
 
-EXEC [dbo].[Aff_WriteLog] 
-	@Creator = @UserID,
-	@Typename = '12BetDomain', -- refer to table LogType
-	@SPName = @SPName,
-	@Details = @Detail,
-	@IP = @IP
+	-----------------------------------------------
+	IF EXISTS (
+			SELECT 1
+			FROM AffDomainControl NOLOCK
+			WHERE [12BetDomainID] = @DomainID
+				AND IsDeleted = 0
+			)
+	BEGIN
+		SELECT @ErrCode = 1001
+			,@ErrMsg = 'This 12Bet domain has been used!'
 
+		RETURN
+	END
+
+	UPDATE d
+	SET IsDeleted = 1
+	FROM dbo.[12BetDomain] d WITH (ROWLOCK, UPDLOCK)
+	WHERE DomainID = @DomainID
+
+	--Write log
+	DECLARE @SPName VARCHAR(50)
+		,@Detail NVARCHAR(4000)
+
+	SELECT @SPName = OBJECT_NAME(@@ProcID)
+
+	SELECT @Detail = 'Delete DomainID:' + dbo.Aff_ToString(@DomainID) + ' DomainName:' + dbo.Aff_ToString(@DomainName)
+
+	EXEC [dbo].[Aff_WriteLog] @Creator = @UserID
+		,@Typename = '12BetDomain'
+		,-- refer to table LogType
+		@SPName = @SPName
+		,@Details = @Detail
+		,@IP = @IP
+END
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_Domain12BetDel] TO [bodbAdminNet]
 GO
+
 GRANT VIEW DEFINITION ON [dbo].[Aff_Domain12BetDel] TO [vnteam]
+GO
+
+
