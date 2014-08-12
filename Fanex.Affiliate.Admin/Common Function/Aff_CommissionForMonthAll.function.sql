@@ -61,6 +61,7 @@ AS
 		- 20140425@Bobby: fixing NoCommision group
 		- 20140610@Bobby: Add ProgressiveShare & ProgressiveWin columns
 		- 20140702@Bobby.Nguyen: Force to update Commission  when Company Net Win is negative
+		- 20140811@Bobby Apply ZeroCommission for calculating commission base on system currency
 */
 BEGIN
 	DECLARE @FirstDay SMALLDATETIME
@@ -642,7 +643,10 @@ BEGIN
 		,HasPSP
 		,HasOddsFee
 		,@Status
-		,(NetWinlost - Cast(a.HasBonus AS INT) * isnull(a.MemBonus, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0) 
+		,((NetWinlost - Cast(a.HasBonus AS INT) * isnull(a.MemBonus, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0) ) * CASE 
+				WHEN a.ZeroCommission = 1 THEN 0
+				ELSE 1
+				END
 		,MemWinlost
 		,MemBonus
 		,MemAdjustment

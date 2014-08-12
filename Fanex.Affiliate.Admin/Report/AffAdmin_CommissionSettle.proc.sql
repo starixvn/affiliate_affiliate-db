@@ -19,6 +19,10 @@ Revisions:
 	- 20140513@Bobby: Add Playtech Casio product
 	- 20140519@Bobby: Add filter no data
 	- 20140610@Bobby: Add PShare & PWin columns
+	- 20140804@Bobby: Update cheking PreviousMonthDate
+	- 20140812@Bobby: Update calculating [CommissionBase = Amount - Aff_GetAffDeductionAll]
+	
+	
 
 Param's Explanation: 
 • @UserId: Admin user id
@@ -47,6 +51,7 @@ BEGIN
 		,@CurrentDate DATETIME
 		,@MaxCalculatedDate DATETIME
 		,@PreviousMonth DATETIME
+		,@PreviousMonthDate DATETIME
 		,@AffectedRows INT
 		,@AffId INT
 		,@count INT
@@ -295,9 +300,10 @@ BEGIN
 		,t.GroupName
 
 	SELECT @AffectedRows = @@ROWCOUNT --ALL Rows that are not calculated
-
+	SELECT @PreviousMonthDate = [dbo].[Aff_GetLastDayOfMonth](@PreviousMonth)
+	
 	--Calculate commission Previous month that is not calculated yet
-	IF (DATEDIFF(m, @MaxCalculatedDate, @CurrentDate) >= 2)
+	IF(NOT EXISTS(SELECT TOP 1 1 FROM AffCommission WITH(NOLOCK) WHERE WinlostDate=@PreviousMonthDate))
 	BEGIN
 		DECLARE @Month INT
 			,@Year INT
@@ -432,7 +438,7 @@ BEGIN
 				,CashbackAmount = ISNULL(tmp.CashAmount, 0)
 				,CashbackAmountBase = ISNULL(tmp.CashAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
 				,Commission = ISNULL(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @PreviousMonth) --All Product
-				,CommissionBase = ISNULL((@Amount - ISNULL((tmp.DeductedPercentage * tmp.CashAmount), 0)) * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+				,CommissionBase = (ISNULL(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @PreviousMonth)) * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL)
 				,SportsbookCommission = ISNULL(@SportsbookAmount, 0)
 				,SportsbookQM = ISNULL(@SportsbookQualifiedMember, 0)
 				,SportsbookCommissionPercent = ISNULL(@SportsbookCommission, 0)
@@ -625,7 +631,7 @@ BEGIN
 			,CashbackAmount = ISNULL(tmp.CashAmount, 0)
 			,CashbackAmountBase = ISNULL(tmp.CashAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
 			,Commission = ISNULL(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @CurrentDate) --All Product
-			,CommissionBase = ISNULL((@Amount - ISNULL((tmp.DeductedPercentage * tmp.CashAmount), 0)) * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+			,CommissionBase = (ISNULL(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @CurrentDate)) * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL)
 			,SportsbookCommission = ISNULL(@SportsbookAmount, 0)
 			,SportsbookQM = ISNULL(@SportsbookQualifiedMember, 0)
 			,SportsbookCommissionPercent = ISNULL(@SportsbookCommission, 0)
