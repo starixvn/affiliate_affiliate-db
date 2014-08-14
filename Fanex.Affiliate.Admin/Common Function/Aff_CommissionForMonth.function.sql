@@ -111,7 +111,7 @@ BEGIN
 		,sum(isnull(r.PSP, 0)) AS MemPSP
 		,sum(isnull(r.Turnover, 0)) AS MemTurnover
 		,sum(CASE 
-				WHEN r.TurnOver >= dbo.[Aff_GetQMTurnOver](@AffID, current_timestamp) THEN 1
+				WHEN r.TurnOver >= dbo.[Aff_GetQMTurnOver](@AffID, @LastDay) THEN 1
 				ELSE 0
 				END) AS TotalQM
 		,dbo.Aff_HasDeduction(@GroupID, r.ProductID, 'Bonus', @LastDay) AS HasBonus

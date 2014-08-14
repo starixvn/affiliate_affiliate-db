@@ -19,7 +19,7 @@ BEGIN
 
 	IF EXISTS (
 			SELECT 1
-			FROM CommGroupHistory NOLOCK
+			FROM CommGroupHistory WITH(NOLOCK)
 			WHERE datediff(m, MonthDate, @MonthDate) = 0
 			)
 	BEGIN

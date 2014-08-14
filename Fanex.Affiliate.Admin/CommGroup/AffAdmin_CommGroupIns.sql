@@ -1,6 +1,5 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupIns] 
 	@UserId INT
-	,@GroupId INT = - 1 OUTPUT
 	,@Currency INT
 	,@QualifiedAmount MONEY
 	,@GroupName NVARCHAR(100)
@@ -16,6 +15,7 @@
 	,@CommissionList VARCHAR(5000)
 	,@Language VARCHAR(5) = NULL
 	,@IP VARCHAR(20)
+	,@GroupId INT = - 1 OUTPUT
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
 AS
@@ -28,6 +28,8 @@ Original:
 Revisions:  
 	- 20130924@Joseph: new version
 	- 20131105@Johnny: Check currency permission
+	- 20140724@Bobby: Update generating @GroupId
+	
 Parameters:  
 .@UserID : Administrator user id  
 .@GroupID : if @GroupID=-1 (normal group)  
@@ -104,8 +106,10 @@ BEGIN
 
 	IF (@ErrCode <> 0) RETURN
 
-
-	IF (@GroupName IS NULL OR LTRIM(RTRIM(@GroupName)) = '')
+	IF (
+			@GroupName IS NULL
+			OR LTRIM(RTRIM(@GroupName)) = ''
+			)
 	BEGIN
 		SELECT @ErrCode = 20 --Group name is empty. Please choose a name!
 
@@ -113,10 +117,11 @@ BEGIN
 	END
 
 	IF (
-			@GroupID = - 1 AND EXISTS (
-				SELECT 1
-				FROM CommGroup
-				WHERE GroupName = @GroupName AND IsDeleted = 0
+			EXISTS (
+				SELECT TOP 1 1
+				FROM CommGroup WITH (NOLOCK)
+				WHERE GroupName = @GroupName
+					AND IsDeleted = 0
 				)
 			)
 	BEGIN
@@ -133,25 +138,10 @@ BEGIN
 		RETURN
 	END
 
-	DECLARE @Identity INT
+	SELECT @GroupID = ISNULL(MAX(GroupID), 0) + 1
+	FROM dbo.CommGroup WITH (NOLOCK)
 
-	IF(@GroupID = -1) -- create normal group
-	BEGIN
-		SELECT @Identity = max(GroupID)
-		FROM dbo.CommGroup WITH(NOLOCK)
-		WHERE GroupID < 1000 
-	END
-	ELSE -- create spacial group
-	BEGIN
-		SELECT @Identity = max(GroupID)
-		FROM dbo.CommGroup WITH(NOLOCK) 
-		WHERE GroupID >= 1000 
-	END
-
-	IF (@Identity IS NULL)
-		SELECT @Identity = 100
-
-	IF (@Identity = 999 AND (@GroupID < 0 OR @GroupID IS NULL))
+	IF (@GroupID <= 0)
 	BEGIN
 		SELECT @ErrCode = 23 --There is no room for a new Group! Please contact to administrator.
 
@@ -159,11 +149,6 @@ BEGIN
 	END
 
 	BEGIN TRANSACTION
-
-	IF (@GroupID <= 0)
-	BEGIN
-		SET @GroupID = @Identity + 1
-	END
 
 	INSERT INTO CommGroup (
 		[GroupID]
@@ -213,7 +198,8 @@ BEGIN
 		IF @@Rowcount <> (
 				SELECT count(1)
 				FROM dbo.strsplit(@DeductionList, ',')
-				) OR @@ERROR <> 0
+				)
+			OR @@ERROR <> 0
 		BEGIN
 			ROLLBACK TRANSACTION
 
@@ -341,11 +327,45 @@ BEGIN
           
         */
 					IF (
-							@MinAmount >= 0 AND @MaxAmount <= 100000000000000 AND @MinAmount <= @MaxAmount AND @MinQM >= 0 AND @MaxQM <= 1000000000 AND @MinQM <= @MaxQM AND (@Commission BETWEEN 0 AND 1) AND (CASE 
-								WHEN (@i = 1 AND @i < @NTier) THEN 1
-								WHEN (@NTier > 1 AND @i = @NTier AND @MaxQM = 1000000000 AND @MaxAmount = 100000000000000 AND @MinAmount = @PreMaxAmount + 1 AND @MinQM = @PreMaxQM + 1 AND @Commission >= @PreCommission) THEN 1
-								WHEN (@NTier = 1 AND @i = @NTier AND @MaxQM = 1000000000 AND @MaxAmount = 100000000000000 AND @MinQM = 0 AND @MinAmount = 0) THEN 1
-								WHEN (@i > 1 AND @i < @NTier AND @MinAmount = @PreMaxAmount + 1 AND @MinQM = @PreMaxQM + 1 AND @Commission >= @PreCommission) THEN 1
+							@MinAmount >= 0
+							AND @MaxAmount <= 100000000000000
+							AND @MinAmount <= @MaxAmount
+							AND @MinQM >= 0
+							AND @MaxQM <= 1000000000
+							AND @MinQM <= @MaxQM
+							AND (
+								@Commission BETWEEN 0
+									AND 1
+								)
+							AND (CASE 
+								WHEN (
+										@i = 1
+										AND @i < @NTier
+										) THEN 1
+								WHEN (
+										@NTier > 1
+										AND @i = @NTier
+										AND @MaxQM = 1000000000
+										AND @MaxAmount = 100000000000000
+										AND @MinAmount = @PreMaxAmount + 1
+										AND @MinQM = @PreMaxQM + 1
+										AND @Commission >= @PreCommission
+										) THEN 1
+								WHEN (
+										@NTier = 1
+										AND @i = @NTier
+										AND @MaxQM = 1000000000
+										AND @MaxAmount = 100000000000000
+										AND @MinQM = 0
+										AND @MinAmount = 0
+										) THEN 1
+								WHEN (
+										@i > 1
+										AND @i < @NTier
+										AND @MinAmount = @PreMaxAmount + 1
+										AND @MinQM = @PreMaxQM + 1
+										AND @Commission >= @PreCommission
+										) THEN 1
 								ELSE 0 END
 								) = 1
 							)
@@ -444,5 +464,3 @@ GO
 
 GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupIns] TO [bodbAdminNet] AS [dbo]
 GO
-
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupIns] TO [vnteam] AS [dbo]

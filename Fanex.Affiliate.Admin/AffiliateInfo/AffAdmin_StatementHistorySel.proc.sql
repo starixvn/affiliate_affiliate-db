@@ -13,7 +13,8 @@ DB:
 Original: [Aff_CustomerSelStatementHistory]    
 Revisions:     
     - 20131126@Johnny: Fix filter by transaction type and status
-	- 20140703@Bobby: check data existing of settlement for previous month
+	- 20140520@Bobby: check data existing in MemberDaily for previous month
+	- 20140703@Bobby: check data existing in AffCommission
 
 Param's Explanation:    
 • @AffID : Affiliate custid    
@@ -142,7 +143,7 @@ BEGIN
 					), Current_timestamp) = 2
 				OR NOT EXISTS(SELECT top 1 1
 					FROM AffCommission ac(NOLOCK)
-					WHERE ac.AffID = @AffID)
+					WHERE ac.AffID = @AffID)	
 				)
 			AND (
 				@DateOption = 0
@@ -157,7 +158,7 @@ BEGIN
 						FROM AffGroupHistory ag (NOLOCK)
 							INNER JOIN GroupSettingHistory sg (NOLOCK)
 							ON ag.GroupId = sg.GroupId AND ag.MonthDate = sg.MonthDate
-						WHERE ag.AffId = @AffId AND ag.MonthDate = dbo.Aff_GetLastDayOfMonth(DATEADD(m, - 1, @CurrentDate))
+						WHERE ag.AffId = @AffId AND ag.MonthDate = CAST(dbo.Aff_GetLastDayOfMonth(DATEADD(m, - 1, @CurrentDate)) AS DATE)
 						) g ON m.ProductId = g.ProductId
 					WHERE AffId = @AffId
 						AND Winlostdate BETWEEN dbo.Aff_GetFirstDayOfMonth(DATEADD(m, - 1, @CurrentDate)) AND dbo.Aff_GetLastDayOfMonth(DATEADD(m, - 1, @CurrentDate))
@@ -258,6 +259,7 @@ BEGIN
 		,TransType DESC
 		,transID ASC
 END
+
 GO
 
 GRANT EXECUTE ON [dbo].[AffAdmin_StatementHistorySel] TO [bodbAdminNet]

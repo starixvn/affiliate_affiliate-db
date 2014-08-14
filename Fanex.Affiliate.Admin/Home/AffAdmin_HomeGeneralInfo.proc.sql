@@ -214,16 +214,16 @@ BEGIN
 				ELSE 0
 				END)
 		,@DepositMemMonthNum = sum(CASE 
-				WHEN datediff(m, CreatedDate, @CurrentDate) = 0 THEN 1
+				WHEN datediff(m, m.CreatedDate, @CurrentDate) = 0 THEN 1
 				ELSE 0
 				END)
 		,@MemInProAllNum = count(1)
 		,@MemInProMonthNum = sum(CASE 
-				WHEN datediff(m, RegisteredDate, @CurrentDate) = 0 THEN 1
+				WHEN datediff(m, m.RegisteredDate, @CurrentDate) = 0 THEN 1
 				ELSE 0
 				END)
 		,@NonDepositMemMonthNum = sum(CASE 
-				WHEN datediff(m, RegisteredDate, @CurrentDate) = 0 AND CreatedDate IS NULL THEN 1
+				WHEN datediff(m, m.RegisteredDate, @CurrentDate) = 0 AND CreatedDate IS NULL THEN 1
 				ELSE 0
 				END)
 	FROM MemberInfo m WITH (NOLOCK)
