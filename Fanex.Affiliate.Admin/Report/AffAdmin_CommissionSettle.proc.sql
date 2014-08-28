@@ -18,6 +18,11 @@ Original: [AffAdmin_CommissionReport]
 Revisions:
 	- 20140513@Bobby: Add Playtech Casio product
 	- 20140519@Bobby: Add filter no data
+	- 20140610@Bobby: Add PShare & PWin columns
+	- 20140804@Bobby: Update cheking PreviousMonthDate
+	- 20140812@Bobby: Update calculating [CommissionBase = Amount - Aff_GetAffDeductionAll]
+	
+	
 
 Param's Explanation: 
 • @UserId: Admin user id
@@ -46,6 +51,7 @@ BEGIN
 		,@CurrentDate DATETIME
 		,@MaxCalculatedDate DATETIME
 		,@PreviousMonth DATETIME
+		,@PreviousMonthDate DATETIME
 		,@AffectedRows INT
 		,@AffId INT
 		,@count INT
@@ -154,6 +160,12 @@ BEGIN
 		,PlaytechCasinoCommission MONEY
 		,PlaytechCasinoWinlossBase MONEY
 		,PlaytechCasinoCommissionBase MONEY
+		,PShare MONEY
+		,PWin MONEY
+		,NetGaming MONEY
+		,PShareBase MONEY
+		,PWinBase MONEY
+		,NetGamingBase MONEY
 		,EnableCashback BIT DEFAULT(0)
 		)
 
@@ -177,6 +189,12 @@ BEGIN
 		,RNGCasinoWinlossBase
 		,PlaytechCasinoWinloss
 		,PlaytechCasinoWinlossBase
+		,PShare
+		,PShareBase
+		,PWin
+		,PWinBase
+		,NetGaming
+		,NetGamingBase
 		)
 	SELECT ad.AffId
 		,t.STATUS
@@ -231,6 +249,31 @@ BEGIN
 				WHEN ad.ProductID = @PlaytechCasino THEN MemWinlost
 				ELSE 0
 				END) AS PlaytechCasinoWinlossBase
+		-----PShare,PWin & NetGaming
+		,SUM(CASE 
+				WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(PShare_Aff,0)
+				ELSE 0
+				END) AS PShare
+		,SUM(CASE 
+				WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(PShare,0)
+				ELSE 0
+				END) AS PShareBase
+		,SUM(CASE 
+				WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(PWin_Aff,0)
+				ELSE 0
+				END) AS PWin
+		,SUM(CASE 
+				WHEN ad.ProductID = @PlaytechCasino THEN ISNULL(PWin,0)
+				ELSE 0
+				END) AS PWinBase
+		,SUM(CASE 
+				WHEN ad.ProductID = @PlaytechCasino THEN -ISNULL(ad.MemWinlost_aff,0) - ISNULL(PShare_Aff,0)
+				ELSE 0
+				END) AS NetGaming
+		,SUM(CASE 
+				WHEN ad.ProductID = @PlaytechCasino THEN -ISNULL(ad.MemWinlost,0) - ISNULL(PShare,0)
+				ELSE 0
+				END) AS NetGamingBase
 	FROM AffDailySummary ad WITH (NOLOCK)
 		INNER JOIN @ProductFilter p
 		ON ad.ProductId = p.ProductId
@@ -247,7 +290,6 @@ BEGIN
 		) AS trans
 		ON ad.AffId = trans.AffId
 	WHERE WinlostDate > @MaxCalculatedDate
-		AND [dbo].[Aff_IsProductInGroupOfAff](ad.AffID, ad.ProductID, ad.WinlostDate) > 0
 	GROUP BY ad.AffId
 		,t.STATUS
 		,DATEADD(m, DATEDIFF(m, 0, Winlostdate), 0)
@@ -258,9 +300,10 @@ BEGIN
 		,t.GroupName
 
 	SELECT @AffectedRows = @@ROWCOUNT --ALL Rows that are not calculated
-
+	SELECT @PreviousMonthDate = [dbo].[Aff_GetLastDayOfMonth](@PreviousMonth)
+	
 	--Calculate commission Previous month that is not calculated yet
-	IF (DATEDIFF(m, @MaxCalculatedDate, @CurrentDate) >= 2)
+	IF(NOT EXISTS(SELECT TOP 1 1 FROM AffCommission WITH(NOLOCK) WHERE WinlostDate=@PreviousMonthDate))
 	BEGIN
 		DECLARE @Month INT
 			,@Year INT
@@ -347,7 +390,6 @@ BEGIN
 					ELSE @PlaytechCasinoQualifiedMember END
 					)
 			FROM [dbo].[Aff_CommissionForMonth](@AffId, @Month, @Year) ac
-			WHERE [dbo].[Aff_IsProductInGroupOfAff](@AffId, ac.ProductID, @MonthDate) > 0
 
 			-- calculate @Amount base on product filter
 			;WITH ProductAmount
@@ -396,7 +438,7 @@ BEGIN
 				,CashbackAmount = ISNULL(tmp.CashAmount, 0)
 				,CashbackAmountBase = ISNULL(tmp.CashAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
 				,Commission = ISNULL(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @PreviousMonth) --All Product
-				,CommissionBase = ISNULL((@Amount - ISNULL((tmp.DeductedPercentage * tmp.CashAmount), 0)) * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+				,CommissionBase = (ISNULL(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @PreviousMonth)) * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL)
 				,SportsbookCommission = ISNULL(@SportsbookAmount, 0)
 				,SportsbookQM = ISNULL(@SportsbookQualifiedMember, 0)
 				,SportsbookCommissionPercent = ISNULL(@SportsbookCommission, 0)
@@ -541,7 +583,6 @@ BEGIN
 				ELSE @PlaytechCasinoQualifiedMember END
 				)
 		FROM [dbo].[Aff_CommissionForCurrentMonth](@AffId) ac
-		WHERE [dbo].[Aff_IsProductInGroupOfAff](@AffId, ac.ProductID, @CurrentDate) > 0
 
 		-- calculate @Amount base on product filter
 		;WITH ProductAmount
@@ -590,7 +631,7 @@ BEGIN
 			,CashbackAmount = ISNULL(tmp.CashAmount, 0)
 			,CashbackAmountBase = ISNULL(tmp.CashAmount * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
 			,Commission = ISNULL(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @CurrentDate) --All Product
-			,CommissionBase = ISNULL((@Amount - ISNULL((tmp.DeductedPercentage * tmp.CashAmount), 0)) * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL), 0)
+			,CommissionBase = (ISNULL(@Amount, 0) - [dbo].[Aff_GetAffDeductionAll](@AffID, @CurrentDate)) * dbo.Aff_GetExchangeRate(@ExchangeId, @SystemExchangeId, NULL)
 			,SportsbookCommission = ISNULL(@SportsbookAmount, 0)
 			,SportsbookQM = ISNULL(@SportsbookQualifiedMember, 0)
 			,SportsbookCommissionPercent = ISNULL(@SportsbookCommission, 0)

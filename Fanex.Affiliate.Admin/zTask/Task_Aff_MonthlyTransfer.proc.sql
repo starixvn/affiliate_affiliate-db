@@ -71,6 +71,8 @@ Revisions:
 	- 20140418@Bobby.Nguyen: Validate amount of NoCommission group
 	- 20140429@Bobby.Nguyen: Update calculating amount of NoCommission group
 	- 20140520@Bobby.Nguyen: Update calculating TotalQM by comparing MemberTurnover_Aff value
+	- 20140610@Bobby: Add PShare & PWin columns
+	- 20140702@Bobby.Nguyen: Force to update Commission when Company Net Win is negative
   
 Param's Explanation:  
 • @Month: The month to transfer  
@@ -89,9 +91,13 @@ BEGIN
 	DECLARE @FirstDay SMALLDATETIME
 		,@LastDay SMALLDATETIME
 		,@TransType INT
-		,@MinimumNegativeCommission FLOAT
+		,@IsForceMinNegativeCommission BIT = 0
+		,@MinimumNegativeCommission FLOAT = 0.1
 
-	SELECT @MinimumNegativeCommission = 0.1
+	SELECT @MinimumNegativeCommission = CASE WHEN SName = 'AFF_MinNegativeCommission' THEN ISNULL(SValue, @MinimumNegativeCommission) ELSE @MinimumNegativeCommission END
+		,@IsForceMinNegativeCommission = CASE WHEN SName = 'AFF_ForceMinNegativeCommission' THEN ISNULL(SValue, 0.1) ELSE @IsForceMinNegativeCommission END
+	FROM dbo.SystemSettings with(nolock)
+	WHERE SName IN ('AFF_ForceMinNegativeCommission', 'AFF_MinNegativeCommission')
 
 	SELECT @FirstDay = cast(cast(@Year AS VARCHAR(5)) + '-' + cast(@Month AS VARCHAR(5)) + '-' + '1' AS SMALLDATETIME)
 
@@ -192,6 +198,10 @@ end*/
 		,MemWithdrawal_aff MONEY
 		,MemTurnoverDraw_aff MONEY
 		,MemTurnoverNoDraw_aff MONEY
+		,PShare MONEY
+		,PWin MONEY
+		,PShare_aff MONEY
+		,PWin_aff MONEY
 		)
 
 	INSERT INTO #MemberSummary (
@@ -218,7 +228,11 @@ end*/
 		,MemWithdrawal_aff
 		,MemTurnoverDraw_aff
 		,MemTurnoverNoDraw_aff
-		)
+		,PShare
+		,PWin
+		,PShare_aff
+		,PWin_aff
+	)
 	SELECT username
 		,AffID
 		,ProductID
@@ -242,6 +256,10 @@ end*/
 		,sum(isnull(Withdrawal, 0) * isnull(AffExRate, 1)) AS Withdrawal_aff
 		,sum(isnull(TurnOverDraw, 0) * isnull(AffExRate, 1)) AS TurnOverDraw_aff
 		,sum(isnull(TurnOverNoDraw, 0) * isnull(AffExRate, 1)) AS TurnOverNoDraw_aff
+		,sum(isnull(PShare, 0) * isnull(SysExRate, 1)) AS PShare
+		,sum(isnull(PWin, 0) * isnull(SysExRate, 1)) AS PWin
+		,sum(isnull(PShare, 0) * isnull(AffExRate, 1)) AS PShare_aff
+		,sum(isnull(PWin, 0) * isnull(AffExRate, 1)) AS PWin_aff
 	FROM MemberDaily md(NOLOCK)
 	WHERE WinlostDate BETWEEN @FirstDay AND @LastDay
 	GROUP BY username
@@ -307,6 +325,10 @@ end*/
 		,[MemTurnoverDraw] MONEY
 		,[MemTurnoverDraw_aff] MONEY
 		,ZeroCommission INT
+		,PShare MONEY
+		,PWin MONEY
+		,PShare_aff MONEY
+		,PWin_aff MONEY
 		)
 
 	INSERT INTO #AffSummary (
@@ -346,6 +368,10 @@ end*/
 		,[MemTurnoverDraw]
 		,[MemTurnoverDraw_aff]
 		,ZeroCommission
+		,PShare
+		,PWin
+		,PShare_aff
+		,PWin_aff
 		)
 	SELECT ai.AffID AS AffID
 		,ai.Currency AS Currency
@@ -386,6 +412,10 @@ end*/
 		,Sum(isnull([MemTurnoverDraw], 0))
 		,Sum(isnull([MemTurnoverDraw_aff], 0))
 		,dbo.IsZeroCommissionGroup(gh.GroupID, @LastDay)
+		,SUM(ISNULL(PShare, 0)) PShare
+		,SUM(ISNULL(PWin, 0)) PWin
+		,SUM(ISNULL(PShare_aff, 0)) PShare_aff
+		,SUM(ISNULL(PWin_aff, 0)) PWin_aff
 	FROM AffInfo ai WITH (NOLOCK)
 		INNER JOIN AffGroupHistory gh(NOLOCK)
 		ON gh.AffID = ai.AffID
@@ -452,19 +482,23 @@ end*/
 				ORDER BY t.Commission ASC
 				), 0)
 	FROM #AffSummary a
-
+	
+	/*
+	-- check/update Negative Commission
+	-- force update min comm (inorge tier rule ITCBET[OR @IsForceMinNegativeCommission = 1])
+	*/
 	UPDATE a
 	SET a.Commission = @MinimumNegativeCommission
 	FROM #AffSummary a
 	WHERE a.NetWinlost_aff < 0
-		AND a.Commission = 0
+		AND (a.Commission = 0 OR @IsForceMinNegativeCommission = 1) 
 		AND a.ZeroCommission = 0
 		AND a.ProductID IN (
 			SELECT DISTINCT ProductID
 			FROM GroupSettingHistory(NOLOCK)
 			WHERE GroupID = a.GroupID
 				AND MonthDate BETWEEN @FirstDay AND @LastDay
-			)
+		)
 
 	--Insert transaction to AffTrans and AffCommission  
 	DECLARE @WinlostDate SMALLDATETIME
@@ -529,6 +563,10 @@ end*/
 			,[MemberWithdrawal_aff]
 			,[MemberTurnoverDraw]
 			,[MemberTurnoverDraw_aff]
+			,[PShare]
+			,[PWin]
+			,[PShare_aff]
+			,[PWin_aff]
 			)
 		OUTPUT inserted.RefID
 			,inserted.AffID
@@ -580,6 +618,10 @@ end*/
 			,[MemWithdrawal_aff]
 			,[MemTurnoverDraw]
 			,[MemTurnoverDraw_aff]
+			,[PShare]
+			,[PWin]
+			,[PShare_aff]
+			,[PWin_aff]
 		FROM #AffSummary a(NOLOCK)
 
 		UPDATE d

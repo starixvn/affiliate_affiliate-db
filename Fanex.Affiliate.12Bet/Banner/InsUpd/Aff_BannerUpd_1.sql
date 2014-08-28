@@ -9,6 +9,7 @@
 	,@UserID INT
 	,@AffType TINYINT
 	,@IP NVARCHAR(15) = ''
+	,@DeviceType TINYINT = 0
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
 AS
@@ -20,7 +21,8 @@ Original:
 
 Revisions:
 	- 20090122@[Reviewer]: [Description of revision] 
-	- 20140226@Bobby: Apply AffType	
+	- 20140226@Bobby: Apply AffType
+	- 20140708@Bobby : Apply Device type info	
 
 Param's Explanation:
 
@@ -66,6 +68,7 @@ BEGIN
 		,Size = coalesce(@Size, @Size)
 		,Currency = coalesce(@Currency, Currency)
 		,AffType = @AffType
+		,DeviceType = @DeviceType
 	WHERE BannerID = @BannerID
 
 	IF @@Error <> 0

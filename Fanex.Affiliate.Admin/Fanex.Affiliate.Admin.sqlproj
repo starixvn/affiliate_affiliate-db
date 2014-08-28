@@ -131,6 +131,7 @@
     <Folder Include="zTask" />
     <Folder Include="Service" />
     <Folder Include="Scripts" />
+    <Folder Include="CheckSum" />
   </ItemGroup>
   <ItemGroup>
     <BuildContributorArgument Include="OutDir=$(OutDir)" />
@@ -283,6 +284,7 @@
     <None Include="CommGroup\AffAdmin_CommGroupSelByID.sql">
       <SubType>NotInBuild</SubType>
     </None>
+    <None Include="CheckSum\StepInCheckSum.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Language\AffAdmin_AdminSupportedLanguagesSel.proc.sql">
@@ -679,5 +681,7 @@
     <Build Include="Common Function\Aff_IsProductInGroupOfAff.sql" />
     <Build Include="Common Function\IsZeroCommissionGroup.sql" />
     <Build Include="Service\Aff_PlayersFundingSel.sql" />
+    <Build Include="CheckSum\Aff_CheckSum_WinlostByProduct.sql" />
+    <Build Include="CheckSum\Task_CheckSum_WinlostByProduct.sql" />
   </ItemGroup>
 </Project>

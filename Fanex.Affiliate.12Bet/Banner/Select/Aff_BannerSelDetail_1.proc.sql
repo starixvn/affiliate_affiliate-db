@@ -7,6 +7,7 @@ DB:  DB052.Affiliate_12Bet
 
 Revisions:
 	- 20140226@Bobby: Apply AffType	
+	- 20140707@Bobby: Include DeviceType info
 			  
 Param's Explanation:
 • @BannerID : ID of banner 
@@ -23,6 +24,7 @@ BEGIN
 		,Lastupdate
 		,Currency
 		,AffType
+		,[dbo].[Aff_GetDeviceType](DeviceType) DeviceType
 	FROM Banners_1 WITH (NOLOCK)
 	WHERE BannerID = @BannerID
 END

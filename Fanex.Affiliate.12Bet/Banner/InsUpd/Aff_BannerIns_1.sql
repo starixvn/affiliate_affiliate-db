@@ -1,13 +1,4 @@
-﻿-- =============================================
--- Script Template
--- =============================================
-
-set ANSI_NULLS ON
-set QUOTED_IDENTIFIER ON
-go
-
-
-ALTER PROCEDURE [dbo].[Aff_BannerIns_1]
+﻿ALTER PROCEDURE [dbo].[Aff_BannerIns_1]
 	@BannerID int OUTPUT,
 	@FileExtension varchar(100), 
 	@Category varchar(50),
@@ -17,6 +8,7 @@ ALTER PROCEDURE [dbo].[Aff_BannerIns_1]
 	@Size varchar(50),
 	@UserID int,	
 	@IP nvarchar(15)='',
+	@DeviceType TINYINT = 0
 	@ErrCode int = 0 OUTPUT,
 	@ErrMsg nvarchar(4000) = '' OUTPUT
 AS
@@ -27,7 +19,8 @@ DB: DB052.Affiliate_12BET
 Original:
 
 Revisions:
-- 20090122@[Reviewer]: [Description of revision] 
+	- 20090122@[Reviewer]: [Description of revision] 
+	- 20140708@Bobby: Apply DeviceType info
 
 Param's Explanation:
 
@@ -39,6 +32,7 @@ Param's Explanation:
 
 • @ErrMsg: Error description.
 */
+BEGIN
 SET NOCOUNT ON
 --Check permission-----------------------------
 EXEC [dbo].[Aff_Con_CheckPermission]
@@ -64,7 +58,8 @@ INSERT INTO Banners_1
 		Currency,
 		[LastUpdate],
 		CreatedDate,
-		Creator
+		Creator,
+		DeviceType
 	)
 	VALUES
 	(	
@@ -76,7 +71,8 @@ INSERT INTO Banners_1
 		@Currency,
 		@CreatedDate,
 		@CreatedDate,
-		@UserID
+		@UserID,
+		@DeviceType
 	)
 IF @@ERROR <> 0
 BEGIN
@@ -114,6 +110,7 @@ EXEC [dbo].[Aff_WriteLog]
 	@Details = @Detail,
 	@IP = @IP
 
+END
 
 GO
 GRANT EXECUTE ON [dbo].[Aff_BannerIns_1] TO [bodbAdminNet]

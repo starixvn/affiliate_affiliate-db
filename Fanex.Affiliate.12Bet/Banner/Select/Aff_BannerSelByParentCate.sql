@@ -8,6 +8,7 @@
 	,@AffType TINYINT
 	,@PageSize INT = 50
 	,@PageIndex INT = 1
+	,@DeviceType TINYINT = 0
 	,@TotalPages INT = 0 OUTPUT
 	,@NRows INT = 0 OUTPUT
 AS
@@ -17,6 +18,7 @@ DB:  DB052.Affiliate_12BET
 
 Revisions:    
 	- 20140226@Bobby: Apply AffType	
+	- 20140707@Bobby: Include DeviceType info
 			  
 Param's Explanation:
 • @Category : Search by all sub category which belong to Category
@@ -52,6 +54,7 @@ BEGIN
 		AND isnull(Currency, '') = coalesce(@Currency, Currency, '')
 		AND ISNULL([Type], 0) = @Type
 		AND ISNULL([AffType], 0) = @AffType
+		AND DeviceType = @DeviceType
 
 	IF (isnull(@NRows, 0) = 0) RETURN
 
@@ -74,6 +77,7 @@ BEGIN
 		,[Size]
 		,Lastupdate
 		,Currency
+		,DeviceType
 	FROM (
 		SELECT TOP (@RowEnd) ROW_NUMBER() OVER (
 				ORDER BY bannerid DESC
@@ -86,6 +90,7 @@ BEGIN
 			,[Size]
 			,Lastupdate
 			,Currency
+			,[dbo].[Aff_GetDeviceType](DeviceType) DeviceType
 		FROM Banners_1 WITH (NOLOCK)
 		WHERE Category IN (
 				SELECT b.Value
@@ -98,8 +103,10 @@ BEGIN
 			AND isnull(Currency, '') = coalesce(@Currency, Currency, '')
 			AND ISNULL([Type], 0) = @Type
 			AND ISNULL([AffType], 0) = @AffType
+			AND DeviceType = @DeviceType
 		) x
-	WHERE x.TheCount BETWEEN @RowStart AND @RowEnd
+	WHERE x.TheCount BETWEEN @RowStart
+			AND @RowEnd
 END
 GO
 

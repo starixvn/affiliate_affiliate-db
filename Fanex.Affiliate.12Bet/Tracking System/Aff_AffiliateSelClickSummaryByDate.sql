@@ -48,7 +48,7 @@ From
 	from ClickStatisticsSum (nolock)
 	where AffID=@AffID
 		and TrackingID=0
-		and IsForMonth=0
+		and IsForMonth=1
 		and date between @FromDate and @TmpTodate
 	) as tmp
 

@@ -1,6 +1,6 @@
 ﻿USE [Affiliate_12BET]
 GO
-/****** Object:  StoredProcedure [dbo].[Task_Aff_MonthlyTransfer]    Script Date: 07/03/2013 05:26:53 ******/
+/****** Object:  StoredProcedure [dbo].[Task_Aff_MonthlyTransfer]    Script Date: 05/21/2014 02:24:59 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -128,7 +128,7 @@ if(not exists(select top(1) 1 from CommGroupHistory (nolock) where monthdate=@La
  SELECT @FirstDay as FirstDay,@LastDay as LastDay  
  RETURN  
  END  
- /*
+
 IF EXISTS (select top(1) 1 from AffCommission with(nolock)  
    where WinlostDate=@LastDay)  
 BEGIN  
@@ -136,7 +136,7 @@ BEGIN
  SELECT @FirstDay as FirstDay,@LastDay as LastDay  
  RETURN  
 END  
-  */
+
 --Get all Affiliates that is approved and IsClosed=false  
 declare /*@AFF_QMTurnOver money,*/@Status varchar(30)  
 select @Status='Approved'  
@@ -452,5 +452,9 @@ BEGIN CATCH
 END CATCH  
   
 commit transaction
+
+
 GO
-GRANT VIEW DEFINITION ON [dbo].[Task_Aff_MonthlyTransfer] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[Task_Aff_MonthlyTransfer] TO [vnAffiliate] AS [dbo]
+GO
+GRANT VIEW DEFINITION ON [dbo].[Task_Aff_MonthlyTransfer] TO [vnteam] AS [dbo]

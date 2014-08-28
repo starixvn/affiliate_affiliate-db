@@ -46,6 +46,10 @@ RETURNS @AffComm TABLE (
 	,[MemberWithdrawal_aff] MONEY
 	,[MemberTurnoverDraw] MONEY
 	,[MemberTurnoverDraw_aff] MONEY
+	,PShare MONEY
+	,PWin MONEY
+	,PShare_aff MONEY
+	,PWin_aff MONEY
 	)
 AS
 /*
@@ -53,17 +57,24 @@ AS
 	Author : Peter@20090909
 
 	Revisions:
-		-20140328@Bobby: Fix bug [https://redmine.nexcel.vn/issues/13974]
-		-20140425@Bobby: fixing NoCommision group
+		- 20140328@Bobby: Fix bug [https://redmine.nexcel.vn/issues/13974]
+		- 20140425@Bobby: fixing NoCommision group
+		- 20140610@Bobby: Add ProgressiveShare & ProgressiveWin columns
+		- 20140702@Bobby.Nguyen: Force to update Commission  when Company Net Win is negative
+		- 20140811@Bobby Apply ZeroCommission for calculating commission base on system currency
 */
 BEGIN
 	DECLARE @FirstDay SMALLDATETIME
 		,@LastDay SMALLDATETIME
 		,@Today SMALLDATETIME
 		,@TransType INT
-		,@MinimumNegativeCommission FLOAT
+		,@IsForceMinNegativeCommission BIT = 0
+		,@MinimumNegativeCommission FLOAT = 0.1
 
-	SELECT @MinimumNegativeCommission = 0.1
+	SELECT @MinimumNegativeCommission = CASE WHEN SName = 'AFF_MinNegativeCommission' THEN ISNULL(SValue, @MinimumNegativeCommission) ELSE @MinimumNegativeCommission END
+		,@IsForceMinNegativeCommission = CASE WHEN SName = 'AFF_ForceMinNegativeCommission' THEN ISNULL(SValue, 0.1) ELSE @IsForceMinNegativeCommission END
+	FROM dbo.SystemSettings with(nolock)
+	WHERE SName IN ('AFF_ForceMinNegativeCommission', 'AFF_MinNegativeCommission')
 
 	SELECT @FirstDay = cast(cast(@Year AS VARCHAR(5)) + '-' + cast(@Month AS VARCHAR(5)) + '-' + '1' AS SMALLDATETIME)
 
@@ -105,7 +116,11 @@ BEGIN
 		,MemWithdrawal_aff MONEY
 		,MemTurnoverDraw_aff MONEY
 		,MemTurnoverNoDraw_aff MONEY
-		)
+		,PShare MONEY
+		,PWin MONEY
+		,PShare_aff MONEY
+		,PWin_aff MONEY
+	)
 
 	INSERT INTO @MemberSummary (
 		UserName
@@ -131,6 +146,10 @@ BEGIN
 		,MemWithdrawal_aff
 		,MemTurnoverDraw_aff
 		,MemTurnoverNoDraw_aff
+		,PShare
+		,PWin
+		,PShare_aff
+		,PWin_aff
 		)
 	SELECT username
 		,AffID
@@ -155,6 +174,10 @@ BEGIN
 		,sum(isnull(Withdrawal, 0) * isnull(AffExRate, 1)) AS Withdrawal_aff
 		,sum(isnull(TurnOverDraw, 0) * isnull(AffExRate, 1)) AS TurnOverDraw_aff
 		,sum(isnull(TurnOverNoDraw, 0) * isnull(AffExRate, 1)) AS TurnOverNoDraw_aff
+		,sum(isnull(PShare, 0) * isnull(SysExRate, 1)) AS PShare
+		,sum(isnull(PWin, 0) * isnull(SysExRate, 1)) AS PWin
+		,sum(isnull(PShare, 0) * isnull(AffExRate, 1)) AS PShare_aff
+		,sum(isnull(PWin, 0) * isnull(AffExRate, 1)) AS PWin_aff
 	FROM MemberDaily md(NOLOCK)
 	WHERE WinlostDate BETWEEN @FirstDay AND @LastDay
 	GROUP BY username
@@ -213,6 +236,10 @@ BEGIN
 		,[MemTurnoverDraw] MONEY
 		,[MemTurnoverDraw_aff] MONEY
 		,ZeroCommission INT
+		,PShare MONEY
+		,PWin MONEY
+		,PShare_aff MONEY
+		,PWin_aff MONEY
 		)
 
 	IF datediff(m, @FirstDay, current_timestamp) = 0
@@ -254,6 +281,10 @@ BEGIN
 			,[MemTurnoverDraw]
 			,[MemTurnoverDraw_aff]
 			,ZeroCommission
+			,PShare
+			,PWin
+			,PShare_aff
+			,PWin_aff
 			)
 		SELECT ai.AffID AS AffID
 			,ai.Currency AS Currency
@@ -294,6 +325,10 @@ BEGIN
 			,Sum(isnull([MemTurnoverDraw], 0))
 			,Sum(isnull([MemTurnoverDraw_aff], 0))
 			,[dbo].[IsZeroCommissionGroup](ai.GroupID, @LastDay)
+			,SUM(ISNULL(PShare, 0)) PShare
+			,SUM(ISNULL(PWin, 0)) PWin
+			,SUM(ISNULL(PShare_aff, 0)) PShare_aff
+			,SUM(ISNULL(PWin_aff, 0)) PWin_aff
 		FROM AffInfo ai WITH (NOLOCK)
 			INNER JOIN CommGroup ch(NOLOCK)
 			ON ch.groupid = ai.groupid
@@ -344,6 +379,10 @@ BEGIN
 			,[MemTurnoverDraw]
 			,[MemTurnoverDraw_aff]
 			,ZeroCommission
+			,PShare
+			,PWin
+			,PShare_aff
+			,PWin_aff
 			)
 		SELECT ai.AffID AS AffID
 			,ai.Currency AS Currency
@@ -384,6 +423,10 @@ BEGIN
 			,Sum(isnull([MemTurnoverDraw], 0))
 			,Sum(isnull([MemTurnoverDraw_aff], 0))
 			,[dbo].[IsZeroCommissionGroup](gh.GroupID, @LastDay)
+			,SUM(ISNULL(PShare, 0)) PShare
+			,SUM(ISNULL(PWin, 0)) PWin
+			,SUM(ISNULL(PShare_aff, 0)) PShare_aff
+			,SUM(ISNULL(PWin_aff, 0)) PWin_aff
 		FROM AffInfo ai WITH (NOLOCK)
 			INNER JOIN AffGroupHistory gh(NOLOCK)
 			ON gh.AffID = ai.AffID
@@ -454,11 +497,16 @@ BEGIN
 					), 0)
 		FROM @AffSummary a
 
+		/* 
+		-- HotFix #18485:
+		-- check/update Negative Commission
+		-- force update min comm (inorge tier rule ITCBET[OR @IsForceMinNegativeCommission = 1])
+		*/
 		UPDATE a
 		SET a.Commission = @MinimumNegativeCommission
 		FROM @AffSummary a
 		WHERE a.NetWinlost_aff < 0
-			AND a.Commission = 0
+			AND (a.Commission = 0 OR @IsForceMinNegativeCommission = 1) 
 			AND a.ZeroCommission = 0
 			AND a.ProductID IN (
 				SELECT DISTINCT ProductID
@@ -503,12 +551,17 @@ BEGIN
 					ORDER BY t.Commission ASC
 					), 0)
 		FROM @AffSummary a
-
+		
+		/* 
+		-- HotFix #18485:
+		-- check/update Negative Commission
+		-- force update min comm (inorge tier rule ITCBET[OR @IsForceMinNegativeCommission = 1])
+		*/
 		UPDATE a
 		SET a.Commission = @MinimumNegativeCommission
 		FROM @AffSummary a
 		WHERE a.NetWinlost_aff < 0
-			AND a.Commission = 0
+			AND (a.Commission = 0 OR @IsForceMinNegativeCommission = 1) 
 			AND a.ZeroCommission = 0
 			AND a.ProductID IN (
 				SELECT DISTINCT ProductID
@@ -570,6 +623,10 @@ BEGIN
 		,[MemberWithdrawal_aff]
 		,[MemberTurnoverDraw]
 		,[MemberTurnoverDraw_aff]
+		,PShare
+		,PWin
+		,PShare_aff
+		,PWin_aff
 		)
 	SELECT AffID
 		,GroupID
@@ -586,7 +643,10 @@ BEGIN
 		,HasPSP
 		,HasOddsFee
 		,@Status
-		,(NetWinlost - Cast(a.HasBonus AS INT) * isnull(a.MemBonus, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0) 
+		,((NetWinlost - Cast(a.HasBonus AS INT) * isnull(a.MemBonus, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0) ) * CASE 
+				WHEN a.ZeroCommission = 1 THEN 0
+				ELSE 1
+				END
 		,MemWinlost
 		,MemBonus
 		,MemAdjustment
@@ -617,6 +677,10 @@ BEGIN
 		,[MemWithdrawal_aff]
 		,[MemTurnoverDraw]
 		,[MemTurnoverDraw_aff]
+		,PShare
+		,PWin
+		,PShare_aff
+		,PWin_aff
 	FROM @AffSummary a
 
 	RETURN

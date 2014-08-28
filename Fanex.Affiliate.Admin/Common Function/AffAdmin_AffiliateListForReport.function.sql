@@ -32,6 +32,7 @@ AS
 		- 20140216@bobby.nguyen: Hotfix#15018 - filter commgroup for old month data
 		- 20140218@bobby.nguyen: Fixbug#15128 - Check NoCommission Group
 		- 20140513@Bobby: Add GroupId & GroupName
+		- 20140713@Bobby: Checking filer commgroup: include CommGroupHistory
 
 	Param's Explanation: 
 */
@@ -47,8 +48,7 @@ BEGIN
 		INSERT INTO @tmpCurrency
 		SELECT AttributeID
 		FROM dbo.Aff_f_GetCurrencybyUser(@userID, 1) r
-			INNER JOIN [dbo].[strSplit](@Currencies, ',') s
-			ON s.val = r.AttributeID
+			INNER JOIN [dbo].[strSplit](@Currencies, ',') s ON s.val = r.AttributeID
 	END
 
 	-- Sys exchange rate
@@ -56,8 +56,7 @@ BEGIN
 
 	SELECT @SysCurrency = C.CurrencyID
 	FROM SystemSettings S(NOLOCK)
-		INNER JOIN Currency C(NOLOCK)
-		ON C.CurrencyCode = S.SValue
+		INNER JOIN Currency C(NOLOCK) ON C.CurrencyCode = S.SValue
 	WHERE SName LIKE 'SystemCurrency'
 
 	-- AffType
@@ -68,14 +67,26 @@ BEGIN
 	FROM [dbo].[strSplit](@AffTypes, ',')
 
 	-- CommGroup
-	DECLARE @CommGroupList TABLE (CommGroupID INT)
+	DECLARE @CommGroupList TABLE (CommGroupID INT);
 
 	INSERT INTO @CommGroupList
 	SELECT GroupID
 	FROM [dbo].[strSplit](@CommGroups, ',')
-		INNER JOIN CommGroup CG(NOLOCK)
-		ON CG.GroupID = CAST(val AS INT)
-			AND CG.IsDeleted = 0
+		INNER JOIN (
+		SELECT cg.GroupId
+			,cg.GroupName
+			,cg.Currency
+		FROM CommGroup cg WITH (NOLOCK)
+			LEFT JOIN CommGroupHistory ch WITH (NOLOCK) ON cg.GroupID = ch.GroupID
+		WHERE cg.IsDeleted = 0
+			OR (
+				cg.IsDeleted = 1
+				AND ch.IsDeleted = 0
+				)
+		GROUP BY cg.GroupId
+			,cg.GroupName
+			,cg.Currency
+		) CG ON CG.GroupID = CAST(val AS INT)
 	WHERE (
 			@Currencies = 'All'
 			OR CG.GroupName IN ('NoCommission')
@@ -131,18 +142,12 @@ BEGIN
 				AND m.WinlostDate <= @ToDate
 			GROUP BY AffId
 			HAVING COUNT(UserName) > 0
-			) AS mem
-			ON ai.AffId = mem.AffId
-			INNER JOIN AffDetail AD(NOLOCK)
-			ON AD.AffID = AI.AffID
-			INNER JOIN Exchange ex WITH (NOLOCK)
-			ON ai.Currency = ex.ExchangeID
-			INNER JOIN AffType at WITH (NOLOCK)
-			ON ai.AffType = at.TypeID
-			INNER JOIN LANGUAGE l WITH (NOLOCK)
-			ON AD.PreferredLanguage = l.LanguageID
-			INNER JOIN CommGroup cg WITH (NOLOCK)
-			ON ai.GroupID = cg.GroupID
+			) AS mem ON ai.AffId = mem.AffId
+			INNER JOIN AffDetail AD(NOLOCK) ON AD.AffID = AI.AffID
+			INNER JOIN Exchange ex WITH (NOLOCK) ON ai.Currency = ex.ExchangeID
+			INNER JOIN AffType at WITH (NOLOCK) ON ai.AffType = at.TypeID
+			INNER JOIN LANGUAGE l WITH (NOLOCK) ON AD.PreferredLanguage = l.LanguageID
+			INNER JOIN CommGroup cg WITH (NOLOCK) ON ai.GroupID = cg.GroupID
 		WHERE ai.STATUS = 'Approved'
 			AND AI.UserName LIKE @AffName
 			AND (
@@ -221,30 +226,23 @@ BEGIN
 				AND m.WinlostDate <= @ToDate
 			GROUP BY AffId
 			HAVING COUNT(UserName) > 0
-			) AS mem
-			ON ai.AffId = mem.AffId
-			INNER JOIN AffDetail AD(NOLOCK)
-			ON AD.AffID = AI.AffID
-			INNER JOIN Exchange ex WITH (NOLOCK)
-			ON ai.Currency = ex.ExchangeID
-			INNER JOIN AffType at WITH (NOLOCK)
-			ON ai.AffType = at.TypeID
-			INNER JOIN LANGUAGE l WITH (NOLOCK)
-			ON AD.PreferredLanguage = l.LanguageID
+			) AS mem ON ai.AffId = mem.AffId
+			INNER JOIN AffDetail AD(NOLOCK) ON AD.AffID = AI.AffID
+			INNER JOIN Exchange ex WITH (NOLOCK) ON ai.Currency = ex.ExchangeID
+			INNER JOIN AffType at WITH (NOLOCK) ON ai.AffType = at.TypeID
+			INNER JOIN LANGUAGE l WITH (NOLOCK) ON AD.PreferredLanguage = l.LanguageID
 			INNER JOIN (
 			SELECT AffId
 				,ag.GroupId
 				,cg.GroupName
 				,ag.MonthDate
 			FROM AffGroupHistory ag WITH (NOLOCK)
-				INNER JOIN @CommGroupList c
-				ON ag.GroupId = c.CommGroupID
-				INNER JOIN CommGroupHistory cg WITH (NOLOCK)
-				ON ag.GroupID = cg.GroupID
-					AND ag.MonthDate = cg.MonthDate
-			WHERE ag.MonthDate BETWEEN @FromDate AND @toDate
-			) AS tmp
-			ON ai.AffID = tmp.AffId
+				INNER JOIN @CommGroupList c ON ag.GroupId = c.CommGroupID
+				INNER JOIN CommGroupHistory cg WITH (NOLOCK) ON ag.GroupID = cg.GroupID
+				AND ag.MonthDate = cg.MonthDate
+			WHERE ag.MonthDate BETWEEN @FromDate
+					AND @toDate
+			) AS tmp ON ai.AffID = tmp.AffId
 		WHERE ai.STATUS = 'Approved'
 			AND AI.UserName LIKE @AffName
 			AND (
@@ -287,4 +285,3 @@ BEGIN
 
 	RETURN
 END
-
