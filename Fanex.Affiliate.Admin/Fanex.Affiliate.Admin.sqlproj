@@ -678,5 +678,6 @@
     <Build Include="Home\AffAdmin_GetMemberStatistics.sql" />
     <Build Include="Common Function\Aff_IsProductInGroupOfAff.sql" />
     <Build Include="Common Function\IsZeroCommissionGroup.sql" />
+    <Build Include="Service\Aff_PlayersFundingSel.sql" />
   </ItemGroup>
 </Project>
