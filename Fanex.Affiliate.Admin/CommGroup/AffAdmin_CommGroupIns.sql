@@ -1,23 +1,25 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupIns] 
-	@UserId INT
-	,@Currency INT
-	,@QualifiedAmount MONEY
-	,@GroupName NVARCHAR(100)
-	,@Description NVARCHAR(100) = NULL
-	,@ProductIDList VARCHAR(300)
-	,@DeductionList VARCHAR(300) = NULL
-	,@DeductedPercentageList VARCHAR(300) = NULL
-	,@TierList VARCHAR(300)
-	,@MinAmountList VARCHAR(5000)
-	,@MaxAmountList VARCHAR(5000)
-	,@MinQMList VARCHAR(5000)
-	,@MaxQMList VARCHAR(5000)
-	,@CommissionList VARCHAR(5000)
-	,@Language VARCHAR(5) = NULL
-	,@IP VARCHAR(20)
-	,@GroupId INT = - 1 OUTPUT
-	,@ErrCode INT = 0 OUTPUT
-	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
+	@UserId 					INT
+	,@Currency 					INT
+	,@QualifiedAmount 			MONEY
+	,@GroupName 				NVARCHAR(100)
+	,@Description 				NVARCHAR(100) 	= NULL
+	,@ProductIDList 			VARCHAR(300)
+	,@DeductionList 			VARCHAR(300) 	= NULL
+	,@DeductedPercentageList 	VARCHAR(300) 	= NULL
+	,@TierList 					VARCHAR(300)
+	,@MinAmountList 			VARCHAR(5000)
+	,@MaxAmountList 			VARCHAR(5000)
+	,@MinQMList 				VARCHAR(5000)
+	,@MaxQMList 				VARCHAR(5000)
+	,@CommissionList 			VARCHAR(5000)
+	,@Language 					VARCHAR(5) 		= NULL
+	,@IP 						VARCHAR(20)
+	,@DepositPercent			FLOAT			= NULL
+	,@WithdrawalPercent			FLOAT			= NULL
+	,@GroupId 					INT 			= - 1 OUTPUT
+	,@ErrCode 					INT 			= 0 OUTPUT
+	,@ErrMsg 					NVARCHAR(4000) 	= '' OUTPUT
 AS
 /*  
 Created: 20090719@DungTong  
@@ -29,6 +31,7 @@ Revisions:
 	- 20130924@Joseph: new version
 	- 20131105@Johnny: Check currency permission
 	- 20140724@Bobby: Update generating @GroupId
+	- 20140820@Bobby: Add Deposit & Withdrawal percent and apply SQL stylescope
 	
 Parameters:  
 .@UserID : Administrator user id  
@@ -148,6 +151,12 @@ BEGIN
 		RETURN
 	END
 
+	-- Check for inserting Deposit & Withdrawal percent
+	SELECT @DepositPercent 		= ISNULL(@DepositPercent, ex.DepositPercent)
+		,@WithdrawalPercent		= ISNULL(@WithdrawalPercent, ex.WithdrawalPercent)
+	FROM dbo.Exchange ex WITH(NOLOCK)
+	WHERE ex.ExchangeId = @Currency
+	
 	BEGIN TRANSACTION
 
 	INSERT INTO CommGroup (
@@ -159,6 +168,8 @@ BEGIN
 		,[Description]
 		,QualifiedAmount
 		,Currency
+		,DepositPercent
+		,WithdrawalPercent
 		)
 	VALUES (
 		@GroupID
@@ -169,6 +180,8 @@ BEGIN
 		,@Description
 		,@QualifiedAmount
 		,@Currency
+		,@DepositPercent
+		,@WithdrawalPercent
 		)
 
 	IF @@ERROR <> 0

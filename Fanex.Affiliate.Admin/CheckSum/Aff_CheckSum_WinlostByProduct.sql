@@ -1,7 +1,9 @@
 ﻿ALTER PROCEDURE [dbo].[Aff_CheckSum_WinlostByProduct] 
-	@Xml XML
-	,@Prefix VARCHAR(100)
-	,@Date SMALLDATETIME
+	@Xml 			XML
+	,@Prefix 		VARCHAR(100)
+	,@Date 			SMALLDATETIME
+	,@ProductIDs 	VARCHAR(100) 	= NULL
+	,@Separator		CHAR(1) 		= ','
 AS
 /*
 Created: 20140529@bobby
@@ -9,7 +11,8 @@ Task : #1052 -  Create a daily checksum data service
 DB: DB054/DB052.bodb02
 Original : [Aff_PlayersWinlostByProductSel]  
 Revisions:  
-
+	-20140820@Bobby: Add filtering by ProductIDs
+	
 Param's Explanation:  
 	@Xml: format '<root>
 		<trans username="train1991"></trans>
@@ -18,8 +21,10 @@ Param's Explanation:
 */
 BEGIN
 	SET NOCOUNT ON;
-	SET @Date = CAST(@Date AS DATE)
 
+	SELECT @Date = CAST(@Date AS DATE)
+		,@ProductIDs = ISNULL(@ProductIDs, '')
+		
 	CREATE TABLE #LicenseeCust (
 		custID INT
 		,username VARCHAR(100)
@@ -393,6 +398,28 @@ BEGIN
 		GROUP BY b.winlostdate
 	END
 	
+	-- filer product list
+	;WITH indices AS (
+		SELECT 0 S
+			,1 E
+		UNION ALL
+		SELECT E
+			,CHARINDEX(@Separator, @ProductIDs, E) + LEN(@Separator)
+		FROM indices
+		WHERE E > S
+	)
+	SELECT SUBSTRING(@ProductIDs, S, CASE 
+			WHEN E > LEN(@Separator) THEN e - s - LEN(@Separator)
+			ELSE LEN(@ProductIDs) - s + 1
+			END) SVal
+	INTO #SValues
+	FROM indices
+	WHERE S > 0
+	GROUP BY SUBSTRING(@ProductIDs, S, CASE 
+				WHEN E > LEN(@Separator) THEN e - s - LEN(@Separator)
+				ELSE LEN(@ProductIDs) - s + 1
+				END)
+	
 	-- fetch final result
 	;WITH rptProduct AS (
 		SELECT TOP 1 0 AS ProductID 
@@ -423,6 +450,10 @@ BEGIN
 		ON p.ProductID = f.ProductID AND p.Winlostdate = f.Winlostdate
 		LEFT JOIN #tmpBettrans b
 		ON p.ProductID = b.ProductID AND p.Winlostdate = b.Winlostdate
+	WHERE 1 = CASE 
+				WHEN (@ProductIDs IS NULL OR @ProductIDs = '') THEN 1 
+				WHEN (@ProductIDs IS NOT NULL AND p.ProductID IN (SELECT CAST(SVal AS INT) ProductID FROM #SValues WHERE SVal <> '')) THEN 1
+			END
 
 	-- product detail
 	SELECT Winlostdate
@@ -457,6 +488,8 @@ BEGIN
 	GROUP BY Winlostdate
 
 	-- drop tables
+	DROP TABLE #SValues
+	
 	DROP TABLE #rptData
 
 	DROP TABLE #tmpBettrans
@@ -466,10 +499,17 @@ BEGIN
 	DROP TABLE #LicenseeCust
 END
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_CheckSum_WinlostByProduct] TO [bodbAdminNet] AS [dbo]
+GO
+
+--USE bodb02
+--go
+
 --exec [dbo].[Aff_CheckSum_WinlostByProduct] 
 --	@Xml = '<root>
 --		<trans username="LBUUSMem001"></trans>
 --	</root>'
 --	,@Prefix  = 'LiveBet365$'
 --	,@Date  = '2014-05-19 00:00:00'
+--	,@ProductIDs = ''

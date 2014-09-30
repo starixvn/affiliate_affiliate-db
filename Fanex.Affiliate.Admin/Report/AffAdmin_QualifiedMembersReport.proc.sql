@@ -1,9 +1,9 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_QualifiedMembersReport] 
-	@UserId			INT = 0
+	@UserId			INT
 	,@AffId			INT
 	,@MonthDate		DATETIME
-	,@BaseCurrency	TINYINT = 2
-	,@ProductIds VARCHAR(100) = NULL
+	,@BaseCurrency	TINYINT 		= 2
+	,@ProductIds 	VARCHAR(100)	= NULL
 AS
 /*    
 Task : Qualified Members Report  
@@ -13,6 +13,7 @@ Revisions:
 	- 20140213@Bobbby.Nguyen: Multiply exchange rate
 	- 20140514@Bobby: Add Playtech Casio product    
 	- 20140523@Bobby: Rollback check QualifiedAmount
+	- 20140523@Bobby: Add Virtual Sport & apply style-scope
 
 Param's Explanation: 
 • @UserId: Admin user id
@@ -29,25 +30,30 @@ BEGIN
 	IF (@HasPermission = 0) RETURN
 
 	-- Get productid
-	DECLARE @FromDate DATETIME
-		,@ToDate DATETIME
-		,@QualifiedAmount MONEY
-		,@Sportsbook INT
-		,@NumberGame INT
-		,@LiveCasino INT
-		,@RNGCasino INT
-		,@PlaytechCasino INT
-		,@AffCurrency INT
-		,@SysCurrency INT
-		,@SysExRate FLOAT = 1;
+	DECLARE @FromDate 		DATETIME
+		,@ToDate 			DATETIME
+		,@QualifiedAmount 	MONEY
+		,@Sportsbook 		INT
+		,@NumberGame 		INT
+		,@LiveCasino 		INT
+		,@RNGCasino 		INT
+		,@PlaytechCasino 	INT
+		,@VirtualSport 		INT
+		,@AffCurrency 		INT
+		,@SysCurrency 		INT
+		,@SysExRate 		FLOAT = 1;
 
-	SELECT @Sportsbook = dbo.[Aff_GetProductID]('Sportsbook')
-		,@NumberGame = dbo.[Aff_GetProductID]('Number Game')
-		,@LiveCasino = dbo.[Aff_GetProductID]('Live Casino')
-		,@RNGCasino = dbo.[Aff_GetProductID]('RNG Casino')
-		,@PlaytechCasino = dbo.[Aff_GetProductID]('Playtech Casino')
-		,@FromDate = dbo.Aff_GetFirstDayOfMonth(@MonthDate)
-		,@ToDate = dbo.Aff_GetLastDayOfMonth(@MonthDate)
+	SELECT @FromDate 		= dbo.Aff_GetFirstDayOfMonth(@MonthDate)
+		,@ToDate 			= dbo.Aff_GetLastDayOfMonth(@MonthDate)
+		
+	-- Get productid
+	SELECT @SportsbookId	= CASE WHEN p.ProductName = 'Sportsbook'		THEN p.ProductID ELSE ISNULL(@SportsbookId, 0) END
+		, @RNGCasino		= CASE WHEN p.ProductName = 'RNG Casino'		THEN p.ProductID ELSE ISNULL(@RNGCasino, 0) END
+		, @NumberGame		= CASE WHEN p.ProductName = 'Number Game'		THEN p.ProductID ELSE ISNULL(@NumberGame, 0) END
+		, @LiveCasino		= CASE WHEN p.ProductName = 'Live Casino'		THEN p.ProductID ELSE ISNULL(@LiveCasino, 0) END
+		, @PlaytechCasino	= CASE WHEN p.ProductName = 'Playtech Casino'	THEN p.ProductID ELSE ISNULL(@PlaytechCasino, 0) END
+		, @VirtualSport		= CASE WHEN p.ProductName = 'Virtual Sport'		THEN p.ProductID ELSE ISNULL(@VirtualSport, 0) END
+	FROM dbo.Product p WITH(NOLOCK)
 	
 	DECLARE @ProductFilter AS TABLE (ProductId INT)
 	IF (LEN(@ProductIds) > 0)
@@ -67,13 +73,14 @@ BEGIN
 
 	IF(@BaseCurrency = 1) -- convert QualifiedAmount to SysCurrency
 	BEGIN
-		SELECT TOP 1 @AffCurrency = Currency
+		SELECT TOP 1 
+			@AffCurrency = Currency
 		FROM dbo.AffInfo WITH(NOLOCK)
 		WHERE AffID = @AffId
 
 		SELECT TOP 1 @SysCurrency = cur.CurrencyID
 		FROM dbo.SystemSettings se WITH(NOLOCK)
-		INNER JOIN dbo.Currency cur WITH(NOLOCK)
+			INNER JOIN dbo.Currency cur WITH(NOLOCK)
 			ON se.SValue = cur.CurrencyCode
 		WHERE SName = 'SystemCurrency'
 			AND [Type] = 'Meta'
@@ -89,49 +96,56 @@ BEGIN
 		,e.Code AS Currency
 		,(@QualifiedAmount * @SysExRate) AS QualifiedAmountBase 
 		,@QualifiedAmount AS QualifiedAmount --Get from group setting
-		
-		,Sum(CASE 
+		,SUM(CASE 
 				WHEN m.ProductId = @Sportsbook THEN Turnover * ISNULL(m.SysExRate, 0)
 				ELSE 0
 				END) AS SportsbookTurnoverBase
-		,Sum(CASE 
+		,SUM(CASE 
 				WHEN m.ProductId = @Sportsbook THEN Turnover * ISNULL(m.AffExRate, 0)
 				ELSE 0
 				END) AS SportsbookTurnover
-		,Sum(CASE 
+		,SUM(CASE 
 				WHEN m.ProductId = @NumberGame THEN Turnover * ISNULL(m.SysExRate, 0)
 				ELSE 0
 				END) AS NumberGameTurnoverBase
-		,Sum(CASE 
+		,SUM(CASE 
 				WHEN m.ProductId = @NumberGame THEN Turnover * ISNULL(m.AffExRate, 0)
 				ELSE 0
 				END) AS NumberGameTurnover
-		,Sum(CASE 
+		,SUM(CASE 
 				WHEN m.ProductId = @LiveCasino THEN Turnover * ISNULL(m.SysExRate, 0)
 				ELSE 0
 				END) AS LiveCasinoTurnoverBase
-		,Sum(CASE 
+		,SUM(CASE 
 				WHEN m.ProductId = @LiveCasino THEN Turnover * ISNULL(m.AffExRate, 0)
 				ELSE 0
 				END) AS LiveCasinoTurnover
-		,Sum(CASE 
+		,SUM(CASE 
 				WHEN m.ProductId = @RNGCasino THEN Turnover * ISNULL(m.SysExRate, 0)
 				ELSE 0
 				END) AS RNGCasinoTurnoverBase
-		,Sum(CASE 
+		,SUM(CASE 
 				WHEN m.ProductId = @RNGCasino THEN Turnover * ISNULL(m.AffExRate, 0)
 				ELSE 0
 				END) AS RNGCasinoTurnover
-		,Sum(CASE 
+		,SUM(CASE 
 				WHEN m.ProductId = @PlaytechCasino THEN Turnover * ISNULL(m.SysExRate, 0)
 				ELSE 0
 				END) AS PlaytechCasinoTurnoverBase
-		,Sum(CASE 
+		,SUM(CASE 
 				WHEN m.ProductId = @PlaytechCasino THEN Turnover * ISNULL(m.AffExRate, 0)
 				ELSE 0
 				END) AS PlaytechCasinoTurnover
-	FROM MemberDaily m WITH (NOLOCK)
-		INNER JOIN Exchange e WITH (NOLOCK)
+		,SUM(CASE 
+				WHEN m.ProductId = @VirtualSport THEN Turnover * ISNULL(m.SysExRate, 0)
+				ELSE 0
+				END) AS VirtualSportTurnoverBase
+		,SUM(CASE 
+				WHEN m.ProductId = @VirtualSport THEN Turnover * ISNULL(m.AffExRate, 0)
+				ELSE 0
+				END) AS VirtualSportTurnover
+	FROM dbo.MemberDaily m WITH (NOLOCK)
+		INNER JOIN dbo.Exchange e WITH (NOLOCK)
 		ON m.Currency = e.ExchangeID
 		INNER JOIN @ProductFilter p
 		ON m.ProductId = p.ProductId

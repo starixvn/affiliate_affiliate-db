@@ -1,23 +1,25 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupUpd] 
-	@UserId INT
-	,@GroupId INT
-	,@Currency INT
-	,@QualifiedAmount MONEY
-	,@GroupName NVARCHAR(100)
-	,@Description NVARCHAR(100) = NULL
-	,@ProductIDList VARCHAR(MAX)
-	,@DeductionList VARCHAR(MAX) = NULL
-	,@DeductedPercentageList VARCHAR(MAX) = NULL
-	,@TierList VARCHAR(MAX)
-	,@MinAmountList VARCHAR(MAX)
-	,@MaxAmountList VARCHAR(MAX)
-	,@MinQMList VARCHAR(MAX)
-	,@MaxQMList VARCHAR(MAX)
-	,@CommissionList VARCHAR(MAX)
-	,@IP VARCHAR(20)
-	,@Language VARCHAR(5) = 'en-US'
-	,@ErrCode INT = 0 OUTPUT
-	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
+	@UserId						INT
+	,@GroupId					INT
+	,@Currency					INT
+	,@QualifiedAmount			MONEY
+	,@GroupName					NVARCHAR(100)
+	,@Description				NVARCHAR(100)	= NULL
+	,@ProductIDList				VARCHAR(MAX)
+	,@DeductionList				VARCHAR(MAX)	= NULL
+	,@DeductedPercentageList	VARCHAR(MAX)	= NULL
+	,@TierList					VARCHAR(MAX)
+	,@MinAmountList				VARCHAR(MAX)
+	,@MaxAmountList				VARCHAR(MAX)
+	,@MinQMList					VARCHAR(MAX)
+	,@MaxQMList					VARCHAR(MAX)
+	,@CommissionList			VARCHAR(MAX)
+	,@IP						VARCHAR(20)
+	,@Language					VARCHAR(5)		= 'en-US'
+	,@DepositPercent			FLOAT			= NULL
+	,@WithdrawalPercent			FLOAT			= NULL
+	,@ErrCode					INT				= 0		OUTPUT
+	,@ErrMsg					NVARCHAR(4000)	= ''	OUTPUT
 AS
 /*  
 Created: 20090719@DungTong  
@@ -29,6 +31,7 @@ Revisions:
     - 20131121@Joseph: allow updating currency 'All'
     - 20140312@Peter: Update MemberDaily, AffDaily and AffDailySummary
 	- 20140723@Bobby: remove checking @GroupID < 1000
+	- 20140820@Bobby: Add Deposit & Withdrawal percent and apply SQL stylescope
 
 Parameters:  
 .@UserID : Administrator user id  
@@ -105,7 +108,7 @@ BEGIN
 		IF (
 				NOT EXISTS (
 					SELECT TOP 1 1
-					FROM AdminUser
+					FROM dbo.AdminUser WITH(NOLOCK)
 					WHERE custid = @UserId
 						AND GroupID = 2
 					)
@@ -123,7 +126,7 @@ BEGIN
 	IF (
 			NOT EXISTS (
 				SELECT TOP 1 1
-				FROM CommGroup(NOLOCK)
+				FROM dbo.CommGroup WITH(NOLOCK)
 				WHERE GroupID = @GroupID
 					AND IsDeleted = 0
 				)
@@ -147,7 +150,7 @@ BEGIN
 	IF (
 			EXISTS (
 				SELECT TOP 1 1
-				FROM CommGroup
+				FROM dbo.CommGroup WITH(NOLOCK)
 				WHERE GroupID <> @GroupID
 					AND GroupName = @GroupName
 					AND IsDeleted = 0
@@ -163,19 +166,19 @@ BEGIN
 	IF (
 			EXISTS (
 				SELECT TOP 1 1
-				FROM CommGroup(NOLOCK)
+				FROM dbo.CommGroup WITH(NOLOCK)
 				WHERE GroupID = @GroupID
 					AND currency <> @Currency
 				)
 			AND (
 				EXISTS (
 					SELECT TOP (1) 1
-					FROM AffCommission(NOLOCK)
+					FROM dbo.AffCommission WITH(NOLOCK)
 					WHERE GroupID = @GroupID
 					)
 				OR EXISTS (
 					SELECT TOP (1) 1
-					FROM AffInfo ai(NOLOCK)
+					FROM dbo.AffInfo ai WITH(NOLOCK)
 					WHERE ai.GroupID = @GroupID
 					)
 				)
@@ -187,21 +190,27 @@ BEGIN
 	END
 
 	DECLARE @DeductionSetting TABLE (
-		GroupID INT
-		,DeductionID TINYINT
+		GroupID 			INT
+		,DeductionID 		TINYINT
 		,DeductedPercentage FLOAT
 		)
 	DECLARE @GroupSetting TABLE (
-		GroupID INT
-		,ProductID TINYINT
-		,TierID TINYINT
-		,MinAmount MONEY
-		,MaxAmount MONEY
-		,MinQM INT
-		,MaxQM INT
+		GroupID 	INT
+		,ProductID 	TINYINT
+		,TierID 	TINYINT
+		,MinAmount 	MONEY
+		,MaxAmount 	MONEY
+		,MinQM 		INT
+		,MaxQM 		INT
 		,Commission DECIMAL(9, 8)
 		)
-
+	
+	-- Check for updating Deposit & Withdrawal percent
+	SELECT @DepositPercent 		= ISNULL(@DepositPercent, ex.DepositPercent)
+		,@WithdrawalPercent		= ISNULL(@WithdrawalPercent, ex.WithdrawalPercent)
+	FROM dbo.Exchange ex WITH(NOLOCK)
+	WHERE ex.ExchangeId = @Currency
+		
 	--Insert Deduction Setting  
 	IF (len(@DeductionList) > 0)
 	BEGIN
@@ -230,23 +239,23 @@ BEGIN
 	END
 
 	--Insert Tier Setting  
-	DECLARE @rank INT
-		,@ProductID INT
-		,@NTier INT
-		,@i INT
-		,@MinQM INT
-		,@MaxQM INT
-		,@PreMaxQM INT
-	DECLARE @MinAmountArr VARCHAR(500)
-		,@MaxAmountArr VARCHAR(500)
-		,@MinQMArr VARCHAR(500)
-		,@MaxQMArr VARCHAR(500)
+	DECLARE @rank 		INT
+		,@ProductID 	INT
+		,@NTier 		INT
+		,@i 			INT
+		,@MinQM 		INT
+		,@MaxQM 		INT
+		,@PreMaxQM 		INT
+		,@MinAmountArr 	VARCHAR(500)
+		,@MaxAmountArr 	VARCHAR(500)
+		,@MinQMArr 		VARCHAR(500)
+		,@MaxQMArr 		VARCHAR(500)
 		,@CommissionArr VARCHAR(500)
-	DECLARE @MinAmount MONEY
-		,@MaxAmount MONEY
-		,@PreMaxAmount MONEY
-	DECLARE @Commission DECIMAL(9, 8)
-		,@PreCommission DECIMAL(9, 8)
+		,@MinAmount 	MONEY
+		,@MaxAmount 	MONEY
+		,@PreMaxAmount 	MONEY
+		,@Commission 	DECIMAL(9, 8)
+		,@PreCommission	DECIMAL(9, 8)
 
 	SELECT @rank = min(rank)
 	FROM dbo.strsplit(@ProductIDList, ';')
@@ -465,12 +474,18 @@ BEGIN
 	--BEGIN TRANSACTIOn AFTER CHECKING VALID INPUT DATA  
 	BEGIN TRANSACTION
 
-	UPDATE CommGroup WITH (ROWLOCK, UPDLOCK)
-	SET GroupName = @GroupName
-		,Description = @Description
-		,Currency = @Currency
-		,QualifiedAmount = @QualifiedAmount
-	WHERE GroupID = @GroupID
+	UPDATE cg
+	SET cg.GroupName 			= @GroupName
+		,cg.Description 		= @Description
+		,cg.Currency 			= @Currency
+		,cg.QualifiedAmount 	= @QualifiedAmount
+		,cg.DepositPercent 		= @DepositPercent
+		,cg.WithdrawalPercent	= @WithdrawalPercent
+	FROM dbo.CommGroup cg WITH (ROWLOCK, UPDLOCK)
+		INNER JOIN dbo.Exchange ex WITH(NOLOCK)
+		ON cg.Currency = ex.ExchangeID
+	WHERE cg.GroupID = @GroupID
+	
 
 	IF (@@ERROR <> 0)
 	BEGIN
@@ -481,7 +496,7 @@ BEGIN
 		RETURN
 	END
 
-	DELETE DeductionSetting
+	DELETE dbo.DeductionSetting
 	WHERE GroupID = @GroupID
 
 	IF (@@ERROR <> 0)
@@ -493,7 +508,7 @@ BEGIN
 		RETURN
 	END
 
-	INSERT INTO DeductionSetting (
+	INSERT INTO dbo.DeductionSetting (
 		GroupID
 		,DeductionID
 		,DeductedPercentage
@@ -524,7 +539,7 @@ BEGIN
 		RETURN
 	END
 
-	INSERT INTO GroupSetting (
+	INSERT INTO dbo.GroupSetting (
 		GroupID
 		,ProductID
 		,TierID
@@ -565,15 +580,14 @@ BEGIN
 
 	--Update MemberDaily PSP, Marketting fee,...
 	UPDATE m
-	SET PSP = abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPercent
-		,Marketing = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing', NULL), 0)
-		,MemOddsFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', NULL), 0)
-		,MemPLayTechFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL), 0)
-		,MemWinlostFake = - (- Winlost - ((abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPercent)) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, @SportsBookID, 'PSP', NULL), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing', NULL), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', NULL), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL), 0))
-	FROM MemberDaily AS m WITH (ROWLOCK, UPDLOCK)
-		INNER JOIN AffInfo ai WITH (NOLOCK) ON m.AffId = ai.AffId
-		INNER JOIN Exchange AS e(NOLOCK) ON m.Currency = e.ExchangeId
-	WHERE datediff(m, m.WinlostDate, CURRENT_TIMESTAMP) = 0
+	SET PSP = ABS(Deposit) * @DepositPercent + ABS(Withdrawal) * @WithdrawalPercent
+		,Marketing = ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing', NULL), 0)
+		,MemOddsFee = ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', NULL), 0)
+		,MemPLayTechFee = ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL), 0)
+		,MemWinlostFake = - (- Winlost - ((ABS(Deposit) * @DepositPercent + ABS(Withdrawal) * @WithdrawalPercent)) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, @SportsBookID, 'PSP', NULL), 0) - ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing', NULL), 0) - ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', NULL), 0) - ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL), 0))
+	FROM dbo.MemberDaily AS m WITH (ROWLOCK, UPDLOCK)
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON m.AffId = ai.AffId
+	WHERE DATEDIFF(m, m.WinlostDate, CURRENT_TIMESTAMP) = 0
 		AND ai.GroupId = @GroupId
 
 	/*
@@ -585,15 +599,15 @@ CREATE TABLE #MemberDailySum (AffID int, MemCurrency int,Winlostdate smalldateti
 		,m.[ProductID]
 		,m.[SysExRate]
 		,m.AffExRate
-		,Sum(Marketing) AS MemMarketing
-		,Sum(PSP) AS MemPSP
-		,Sum(MemWinlostFake) AS MemWinlostFake
-		,Sum(MemOddsFee) AS MemOddsFee
-		,Sum(MemPLayTechFee) AS MemPLayTechFee
+		,SUM(Marketing) AS MemMarketing
+		,SUM(PSP) AS MemPSP
+		,SUM(MemWinlostFake) AS MemWinlostFake
+		,SUM(MemOddsFee) AS MemOddsFee
+		,SUM(MemPLayTechFee) AS MemPLayTechFee
 	INTO #MemberDailySum
-	FROM MemberDaily(NOLOCK) AS m
-		INNER JOIN AffInfo ai WITH (NOLOCK) ON m.AffId = ai.AffId
-	WHERE datediff(m, m.WinlostDate, CURRENT_TIMESTAMP) = 0
+	FROM dbo.MemberDaily(NOLOCK) AS m
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON m.AffId = ai.AffId
+	WHERE DATEDIFF(m, m.WinlostDate, CURRENT_TIMESTAMP) = 0
 		AND ai.GroupId = @GroupId
 	GROUP BY m.AffID
 		,m.Currency
@@ -608,17 +622,17 @@ CREATE TABLE #MemberDailySum (AffID int, MemCurrency int,Winlostdate smalldateti
 		,ad.MemPSP = md.MemPSP
 		,ad.MemOddsFee = md.MemOddsFee
 		,ad.MemPLayTechFee = md.MemPlayTechFee
-	FROM AffDaily ad WITH (ROWLOCK, UPDLOCK)
+	FROM dbo.AffDaily ad WITH (ROWLOCK, UPDLOCK)
 		INNER JOIN #MemberDailySum md(NOLOCK) ON ad.AffID = md.AffId
 		AND ad.MemCurrency = md.MemCurrency
 		AND ad.Winlostdate = md.Winlostdate
 		AND ad.ProductID = md.ProductID
 
 	UPDATE ad
-	SET HouseNetWinLost = HouseWinLost - isnull(MemPSP, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'PSP', Winlostdate), 0)) - isnull(MemBonus, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Bonus', Winlostdate), 0)) - isnull(MemAdjustment, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Adjustment', Winlostdate), 0)) - abs(isnull(MemWinlost, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Marketing', Winlostdate), 0)) - abs(isnull(MemWinlost, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Odds Fee', Winlostdate), 0)) - abs(isnull(MemWinlost, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'PlayTech Royalties', Winlostdate), 0))
-	FROM AffDaily ad WITH (ROWLOCK, UPDLOCK)
-		INNER JOIN AffInfo ai WITH (NOLOCK) ON ad.AffId = ai.AffId
-	WHERE datediff(m, ad.WinlostDate, CURRENT_TIMESTAMP) = 0
+	SET HouseNetWinLost = HouseWinLost - ISNULL(MemPSP, 0) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'PSP', Winlostdate), 0)) - ISNULL(MemBonus, 0) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Bonus', Winlostdate), 0)) - ISNULL(MemAdjustment, 0) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Adjustment', Winlostdate), 0)) - ABS(ISNULL(MemWinlost, 0)) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Marketing', Winlostdate), 0)) - ABS(ISNULL(MemWinlost, 0)) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Odds Fee', Winlostdate), 0)) - ABS(ISNULL(MemWinlost, 0)) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'PlayTech Royalties', Winlostdate), 0))
+	FROM dbo.AffDaily ad WITH (ROWLOCK, UPDLOCK)
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON ad.AffId = ai.AffId
+	WHERE DATEDIFF(m, ad.WinlostDate, CURRENT_TIMESTAMP) = 0
 		AND ai.GroupId = @GroupId
 
 	--AffDailySummary
@@ -627,19 +641,19 @@ CREATE TABLE #MemberDailySum (AffID int, MemCurrency int,Winlostdate smalldateti
 		,ad.MemPSP = tmp.MemPSP
 		,ad.MemOddsFee = tmp.MemOddsFee
 		,ad.MemPLayTechFee = tmp.MemPlayTechFee
-	FROM AffDaily ad WITH (ROWLOCK, UPDLOCK)
+	FROM dbo.AffDaily ad WITH (ROWLOCK, UPDLOCK)
 		INNER JOIN (
 		SELECT md.AffID
 			,md.Winlostdate
 			,md.ProductID
-			,Sum(MemMarketing) * SysExRate AS MemMarketing
-			,Sum(MemMarketing) * AffExRate AS MemMarketing_aff
-			,Sum(MemPSP) * SysExRate AS MemPSP
-			,Sum(MemPSP) * AffExRate AS MemPSP_aff
-			,Sum(MemOddsFee) * SysExRate AS MemOddsFee
-			,Sum(MemOddsFee) * AffExRate AS MemOddsFee_aff
-			,Sum(MemPlayTechFee) * SysExRate AS MemPlayTechFee
-			,Sum(MemPlayTechFee) * AffExRate AS MemPlayTechFee_aff
+			,SUM(MemMarketing) * SysExRate AS MemMarketing
+			,SUM(MemMarketing) * AffExRate AS MemMarketing_aff
+			,SUM(MemPSP) * SysExRate AS MemPSP
+			,SUM(MemPSP) * AffExRate AS MemPSP_aff
+			,SUM(MemOddsFee) * SysExRate AS MemOddsFee
+			,SUM(MemOddsFee) * AffExRate AS MemOddsFee_aff
+			,SUM(MemPlayTechFee) * SysExRate AS MemPlayTechFee
+			,SUM(MemPlayTechFee) * AffExRate AS MemPlayTechFee_aff
 		FROM #MemberDailySum md(NOLOCK)
 		GROUP BY md.AffID
 			,md.Winlostdate
@@ -651,11 +665,11 @@ CREATE TABLE #MemberDailySum (AffID int, MemCurrency int,Winlostdate smalldateti
 		AND tmp.ProductID = ad.ProductID
 
 	UPDATE ad
-	SET HouseNetWinLost = HouseWinLost - isnull(MemPSP, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'PSP', Winlostdate), 0)) - isnull(MemBonus, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Bonus', Winlostdate), 0)) - isnull(MemAdjustment, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Adjustment', Winlostdate), 0)) - abs(isnull(MemWinlost, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Marketing', Winlostdate), 0)) - abs(isnull(MemWinlost, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Odds Fee', Winlostdate), 0)) - abs(isnull(MemWinlost, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'PlayTech Royalties', Winlostdate), 0))
-		,HouseNetWinLost_aff = HouseWinLost_aff - isnull(MemPSP_aff, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'PSP', Winlostdate), 0)) - isnull(MemBonus_aff, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Bonus', Winlostdate), 0)) - isnull(MemAdjustment_aff, 0) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Adjustment', Winlostdate), 0)) - abs(isnull(MemWinlost_aff, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Marketing', Winlostdate), 0)) - abs(isnull(MemWinlost_aff, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Odds Fee', Winlostdate), 0)) - abs(isnull(MemWinlost_aff, 0)) * (1 - isnull(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'PlayTech Royalties', Winlostdate), 0))
-	FROM AffDailySummary ad WITH (ROWLOCK, UPDLOCK)
-		INNER JOIN AffInfo ai WITH (NOLOCK) ON ad.AffId = ai.AffId
-	WHERE datediff(m, ad.WinlostDate, CURRENT_TIMESTAMP) = 0
+	SET HouseNetWinLost = HouseWinLost - ISNULL(MemPSP, 0) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'PSP', Winlostdate), 0)) - ISNULL(MemBonus, 0) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Bonus', Winlostdate), 0)) - ISNULL(MemAdjustment, 0) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Adjustment', Winlostdate), 0)) - ABS(ISNULL(MemWinlost, 0)) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Marketing', Winlostdate), 0)) - ABS(ISNULL(MemWinlost, 0)) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Odds Fee', Winlostdate), 0)) - ABS(ISNULL(MemWinlost, 0)) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'PlayTech Royalties', Winlostdate), 0))
+		,HouseNetWinLost_aff = HouseWinLost_aff - ISNULL(MemPSP_aff, 0) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'PSP', Winlostdate), 0)) - ISNULL(MemBonus_aff, 0) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Bonus', Winlostdate), 0)) - ISNULL(MemAdjustment_aff, 0) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Adjustment', Winlostdate), 0)) - ABS(ISNULL(MemWinlost_aff, 0)) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Marketing', Winlostdate), 0)) - ABS(ISNULL(MemWinlost_aff, 0)) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'Odds Fee', Winlostdate), 0)) - ABS(ISNULL(MemWinlost_aff, 0)) * (1 - ISNULL(dbo.Aff_GetDeductionPercent(ad.AffID, ProductID, 'PlayTech Royalties', Winlostdate), 0))
+	FROM dbo.AffDailySummary ad WITH (ROWLOCK, UPDLOCK)
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON ad.AffId = ai.AffId
+	WHERE DATEDIFF(m, ad.WinlostDate, CURRENT_TIMESTAMP) = 0
 		AND ai.GroupId = @GroupId
 
 	DROP TABLE #MemberDailySum;
@@ -663,7 +677,7 @@ CREATE TABLE #MemberDailySum (AffID int, MemCurrency int,Winlostdate smalldateti
 	COMMIT TRANSACTION
 
 	--Write the log   
-	DECLARE @LogData NVARCHAR(max)
+	DECLARE @LogData NVARCHAR(MAX)
 		,@AffID INT
 		,@SPName VARCHAR(100)
 

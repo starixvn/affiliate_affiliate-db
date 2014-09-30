@@ -71,6 +71,7 @@ Revisions:
   - 20140520@Bobby.Nguyen: Update calculating TotalQM by comparing MemberTurnover_Aff value
   - 20140610@Bobby: Add PShare & PWin columns
   - 20140702@Bobby.Nguyen: Force to update Commission when Company Net Win is negative
+  - 20140821@Bobby: Support PlayerComm
 
 Param's Explanation:  
 • @Month: The month to transfer  
@@ -79,22 +80,22 @@ Param's Explanation:
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @FirstDay SMALLDATETIME
-		,@LastDay SMALLDATETIME
-		,@TransType INT
-		,@IsForceMinNegativeCommission BIT = 0
-		,@MinimumNegativeCommission FLOAT = 0.1
+	DECLARE @FirstDay 					SMALLDATETIME
+		,@LastDay 						SMALLDATETIME
+		,@TransType 					INT
+		,@IsForceMinNegativeCommission 	BIT = 0
+		,@MinimumNegativeCommission 	FLOAT = 0.1
+		,@Status 						VARCHAR(30)
 
-	SELECT @MinimumNegativeCommission = CASE WHEN SName = 'AFF_MinNegativeCommission' THEN ISNULL(SValue, @MinimumNegativeCommission) ELSE @MinimumNegativeCommission END
-		,@IsForceMinNegativeCommission = CASE WHEN SName = 'AFF_ForceMinNegativeCommission' THEN ISNULL(SValue, 0.1) ELSE @IsForceMinNegativeCommission END
+	SELECT @MinimumNegativeCommission 	= CASE WHEN SName = 'AFF_MinNegativeCommission' THEN ISNULL(SValue, @MinimumNegativeCommission) ELSE @MinimumNegativeCommission END
+		,@IsForceMinNegativeCommission 	= CASE WHEN SName = 'AFF_ForceMinNegativeCommission' THEN ISNULL(SValue, 0.1) ELSE @IsForceMinNegativeCommission END
 	FROM dbo.SystemSettings with(nolock)
 	WHERE SName IN ('AFF_ForceMinNegativeCommission', 'AFF_MinNegativeCommission')
 
-	SELECT @FirstDay = cast(cast(@Year AS VARCHAR(5)) + '-' + cast(@Month AS VARCHAR(5)) + '-' + '1' AS SMALLDATETIME)
-
-	--Get last day of inputted month  
-	SELECT @LastDay = DATEADD(d, - 1, DATEADD(mm, DATEDIFF(m, 0, @FirstDay) + 1, 0))
-		,@TransType = 201
+	SELECT @FirstDay 	= CAST(CAST(@Year AS VARCHAR(5)) + '-' + CAST(@Month AS VARCHAR(5)) + '-' + '1' AS SMALLDATETIME)
+		,@LastDay 		= DATEADD(d, - 1, DATEADD(mm, DATEDIFF(m, 0, @FirstDay) + 1, 0))
+		,@TransType 	= 201
+		,@Status 		= 'Approved'
 
 	IF @LastDay > Current_TimeStamp
 	BEGIN
@@ -110,18 +111,18 @@ BEGIN
 	IF (
 			NOT EXISTS (
 				SELECT TOP (1) 1
-				FROM CommGroupHistory(NOLOCK)
+				FROM dbo.CommGroupHistory(NOLOCK)
 				WHERE monthdate = @LastDay
 				)
 			OR NOT EXISTS (
 				SELECT TOP (1) 1
-				FROM GroupSettingHistory(NOLOCK)
+				FROM dbo.GroupSettingHistory(NOLOCK)
 				WHERE monthdate = @LastDay
 				)
 			--  or not exists(select top(1) 1 from DeductionSettingHistory (nolock) where monthdate=@LastDay)  
 			OR NOT EXISTS (
 				SELECT TOP (1) 1
-				FROM AffGroupHistory(NOLOCK)
+				FROM dbo.AffGroupHistory(NOLOCK)
 				WHERE monthdate = @LastDay
 				)
 			)
@@ -136,7 +137,7 @@ BEGIN
 
 	IF EXISTS (
 			SELECT TOP (1) 1
-			FROM AffCommission WITH (NOLOCK)
+			FROM dbo.AffCommission WITH (NOLOCK)
 			WHERE WinlostDate = @LastDay
 			)
 	BEGIN
@@ -147,52 +148,38 @@ BEGIN
 
 		RETURN
 	END
-
-	--Get all Affiliates that is approved and IsClosed=false  
-	DECLARE @Status VARCHAR(30)
-
-	SELECT @Status = 'Approved'
-
-	--Check the currency is matched  
-	/*if(exists(select 1  
-           from AffInfo ai with (nolock)  
-                inner join AffGroupHistory gh(nolock) on gh.AffID=ai.AffID and MonthDate=@LastDay  
-                inner join CommGroupHistory ch(nolock) on ch.groupid=gh.groupid  
-           where ai.currency <> ch.currency and ai.status=@Status ) )   
-begin  
-    SELECT 'The currency of Affiliate and his group does not match. Please check!' Result      
-    SELECT @FirstDay as FirstDay,@LastDay as LastDay  
-    RETURN  
-end*/
+	
 	--Create temp table to get summary data for each affiliate  
 	CREATE TABLE #MemberSummary (
-		UserName VARCHAR(100)
-		,AffID INT
-		,ProductID INT
-		,MemWinlost MONEY
-		,MemBonus MONEY
-		,MemAdjustment MONEY
-		,MemPSP MONEY
-		,MemDeposit MONEY
-		,MemTurnover MONEY
-		,MemWithdrawal MONEY
-		,MemTurnoverDraw MONEY
-		,MemTurnoverNoDraw MONEY
-		,MemBetCount INT
-		,MemBetCountNoDraw INT
-		,MemWinlost_aff MONEY
-		,MemBonus_aff MONEY
-		,MemAdjustment_aff MONEY
-		,MemPSP_aff MONEY
-		,MemDeposit_aff MONEY
-		,MemTurnover_aff MONEY
-		,MemWithdrawal_aff MONEY
-		,MemTurnoverDraw_aff MONEY
-		,MemTurnoverNoDraw_aff MONEY
-		,PShare MONEY
-		,PWin MONEY
-		,PShare_aff MONEY
-		,PWin_aff MONEY
+		UserName 				VARCHAR(100)
+		,AffID 					INT
+		,ProductID 				INT
+		,MemWinlost 			MONEY
+		,MemBonus 				MONEY
+		,MemAdjustment 			MONEY
+		,MemPSP 				MONEY
+		,MemDeposit 			MONEY
+		,MemTurnover 			MONEY
+		,MemWithdrawal 			MONEY
+		,MemTurnoverDraw 		MONEY
+		,MemTurnoverNoDraw 		MONEY
+		,MemBetCount 			INT
+		,MemBetCountNoDraw 		INT
+		,MemWinlost_aff 		MONEY
+		,MemBonus_aff 			MONEY
+		,MemAdjustment_aff 		MONEY
+		,MemPSP_aff 			MONEY
+		,MemDeposit_aff 		MONEY
+		,MemTurnover_aff 		MONEY
+		,MemWithdrawal_aff 		MONEY
+		,MemTurnoverDraw_aff 	MONEY
+		,MemTurnoverNoDraw_aff 	MONEY
+		,PShare 				MONEY
+		,PWin 					MONEY
+		,PShare_aff 			MONEY
+		,PWin_aff 				MONEY
+		,MemPlayerComm 			MONEY
+		,MemPlayerComm_aff 		MONEY
 	)
 
 	INSERT INTO #MemberSummary (
@@ -223,35 +210,39 @@ end*/
 		,PWin
 		,PShare_aff
 		,PWin_aff
+		,MemPlayerComm
+		,MemPlayerComm_aff
 	)
 	SELECT username
 		,AffID
 		,ProductID
-		,sum(isnull(Winlost, 0) * isnull(SysExRate, 1)) AS Winlost
-		,sum(isnull(Bonus, 0) * isnull(SysExRate, 1)) AS Bonus
-		,sum(isnull(Adjustment, 0) * isnull(SysExRate, 1)) AS Adjustment
-		,sum(isnull(PSP, 0) * isnull(SysExRate, 1)) AS PSP
-		,sum(isnull(Deposit, 0) * isnull(SysExRate, 1)) AS Deposit
-		,sum(isnull(TurnOver, 0) * isnull(SysExRate, 1)) AS TurnOver
-		,sum(isnull(Withdrawal, 0) * isnull(SysExRate, 1)) AS Withdrawal
-		,sum(isnull(TurnOverDraw, 0) * isnull(SysExRate, 1)) AS TurnOverDraw
-		,sum(isnull(TurnOverNoDraw, 0) * isnull(SysExRate, 1)) AS TurnOverNoDraw
-		,sum(isnull(BetCount, 0)) AS BetCount
-		,sum(isnull(BetCountNoDraw, 0)) AS BetCountNoDraw
-		,sum(isnull(Winlost, 0) * isnull(AffExRate, 1)) AS Winlost_aff
-		,sum(isnull(Bonus, 0) * isnull(AffExRate, 1)) AS Bonus_aff
-		,sum(isnull(Adjustment, 0) * isnull(AffExRate, 1)) AS Adjustment_aff
-		,sum(isnull(PSP, 0) * isnull(AffExRate, 1)) AS PSP_aff
-		,sum(isnull(Deposit, 0) * isnull(AffExRate, 1)) AS Deposit_aff
-		,sum(isnull(TurnOver, 0) * isnull(AffExRate, 1)) AS TurnOver_aff
-		,sum(isnull(Withdrawal, 0) * isnull(AffExRate, 1)) AS Withdrawal_aff
-		,sum(isnull(TurnOverDraw, 0) * isnull(AffExRate, 1)) AS TurnOverDraw_aff
-		,sum(isnull(TurnOverNoDraw, 0) * isnull(AffExRate, 1)) AS TurnOverNoDraw_aff
-		,sum(isnull(PShare, 0) * isnull(SysExRate, 1)) AS PShare
-		,sum(isnull(PWin, 0) * isnull(SysExRate, 1)) AS PWin
-		,sum(isnull(PShare, 0) * isnull(AffExRate, 1)) AS PShare_aff
-		,sum(isnull(PWin, 0) * isnull(AffExRate, 1)) AS PWin_aff
-	FROM MemberDaily md(NOLOCK)
+		,SUM(ISNULL(Winlost, 0) * ISNULL(SysExRate, 1)) AS Winlost
+		,SUM(ISNULL(Bonus, 0) * ISNULL(SysExRate, 1)) AS Bonus
+		,SUM(ISNULL(Adjustment, 0) * ISNULL(SysExRate, 1)) AS Adjustment
+		,SUM(ISNULL(PSP, 0) * ISNULL(SysExRate, 1)) AS PSP
+		,SUM(ISNULL(Deposit, 0) * ISNULL(SysExRate, 1)) AS Deposit
+		,SUM(ISNULL(TurnOver, 0) * ISNULL(SysExRate, 1)) AS TurnOver
+		,SUM(ISNULL(Withdrawal, 0) * ISNULL(SysExRate, 1)) AS Withdrawal
+		,SUM(ISNULL(TurnOverDraw, 0) * ISNULL(SysExRate, 1)) AS TurnOverDraw
+		,SUM(ISNULL(TurnOverNoDraw, 0) * ISNULL(SysExRate, 1)) AS TurnOverNoDraw
+		,SUM(ISNULL(BetCount, 0)) AS BetCount
+		,SUM(ISNULL(BetCountNoDraw, 0)) AS BetCountNoDraw
+		,SUM(ISNULL(Winlost, 0) * ISNULL(AffExRate, 1)) AS Winlost_aff
+		,SUM(ISNULL(Bonus, 0) * ISNULL(AffExRate, 1)) AS Bonus_aff
+		,SUM(ISNULL(Adjustment, 0) * ISNULL(AffExRate, 1)) AS Adjustment_aff
+		,SUM(ISNULL(PSP, 0) * ISNULL(AffExRate, 1)) AS PSP_aff
+		,SUM(ISNULL(Deposit, 0) * ISNULL(AffExRate, 1)) AS Deposit_aff
+		,SUM(ISNULL(TurnOver, 0) * ISNULL(AffExRate, 1)) AS TurnOver_aff
+		,SUM(ISNULL(Withdrawal, 0) * ISNULL(AffExRate, 1)) AS Withdrawal_aff
+		,SUM(ISNULL(TurnOverDraw, 0) * ISNULL(AffExRate, 1)) AS TurnOverDraw_aff
+		,SUM(ISNULL(TurnOverNoDraw, 0) * ISNULL(AffExRate, 1)) AS TurnOverNoDraw_aff
+		,SUM(ISNULL(PShare, 0) * ISNULL(SysExRate, 1)) AS PShare
+		,SUM(ISNULL(PWin, 0) * ISNULL(SysExRate, 1)) AS PWin
+		,SUM(ISNULL(PShare, 0) * ISNULL(AffExRate, 1)) AS PShare_aff
+		,SUM(ISNULL(PWin, 0) * ISNULL(AffExRate, 1)) AS PWin_aff
+		,SUM(ISNULL(PlayerComm, 0) * ISNULL(SysExRate, 1)) AS MemPlayerComm
+		,SUM(ISNULL(PlayerComm, 0) * ISNULL(AffExRate, 1)) AS MemPlayerComm_aff
+	FROM dbo.MemberDaily md WITH(NOLOCK)
 	WHERE WinlostDate BETWEEN @FirstDay AND @LastDay
 	GROUP BY username
 		,ProductID
@@ -271,55 +262,58 @@ end*/
 
 	--Create temp table to get summary data for each affiliate  
 	CREATE TABLE #AffSummary (
-		/* [No] int IDENTITY(1,1),*/
-		AffID INT
-		,Currency SMALLINT
-		,GroupID INT
-		,ProductID INT
-		,MemWinlost MONEY
-		,MemBonus MONEY
-		,MemAdjustment MONEY
-		,MemPSP MONEY
-		,Marketing MONEY
-		,OddsFee MONEY
-		,MemDeposit MONEY
-		,MemTurnover MONEY
-		,NetWinlost MONEY
-		,MemWinlost_aff MONEY
-		,MemBonus_aff MONEY
-		,MemAdjustment_aff MONEY
-		,MemPSP_aff MONEY
-		,Marketing_aff MONEY
-		,OddsFee_aff MONEY
-		,MemDeposit_aff MONEY
-		,MemTurnover_aff MONEY
-		,NetWinlost_aff MONEY
-		,Commission DECIMAL(9, 8)
-		,TotalQM INT
-		,TotalActivePlayer INT
-		,HasBonus BIT
-		,HasMarketing BIT
-		,HasAdjustment BIT
-		,HasPSP BIT
-		,HasOddsFee BIT
-		,BonusPercent FLOAT
-		,MarketingPercent FLOAT
-		,AdjustmentPercent FLOAT
-		,PSPPercent FLOAT
-		,OddsFeePercent FLOAT
-		,[MemBetCount] INT
-		,[MemTurnoverNoDraw] MONEY
-		,[MemBetCountNoDraw] INT
-		,[MemTurnoverNoDraw_aff] MONEY
-		,[MemWithdrawal] MONEY
-		,[MemWithdrawal_aff] MONEY
-		,[MemTurnoverDraw] MONEY
-		,[MemTurnoverDraw_aff] MONEY
-		,ZeroCommission INT
-		,PShare MONEY
-		,PWin MONEY
-		,PShare_aff MONEY
-		,PWin_aff MONEY
+		AffID 						INT
+		,Currency 					SMALLINT
+		,GroupID 					INT
+		,ProductID 					INT
+		,MemWinlost 				MONEY
+		,MemBonus 					MONEY
+		,MemAdjustment 				MONEY
+		,MemPSP 					MONEY
+		,Marketing 					MONEY
+		,OddsFee 					MONEY
+		,MemDeposit 				MONEY
+		,MemTurnover 				MONEY
+		,NetWinlost 				MONEY
+		,MemWinlost_aff 			MONEY
+		,MemBonus_aff 				MONEY
+		,MemAdjustment_aff 			MONEY
+		,MemPSP_aff 				MONEY
+		,Marketing_aff 				MONEY
+		,OddsFee_aff 				MONEY
+		,MemDeposit_aff 			MONEY
+		,MemTurnover_aff 			MONEY
+		,NetWinlost_aff 			MONEY
+		,Commission 				DECIMAL(9, 8)
+		,TotalQM 					INT
+		,TotalActivePlayer 			INT
+		,HasBonus 					BIT
+		,HasMarketing 				BIT
+		,HasAdjustment 				BIT
+		,HasPSP 					BIT
+		,HasOddsFee 				BIT
+		,HasPlayerComm 				BIT
+		,BonusPercent 				FLOAT
+		,MarketingPercent 			FLOAT
+		,AdjustmentPercent 			FLOAT
+		,PSPPercent 				FLOAT
+		,OddsFeePercent 			FLOAT
+		,PlayerCommPercent 			FLOAT
+		,[MemBetCount] 				INT
+		,[MemTurnoverNoDraw] 		MONEY
+		,[MemBetCountNoDraw] 		INT
+		,[MemTurnoverNoDraw_aff] 	MONEY
+		,[MemWithdrawal] 			MONEY
+		,[MemWithdrawal_aff] 		MONEY
+		,[MemTurnoverDraw] 			MONEY
+		,[MemTurnoverDraw_aff] 		MONEY
+		,ZeroCommission 			INT
+		,PShare 					MONEY
+		,PWin 						MONEY
+		,PShare_aff 				MONEY
+		,PWin_aff 					MONEY
+		,PlayerComm 				MONEY
+		,PlayerComm_aff 			MONEY
 		)
 
 	INSERT INTO #AffSummary (
@@ -345,11 +339,13 @@ end*/
 		,HasAdjustment
 		,HasPSP
 		,HasOddsFee
+		,HasPlayerComm
 		,BonusPercent
 		,AdjustmentPercent
 		,MarketingPercent
 		,PSPPercent
 		,OddsFeePercent
+		,PlayerCommPercent
 		,[MemBetCount]
 		,[MemTurnoverNoDraw]
 		,[MemBetCountNoDraw]
@@ -363,59 +359,65 @@ end*/
 		,PWin
 		,PShare_aff
 		,PWin_aff
+		,PlayerComm
+		,PlayerComm_aff
 		)
 	SELECT ai.AffID AS AffID
 		,ai.Currency AS Currency
 		,gh.GroupID AS GroupID
 		,r.ProductID AS ProductID
-		,sum(isnull(r.MemWinlost, 0)) AS MemWinlost
-		,sum(isnull(r.MemBonus, 0)) AS MemBonus
-		,sum(isnull(r.MemAdjustment, 0)) AS MemAdjustment
-		,sum(isnull(r.MemPSP, 0)) AS MemPSP
-		,sum(isnull(r.MemDeposit, 0)) AS MemDeposit
-		,sum(isnull(r.MemTurnover, 0)) AS MemTurnover
-		,sum(isnull(r.MemWinlost_aff, 0)) AS MemWinlost_aff
-		,sum(isnull(r.MemBonus_aff, 0)) AS MemBonus_aff
-		,sum(isnull(r.MemAdjustment_aff, 0)) AS MemAdjustment_aff
-		,sum(isnull(r.MemPSP_aff, 0)) AS MemPSP_aff
-		,sum(isnull(r.MemDeposit_aff, 0)) AS MemDeposit_aff
-		,sum(isnull(r.MemTurnover_aff, 0)) AS MemTurnover_aff
-		,sum(CASE 
-				WHEN isnull(r.MemTurnover_aff, 0) >= ch.QualifiedAmount THEN 1
+		,SUM(ISNULL(r.MemWinlost, 0)) AS MemWinlost
+		,SUM(ISNULL(r.MemBonus, 0)) AS MemBonus
+		,SUM(ISNULL(r.MemAdjustment, 0)) AS MemAdjustment
+		,SUM(ISNULL(r.MemPSP, 0)) AS MemPSP
+		,SUM(ISNULL(r.MemDeposit, 0)) AS MemDeposit
+		,SUM(ISNULL(r.MemTurnover, 0)) AS MemTurnover
+		,SUM(ISNULL(r.MemWinlost_aff, 0)) AS MemWinlost_aff
+		,SUM(ISNULL(r.MemBonus_aff, 0)) AS MemBonus_aff
+		,SUM(ISNULL(r.MemAdjustment_aff, 0)) AS MemAdjustment_aff
+		,SUM(ISNULL(r.MemPSP_aff, 0)) AS MemPSP_aff
+		,SUM(ISNULL(r.MemDeposit_aff, 0)) AS MemDeposit_aff
+		,SUM(ISNULL(r.MemTurnover_aff, 0)) AS MemTurnover_aff
+		,SUM(CASE 
+				WHEN ISNULL(r.MemTurnover_aff, 0) >= ch.QualifiedAmount THEN 1
 				ELSE 0
 				END) AS TotalQM
-		,dbo.Aff_HasDeduction(gh.GroupID, r.ProductID, 'Bonus', @LastDay) AS HasBonus
-		,dbo.Aff_HasDeduction(gh.GroupID, r.ProductID, 'Marketing', @LastDay) AS HasMarketing
-		,dbo.Aff_HasDeduction(gh.GroupID, r.ProductID, 'Adjustment', @LastDay) AS HasAdjustment
-		,dbo.Aff_HasDeduction(gh.GroupID, r.ProductID, 'PSP', @LastDay) AS HasPSP
-		,dbo.Aff_HasDeduction(gh.GroupID, r.ProductID, 'Odds Fee', @LastDay) AS HasOddsFee
-		,dbo.Aff_GetDeductionPercent(ai.AffID, r.ProductID, 'Bonus', @LastDay) AS BonusPercent
-		,dbo.Aff_GetDeductionPercent(ai.AffID, r.ProductID, 'Adjustment', @LastDay) AS AdjustmentPercent
-		,dbo.Aff_GetDeductionPercent(ai.AffID, r.ProductID, 'Marketing', @LastDay) AS MarketingPercent
-		,dbo.Aff_GetDeductionPercent(ai.AffID, r.ProductID, 'PSP', @LastDay) AS PercentPSP
-		,dbo.Aff_GetDeductionPercent(ai.AffID, r.ProductID, 'Odds Fee', @LastDay) AS OddsFeePercent
-		,Sum(isnull([MemBetCount], 0))
-		,Sum(isnull([MemTurnoverNoDraw], 0))
-		,Sum(isnull([MemBetCountNoDraw], 0))
-		,Sum(isnull([MemTurnoverNoDraw_aff], 0))
-		,Sum(isnull([MemWithdrawal], 0))
-		,Sum(isnull([MemWithdrawal_aff], 0))
-		,Sum(isnull([MemTurnoverDraw], 0))
-		,Sum(isnull([MemTurnoverDraw_aff], 0))
+		,dbo.AffAdmin_f_HasDeduction(gh.GroupID, r.ProductID, 'Bonus', @LastDay) AS HasBonus
+		,dbo.AffAdmin_f_HasDeduction(gh.GroupID, r.ProductID, 'Marketing', @LastDay) AS HasMarketing
+		,dbo.AffAdmin_f_HasDeduction(gh.GroupID, r.ProductID, 'Adjustment', @LastDay) AS HasAdjustment
+		,dbo.AffAdmin_f_HasDeduction(gh.GroupID, r.ProductID, 'PSP', @LastDay) AS HasPSP
+		,dbo.AffAdmin_f_HasDeduction(gh.GroupID, r.ProductID, 'Odds Fee', @LastDay) AS HasOddsFee
+		,dbo.AffAdmin_f_HasDeduction(gh.GroupID, r.ProductID, 'PlayerComm', @LastDay) AS HasPlayerComm
+		,dbo.AffAdmin_f_GetDeductionPercent(ai.AffID, r.ProductID, 'Bonus', @LastDay) AS BonusPercent
+		,dbo.AffAdmin_f_GetDeductionPercent(ai.AffID, r.ProductID, 'Adjustment', @LastDay) AS AdjustmentPercent
+		,dbo.AffAdmin_f_GetDeductionPercent(ai.AffID, r.ProductID, 'Marketing', @LastDay) AS MarketingPercent
+		,dbo.AffAdmin_f_GetDeductionPercent(ai.AffID, r.ProductID, 'PSP', @LastDay) AS PercentPSP
+		,dbo.AffAdmin_f_GetDeductionPercent(ai.AffID, r.ProductID, 'Odds Fee', @LastDay) AS OddsFeePercent
+		,dbo.AffAdmin_f_GetDeductionPercent(ai.AffID, r.ProductID, 'PlayerComm', @LastDay) AS PlayerCommPercent
+		,SUM(ISNULL([MemBetCount], 0))
+		,SUM(ISNULL([MemTurnoverNoDraw], 0))
+		,SUM(ISNULL([MemBetCountNoDraw], 0))
+		,SUM(ISNULL([MemTurnoverNoDraw_aff], 0))
+		,SUM(ISNULL([MemWithdrawal], 0))
+		,SUM(ISNULL([MemWithdrawal_aff], 0))
+		,SUM(ISNULL([MemTurnoverDraw], 0))
+		,SUM(ISNULL([MemTurnoverDraw_aff], 0))
 		,dbo.IsZeroCommissionGroup(gh.GroupID, @LastDay)
 		,SUM(ISNULL(PShare, 0)) PShare
 		,SUM(ISNULL(PWin, 0)) PWin
 		,SUM(ISNULL(PShare_aff, 0)) PShare_aff
 		,SUM(ISNULL(PWin_aff, 0)) PWin_aff
-	FROM AffInfo ai WITH (NOLOCK)
-		INNER JOIN AffGroupHistory gh(NOLOCK)
+		,SUM(ISNULL(MemPlayerComm, 0)) PlayerComm
+		,SUM(ISNULL(MemPlayerComm_aff, 0)) PlayerComm_aff
+	FROM #MemberSummary r
+		INNER JOIN dbo.AffInfo ai WITH(NOLOCK)
+		ON r.AffID = ai.AffID
+		INNER JOIN dbo.AffGroupHistory gh WITH (NOLOCK)
 		ON gh.AffID = ai.AffID
 			AND gh.MonthDate = @LastDay
-		INNER JOIN CommGroupHistory ch(NOLOCK)
+		INNER JOIN dbo.CommGroupHistory ch WITH (NOLOCK)
 		ON ch.groupid = gh.groupid
 			AND ch.MonthDate = @LastDay
-		INNER JOIN #MemberSummary r
-		ON r.AffID = ai.AffID
 	WHERE ai.STATUS = @Status
 	GROUP BY ai.AffID
 		,ai.Currency
@@ -430,50 +432,70 @@ end*/
 	SET a.TotalActivePlayer = ISNULL(t.TotalActivePlayer, 0)
 	FROM #AffSummary a WITH (NOLOCK)
 		LEFT JOIN (
-		SELECT m.AffID
-			,COUNT(DISTINCT m.username) AS TotalActivePlayer
-		FROM #MemberSummary m
-		WHERE m.MemTurnover > 0 --or m.MemDeposit>0  
-		GROUP BY m.AffID
+			SELECT m.AffID
+				,m.ProductID
+				,COUNT(DISTINCT m.username) AS TotalActivePlayer
+			FROM #MemberSummary m
+			WHERE m.MemTurnover > 0 --or m.MemDeposit>0  
+			GROUP BY m.AffID
+				,m.ProductID
 		) t
 		ON a.AffID = t.AffID
+			AND a.ProductID = t.ProductID
 
-	--Choose commission value and calculate Total Balance after deduction for each Affiliate and ProductID  
+	--Update Sharing fees
 	UPDATE a
-	SET a.MemPSP = Cast(a.HasPSP AS INT) * isnull(a.MemPSP, 0) * isnull(a.PSPPercent, 1)
-		,a.MemPSP_aff = Cast(a.HasPSP AS INT) * isnull(a.MemPSP_aff, 0) * isnull(a.PSPPercent, 1)
-		,a.Marketing = Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.MarketingPercent, 1)
-		,a.Marketing_aff = Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost_aff, 0)) * isnull(a.MarketingPercent, 1)
-		,a.OddsFee = Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.OddsFeePercent, 1)
-		,a.OddsFee_aff = Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost_aff, 0)) * isnull(a.OddsFeePercent, 1)
-		,a.NetWinlost_aff = (- isnull(a.MemWinlost_aff, 0) - Cast(a.HasPSP AS INT) * isnull(a.MemPSP_aff, 0) * isnull(a.PSPPercent, 1) - Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost_aff, 0)) * isnull(a.OddsFeePercent, 1) - Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost_aff, 0)) * isnull(a.MarketingPercent, 1))
-		,a.NetWinlost = (- isnull(a.MemWinlost, 0) - Cast(a.HasPSP AS INT) * isnull(a.MemPSP, 0) * isnull(a.PSPPercent, 1) - Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.OddsFeePercent, 1) - Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.MarketingPercent, 1))
-		,a.commission = isnull((
+	SET a.MemPSP 			= CAST(a.HasPSP AS INT) * ISNULL(a.MemPSP, 0) * ISNULL(a.PSPPercent, 1)
+		,a.MemPSP_aff 		= CAST(a.HasPSP AS INT) * ISNULL(a.MemPSP_aff, 0) * ISNULL(a.PSPPercent, 1)
+		,a.Marketing 		= CAST(a.HasMarketing AS INT) * ABS(ISNULL(a.MemWinlost, 0)) * ISNULL(a.MarketingPercent, 1)
+		,a.Marketing_aff 	= CAST(a.HasMarketing AS INT) * ABS(ISNULL(a.MemWinlost_aff, 0)) * ISNULL(a.MarketingPercent, 1)
+		,a.OddsFee 			= CAST(a.HasOddsFee AS INT) * ABS(ISNULL(a.MemWinlost, 0)) * ISNULL(a.OddsFeePercent, 1)
+		,a.OddsFee_aff 		= CAST(a.HasOddsFee AS INT) * ABS(ISNULL(a.MemWinlost_aff, 0)) * ISNULL(a.OddsFeePercent, 1)
+		,a.PlayerComm 		= CAST(a.HasPlayerComm AS INT) * ABS(ISNULL(a.PlayerComm, 0)) * ISNULL(a.PlayerCommPercent, 1)
+		,a.PlayerComm_aff 	= CAST(a.HasPlayerComm AS INT) * ABS(ISNULL(a.PlayerComm_aff, 0)) * ISNULL(a.PlayerCommPercent, 1)
+	FROM #AffSummary a
+	
+	-- Update NetWinLoss
+	UPDATE a
+	SET a.NetWinlost 		= (- ISNULL(a.MemWinlost, 0) 
+								- ISNULL(a.MemPSP, 0)
+								- ISNULL(a.Marketing, 0) 
+								- ISNULL(a.OddsFee, 0)
+								- ISNULL(a.PlayerComm, 0))
+		,a.NetWinlost_aff 	= (- ISNULL(a.MemWinlost_aff, 0) 
+								- ISNULL(a.MemPSP_aff, 0)
+								- ISNULL(a.Marketing_aff, 0) 
+								- ISNULL(a.OddsFee_aff, 0)
+								- ISNULL(a.PlayerComm_aff, 0))
+	FROM #AffSummary a
+
+	--Update Commission percent
+	UPDATE a
+	SET a.commission 		= ISNULL((
 				SELECT TOP (1) Commission
 				FROM (
-					SELECT isnull((
+					SELECT ISNULL((
 								SELECT Commission
-								FROM GroupSettingHistory(NOLOCK)
-								WHERE GroupID = a.GroupID
-									AND ProductID = a.ProductID
-									AND MonthDate = @LastDay
-									AND floor(abs(- isnull(a.MemWinlost_aff, 0) - Cast(a.HasPSP AS INT) * isnull(a.MemPSP_aff, 0) * isnull(a.PSPPercent, 1) - Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost_aff, 0)) * isnull(a.OddsFeePercent, 1) - Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost_aff, 0)) * isnull(a.MarketingPercent, 1))) BETWEEN MinAmount AND MaxAmount
+								FROM dbo.GroupSettingHistory gh WITH(NOLOCK)
+								WHERE gh.GroupID 		= a.GroupID
+									AND gh.ProductID 	= a.ProductID
+									AND gh.MonthDate 	= @LastDay
+									AND FLOOR(ABS(a.NetWinlost_aff)) BETWEEN gh.MinAmount AND gh.MaxAmount
 								), 0) AS Commission
 					
 					UNION ALL
-					SELECT isnull((
+					SELECT ISNULL((
 								SELECT TOP (1) Commission
-								FROM GroupSettingHistory(NOLOCK)
-								WHERE GroupID = a.GroupID
-									AND ProductID = a.ProductID
-									AND MonthDate = @LastDay
-									AND a.TotalQM BETWEEN MinQM AND MaxQM
+								FROM dbo.GroupSettingHistory gh WITH(NOLOCK)
+								WHERE gh.GroupID 		= a.GroupID
+									AND gh.ProductID 	= a.ProductID
+									AND gh.MonthDate 	= @LastDay
+									AND a.TotalQM BETWEEN gh.MinQM AND gh.MaxQM
 								), 0) AS Commission
 					) t
 				ORDER BY t.Commission ASC
 				), 0)
 	FROM #AffSummary a
-
 	/*
 	-- check/update Negative Commission
 	-- force update min comm (inorge tier rule ITCBET[OR @IsForceMinNegativeCommission = 1])
@@ -485,10 +507,10 @@ end*/
 		AND (a.Commission = 0 OR @IsForceMinNegativeCommission = 1) 
 		AND a.ZeroCommission = 0
 		AND a.ProductID IN (
-			SELECT DISTINCT ProductID
-			FROM GroupSettingHistory(NOLOCK)
-			WHERE GroupID = a.GroupID
-				AND MonthDate BETWEEN @FirstDay AND @LastDay
+			SELECT DISTINCT gh.ProductID
+			FROM dbo.GroupSettingHistory gh WITH(NOLOCK)
+			WHERE gh.GroupID = a.GroupID
+				AND gh.MonthDate BETWEEN @FirstDay AND @LastDay
 		)
 
 	--Insert transaction to AffTrans and AffCommission  
@@ -525,6 +547,7 @@ end*/
 			,[HasMarketing]
 			,[HasPSP]
 			,[HasOddsFee]
+			,[HasPlayerComm]
 			,[Status]
 			,[AffWinlost]
 			,[MemberWinlost]
@@ -558,6 +581,8 @@ end*/
 			,[PWin]
 			,[PShare_aff]
 			,[PWin_aff]
+			,PlayerComm
+			,PlayerComm_aff
 			)
 		OUTPUT inserted.RefID
 			,inserted.AffID
@@ -577,8 +602,12 @@ end*/
 			,HasMarketing
 			,HasPSP
 			,HasOddsFee
+			,HasPlayerComm
 			,@Status
-			,(NetWinlost - Cast(a.HasBonus AS INT) * isnull(a.MemBonus, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0)
+			,(a.NetWinlost - CAST(a.HasBonus AS INT) * ISNULL(a.MemBonus, 0) * ISNULL(a.BonusPercent, 1)) * ISNULL(Commission, 0) * CASE 
+				WHEN a.ZeroCommission = 1 THEN 0
+				ELSE 1
+				END
 			,MemWinlost
 			,MemBonus
 			,MemAdjustment
@@ -588,7 +617,7 @@ end*/
 			,MemDeposit
 			,Marketing
 			,OddsFee
-			,((NetWinlost_aff - Cast(a.HasBonus AS INT) * isnull(a.MemBonus_aff, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0)) * CASE 
+			,((a.NetWinlost_aff - CAST(a.HasBonus AS INT) * ISNULL(a.MemBonus_aff, 0) * ISNULL(a.BonusPercent, 1)) * ISNULL(Commission, 0)) * CASE 
 				WHEN a.ZeroCommission = 1 THEN 0
 				ELSE 1
 				END
@@ -613,6 +642,8 @@ end*/
 			,[PWin]
 			,[PShare_aff]
 			,[PWin_aff]
+			,PlayerComm
+			,PlayerComm_aff
 		FROM #AffSummary a(NOLOCK)
 
 		UPDATE d
@@ -622,12 +653,12 @@ end*/
 				WHERE d1.AffID = d.AffID
 					AND d1.RefID > 0
 				)
-		FROM AffCommission d WITH (ROWLOCK, UPDLOCK)
+		FROM dbo.AffCommission d WITH (ROWLOCK, UPDLOCK)
 		WHERE d.WinlostDate = @LastDay
 
 		-- Insert to AffTrans  
 		-- Peter@20131205 : Add deduction overal to monthly transfer transaction  
-		INSERT INTO AffTrans (
+		INSERT INTO dbo.AffTrans (
 			AffID
 			,TransDate
 			,CompletedDate
@@ -643,7 +674,7 @@ end*/
 		SELECT a.AffID
 			,@LastDay
 			,@WinlostDate
-			,(sum((NetWinlost_aff - Cast(a.HasBonus AS INT) * isnull(a.MemBonus_aff, 0) * isnull(a.BonusPercent, 1)) * isnull(Commission, 0)) - [dbo].[Aff_GetAffDeductionAll](AffID, @LastDay)) * CASE 
+			,(SUM((NetWinlost_aff - CAST(a.HasBonus AS INT) * ISNULL(a.MemBonus_aff, 0) * ISNULL(a.BonusPercent, 1)) * ISNULL(Commission, 0)) - [dbo].[Aff_GetAffDeductionAll](AffID, @LastDay)) * CASE 
 				WHEN MAX(a.ZeroCommission) = 1 THEN 0
 				ELSE 1
 				END
@@ -665,51 +696,33 @@ end*/
 				WHERE d1.AffID = d.AffID
 					AND d1.RefID > 0
 				)
-		FROM AffTrans d WITH (ROWLOCK, UPDLOCK)
+		FROM dbo.AffTrans d WITH (ROWLOCK, UPDLOCK)
 		WHERE d.TransDate = @LastDay
 			AND d.TransType = @TransType
-
+		
+		--update AffDaily
 		UPDATE ad
-		SET ad.AffWinlost = - isnull(ad.MemWinlost, 0) * isnull(a.commission, 0)
-			,ad.HouseWinlost = - isnull(ad.MemWinlost, 0) * (1 - isnull(a.commission, 0))
-			,ad.AffNetWinlost = (
-				- isnull(ad.MemWinlost, 0) - Cast(a.HasPSP AS INT) * isnull(a.MemPSP, 0) * isnull(a.PSPPercent, 1) - Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.OddsFeePercent, 1) - Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.MarketingPercent, 1) - Cast(isnull(a.HasBonus, 0) AS INT) * isnull(ad.MemBonus, 0) * isnull(a.BonusPercent, 1)
-				/*-Cast(isnull(a.HasAdjustment,0) as int) *  isnull(ad.MemAdjustment,0) * isnull(a.AdjustmentPercent,1) */
-				) * isnull(a.commission, 0)
-			,ad.HouseNetWinlost = (
-				- isnull(ad.MemWinlost, 0) - Cast(a.HasPSP AS INT) * isnull(a.MemPSP, 0) * isnull(a.PSPPercent, 1) - Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.OddsFeePercent, 1) - Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.MarketingPercent, 1) - Cast(isnull(a.HasBonus, 0) AS INT) * isnull(ad.MemBonus, 0) * isnull(a.BonusPercent, 1)
-				/*-Cast(isnull(a.HasAdjustment,0) as int) *  isnull(ad.MemAdjustment,0) * isnull(a.AdjustmentPercent,1) */
-				) * (1 - isnull(a.commission, 0))
-		FROM AffDaily ad WITH (ROWLOCK, UPDLOCK)
+		SET ad.AffWinlost 		= - ISNULL(ad.MemWinlost, 0) * ISNULL(a.commission, 0)
+			,ad.HouseWinlost 	= - ISNULL(ad.MemWinlost, 0) * (1 - ISNULL(a.commission, 0))
+			,ad.AffNetWinlost 	= (ISNULL(a.NetWinlost, 0) - CAST(ISNULL(a.HasBonus, 0) AS INT) * ISNULL(ad.MemBonus, 0) * ISNULL(a.BonusPercent, 1)) * ISNULL(a.commission, 0)
+			,ad.HouseNetWinlost = (ISNULL(a.NetWinlost, 0) - CAST(ISNULL(a.HasBonus, 0) AS INT) * ISNULL(ad.MemBonus, 0) * ISNULL(a.BonusPercent, 1)) * (1 - ISNULL(a.commission, 0))
+		FROM dbo.AffDaily ad WITH (ROWLOCK, UPDLOCK)
 			LEFT JOIN #AffSummary a WITH (NOLOCK)
 			ON a.AffID = ad.AffID
 				AND a.ProductID = ad.ProductID
 		WHERE ad.Winlostdate BETWEEN @FirstDay AND @LastDay
 
+		--update AffDailySummary
 		UPDATE ad
-		SET /*ad.MemMarketing=Cast(isnull(a.HasMarketing,0) as int) *  abs(isnull(ad.MemWinlost,0)) * isnull(a.MarketingPercent,0) ,  
-         ad.MemOddsFee=Cast(isnull(a.HasOddsFee,0) as int) *  abs(isnull(ad.MemWinlost,0)) * isnull(a.OddsFeePercent,0) ,         */
-			ad.AffWinlost = - isnull(ad.MemWinlost, 0) * isnull(a.commission, 0)
-			,ad.HouseWinlost = - isnull(ad.MemWinlost, 0) * (1 - isnull(a.commission, 0))
-			,ad.AffNetWinlost = (
-				- isnull(ad.MemWinlost, 0) - Cast(a.HasPSP AS INT) * isnull(a.MemPSP, 0) * isnull(a.PSPPercent, 1) - Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.OddsFeePercent, 1) - Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.MarketingPercent, 1) - Cast(isnull(a.HasBonus, 0) AS INT) * isnull(ad.MemBonus, 0) * isnull(a.BonusPercent, 1)
-				/*-Cast(isnull(a.HasAdjustment,0) as int) *  isnull(ad.MemAdjustment,0) * isnull(a.AdjustmentPercent,1) */
-				) * isnull(a.commission, 0)
-			,ad.HouseNetWinlost = (
-				- isnull(ad.MemWinlost, 0) - Cast(a.HasPSP AS INT) * isnull(a.MemPSP, 0) * isnull(a.PSPPercent, 1) - Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.OddsFeePercent, 1) - Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.MarketingPercent, 1) - Cast(isnull(a.HasBonus, 0) AS INT) * isnull(ad.MemBonus, 0) * isnull(a.BonusPercent, 1)
-				/*-Cast(isnull(a.HasAdjustment,0) as int) *  isnull(ad.MemAdjustment,0) * isnull(a.AdjustmentPercent,1) */
-				) * (1 - isnull(a.commission, 0))
-			,ad.AffWinlost_aff = - isnull(ad.MemWinlost_aff, 0) * isnull(a.commission, 0)
-			,ad.HouseWinlost_aff = - isnull(ad.MemWinlost_aff, 0) * (1 - isnull(a.commission, 0))
-			,ad.AffNetWinlost_aff = (
-				- isnull(ad.MemWinlost_aff, 0) - Cast(a.HasPSP AS INT) * isnull(a.MemPSP_aff, 0) * isnull(a.PSPPercent, 1) - Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost_aff, 0)) * isnull(a.OddsFeePercent, 1) - Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost_aff, 0)) * isnull(a.MarketingPercent, 1) - Cast(isnull(a.HasBonus, 0) AS INT) * isnull(ad.MemBonus_aff, 0) * isnull(a.BonusPercent, 1)
-				/*-Cast(isnull(a.HasAdjustment,0) as int) *  isnull(ad.MemAdjustment_aff,0) * isnull(a.AdjustmentPercent,1) */
-				) * isnull(a.commission, 0)
-			,ad.HouseNetWinlost_aff = (
-				- isnull(ad.MemWinlost_aff, 0) - Cast(a.HasPSP AS INT) * isnull(a.MemPSP_aff, 0) * isnull(a.PSPPercent, 1) - Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost_aff, 0)) * isnull(a.OddsFeePercent, 1) - Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost_aff, 0)) * isnull(a.MarketingPercent, 1) - Cast(isnull(a.HasBonus, 0) AS INT) * isnull(ad.MemBonus_aff, 0) * isnull(a.BonusPercent, 1)
-				/*-Cast(isnull(a.HasAdjustment,0) as int) *  isnull(ad.MemAdjustment_aff,0) * isnull(a.AdjustmentPercent,1) */
-				) * (1 - isnull(a.commission, 0))
-		FROM AffDailySummary ad WITH (ROWLOCK, UPDLOCK)
+		SET ad.AffWinlost 			= - ISNULL(ad.MemWinlost, 0) * ISNULL(a.commission, 0)
+			,ad.HouseWinlost 		= - ISNULL(ad.MemWinlost, 0) * (1 - ISNULL(a.commission, 0))
+			,ad.AffNetWinlost 		= (ISNULL(a.NetWinlost, 0) - CAST(ISNULL(a.HasBonus, 0) AS INT) * ISNULL(ad.MemBonus, 0) * ISNULL(a.BonusPercent, 1)) * ISNULL(a.commission, 0)
+			,ad.HouseNetWinlost 	= (ISNULL(a.NetWinlost, 0) - CAST(ISNULL(a.HasBonus, 0) AS INT) * ISNULL(ad.MemBonus, 0) * ISNULL(a.BonusPercent, 1)) * (1 - ISNULL(a.commission, 0))
+			,ad.AffWinlost_aff 		= - ISNULL(ad.MemWinlost_aff, 0) * ISNULL(a.commission, 0)
+			,ad.HouseWinlost_aff 	= - ISNULL(ad.MemWinlost_aff, 0) * (1 - ISNULL(a.commission, 0))
+			,ad.AffNetWinlost_aff 	= (ISNULL(a.NetWinlost_aff, 0) - CAST(ISNULL(a.HasBonus, 0) AS INT) * ISNULL(ad.MemBonus_aff, 0) * ISNULL(a.BonusPercent, 1)) * ISNULL(a.commission, 0)
+			,ad.HouseNetWinlost_aff = (ISNULL(a.NetWinlost_aff, 0) - CAST(ISNULL(a.HasBonus, 0) AS INT) * ISNULL(ad.MemBonus_aff, 0) * ISNULL(a.BonusPercent, 1)) * (1 - ISNULL(a.commission, 0))
+		FROM dbo.AffDailySummary ad WITH (ROWLOCK, UPDLOCK)
 			LEFT JOIN #AffSummary a WITH (NOLOCK)
 			ON a.AffID = ad.AffID
 				AND a.ProductID = ad.ProductID
@@ -718,7 +731,7 @@ end*/
 		-- Update BF for AffInfo  
 		UPDATE ai
 		SET ai.BF = dbo.[Aff_GetAffBalance](ad.AffID)
-		FROM AffInfo ai WITH (ROWLOCK, UPDLOCK)
+		FROM dbo.AffInfo ai WITH (ROWLOCK, UPDLOCK)
 			INNER JOIN #AffSummary ad(NOLOCK)
 			ON ad.AffID = ai.AffID
 	END TRY

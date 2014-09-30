@@ -1,11 +1,7 @@
-﻿-- =============================================
--- Script Template
--- =============================================
-ALTER Procedure [dbo].[AffAdmin_DeductionSettingSel]
-	@GroupIDList varchar(1000),
-	@Date smalldatetime = null	
+﻿ALTER PROCEDURE [dbo].[AffAdmin_DeductionSettingSel] 
+	@GroupIDList	VARCHAR(1000)
+	,@Date			SMALLDATETIME = NULL
 AS
-
 /*
 Created: 20130909@Joseph
 Task : Get all deduction settings
@@ -13,32 +9,57 @@ DB: DB052.
 Original:
 
 Revisions:
+	- 20140820@Bobby: Apply SQL stylescope
 */
-SET NOCOUNT ON
+BEGIN
+	SET NOCOUNT ON
 
-declare @TblGroup table (id int primary key, rank int, val nvarchar( 6) )
-	
-insert into @TblGroup 
-select * from [dbo].[strSplit] ( @GroupIDList, ',' ) 
+	DECLARE @TblGroup TABLE (
+		id INT PRIMARY KEY
+		,rank INT
+		,val NVARCHAR(6)
+		)
 
-if  @Date is null or DateDiff(m,CURRENT_TIMESTAMP,@Date) >= 0
-Begin
-	Select ds.DeductionID,ds.GroupID,ds.DeductedPercentage,d.ProductID, d.DTypeName
-	from DeductionSetting ds with(nolock)
-		inner JOIN DeductionType d WITH(nolock) ON ds.DeductionID = d.DTypeId
-	where ds.GroupID in (select val from @TblGroup)	
-End
-else
-Begin
-	Select ds.DeductionID,ds.GroupID,ds.DeductedPercentage,d.ProductID, d.DTypeName
-	from dbo.DeductionSettingHistory ds (nolock)
-		inner JOIN DeductionType d WITH(nolock) ON ds.DeductionID = d.DTypeId
-	where ds.GroupID in (select val from @TblGroup)	
-		and DATEDIFF(m, ds.MonthDate, @Date) = 0
-End
+	INSERT INTO @TblGroup
+	SELECT *
+	FROM [dbo].[strSplit](@GroupIDList, ',')
 
-
+	IF (@Date IS NULL
+		OR DateDiff(m, CURRENT_TIMESTAMP, @Date) >= 0)
+	BEGIN
+		SELECT ds.DeductionID
+			,ds.GroupID
+			,ds.DeductedPercentage
+			,d.ProductID
+			,d.DTypeName
+		FROM dbo.DeductionSetting ds WITH (NOLOCK)
+			INNER JOIN dbo.DeductionType d WITH (NOLOCK) 
+			ON ds.DeductionID = d.DTypeId
+		WHERE ds.GroupID IN (
+				SELECT val
+				FROM @TblGroup
+				)
+	END
+	ELSE
+	BEGIN
+		SELECT ds.DeductionID
+			,ds.GroupID
+			,ds.DeductedPercentage
+			,d.ProductID
+			,d.DTypeName
+		FROM dbo.DeductionSettingHistory ds(NOLOCK)
+			INNER JOIN dbo.DeductionType d WITH (NOLOCK) 
+			ON ds.DeductionID = d.DTypeId
+		WHERE ds.GroupID IN (
+				SELECT val
+				FROM @TblGroup
+				)
+			AND DATEDIFF(m, ds.MonthDate, @Date) = 0
+	END
+END
 GO
+
 GRANT EXECUTE ON [dbo].[AffAdmin_DeductionSettingSel] TO [bodbAdminNet]
 GO
+
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DeductionSettingSel] TO [vnteam]

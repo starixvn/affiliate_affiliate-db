@@ -1,26 +1,26 @@
 ﻿ALTER FUNCTION [dbo].[AffAdmin_AffiliateListForReport] (
-	@UserId INT = 0
-	,@AffName NVARCHAR(100) = NULL
-	,@AffTypes VARCHAR(100) = NULL
-	,@CommGroups VARCHAR(1000) = NULL
-	,@PreferLanguages VARCHAR(1000) = NULL
-	,@Currencies VARCHAR(100) = NULL
-	,@ExcludeTest BIT = 1
-	,@IsITAdmin BIT = 0
-	,@FromDate DATETIME = NULL
-	,@ToDate DATETIME = NULL
+	@UserId 			INT 			= 0
+	,@AffName 			NVARCHAR(100) 	= NULL
+	,@AffTypes 			VARCHAR(100) 	= NULL
+	,@CommGroups 		VARCHAR(1000) 	= NULL
+	,@PreferLanguages 	VARCHAR(1000)	= NULL
+	,@Currencies 		VARCHAR(100) 	= NULL
+	,@ExcludeTest 		BIT 			= 1
+	,@IsITAdmin 		BIT 			= 0
+	,@FromDate 			DATETIME 		= NULL
+	,@ToDate 			DATETIME 		= NULL
 	)
 RETURNS @returntable TABLE (
-	AffId INT
-	,Username NVARCHAR(30)
-	,AffType VARCHAR(50)
-	,LANGUAGE NVARCHAR(255)
-	,ExchangeId INT
-	,Currency VARCHAR(5)
-	,STATUS VARCHAR(50)
-	,MonthDate DATETIME
-	,GroupId INT
-	,GroupName NVARCHAR(100)
+	AffId 			INT
+	,Username 		NVARCHAR(30)
+	,AffType 		VARCHAR(50)
+	,LANGUAGE 		NVARCHAR(255)
+	,ExchangeId 	INT
+	,Currency 		VARCHAR(5)
+	,STATUS 		VARCHAR(50)
+	,MonthDate 		DATETIME
+	,GroupId 		INT
+	,GroupName 		NVARCHAR(100)
 	)
 AS
 /*    
@@ -37,11 +37,18 @@ AS
 	Param's Explanation: 
 */
 BEGIN
-	SELECT @AffName = '%' + ISNULL(@AffName, '') + '%'
-
-	-- Restrict currency list by user
-	DECLARE @tmpCurrency TABLE (CurrencyID INT)
-
+	
+	DECLARE @SysCurrency 	INT
+		,@CurrentDate 		DATETIME
+		
+	DECLARE @tmpCurrency 	TABLE (CurrencyID 	INT)
+		,@AffTypeList 		TABLE (AffTypeID 	INT)
+		,@CommGroupList 	TABLE (CommGroupID 	INT)
+		,@PreferLangList 	TABLE (LanguageID VARCHAR(8))
+	
+	--AffName
+	SET @AffName = '%' + ISNULL(@AffName, '') + '%'
+	
 	-- Currencies
 	IF (@Currencies <> 'All')
 	BEGIN
@@ -51,71 +58,61 @@ BEGIN
 			INNER JOIN [dbo].[strSplit](@Currencies, ',') s ON s.val = r.AttributeID
 	END
 
-	-- Sys exchange rate
-	DECLARE @SysCurrency INT
-
+	--SysCurrency
 	SELECT @SysCurrency = C.CurrencyID
-	FROM SystemSettings S(NOLOCK)
-		INNER JOIN Currency C(NOLOCK) ON C.CurrencyCode = S.SValue
+	FROM SystemSettings S WITH(NOLOCK)
+		INNER JOIN Currency C WITH(NOLOCK) 
+		ON C.CurrencyCode = S.SValue
 	WHERE SName LIKE 'SystemCurrency'
 
 	-- AffType
-	DECLARE @AffTypeList TABLE (AffTypeID INT)
-
 	INSERT INTO @AffTypeList
 	SELECT CAST(val AS INT)
 	FROM [dbo].[strSplit](@AffTypes, ',')
 
-	-- CommGroup
-	DECLARE @CommGroupList TABLE (CommGroupID INT);
-
-	INSERT INTO @CommGroupList
+	-- filter CommGroup merge with CommGroupHistory
+	INSERT INTO @CommGroupList(GroupID)
 	SELECT GroupID
-	FROM [dbo].[strSplit](@CommGroups, ',')
+	FROM [dbo].[strSplit](@CommGroups, ',') AS tmp
 		INNER JOIN (
-		SELECT cg.GroupId
-			,cg.GroupName
-			,cg.Currency
-		FROM CommGroup cg WITH (NOLOCK)
-			LEFT JOIN CommGroupHistory ch WITH (NOLOCK) ON cg.GroupID = ch.GroupID
-		WHERE cg.IsDeleted = 0
-			OR (
-				cg.IsDeleted = 1
-				AND ch.IsDeleted = 0
-				)
-		GROUP BY cg.GroupId
-			,cg.GroupName
-			,cg.Currency
-		) CG ON CG.GroupID = CAST(val AS INT)
-	WHERE (
-			@Currencies = 'All'
+			SELECT cg.GroupId
+				,cg.GroupName
+				,cg.Currency
+			FROM dbo.CommGroup cg WITH (NOLOCK)
+				LEFT JOIN dbo.CommGroupHistory ch WITH (NOLOCK) 
+				ON cg.GroupID = ch.GroupID
+			WHERE cg.IsDeleted = 0
+				OR (
+					cg.IsDeleted = 1
+					AND ch.IsDeleted = 0
+					)
+			GROUP BY cg.GroupId
+				,cg.GroupName
+				,cg.Currency
+		) AS CG 
+		ON CG.GroupID = CAST(tmp.val AS INT)
+	WHERE @Currencies = 'All'
 			OR CG.GroupName IN ('NoCommission')
 			OR CG.Currency IN (
 				SELECT CurrencyID
 				FROM @tmpCurrency
-				)
 			)
 
 	-- Prefer Languages
-	DECLARE @PreferLangList TABLE ([LanguageID] VARCHAR(8))
-
 	INSERT INTO @PreferLangList
 	SELECT val
 	FROM [dbo].[strSplit](@PreferLanguages, ',')
 
-	DECLARE @CurrentDate DATETIME
-
-	SELECT @CurrentDate = [dbo].[Aff_GetFirstDayOfMonth](CURRENT_TIMESTAMP)
+	-- CurrentDate
+	SET @CurrentDate = [dbo].[Aff_GetFirstDayOfMonth](CURRENT_TIMESTAMP)
 
 	-- reset to current date
-	IF (@ToDate > GETDATE())
-		SET @ToDate = GETDATE();
+	SET @ToDate = CASE WHEN @ToDate > GETDATE() THEN GETDATE() ELSE @ToDate END;
 
 	--Get data from current affinfo table
-	IF (
-			@CommGroups IS NULL
-			OR datediff(m, @CurrentDate, @ToDate) = 0
-			)
+	IF (@CommGroups IS NULL
+		OR DATEDIFF(m, @CurrentDate, @ToDate) = 0
+	)
 	BEGIN
 		--Get Affiliate list
 		INSERT INTO @returntable
@@ -133,21 +130,26 @@ BEGIN
 			,@CurrentDate AS MonthDate
 			,ai.GroupId
 			,cg.GroupName
-		FROM AffInfo ai WITH (NOLOCK)
+		FROM dbo.AffInfo ai WITH (NOLOCK)
 			INNER JOIN (
-			SELECT AffId
-				,COUNT(UserName) MemTrans
-			FROM MemberDaily m WITH (NOLOCK)
-			WHERE m.WinlostDate >= @FromDate
-				AND m.WinlostDate <= @ToDate
-			GROUP BY AffId
-			HAVING COUNT(UserName) > 0
+				SELECT AffId
+					,COUNT(UserName) MemTrans
+				FROM dbo.MemberDaily m WITH (NOLOCK)
+				WHERE m.WinlostDate >= @FromDate
+					AND m.WinlostDate <= @ToDate
+				GROUP BY AffId
+				HAVING COUNT(UserName) > 0
 			) AS mem ON ai.AffId = mem.AffId
-			INNER JOIN AffDetail AD(NOLOCK) ON AD.AffID = AI.AffID
-			INNER JOIN Exchange ex WITH (NOLOCK) ON ai.Currency = ex.ExchangeID
-			INNER JOIN AffType at WITH (NOLOCK) ON ai.AffType = at.TypeID
-			INNER JOIN LANGUAGE l WITH (NOLOCK) ON AD.PreferredLanguage = l.LanguageID
-			INNER JOIN CommGroup cg WITH (NOLOCK) ON ai.GroupID = cg.GroupID
+			INNER JOIN dbo.AffDetail AD(NOLOCK) 
+				ON AD.AffID = AI.AffID
+			INNER JOIN dbo.Exchange ex WITH (NOLOCK) 
+				ON ai.Currency = ex.ExchangeID
+			INNER JOIN dbo.AffType at WITH (NOLOCK) 
+				ON ai.AffType = at.TypeID
+			INNER JOIN dbo.[LANGUAGE] l WITH (NOLOCK) 
+				ON AD.PreferredLanguage = l.LanguageID
+			INNER JOIN dbo.CommGroup cg WITH (NOLOCK) 
+				ON ai.GroupID = cg.GroupID
 		WHERE ai.STATUS = 'Approved'
 			AND AI.UserName LIKE @AffName
 			AND (
@@ -195,12 +197,11 @@ BEGIN
 				)
 	END
 
-	IF (
-			@CommGroups IS NOT NULL
-			AND DATEDIFF(m, @FromDate, @CurrentDate) > 0
-			)
+	IF (@CommGroups IS NOT NULL
+		AND DATEDIFF(m, @FromDate, @CurrentDate) > 0
+	)
 	BEGIN
-		SET @toDate = dbo.Aff_GetLastDayOfMonth(@toDate)
+		SET @ToDate = dbo.Aff_GetLastDayOfMonth(@ToDate)
 
 		INSERT INTO @returntable
 		SELECT ai.AffId
@@ -217,32 +218,40 @@ BEGIN
 			,tmp.MonthDate
 			,tmp.GroupId
 			,tmp.GroupName
-		FROM AffInfo ai WITH (NOLOCK)
+		FROM dbo.AffInfo ai WITH (NOLOCK)
 			INNER JOIN (
-			SELECT AffId
-				,COUNT(UserName) MemTrans
-			FROM MemberDaily m WITH (NOLOCK)
-			WHERE m.WinlostDate >= @FromDate
-				AND m.WinlostDate <= @ToDate
-			GROUP BY AffId
-			HAVING COUNT(UserName) > 0
-			) AS mem ON ai.AffId = mem.AffId
-			INNER JOIN AffDetail AD(NOLOCK) ON AD.AffID = AI.AffID
-			INNER JOIN Exchange ex WITH (NOLOCK) ON ai.Currency = ex.ExchangeID
-			INNER JOIN AffType at WITH (NOLOCK) ON ai.AffType = at.TypeID
-			INNER JOIN LANGUAGE l WITH (NOLOCK) ON AD.PreferredLanguage = l.LanguageID
+				SELECT AffId
+					,COUNT(UserName) MemTrans
+				FROM dbo.MemberDaily m WITH (NOLOCK)
+				WHERE m.WinlostDate >= @FromDate
+					AND m.WinlostDate <= @ToDate
+				GROUP BY AffId
+				HAVING COUNT(UserName) > 0
+			) AS mem 
+				ON ai.AffId = mem.AffId
+			INNER JOIN dbo.AffDetail AD(NOLOCK) 
+				ON AD.AffID = AI.AffID
+			INNER JOIN dbo.Exchange ex WITH (NOLOCK) 
+				ON ai.Currency = ex.ExchangeID
+			INNER JOIN dbo.AffType at WITH (NOLOCK) 
+				ON ai.AffType = at.TypeID
+			INNER JOIN dbo.[LANGUAGE] l WITH (NOLOCK) 
+				ON AD.PreferredLanguage = l.LanguageID
 			INNER JOIN (
-			SELECT AffId
-				,ag.GroupId
-				,cg.GroupName
-				,ag.MonthDate
-			FROM AffGroupHistory ag WITH (NOLOCK)
-				INNER JOIN @CommGroupList c ON ag.GroupId = c.CommGroupID
-				INNER JOIN CommGroupHistory cg WITH (NOLOCK) ON ag.GroupID = cg.GroupID
-				AND ag.MonthDate = cg.MonthDate
-			WHERE ag.MonthDate BETWEEN @FromDate
+				SELECT AffId
+					,ag.GroupId
+					,cg.GroupName
+					,ag.MonthDate
+				FROM dbo.AffGroupHistory ag WITH (NOLOCK)
+					INNER JOIN @CommGroupList c 
+						ON ag.GroupId = c.CommGroupID
+					INNER JOIN dbo.CommGroupHistory cg WITH (NOLOCK) 
+						ON ag.GroupID = cg.GroupID
+						AND ag.MonthDate = cg.MonthDate
+				WHERE ag.MonthDate BETWEEN @FromDate
 					AND @toDate
-			) AS tmp ON ai.AffID = tmp.AffId
+			) AS tmp 
+				ON ai.AffID = tmp.AffId
 		WHERE ai.STATUS = 'Approved'
 			AND AI.UserName LIKE @AffName
 			AND (

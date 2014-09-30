@@ -1,9 +1,7 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_CalMonthlyEarningCurrent] 
-	@AffID INT
-	,@ProductID INT = 0
-	,@Amount MONEY OUTPUT
-	,@Commission DECIMAL = 0 OUTPUT
-	,@QualifiedMember INT = 0 OUTPUT
+	@AffID 				INT
+	,@ProductID 		INT = 0
+	,@Amount 			MONEY OUTPUT
 AS
 /*
 	Task : Calculate monthy earning for affiliate current month
@@ -32,167 +30,33 @@ AS
                    Affiliate Earning=(CNW - Bonus - Adjustement)* AComm                 
 	- 20101228@Henry: change bettype to new range
     - 20131018@Johnny: Ouput commission percent and qualified members                   
+	- 20140909@Bobby.Nguyen: Re-structure SP
 */
 BEGIN
 	SET NOCOUNT ON
+	
+	DECLARE @CommAmount		MONEY
+		,@MonthRpt			INT
+		,@YearRpt			INT
+	
+	SELECT @MonthRpt	= MONTH(CURRENT_TIMESTAMP)
+		, @YearRpt		= YEAR(CURRENT_TIMESTAMP)
 
-	DECLARE @FirstDay SMALLDATETIME
-		,@LastDay SMALLDATETIME
-		,@Today SMALLDATETIME
-		,@MinimumNegativeCommission FLOAT
-
-	SELECT @MinimumNegativeCommission = 0.1
-
-	SELECT @FirstDay = cast(cast(year(getdate()) AS VARCHAR(5)) + '-' + cast(Month(getdate()) AS VARCHAR(5)) + '-' + '1' AS SMALLDATETIME)
-
-	--Get last day of inputted month
-	SELECT @Today = convert(VARCHAR(12), current_timestamp)
-
-	SELECT @LastDay = @Today
-
-	DECLARE @AffSummary TABLE (
-		ProductID INT
-		,MemWinlost MONEY
-		,MemBonus MONEY
-		,MemPSP MONEY
-		,MemTurnover MONEY
-		,Commission DECIMAL(9, 8)
-		,TotalQM INT
-		,NetWinlost MONEY
-		,HasBonus BIT
-		,HasMarketing BIT
-		,HasPSP BIT
-		,HasOddsFee BIT
-		,BonusPercent FLOAT
-		,MarketingPercent FLOAT
-		,PSPPercent FLOAT
-		,OddsFeePercent FLOAT
-		)
-	DECLARE @GroupID INT
-
-	SELECT @GroupID = GroupID
-	FROM AffInfo(NOLOCK)
-	WHERE AffID = @AffID
-
-	INSERT INTO @AffSummary (
-		ProductID
-		,MemWinlost
-		,MemBonus
-		,MemPSP
-		,MemTurnover
-		,TotalQM
-		,HasBonus
-		,HasMarketing
-		,HasPSP
-		,HasOddsFee
-		,BonusPercent
-		,MarketingPercent
-		,PSPPercent
-		,OddsFeePercent
-		)
-	SELECT r.ProductID AS ProductID
-		,sum(isnull(r.Winlost, 0)) AS MemWinlost
-		,sum(isnull(r.Bonus, 0)) AS MemBonus
-		,sum(isnull(r.PSP, 0)) AS MemPSP
-		,sum(isnull(r.Turnover, 0)) AS MemTurnover
-		,sum(CASE 
-				WHEN r.TurnOver >= dbo.[Aff_GetQMTurnOver](@AffID, current_timestamp) THEN 1
-				ELSE 0
-				END) AS TotalQM
-		,dbo.Aff_HasDeduction(@GroupID, r.ProductID, 'Bonus', NULL) AS HasBonus
-		,dbo.Aff_HasDeduction(@GroupID, r.ProductID, 'Marketing', NULL) AS HasMarketing
-		,dbo.Aff_HasDeduction(@GroupID, r.ProductID, 'PSP', NULL) AS HasPSP
-		,dbo.Aff_HasDeduction(@GroupID, r.ProductID, 'Odds Fee', NULL) AS HasOddsFee
-		,dbo.Aff_GetDeductionPercent(@AffID, r.ProductID, 'Bonus', NULL) AS BonusPercent
-		,dbo.Aff_GetDeductionPercent(@AffID, r.ProductID, 'Marketing', NULL) AS MarketingPercent
-		,dbo.Aff_GetDeductionPercent(@AffID, r.ProductID, 'PSP', NULL) AS PercentPSP
-		,dbo.Aff_GetDeductionPercent(@AffID, r.ProductID, 'Odds Fee', NULL) AS OddsFeePercent
-	FROM (
-		SELECT md.username
-			,md.ProductID
-			,sum(isnull(md.Winlost, 0) * isnull(md.AffExRate, 1)) AS Winlost
-			,sum(isnull(md.Bonus, 0) * isnull(md.AffExRate, 1)) AS Bonus
-			,sum(isnull(PSP, 0) * isnull(AffExRate, 1)) AS PSP
-			,sum(isnull(Marketing, 0) * isnull(AffExRate, 1)) AS Marketing
-			,sum(isnull(TurnOver, 0) * isnull(AffExRate, 1)) AS TurnOver
-		FROM MemberDaily md(NOLOCK)
-		WHERE AffID = @AffID
-			AND WinlostDate BETWEEN @FirstDay AND @LastDay
-			AND (
-				@ProductID = 0
-				OR md.ProductID = @ProductID
-				)
-		GROUP BY md.username
-			,ProductID
-		) r
-	--left join Product s (nolock) on s.ProductID=r.ProductID 
-	GROUP BY r.ProductID
-
-	--Choose commission value and calculate Total Balance after deduction for each Affiliate and ProductID
-	UPDATE a
-	SET a.NetWinlost = (- isnull(a.MemWinlost, 0) - Cast(a.HasPSP AS INT) * isnull(a.MemPSP, 0) * isnull(a.PSPPercent, 1) - Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.OddsFeePercent, 1) - Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.MarketingPercent, 1))
-		,a.commission = isnull((
-				SELECT TOP (1) Commission
-				FROM (
-					SELECT isnull((
-								SELECT Commission
-								FROM GroupSetting(NOLOCK)
-								WHERE GroupID = @GroupID
-									AND ProductID = a.ProductID
-									AND floor(abs(- isnull(a.MemWinlost, 0) - Cast(a.HasPSP AS INT) * isnull(a.MemPSP, 0) * isnull(a.PSPPercent, 1) - Cast(a.HasOddsFee AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.OddsFeePercent, 1) - Cast(a.HasMarketing AS INT) * abs(isnull(a.MemWinlost, 0)) * isnull(a.MarketingPercent, 1))) BETWEEN MinAmount AND MaxAmount
-								), 0) AS Commission
-					
-					UNION ALL
-					SELECT isnull((
-								SELECT TOP (1) Commission
-								FROM GroupSetting(NOLOCK)
-								WHERE GroupID = @GroupID
-									AND ProductID = a.ProductID
-									AND a.TotalQM BETWEEN MinQM AND MaxQM
-								), 0) AS Commission
-					) t
-				ORDER BY t.Commission ASC
-				), 0)
-	FROM @AffSummary a
-
-	IF @GroupID NOT IN (
-			SELECT groupId
-			FROM CommGroup WITH (NOLOCK)
-			WHERE GroupName = 'NoCommission'
-			)
-	BEGIN
-		UPDATE a
-		SET a.Commission = @MinimumNegativeCommission
-		FROM @AffSummary a
-		WHERE a.NetWinlost < 0
-			AND a.Commission = 0
-			AND a.ProductID IN (
-				SELECT DISTINCT ProductID
-				FROM GroupSetting(NOLOCK)
-				WHERE GroupID = @GroupID
-				)
-	END
-
-	SELECT @Amount = sum((a.NetWinlost - Cast(a.HasBonus AS INT) * isnull(a.MemBonus, 0) * isnull(a.BonusPercent, 1)) * isnull(a.Commission, 0))
-	FROM @AffSummary a
-
-	IF (@ProductID <> 0)
-	BEGIN
-		SELECT @Commission = Commission
-			,@QualifiedMember = TotalQM
-		FROM @AffSummary
-		WHERE ProductID = @ProductID
-	END
+	EXEC [dbo].[Aff_CalMonthlyEarning]
+		@AffID			= @AffID
+		,@Month			= @MonthRpt
+		,@Year			= @YearRpt
+		,@ProductID 	= @ProductID
+		,@Amount  		= @CommAmount OUTPUT
+	
+	SET @Amount = ISNULL(@CommAmount, 0);
+	RETURN;
 END
 GO
 
 GRANT EXECUTE ON [dbo].[AffAdmin_CalMonthlyEarningCurrent] TO [bodbAdminNet]
 GO
 
-GRANT EXECUTE ON [dbo].[AffAdmin_CalMonthlyEarningCurrent] TO [bodbDownlineNet]
-GO
-
-GRANT EXECUTE ON [dbo].[AffAdmin_CalMonthlyEarningCurrent] TO [bodbDownlineNetView]
-GO
-
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CalMonthlyEarningCurrent] TO [vnteam]
+GO
+

@@ -80,7 +80,7 @@ BEGIN
 		,[Table].[Column].value('./@progressivewin', 'money') AS [PWin]
 	FROM @XmlData.nodes('/root/trans') AS [Table]([Column]);
 
-	DELETE MemberDaily
+	DELETE MemberDaily WITH(ROWLOCK)
 	WHERE WinlostDate = @WinlostDate
 
 	INSERT INTO MemberDaily (

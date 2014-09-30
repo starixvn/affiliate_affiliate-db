@@ -1,6 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupSelListNormal] 
-	@UserID INT = NULL
-	,@Currency VARCHAR(255) = NULL
+	@UserID 	INT 			= NULL
+	,@Currency 	VARCHAR(255) 	= NULL
 AS
 /*
 Created: 20130903@Joseph
@@ -14,6 +14,7 @@ Params Explaination:
 Revisions:	
 	- 20130903@Joseph: Get NoCommission group (for all currency)
 	- 20140704@Bobby: Include commgroup from CommGroupHistory
+	- 20140818@Bobby: Standalize SP coding
 */
 BEGIN
 	SET NOCOUNT ON
@@ -40,15 +41,15 @@ BEGIN
 	-- fecth commgroup info
 	SELECT GroupId
 		,GroupName
-	FROM CommGroup WITH (NOLOCK)
+	FROM dbo.CommGroup WITH (NOLOCK)
 	WHERE GroupName = 'NoCommission'
 	
 	UNION
 	SELECT cg.GroupId
 		,cg.GroupName
-	FROM CommGroup cg WITH (NOLOCK)
+	FROM dbo.CommGroup cg WITH (NOLOCK)
 		INNER JOIN @TblCurrency tmp ON cg.Currency = tmp.CurrencyID
-		LEFT JOIN CommGroupHistory ch WITH (NOLOCK) ON cg.GroupID = ch.GroupID
+		LEFT JOIN dbo.CommGroupHistory ch WITH (NOLOCK) ON cg.GroupID = ch.GroupID
 	WHERE cg.IsDeleted = 0
 		OR (
 			cg.IsDeleted = 1

@@ -17,7 +17,7 @@ Original: Aff site
 Revisions:	
 	
 Param's Explanation:
-	@username: username want to get all info related
+	@username: username want to get all related info 
 */	
 BEGIN
 

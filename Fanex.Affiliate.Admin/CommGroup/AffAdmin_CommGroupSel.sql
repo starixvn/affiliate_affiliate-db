@@ -1,16 +1,14 @@
-﻿ALTER Procedure [dbo].[AffAdmin_CommGroupSel]
-	@GroupName nvarchar(100) = '',
-	@Currencies varchar(1000)='',
-	@Date datetime,	
-	@UserId int,
-	@GroupID int = 0,
-	@GroupIDList varchar(1000) = '' OUTPUT,	
-	@PageSize int=50,
-	@PageIndex int=1 OUTPUT,
-	@TotalPages int=0 OUTPUT,
-	@NRows int=0 OUTPUT
+﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupSel] 
+	@GroupName		NVARCHAR(100)	= ''
+	,@Currencies	VARCHAR(1000)	= ''
+	,@Date			DATETIME
+	,@UserId		INT
+	,@GroupID		INT				= 0
+	,@PageSize		INT				= 50
+	,@PageIndex		INT				= 1
+	,@GroupIDList	VARCHAR(1000)	= ''	OUTPUT
+	,@NRows			INT				= 0		OUTPUT
 AS
-
 /*
 Created: 20090719@DungTong
 Task : Search a Commission Group (paging)
@@ -18,117 +16,211 @@ DB: DB052.Affiliate_MYM
 Original:
 
 Revisions:
-	- 20130913@Joseph: new version
-	- 20131121@Joseph: filter by TestLevel
+    - 20130913@Joseph: new version
+    - 20131121@Joseph: filter by TestLevel
+	- 20140820@Bobby: Add Deposit & Withdrawal percent - apply SQL stylescope
+
+Params Explaination:
 */
-SET NOCOUNT ON
+BEGIN
+	SET NOCOUNT ON
 
--- Test Account
-DECLARE @IsITAdmin BIT
-SELECT @IsITAdmin = CASE GroupID WHEN 2 THEN 1 ELSE 0 END FROM AdminUser WHERE custid = @UserId
-
-SELECT AttributeID as CurrencyID INTO #tmpCurrency
-FROM dbo.Aff_f_GetCurrencybyUser (@UserId,1)
--- Insert statements for procedure here  
- declare @TblCurrency table (val nvarchar( 6) )
-if @Currencies != 'All'
-begin
+	-- Test Account
+	DECLARE @IsITAdmin 		BIT
+		,@RowStart 			INT
+		,@RowEnd 			INT
+		,@AffiliateID 		INT
+		,@CurrentDate		SMALLDATETIME
+		,@HasCashback		TINYINT
 	
-	insert into @TblCurrency 
-	select c.val from [dbo].[strSplit] ( @Currencies, ',' ) c
-	inner join #tmpCurrency t on c.val = t.CurrencyID
-	-- NoCommission group
-	if (select count(1) from @TblCurrency) > 0
-		insert into @TblCurrency values(0)
+	SET @CurrentDate 		= CAST(GETDATE() AS DATE)
 	
-end
-
-select @GroupName = '%' + Coalesce(@GroupName,'') + '%'
----CommGroup Detail va SportName se duoc cache tren web server dung co che notification
-DECLARE @RowStart int, @RowEnd int,@AffiliateID int
-
-if DateDiff(m,CURRENT_TIMESTAMP,@Date) >= 0
-	select @Nrows=count(1)
-	from CommGroup with (nolock)
-	where GroupName like @GroupName and IsDeleted = 0 
-	and (@Currencies = 'All' or (@Currencies is not null and Currency in (select val from @TblCurrency)))
-else
-	select @Nrows=count(1)
-	from CommGroupHistory with (nolock)
-	where GroupName like @GroupName and IsDeleted = 0 and (@Currencies = 'All' or (@Currencies is not null and Currency in (select val from @TblCurrency)))
-	and DateDiff(m,@Date,MonthDate) = 0
--- if(isnull(@NRows,0)=0 or (@NRows>@PageSize and @PageSize>5000) or @PageIndex<0 or @PageSize<0)
- --  return	
-
-SELECT @TotalPages=@NRows/@PageSize + case when @NRows%@PageSize>0 then 1 else 0 end
-
-if(@PageIndex>@TotalPages)
-  select @PageIndex=@TotalPages
-select @PageIndex = @PageIndex - 1, @RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1          
-
-declare @Group table(GroupID int primary key,GroupName nvarchar(100),
-						Description nvarchar(100),Creator int,CreatedDate datetime,
-						CurrencyID smallint,Currency varchar(5),QualifiedAmount money,NoAff int)
-
-if DateDiff(m,CURRENT_TIMESTAMP,@Date) >= 0 -- current month
-Begin
-	insert into @Group(GroupID,GroupName,Description,Creator,CreatedDate,CurrencyID,Currency,QualifiedAmount)
-	select GroupID,GroupName,Description,Creator,CreatedDate,CurrencyID,Currency,QualifiedAmount
-	from (
-			SELECT GroupID,GroupName,Description,CommGroup.Creator,CommGroup.CreatedDate,e.CurrencyID,e.CurrencyCode as Currency,QualifiedAmount		  
-				,ROW_NUMBER() OVER(ORDER BY GroupID) AS TheCount
-			from CommGroup with (nolock)
-			inner join dbo.Currency e on CommGroup.Currency = e.CurrencyID
-			where 			   
-			GroupName like @GroupName and IsDeleted = 0 
-			and (@Currencies = 'All' or (@Currencies is not null and CommGroup.Currency in (select val from @TblCurrency)))
-		) x
-	where x.TheCount between @RowStart and @RowEnd 
+	DECLARE @TblCurrency 	TABLE (val NVARCHAR(6))
+	DECLARE @CommTmp		TABLE (GroupID INT, Currency INT, MonthDate SMALLDATETIME, RowIDX INT IDENTITY(1,1))
 	
-	Update t
-	set t.NoAff=(select sum(1) from AffInfo i with (nolock) 
-	where i.GroupID=t.GroupID 
-			and (@IsITAdmin = 1 or i.TestLevel in (0,1)))
-	from @Group t
-End
-else -- history
-Begin
-insert into @Group(GroupID,GroupName,Description,Creator,CreatedDate,CurrencyID,Currency,QualifiedAmount)
-    select GroupID,GroupName,Description,Creator,CreatedDate,CurrencyID,Currency,QualifiedAmount
-	 from (
-			 SELECT GroupID,GroupName,Description,CommGroup.Creator,CommGroup.CreatedDate,e.CurrencyID,e.CurrencyCode as Currency,QualifiedAmount		  
-				  ,ROW_NUMBER() OVER(ORDER BY GroupID) AS TheCount
-			  from CommGroupHistory as CommGroup with (nolock)			       
-			  inner join dbo.Currency e on CommGroup.Currency = e.CurrencyID
-			   where GroupName like @GroupName and IsDeleted = 0 
-			   and ( @Currencies = 'All' or (@Currencies is not null and CommGroup.Currency in (select val from @TblCurrency)))
-			  and DateDiff(m,@Date,MonthDate) = 0
-         ) x
-     where x.TheCount between @RowStart and @RowEnd   
-	
-	Update t
-	set t.NoAff=(
-				select count(*) 
-				from AffInfo ai WITH (NOLOCK)
-					INNER JOIN	AffGroupHistory i with (nolock) on i.AffID = ai.AffID
-				where i.GroupID=t.GroupID 
-						and (@IsITAdmin = 1 or ai.TestLevel in (0,1))
-						and datediff(m, MonthDate, @Date) = 0
+	SELECT @IsITAdmin 	= CASE ad.GroupID
+			WHEN 2 THEN 1
+			ELSE 0
+			END
+	FROM dbo.AdminUser ad WITH(NOLOCK)
+	WHERE ad.custid = @UserId
+
+	SELECT AttributeID AS CurrencyID
+	INTO #tmpCurrency
+	FROM dbo.Aff_f_GetCurrencybyUser(@UserId, 1)
+
+	-- Insert statements for procedure here  
+	IF @Currencies != 'All'
+	BEGIN
+		INSERT INTO @TblCurrency
+		SELECT c.val
+		FROM [dbo].[strSplit](@Currencies, ',') c
+			INNER JOIN #tmpCurrency t ON c.val = t.CurrencyID
+
+		-- NoCommission group
+		IF (
+				SELECT count(1)
+				FROM @TblCurrency
+				) > 0
+			INSERT INTO @TblCurrency
+			VALUES (0)
+	END
+
+	SELECT @GroupName = '%' + COALESCE(@GroupName, '') + '%'
+
+	---CommGroup Detail va SportName se duoc cache tren web server dung co che notification
+	INSERT INTO @CommTmp(GroupID, Currency, MonthDate)
+	SELECT GroupID
+		, Currency
+		, MonthDate
+	FROM (
+		SELECT cg.GroupID
+			, cg.Currency
+			, @CurrentDate AS MonthDate
+		FROM dbo.CommGroup cg WITH (NOLOCK)
+			WHERE cg.GroupName LIKE @GroupName
+				AND IsDeleted = 0
+				AND (
+					@Currencies = 'All'
+					OR (
+						@Currencies IS NOT NULL
+						AND Currency IN (
+							SELECT val
+							FROM @TblCurrency
+							)
+						)
+					)
+				AND DATEDIFF(m, @CurrentDate, @Date) = 0
+		
+		UNION 
+		SELECT cg.GroupID
+			, cg.Currency
+			, cg.MonthDate
+		FROM dbo.CommGroupHistory cg WITH (NOLOCK)
+		WHERE GroupName LIKE @GroupName
+			AND IsDeleted = 0
+			AND (
+				@Currencies = 'All'
+				OR (
+					@Currencies IS NOT NULL
+					AND cg.Currency IN (
+						SELECT val
+						FROM @TblCurrency
+						)
+					)
 				)
-	from @Group t
-End
- 
-select @GroupIDList = ''
-
-select @GroupIDList = @GroupIDList + ',' + CONVERT(varchar, GroupID) from @Group	
- 
-select g.GroupID,g.GroupName,g.Description,isnull(i.username,'System') as Creator,g.CreatedDate,isnull(g.NoAff,0) as NoOfAffiliate,
-		g.CurrencyID,g.Currency,g.QualifiedAmount		
-from @Group g 
-      left join AdminUser i with (nolock) on i.custid=g.Creator
-
-
+			AND DATEDIFF(m, @Date, cg.MonthDate) = 0
+	) tmp
+	GROUP BY GroupID, Currency, MonthDate
+	ORDER BY GroupID
+	
+	SELECT @NRows = COUNT(1) 
+	FROM @CommTmp
+	
+	SELECT @GroupIDList = ISNULL(@GroupIDList, '') + ',' + CAST(tmp.GroupID AS VARCHAR(10))
+	FROM @CommTmp tmp
+	WHERE tmp.RowIDX BETWEEN ((@PageIndex - 1) * @PageSize) + 1 AND @PageSize * (@PageIndex)
+	
+	--check has cashback
+	SELECT @HasCashback = MAX(ct.HasCashback)
+	FROM (
+		SELECT TOP 1 
+			CASE 
+				WHEN DATEDIFF(M, ISNULL(d.RemovedDate, GETDATE()), @Date) <= 0 THEN 1 
+				ELSE 0 
+			END AS HasCashback  
+		FROM [dbo].[DeductionType] d WITH(NOLOCK) 
+		WHERE [ProductID] = 0  AND [DTypeName] = 'Cashback' 
+		
+		UNION 
+		SELECT HasCashback
+		FROM (SELECT 0 AS HasCashback) t
+	) ct
+			
+	;WITH CommPaging AS (
+		SELECT tmp.GroupID
+			,tmp.MonthDate
+			,ISNULL(cg.GroupName, ch.GroupName) 				AS GroupName
+			,ISNULL(cg.[Description], ch.[Description]) 		AS [Description]
+			,ISNULL(cg.Creator, ch.Creator) 					AS Creator
+			,ISNULL(cg.CreatedDate, ch.CreatedDate) 			AS CreatedDate
+			,ISNULL(cg.Currency, ch.Currency) 					AS CurrencyID
+			,ISNULL(cg.QualifiedAmount, ch.QualifiedAmount)    	AS QualifiedAmount
+			,ISNULL(ex.Code, ed.Code) 							AS Currency
+			,CASE 
+					WHEN DATEDIFF(M, @Date, @CurrentDate) = 0 THEN ISNULL(cg.DepositPercent, ex.DepositPercent) 
+					ELSE ISNULL(ch.DepositPercent, ed.DepositPercent) 
+				END 											AS DepositPercent
+			,CASE 
+					WHEN DATEDIFF(M, @Date, @CurrentDate) = 0 THEN ISNULL(cg.WithdrawalPercent, ex.WithdrawalPercent) 
+					ELSE ISNULL(ch.WithdrawalPercent, ed.WithdrawalPercent) 
+				END 											AS WithdrawalPercent
+			,tmp.RowIDX
+		FROM @CommTmp tmp
+			LEFT JOIN dbo.CommGroup cg WITH(NOLOCK)
+			ON tmp.GroupId = cg.GroupId 
+				AND tmp.MonthDate = @CurrentDate
+			LEFT JOIN dbo.CommGroupHistory ch WITH(NOLOCK)
+			ON tmp.GroupId = ch.GroupId 
+				AND tmp.MonthDate = ch.MonthDate
+			LEFT JOIN dbo.Exchange ex WITH(NOLOCK)
+			ON cg.Currency = ex.ExchangeID
+			LEFT JOIN dbo.ExchangeDaily ed WITH(NOLOCK)
+			ON ch.Currency = ed.ExchangeID 
+				AND ch.MonthDate = ed.[Date]
+		WHERE tmp.RowIDX BETWEEN ((@PageIndex - 1) * @PageSize) + 1 AND @PageSize * (@PageIndex)
+	)
+	-- final result
+	SELECT g.GroupID
+		,g.MonthDate
+		,g.GroupName
+		,g.Description
+		,ISNULL(au.username, 'System') AS Creator
+		,g.CreatedDate
+		,g.CurrencyID
+		,g.Currency
+		,g.QualifiedAmount
+		,g.DepositPercent
+		,g.WithdrawalPercent
+		,ai.NoOfAffiliate
+		,@HasCashback AS HasCashback
+	FROM CommPaging g
+		LEFT JOIN dbo.AdminUser au WITH (NOLOCK) 
+		ON au.custid = g.Creator
+		CROSS APPLY (
+				SELECT COUNT(1) AS NoOfAffiliate
+				FROM dbo.AffInfo ai WITH (NOLOCK)
+				WHERE ai.GroupID = g.GroupID
+					AND (
+						@IsITAdmin = 1
+						OR ai.TestLevel IN (0, 1)
+						)
+			) AS ai
+	ORDER BY g.RowIDX ASC
+	
+	SELECT @GroupIDList = SUBSTRING(@GroupIDList, 2, LEN(@GroupIDList) - 1)
+	DROP TABLE #tmpCurrency
+	
+	RETURN;
+END
 GO
+
 GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupSel] TO [bodbAdminNet]
 GO
+
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupSel] TO [vnteam]
+GO
+
+/*
+declare @p7 varchar(1000)
+declare @p10 int
+EXEC AffAdmin_CommGroupSel @GroupName = N''
+	,@Currencies = '5,22,34,47,52,56,64,91,98,102,108,109,113,9999'
+	,@Date = '2014-09-01 00:00:00'
+	,@UserId = 33
+	,@GroupID = NULL
+	,@GroupIDList = @p7 OUTPUT
+	,@NRows = @p10 OUTPUT
+select @p7, @p10
+go
+*/

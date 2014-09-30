@@ -1,20 +1,20 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_StatisticsSel] 
-	@AffID INT
-	,@MonthDate SMALLDATETIME
-	,@TotalActivePlayer INT OUTPUT
-	,@TotalPlayerDepUp INT OUTPUT
-	,@NewSignUpDep INT OUTPUT
-	,@NewSignUp INT OUTPUT
-	,@TotalPlayer INT OUTPUT
-	,@BalBroughtforward MONEY = 0 OUTPUT
-	,@TotalDeposit MONEY OUTPUT
-	,@TotalDepositUp MONEY OUTPUT
-	,@TotalTurnover MONEY OUTPUT
-	,@TotalTurnoverUp MONEY OUTPUT
-	,@TotalWinlostUp MONEY OUTPUT
-	,@TotalWinlost MONEY OUTPUT
-	,@TotalUniqueClicks INT = 0 OUTPUT
-	,@TotalClicks INT = 0 OUTPUT
+	@AffID 				INT
+	,@MonthDate 		SMALLDATETIME
+	,@TotalActivePlayer	INT 				OUTPUT
+	,@TotalPlayerDepUp 	INT 				OUTPUT
+	,@NewSignUpDep 		INT 				OUTPUT
+	,@NewSignUp 		INT 				OUTPUT
+	,@TotalPlayer 		INT 				OUTPUT
+	,@BalBroughtforward MONEY			= 0 OUTPUT
+	,@TotalDeposit 		MONEY 				OUTPUT
+	,@TotalDepositUp 	MONEY 				OUTPUT
+	,@TotalTurnover 	MONEY 				OUTPUT
+	,@TotalTurnoverUp 	MONEY 				OUTPUT
+	,@TotalWinlostUp 	MONEY 				OUTPUT
+	,@TotalWinlost 		MONEY 				OUTPUT
+	,@TotalUniqueClicks INT 			= 0 OUTPUT
+	,@TotalClicks 		INT 			= 0 OUTPUT
 AS
 /*Created: 20090325@VinhTrinh  
 Task : Get statistics for affiliate  
@@ -25,6 +25,7 @@ Revisions:
 	- 20090827@DungTong: Convert to new DB version  
 	- 20100511@Johnny: correct output params "@TotalPlayerDepUp" and "@NewSignUpDep"  
 	- 20140520@Bobby: add filtering product by commgroup
+	- 20140819@Bobby: Apply SQL style scope
 
 Param's Explanation:  
 	• @AffID : Affiliate custid  
@@ -42,7 +43,7 @@ BEGIN
 	DECLARE @ProductFilter AS TABLE (ProductId INT)
 	INSERT INTO @ProductFilter
 	SELECT p.ProductID
-	FROM Product p WITH (NOLOCK)
+	FROM dbo.Product p WITH (NOLOCK)
 	WHERE [dbo].[Aff_IsProductInGroupOfAff](@AffID, p.ProductID, @MonthDate) > 0
 
 	SELECT @NewSignUp = sum(CASE 
@@ -63,7 +64,7 @@ BEGIN
 				WHEN IsRemoved = 0 THEN 1
 				ELSE 0
 				END)
-	FROM MemberInfo WITH (NOLOCK)
+	FROM dbo.MemberInfo WITH (NOLOCK)
 	WHERE AffID = @AffID
 		AND username NOT IN (
 			SELECT username
@@ -94,7 +95,7 @@ BEGIN
 		MemberWinlost_aff AS MemberWinlost
 		,--Winlost has been change to AffExRate  
 		WinlostDate
-	FROM AffCommission a WITH (NOLOCK)
+	FROM dbo.AffCommission a WITH (NOLOCK)
 		INNER JOIN @ProductFilter p
 		ON a.ProductId = p.ProductId
 	WHERE AffId = @AffId
@@ -105,13 +106,13 @@ BEGIN
 		,@QMTurnover MONEY
 
 	SELECT @QMTurnover = dbo.[Aff_GetQMTurnOver](@AffID, @MonthDate)
-		,@CurrentDate = current_timestamp
+		,@CurrentDate = CURRENT_TIMESTAMP
 
-	SELECT @MaxTransDate = max(MonthDate)
+	SELECT @MaxTransDate = MAX(MonthDate)
 	FROM #TblStatistics WITH (NOLOCK)
 
 	IF @MaxTransDate IS NOT NULL
-		SELECT @FromDate = dateadd(d, 1, @MaxTransDate)
+		SELECT @FromDate = DATEADD(d, 1, @MaxTransDate)
 	ELSE
 		SELECT @FromDate = MIN(WinlostDate)
 		FROM AffDailySummary(NOLOCK)
@@ -121,12 +122,12 @@ BEGIN
 		,b.ProductID
 		,0 AS QualifiedMember
 		,0 AS ActivePlayer
-		,sum(isnull(TurnOver, 0) * isnull(AffExRate, 1)) AS Turnover
-		,sum(isnull(Deposit, 0) * isnull(AffExRate, 1)) AS Deposit
-		,sum(isnull(Winlost, 0) * isnull(AffExRate, 1)) AS Winlost
-		,dateadd(mm, DATEDIFF(m, 0, b.WinlostDate), 0)
-	FROM MemberDaily b WITH (NOLOCK)
-		INNER JOIN MemberInfo ci WITH (NOLOCK)
+		,SUM(ISNULL(TurnOver, 0) * ISNULL(AffExRate, 1)) AS Turnover
+		,SUM(ISNULL(Deposit, 0) * ISNULL(AffExRate, 1)) AS Deposit
+		,SUM(ISNULL(Winlost, 0) * ISNULL(AffExRate, 1)) AS Winlost
+		,DATEADD(mm, DATEDIFF(m, 0, b.WinlostDate), 0)
+	FROM dbo.MemberDaily b WITH (NOLOCK)
+		INNER JOIN dbo.MemberInfo ci WITH (NOLOCK)
 		ON ci.username = b.username
 		INNER JOIN @ProductFilter p
 		ON b.ProductId = p.ProductId
@@ -135,7 +136,7 @@ BEGIN
 		and [dbo].[Aff_IsProductInGroupOfAff](@AffID, b.ProductID ,@MonthDate) >0    
 	GROUP BY ci.username
 		,b.ProductID
-		,dateadd(mm, DATEDIFF(m, 0, b.winlostdate), 0)
+		,DATEADD(mm, DATEDIFF(m, 0, b.winlostdate), 0)
 
 	UPDATE #TblStatistics
 	SET QualifiedMember = (CASE 
@@ -159,7 +160,7 @@ BEGIN
 				WHEN DATEDIFF(m, a.MonthDate, @MonthDate) = 0 THEN a.Deposit
 				ELSE 0
 				END)
-	--,@TotalActivePlayer=sum(case when DATEDIFF(m, a.MonthDate, @MonthDate) = 0  then isnull(a.ActivePlayer,0) else 0 end)   
+	--,@TotalActivePlayer=sum(case when DATEDIFF(m, a.MonthDate, @MonthDate) = 0  then ISNULL(a.ActivePlayer,0) else 0 end)   
 	FROM #TblStatistics a WITH (NOLOCK)
 
 	DECLARE @DateTemp DATETIME
@@ -169,7 +170,7 @@ BEGIN
 	IF (
 			EXISTS (
 				SELECT TOP (1) 1
-				FROM AffCommission(NOLOCK)
+				FROM dbo.AffCommission(NOLOCK)
 				WHERE winlostdate = @DateTemp
 				)
 			)
@@ -197,14 +198,14 @@ BEGIN
 	FROM (
 		SELECT sum(TotalClick) AS TotalClick
 			,Sum(UniqueClick) AS UniqueClick
-		FROM ClickStatisticsSum(NOLOCK)
+		FROM dbo.ClickStatisticsSum(NOLOCK)
 		WHERE AffID = @AffID
 			AND datediff(mm, @MonthDate, [date]) = 0
 		
 		UNION ALL
 		SELECT sum(ClickCount) AS TotalClick
 			,count(DISTINCT s.IP) AS UniqueClick
-		FROM ClickStatistics s(NOLOCK)
+		FROM dbo.ClickStatistics s(NOLOCK)
 		WHERE datediff(mm, @MonthDate, s.DATE) = 0
 			AND s.AffID = @AffID
 		GROUP BY dbo.Date_Only(DATE)
@@ -213,14 +214,14 @@ BEGIN
 			,LanguageCode
 		) t
 
-	SELECT @BalBroughtforward = isnull(dbo.Aff_GetAffBalance(@AffID), 0)
+	SELECT @BalBroughtforward = ISNULL(dbo.Aff_GetAffBalance(@AffID), 0)
 
 	IF (DATEDIFF(m, current_timestamp, @MonthDate) > 0)
 	BEGIN
 		SELECT p.ProductID
 			,p.ProductName
 			,0 AS TotalQualifiedMembers
-		FROM Product p WITH (NOLOCK)
+		FROM dbo.Product p WITH (NOLOCK)
 			INNER JOIN @ProductFilter f
 			ON p.ProductId = f.ProductId
 		ORDER BY p.ProductID
@@ -229,8 +230,8 @@ BEGIN
 	BEGIN
 		SELECT p.ProductID
 			,p.ProductName
-			,isnull(t.TotalQualifiedMembers, 0) AS TotalQualifiedMembers
-		FROM Product p WITH (NOLOCK)
+			,ISNULL(t.TotalQualifiedMembers, 0) AS TotalQualifiedMembers
+		FROM dbo.Product p WITH (NOLOCK)
 			LEFT JOIN (
 			SELECT a.ProductID
 				,sum(a.QualifiedMember) AS TotalQualifiedMembers
@@ -248,16 +249,16 @@ BEGIN
 	IF (DATEDIFF(m, current_timestamp, @MonthDate) >= 0)
 	BEGIN
 		SELECT a.GroupId, g.GroupName AS CommGroupName
-		FROM AffInfo a (NOLOCK)
-			INNER JOIN CommGroup g (nolock)
+		FROM dbo.AffInfo a (NOLOCK)
+			INNER JOIN dbo.CommGroup g (nolock)
 			ON a.GroupId = g.GroupId
 		WHERE AffId = @AffID
 	END
 	ELSE
 	BEGIN
 		SELECT ag.GroupId, sg.GroupName AS CommGroupName
-		FROM AffGroupHistory ag (NOLOCK)
-			INNER JOIN CommGroupHistory sg (NOLOCK)
+		FROM dbo.AffGroupHistory ag (NOLOCK)
+			INNER JOIN dbo.CommGroupHistory sg (NOLOCK)
 			ON ag.GroupId = sg.GroupId 
 			AND DATEDIFF(m, ag.MonthDate, sg.MonthDate) = 0
 		WHERE ag.AffId = @AffId 

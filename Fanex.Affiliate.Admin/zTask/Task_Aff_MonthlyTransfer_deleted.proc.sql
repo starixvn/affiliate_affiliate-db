@@ -1,4 +1,11 @@
-﻿ALTER PROCEDURE [dbo].[Task_Aff_MonthlyTransfer] 
+﻿USE [Affiliate_Athena000]
+GO
+/****** Object:  StoredProcedure [dbo].[Task_Aff_MonthlyTransfer]    Script Date: 8/21/2014 4:46:39 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[Task_Aff_MonthlyTransfer] 
 	@UserId INT
 	,@Month INT
 	,@Year INT
@@ -766,9 +773,3 @@ end*/
 
 	DROP TABLE #MemberSummary
 END
-GO
-
-GRANT EXECUTE ON [dbo].[Task_Aff_MonthlyTransfer] TO [bodbAdminNet]
-GO
-
-GRANT VIEW DEFINITION ON [dbo].[Task_Aff_MonthlyTransfer] TO [vnteam]

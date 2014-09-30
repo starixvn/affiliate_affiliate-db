@@ -7,7 +7,8 @@ Task : #1052 -  Create a daily checksum data service
 DB: DBAFF.Affiliate_Licensee
 Original : [Task_CheckSum_WinlostByProduct]
 Revisions:  
-
+	-20140820@Bobby: Add checking enable Product
+	
 Param's Explanation:  
 	
 */
@@ -22,7 +23,7 @@ BEGIN
 	EXEC [dbo].[Aff_GetMembers] @Date = @Date
 
 	SELECT Winlostdate
-		,ProductID
+		,md.ProductID
 		,SUM(ISNULL(Deposit, 0)) Deposit
 		,SUM(ISNULL(Withdrawal, 0)) AS Withdrawal
 		,SUM(ISNULL(Bonus, 0)) AS Bonus
@@ -36,10 +37,15 @@ BEGIN
 		,SUM(ISNULL(BetCountNoDraw, 0)) AS BetCountNoDraw
 	INTO #rptData
 	FROM dbo.MemberDaily md WITH(NOLOCK)
-		INNER JOIN @tblMember m ON md.UserName = m.UserName
+		INNER JOIN @tblMember m 
+		ON md.UserName = m.UserName
+		INNER JOIN dbo.Product p WITH(NOLOCK)
+		ON md.ProductID = p.ProductID
 	WHERE Winlostdate = @Date
+		AND p.IsEnabled = 1
+		AND p.EffectiveDate <= @Date
 	GROUP BY Winlostdate
-		,ProductID
+		,md.ProductID
 
 	--product detail
 	SELECT Winlostdate
@@ -79,10 +85,27 @@ BEGIN
 	SELECT p.API_ProductID AS ProductID
 		, p.ProductName
 	FROM dbo.Product p WITH(NOLOCK)
+	WHERE p.IsEnabled = 1
+		AND p.EffectiveDate <= @Date
 
 	DROP TABLE #rptData
 END
 GO
 GRANT EXECUTE ON [dbo].[Task_CheckSum_WinlostByProduct] TO [bodbAdminNet] AS [dbo]
---exec [dbo].[Task_CheckSum_WinlostByProduct]
---	@Date = '2014-04-23 00:00:00'
+
+GO
+
+--USE Affiliate_Athena000
+--GO
+
+--EXEC [dbo].[Task_CheckSum_WinlostByProduct] @Date = '2014-04-23 00:00:00'
+
+--USE bodb02
+--GO
+
+--EXEC [dbo].[Aff_CheckSum_WinlostByProduct] @Xml = '<root>
+--		<trans username="LBUUSMem001"></trans>
+--	</root>'
+--	,@Prefix = 'LiveBet365$'
+--	,@Date = '2014-05-19 00:00:00'
+--	,@ProductIDs = '0'
