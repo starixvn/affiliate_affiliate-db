@@ -178,7 +178,7 @@ BEGIN
 		,ISNULL(au.username, 'System') AS Creator
 		,g.CreatedDate
 		,g.CurrencyID
-		,g.Currency
+		,ISNULL(g.Currency, 'All') AS Currency
 		,g.QualifiedAmount
 		,g.DepositPercent
 		,g.WithdrawalPercent

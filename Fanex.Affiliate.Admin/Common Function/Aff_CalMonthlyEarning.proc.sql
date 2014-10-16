@@ -165,6 +165,7 @@ BEGIN
 	--Choose commission value and calculate Total Balance after deduction for each Affiliate and ProductID
 	;WITH AffNetWinlostTmp AS (	
 		SELECT a.ProductID
+			,a.TotalQM
 			,(- ISNULL(a.MemWinlost, 0) 
 							- CAST(a.HasPSP AS INT) * ISNULL(a.MemPSP, 0) * ISNULL(a.PSPPercent, 1) 
 							- CAST(a.HasOddsFee AS INT) * ABS(ISNULL(a.MemWinlost, 0)) * ISNULL(a.OddsFeePercent, 1) 
@@ -174,55 +175,45 @@ BEGIN
 		FROM @AffSummary a
 	)
 	,ProductComm AS (
-		SELECT a.ProductID
-			,ISNULL((
-				SELECT TOP (1) Commission
+		SELECT wl.ProductID
+			,comm.Commission AS CommPercent
+		FROM AffNetWinlostTmp wl
+			CROSS APPLY ( 
+				SELECT TOP(1) ISNULL(t.Commission, 0) AS Commission
 				FROM (
-					SELECT ISNULL((
-								SELECT ISNULL(gs.Commission, 0) AS Commission
-								FROM dbo.GroupSetting gs WITH(NOLOCK)
-								WHERE gs.GroupID = @GroupID
-									AND gs.ProductID = a.ProductID
-									AND FLOOR(ABS(wl.AffNetWinlost)) BETWEEN gs.MinAmount AND gs.MaxAmount
-								), 0) AS Commission
-						WHERE DATEDIFF(m, @LastDay, @CurrentDate) = 0
+					SELECT gs.Commission
+					FROM dbo.GroupSetting gs WITH(NOLOCK)
+					WHERE gs.GroupID = @GroupID
+						AND gs.ProductID = wl.ProductID
+						AND FLOOR(ABS(wl.AffNetWinlost)) BETWEEN gs.MinAmount AND gs.MaxAmount
+						AND DATEDIFF(m, @LastDay, @CurrentDate) = 0
 					
 					UNION ALL
-					SELECT ISNULL((
-								SELECT TOP (1) ISNULL(gs.Commission, 0) AS Commission
-								FROM dbo.GroupSetting gs WITH(NOLOCK)
-								WHERE gs.GroupID = @GroupID
-									AND gs.ProductID = a.ProductID
-									AND a.TotalQM BETWEEN gs.MinQM AND gs.MaxQM
-									
-								), 0) AS Commission
-						WHERE DATEDIFF(m, @LastDay, @CurrentDate) = 0
+					SELECT TOP (1) gs.Commission
+					FROM dbo.GroupSetting gs WITH(NOLOCK)
+					WHERE gs.GroupID = @GroupID
+						AND gs.ProductID = wl.ProductID
+						AND wl.TotalQM BETWEEN gs.MinQM AND gs.MaxQM
+						AND DATEDIFF(m, @LastDay, @CurrentDate) = 0
 								
 					UNION ALL	
-					SELECT ISNULL((
-								SELECT gh.Commission
-								FROM dbo.GroupSettingHistory gh WITH(NOLOCK)
-								WHERE gh.GroupID = @GroupID
-									AND gh.ProductID = a.ProductID
-									AND FLOOR(ABS(wl.AffNetWinlost)) BETWEEN gh.MinAmount AND gh.MaxAmount
-									AND gh.MonthDate = @LastDay
-								), 0) AS Commission
+					SELECT gh.Commission
+					FROM dbo.GroupSettingHistory gh WITH(NOLOCK)
+					WHERE gh.GroupID = @GroupID
+						AND gh.ProductID = wl.ProductID
+						AND FLOOR(ABS(wl.AffNetWinlost)) BETWEEN gh.MinAmount AND gh.MaxAmount
+						AND gh.MonthDate = @LastDay
 					
 					UNION ALL
-					SELECT ISNULL((
-								SELECT TOP (1) gh.Commission
-								FROM dbo.GroupSettingHistory gh WITH(NOLOCK)
-								WHERE gh.GroupID = @GroupID
-									AND gh.ProductID = a.ProductID
-									AND gh.MonthDate = @LastDay
-									AND a.TotalQM BETWEEN gh.MinQM AND gh.MaxQM
-								), 0) AS Commission
+					SELECT TOP (1) gh.Commission
+					FROM dbo.GroupSettingHistory gh WITH(NOLOCK)
+					WHERE gh.GroupID = @GroupID
+						AND gh.ProductID = wl.ProductID
+						AND gh.MonthDate = @LastDay
+						AND wl.TotalQM BETWEEN gh.MinQM AND gh.MaxQM
 					) t
 				ORDER BY t.Commission ASC
-				), 0) AS CommPercent
-		FROM @AffSummary a
-		INNER JOIN AffNetWinlostTmp wl
-			ON a.ProductID = wl.ProductID
+			) comm
 	)
 	UPDATE a
 	SET a.NetWinlost	= ISNULL(wl.AffNetWinlost, 0)

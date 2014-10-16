@@ -163,7 +163,7 @@ BEGIN
 				AND ac.Winlostdate = t.MonthDate
 			INNER JOIN @ProductFilter p
 			ON ac.ProductId = p.ProductId
-		WHERE ac.Winlostdate BETWEEN @FromDate AND @ToDate
+		WHERE ac.Winlostdate BETWEEN @FromDate AND @MaxCalculatedDate
 	END
 		
 	--Is All|Processing Commission
@@ -196,7 +196,7 @@ BEGIN
 				AND DATEDIFF(M, ad.Winlostdate, t.MonthDate) = 0
 			INNER JOIN @ProductFilter p
 			ON ad.ProductId = p.ProductId
-		WHERE ad.Winlostdate BETWEEN @FromDate AND @ToDate
+		WHERE ad.Winlostdate > @MaxCalculatedDate AND ad.Winlostdate <= @ToDate
 		GROUP BY ad.AffId
 			,t.MonthDate
 			,t.ExchangeId
@@ -292,7 +292,8 @@ BEGIN
 		AND (rpt.BonusPercent * rpt.MemBonus) = 0
 	
 	;WITH CommPercent AS (
-		SELECT rpt.GroupID
+		SELECT rpt.AffId
+			, rpt.GroupID
 			, rpt.ProductID
 			, rpt.WinlostDate
 			, ch.CommPercent
@@ -335,7 +336,8 @@ BEGIN
 				) t
 				ORDER BY t.Commission ASC
 			) ch
-		GROUP BY rpt.GroupID
+		GROUP BY rpt.AffId
+			, rpt.GroupID
 			, rpt.ProductID
 			, rpt.WinlostDate
 			, ch.CommPercent
@@ -344,7 +346,8 @@ BEGIN
 	SET rpt.CommissionPercent = comm.CommPercent
 	FROM #AffCommissionRpt rpt
 		INNER JOIN CommPercent comm
-		ON rpt.GroupID			= comm.GroupID
+		ON rpt.AffId			= comm.AffId
+			AND rpt.GroupID		= comm.GroupID
 			AND rpt.ProductID	= comm.ProductID
 			AND rpt.WinlostDate	= comm.WinlostDate
 	;
@@ -441,8 +444,8 @@ BEGIN
 		,SUM(rpt.Commission
 				* dbo.Aff_GetExchangeRate(r.ExchangeId, @SystemExchangeId, NULL)) 
 												AS CommissionBase
-		,SUM(r.TotalPayment)					AS TotalPayment
-		,SUM(r.TotalPayment 
+		,r.TotalPayment
+		,(r.TotalPayment 
 				* dbo.Aff_GetExchangeRate(r.ExchangeId, @SystemExchangeId, NULL)) 
 												AS TotalPaymentBase
 	FROM #AffCommPaging r
@@ -458,7 +461,9 @@ BEGIN
 		,r.WinlostDate
 		,r.GroupId
 		,r.GroupName
+		,r.ExchangeId
 		,r.Currency
+		,r.TotalPayment
 		,rpt.ProductId
 		,p.ProductName
 	ORDER BY r.RowIDX
@@ -549,14 +554,3 @@ GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateCommissionReport] TO [bodbAdminNet] AS
 GO
 
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateCommissionReport] TO [vnteam] AS [dbo]
-
-
-
-declare @p18 int
-set @p18=2
-declare @p19 int
-set @p19=null
-declare @p20 nvarchar(100)
-set @p20=null
-exec AffAdmin_AffiliateCommissionReport @UserId=21,@AffName=default,@AffTypes='1,3',@CommGroups='101,102,103,104,105,106,107,108,109,110,111,112,113,114,10067,10068,10069,10070,10071,10073,10074,10075,10079,10080,10081,10082,10084,10085,10086,10088,10089',@PreferLanguages='zh-TW,zh-CN,en-US,id-ID,th-TH,vi-VN,ko-KR',@Currencies='5',@BaseCurrency=0,@SortBy=0,@ExcludeTest=1,@IsITAdmin=1,@ProductIds='1,2,3,4,5,6',@TransferStatus=0,@GroupBy=1,@FromDate='2014-01-01 00:00:00',@ToDate='2014-03-31 00:00:00',@PageCurrent=1,@PageSize=20,@NRows=@p18 output,@Error=@p19 output,@Error_Msg=@p20 output
-select @p18, @p19, @p20

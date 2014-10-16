@@ -19,6 +19,7 @@ ALTER PROCEDURE [dbo].[AffAdmin_MemberWinLossReport]
 	,@NRows 				INT 			= 0 	OUTPUT
 	,@Error 				INT 			= 0 	OUTPUT
 	,@Error_Msg 			NVARCHAR(100) 	= '' 	OUTPUT
+	,@Duration 				INT 			= 0 	OUTPUT
 AS
 /*  Author:20140827@Bobby.Nguyen
 	Task: Member Win Loss Report     
@@ -48,7 +49,9 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @CurrentDate 	DATETIME
+	DECLARE @startRun 		DATETIME
+		,@endRun 			DATETIME
+		,@CurrentDate 		DATETIME
 		,@PlaytechCasino 	INT
 		,@RptByAff			BIT = 0
 		
@@ -73,6 +76,7 @@ BEGIN
 							ELSE dbo.Aff_GetEndDate(ISNULL(@ToDate, @CurrentDate)) 
 							END
 		,@PlayerName 	= '%' + ISNULL(@PlayerName, '') + '%'
+		,@startRun		= @CurrentDate
 
 	-- Get productid
 	SELECT @PlaytechCasino	= p.ProductID
@@ -127,317 +131,329 @@ BEGIN
 						END AS BIT)
 	END
 	
-	;WITH MemberWinLossRpt AS (
-		SELECT 
-			CASE WHEN @GroupBy = 0 THEN md.WinlostDate	
-					ELSE 0 
-				END 							AS WinlostDate
-			,md.AffID
-			,ai.Username 						AS AffUserName
-			,ex.Code 							AS AffCurrency
-			,md.Username 						AS PlayerUsername
-			,mc.Currency 						AS PlayerCurrency
-			,CASE WHEN @GroupBy = 0 THEN md.SysExRate 
-					ELSE 1
-				END 							AS SysExRate
-			,CASE WHEN @GroupBy = 0 AND @RptByAff = 1 THEN md.AffExRate 
-					ELSE 1
-				END 							AS AffExRate
-		----------------------SUMDATA-------------------------------------
-			,SUM(ISNULL(md.Deposit, 0)) 		AS Deposit
-			,SUM(ISNULL(md.Deposit, 0)
-				* md.AffExRate) 				AS Deposit_aff
-			,SUM(ISNULL(md.Deposit, 0)
-				* md.SysExRate) 				AS DepositBase
-			,SUM(ISNULL(md.Withdrawal, 0))		AS Withdrawal
-			,SUM(ISNULL(md.Withdrawal, 0)
-				* md.AffExRate)					AS Withdrawal_aff
-			,SUM(ISNULL(md.Withdrawal, 0)
-				* md.SysExRate)					AS WithdrawalBase
-			,SUM(ISNULL(md.PSP, 0))				AS PSP
-			,SUM(ISNULL(md.PSP, 0)
-				* md.AffExRate)					AS PSP_aff
-			,SUM(ISNULL(md.PSP, 0)
-				* md.SysExRate)					AS PSPBase
-			,SUM(ISNULL(md.Bonus, 0))			AS Bonus
-			,SUM(ISNULL(md.Bonus, 0)
-				* md.AffExRate)					AS Bonus_aff
-			,SUM(ISNULL(md.Bonus, 0)
-				* md.SysExRate)					AS BonusBase
-			,SUM(ISNULL(md.Adjustment, 0))		AS Adjustment
-			,SUM(ISNULL(md.Adjustment, 0)
-				* md.AffExRate)					AS Adjustment_aff
-			,SUM(ISNULL(md.Adjustment, 0)
-				* md.SysExRate)					AS AdjustmentBase
-			,SUM(CASE WHEN @DrawFilter = 1 THEN ISNULL(md.BetCountNoDraw, 0)
-						ELSE ISNULL(md.BetCount, 0)
-				END)							AS BetCount
-			
-			,SUM(CASE WHEN @DrawFilter = 0 THEN ISNULL(md.Turnover, 0)
-						ELSE ISNULL(md.TurnoverNoDraw, 0)
-					END)						AS TotalTurnover
-			,SUM(CASE WHEN @DrawFilter = 0 THEN ISNULL(md.Turnover, 0)
-						ELSE ISNULL(md.TurnoverNoDraw, 0)
-					END
-				* md.AffExRate)					AS TotalTurnover_aff
-			,SUM(CASE WHEN @DrawFilter = 0 THEN ISNULL(md.Turnover, 0)
-						ELSE ISNULL(md.TurnoverNoDraw, 0)
-					END
-				* md.SysExRate)					AS TotalTurnoverBase
-			,SUM(ISNULL(md.PlayerComm, 0))		AS PlayerComm
-			,SUM(ISNULL(md.PlayerComm, 0)
-				* md.AffExRate)					AS PlayerComm_aff
-			,SUM(ISNULL(md.PlayerComm, 0)
-				* md.SysExRate)					AS PlayerCommBase
-			,SUM(ISNULL(md.Winlost, 0))			AS TotalWinlost
-			,SUM(ISNULL(md.Winlost, 0)
-				* md.AffExRate)					AS TotalWinlost_aff
-			,SUM(ISNULL(md.Winlost, 0)
-				* md.SysExRate)					AS TotalWinlostBase
-			----------------------PWin,PShare & NetGmaing----------------------
-			,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PWin, 0)
-					ELSE 0 
-				END) 							AS PWin
-			,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PWin, 0)
-					ELSE 0 
-				END * md.AffExRate)				AS PWin_aff
-			,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PWin, 0)
-					ELSE 0 
-				END * md.SysExRate)				AS PWinBase
-			,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PShare, 0)
-					ELSE 0 
-				END) 							AS PShare
-			,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PShare, 0)
-					ELSE 0 
-				END * md.AffExRate)				AS PShare_aff
-			,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PShare, 0)
-					ELSE 0 
-				END * md.SysExRate)				AS PShareBase
-			,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN (-ISNULL(md.Winlost, 0) - ISNULL(md.PShare, 0))
-					ELSE 0
-				END) AS NetGaming
-			,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN (-ISNULL(md.Winlost, 0) - ISNULL(md.PShare, 0))
-					ELSE 0
-				END * md.AffExRate) 			AS NetGaming_aff
-			,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN (-ISNULL(md.Winlost, 0) - ISNULL(md.PShare, 0))
-					ELSE 0
-				END * md.SysExRate) 			AS NetGamingBase
-				
-		FROM dbo.MemberDaily md WITH (NOLOCK)
-			INNER JOIN @AffUserRpt ai
-			ON md.AffID = ai.AffID
-				AND DATEDIFF(M, md.WinlostDate, ai.MonthDate) = 0
-			INNER JOIN @ProductFilter p
-			ON md.ProductID = p.ProductID
-			INNER JOIN @MemCurrencies mc
-			ON md.Currency = mc.ExchangeId
-			INNER JOIN dbo.Exchange ex WITH (NOLOCK)
-			ON md.AffCurrency = ex.ExchangeID
-		WHERE md.WinlostDate BETWEEN @FromDate AND @ToDate
-			AND md.UserName LIKE @PlayerName
-		GROUP BY 
-			CASE WHEN @GroupBy = 0 THEN md.WinlostDate	ELSE 0 END
-			,md.AffID
-			,ai.Username
-			,ex.Code
-			,md.Username
-			,mc.Currency
-			,CASE WHEN @GroupBy = 0 THEN md.SysExRate 
-					ELSE 1
-				END
-			,CASE WHEN @GroupBy = 0 AND @RptByAff = 1 THEN md.AffExRate 
-					ELSE 1
-				END
-	)
-	,rptAffpaging AS (
-		SELECT rpt.WinlostDate
-			,rpt.AffID
-			,rpt.AffUserName
-			,rpt.AffCurrency
-			,rpt.SysExRate
-			,rpt.AffExRate
-			,ROW_NUMBER() OVER (
-				ORDER BY rpt.WinlostDate ASC
-						,rpt.AffUserName ASC
-			) AS RowIDX
-		FROM MemberWinLossRpt AS rpt
-		GROUP BY rpt.WinlostDate
-			,rpt.AffID
-			,rpt.AffUserName
-			,rpt.AffCurrency
-			,rpt.SysExRate
-			,rpt.AffExRate
-		HAVING SUM(rpt.Deposit) 	> 0
-			OR SUM(rpt.TotalWinlost) 	> 0
-			OR SUM(rpt.Bonus) 		> 0
-			OR SUM(rpt.Adjustment)	> 0
-			OR SUM(rpt.TotalTurnover) 	> 0
-	)
-	SELECT p.RowIDX
-		,p.WinlostDate
-		,p.AffID
-		,p.AffUsername 	AS UserName
-		,p.AffCurrency 	AS Currency
-		,p.SysExRate 	AS ExRate
-		,p.AffExRate
-		,rpt.PlayerUsername
-		,rpt.PlayerCurrency
-		----------------------SUMDATA-------------------------------------
-		,Deposit
-		,Deposit_aff
-		,DepositBase
-		,Withdrawal
-		,Withdrawal_aff
-		,WithdrawalBase
-		,PSP
-		,PSP_aff
-		,PSPBase
-		,Bonus
-		,Bonus_aff
-		,BonusBase
-		,Adjustment
-		,Adjustment_aff
-		,AdjustmentBase
-		,BetCount
-		,TotalTurnover
-		,TotalTurnover_aff
-		,TotalTurnoverBase
-		,PlayerComm
-		,PlayerComm_aff
-		,PlayerCommBase
-		,TotalWinlost
-		,TotalWinlost_aff
-		,TotalWinlostBase
-		----------------------PWin,PShare & NetGmaing----------------------
-		,PWin
-		,PWin_aff
-		,PWinBase
-		,PShare
-		,PShare_aff
-		,PShareBase
-		,NetGaming
-		,NetGaming_aff
-		,NetGamingBase
-		
-	INTO #WinLossPaging
-	FROM rptAffpaging p
-		INNER JOIN MemberWinLossRpt rpt
-		ON p.AffID = rpt.AffID 
-			AND p.WinlostDate = rpt.WinlostDate
-	ORDER BY p.RowIDX
+	SELECT 
+		CASE WHEN @GroupBy = 0 THEN md.WinlostDate	
+				ELSE 0 
+			END 							AS WinlostDate
+		,md.AffID
+		,ai.Username 						AS UserName
+		,ex.Code 							AS Currency
+		,md.Username 						AS PlayerUsername
+		,mc.Currency 						AS PlayerCurrency
+		,CASE WHEN @GroupBy = 0 THEN md.SysExRate 
+				ELSE 1
+			END 							AS SysExRate
+		,CASE WHEN @GroupBy = 0 AND @RptByAff = 1 THEN md.AffExRate 
+				ELSE 1
+			END 							AS AffExRate
+		,ROW_NUMBER() OVER (
+			ORDER BY 
+					CASE WHEN @GroupBy = 0 THEN md.WinlostDate ELSE 0 END ASC
+					,ai.UserName ASC
+		) AS RowIDX
+	INTO #MemberList
+	FROM dbo.MemberDaily md WITH (NOLOCK)
+		INNER JOIN @AffUserRpt ai
+		ON md.AffID = ai.AffID
+			AND DATEDIFF(M, md.WinlostDate, ai.MonthDate) = 0
+		INNER JOIN @ProductFilter p
+		ON md.ProductID = p.ProductID
+		INNER JOIN @MemCurrencies mc
+		ON md.Currency = mc.ExchangeId
+		INNER JOIN dbo.Exchange ex WITH (NOLOCK)
+		ON md.AffCurrency = ex.ExchangeID
+	WHERE md.WinlostDate BETWEEN @FromDate AND @ToDate
+		AND md.UserName LIKE @PlayerName
+	GROUP BY 
+		CASE WHEN @GroupBy = 0 THEN md.WinlostDate	ELSE 0 END
+		,md.AffID
+		,ai.Username
+		,ex.Code
+		,md.Username
+		,mc.Currency
+		,CASE WHEN @GroupBy = 0 THEN md.SysExRate 
+				ELSE 1
+			END
+		,CASE WHEN @GroupBy = 0 AND @RptByAff = 1 THEN md.AffExRate 
+				ELSE 1
+			END
+	HAVING SUM(md.Deposit) 		> 0
+		OR SUM(md.Winlost) 		<> 0
+		OR SUM(md.Bonus) 		> 0
+		OR SUM(md.Adjustment)	> 0
+		OR SUM(CASE 
+				WHEN @DrawFilter = 0 THEN ISNULL(md.Turnover, 0)
+				ELSE ISNULL(md.TurnoverNoDraw, 0)
+			END) 				> 0
 	
 	--set @NRows
 	SELECT @NRows = COUNT(DISTINCT rpt.RowIDX)
-	FROM #WinLossPaging rpt
+	FROM #MemberList rpt
 	
-	--select data / page
-	SELECT rpt.RowIDX
-		,rpt.Winlostdate
-		,rpt.UserName
-		,rpt.Currency
-		,rpt.PlayerUsername
-		,rpt.PlayerCurrency
-		,rpt.ExRate
-		,rpt.AffExRate
-		,rpt.Deposit
-		,rpt.Deposit_aff
-		,rpt.DepositBase
-		,rpt.Withdrawal
-		,rpt.Withdrawal_aff
-		,rpt.WithdrawalBase
-		,rpt.PSP
-		,rpt.PSP_aff
-		,rpt.PSPBase
-		,rpt.Bonus
-		,rpt.Bonus_aff
-		,rpt.BonusBase
-		,rpt.Adjustment
-		,rpt.Adjustment_aff
-		,rpt.AdjustmentBase
-		,rpt.BetCount
-		,rpt.TotalTurnover
-		,rpt.TotalTurnover_Aff
-		,rpt.TotalTurnoverBase
-		,rpt.PlayerComm
-		,rpt.PlayerComm_aff
-		,rpt.PlayerCommBase
-		,rpt.TotalWinlost		AS MemberWinLoss
-		,rpt.TotalWinlost_Aff	AS MemberWinLoss_Aff
-		,rpt.TotalWinlostBase	AS MemberWinLossBase
-		,rpt.PWin
-		,rpt.PWin_aff
-		,rpt.PWinBase
-		,rpt.PShare
-		,rpt.PShare_aff
-		,rpt.PShareBase
-		,rpt.NetGaming		
-		,rpt.NetGaming_aff
-		,rpt.NetGamingBase
-	FROM #WinLossPaging rpt
-	WHERE rpt.RowIDX BETWEEN ((@PageCurrent - 1) * @PageSize) + 1 AND @PageSize * (@PageCurrent)
-	ORDER BY rpt.RowIDX 	ASC
-		,rpt.PlayerUsername ASC
+	IF(@NRows = 0) 
+	BEGIN
+		SELECT @Error 	= 101
+			,@Error_Msg = 'There is not available member data.'
+		RETURN;
+	END
+	
+	
+	SELECT m.RowIDX
+		,m.WinlostDate
+		,m.UserName
+		,m.Currency
+		,m.PlayerUsername
+		,m.PlayerCurrency
+		,m.SysExRate AS ExRate
+		,m.AffExRate
+	----------------------SUMDATA-------------------------------------
+		,SUM(ISNULL(md.Deposit, 0)) 		AS Deposit
+		,SUM(ISNULL(md.Deposit, 0)
+			* md.AffExRate) 				AS Deposit_aff
+		,SUM(ISNULL(md.Deposit, 0)
+			* md.SysExRate) 				AS DepositBase
+		,SUM(ISNULL(md.Withdrawal, 0))		AS Withdrawal
+		,SUM(ISNULL(md.Withdrawal, 0)
+			* md.AffExRate)					AS Withdrawal_aff
+		,SUM(ISNULL(md.Withdrawal, 0)
+			* md.SysExRate)					AS WithdrawalBase
+		,SUM(ISNULL(md.PSP, 0))				AS PSP
+		,SUM(ISNULL(md.PSP, 0)
+			* md.AffExRate)					AS PSP_aff
+		,SUM(ISNULL(md.PSP, 0)
+			* md.SysExRate)					AS PSPBase
+		,SUM(ISNULL(md.Bonus, 0))			AS Bonus
+		,SUM(ISNULL(md.Bonus, 0)
+			* md.AffExRate)					AS Bonus_aff
+		,SUM(ISNULL(md.Bonus, 0)
+			* md.SysExRate)					AS BonusBase
+		,SUM(ISNULL(md.Adjustment, 0))		AS Adjustment
+		,SUM(ISNULL(md.Adjustment, 0)
+			* md.AffExRate)					AS Adjustment_aff
+		,SUM(ISNULL(md.Adjustment, 0)
+			* md.SysExRate)					AS AdjustmentBase
+		,SUM(CASE WHEN @DrawFilter = 1 THEN ISNULL(md.BetCountNoDraw, 0)
+					ELSE ISNULL(md.BetCount, 0)
+			END)							AS BetCount
+		
+		,SUM(CASE WHEN @DrawFilter = 0 THEN ISNULL(md.Turnover, 0)
+					ELSE ISNULL(md.TurnoverNoDraw, 0)
+				END)						AS TotalTurnover
+		,SUM(CASE WHEN @DrawFilter = 0 THEN ISNULL(md.Turnover, 0)
+					ELSE ISNULL(md.TurnoverNoDraw, 0)
+				END
+			* md.AffExRate)					AS TotalTurnover_aff
+		,SUM(CASE WHEN @DrawFilter = 0 THEN ISNULL(md.Turnover, 0)
+					ELSE ISNULL(md.TurnoverNoDraw, 0)
+				END
+			* md.SysExRate)					AS TotalTurnoverBase
+		,SUM(ISNULL(md.PlayerComm, 0))		AS PlayerComm
+		,SUM(ISNULL(md.PlayerComm, 0)
+			* md.AffExRate)					AS PlayerComm_aff
+		,SUM(ISNULL(md.PlayerComm, 0)
+			* md.SysExRate)					AS PlayerCommBase
+		,SUM(ISNULL(md.Winlost, 0))			AS MemberWinLoss
+		,SUM(ISNULL(md.Winlost, 0)
+			* md.AffExRate)					AS MemberWinLoss_Aff
+		,SUM(ISNULL(md.Winlost, 0)
+			* md.SysExRate)					AS MemberWinLossBase
+		----------------------PWin,PShare & NetGmaing----------------------
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PWin, 0)
+				ELSE 0 
+			END) 							AS PWin
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PWin, 0)
+				ELSE 0 
+			END * md.AffExRate)				AS PWin_aff
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PWin, 0)
+				ELSE 0 
+			END * md.SysExRate)				AS PWinBase
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PShare, 0)
+				ELSE 0 
+			END) 							AS PShare
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PShare, 0)
+				ELSE 0 
+			END * md.AffExRate)				AS PShare_aff
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PShare, 0)
+				ELSE 0 
+			END * md.SysExRate)				AS PShareBase
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN (-ISNULL(md.Winlost, 0) - ISNULL(md.PShare, 0))
+				ELSE 0
+			END) AS NetGaming
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN (-ISNULL(md.Winlost, 0) - ISNULL(md.PShare, 0))
+				ELSE 0
+			END * md.AffExRate) 			AS NetGaming_aff
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN (-ISNULL(md.Winlost, 0) - ISNULL(md.PShare, 0))
+				ELSE 0
+			END * md.SysExRate) 			AS NetGamingBase
+			
+	FROM #MemberList m
+		INNER JOIN dbo.MemberDaily md WITH (NOLOCK)
+		ON m.PlayerUsername = md.Username 
+			AND 1 = CASE WHEN @GroupBy = 0 AND m.WinlostDate = md.WinlostDate THEN 1 
+						WHEN @GroupBy = 1 THEN 1
+						ELSE 0 END
+		INNER JOIN @ProductFilter p
+		ON md.ProductID = p.ProductID
+	WHERE md.WinlostDate BETWEEN @FromDate AND @ToDate
+		AND m.RowIDX BETWEEN ((@PageCurrent - 1) * @PageSize) + 1 AND @PageSize * (@PageCurrent)
+	GROUP BY 
+		m.RowIDX
+		,m.WinlostDate
+		,m.UserName
+		,m.Currency
+		,m.PlayerUsername
+		,m.PlayerCurrency
+		,m.SysExRate
+		,m.AffExRate
+	ORDER BY m.RowIDX ASC
+		,m.PlayerUsername ASC
 		
 	--select sum data - PlayerCurrency
-	SELECT PlayerCurrency
+	;WITH memberList AS (
+		SELECT PlayerUsername
+			,PlayerCurrency
+		FROM  #MemberList
+		GROUP BY PlayerUsername
+			,PlayerCurrency
+	)
+	SELECT mc.PlayerCurrency
 		----------------------SUMDATA-----------------------------------
-		,SUM(Deposit) 						AS Deposit
-		,SUM(Deposit_Aff) 					AS Deposit_Aff
-		,SUM(DepositBase) 					AS DepositBase
-		,SUM(Withdrawal) 					AS Withdrawal
-		,SUM(Withdrawal_Aff) 				AS Withdrawal_Aff
-		,SUM(WithdrawalBase) 				AS WithdrawalBase
-		,SUM(PSP) 							AS PSP
-		,SUM(PSP_Aff) 						AS PSP_Aff
-		,SUM(PSPBase) 						AS PSPBase
-		,SUM(Bonus) 						AS Bonus
-		,SUM(Bonus_Aff) 					AS Bonus_Aff
-		,SUM(BonusBase) 					AS BonusBase
-		,SUM(Adjustment) 					AS Adjustment
-		,SUM(Adjustment_Aff) 				AS Adjustment_Aff
-		,SUM(AdjustmentBase) 				AS AdjustmentBase
-		,SUM(BetCount) 						AS BetCount
-		,SUM(TotalTurnover) 				AS TotalTurnover
-		,SUM(TotalTurnover_Aff) 			AS TotalTurnover_Aff
-		,SUM(TotalTurnoverBase) 			AS TotalTurnoverBase
-		,SUM(PlayerComm)					AS PlayerComm
-		,SUM(PlayerComm_aff)				AS PlayerComm_aff
-		,SUM(PlayerCommBase)				AS PlayerCommBase
-		,SUM(TotalWinlost) 					AS MemberWinLoss
-		,SUM(TotalWinlost_Aff) 				AS MemberWinLoss_Aff
-		,SUM(TotalWinlostBase) 				AS MemberWinLossBase
+		,SUM(ISNULL(md.Deposit, 0)) 		AS Deposit
+		,SUM(ISNULL(md.Deposit, 0)
+			* md.AffExRate) 				AS Deposit_aff
+		,SUM(ISNULL(md.Deposit, 0)
+			* md.SysExRate) 				AS DepositBase
+		,SUM(ISNULL(md.Withdrawal, 0))		AS Withdrawal
+		,SUM(ISNULL(md.Withdrawal, 0)
+			* md.AffExRate)					AS Withdrawal_aff
+		,SUM(ISNULL(md.Withdrawal, 0)
+			* md.SysExRate)					AS WithdrawalBase
+		,SUM(ISNULL(md.PSP, 0))				AS PSP
+		,SUM(ISNULL(md.PSP, 0)
+			* md.AffExRate)					AS PSP_aff
+		,SUM(ISNULL(md.PSP, 0)
+			* md.SysExRate)					AS PSPBase
+		,SUM(ISNULL(md.Bonus, 0))			AS Bonus
+		,SUM(ISNULL(md.Bonus, 0)
+			* md.AffExRate)					AS Bonus_aff
+		,SUM(ISNULL(md.Bonus, 0)
+			* md.SysExRate)					AS BonusBase
+		,SUM(ISNULL(md.Adjustment, 0))		AS Adjustment
+		,SUM(ISNULL(md.Adjustment, 0)
+			* md.AffExRate)					AS Adjustment_aff
+		,SUM(ISNULL(md.Adjustment, 0)
+			* md.SysExRate)					AS AdjustmentBase
+		,SUM(CASE WHEN @DrawFilter = 1 THEN ISNULL(md.BetCountNoDraw, 0)
+					ELSE ISNULL(md.BetCount, 0)
+			END)							AS BetCount
+		
+		,SUM(CASE WHEN @DrawFilter = 0 THEN ISNULL(md.Turnover, 0)
+					ELSE ISNULL(md.TurnoverNoDraw, 0)
+				END)						AS TotalTurnover
+		,SUM(CASE WHEN @DrawFilter = 0 THEN ISNULL(md.Turnover, 0)
+					ELSE ISNULL(md.TurnoverNoDraw, 0)
+				END
+			* md.AffExRate)					AS TotalTurnover_aff
+		,SUM(CASE WHEN @DrawFilter = 0 THEN ISNULL(md.Turnover, 0)
+					ELSE ISNULL(md.TurnoverNoDraw, 0)
+				END
+			* md.SysExRate)					AS TotalTurnoverBase
+		,SUM(ISNULL(md.PlayerComm, 0))		AS PlayerComm
+		,SUM(ISNULL(md.PlayerComm, 0)
+			* md.AffExRate)					AS PlayerComm_aff
+		,SUM(ISNULL(md.PlayerComm, 0)
+			* md.SysExRate)					AS PlayerCommBase
+		,SUM(ISNULL(md.Winlost, 0))			AS MemberWinLoss
+		,SUM(ISNULL(md.Winlost, 0)
+			* md.AffExRate)					AS MemberWinLoss_Aff
+		,SUM(ISNULL(md.Winlost, 0)
+			* md.SysExRate)					AS MemberWinLossBase
 		----------------------PWin,PShare & NetGmaing----------------------
-		,SUM(PWin) 							AS PWin
-		,SUM(PWin_aff) 						AS PWin_aff
-		,SUM(PWinBase) 						AS PWinBase
-		,SUM(PShare) 						AS PShare
-		,SUM(PShare_aff) 					AS PShare_aff
-		,SUM(PShareBase) 					AS PShareBase
-		,SUM(NetGaming) 					AS NetGaming		
-		,SUM(NetGaming_aff) 				AS NetGaming_aff
-		,SUM(NetGamingBase) 				AS NetGamingBase
-	FROM #WinLossPaging rpt
-	GROUP BY PlayerCurrency
-	ORDER BY PlayerCurrency
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PWin, 0)
+				ELSE 0 
+			END) 							AS PWin
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PWin, 0)
+				ELSE 0 
+			END * md.AffExRate)				AS PWin_aff
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PWin, 0)
+				ELSE 0 
+			END * md.SysExRate)				AS PWinBase
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PShare, 0)
+				ELSE 0 
+			END) 							AS PShare
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PShare, 0)
+				ELSE 0 
+			END * md.AffExRate)				AS PShare_aff
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PShare, 0)
+				ELSE 0 
+			END * md.SysExRate)				AS PShareBase
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN (-ISNULL(md.Winlost, 0) - ISNULL(md.PShare, 0))
+				ELSE 0
+			END) AS NetGaming
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN (-ISNULL(md.Winlost, 0) - ISNULL(md.PShare, 0))
+				ELSE 0
+			END * md.AffExRate) 			AS NetGaming_aff
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN (-ISNULL(md.Winlost, 0) - ISNULL(md.PShare, 0))
+				ELSE 0
+			END * md.SysExRate) 			AS NetGamingBase
+	FROM dbo.MemberDaily md WITH (NOLOCK)
+		INNER JOIN memberList mc
+		ON md.UserName = mc.PlayerUsername
+		INNER JOIN @ProductFilter p
+		ON md.ProductID = p.ProductID
+	WHERE md.WinlostDate BETWEEN @FromDate AND @ToDate
+	GROUP BY mc.PlayerCurrency
+	ORDER BY mc.PlayerCurrency
 	
 	----------------------SUMTOTAL-----------------------------------
+	;WITH memberList AS (
+		SELECT PlayerUsername 
+		FROM  #MemberList
+		GROUP BY PlayerUsername
+	)
 	SELECT 
-		SUM(DepositBase) 					AS DepositBase
-		,SUM(WithdrawalBase) 				AS WithdrawalBase
-		,SUM(PSPBase) 						AS PSPBase
-		,SUM(BonusBase) 					AS BonusBase
-		,SUM(AdjustmentBase) 				AS AdjustmentBase
-		,SUM(BetCount) 						AS BetCount
-		,SUM(TotalTurnoverBase) 			AS TotalTurnoverBase
-		,SUM(PlayerCommBase) 				AS PlayerCommBase
-		,SUM(TotalWinlostBase) 				AS MemberWinLossBase
-		----------------------PWin&PShare----------------------------
-		,SUM(PShareBase) 					AS PShareBase
-		,SUM(PWinBase) 						AS PWinBase
-		,SUM(NetGamingBase) 				AS NetGamingBase
-	FROM #WinLossPaging rpt
+		SUM(ISNULL(md.Deposit, 0)
+			* md.SysExRate) 				AS DepositBase
+		,SUM(ISNULL(md.Withdrawal, 0)
+			* md.SysExRate)					AS WithdrawalBase
+		,SUM(ISNULL(md.PSP, 0)
+			* md.SysExRate)					AS PSPBase
+		,SUM(ISNULL(md.Bonus, 0)
+			* md.SysExRate)					AS BonusBase
+		,SUM(ISNULL(md.Adjustment, 0)
+			* md.SysExRate)					AS AdjustmentBase
+		,SUM(CASE WHEN @DrawFilter = 1 THEN ISNULL(md.BetCountNoDraw, 0)
+					ELSE ISNULL(md.BetCount, 0)
+			END)							AS BetCount
+		,SUM(CASE WHEN @DrawFilter = 0 THEN ISNULL(md.Turnover, 0)
+					ELSE ISNULL(md.TurnoverNoDraw, 0)
+				END
+			* md.SysExRate)					AS TotalTurnoverBase
+		,SUM(ISNULL(md.PlayerComm, 0)
+			* md.SysExRate)					AS PlayerCommBase
+		,SUM(ISNULL(md.Winlost, 0)
+			* md.SysExRate)					AS MemberWinLossBase
+		----------------------PWin,PShare & NetGmaing----------------------
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PWin, 0)
+				ELSE 0 
+			END * md.SysExRate)				AS PWinBase
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN ISNULL(md.PShare, 0)
+				ELSE 0 
+			END * md.SysExRate)				AS PShareBase
+		,SUM(CASE WHEN md.ProductID = @PlaytechCasino THEN (-ISNULL(md.Winlost, 0) - ISNULL(md.PShare, 0))
+				ELSE 0
+			END * md.SysExRate) 			AS NetGamingBase
+	FROM dbo.MemberDaily md WITH (NOLOCK)
+		INNER JOIN memberList m
+		ON md.UserName = m.PlayerUsername
+		INNER JOIN @ProductFilter p
+		ON md.ProductID = p.ProductID
+	WHERE md.WinlostDate BETWEEN @FromDate AND @ToDate
 	
-	DROP TABLE #WinLossPaging
+	DROP TABLE #MemberList
+	
+	SELECT @endRun = GETDATE()
+		,@Duration = DATEDIFF(millisecond, @startRun, @endRun)
 	
 	RETURN;
 END
