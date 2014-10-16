@@ -1,14 +1,14 @@
 ﻿ALTER PROCEDURE [dbo].[Aff_CustomerInsMember] 
-	@IBCCustID INT
-	,@AffID INT
-	,@Username VARCHAR(30)
-	,@IBCUsername VARCHAR(30)
-	,@DepositCustID INT
-	,@FirstName NVARCHAR(50)
-	,@LastName NVARCHAR(50)
-	,@Currency INT
-	,@Recommend INT
-	,@Email NVARCHAR(50)
+	@IBCCustID 			INT
+	,@AffID 			INT
+	,@Username 			VARCHAR(30)
+	,@IBCUsername 		VARCHAR(30)
+	,@DepositCustID 	INT
+	,@FirstName 		NVARCHAR(50)
+	,@LastName 			NVARCHAR(50)
+	,@Currency 			INT
+	,@Recommend 		INT
+	,@Email 			NVARCHAR(50)
 AS
 /*  
 Created: 20090724@VietHoang
@@ -19,13 +19,14 @@ Revisions:
 	- 20120409@Johnny: Make local test version is the same as live version
 	- 20140708@Bobby: Apply MemberClickDetail info
 	- 20140801@Bobby: Update ins MemberClickDetail
+	- 20141013@Bobby: Enhance checking Deposit member by updating [d.AffiliateID = @AffId] 
 */
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @RegisteredDate DATETIME
-		,@ClickId BIGINT
-
+		,@ClickId 			BIGINT
+	
 	SELECT TOP(1) @IBCCustID AS IBCCustID
 		,@AffID AS AffID
 		,@UserName AS UserName
@@ -40,93 +41,92 @@ BEGIN
 		,@Email AS Email
 		,d.creatdate AS RegisteredDate
 		,d.ClickId
-		,c.DomainReferrer
-		,c.RedirectURL AS URLRedirect
-		,c.SportCode
-		,c.LanguageCode
-		,c.URLReferrer
-		,c.DeviceType
+		,ISNULL(c.DomainReferrer, 'none') AS DomainReferrer
+		,ISNULL(c.RedirectURL, 'none') AS URLRedirect
+		,ISNULL(c.SportCode, 'none') AS SportCode
+		,ISNULL(c.LanguageCode, 'none') AS LanguageCode
+		,ISNULL(c.URLReferrer, 'none') AS URLReferrer
+		,ISNULL(c.DeviceType, 0) AS DeviceType
 	INTO #depositMember
 	FROM [DBDeposit].deposit_db.dbo.Deposit_Customer d WITH (NOLOCK)
 		LEFT JOIN dbo.ClickStatistics1 c WITH (NOLOCK)
 		ON d.ClickID = c.ClickID
-	WHERE custid = @DepositCustID
-		AND c.AffId = @AffId
+	WHERE d.custid = @DepositCustID
+		AND d.AffiliateID = @AffId
+	
+	-- MemberInfo
+	INSERT INTO MemberInfo (
+		IBCCustID
+		,AffID
+		,UserName
+		,IBCUserName
+		,CreatedDate
+		,IsRemoved
+		,DepositCustID
+		,FirstName
+		,LastName
+		,Currency
+		,Recommend
+		,Email
+		,RegisteredDate
+		,ClickId
+		)
+	SELECT IBCCustID
+		,AffID
+		,UserName
+		,IBCUserName
+		,CreatedDate
+		,IsRemoved
+		,DepositCustID
+		,FirstName
+		,LastName
+		,Currency
+		,Recommend
+		,Email
+		,RegisteredDate
+		,ClickId
+	FROM #depositMember d
+	WHERE RegisteredDate IS NOT NULL
 
+	-- MemberClickDetail
+	MERGE INTO [dbo].[MemberClickDetail] AS t
+	USING #depositMember AS s 
+		ON t.DepositCustID = s.DepositCustID
+			AND s.ClickID > 0
+	WHEN MATCHED THEN
+		UPDATE 
+		SET IBCCustID = s.IBCCustID
+	WHEN NOT MATCHED BY TARGET THEN
+		INSERT ([DepositCustID]
+			,[ClickId]
+			,[DomainReferrer]
+			,[LanguageCode]
+			,[SportCode]
+			,[URLRedirect]
+			,[URLReferrer]
+			,[DeviceType]
+			,[AffID]
+			,[CreatedDate]
+			,[IBCCustID]
+			)
+		VALUES (s.[DepositCustID]
+			,s.[ClickId]
+			,s.[DomainReferrer]
+			,s.[LanguageCode]
+			,s.[SportCode]
+			,s.[URLRedirect]
+			,s.[URLReferrer]
+			,s.[DeviceType]
+			,s.[AffID]
+			,s.[RegisteredDate]
+			,s.[IBCCustID]
+		);
+	
+	-- get info to write log
 	SELECT @RegisteredDate = RegisteredDate
 		,@ClickId = ClickId
 	FROM #depositMember
-
-	IF(@RegisteredDate IS NOT NULL 
-		AND @clickID > 0)
-	BEGIN
-		-- MemberInfo
-		INSERT INTO MemberInfo (
-			IBCCustID
-			,AffID
-			,UserName
-			,IBCUserName
-			,CreatedDate
-			,IsRemoved
-			,DepositCustID
-			,FirstName
-			,LastName
-			,Currency
-			,Recommend
-			,Email
-			,RegisteredDate
-			,ClickId
-			)
-		SELECT IBCCustID
-			,AffID
-			,UserName
-			,IBCUserName
-			,CreatedDate
-			,IsRemoved
-			,DepositCustID
-			,FirstName
-			,LastName
-			,Currency
-			,Recommend
-			,Email
-			,RegisteredDate
-			,ClickId
-		FROM #depositMember d
-
-		-- MemberClickDetail
-		MERGE INTO [dbo].[MemberClickDetail] AS t
-		USING #depositMember AS s ON t.DepositCustID = s.DepositCustID
-		WHEN MATCHED THEN
-			UPDATE 
-			SET IBCCustID = s.IBCCustID
-		WHEN NOT MATCHED BY TARGET THEN
-			INSERT ([DepositCustID]
-				,[ClickId]
-				,[DomainReferrer]
-				,[LanguageCode]
-				,[SportCode]
-				,[URLRedirect]
-				,[URLReferrer]
-				,[DeviceType]
-				,[AffID]
-				,[CreatedDate]
-				,[IBCCustID]
-				)
-			VALUES (s.[DepositCustID]
-				,s.[ClickId]
-				,s.[DomainReferrer]
-				,s.[LanguageCode]
-				,s.[SportCode]
-				,s.[URLRedirect]
-				,s.[URLReferrer]
-				,s.[DeviceType]
-				,s.[AffID]
-				,s.[RegisteredDate]
-				,s.[IBCCustID]
-				)
-		;
-	END
-
+	
 	DROP TABLE #depositMember
 
 	/*
@@ -137,7 +137,7 @@ BEGIN
 
 	SELECT @SPName = OBJECT_NAME(@@ProcID)
 
-	SELECT @LogData = 'Insert new member. IBCCustid =' + dbo.Aff_ToString(@IbcCustID) + '.UserName=' + dbo.Aff_ToString(@UserName) + '.IBCUserName=' + dbo.Aff_ToString(@IBCUserName) + '.DepositCustID=' + dbo.Aff_ToString(@DepositCustID) + '.FirstName=' + dbo.Aff_ToString(@FirstName) + '.LastName=' + dbo.Aff_ToString(@LastName) + '.Currency=' + dbo.Aff_ToString(@Currency) + '.Recommend=' + dbo.Aff_ToString(@Recommend) + '.Email=' + dbo.Aff_ToString(@Email) + '.RegisteredDate=' + dbo.Aff_ToString(@RegisteredDate) + '.ClickId=' + dbo.Aff_ToString(@ClickId)
+	SELECT @LogData = 'Insert new member ' + CASE WHEN @RegisteredDate IS NULL THEN 'failed' ELSE 'success' END + '. IBCCustid =' + dbo.Aff_ToString(@IbcCustID) + '.UserName=' + dbo.Aff_ToString(@UserName) + '.IBCUserName=' + dbo.Aff_ToString(@IBCUserName) + '.DepositCustID=' + dbo.Aff_ToString(@DepositCustID) + '.FirstName=' + dbo.Aff_ToString(@FirstName) + '.LastName=' + dbo.Aff_ToString(@LastName) + '.Currency=' + dbo.Aff_ToString(@Currency) + '.Recommend=' + dbo.Aff_ToString(@Recommend) + '.Email=' + dbo.Aff_ToString(@Email) + '.RegisteredDate=' + dbo.Aff_ToString(@RegisteredDate) + '.ClickId=' + dbo.Aff_ToString(@ClickId)
 
 	EXEC [dbo].[Aff_WriteLog] @Creator = @AffID
 		,@AffID = @AffID

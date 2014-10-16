@@ -32,6 +32,10 @@ Revisions:
 	- 20140220@Peter : Support EU aff link
 	- 20140326@Bobby : check IsCLosed affiliate user
 	- 20140708@Bobby : Apply DeviceType info
+	- 20141013@Bobby : Hot fix Euro (PC-Mobile) site
+	
+Param's Explanation:   
+	- @DeviceType: 0-PC & 1-Mobile
 */
 BEGIN
 	SET NOCOUNT ON
@@ -145,6 +149,24 @@ BEGIN
 			,@ErrMsg = 'This link does not exists. Please contact administrator!'
 		RETURN;
 	END
+	ELSE
+	BEGIN
+		DECLARE @EUDomain 		VARCHAR(100)
+			,@EUMobileDomain 	VARCHAR(100)
+		
+		SELECT @EUDomain 		= 'eu.12bet.com'
+			,@EUMobileDomain 	= 'smart.bolakipas7789.com'
+		
+		--final check for EU member (PC or Mobile) site
+		IF(@LanguageCode IN ('eneuro', 'es')
+				AND (@DomainName <> @EUDomain OR @DomainName <> @EUMobileDomain))
+		BEGIN
+			SET @RedirectPage = CASE 
+									WHEN @DeviceType = 1 THEN REPLACE(@RedirectPage, @DomainName, @EUMobileDomain)
+									ELSE REPLACE(@RedirectPage, @DomainName, @EUDomain)
+								END
+		END
+	END
 	
 	-- process aff link
 	DECLARE @CountryCode VARCHAR(5)
@@ -244,6 +266,7 @@ BEGIN
 
 	RETURN;
 END
+
 GO
 
 GRANT EXECUTE ON [dbo].[Aff_AffiliateInsClickStatistics_New] TO [bodbDownlineNet] AS [dbo]

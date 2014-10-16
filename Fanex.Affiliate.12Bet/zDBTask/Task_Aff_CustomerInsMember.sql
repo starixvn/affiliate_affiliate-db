@@ -1,6 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[Task_Aff_CustomerInsMember] 
-	@AffId INT	= NULL
-	,@CreatedDate SMALLDATETIME = NULL
+	@AffId 			INT				= NULL
+	,@CreatedDate 	SMALLDATETIME 	= NULL
 AS
 /*  
 Created: 20120704@Johnny
@@ -9,6 +9,7 @@ DB: DB052.Affiliate_12BET
 Revisions:    
 	- 20140708@Bobby: Apply MemberClickDetail info
 	- 20140801@Bobby: Update ins MemberClickDetail
+	- 20141013@Bobby: Get CreatedDate (FDM) from bodb02
 
 Params Explaination:
 	-@CreatedDate: NULL = [current_timestamp]
@@ -27,7 +28,7 @@ BEGIN
 		,AffiliateId AS AffId
 		,d.UserName
 		,d.IBCUserName
-		,CURRENT_TIMESTAMP AS CreatedDate
+		,NULL AS CreatedDate
 		,d.CustId AS DepositCustID
 		,d.FirstName
 		,d.LastName
@@ -49,13 +50,13 @@ BEGIN
 		ON d.ClickID = c.ClickID 
 		LEFT JOIN dbo.MemberInfo m WITH (NOLOCK)
 		ON d.IBCCustID = m.IBCCustID AND d.AffiliateID = m.AffID
-	WHERE (CreatDate >= @CreatedDate AND creatdate < @CreateToDate)
-		AND AffiliateId > 0
+	WHERE (d.CreatDate >= @CreatedDate AND d.creatdate < @CreateToDate)
+		AND d.AffiliateId > 0
 		AND (
 			@Affid IS NULL
-			OR AffiliateId = @Affid
+			OR d.AffiliateId = @Affid
 			)
-		AND ActStatus IN (2, 9)
+		AND d.ActStatus IN (2, 9)
 		AND d.IBCCustID IS NOT NULL
 		AND m.IBCCustID IS NULL
 
@@ -83,9 +84,9 @@ BEGIN
 		)
 		SELECT src.IBCCustID
 			,src.AffID
-			,'12bet$' + src.UserName
+			,'12bet$' + src.UserName AS UserName
 			,src.IBCUserName
-			,src.CreatedDate
+			,c.creatdate AS CreatedDate
 			,src.RegisteredDate
 			,src.IsRemove
 			,src.DepositCustID
@@ -96,14 +97,14 @@ BEGIN
 			,src.Recommend
 			,src.ClickId
 		FROM #depositMember src
+		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK)
+			ON src.IBCCustID = c.custid
 
 		--Ins MemberClickDetail
-		DELETE #depositMember
-		WHERE ClickId IS NULL OR ClickId = 0
-		
 		MERGE INTO [dbo].[MemberClickDetail] AS t
 		USING #depositMember AS s 
 			ON t.DepositCustID = s.DepositCustID
+				AND s.ClickID > 0
 		WHEN MATCHED THEN
 			UPDATE 
 			SET IBCCustID = s.IBCCustID
@@ -131,8 +132,7 @@ BEGIN
 				,s.[AffID]
 				,s.[RegisteredDate]
 				,s.[IBCCustID]
-				)
-		;
+			);
 	END
 
 	DROP TABLE #depositMember;
