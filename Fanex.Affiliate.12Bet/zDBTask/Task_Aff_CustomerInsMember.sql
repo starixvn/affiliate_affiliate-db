@@ -99,7 +99,11 @@ BEGIN
 		FROM #depositMember src
 		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK)
 			ON src.IBCCustID = c.custid
-
+		
+		DELETE d
+		FROM #depositMember d
+		WHERE d.ClickID IS NULL OR d.ClickID = 0
+	
 		--Ins MemberClickDetail
 		MERGE INTO [dbo].[MemberClickDetail] AS t
 		USING #depositMember AS s 

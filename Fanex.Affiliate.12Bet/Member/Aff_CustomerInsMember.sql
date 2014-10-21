@@ -88,6 +88,10 @@ BEGIN
 	FROM #depositMember d
 	WHERE RegisteredDate IS NOT NULL
 
+	DELETE d
+	FROM #depositMember d
+	WHERE d.ClickID IS NULL OR d.ClickID = 0
+	
 	-- MemberClickDetail
 	MERGE INTO [dbo].[MemberClickDetail] AS t
 	USING #depositMember AS s 
