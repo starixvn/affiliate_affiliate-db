@@ -32,6 +32,7 @@ Revisions:
     - 20140312@Peter: Update MemberDaily, AffDaily and AffDailySummary
 	- 20140723@Bobby: remove checking @GroupID < 1000
 	- 20140820@Bobby: Add Deposit & Withdrawal percent and apply SQL stylescope
+	- 20141028@Bobby: hotfix#24904 - remove abs() function when calculating PSP fee
 
 Parameters:  
 .@UserID : Administrator user id  
@@ -580,11 +581,11 @@ BEGIN
 
 	--Update MemberDaily PSP, Marketting fee,...
 	UPDATE m
-	SET PSP = ABS(Deposit) * @DepositPercent + ABS(Withdrawal) * @WithdrawalPercent
+	SET PSP = (ABS(Deposit) * @DepositPercent) + (Withdrawal * @WithdrawalPercent)
 		,Marketing = ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing', NULL), 0)
 		,MemOddsFee = ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', NULL), 0)
 		,MemPLayTechFee = ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL), 0)
-		,MemWinlostFake = - (- Winlost - ((ABS(Deposit) * @DepositPercent + ABS(Withdrawal) * @WithdrawalPercent)) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, @SportsBookID, 'PSP', NULL), 0) - ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing', NULL), 0) - ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', NULL), 0) - ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL), 0))
+		,MemWinlostFake = - (- Winlost - ((ABS(Deposit) * @DepositPercent + Withdrawal * @WithdrawalPercent)) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, @SportsBookID, 'PSP', NULL), 0) - ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing', NULL), 0) - ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', NULL), 0) - ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL), 0))
 	FROM dbo.MemberDaily AS m WITH (ROWLOCK, UPDLOCK)
 		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON m.AffId = ai.AffId
 	WHERE DATEDIFF(m, m.WinlostDate, CURRENT_TIMESTAMP) = 0

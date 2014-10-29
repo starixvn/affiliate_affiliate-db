@@ -14,6 +14,7 @@ DB: DB052.Affiliate_AoncashUAT
 Original:  
   
 Revisions:  
+	- 20141028@Bobby: hotfix#24904 - remove abs() function when calculating PSP fee
 Parameters:  
 .@UserID : Administrator user id  
 .@GroupID : <1000  
@@ -219,16 +220,33 @@ If @ErrCode <> 0
 	SELECT @SportsBookID = dbo.Aff_GetSportID('SportsBook')
 
 	--Update MemberDaily PSP, Marketting fee,...
+	;WITH PSPExchange AS (
+		SELECT md.AffId, ai.GroupID, cg.DepositPercent, cg.WithdrawalPercent
+		FROM dbo.MemberDaily md with(nolock)
+			INNER JOIN dbo.AffInfo ai with(nolock)
+			ON md.AffId = ai.AffID
+			INNER JOIN dbo.CommGroup cg with(nolock)
+			ON ai.GroupId = cg.GroupId
+		WHERE DATEDIFF(m, md.WinlostDate, CURRENT_TIMESTAMP) = 0
+			AND md.AffID IN (
+				SELECT cast(val AS INT) AS AffID
+				FROM dbo.strsplit(@AffIDList, ',')
+			)
+		GROUP BY md.AffId
+			, ai.GroupID
+			, cg.DepositPercent
+			, cg.WithdrawalPercent
+	)
 	UPDATE m
-	SET PSP = abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPercent
+	SET PSP = (ABS(Deposit) * ISNULL(e.DepositPercent, 0)) + (Withdrawal * ISNULL(e.WithdrawalPercent, 0))
 		,Marketing = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing', NULL), 0)
 		,MemOddsFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', NULL), 0)
 		,MemPLayTechFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL), 0)
-		,MemWinlostFake = - (- Winlost - ((abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPercent)) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, @SportsBookID, 'PSP', NULL), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing', NULL), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', NULL), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL), 0))
+		,MemWinlostFake = - (- Winlost - ((abs(Deposit) * ISNULL(e.DepositPercent,0) + Withdrawal * ISNULL(e.WithdrawalPercent, 0))) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, @SportsBookID, 'PSP', NULL), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing', NULL), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', NULL), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL), 0))
 	FROM MemberDaily AS m WITH (ROWLOCK, UPDLOCK)
-		INNER JOIN Exchange AS e(NOLOCK)
-		ON m.Currency = e.ExchangeId
-	WHERE datediff(m, m.WinlostDate, CURRENT_TIMESTAMP) = 0
+		LEFT JOIN PSPExchange AS e WITH(NOLOCK)
+		ON m.AffID = e.AffID
+	WHERE DATEDIFF(m, m.WinlostDate, CURRENT_TIMESTAMP) = 0
 		AND m.AffID IN (
 			SELECT cast(val AS INT) AS AffID
 			FROM dbo.strsplit(@AffIDList, ',')
@@ -368,4 +386,3 @@ GO
 GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupAssign] TO [bodbAdminNet]
 GO
 
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupDel] TO [vnteam]

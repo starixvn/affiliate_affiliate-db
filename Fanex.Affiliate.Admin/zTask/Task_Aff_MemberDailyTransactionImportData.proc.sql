@@ -13,6 +13,7 @@ AS
 	Revisions: 		
 		- Johnny@20130402: Fix the way import transfer transaction
 		- Peter@20131028 : Add more DB columns https://redmine.nexcel.vn/issues/5280
+		- 20141028@Bobby: hotfix#24904 - remove abs() function when calculating PSP fee
 */
 BEGIN
 	SET NOCOUNT ON
@@ -155,15 +156,28 @@ BEGIN
 		AND mi.IsRemoved = 0
 
 	--Update MemberDaily PSP, Marketting fee,...
+	;WITH PSPExchange AS (
+		SELECT md.AffId, ai.GroupID, cg.DepositPercent, cg.WithdrawalPercent
+		FROM dbo.MemberDaily md with(nolock)
+			INNER JOIN dbo.AffInfo ai with(nolock)
+			ON md.AffId = ai.AffID
+			INNER JOIN dbo.CommGroup cg with(nolock)
+			ON ai.GroupId = cg.GroupId
+		WHERE md.WinlostDate = @WinlostDate
+		GROUP BY md.AffId
+			, ai.GroupID
+			, cg.DepositPercent
+			, cg.WithdrawalPercent
+	)
 	UPDATE m WITH (UPDLOCK, ROWLOCK)
-	SET PSP = abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPercent
-		,Marketing = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductId, 'Marketing', @WinlostDate), 0)
-		,MemOddsFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductId, 'Odds Fee', @WinlostDate), 0)
-		,MemPLayTechFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductId, 'PlayTech Royalties', @WinlostDate), 0)
-		,MemWinlostFake = - (- Winlost - ((abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPercent)) * isnull(dbo.Aff_GetDeductionPercent(AffID, @SportsBookID, 'PSP', @WinlostDate), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductId, 'Marketing', @WinlostDate), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductId, 'Odds Fee', @WinlostDate), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(AffID, ProductId, 'PlayTech Royalties', @WinlostDate), 0))
+	SET PSP = (ABS(Deposit) * ISNULL(e.DepositPercent, 0)) + (Withdrawal * ISNULL(e.WithdrawalPercent, 0))
+		,Marketing = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing', @WinlostDate), 0)
+		,MemOddsFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', @WinlostDate), 0)
+		,MemPLayTechFee = abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', @WinlostDate), 0)
+		,MemWinlostFake = - (- Winlost - ((ABS(Deposit) * ISNULL(e.DepositPercent, 0) + Withdrawal * ISNULL(e.WithdrawalPercent,0))) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, @SportsBookID, 'PSP', @WinlostDate), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing', @WinlostDate), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', @WinlostDate), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', @WinlostDate), 0))
 	FROM MemberDaily AS m
-		INNER JOIN Exchange AS e(NOLOCK)
-		ON m.Currency = e.ExchangeId
+		LEFT JOIN PSPExchange AS e(NOLOCK)
+		ON m.AffId = e.AffId
 	WHERE m.WinlostDate = @WinlostDate
 
 	------------Update others field MemberDaily, insert data for AffDaily, AffDailySummary table

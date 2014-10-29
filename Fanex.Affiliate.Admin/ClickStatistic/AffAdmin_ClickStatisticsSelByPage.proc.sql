@@ -15,6 +15,7 @@ Revisions:
 	-20131230:Bobby: change to ClickStatistics & ClickStatistics_bk
 	-20140327:Bobby: fixbug https://redmine.nexcel.vn/issues/13595
 	-20140509:Bobby: update UniqueClick by date
+	-20141022:Bobby: Add filtering by Sport code and LanguageCode
 */
 BEGIN
 	SET NOCOUNT ON
@@ -187,6 +188,10 @@ BEGIN
 	SELECT r.*
 		,ISNULL(lan.LanguageName, 'N/A') AS LanguageName
 	FROM @Result AS r
+		INNER JOIN @LanguageCodeTable lf
+		ON r.LanguageCode = lf.LanguageCode
+		INNER JOIN @SportCodeTable sc
+		ON r.SportCode = sc.SportCode
 		LEFT JOIN dbo.[Language] AS lan WITH (NOLOCK)
 		ON r.LanguageCode = lan.LanguageID
 END
@@ -196,3 +201,4 @@ GRANT EXECUTE ON [dbo].[AffAdmin_ClickStatisticsSelByPage] TO [bodbAdminNet]
 GO
 
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_ClickStatisticsSelByPage] TO [vnteam]
+GO
