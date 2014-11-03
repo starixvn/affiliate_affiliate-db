@@ -3,8 +3,8 @@
 	,@Domain NVARCHAR(300) = NULL
 	,@SportCode VARCHAR(50) = NULL
 	,@LanguageCode VARCHAR(10) = NULL
-	,@FromDate SMALLDATETIME
-	,@ToDate SMALLDATETIME
+	,@FromDate DATETIME
+	,@ToDate DATETIME
 	,@DeviceType TINYINT = 0
 	,@PageSize INT = 50
 	,@PageIndex INT = 1
@@ -20,6 +20,7 @@ Original:
 Revisions:  
 	- 20140708@Bobby : Apply Device type info
 	- 20140801@Bobby : Update checking DeviceType in ClickStatistics1_bk
+	- 20141103@Bobby : Update checking DeviceType in ClickStatistics1_bk (change AND to OR)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -82,9 +83,11 @@ BEGIN
 				AND DomainReferrer = isnull(@Domain, DomainReferrer)
 				AND SportCode = isnull(@SportCode, SportCode)
 				AND LanguageCode = isnull(@LanguageCode, LanguageCode)
-				AND CASE WHEN @DeviceType = 0 AND DeviceType IS NULL THEN 1 
-					WHEN @DeviceType = 1 THEN 0
-					END = 1 -- no update DeviceType on bk for old data
+				AND ( 
+					(@DeviceType = 0 AND (c.DeviceType = @DeviceType OR c.DeviceType IS NULL))
+					OR 
+					(@DeviceType = 1 AND c.DeviceType = @DeviceType)
+				)
 			GROUP BY URLReferrer
 				,[Date]
 			) AS t
@@ -107,9 +110,11 @@ BEGIN
 				AND DomainReferrer = isnull(@Domain, DomainReferrer)
 				AND SportCode = isnull(@SportCode, SportCode)
 				AND LanguageCode = isnull(@LanguageCode, LanguageCode)
-				AND CASE WHEN @DeviceType = 0 AND DeviceType IS NULL THEN 1 
-					WHEN @DeviceType = 1 THEN 0
-					END = 1 -- no update DeviceType on bk for old data
+				AND ( 
+					(@DeviceType = 0 AND (c.DeviceType = @DeviceType OR c.DeviceType IS NULL))
+					OR 
+					(@DeviceType = 1 AND c.DeviceType = @DeviceType)
+				)
 			GROUP BY URLReferrer
 				,[Date]
 			
@@ -190,10 +195,5 @@ GO
 GRANT EXECUTE ON [dbo].[Aff_ClickStatisticsDetailBySite] TO [bodbDownlineNet]
 GO
 
-GRANT EXECUTE ON [dbo].[Aff_ClickStatisticsDetailBySite] TO [bodbDownlineNetView]
-GO
-
-GRANT VIEW DEFINITION ON [dbo].[Aff_ClickStatisticsDetailBySite] TO [vnteam]
-GO
 
 

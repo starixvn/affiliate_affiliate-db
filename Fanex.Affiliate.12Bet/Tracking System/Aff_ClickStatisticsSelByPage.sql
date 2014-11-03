@@ -1,7 +1,7 @@
 ﻿ALTER PROCEDURE [dbo].[Aff_ClickStatisticsSelByPage] 
 	@AffID INT
-	,@FromDate SMALLDATETIME
-	,@ToDate SMALLDATETIME
+	,@FromDate DATETIME
+	,@ToDate DATETIME
 	,@SportCode VARCHAR(50) = NULL
 	,@LanguageCode VARCHAR(10) = NULL
 	,@DeviceType TINYINT = 0
@@ -17,6 +17,7 @@ Original:
 Revisions:  
 	- 20140708@Bobby : Apply Device type info
 	- 20140805@Bobby : Support sum TotalSignUps & TotalFDMs
+	- 20141103@Bobby : Change FromDate & ToDate to DATETIME
 */
 BEGIN
 	SET NOCOUNT ON

@@ -1,7 +1,7 @@
 ﻿ALTER PROCEDURE [dbo].[Aff_ClickStatisticsSelBySite] 
 	@AffID INT
-	,@FromDate SMALLDATETIME
-	,@ToDate SMALLDATETIME
+	,@FromDate DATETIME
+	,@ToDate DATETIME
 	,@DeviceType TINYINT = 0
 	,@TotalClicks INT = 0 OUTPUT
 	,@UniqueClicks INT = 0 OUTPUT
@@ -17,11 +17,12 @@ Original:
 Revisions:  
 	- 20140708@Bobby : Apply Device type info
 	- 20140805@Bobby : Support sum TotalSignUps & TotalFDMs
+	- 20141103@Bobby : Change FromDate & ToDate to DATETIME
 */
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @LastDateSum SMALLDATETIME
+	DECLARE @LastDateSum DATETIME
 
 	IF (@FromDate > @ToDate) RETURN
 
