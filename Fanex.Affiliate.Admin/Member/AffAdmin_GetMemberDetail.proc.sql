@@ -6,6 +6,7 @@ AS
 	DB:	DBAFFATHENA000\Affiliate_Athena000 
 	Revisions:           
 		- 20140909@Bobby: Create SP
+		- 20141711@Bobby: Update to get country info
                 
 	Param's Explanation: 
 */
@@ -46,7 +47,7 @@ BEGIN
 			SELECT MAX(r.RemovedDate) AS RemovedDate
 					, ad.UserName AS RemovedBy
 				FROM dbo.MemberRemoval r WITH(NOLOCK)
-					INNER JOIN AdminUser ad WITH(NOLOCK)
+					INNER JOIN dbo.AdminUser ad WITH(NOLOCK)
 					ON r.RemovedBy = ad.CustID
 				WHERE r.UserName = m.UserName
 				GROUP BY ad.UserName
@@ -59,20 +60,9 @@ BEGIN
 				) t
 				WHERE m.IsRemoved = 0
 		) AS mr
-		CROSS APPLY (
-			SELECT TOP 1
-				c.Country
-			FROM [dbo].[IP2NationCountries] c WITH(NOLOCK)
-			WHERE c.[Iso_Code_2] = m.CountryID 
-				OR c.[Iso_Code_3] = m.CountryID
-
-			UNION 
-			SELECT Country
-			FROM (
-				SELECT '-' AS Country
-			) t
-			WHERE m.CountryID IS NULL
-		) ct
+		LEFT JOIN [dbo].[IP2NationCountries] ct WITH(NOLOCK)
+			ON m.CountryID = ct.Code OR m.CountryID = ct.Iso_Code_2
+			
 	WHERE m.UserName = @UserName
 END
 GO
