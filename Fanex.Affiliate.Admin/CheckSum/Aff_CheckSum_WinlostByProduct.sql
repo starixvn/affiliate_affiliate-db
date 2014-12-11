@@ -14,10 +14,21 @@ Revisions:
 	-20140820@Bobby: Add filtering by ProductIDs
 	
 Param's Explanation:  
-	@Xml: format '<root>
-		<trans username="train1991"></trans>
-		<trans_N username="XXX"></trans>
+	@Xml: 
 	</root>'
+	- @Xml: List member's username is under affiliate user
+		+ Example: '<root>
+		<trans username="train1991"></trans>
+		<trans_N username="XXX"></trans></root>
+	- @Prefix: Is the Licensee Name as default plus ($) sign
+	- @Date: Date only
+	- @ProductIDs: IBC sportypes ID
+		+ 0: 	Sportsbook
+		+ 251: 	RNG Casino
+		+ 161: 	Number Game
+		+ 162: 	Live Casino
+		+ 160: 	Virtual Sports
+		+ 254:	Playtech Casino	
 */
 BEGIN
 	SET NOCOUNT ON;
@@ -109,8 +120,10 @@ BEGIN
 				WHEN bettype BETWEEN 1201 AND 1299 THEN 180 --Virtual Sport	
 				WHEN bettype BETWEEN 51 AND 69 THEN 201 -- Financial	
 				WHEN bettype BETWEEN 1501 AND 1599 THEN 202 -- Keno  
-				WHEN b.bettype < 31
-					OR (b.bettype BETWEEN 121 AND 999) THEN 0 -- sportsbook
+				WHEN ( b.bettype < 31
+						OR ( b.bettype BETWEEN 121 AND 999 ) -- included (153 -156) Tenis IBC
+						OR ( b.bettype BETWEEN 1301 AND 1399) -- Tenis SS
+						) THEN 0 -- sportsbook 
 				ELSE - 1
 				END
 			,-- undefined productid
@@ -176,8 +189,10 @@ BEGIN
 				WHEN bettype BETWEEN 1201 AND 1299 THEN 180 --Virtual Sport	
 				WHEN bettype BETWEEN 51 AND 69 THEN 201 -- Financial
 				WHEN bettype BETWEEN 1501 AND 1599 THEN 202 -- Keno  
-				WHEN b.bettype < 31
-					OR (b.bettype BETWEEN 121 AND 999) THEN 0 -- sportsbook 
+				WHEN ( b.bettype < 31
+						OR ( b.bettype BETWEEN 121 AND 999 ) -- included (153 -156) Tenis IBC
+						OR ( b.bettype BETWEEN 1301 AND 1399) -- Tenis SS
+						) THEN 0 -- sportsbook 
 				ELSE - 1
 				END;
 	END

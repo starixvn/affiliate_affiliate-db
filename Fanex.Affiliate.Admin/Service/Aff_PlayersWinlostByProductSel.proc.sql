@@ -25,10 +25,17 @@ Revisions:
 	- 20140502@Dan: optimize perfomance
 	- 20140502@Dan: support Playtech casino
 	- 20140610@Bobby: Add ProgressiveShare & ProgressiveWin columns
+	- 20141016@Bobby: Add bettype Tenis's Sporting Solution and IBC
+	
   
 Param's Explanation:  
-  
-   
+	- @Xml: List member's username is under affiliate user
+		+ Example: '<root>
+		<trans username="train1991"></trans>
+		<trans_N username="XXX"></trans></root>
+	- @Prefix: Is the Licensee Name as default plus ($) sign
+	- @Date: Date only
+ 
 */
 BEGIN
 	SET NOCOUNT ON
@@ -123,11 +130,10 @@ BEGIN
 						AND 69 THEN 201 -- Financial	
 				WHEN bettype BETWEEN 1501
 						AND 1599 THEN 202 -- Keno  
-				WHEN b.bettype < 31
-					OR (
-						b.bettype BETWEEN 121
-							AND 999
-						) THEN 0 -- sportsbook
+				WHEN ( b.bettype < 31
+						OR ( b.bettype BETWEEN 121 	AND 999 ) -- included (153 -156) Tenis IBC
+						OR ( b.bettype BETWEEN 1301 AND 1399) -- Tenis SS
+						) THEN 0 -- sportsbook 
 				ELSE - 1
 				END
 			,-- undefined productid
@@ -206,10 +212,9 @@ BEGIN
 						AND 69 THEN 201 -- Financial
 				WHEN bettype BETWEEN 1501
 						AND 1599 THEN 202 -- Keno  
-				WHEN b.bettype < 31
-					OR (
-						b.bettype BETWEEN 121
-							AND 999
+				WHEN ( b.bettype < 31
+						OR ( b.bettype BETWEEN 121 AND 999 ) -- included (153 -156) Tenis IBC
+						OR ( b.bettype BETWEEN 1301 AND 1399) -- Tenis SS
 						) THEN 0 -- sportsbook 
 				ELSE - 1
 				END

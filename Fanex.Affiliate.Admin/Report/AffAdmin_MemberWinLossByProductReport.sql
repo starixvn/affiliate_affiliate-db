@@ -27,6 +27,7 @@ AS
 	Original:[AffAdmin_MemberWinLossReport]
 	Revisions:           
 		- 20140827@Bobby: Add Virtual Sport & PlayerComm - apply style-scope
+		- 20141112@Bobby: Add more PlayerCurrencyId and AffCurrencyId
                 
 	Param's Explanation: 
 	• @UserId: Admin user id
@@ -141,8 +142,10 @@ BEGIN
 			END 							AS WinlostDate
 		,md.AffID
 		,ai.Username 						AS UserName
+		,md.AffCurrency						AS AffCurrencyId
 		,ex.Code 							AS Currency
 		,md.Username 						AS PlayerUsername
+		,md.Currency 						AS PlayerCurrencyId
 		,mc.Currency 						AS PlayerCurrency
 		,CASE WHEN @GroupBy = 0 THEN md.SysExRate 
 				ELSE 1
@@ -172,8 +175,10 @@ BEGIN
 		CASE WHEN @GroupBy = 0 THEN md.WinlostDate	ELSE 0 END
 		,md.AffID
 		,ai.Username
+		,md.AffCurrency	
 		,ex.Code
 		,md.Username
+		,md.Currency 
 		,mc.Currency
 		,CASE WHEN @GroupBy = 0 THEN md.SysExRate 
 				ELSE 1
@@ -201,9 +206,12 @@ BEGIN
 	SELECT 
 		m.RowIDX
 		,m.WinlostDate
+		,m.AffID
 		,m.UserName
+		,m.AffCurrencyId
 		,m.Currency
 		,m.PlayerUsername
+		,m.PlayerCurrencyId
 		,m.PlayerCurrency
 		,m.SysExRate AS ExRate
 		,m.AffExRate
@@ -276,9 +284,12 @@ BEGIN
 	GROUP BY 
 		m.RowIDX
 		,m.WinlostDate
+		,m.AffID
 		,m.UserName
+		,m.AffCurrencyId
 		,m.Currency
 		,m.PlayerUsername
+		,m.PlayerCurrencyId
 		,m.PlayerCurrency
 		,m.SysExRate
 		,m.AffExRate
