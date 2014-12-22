@@ -20,6 +20,7 @@ AS
 				   CNW in sportspook=Member Winlost In SB - Marketing Fee- Odds Fee
 				   Net Winlost for Casino = Member Winlost In Casino - Marketing Casino - Playtech Royalty Fee - PSP Fee
 		- 20140403@Bobby:  exclude Keno product & other sports
+		- 20141218@Bobby: Update SS's bettype
 */
 BEGIN
 	DECLARE @Today SMALLDATETIME
@@ -168,7 +169,7 @@ BEGIN
 							ELSE 0
 							END), 0) AS Deposit
 				,isnull(sum(CASE 
-							WHEN BetType <= 999
+							WHEN (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 								AND ruben = 1 THEN (b.Winlost - abs(b.actual_stake))
 							ELSE 0
 							END), 0) AS Winlost
@@ -189,13 +190,11 @@ BEGIN
 								END), 0) * e.WithdrawalPercent) AS PSP
 				,0 AS Marketing
 				,isnull(sum(CASE 
-							WHEN BetType <= 999 THEN (CASE 
-									WHEN Bettype IN (33, 43)
-										AND liveawayscore = 0 THEN isnull(abs(stake), 0) / 2 * e.Actualrate2
-									ELSE isnull(abs(stake), 0) END
-									)
-							ELSE 0
-							END), 0) AS Turnover
+						WHEN (bettype <= 999 
+								OR ( bettype BETWEEN 1301 AND 1399)
+							) THEN isnull(abs(stake), 0)
+						ELSE 0
+						END), 0) AS Turnover
 				,e.Actualrate2 AS AffExRate
 				,e.exchangeid AS exchangeid
 			FROM MemberInfo ci WITH (NOLOCK)
@@ -208,6 +207,7 @@ BEGIN
 				AND ci.IsRemoved = 0
 				AND (
 					b.bettype <= 999
+					OR ( b.bettype BETWEEN 1301 AND 1399) -- SS tickets
 					OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 					) --get SB only
 				AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance

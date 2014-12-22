@@ -28,6 +28,9 @@ AS
      20130306@Peter: Sportbook bettype is less than 999 and exclude bettype from 31 to 120
      20130307@Peter:  Get data from  DB052.bodb_Licensee
 	 20140402@Dan:  exclude Keno product
+	 20141125@Bobby:  Add 2 more columns OpeningBalance & ClosingBalance
+	 20141217@Bobby:  Include Sporting Solution's tickets
+	 
   
  Param's Explanation:  
  • @winlostdate: The data need to summary  
@@ -145,6 +148,8 @@ BEGIN
 		,PSP MONEY
 		,Marketing MONEY
 		,AffID INT
+		,OpeningBalance MONEY
+		,ClosingBalance MONEY
 		)
 
 	IF DATEDIFF(d, @winlostdate, CURRENT_TIMESTAMP) <= 1
@@ -163,6 +168,8 @@ BEGIN
 			,AffExRate
 			,MemberExRate
 			,AffID
+			,OpeningBalance
+			,ClosingBalance
 			)
 		SELECT b.custid
 			,isnull(sum(CASE bettype
@@ -182,21 +189,29 @@ BEGIN
 						ELSE 0
 						END), 0) AS Adjustment
 			,isnull(sum(CASE 
-						WHEN bettype <= 999 THEN isnull(abs(stake), 0)
+						WHEN (bettype <= 999 
+								OR ( bettype BETWEEN 1301 AND 1399)
+							) THEN isnull(abs(stake), 0)
 						ELSE 0
 						END), 0) AS Turnover
 			,isnull(sum(CASE 
-						WHEN bettype <= 999
+						WHEN (bettype <= 999 
+								OR ( bettype BETWEEN 1301 AND 1399)
+							)
 							AND StatusID = 111 /*status in ('DRAW')*/ THEN isnull(abs(stake), 0)
 						ELSE 0
 						END), 0) AS DrawGame
 			,isnull(sum(CASE 
-						WHEN bettype <= 999
+						WHEN (bettype <= 999 
+								OR ( bettype BETWEEN 1301 AND 1399)
+							)
 							AND ruben = 0 THEN isnull(abs(actual_stake), 0)
 						ELSE 0
 						END), 0) AS Outstanding
 			,isnull(sum(CASE 
-						WHEN bettype <= 999
+						WHEN (bettype <= 999 
+								OR ( bettype BETWEEN 1301 AND 1399)
+							)
 							AND ruben = 1 THEN isnull(winlost, 0) - isnull(abs(actual_stake), 0) + isnull(playercomm, 0)
 						ELSE 0
 						END), 0) AS Winlost
@@ -204,6 +219,8 @@ BEGIN
 			,e.ActualRate2
 			,e.ActualRate
 			,m.AffID
+			,0 AS OpeningBalance
+			,0 AS ClosingBalance
 		FROM bodb02.dbo.bettrans b WITH (NOLOCK)
 			INNER JOIN #Member m
 			ON m.CustID = b.custid
@@ -212,21 +229,33 @@ BEGIN
 		WHERE winlostdate = @winlostdate
 			AND (
 				bettype <= 999
+				OR ( bettype BETWEEN 1301 AND 1399) -- SS tickets
 				OR bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
-				) --get SB only
+			) --get SB only
 			AND bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
 			AND bettype NOT IN (1000) --games
 			AND bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 			AND bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 			AND bettype NOT BETWEEN 1501 AND 1599 -- Keno  
-					--and bettype not in (31,32,33,41,42,43)   
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
-			--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
+			
 		GROUP BY b.custid
 			,b.currency
 			,e.ActualRate2
 			,e.ActualRate
 			,m.AffID
+			
+		-- update openning/closing balance
+		UPDATE d
+		SET d.OpeningBalance 	= rpt.OpeningBalance
+			, d.ClosingBalance 	= rpt.ClosingBalance
+			
+		FROM #Data d
+			INNER JOIN DBRPT.bodb_report.dbo.rptdepwinlost rpt with(nolock)
+			ON d.IBCCustID = rpt.custid
+				
+		WHERE rpt.winlostdate = @winlostdate
+				
 	END
 	ELSE IF @Winlostdate < @CutDate
 	BEGIN
@@ -259,10 +288,12 @@ BEGIN
 			AND b.SportType = 0
 
 		UPDATE d
-		SET Deposit = isnull(b.deposit, 0)
-			,Withdrawal = isnull(b.withdrawal, 0)
-			,Bonus = isnull(b.Bonus, 0)
-			,Adjustment = isnull(b.Adjustment, 0)
+		SET Deposit 			= isnull(b.deposit, 0)
+			,Withdrawal 		= isnull(b.withdrawal, 0)
+			,Bonus 				= isnull(b.Bonus, 0)
+			,Adjustment 		= isnull(b.Adjustment, 0)
+			,OpeningBalance 	= ISNULL(b.OpeningBalance, 0)
+			,ClosingBalance 	= ISNULL(b.ClosingBalance, 0)
 		FROM #Data d
 			INNER JOIN DBRPT.bodb_Report.dbo.rptDepWinlost_bk b WITH (NOLOCK)
 			ON b.CustID = d.IBCCustID
@@ -282,6 +313,8 @@ BEGIN
 			,Withdrawal
 			,Bonus
 			,Adjustment
+			,OpeningBalance
+			,ClosingBalance
 			)
 		SELECT m.CustID
 			,0
@@ -296,6 +329,8 @@ BEGIN
 			,isnull(b.withdrawal, 0)
 			,isnull(b.Bonus, 0)
 			,isnull(b.Adjustment, 0)
+			,ISNULL(b.OpeningBalance, 0)
+			,ISNULL(b.ClosingBalance, 0)
 		FROM DBRPT.bodb_Report.dbo.rptDepWinlost_bk b WITH (NOLOCK)
 			INNER JOIN #Member m
 			ON m.CustID = b.custid
@@ -338,10 +373,12 @@ BEGIN
 			AND b.SportType = 0
 
 		UPDATE d
-		SET Deposit = isnull(b.deposit, 0)
-			,Withdrawal = isnull(b.withdrawal, 0)
-			,Bonus = isnull(b.Bonus, 0)
-			,Adjustment = isnull(b.Adjustment, 0)
+		SET Deposit 			= isnull(b.deposit, 0)
+			,Withdrawal 		= isnull(b.withdrawal, 0)
+			,Bonus 				= isnull(b.Bonus, 0)
+			,Adjustment 		= isnull(b.Adjustment, 0)
+			,OpeningBalance 	= ISNULL(b.OpeningBalance, 0)
+			,ClosingBalance 	= ISNULL(b.ClosingBalance, 0)
 		FROM #Data d
 			INNER JOIN DBRPT.bodb_Report.dbo.rptDepWinlost b WITH (NOLOCK)
 			ON b.CustID = d.IBCCustID
@@ -361,6 +398,8 @@ BEGIN
 			,Withdrawal
 			,Bonus
 			,Adjustment
+			,OpeningBalance
+			,ClosingBalance
 			)
 		SELECT m.CustID
 			,0
@@ -375,6 +414,8 @@ BEGIN
 			,isnull(b.withdrawal, 0)
 			,isnull(b.Bonus, 0)
 			,isnull(b.Adjustment, 0)
+			,ISNULL(b.OpeningBalance, 0)
+			,ISNULL(b.ClosingBalance, 0)
 		FROM DBRPT.bodb_Report.dbo.rptDepWinlost b WITH (NOLOCK)
 			INNER JOIN #Member m
 			ON m.CustID = b.Custid
@@ -418,6 +459,8 @@ BEGIN
 		,AffID
 		,MemOddsFee
 		,MemWinlostFake
+		,OpeningBalance
+		,ClosingBalance
 		)
 	SELECT @WinlostDate
 		,IBCCustID
@@ -439,6 +482,8 @@ BEGIN
 		,AffID
 		,abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(AffID, @SportsBookID, 'Odds Fee', @WinlostDate), 0) AS MemOddsFee
 		,- (- Winlost - ((abs(Deposit) * e.DepositPercent + abs(Withdrawal) * e.WithdrawalPercent)) * isnull(dbo.Aff_GetDeductionPercent(AffID, @SportsBookID, 'PSP', @WinlostDate), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(AffID, @SportsBookID, 'Marketing', @WinlostDate), 0) - abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(AffID, @SportsBookID, 'Odds Fee', @WinlostDate), 0)) AS MemWinlostFake
+		,OpeningBalance
+		,ClosingBalance
 	FROM #Data d WITH (NOLOCK)
 		INNER JOIN @AffExchange e
 		ON e.ExchangeID = d.currency
@@ -673,4 +718,3 @@ GO
 GRANT EXECUTE ON [dbo].[Task_Aff_MemberDailySummary] TO [vnteam] AS [dbo]
 GO
 
-GRANT VIEW DEFINITION ON [dbo].[Task_Aff_MemberDailySummary] TO [vnteam] AS [dbo]

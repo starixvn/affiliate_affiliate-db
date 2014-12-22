@@ -34,6 +34,7 @@ Revisions:
 	- 20120606@Peter : Exclude waiting tickets 
 	- 20140403@Bobby:  exclude Keno product & other sports
 	- 20140801@Bobby:  Update MemberClickStatistics
+	- 20141218@Bobby: Update SS's bettype
 
 Param's Explanation:
 	• @AffID : Affiliate custid
@@ -158,7 +159,7 @@ BEGIN
 			END
 		,0
 		,isnull(sum(CASE 
-					WHEN bettype < 99 THEN (CASE 
+					WHEN (bettype <= 999 OR ( b.bettype BETWEEN 1301 AND 1399)) THEN (CASE 
 							WHEN Bettype IN (33, 43)
 								AND liveawayscore = 0 THEN isnull(stake, 0) / 2 * e.Actualrate2
 							ELSE isnull(stake, 0) * e.Actualrate2 END
@@ -171,7 +172,8 @@ BEGIN
 					END), 0) AS Deposit
 		,isnull(sum(CASE 
 					WHEN (
-							bettype < 99
+							bettype <= 999
+							OR ( b.bettype BETWEEN 1301 AND 1399)
 							OR bettype IN (21001, 21002, 21003, 21004, 21005, 22004, 22005)
 							)
 						AND ruben = 1 THEN (b.Winlost - b.Actual_Stake) * e.actualrate2
@@ -188,6 +190,7 @@ BEGIN
 		AND ci.IsRemoved = 0
 		AND (
 			b.bettype <= 999
+			OR ( b.bettype BETWEEN 1301 AND 1399)
 			OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 			) --get SB only
 		AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance

@@ -16,6 +16,7 @@ AS
 		- 20101228@Henry: change bettype to new range
 		- 20120606@Peter : Exclude waiting tickets
 		- 20140403@Bobby:  exclude Keno product & other sports
+		- 20141218@Bobby: Update SS's bettype
 
 	Param's Explanation:
 		• @AffID : Affiliate custid
@@ -78,6 +79,7 @@ BEGIN
 			AND b.winlostdate = @Today
 			AND (
 				b.bettype <= 999
+				OR ( b.bettype BETWEEN 1301 AND 1399)
 				OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 				) --get SB only
 			AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
@@ -187,7 +189,7 @@ BEGIN
 			,m.RegisteredDate
 			,isnull(sum(CASE 
 						WHEN @SportType = 0
-							AND bettype < 99 THEN (CASE 
+							AND (bettype < 999 OR ( b.bettype BETWEEN 1301 AND 1399)) THEN (CASE 
 								WHEN Bettype IN (33, 43)
 									AND liveawayscore = 0 THEN isnull(stake, 0) / 2 * e.Actualrate2
 								ELSE isnull(stake, 0) * e.Actualrate2 END
@@ -204,7 +206,7 @@ BEGIN
 						END), 0) AS turnover
 			,isnull(sum(CASE 
 						WHEN @SportType = 0
-							AND bettype < 99
+							AND (bettype < 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 							AND ruben = 1 THEN (winlost - actual_stake + playercomm) * e.ActualRate2
 						WHEN @SportType = @SportsBookID
 							AND ruben = 1
@@ -255,6 +257,7 @@ BEGIN
 			AND b.winlostdate = @Today
 			AND (
 				b.bettype <= 999
+				OR ( b.bettype BETWEEN 1301 AND 1399)
 				OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 				) --get SB only
 			AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance

@@ -1,345 +1,417 @@
 ﻿ALTER PROCEDURE [dbo].[Aff_PerformanceReport] 
-	@UserName VARCHAR(50) = NULL
-	,@Language VARCHAR(11) = NULL
-	,@FromDate DATETIME
-	,@ToDate DATETIME
-	,@SortBy VARCHAR(20) = 'Member'
-	,@SportId INT = 0
-	,@PageSize INT = 50
-	,@PageIndex INT = 1
-	,@TotalPages INT = 0 OUTPUT
-	,@NRows INT = 0 OUTPUT
+	@UserName			VARCHAR(50) = NULL
+	,@Language			VARCHAR(11) = NULL
+	,@FromDate			DATETIME
+	,@ToDate			DATETIME
+	,@SortBy			TINYINT		= 1
+	,@IsDesc			BIT			= 1
+	,@SportId			INT			= NULL
+	,@PageSize			INT			= 50
+	,@PageIndex			INT			= 1
+	,@NRows				INT			= 0 OUTPUT
 AS
-/*  
-	Created: @VinhTrinh  
-	Task : Show performance report for admin.  
-	DB: DB052.Affiliate_12BET  
-	Original: [Aff_AffiliateReport]  
-	Revisions:  
-	   - 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])  
-	   - 20120606@Peter : Exclude waiting tickets  
-  
-	Param's Explanation:  
-	 • @UserName Search by username  
-	 • @Language Search by language  
-	 • @FromDate From date  
-	 • @ToDate To date  
-	 • @SortBy Sort by field  
-	 If @SortBy=Commission and  
-	 @SportID=0 : View all  
-			  1: View by Sportsbook  
-		3: View by Casino  
+/*
+Created: @VinhTrinh
+Task : Show performance report for admin.
+DB: DB052.Affiliate_12BET
+Original: [Aff_AffiliateReport]
+Revisions:
+	- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
+	- 20120606@Peter : Exclude waiting tickets
+	- 20141118@Bobby: 
+		+ Add sorting [@IsDesc] value
+		+ Remove @TotalPages
+	- 20141218@Bobby: Enhance performance & update SS's bettype
+
+Param's Explanation:
+	• @UserName Search by username
+	• @Language Search by language
+	• @FromDate From date
+	• @ToDate	To date
+	• @SortBy	0 Affilate
+		+ 1 - QualifiedMembers
+		+ 2 - Deposit
+		+ 3 - Turnover
+		+ 4 - Winlost
+		+ 5 - Commission
+
+	If @SortBy=Commission and
+	@SportID=0 : View all
+	    1: View by Sportsbook
+		3: View by Casino
 */
 BEGIN
 	SET NOCOUNT ON
 
 	IF @FromDate > @ToDate RETURN
+	
+	DECLARE @Month	INT
+		,@Year		INT
+		
+	CREATE TABLE #AffList (
+		AffId		INT
+		, UserName	VARCHAR(30)
+		, IsClosed	BIT
+		, Currency 	INT
+	)
 
-	CREATE TABLE #Result (
-		AffId INT PRIMARY KEY
-		,Username VARCHAR(50)
-		,QualifiedMembers INT
-		,ActivePlayer INT
-		,Deposit MONEY
-		,Withdrawal MONEY
-		,Turnover MONEY
-		,Winlost MONEY
+	CREATE TABLE #AffReport (
+		AffId	INT
+		,ToTal	FLOAT
+	)
+	CREATE TABLE #AffCommTmp (
+		AffId INT
+		,GroupID INT
+		,SportID TINYINT
+		,MonthDate SMALLDATETIME
+		,TotalQM INT
+		,CommRate FLOAT
 		,Commission MONEY
-		)
+		,Deposit MONEY
+		,TurnOver MONEY
+		,Winlost MONEY
+		,NetWinlost MONEY
+	)
+	
+	CREATE TABLE #AffComm (
+		AffId		INT
+		, TotalQM	INT
+		, Deposit	MONEY
+		, Tunover	MONEY
+		, Winlost	MONEY
+		, AffComm	MONEY
+	)
+	
+	DECLARE @AffPaging 
+	AS TABLE  (
+		AffId	INT
+		,RowIDX	INT
+	)
+	
+	
+	DECLARE @CurrentDate 	SMALLDATETIME
+		,@LastMonthlydate 	SMALLDATETIME
+		,@FirstDate 		SMALLDATETIME
+		,@TmpToDate 		SMALLDATETIME
+		,@NoComGroupID 		INT
+		,@CurrMonth			DATE
 
-	DECLARE @CurrentDate SMALLDATETIME
-		,@LastMonthlydate SMALLDATETIME
-		,@FirstDate SMALLDATETIME
-		,@TmpToDate SMALLDATETIME
-		,@NoComGroupID INT
-
-	--Assign @ToDate to last date of @ToDate, @FromDate equal 1st of @fromdate  
-	SELECT @CurrentDate = dateadd(d, 0, datediff(d, 0, current_timestamp))
-		,@FromDate = dateadd(m, datediff(m, 0, @FromDate), 0) --Assign fromdate to 1st of month of fromdate  
-		,@ToDate = dateadd(d, - 1, dateadd(m, datediff(m, 0, @ToDate) + 1, 0)) --Assign todate to last date of month of todate  
-		,@TmpToDate = @ToDate
+	--Assign @ToDate to last date of @ToDate, @FromDate equal 1st of @fromdate
+	SELECT @CurrentDate 	= DATEADD(d, 0, datediff(d, 0, CURRENT_TIMESTAMP))
+		,@FromDate 			= DATEADD(m, datediff(m, 0, @FromDate), 0) --Assign fromdate to 1st of month of fromdate
+		,@ToDate 			= DATEADD(d, - 1, DATEADD(m, datediff(m, 0, @ToDate) + 1, 0)) --Assign todate to last date of month of todate
+		,@TmpToDate 		= @ToDate
+		,@CurrMonth 		= DATEADD(M, DATEDIFF(M, 0, @CurrentDate), 0)
+		,@Month				= MONTH(@CurrentDate)
+		,@Year				= YEAR(@CurrentDate)
 
 	IF (@ToDate >= @CurrentDate)
 	BEGIN
-		SELECT @TmpToDate = DateAdd(d, - 1, @CurrentDate) --To Exclude current date for calculating affdaily table  
+		SELECT @TmpToDate = DATEADD(d, - 1, @CurrentDate) --To Exclude current date for calculating affdaily table
 	END
 
-	SELECT @LastMonthlydate = max(WinlostDate)
-	FROM AffCommission(NOLOCK)
+	SELECT @LastMonthlydate = MAX(WinlostDate)
+	FROM dbo.AffCommission WITH (NOLOCK)
 
-	SELECT @FirstDate = dateadd(d, 1, @LastMonthlydate)
+	SELECT @FirstDate 	= DATEADD(d, 1, @LastMonthlydate)
+		,@UserName 		= '%' + isnull(@UserName, '') + '%'
+		,@Language 		= '%' + isnull(@Language, '') + '%'
 
-	SELECT @UserName = '%' + isnull(@UserName, '') + '%'
-
-	SELECT @Language = '%' + isnull(@Language, '') + '%'
-
-	SELECT @NoComGroupID = GroupID
-	FROM CommGroup(NOLOCK)
+	SELECT 
+		@NoComGroupID 	= GroupID
+	FROM dbo.CommGroup WITH (NOLOCK)
 	WHERE GroupName = 'NoCommission'
+	
 
-	--Get list aff sastify search condition  
-	INSERT INTO #Result (
-		AffId
-		,Username
-		,QualifiedMembers
-		,ActivePlayer
-		,Deposit
-		,Withdrawal
-		,Turnover
-		,Winlost
-		,Commission
-		)
-	SELECT ad.AffId
-		,ad.Username
-		,0
-		,0
-		,0
-		,0
-		,0
-		,0
-		,0
-	FROM AffDetail ad WITH (NOLOCK)
-		INNER JOIN AffInfo ai WITH (NOLOCK)
-		ON ad.AffId = ai.AffId
+	--Get list aff sastify search condition
+	INSERT INTO #AffList( AffId, UserName, IsClosed, Currency )
+	SELECT ai.AffId
+		,ai.UserName
+		,ai.IsClosed
+		,ai.Currency
+	FROM dbo.AffInfo ai WITH (NOLOCK)
+		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) 
+		ON ai.AffId = ad.AffId
+		
 	WHERE ad.Username LIKE @UserName
-		AND PreferredLanguage LIKE @Language
+		AND ad.PreferredLanguage LIKE @Language
 		AND ai.ApprovedDate < @ToDate
-		--Exclude all closed affs   
+		--Exclude all closed affs 
 		AND (
 			ai.IsClosed = 0
 			OR ai.GroupID <> @NoComGroupID
 			)
 		AND ai.STATUS = 'approved'
+	
+	IF (@@ROWCOUNT = 0) RETURN
 
-	SELECT @NRows = @@ROWCOUNT
-
-	DECLARE @RowStart INT
-		,@RowEnd INT
-
-	SELECT @TotalPages = @NRows / @PageSize + CASE 
-			WHEN @NRows % @PageSize > 0 THEN 1
+	--For old month that was calculated
+	INSERT INTO #AffReport (AffId, ToTal)
+	SELECT ac.AffId
+		,CASE WHEN @SortBy = 1 THEN Sum(ac.QualifiedMember)
+			WHEN @SortBy = 2 THEN Sum(ac.MemberDeposit)
+			WHEN @SortBy = 3 THEN Sum(ac.MemberTurnover)
+			WHEN @SortBy = 4 THEN Sum(ac.MemberWinlost)
+			WHEN @SortBy = 5 THEN Sum(ac.AffWinlost)
 			ELSE 0
-			END
-		,@PageIndex = @PageIndex - 1
-		,@RowStart = @PageSize * @PageIndex + 1
-		,@RowEnd = @RowStart + @PageSize - 1
+		END AS Total
+	FROM dbo.AffCommission ac WITH (NOLOCK)
+		INNER JOIN #AffList a WITH (NOLOCK) 
+		ON ac.AffId = a.AffId
 
-	UPDATE r
-	SET r.QualifiedMembers = isnull(t.QualifiedMembers, 0)
-		,r.ActivePlayer = isnull(t.ActivePlayer, 0)
-		,r.Deposit = isnull(t.Deposit, 0)
-		,r.Withdrawal = isnull(t.Withdrawal, 0)
-		,r.Turnover = isnull(t.Turnover, 0)
-		,r.Winlost = isnull(t.Winlost, 0)
-		,r.Commission = isnull(t.Commission, 0)
-	FROM #Result r WITH (ROWLOCK, UPDLOCK)
-		LEFT JOIN (
-		SELECT tmp.AffId
-			,tmp.Username
-			,Sum(QualifiedMember) AS QualifiedMembers
-			,Sum(ActivePlayer) AS ActivePlayer
-			,Sum(MemberDeposit) AS Deposit
-			,Sum(Withdrawal) AS Withdrawal
-			,Sum(MemberTurnover) AS Turnover
-			,Sum(MemberWinlost) AS Winlost
-			,Sum(Commission) AS Commission
-		FROM (
-			---@sportID in order to exclude bettrans in case for casino commission   
-			SELECT @SportId AS SportId
-				,a.AffId
-				,a.Username
-				,Sum(ac.QualifiedMember) AS QualifiedMember
-				,0 AS ActivePlayer
-				,Sum(ac.MemberDeposit) AS MemberDeposit
-				,0 AS Withdrawal
-				,Sum(ac.MemberTurnover) AS MemberTurnover
-				,Sum(ac.MemberWinlost) AS MemberWinlost
-				,Sum(ac.AffWinlost) AS Commission
-			FROM #Result a(NOLOCK)
-				INNER JOIN AffCommission ac WITH (NOLOCK)
-				ON a.AffId = ac.AffId
-			WHERE ac.WinlostDate BETWEEN @FromDate AND @ToDate
-				AND SportId = @SportId
-			GROUP BY a.AffId
-				,a.Username
-			
-			UNION ALL
-			--Calculate Withdrawal  
-			SELECT 1 AS SportId
-				,a.AffId
-				,a.Username
-				,0 AS QualifiedMember
-				,0 AS ActivePlayer
-				,0 AS MemberDeposit
-				,Sum(isnull(af.Amount, 0)) AS Withdrawal
-				,0 AS MemberTurnover
-				,0 AS MemberWinlost
-				,0 AS Commission
-			FROM #Result a(NOLOCK)
-				INNER JOIN AffTrans af WITH (NOLOCK)
-				ON a.AffId = af.AffId
-			WHERE af.CompletedDate BETWEEN @FromDate AND @ToDate
-				AND af.transtype = 202
-				AND af.STATUS = 'Approved' --For withdrawal     
-			GROUP BY a.AffId
-				,a.Username
-			
-			UNION ALL
-			--Calculate Active player  
-			SELECT m.SportType AS SportId
-				,a.AffId
-				,a.Username
-				,0 AS QualifiedMember
-				,count(DISTINCT IBCCustID) AS ActivePlayer
-				,0 AS MemberDeposit
-				,0 AS Withdrawal
-				,0 AS MemberTurnover
-				,0 AS MemberWinlost
-				,0 AS Commission
-			FROM #Result a(NOLOCK)
-				INNER JOIN memberdaily m WITH (NOLOCK)
-				ON a.AffId = m.AffId
-			WHERE WinlostDate BETWEEN @FromDate AND @ToDate
-				AND (
-					isnull(m.TurnOver, 0) > 0
-					OR isnull(m.Deposit, 0) > 0
-					)
-				AND m.SportType = @SportId
-			GROUP BY m.SportType
-				,a.AffId
-				,a.Username
-			) AS tmp
-		WHERE SportId = @SportId
-		GROUP BY tmp.AffId
-			,tmp.Username
-		) t
-		ON r.AffID = t.AffID;
+	WHERE ac.WinlostDate BETWEEN @FromDate AND (CASE WHEN @ToDate > @LastMonthlydate THEN @LastMonthlydate ELSE @ToDate END)
+		AND (@SportId IS NULL OR ac.SportId = @SportId)
 
-	DECLARE @temp TABLE (
-		AffId INT PRIMARY KEY
-		,Username VARCHAR(50)
-		,QualifiedMembers INT
-		,ActivePlayer INT
-		,Deposit MONEY
-		,Withdrawal MONEY
-		,Turnover MONEY
-		,Winlost MONEY
-		,Commission MONEY
-		)
-
-	INSERT INTO @temp (
-		AffId
-		,Username
-		,QualifiedMembers
-		,ActivePlayer
-		,Deposit
-		,Withdrawal
-		,Turnover
-		,Winlost
-		,Commission
-		)
-	SELECT AffId
-		,Username
-		,QualifiedMembers
-		,ActivePlayer
-		,Deposit
-		,Withdrawal
-		,Turnover
-		,Winlost
-		,Commission
-	FROM (
-		SELECT ROW_NUMBER() OVER (
-				ORDER BY (CASE 
-						WHEN @SortBy = 'Member' THEN QualifiedMembers
-						WHEN @SortBy = 'Deposit' THEN Deposit
-						WHEN @SortBy = 'Turnover' THEN Turnover
-						WHEN @SortBy = 'Winlost' THEN Winlost
-						WHEN @SortBy = 'Commission' THEN Commission
-						ELSE AffId END
-						) DESC
-				) AS TheCount
-			,AffId
-			,Username
-			,QualifiedMembers
-			,ActivePlayer
-			,Deposit
-			,Withdrawal
-			,Turnover
-			,Winlost
-			,Commission
-		FROM #Result(NOLOCK)
-		) m
-	WHERE m.TheCount BETWEEN @RowStart AND @RowEnd
-
-	DROP TABLE #Result
-
-	IF (DATEDIFF(M, @CurrentDate, @ToDate) >= 0)
+	GROUP BY ac.AffId
+	
+	HAVING Sum(ac.MemberDeposit) > 0
+		OR Sum(ac.MemberTurnover) > 0
+	
+	--For current month that is not calculated
+	IF (DATEDIFF(M, @CurrentDate, @ToDate) = 0)
 	BEGIN
-		UPDATE t
-		SET t.QualifiedMembers = t.QualifiedMembers + coalesce(a.TotalQM, 0)
-			,t.Deposit = t.Deposit + coalesce(a.MemDeposit, 0)
-			,t.Turnover = t.Turnover + coalesce(a.MemTurnover, 0)
-			,t.Winlost = t.Winlost + coalesce(a.MemWinlost, 0)
-			,t.Commission = t.Commission + coalesce(a.Amount, 0)
-		FROM @temp AS t
-			CROSS APPLY [dbo].[Aff_CommissionForCurrentMonth](t.AffID) AS a
-		WHERE a.SportID = @SportId
-	END
-
-	DECLARE @Month INT
-		,@Year INT
-
-	SELECT @Month = month(dateadd(m, - 1, @CurrentDate))
-		,@Year = Year(dateadd(m, - 1, @CurrentDate))
-
-	IF (
-			datediff(m, @LastMonthlydate, @CurrentDate) > 1
-			AND @FromDate = @FirstDate
-			)
-	BEGIN --For previous month that is not transfered  
-		UPDATE t
-		SET t.QualifiedMembers = t.QualifiedMembers + coalesce(a.TotalQM, 0)
-			,t.Deposit = t.Deposit + coalesce(a.MemDeposit, 0)
-			,t.Turnover = t.Turnover + coalesce(a.MemTurnover, 0)
-			,t.Winlost = t.Winlost + coalesce(a.MemWinlost, 0)
-			,t.Commission = t.Commission + coalesce(a.Amount, 0)
-		FROM @temp AS t
-			CROSS APPLY [dbo].[Aff_CommissionForMonth](t.AffID, @Month, @Year) AS a
-		WHERE a.SportID = @SportId
-	END
-
-	SELECT *
-	FROM (
-		SELECT ROW_NUMBER() OVER (
-				ORDER BY (CASE 
-						WHEN @SortBy = 'Member' THEN QualifiedMembers
-						WHEN @SortBy = 'Deposit' THEN Deposit
-						WHEN @SortBy = 'Turnover' THEN Turnover
-						WHEN @SortBy = 'Winlost' THEN Winlost
-						WHEN @SortBy = 'Commission' THEN Commission
-						ELSE AffId END
-						) DESC
-				) AS TheCount
-			,AffId
-			,Username
-			,QualifiedMembers
-			,ActivePlayer
-			,Deposit
-			,Withdrawal
-			,Turnover
-			,Winlost
+		INSERT INTO #AffCommTmp(
+			AffId
+			,GroupID
+			,SportID
+			,MonthDate
+			,TotalQM
+			,CommRate
 			,Commission
-		FROM @Temp
-		) t
-	ORDER BY TheCount
-		,AffID
+			,Deposit
+			,TurnOver
+			,Winlost
+			,NetWinlost
+		)
+		EXEC [dbo].[Aff_AffiliateCommByMonthAll]  @Month, @Year, @SportId
+			
+		
+		INSERT INTO #AffReport (AffId, ToTal)
+		SELECT ac.AffId
+			,CASE WHEN @SortBy = 1 THEN Sum(ac.TotalQM)
+				WHEN @SortBy = 2 THEN Sum(ac.Deposit)
+				WHEN @SortBy = 3 THEN Sum(ac.Turnover)
+				WHEN @SortBy = 4 THEN Sum(ac.Winlost)
+				WHEN @SortBy = 5 THEN Sum(ac.Commission)
+				ELSE 0
+			END AS Total
+		FROM #AffCommTmp ac
+		GROUP BY ac.AffId
+	END
+	
+
+	--For previous month that was not calculated
+	IF( DATEDIFF(MM, @LastMonthlyDate, @ToDate) > 1
+		AND NOT EXISTS(SELECT TOP 1 1 FROM dbo.AffCommission WITH (NOLOCK) WHERE WinlostDate = DATEADD(MM,1, @LastMonthlyDate)))
+	BEGIN 
+		SELECT @Month	= MONTH(DATEADD(m, - 1, @CurrentDate))
+			,@Year		= YEAR(DATEADD(m, - 1, @CurrentDate))
+		
+		INSERT INTO #AffCommTmp(
+			AffId
+			,GroupID
+			,SportID
+			,MonthDate
+			,TotalQM
+			,CommRate
+			,Commission
+			,Deposit
+			,TurnOver
+			,Winlost
+			,NetWinlost
+		)
+		EXEC [dbo].[Aff_AffiliateCommByMonthAll]  @Month, @Year, @SportId
+			
+		INSERT INTO #AffReport (AffId, ToTal)
+		SELECT ac.AffId
+			,CASE WHEN @SortBy = 1 THEN Sum(ac.TotalQM)
+				WHEN @SortBy = 2 THEN Sum(ac.Deposit)
+				WHEN @SortBy = 3 THEN Sum(ac.Turnover)
+				WHEN @SortBy = 4 THEN Sum(ac.Winlost)
+				WHEN @SortBy = 5 THEN Sum(ac.Commission)
+				ELSE 0
+			END AS Total
+		FROM #AffCommTmp ac
+		GROUP BY ac.AffId
+	END
+
+	-- SET @NRows
+	SELECT @NRows = COUNT(1)
+	FROM (
+		SELECT a.AffId
+		FROM #AffList a
+		INNER JOIN #AffReport rpt
+			ON a.AffId = rpt.AffId
+			
+		WHERE 1 = (CASE WHEN @SortBy <> 0 AND rpt.Total <> 0 THEN 1 ELSE 1 END)
+		
+		GROUP BY a.AffId
+	) r
+	
+	-- get aff paging list
+	INSERT INTO @AffPaging(AffId, RowIDX)
+	SELECT AffId, RowIDX
+	FROM (
+		SELECT a.AffId
+		,ROW_NUMBER() OVER ( 
+				ORDER BY 
+					CASE WHEN @SortBy = 0 AND @IsDesc = 1 THEN a.AffId
+						ELSE 0
+					END DESC
+					,CASE WHEN @SortBy = 0 AND @IsDesc = 0 THEN a.AffId
+						ELSE 0
+					END ASC
+					,CASE WHEN @IsDesc = 1 THEN SUM(ISNULL(rpt.Total, 0))
+						ELSE 0
+					END DESC
+					,CASE WHEN @IsDesc = 0 THEN SUM(ISNULL(rpt.Total, 0))
+						ELSE 0
+					END ASC
+					
+					
+			) AS RowIDX
+		FROM #AffList a
+			INNER JOIN #AffReport rpt
+			ON a.AffId = rpt.AffId
+			
+		WHERE 1 = (CASE WHEN @SortBy <> 0 AND rpt.Total <> 0 THEN 1 ELSE 1 END)
+		
+		GROUP BY a.AffId
+	) t
+	WHERE t.RowIDX BETWEEN (((@PageIndex - 1) * @PageSize) + 1) AND (@PageSize * @PageIndex)
+	ORDER BY t.RowIDX
+	
+	-- get data from calculated month that was calculated
+	INSERT INTO #AffComm(AffId, TotalQM, Deposit, Tunover, Winlost, AffComm)
+	SELECT AffId
+		, SUM(TotalQM)
+		, SUM(Deposit)
+		, SUM(Tunover)
+		, SUM(Winlost)
+		, SUM(AffComm)
+	FROM (
+		SELECT ac.AffId
+			,SUM(ac.QualifiedMember) AS TotalQM
+			,SUM(ac.MemberDeposit) as Deposit
+			,SUM(ac.MemberTurnover) as Tunover
+			,SUM(ac.MemberWinlost) as Winlost
+			,SUM(ac.AffWinlost) as AffComm
+		FROM dbo.AffCommission ac (NOLOCK)
+			INNER JOIN @AffPaging p
+			ON ac.AffID = p.AffId
+
+		WHERE ac.WinlostDate BETWEEN @FromDate AND @ToDate
+			AND (@SportId IS NULL OR ac.SportId = @SportId)
+
+		GROUP BY ac.AffID
+		
+		-- get data from un-calculated month that was not calculated
+		UNION ALL
+		SELECT a.AffId
+			, SUM(ac.TotalQM) AS TotalQM
+			, SUM(ac.Deposit) AS Deposit
+			, SUM(ac.Turnover) AS Turnover
+			, SUM(ac.Winlost) AS Winlost
+			, SUM(ac.Commission) AS AffComm
+		FROM @AffPaging a
+			INNER JOIN #AffCommTmp ac 
+			ON a.AffId = ac.AffId
+		WHERE (@SportId IS NULL OR ac.SportId = @SportId)
+		GROUP BY a.AffId
+	) t
+	GROUP BY t.AffId
+	
+	-- get affiliate withdrawal
+	;WITH AffWithdraw (AffId, Withdrawal)
+	AS (
+		SELECT af.AffId
+			,Sum(isnull(af.Amount, 0)) AS Withdrawal
+		FROM dbo.AffTrans af WITH(NOLOCK)
+			INNER JOIN @AffPaging r
+			ON af.AffId = r.AffId
+		WHERE af.CompletedDate BETWEEN @FromDate
+				AND @ToDate
+			AND af.transtype = 202
+			AND af.STATUS = 'Approved' --For withdrawal 		
+		GROUP BY af.AffId
+	)
+	-- get affiliate active member
+	, ActiveMember (AffId, ActivePlayer)
+	AS (
+		SELECT md.AffId
+			,COUNT(DISTINCT IBCCustID) AS ActivePlayer
+				
+		FROM dbo.MemberDaily md WITH(NOLOCK)
+			INNER JOIN @AffPaging rpt
+			ON md.AffId = rpt.AffId
+
+		WHERE md.WinlostDate BETWEEN @FromDate
+				AND @ToDate
+			AND (
+				ISNULL(md.TurnOver, 0) > 0
+				OR ISNULL(md.Deposit, 0) > 0
+				)
+			AND md.SportType = @SportId
+
+		GROUP BY md.AffId
+	)
+	-- fetch final result
+	SELECT p.AffId
+		,ai.UserName
+		
+		,SUM(ISNULL(c.TotalQM, 0))			AS QualifiedMembers
+		,SUM(ISNULL(c.Deposit, 0))			AS Deposit
+		,SUM(ISNULL(c.Tunover, 0))			AS Turnover
+		,SUM(ISNULL(c.Winlost, 0))			AS Winlost
+		,SUM(ISNULL(c.AffComm, 0))			AS Commission
+		,SUM(ISNULL(aw.Withdrawal, 0))		AS Withdrawal
+		,SUM(ISNULL(am.ActivePlayer, 0))	AS ActivePlayer
+		
+		,p.RowIDX
+	FROM @AffPaging p
+		
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK)
+		ON p.AffId = ai.AffID
+
+		LEFT JOIN #AffComm c
+		ON p.AffId = c.AffId
+
+		LEFT JOIN AffWithdraw aw
+		ON p.AffId = aw.AffId
+
+		LEFT JOIN ActiveMember am
+		ON p.AffId = am.AffId
+
+	GROUP BY p.AffId
+		,ai.UserName
+		,p.RowIDX
+
+	ORDER  BY p.RowIDX
+
+	DROP TABLE #AffList
+	DROP TABLE #AffReport
+	DROP TABLE #AffComm
+	DROP TABLE #AffCommTmp
+	
+	RETURN
+
 END
-GO
+GO 
 
 GRANT EXECUTE ON [dbo].[Aff_PerformanceReport] TO [bodbAdminNet]
-GO
-
-GRANT VIEW DEFINITION ON [dbo].[Aff_PerformanceReport] TO [VNTeam]
-GO
+GO 
 
 
+/*
+declare @NRows int
+exec [dbo].[Aff_PerformanceReport_xtest] 
+	@FromDate			= '2014/11/01'
+	,@ToDate			= '2014/12/01'
+	,@sortby = 0
+	,@PageSize			= 20
+	,@PageIndex			= 25
+	,@NRows = @NRows output
+select @NRows
+*/
+	
+	

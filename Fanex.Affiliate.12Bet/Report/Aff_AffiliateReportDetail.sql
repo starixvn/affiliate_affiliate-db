@@ -1,10 +1,10 @@
 ﻿ALTER PROCEDURE [dbo].[Aff_AffiliateReportDetail] 
-	@AffUsername VARCHAR(50)
-	,@AffId INT = 0 OUTPUT
-	,@Fromdate DATETIME
-	,@Todate DATETIME
-	,@SportId INT = NULL
-	,@IsGetAll BIT = 0
+	@AffUsername 	VARCHAR(50)
+	,@AffId 		INT = 0 OUTPUT
+	,@Fromdate 		DATE
+	,@Todate 		DATE
+	,@SportId 		INT = NULL
+	,@IsGetAll 		BIT = 0
 AS
 /*
 	DB052.Affiliate_12BET
@@ -13,6 +13,8 @@ AS
 	- 20110420@Johnny: Filter by Sporttype and restore code to old bettype range
 	- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
 	- 20140403@Bobby:  exclude Keno product & other sports
+	- 20141113@Bobby: Change report time range from datetime to date only
+	- 20141218@Bobby: Update SS's bettype
 */
 BEGIN
 	SET NOCOUNT ON
@@ -28,20 +30,18 @@ BEGIN
 
 	IF @AffId = 0 --Invalid AffUsernameRETURN
 
-	DECLARE @CurrDate SMALLDATETIME
-		,@OldReportDate SMALLDATETIME
-		,@TmpFromDate SMALLDATETIME
-		,@TmpToDate SMALLDATETIME
-		,@TmpOldWayDate SMALLDATETIME
-		,@SportsBookID INT
+	DECLARE @CurrDate 	DATE
+		,@OldReportDate DATE
+		,@TmpFromDate 	DATE
+		,@TmpToDate 	DATE
+		,@TmpOldWayDate DATE
+		,@SportsBookID 	INT
 		,@HorseRacingID INT
 
 	SELECT @SportsBookID = dbo.Aff_GetSportID('SportsBook')
 		,@HorseRacingID = dbo.Aff_GetSportID('Horse Racing')
 
-	SELECT @CurrDate = convert(VARCHAR(10), current_timestamp, 120)
-
-	SELECT @ToDate = dateadd(s, - 60, dateadd(d, datediff(d, 0, @ToDate) + 1, 0))
+	SELECT @CurrDate 	= CURRENT_TIMESTAMP
 
 	SELECT @OldReportDate = SValue
 	FROM SystemSettings WITH (NOLOCK)
@@ -141,13 +141,13 @@ BEGIN
 				END AS Withdrawal
 			,CASE 
 				WHEN @SportId IS NULL
-					AND BetType <= 999  THEN isnull(sum(CASE 
-								WHEN Bettype IN (33, 43)
-									AND liveawayscore = 0 THEN isnull(abs(stake), 0) / 2
-								ELSE isnull(abs(stake), 0)
-								END), 0)
+					AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))  THEN isnull(sum(CASE 
+						WHEN Bettype IN (33, 43)
+							AND liveawayscore = 0 THEN isnull(abs(stake), 0) / 2
+						ELSE isnull(abs(stake), 0)
+						END), 0)
 				WHEN @SportId = @SportsBookID
-					AND BetType <= 999 
+					AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 					AND bettype NOT IN (31, 32, 33, 41, 42, 43) THEN isnull(sum(isnull(abs(stake), 0)), 0)
 				WHEN @SportId = @HorseRacingID
 					AND bettype IN (31, 32, 33, 41, 42, 43) THEN isnull(sum(CASE 
@@ -159,12 +159,12 @@ BEGIN
 				END AS Turnover
 			,CASE 
 				WHEN @SportId IS NULL THEN isnull(sum(CASE 
-								WHEN bettype <= 999
+								WHEN (bettype <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 									AND ruben = 1 THEN (winlost - abs(actual_stake))
 								ELSE 0
 								END), 0)
 				WHEN @SportId = @SportsBookID THEN isnull(sum(CASE 
-								WHEN bettype <= 999
+								WHEN (bettype <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 									AND ruben = 1
 									AND bettype NOT IN (31, 32, 33, 41, 42, 43) THEN (winlost - abs(actual_stake))
 								ELSE 0
@@ -215,6 +215,7 @@ BEGIN
 			AND b.WinlostDate = @CurrDate
 			AND (
 				Bettype <= 999
+				OR ( b.bettype BETWEEN 1301 AND 1399)
 				OR Bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 				)
 			AND bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game

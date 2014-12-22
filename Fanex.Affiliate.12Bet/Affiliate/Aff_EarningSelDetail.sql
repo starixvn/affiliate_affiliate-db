@@ -12,6 +12,7 @@ AS
 		   - 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])	
 		   - 20120606@Peter : Exclude waiting tickets	
 		   - 20140403@Bobby:  exclude Keno product & other sports
+		   - 20141218@Bobby: Update SS's bettype
 
 	Param's Explanation:  
 	• @AffId affliate Id  
@@ -58,19 +59,19 @@ BEGIN
 			,isnull(sum(CASE 
 						WHEN b.ruben = 1
 							AND @SportType = 0
-							AND BetType <= 999  THEN (winlost - abs(actual_stake) + playercomm) * e.ActualRate2
+							AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))  THEN (winlost - abs(actual_stake) + playercomm) * e.ActualRate2
 						WHEN b.ruben = 1
 							AND @SportType = @SportsBookID
-							AND BetType <= 999 
+							AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 							AND bettype NOT IN (31, 32, 33, 41, 42, 43) THEN (winlost - abs(actual_stake) + playercomm) * e.ActualRate2
 						WHEN b.ruben = 1
 							AND @SportType = @HorseRacingID
-							AND bettype < 999
+							AND (bettype < 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 							AND bettype IN (31, 32, 33, 41, 42, 43) THEN (winlost - abs(actual_stake) + playercomm) * e.ActualRate2
 						ELSE 0
 						END), 0) AS WinLost
 			,isnull(sum(CASE 
-						WHEN BetType <= 999  THEN isnull(abs(stake) * e.ActualRate2, 0)
+						WHEN (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))  THEN isnull(abs(stake) * e.ActualRate2, 0)
 						ELSE 0
 						END), 0) AS Turnover
 			,isnull(sum(CASE 
@@ -123,6 +124,7 @@ BEGIN
 			AND b.ruben = 1
 			AND (
 				b.bettype <= 999
+				OR ( b.bettype BETWEEN 1301 AND 1399)
 				OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 			) --get SB only
 			AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
@@ -132,6 +134,7 @@ BEGIN
 			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
 					--and bettype not in (31,32,33,41,42,43)   
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
+			AND b.custid > 0
 		--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting' 
 		GROUP BY b.CustID
 			,m.UserName

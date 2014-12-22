@@ -23,6 +23,7 @@ Revisions:
 	- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
 	- 20140228@Bobby : Apply AffType
 	- 20140403@Bobby:  exclude Keno product & other sports
+	- 20141218@Bobby: Update SS's bettype
 
 Param's Explanation:
 
@@ -97,7 +98,7 @@ BEGIN
 				ELSE 0
 				END) AS Deposit
 		,sum(CASE 
-				WHEN BetType <= 999  THEN (isnull(winlost, 0) - isnull(abs(actual_stake), 0) + isnull(playercomm, 0)) * m.ActualRate2
+				WHEN (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))  THEN (isnull(winlost, 0) - isnull(abs(actual_stake), 0) + isnull(playercomm, 0)) * m.ActualRate2
 				ELSE 0
 				END) AS Winlost
 		,sum(CASE 
@@ -138,6 +139,7 @@ BEGIN
 		AND ruben = 1
 		AND (
 			b.bettype <= 999
+			OR ( b.bettype BETWEEN 1301 AND 1399)
 			OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 			) --get SB only
 		AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance

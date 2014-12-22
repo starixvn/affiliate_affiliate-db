@@ -52,6 +52,7 @@ AS
 	- 20120115@Peter : Modify Casino negative commission
 					 http://ccs.nexcel.vn/viewtopic.php?f=6&t=7524&p=35897#p35897 
 	- 20140403@Bobby:  exclude Keno product & other sports
+	- 20141218@Bobby: Update SS's bettype
 
 */
 BEGIN
@@ -203,7 +204,7 @@ BEGIN
 							ELSE 0
 							END), 0) AS Deposit
 				,isnull(sum(CASE 
-							WHEN BetType <= 999 
+							WHEN (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 								AND ruben = 1 THEN (b.Winlost - abs(b.actual_stake))
 							ELSE 0
 							END), 0) AS Winlost
@@ -224,7 +225,7 @@ BEGIN
 								END), 0) * e.WithdrawalPercent) AS PSP
 				,0 AS Marketing
 				,isnull(sum(CASE 
-							WHEN BetType <= 999  THEN (CASE 
+							WHEN (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))  THEN (CASE 
 									WHEN Bettype IN (33, 43)
 										AND liveawayscore = 0 THEN isnull(abs(stake), 0) / 2 * e.Actualrate2
 									ELSE isnull(abs(stake), 0) END
@@ -243,6 +244,7 @@ BEGIN
 				AND ci.IsRemoved = 0
 				AND (
 					Bettype <= 999
+					OR ( b.bettype BETWEEN 1301 AND 1399)
 					OR Bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 				)
 				AND bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game

@@ -23,6 +23,7 @@ AS
 		  - 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
 		  - 20120606@Peter : Exclude waiting tickets
 		  - 20140403@Bobby:  exclude Keno product & other sports
+		  - 20141218@Bobby: Update SS's bettype & fix Casiso time range
 
 	Param's Explanation:  
 	• @custid: affliate Id  
@@ -76,10 +77,7 @@ BEGIN
 			,sum(d.MemPSP) AS PSP
 		FROM AffDailySummary d WITH (NOLOCK)
 		WHERE AffID = @AffID
-			AND d.winlostdate BETWEEN @fromdate AND @todate
-					--AND (case when SportId <> 3 and d.winlostdate between @fromdate and @todate then 1
-					--		when SportId = 3 and d.winlostdate between @fromdate and @CurrDate then 1
-					--		else 0 end) = 1
+			AND d.winlostdate BETWEEN @fromdate AND (CASE WHEN @SportType =  3 THEN @CurrDate ELSE @todate END)
 			AND (CASE 
 				WHEN @SportType = 0
 					OR @SportType = SportId THEN 1
@@ -126,12 +124,12 @@ BEGIN
 							END), 0) AS Withdrawal
 				,isnull(sum(CASE 
 							WHEN @SportType = 0
-								AND BetType <= 999  THEN (winlost - abs(actual_stake) + playercomm) * e.ActualRate2
+								AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))  THEN (winlost - abs(actual_stake) + playercomm) * e.ActualRate2
 							WHEN @SportType = @SportsBookID
-								AND BetType <= 999 
+								AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 								AND bettype NOT IN (31, 32, 33, 41, 42, 43) THEN (winlost - abs(actual_stake) + playercomm) * e.ActualRate2
 							WHEN @SportType = @HorseRacingID
-								AND BetType <= 999 
+								AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 								AND bettype IN (31, 32, 33, 41, 42, 43) THEN (winlost - abs(actual_stake) + playercomm) * e.ActualRate2
 							ELSE 0
 							END), 0) AS MemberWinLost
@@ -182,6 +180,7 @@ BEGIN
 				AND b.ruben = 1
 				AND (
 					b.bettype <= 999
+					OR ( b.bettype BETWEEN 1301 AND 1399)
 					OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 					) --get SB only
 				AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
@@ -191,6 +190,7 @@ BEGIN
 				AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
 						--and bettype not in (31,32,33,41,42,43)   
 				AND b.StatusID NOT IN (101, 102, 103, 121, 1)
+				AND b.custid > 0
 				--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
 			GROUP BY e.DepositPercent
 				,e.WithdrawalPercent

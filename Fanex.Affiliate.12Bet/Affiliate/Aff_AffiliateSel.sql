@@ -1,249 +1,118 @@
-﻿USE [Affiliate_12BET]
-GO
-
-/****** Object:  StoredProcedure [dbo].[Aff_AffiliateSel]    Script Date: 05/20/2014 23:58:40 ******/
-SET ANSI_NULLS ON
-GO
-
-SET QUOTED_IDENTIFIER ON
-GO
-
-ALTER PROC [dbo].[Aff_AffiliateSel] 
-	@UserId INT = - 1
-	,@GroupID INT = - 1
-	,@GroupName NVARCHAR(100) = NULL OUTPUT
-	,@Status VARCHAR(30)
-	,@AffID INT = - 1
-	,@UserName NVARCHAR(50) = NULL
-	,@Email NVARCHAR(50) = NULL
-	,@IsClosed BIT = NULL
-	,@PageSize INT = 50
-	,@PageIndex INT = 1
-	,@TotalPages INT = 0 OUTPUT
-	,@NRows INT = 0 OUTPUT
+﻿ALTER PROCEDURE [dbo].[Aff_AffiliateSel] 
+	@UserId 		INT 			= - 1
+	,@GroupID 		INT 			= - 1
+	,@Status 		VARCHAR(30)
+	,@AffID 		INT 			= - 1
+	,@UserName 		NVARCHAR(50) 	= NULL
+	,@Email 		NVARCHAR(50) 	= NULL
+	,@IsClosed 		BIT 			= NULL
+	,@Language 		VARCHAR(10)		= NULL
+	,@PageSize 		INT 			= 50
+	,@PageIndex 	INT 			= 1
+	,@IsAll 		BIT 			= 0
+	,@NRows 		INT 			= 0 OUTPUT
 AS
 /*    
 Task : Get All Affiliate for a specific page      
 DB: DB052.Affiliate_12BET    
 Original:[Aff_CustomerSelAffiliate]      
 Revisions:          
- - 20100208@Johnny: show one more column PreferredLanguage  
+	- 20100208@Johnny: show one more column PreferredLanguage  
+	- 20141113@Bobby: Implement report's modification
+		+ Remove @GroupName & @TotalPages
+		+ Add filtering by @Language and @IsAll
                     
 Param's Explanation:      
-. @GroupID : if @GroupID<>-1 : only search by GroupID and this function is linked from Commission Group Page    
-. @GroupName : Search by GroupName    
-• @Status : pending,Approved,disapproved      
-• @UserName : Affiliate name you want to default value=null :search all      
-• @Email : Email you want to search - default value=null :search all      
-• @PageSize : Number of rows should be returned per each page      
-• @PageIndex : Current page       
-• @TotalPages OUTPUT : total of pages for this search          
-• @NRows OUTPUT,--total of rows      
+	. @GroupID : if @GroupID<>-1 : only search by GroupID and this function is linked from Commission Group Page    
+	. @GroupName : Search by GroupName    
+	• @Status : pending,Approved,disapproved      
+	• @UserName : Affiliate name you want to default value=null :search all      
+	• @Email : Email you want to search - default value=null :search all      
+	• @PageSize : Number of rows should be returned per each page      
+	• @PageIndex : Current page       
+	• @NRows OUTPUT,--total of rows      
+	• @Language: Prefered Language
+	• @IsAll: Value is (0|1).Indicating to select all row or not
       
 */
 BEGIN
 	SET NOCOUNT ON;
 
-	SELECT @UserName = '%' + Coalesce(@UserName, '') + '%'
+	DECLARE @AffList	TABLE (AffId INT, RowIDX INT IDENTITY(1,1))
 
-	SELECT @Email = '%' + Coalesce(@Email, '') + '%'
-
-	DECLARE @GroupIDList TABLE (GroupID INT)
-
-	IF (isnull(@GroupName, '') <> '')
-	BEGIN
-		IF (lower(@GroupName) = '[none]')
-		BEGIN
-			INSERT INTO @GroupIDList (GroupID)
-			SELECT GroupID
-			FROM CommGroup(NOLOCK)
-			WHERE GroupID > 1000
-		END
-		ELSE
-		BEGIN
-			DECLARE @grName NVARCHAR(100)
-
-			SELECT @grName = '%' + Coalesce(@GroupName, '') + '%'
-
-			INSERT INTO @GroupIDList (GroupID)
-			SELECT GroupID
-			FROM CommGroup(NOLOCK)
-			WHERE GroupName LIKE @grName
-		END
-
-		IF (@@ROWCOUNT = 0)
-		BEGIN
-			RETURN
-		END
-	END
-
-	--count nrows      
-	SELECT @NRows = count(1)
-	FROM AffInfo WITH (NOLOCK)
+	SELECT @UserName	= '%' + COALESCE(@UserName, '') + '%'
+		, @Email		= '%' + COALESCE(@Email, '') + '%'
+		, @GroupID		= ISNULL(@GroupID, -1)
+ 
+	INSERT INTO @AffList(AffId)
+	SELECT ai.AffId
+	FROM dbo.AffInfo ai WITH (NOLOCK)
+		LEFT JOIN dbo.AffDetail ad WITH (NOLOCK)
+		ON ai.AffID = ad.AffID
 	WHERE (CASE 
 			WHEN @AffID = - 1 THEN 1
-			WHEN AffId = @AffID THEN 1
+			WHEN ai.AffId = @AffID THEN 1
 			ELSE 0 END
 			) = 1
-		AND STATUS = @Status
-		AND Username LIKE @UserName
-		AND Isclosed = (CASE 
-			WHEN @IsClosed IS NULL THEN 0
+		AND ai.Username LIKE @UserName
+		AND ai.STATUS = @Status
+		AND ai.Isclosed = (CASE 
+			WHEN @IsClosed IS NULL OR @IsClosed = 0 THEN 0
 			ELSE 1 END
 			)
-		AND (Email IS NULL OR Email LIKE @Email)
-		AND (CASE 
-			WHEN @GroupID > 0
-				AND GroupID < 1000
-				AND GroupID = @GroupID THEN 1
-			WHEN @GroupID = 0
-				AND GroupID > 1000 THEN 1
-			WHEN @GroupID = - 1
-				AND isnull(@GroupName, '') = '' THEN 1
-			WHEN EXISTS (
-					SELECT 1
-					FROM @GroupIDList
-					)
-				AND GroupID IN (
-					SELECT GroupID
-					FROM @GroupIDList
-					) THEN 1
-			ELSE 0 END
-			) = 1
+		AND (@Email IS NULL OR ai.Email LIKE @Email)
+		AND (@GroupID = -1 OR ai.GroupID = @GroupID)
+		AND (@Language IS NULL OR ad.PreferredLanguage = @Language)
+	ORDER BY ai.AffID
 
-	IF (isnull(@NRows, 0) = 0) RETURN
+	SET @NRows = @@ROWCOUNT
 
-	DECLARE @RowStart INT
-		,@RowEnd INT
+	IF (@NRows = 0) RETURN
 
-	SELECT @TotalPages = @NRows / @PageSize + CASE 
-			WHEN @NRows % @PageSize > 0 THEN 1
-			ELSE 0
-			END
-		,@PageIndex = @PageIndex - 1
-		,@RowStart = @PageSize * @PageIndex + 1
-		,@RowEnd = @RowStart + @PageSize - 1
+	-- Check IsAll row
+	SELECT @PageSize = CASE 
+						WHEN @IsAll = 1 THEN @NRows 
+						ELSE @PageSize 
+					END
+		,@PageIndex = CASE 
+						WHEN @IsAll = 1 THEN 1 
+						ELSE @PageIndex 
+					END
 
-	DECLARE @TempMember TABLE (
-		AffId INT PRIMARY KEY
-		,UserName NVARCHAR(30)
-		,FirstName NVARCHAR(50)
-		,LastName NVARCHAR(50)
-		,PreferredLanguage VARCHAR(11)
-		,IsClosed BIT
-		,ApprovedDate SMALLDATETIME
-		,GroupId INT
-		,RegisteredDate SMALLDATETIME
-		,CasinoJoinedDate SMALLDATETIME
-		)
-
-	INSERT INTO @TempMember (
-		AffId
-		,UserName
-		,FirstName
-		,LastName
-		,PreferredLanguage
-		,IsClosed
-		,ApprovedDate
-		,GroupId
-		,RegisteredDate
-		,CasinoJoinedDate
-		)
+	--fetch rows
 	SELECT m.AffId
-		,m.username
-		,m.firstname
-		,m.lastname
-		,m.PreferredLanguage
-		,m.IsClosed
-		,m.ApprovedDate
-		,m.GroupId
-		,m.RegisteredDate
-		,m.CasinoJoinedDate
-	FROM (
-		SELECT ROW_NUMBER() OVER (
-				ORDER BY ai.AffId
-				) AS TheCount
-			,ai.AffID
-			,ai.UserName
-			,ai.FirstName
-			,ai.LastName
-			,ad.PreferredLanguage
-			,ai.IsClosed
-			,ai.ApprovedDate
-			,ai.GroupId
-			,ai.RegisteredDate
-			,ai.CasinoJoinedDate
-		FROM AffInfo ai WITH (NOLOCK)
-			INNER JOIN AffDetail ad WITH (NOLOCK)
-			ON ai.AffId = ad.AffId
-		WHERE (CASE 
-				WHEN @AffID = - 1 THEN 1
-				WHEN ai.AffId = @AffID THEN 1
-				ELSE 0 END
-				) = 1
-			AND ai.STATUS = @Status
-			AND ai.Isclosed = (CASE 
-				WHEN @IsClosed IS NULL THEN 0
-				ELSE 1 END
-				)
-			AND ai.Username LIKE @UserName
-			AND (Email IS NULL OR Email LIKE @Email)
-			AND (CASE 
-				WHEN @GroupID > 0
-					AND GroupID < 1000
-					AND GroupID = @GroupID THEN 1
-				WHEN @GroupID = 0
-					AND GroupID > 1000 THEN 1
-				WHEN @GroupID = - 1
-					AND isnull(@GroupName, '') = '' THEN 1
-				WHEN EXISTS (
-						SELECT 1
-						FROM @GroupIDList
-						)
-					AND GroupID IN (
-						SELECT GroupID
-						FROM @GroupIDList
-						) THEN 1
-				ELSE 0 END
-				) = 1
-		) m
-	WHERE m.TheCount BETWEEN @RowStart AND @RowEnd
-
-	IF (@GroupID > 0)
-	BEGIN
-		SELECT @GroupName = GroupName
-		FROM CommGroup WITH (NOLOCK)
-		WHERE @GroupID = GroupID
-	END
-
-	IF (@GroupID = 0)
-		SELECT @GroupName = '[None]'
-
-	SELECT x.AffId
-		,x.username
-		,x.firstname
-		,x.lastname
-		,x.PreferredLanguage
-		,x.IsClosed
-		,isnull(cg.GroupName, '[None]') AS GroupName
-		,x.registereddate
-		,isnull(dbo.Aff_CountMember(x.AffID), 0) AS NoOfMember
-		,isnull(dbo.Aff_GetAffBalance(x.AffID), 0) AS BalanceBF
-		,ApprovedDate
-		,isnull(f.Affid, 0) AS Favorite
-		,x.GroupId
-		,x.CasinoJoinedDate
-	FROM @TempMember x
-		LEFT JOIN CommGroup cg WITH (NOLOCK)
-		ON x.GroupId = cg.GroupId
-		LEFT JOIN AdminFavorite f WITH (NOLOCK)
-		ON x.AffId = f.AffId
+		,ai.username
+		,ai.firstname
+		,ai.lastname
+		,ai.Email
+		,ad.PreferredLanguage
+		,ai.IsClosed
+		,ai.GroupId
+		,ISNULL(cg.GroupName, '[None]') AS GroupName
+		,ai.registereddate
+		,ISNULL(dbo.Aff_CountMember(m.AffID), 0) AS NoOfMember
+		,ISNULL(dbo.Aff_GetAffBalance(m.AffID), 0) AS BalanceBF
+		,ai.ApprovedDate
+		,ISNULL(f.Affid, 0) AS Favorite
+		,ai.CasinoJoinedDate
+	FROM @AffList m
+		LEFT JOIN dbo.AffInfo ai WITH(NOLOCK)
+		ON m.AffId = ai.AffId
+		LEFT JOIN dbo.AffDetail ad WITH(NOLOCK)
+		ON m.AffId = ad.AffId
+		LEFT JOIN dbo.CommGroup cg WITH (NOLOCK)
+		ON ai.GroupId = cg.GroupId
+		LEFT JOIN dbo.AdminFavorite f WITH (NOLOCK)
+		ON m.AffId = f.AffId
 			AND f.AdminId = @UserId
-	ORDER BY x.AffId
+
+	WHERE m.RowIDX BETWEEN (((@PageIndex - 1) * @PageSize) + 1) AND (@PageSize * @PageIndex)
+	
+	RETURN;
+
 END
 GO
 
 GRANT EXECUTE ON [dbo].[Aff_AffiliateSel] TO [bodbAdminNet]
 GO
 
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateSel] TO [vnteam]

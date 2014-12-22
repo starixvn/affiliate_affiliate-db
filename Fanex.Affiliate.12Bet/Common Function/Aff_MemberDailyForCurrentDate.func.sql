@@ -17,6 +17,7 @@ AS
 	Revisions:
 		- 20120606@Peter : Exclude waiting tickets
 		- 20140403@Bobby:  exclude Keno product & other sports
+		- 20141218@Bobby: Update SS's bettype
 
 	Params explaination:
 */
@@ -54,7 +55,7 @@ BEGIN
 						ELSE 0
 						END) * e.Actualrate2, 0) AS Deposit
 			,isnull(sum(CASE 
-						WHEN BetType <= 999 
+						WHEN (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 							AND ruben = 1 THEN (b.Winlost - abs(b.actual_stake))
 						ELSE 0
 						END) * e.Actualrate2, 0) AS Winlost
@@ -75,7 +76,7 @@ BEGIN
 							END) * e.Actualrate2, 0) * e.WithdrawalPercent) AS PSP
 			,0 AS Marketing
 			,isnull(sum(CASE 
-						WHEN BetType <= 999  THEN (CASE 
+						WHEN (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399)) THEN (CASE 
 								WHEN Bettype IN (33, 43)
 									AND liveawayscore = 0 THEN isnull(abs(stake), 0) / 2 * e.Actualrate2
 								ELSE isnull(abs(stake), 0) END
@@ -93,6 +94,7 @@ BEGIN
 			AND ci.IsRemoved = 0
 			AND (
 				b.bettype <= 999
+				OR ( b.bettype BETWEEN 1301 AND 1399)
 				OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 				) --get SB only
 			AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
@@ -102,6 +104,7 @@ BEGIN
 			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
 					--and bettype not in (31,32,33,41,42,43)   
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
+			AND b.custid > 0
 		--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
 		GROUP BY ci.IBCCustID
 			,CASE 
