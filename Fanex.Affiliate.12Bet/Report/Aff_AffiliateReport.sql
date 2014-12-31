@@ -1,4 +1,4 @@
-﻿ALTER PROCEDURE [dbo].[Aff_AffiliateReport_xtest] 
+﻿ALTER PROCEDURE [dbo].[Aff_AffiliateReport] 
 	@FromDate 			DATE
 	,@ToDate 			DATE
 	,@IsGetAll 			BIT
@@ -22,6 +22,7 @@ Revisions:
 	- 20140403@Bobby: exclude Keno product & other sports
 	- 20141113@Bobby: Add columns (Tracking Rate (Unique/Total), New Trk. Rate (Unique/Total), Total Sign up, Total FDM, Active Member, Total QM)
 	- 20141218@Bobby: Update SS's bettype
+	- 20141223@Bobby: Hotfix#28059 - Filtering by PreferredLanguage
 
 Param's Explanation:
 	• @Fromdate Time search From
@@ -138,9 +139,9 @@ BEGIN
 		LEFT JOIN dbo.AffDetail ad WITH (NOLOCK)
 		ON ai.AffId = ad.AffId
 		
-	WHERE ai.AffType				= ISNULL(@AffType, ai.AffType)
-		AND (@PreferredLanguage IS NULL OR ad.PreferredLanguage	= PreferredLanguage)
-		AND at.IsShown				= 1
+	WHERE  ai.STATUS		= 'Approved'
+		AND (@AffType IS NULL OR ai.AffType	= @AffType)
+		AND (@PreferredLanguage IS NULL OR ad.PreferredLanguage	= @PreferredLanguage)
 		
 	ORDER BY ai.AffId
 	

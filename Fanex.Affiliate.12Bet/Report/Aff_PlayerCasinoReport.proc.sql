@@ -71,6 +71,7 @@ BEGIN
 		AND (@PreferedLanguage IS NULL OR ad.PreferredLanguage = @PreferedLanguage)
 		AND md.SportType = @SportType
 		AND md.AffId > 0
+		AND ai.STATUS	= 'Approved'
 	
 	GROUP BY md.IBCCustId
 		,mi.UserName

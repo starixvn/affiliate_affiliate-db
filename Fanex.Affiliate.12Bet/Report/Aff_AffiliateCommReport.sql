@@ -92,7 +92,6 @@ BEGIN
 		ON ai.AffId = ad.AffId
 		
 	WHERE ai.STATUS = 'Approved'
-		and ai.IsClosed=0
 		AND ai.Username LIKE @UserName
 		AND (@PreferredLanguage IS NULL OR ad.PreferredLanguage = @PreferredLanguage)
 		AND (@AffType IS NULL OR ai.AffType = @AffType)

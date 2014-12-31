@@ -23,6 +23,7 @@ Revisions:
 		+ Add sorting [@SortBy] value
 		+ Remove @TotalPages
 	- 20141218@Bobby: Enhance performance & update SS's bettype
+	- 20141223@Bobby: Hotfix#28059 - Filtering by PreferredLanguage
 
 Param's Explanation:
 	• @SortBy: Default(0) - AffId ASC
@@ -77,11 +78,7 @@ BEGIN
 
 	WHERE ai.STATUS		= 'Approved'
 		AND ai.Username LIKE @AffName
-		AND (@PreferredLanguage IS NULL OR ad.PreferredLanguage = ad.PreferredLanguage)
-		AND (
-			ai.IsClosed = 0
-			OR ai.GroupID <> @NoComGroupID
-			)
+		AND (@PreferredLanguage IS NULL OR ad.PreferredLanguage = @PreferredLanguage)
 		AND ai.ApprovedDate < @LastDay
 
 	GROUP BY ai.AffID

@@ -18,6 +18,8 @@ Orgiginal: dbo.Age_BetList_SelMatchResultNumberGame
 
 Revisions:    
 	- 20141017@Bobby.Nguyen: Initial SP
+	- 20141229@Bobby.Nguyen: add more IsRefund column
+	
 */  
 BEGIN
 	SET NOCOUNT ON  
@@ -36,9 +38,11 @@ BEGIN
 					 when m.betstatus like 'Refund%' then 'Refund' 
 					else m.eventstatus end as eventstatus,
 				m.matchcode
+				,ISNULL(mr.refund,0) IsRefund
 		FROM dbo.bingoBall b WITH(NOLOCK) 
 			INNER JOIN dbo.[match] m WITH(NOLOCK) 
 			ON b.matchid = m.matchid
+			LEFT OUTER JOIN dbo.match_remark mr WITH(NOLOCK) ON m.matchid = mr.matchid
 		WHERE b.matchid = @matchid
 		ORDER BY b.Seq
 	END
@@ -56,9 +60,11 @@ BEGIN
 					 when m.betstatus like 'Refund%' then 'Refund' 
 					else m.eventstatus end as eventstatus,
 				m.matchcode
+				,ISNULL(mr.refund,0) IsRefund
 		FROM dbo.bingoBall14 b WITH(NOLOCK) 
 			INNER JOIN dbo.[match14] m WITH(NOLOCK) 
 			ON b.matchid=m.matchid
+			LEFT OUTER JOIN dbo.match_remark mr WITH(NOLOCK) ON m.matchid = mr.matchid
 		WHERE b.matchid = @matchid
 		ORDER BY b.Seq
 	END  
@@ -76,9 +82,11 @@ BEGIN
 					 when m.betstatus like 'Refund%' then 'Refund' 
 					else m.eventstatus end as eventstatus,
 				m.matchcode
+				,ISNULL(mr.refund,0) IsRefund
 		FROM DBARC.bodb_archive.dbo.bingoBall_bk b WITH(NOLOCK) 
-			INNER JOIN DB06.bodb_archive.dbo.match_bk m WITH(NOLOCK)  
+			INNER JOIN DBARC.bodb_archive.dbo.match_bk m WITH(NOLOCK)  
 			ON b.matchid = m.matchid
+			LEFT OUTER JOIN dbo.match_remark mr WITH(NOLOCK) ON m.matchid = mr.matchid
 		WHERE m.matchid = @matchid 
 		ORDER BY b.Seq 
 	END  

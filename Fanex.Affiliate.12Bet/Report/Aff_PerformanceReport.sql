@@ -136,23 +136,18 @@ BEGIN
 	WHERE ad.Username LIKE @UserName
 		AND ad.PreferredLanguage LIKE @Language
 		AND ai.ApprovedDate < @ToDate
-		--Exclude all closed affs 
-		AND (
-			ai.IsClosed = 0
-			OR ai.GroupID <> @NoComGroupID
-			)
-		AND ai.STATUS = 'approved'
+		AND ai.STATUS = 'Approved'
 	
 	IF (@@ROWCOUNT = 0) RETURN
 
 	--For old month that was calculated
 	INSERT INTO #AffReport (AffId, ToTal)
 	SELECT ac.AffId
-		,CASE WHEN @SortBy = 1 THEN Sum(ac.QualifiedMember)
-			WHEN @SortBy = 2 THEN Sum(ac.MemberDeposit)
-			WHEN @SortBy = 3 THEN Sum(ac.MemberTurnover)
-			WHEN @SortBy = 4 THEN Sum(ac.MemberWinlost)
-			WHEN @SortBy = 5 THEN Sum(ac.AffWinlost)
+		,CASE WHEN @SortBy = 1 THEN SUM(ac.QualifiedMember)
+			WHEN @SortBy = 2 THEN SUM(ac.MemberDeposit)
+			WHEN @SortBy = 3 THEN SUM(ac.MemberTurnover)
+			WHEN @SortBy = 4 THEN SUM(ac.MemberWinlost)
+			WHEN @SortBy = 5 THEN SUM(ac.AffWinlost)
 			ELSE 0
 		END AS Total
 	FROM dbo.AffCommission ac WITH (NOLOCK)
@@ -164,8 +159,11 @@ BEGIN
 
 	GROUP BY ac.AffId
 	
-	HAVING Sum(ac.MemberDeposit) > 0
-		OR Sum(ac.MemberTurnover) > 0
+	HAVING SUM(ac.QualifiedMember) > 0
+		OR SUM(ac.MemberDeposit) > 0
+		OR SUM(ac.MemberTurnover) > 0
+		OR ABS(SUM(ac.MemberWinlost)) > 0
+		OR ABS(SUM(ac.AffWinlost)) > 0
 	
 	--For current month that is not calculated
 	IF (DATEDIFF(M, @CurrentDate, @ToDate) = 0)
@@ -188,11 +186,11 @@ BEGIN
 		
 		INSERT INTO #AffReport (AffId, ToTal)
 		SELECT ac.AffId
-			,CASE WHEN @SortBy = 1 THEN Sum(ac.TotalQM)
-				WHEN @SortBy = 2 THEN Sum(ac.Deposit)
-				WHEN @SortBy = 3 THEN Sum(ac.Turnover)
-				WHEN @SortBy = 4 THEN Sum(ac.Winlost)
-				WHEN @SortBy = 5 THEN Sum(ac.Commission)
+			,CASE WHEN @SortBy = 1 THEN SUM(ac.TotalQM)
+				WHEN @SortBy = 2 THEN SUM(ac.Deposit)
+				WHEN @SortBy = 3 THEN SUM(ac.Turnover)
+				WHEN @SortBy = 4 THEN SUM(ac.Winlost)
+				WHEN @SortBy = 5 THEN SUM(ac.Commission)
 				ELSE 0
 			END AS Total
 		FROM #AffCommTmp ac
@@ -224,11 +222,11 @@ BEGIN
 			
 		INSERT INTO #AffReport (AffId, ToTal)
 		SELECT ac.AffId
-			,CASE WHEN @SortBy = 1 THEN Sum(ac.TotalQM)
-				WHEN @SortBy = 2 THEN Sum(ac.Deposit)
-				WHEN @SortBy = 3 THEN Sum(ac.Turnover)
-				WHEN @SortBy = 4 THEN Sum(ac.Winlost)
-				WHEN @SortBy = 5 THEN Sum(ac.Commission)
+			,CASE WHEN @SortBy = 1 THEN SUM(ac.TotalQM)
+				WHEN @SortBy = 2 THEN SUM(ac.Deposit)
+				WHEN @SortBy = 3 THEN SUM(ac.Turnover)
+				WHEN @SortBy = 4 THEN SUM(ac.Winlost)
+				WHEN @SortBy = 5 THEN SUM(ac.Commission)
 				ELSE 0
 			END AS Total
 		FROM #AffCommTmp ac
@@ -300,10 +298,16 @@ BEGIN
 			INNER JOIN @AffPaging p
 			ON ac.AffID = p.AffId
 
-		WHERE ac.WinlostDate BETWEEN @FromDate AND @ToDate
+		WHERE ac.WinlostDate BETWEEN @FromDate AND (CASE WHEN @ToDate > @LastMonthlydate THEN @LastMonthlydate ELSE @ToDate END)
 			AND (@SportId IS NULL OR ac.SportId = @SportId)
 
 		GROUP BY ac.AffID
+		
+		HAVING SUM(ac.QualifiedMember) > 0
+			OR SUM(ac.MemberDeposit) > 0
+			OR SUM(ac.MemberTurnover) > 0
+			OR ABS(SUM(ac.MemberWinlost)) > 0
+			OR ABS(SUM(ac.AffWinlost)) > 0
 		
 		-- get data from un-calculated month that was not calculated
 		UNION ALL
@@ -325,7 +329,7 @@ BEGIN
 	;WITH AffWithdraw (AffId, Withdrawal)
 	AS (
 		SELECT af.AffId
-			,Sum(isnull(af.Amount, 0)) AS Withdrawal
+			,SUM(isnull(af.Amount, 0)) AS Withdrawal
 		FROM dbo.AffTrans af WITH(NOLOCK)
 			INNER JOIN @AffPaging r
 			ON af.AffId = r.AffId

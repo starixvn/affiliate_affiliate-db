@@ -26,6 +26,7 @@ Original: DBARC.bodb_Archive.dbo.[Age_BetList_SelWinLossByDate_Mem_Old]
 
 Revisions:           
 	20141016@Bobby.Nguyen: Initial affiliate member betlist
+	20141222@Bobby.Nguyen: Checking status ID for archiving betlist
 	
 Param's Explanation: 
 	- @CustID: 		Customer/Player ID
@@ -196,7 +197,7 @@ BEGIN
 				AND b.bettype NOT BETWEEN 1101 AND 1199
 				AND b.bettype NOT BETWEEN 1201 AND 1299
 				AND b.bettype NOT BETWEEN 1501 AND 1599 -- exclude Keno
-				
+				AND b.statusID IN (111,112,113) --DRAW,WON,LOSE
 
 		-- Mix Parlay		
 
@@ -260,6 +261,7 @@ BEGIN
 				b.bettype IN (9,29) and
 				--b.matchid = 0
 				b.matchid IN (0,9,29) --should not remove 0 in Archive
+				AND b.statusID IN (111,112,113) --DRAW,WON,LOSE
 				
 		-- Outright		
 		INSERT INTO #BetListByDateMem
@@ -322,6 +324,7 @@ BEGIN
 				--b.Recommend = @Recommend and
 				b.custid=@custid and			
 				b.bettype = 10
+				AND b.statusID IN (111,112,113) --DRAW,WON,LOSE
 	END
 	
 	--Horse Racing
@@ -387,6 +390,7 @@ BEGIN
 				--b.Recommend = @Recommend and
 				b.custid=@custid and			
 				b.bettype in (31, 32, 33,41,42,43)
+				AND b.statusID IN (111,112,113) --DRAW,WON,LOSE
 	
 	END
 		
@@ -451,6 +455,7 @@ BEGIN
 				--b.Recommend = @Recommend and
 				b.custid=@custid and			
 				b.bettype = 71
+				AND b.statusID IN (111,112,113) --DRAW,WON,LOSE
 	END
 	
 	--Number Game
@@ -514,6 +519,7 @@ BEGIN
 				b.winlostdate between @fromdate and @todate and
 				b.custid=@custid and
 				b.bettype BETWEEN 81 AND 120
+				AND b.statusID IN (111,112,113) --DRAW,WON,LOSE
 		END
 		
 	
@@ -578,6 +584,7 @@ BEGIN
 				b.winlostdate between @fromdate and @todate and
 				b.custid=@custid and
 				b.bettype BETWEEN 1101 AND 1199
+				AND b.statusID IN (111,112,113) --DRAW,WON,LOSE
 		END
 			
 	IF (@ShowVS = 1)
@@ -641,6 +648,7 @@ BEGIN
 				--b.Recommend = @Recommend and
 				AND b.custid=@custid  
 				AND b.bettype between 1201 and 1299
+				AND b.statusID IN (111,112,113) --DRAW,WON,LOSE
 				
 			INSERT INTO #BetListByDateMem
 			SELECT
@@ -702,6 +710,7 @@ BEGIN
 				--b.Recommend = @Recommend and
 				AND b.custid=@custid  
 				AND b.bettype IN (1231, 1232, 1233, 1237, 1238)
+				AND b.statusID IN (111,112,113) --DRAW,WON,LOSE
 	END
 
 	IF (@ShowProgressiveBonus = 1)
@@ -764,6 +773,7 @@ BEGIN
 				--b.Recommend = @Recommend and
 				b.custid=@custid and			
 				b.bettype = 72
+				AND b.statusID IN (111,112,113) --DRAW,WON,LOSE
 	END
 
 	--Keno
@@ -827,7 +837,7 @@ BEGIN
 			AND b.recommend = @Recommend
 			AND b.custid = @CustID 
 			AND b.bettype BETWEEN 1501 AND 1599 
-			--AND b.statusID NOT IN (0, 1)
+			AND b.statusID IN (111,112,113) --DRAW,WON,LOSE
 	END
 	
 

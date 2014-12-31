@@ -18,6 +18,7 @@ Revisions:
     - 20141114@Bobby: 
 		+ Add sorting [@SortBy] value
 		+ Remove @TotalPages
+	- 20141223@Bobby: Hotfix#28059 - Filtering by PreferredLanguage
 	
 Param's Explanation:
 	• @Fromdate Time search From
@@ -66,10 +67,9 @@ BEGIN
 	WHERE (@IsGetAll = 1 OR (md.CreatDate >= @FromDate AND md.CreatDate < DATEADD(D, 1,@ToDate)))
 		AND md.AffiliateId > 0
 		AND ai.ApprovedDate <= @ToDate 
-		AND ai.STATUS		= 'Approved'
-		AND ai.IsClosed = 0
+		AND ai.STATUS	= 'Approved'
 		AND ai.Username LIKE @UserName
-		AND (@PreferredLanguage IS NULL OR ad.PreferredLanguage = ad.PreferredLanguage)
+		AND (@PreferredLanguage IS NULL OR ad.PreferredLanguage = @PreferredLanguage)
 		
 		
 	GROUP BY md.AffiliateId

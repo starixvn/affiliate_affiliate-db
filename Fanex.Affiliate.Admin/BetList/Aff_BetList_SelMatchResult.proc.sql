@@ -20,6 +20,7 @@ Orgiginal: DBEXT/bodb02.dbo.Age_BetList_SelMatchResult
 
 Revisions:    
 	- 20141017@Bobby.Nguyen: Initial SP & Get the detail information of Tennis sport
+	- 20141229@Bobby.Nguyen: add more homeid2 & awayid2 column
 */
 BEGIN
 	SET NOCOUNT ON
@@ -64,6 +65,8 @@ BEGIN
 				ISNULL(mr.calculate,0) AS calculate	,
 				ISNULL(mr.IsPending,0) AS IsPending	,
 				m.showtime
+				,m.homeid2
+				,m.awayid2
 			FROM dbo.match m WITH(NOLOCK)
 				LEFT OUTER JOIN dbo.match_remark mr WITH(NOLOCK) ON m.matchid = mr.matchid
 			WHERE m.matchid = @matchid
@@ -121,6 +124,8 @@ BEGIN
 				ISNULL(mr.calculate,0) AS calculate,
 				ISNULL(mr.IsPending,0) AS IsPending	,
 				m.showtime
+				,m.homeid2
+				,m.awayid2
 			FROM dbo.match14 m WITH(NOLOCK)		
 				LEFT OUTER JOIN dbo.match_remark mr WITH(NOLOCK) 
 				ON m.matchid = mr.matchid
@@ -178,6 +183,8 @@ BEGIN
 				ISNULL(mr.calculate,0) AS calculate,
 				ISNULL(mr.IsPending,0) AS IsPending,
 				m.showtime 
+				,m.homeid2
+				,m.awayid2
 			FROM DBARC.bodb_archive.dbo.Match_BK m WITH(NOLOCK)		
 				LEFT OUTER JOIN dbo.match_remark mr WITH(NOLOCK) ON m.matchid = mr.matchid
 			WHERE m.matchid = @matchid
