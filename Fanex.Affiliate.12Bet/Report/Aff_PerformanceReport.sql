@@ -22,6 +22,7 @@ Revisions:
 		+ Add sorting [@IsDesc] value
 		+ Remove @TotalPages
 	- 20141218@Bobby: Enhance performance & update SS's bettype
+	- 20150105@Bobby.Nguyen: Update checking uncalculated month
 
 Param's Explanation:
 	• @UserName Search by username
@@ -199,7 +200,7 @@ BEGIN
 	
 
 	--For previous month that was not calculated
-	IF( DATEDIFF(MM, @LastMonthlyDate, @ToDate) > 1
+	IF( @FromDate > @LastMonthlyDate AND @FromDate < @CurrMonth
 		AND NOT EXISTS(SELECT TOP 1 1 FROM dbo.AffCommission WITH (NOLOCK) WHERE WinlostDate = DATEADD(MM,1, @LastMonthlyDate)))
 	BEGIN 
 		SELECT @Month	= MONTH(DATEADD(m, - 1, @CurrentDate))

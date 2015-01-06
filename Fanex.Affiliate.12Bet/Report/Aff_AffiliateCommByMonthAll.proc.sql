@@ -11,6 +11,7 @@ Orgiginal:
 
 Revisions:    
 	- 20141217@Bobby.Nguyen: Initial SP
+	- 20150105@Bobby.Nguyen: Update fomular commission (check member WL between Sportsbook and Casino)
 */  
 BEGIN
 	SET NOCOUNT ON
@@ -62,7 +63,6 @@ BEGIN
 			ON ac.AffID = a.AffId
 		
 		WHERE winlostdate = @LastDay
-			AND (@SportId IS NULL OR SportID = @SportId)
 		ORDER BY ac.AffID
 			,ac.SportID
 			
@@ -86,7 +86,7 @@ BEGIN
 		,Currency							INT
 	)
 	
-	DECLARE @AffSummary TABLE (
+	CREATE TABLE #AffSummary (
 		AffID INT
 		,Currency INT
 		,GroupID INT
@@ -281,7 +281,7 @@ BEGIN
 
 			) gh ON a.AffID = gh.AffID
 	)
-	INSERT INTO @AffSummary (
+	INSERT INTO #AffSummary (
 		AffID
 		,Currency
 		,GroupID
@@ -356,7 +356,6 @@ BEGIN
 				INNER JOIN #AffList a ON md.AffID = a.AffId
 				WHERE WinlostDate BETWEEN @FirstDay
 						AND (CASE WHEN DATEDIFF(MM, @LastDay, @CurrentDay) = 0 THEN DATEADD(DD, -1, @CurrentDay) ELSE @LastDay END)
-					AND (@SportId IS NULL OR SportType = @SportId)
 				GROUP BY IBCCustID
 					,SportType
 					,md.AffID
@@ -375,7 +374,6 @@ BEGIN
 					,sum(isnull(TurnOver, 0) * isnull(AffExRate, 1)) AS TurnOver
 					,sum(isnull(Deposit, 0) * isnull(AffExRate, 1)) AS Deposit
 				FROM #MemberRealtime AS mt
-				WHERE (@SportId IS NULL OR SportType = @SportId)
 				GROUP BY IBCCustID
 					,SportType
 					,AffID
@@ -396,24 +394,34 @@ BEGIN
 		,r.SportType
 		,t.MonthDate
 	
-	-- Decide which SportID should include PSP
-	DECLARE @maxwinlost MONEY
-		,@maxWinlostSportID INT
-
-	SELECT @maxwinlost = max(abs(MemWinlost))
-	FROM @AffSummary
-
-	SELECT TOP (1) @maxWinlostSportID = sportid
-	FROM @AffSummary
-	WHERE abs(MemWinlost) = @maxwinlost
-		AND SportID <> @SportsBookID
-
-	SELECT @maxWinlostSportID = coalesce(@maxWinlostSportID, @SportsBookID)
-
+	-- Decide which SportID should include PSP	
+	--check max WL
+	;WITH MaxMemWL AS (
+		SELECT AffId
+			, SUM(CASE WHEN SportId = @SportsBookID 	THEN abs(a.MemWinlost) ELSE 0 END) SportsBookWL
+			, SUM(CASE WHEN SportId = @CasinoID 		THEN abs(a.MemWinlost) ELSE 0 END) CasinoWL
+			, SUM(ISNULL(a.MemPSP, 0)) AS MemPSP
+			, SUM(a.PSPPercent) AS PSPPercent
+		FROM #AffSummary a
+		WHERE a.SportId IN (@SportsBookID, @CasinoID)
+		GROUP BY AffId
+		
+	), PSPSelection AS (
+		SELECT AffId
+			, CASE WHEN SportsBookWL > CasinoWL THEN @SportsBookID ELSE @CasinoID END AS SportId
+			, m.MemPSP
+			, m.PSPPercent
+		FROM MaxMemWL m
+	)
 	UPDATE a
 	SET a.IsPSPIncluded = 1
-	FROM @AffSummary a
-	WHERE a.sportid = @maxWinlostSportID
+		, a.MemPSP 		= f.MemPSP
+		,a.PSPPercent	= f.PSPPercent
+	FROM #AffSummary a
+		INNER JOIN PSPSelection f 
+		ON a.AffId = f.AffId
+			AND a.SportId = f.SportId
+	WHERE a.SportId IN (@SportsBookID, @CasinoID)
 
 	--Choose commission value and calculate Total Balance after deduction for each Affiliate and SportID  	
 	;WITH AffNetWin As (
@@ -428,7 +436,7 @@ BEGIN
 				- abs(isnull(a.MemWinlost, 0)) * isnull(a.MarketingPercent, 0) 
 				- abs(isnull(a.MemWinlost, 0)) * isnull(a.PlayTechRoyaltiesPercent, 0)
 			) AS NetWinLost
-		FROM @AffSummary a
+		FROM #AffSummary a
 		GROUP BY a.AffID
 			,a.GroupID
 			,a.SportID
@@ -437,7 +445,7 @@ BEGIN
 	UPDATE a
 	SET a.NetWinlost = aw.NetWinLost
 		,a.commission = comm.CommRate
-	FROM @AffSummary a
+	FROM #AffSummary a
 		INNER JOIN AffNetWin aw 
 		ON a.AffID = aw.AffId
 			AND a.GroupID = aw.GroupID
@@ -488,7 +496,7 @@ BEGIN
 			WHEN a.SportID = @CasinoID THEN @MinimumNegativeCasinoCommission
 			ELSE @MinimumNegativeCommission END
 			)
-	FROM @AffSummary a
+	FROM #AffSummary a
 	WHERE a.NetWinlost < 0
 		AND a.Commission = 0
 		AND [dbo].[IsZeroCommissionGroup](a.GroupID, a.MonthDate) = 0
@@ -516,7 +524,8 @@ BEGIN
 		,SUM(ISNULL(a.MemTurnover, 0)) AS TurnOver
 		,SUM(ISNULL(a.MemWinlost, 0)) AS Winlost
 		,SUM(ISNULL(a.NetWinlost, 0)) AS NetWinlost
-	FROM @AffSummary a
+	FROM #AffSummary a
+	WHERE (@SportId IS NULL OR SportID = @SportId)
 	GROUP BY AffId
 		,GroupID
 		,SportID
