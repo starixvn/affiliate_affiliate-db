@@ -24,6 +24,7 @@ AS
 		  - 20120606@Peter : Exclude waiting tickets
 		  - 20140403@Bobby:  exclude Keno product & other sports
 		  - 20141218@Bobby: Update SS's bettype & fix Casiso time range
+		  - 20150106@Bobby: Update WL fake
 
 	Param's Explanation:  
 	• @custid: affliate Id  
@@ -39,6 +40,21 @@ BEGIN
 		,@SportsBookID INT
 		,@HorseRacingID INT
 		,@CasinoId INT --,@MarketingPercent float,@OddsFeePercent float
+		
+	CREATE TABLE #AffDailyWL(
+		WinlostDate 	SMALLDATETIME
+		,Deposit 		MONEY
+		,Withdrawal		MONEY
+		,MemberWinlost	MONEY
+		,MemWinlostFake	MONEY
+		,Bonus			MONEY
+		,Adjustment		MONEY
+		,PSP			MONEY
+	);
+	CREATE TABLE #AffComm(
+		SportID			INT
+		,NetWinlost		MONEY
+	);
 
 	SELECT @SportsBookID = dbo.Aff_GetSportID('SportsBook')
 		,@HorseRacingID = dbo.Aff_GetSportID('Horse Racing')
@@ -67,6 +83,7 @@ BEGIN
 
 	IF @monthdate >= @CurrDate
 	BEGIN
+		INSERT INTO #AffDailyWL
 		SELECT d.winlostdate
 			,sum(d.MemDeposit) AS Deposit
 			,sum(d.MemWithdrawal) AS Withdrawal
@@ -198,13 +215,19 @@ BEGIN
 		GROUP BY t.winlostdate
 		ORDER BY winlostdate
 
-		SELECT *
+		INSERT INTO #AffComm (
+			SportID
+			,NetWinlost
+		)
+		SELECT SportID
+			,NetWinlost
 		FROM dbo.[Aff_CommissionForCurrentMonth](@AffID)
 		WHERE @SportType = 0
 			OR SportId = @SportType
 	END
 	ELSE
 	BEGIN
+		INSERT INTO #AffDailyWL
 		SELECT d.winlostdate
 			,sum(d.MemDeposit) AS Deposit
 			,sum(d.MemWithdrawal) AS Withdrawal
@@ -234,11 +257,61 @@ BEGIN
 		GROUP BY d.winlostdate
 		ORDER BY d.winlostdate
 
-		SELECT *
+		INSERT INTO #AffComm (
+			SportID
+			,NetWinlost
+		)
+		SELECT SportID
+			,NetWinlost
 		FROM dbo.[Aff_CommissionForMonth](@AffID, MONTH(@monthdate), YEAR(@monthdate))
 		WHERE @SportType = 0
 			OR SportId = @SportType
 	END
+	
+	;WITH MaxWLDate AS (
+		SELECT MAX(WinlostDate) AS MaxWinlostDate
+		FROM #AffDailyWL wl
+	), SumWLExcludeMax AS (
+		SELECT SUM(MemWinlostFake) AS MemWinlostFake
+		FROM #AffDailyWL wl
+		WHERE WinlostDate <> (SELECT MaxWinlostDate FROM MaxWLDate)
+	)
+	UPDATE wl
+		SET MemWinlostFake = nwl.NetWinlost - swl.MemWinlostFake
+	FROM #AffDailyWL wl
+		INNER JOIN MaxWLDate md 
+		ON wl.WinlostDate = md.MaxWinlostDate
+		CROSS APPLY SumWLExcludeMax swl
+		CROSS APPLY (
+			SELECT SUM(NetWinlost) AS NetWinlost
+			FROM #AffComm ac
+		) AS nwl
+		
+	-- select daily WL
+	SELECT *
+	FROM #AffDailyWL wl
+	ORDER BY WinlostDate
+	
+	-- select sum WL
+	SELECT SUM(Deposit) 		AS Deposit
+		,SUM(Withdrawal)		AS Withdrawal
+		,SUM(MemberWinlost)		AS MemberWinlost
+		,nwl.NetWinlost			AS MemWinlostFake
+		,SUM(Bonus)				AS Bonus
+		,SUM(Adjustment)		AS Adjustment
+		,SUM(PSP)				AS PSP
+	FROM #AffDailyWL
+	CROSS APPLY (
+		SELECT SUM(NetWinlost) AS NetWinlost
+		FROM #AffComm ac
+	) AS nwl
+	GROUP BY nwl.NetWinlost	
+	
+
+	DROP TABLE #AffDailyWL
+	DROP TABLE #AffComm
+
+	RETURN;
 END
 GO
 
@@ -251,4 +324,3 @@ GO
 GRANT EXECUTE ON [dbo].[Aff_EarningSelDaily] TO [bodbDownlineNetView]
 GO
 
-GRANT VIEW DEFINITION ON [dbo].[Aff_EarningSelDaily] TO [vnteam]
