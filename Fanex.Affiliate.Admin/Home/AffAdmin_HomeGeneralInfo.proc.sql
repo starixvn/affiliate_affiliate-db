@@ -12,7 +12,8 @@ Revisions:
  - 20131007@Johnny: Get Turnover
  - 20140515@bobby: Exclude member test account
  - 20140703@bobby: Exclude Payment info that belongs to affiliate test account
- - 20114-819@Bobby: Apply SQL style scope
+ - 20140819@Bobby: Apply SQL style scope
+ - 20150107@Bobby: Update counting bannset stats info
 
 Param's Explanation:    
     
@@ -178,8 +179,16 @@ BEGIN
 				ELSE 0
 				END)
 	FROM dbo.Banners b WITH (NOLOCK)
-		INNER JOIN dbo.BannerTypes bt WITH (NOLOCK) ON b.ImageType = bt.TypeID
-	WHERE bt.Type = 'ImageType'
+		LEFT JOIN BannerTypes bts 
+		ON (bts.TypeID = b.Size AND bts.Type = 'Size')
+		LEFT JOIN BannerTypes bt 
+		ON (bt.TypeID = b.ImageType	AND bt.Type = 'ImageType')
+		INNER JOIN BannerTypes btc 
+		ON (btc.TypeID = b.Category	AND btc.Type IN ('MediaCategory','MediaSubCategory'))
+		INNER JOIN LANGUAGE l 
+			ON l.LanguageID = b.LANGUAGE
+		INNER JOIN Currency c 
+			ON c.CurrencyID = b.Currency
 
 	DECLARE @MaxWinLostDateAffComm 	SMALLDATETIME
 		,@NextMaxWinlostDate 		SMALLDATETIME

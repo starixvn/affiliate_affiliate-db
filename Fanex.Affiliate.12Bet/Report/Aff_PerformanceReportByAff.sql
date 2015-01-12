@@ -11,6 +11,7 @@ AS
 		- 20110811@Johnny: Get last 6 months of affiliate performance report  
 		- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])  
 		- 20120606@Peter : Exclude waiting tickets  
+		- 20150108@Bobby.Nguyen : Update Withdrawal for casino product
 */
 BEGIN
 	SET NOCOUNT ON
@@ -64,7 +65,7 @@ BEGIN
 		
 		UNION ALL
 		--Calculate Withdrawal  
-		SELECT @SportBookId AS SportId
+		SELECT @SportId AS SportId
 			,CompletedDate
 			,0 AS QualifiedMember
 			,0 AS ActivePlayer
@@ -136,7 +137,5 @@ GO
 GRANT EXECUTE ON [dbo].[Aff_PerformanceReportByAff] TO [bodbAdminNet]
 GO
 
-GRANT VIEW DEFINITION ON [dbo].[Aff_PerformanceReportByAff] TO [VNTeam]
-GO
 
 

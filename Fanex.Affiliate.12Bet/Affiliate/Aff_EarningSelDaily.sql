@@ -1,4 +1,4 @@
-﻿ALTER PROCEDURE [dbo].[Aff_EarningSelDaily] 
+﻿ALTER PROCEDURE [dbo].[Aff_EarningSelDaily_xtest] 
 	@AffID INT
 	,@SportType TINYINT = 0
 	,@monthdate SMALLDATETIME
@@ -43,6 +43,7 @@ BEGIN
 		
 	CREATE TABLE #AffDailyWL(
 		WinlostDate 	SMALLDATETIME
+		,SportId		INT
 		,Deposit 		MONEY
 		,Withdrawal		MONEY
 		,MemberWinlost	MONEY
@@ -83,138 +84,171 @@ BEGIN
 
 	IF @monthdate >= @CurrDate
 	BEGIN
-		INSERT INTO #AffDailyWL
-		SELECT d.winlostdate
-			,sum(d.MemDeposit) AS Deposit
-			,sum(d.MemWithdrawal) AS Withdrawal
-			,sum(d.MemWinlost) AS MemberWinlost
-			,sum(d.MemWinlostFake) AS MemWinlostFake
-			,sum(d.MemBonus) AS Bonus
-			,sum(d.MemAdjustment) AS Adjustment
-			,sum(d.MemPSP) AS PSP
-		FROM AffDailySummary d WITH (NOLOCK)
-		WHERE AffID = @AffID
-			AND d.winlostdate BETWEEN @fromdate AND (CASE WHEN @SportType =  3 THEN @CurrDate ELSE @todate END)
-			AND (CASE 
-				WHEN @SportType = 0
-					OR @SportType = SportId THEN 1
-				ELSE 0 END
-				) = 1
-			AND (
-				isnull(MemTurnOver, 0) <> 0
-				OR isnull(MemWinlost, 0) <> 0
-				OR isnull(MemBonus, 0) <> 0
-				OR isnull(MemAdjustment, 0) <> 0
-				OR isnull(MemPSP, 0) <> 0
-				OR isnull(MemMarketing, 0) <> 0
-				OR isnull(MemDeposit, 0) <> 0
-				OR isnull(MemWithdrawal, 0) <> 0
-				)
-		GROUP BY d.winlostdate
+		-- query Casino
+		IF(@SportType IN(0, @CasinoId))
+		BEGIN
+			INSERT INTO #AffDailyWL
+			SELECT d.winlostdate
+				,@CasinoId AS SportId
+				,sum(d.MemDeposit) AS Deposit
+				,sum(d.MemWithdrawal) AS Withdrawal
+				,sum(d.MemWinlost) AS MemberWinlost
+				,sum(d.MemWinlostFake) AS MemWinlostFake
+				,sum(d.MemBonus) AS Bonus
+				,sum(d.MemAdjustment) AS Adjustment
+				,sum(d.MemPSP) AS PSP
+			FROM AffDailySummary d WITH (NOLOCK)
+			WHERE AffID = @AffID
+				AND d.winlostdate BETWEEN @fromdate AND @CurrDate
+				AND (SportId = @CasinoId)
+				AND (
+					isnull(MemTurnOver, 0) <> 0
+					OR isnull(MemWinlost, 0) <> 0
+					OR isnull(MemBonus, 0) <> 0
+					OR isnull(MemAdjustment, 0) <> 0
+					OR isnull(MemPSP, 0) <> 0
+					OR isnull(MemMarketing, 0) <> 0
+					OR isnull(MemDeposit, 0) <> 0
+					OR isnull(MemWithdrawal, 0) <> 0
+					)
+			GROUP BY d.winlostdate
+		END
 		
-		UNION ALL
-		SELECT winlostdate
-			,sum(Deposit) AS Deposit
-			,sum(Withdrawal) AS Withdrawal
-			,sum(MemberWinlost) AS MemberWinlost
-			,- sum(- isnull(MemberWinlost, 0) - PSP - abs(isnull(MemberWinlost, 0)) * @OddsFeePercent - abs(isnull(MemberWinlost, 0)) * @MarketingPercent) AS MemWinlostFake
-			,sum(Bonus) AS Bonus
-			,sum(Adjustment) AS Adjustment
-			,sum(PSP) AS PSP
-		FROM (
-			SELECT @CurrDate AS winlostdate
-				,isnull(sum(CASE 
-							WHEN (
-									@SportType = 0
-									OR @SportType = @SportsBookID
-									)
-								AND bettype = 22001 THEN (winlost - abs(actual_stake)) * e.ActualRate2
-							ELSE 0
-							END), 0) AS Deposit
-				,- isnull(sum(CASE 
-							WHEN (
-									@SportType = 0
-									OR @SportType = @SportsBookID
-									)
-								AND bettype IN (22002, 22003) THEN (winlost - abs(actual_stake)) * e.ActualRate2
-							ELSE 0
-							END), 0) AS Withdrawal
-				,isnull(sum(CASE 
-							WHEN @SportType = 0
-								AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))  THEN (winlost - abs(actual_stake) + playercomm) * e.ActualRate2
-							WHEN @SportType = @SportsBookID
-								AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
-								AND bettype NOT IN (31, 32, 33, 41, 42, 43) THEN (winlost - abs(actual_stake) + playercomm) * e.ActualRate2
-							WHEN @SportType = @HorseRacingID
-								AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
-								AND bettype IN (31, 32, 33, 41, 42, 43) THEN (winlost - abs(actual_stake) + playercomm) * e.ActualRate2
-							ELSE 0
-							END), 0) AS MemberWinLost
-				,isnull(sum(CASE 
-							WHEN (
-									@SportType = @SportsBookID
-									OR @SportType = 0
-									)
-								AND bettype = 22004 THEN (winlost - abs(actual_stake)) * e.ActualRate2
-							ELSE 0
-							END), 0) AS Bonus
-				,isnull(sum(CASE 
-							WHEN (
-									@SportType = @SportsBookID
-									OR @SportType = 0
-									)
-								AND bettype IN (21001, 21002, 21003, 21004, 21005, 22005) THEN (winlost - abs(actual_stake)) * e.ActualRate2
-							ELSE 0
-							END), 0) AS Adjustment
-				,isnull(sum(CASE 
-							WHEN (
-									@SportType = 0
-									OR @SportType = @SportsBookID
-									)
-								AND bettype = 22001 THEN (winlost - abs(actual_stake)) * e.ActualRate2
-							ELSE 0
-							END), 0) * e.DepositPercent + abs(- isnull(sum(CASE 
+		-- query sportsbook & HorseRacing
+		IF(@SportType IN(0, @SportsBookID, @HorseRacingID))
+		--IF(@SportType = 100)
+		BEGIN
+			
+			INSERT INTO #AffDailyWL
+			SELECT d.winlostdate
+				,@SportsBookID AS SportId
+				,sum(d.MemDeposit) AS Deposit
+				,sum(d.MemWithdrawal) AS Withdrawal
+				,sum(d.MemWinlost) AS MemberWinlost
+				,sum(d.MemWinlostFake) AS MemWinlostFake
+				,sum(d.MemBonus) AS Bonus
+				,sum(d.MemAdjustment) AS Adjustment
+				,sum(d.MemPSP) AS PSP
+			FROM AffDailySummary d WITH (NOLOCK)
+			WHERE AffID = @AffID
+				AND d.winlostdate BETWEEN @fromdate AND @todate
+				AND (SportId = @SportsBookID)
+				AND (
+					isnull(MemTurnOver, 0) <> 0
+					OR isnull(MemWinlost, 0) <> 0
+					OR isnull(MemBonus, 0) <> 0
+					OR isnull(MemAdjustment, 0) <> 0
+					OR isnull(MemPSP, 0) <> 0
+					OR isnull(MemMarketing, 0) <> 0
+					OR isnull(MemDeposit, 0) <> 0
+					OR isnull(MemWithdrawal, 0) <> 0
+					)
+			GROUP BY d.winlostdate
+			
+			UNION ALL
+			SELECT winlostdate
+				,@SportsBookID AS SportId
+				,sum(Deposit) AS Deposit
+				,sum(Withdrawal) AS Withdrawal
+				,sum(MemberWinlost) AS MemberWinlost
+				,- sum(- isnull(MemberWinlost, 0) - PSP - abs(isnull(MemberWinlost, 0)) * @OddsFeePercent - abs(isnull(MemberWinlost, 0)) * @MarketingPercent) AS MemWinlostFake
+				,sum(Bonus) AS Bonus
+				,sum(Adjustment) AS Adjustment
+				,sum(PSP) AS PSP
+			FROM (
+				SELECT @CurrDate AS winlostdate
+					,isnull(sum(CASE 
+								WHEN (
+										@SportType = 0
+										OR @SportType = @SportsBookID
+										)
+									AND bettype = 22001 THEN (winlost - abs(actual_stake)) * e.ActualRate2
+								ELSE 0
+								END), 0) AS Deposit
+					,- isnull(sum(CASE 
 								WHEN (
 										@SportType = 0
 										OR @SportType = @SportsBookID
 										)
 									AND bettype IN (22002, 22003) THEN (winlost - abs(actual_stake)) * e.ActualRate2
 								ELSE 0
-								END), 0)) * e.WithdrawalPercent AS PSP
-			FROM bodb02.dbo.bettrans b WITH (NOLOCK)
-				INNER JOIN (
-				SELECT IBCCustID
-					,Currency
-				FROM MemberInfo WITH (NOLOCK)
-				WHERE AffID = @AffID
-					AND IsRemoved = 0
-				) m
-				ON m.IBCCustID = b.CustId
-				INNER JOIN Exchange_current e WITH (NOLOCK)
-				ON e.Exchangeid = m.Currency
-			WHERE @SportType <> @CasinoId
-				AND b.Winlostdate = @CurrDate
-				AND b.ruben = 1
-				AND (
-					b.bettype <= 999
-					OR ( b.bettype BETWEEN 1301 AND 1399)
-					OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
-					) --get SB only
-				AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
-				AND b.bettype NOT IN (1000) --games
-				AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
-				AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
-				AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
-						--and bettype not in (31,32,33,41,42,43)   
-				AND b.StatusID NOT IN (101, 102, 103, 121, 1)
-				AND b.custid > 0
-				--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
-			GROUP BY e.DepositPercent
-				,e.WithdrawalPercent
-			) t
-		GROUP BY t.winlostdate
-		ORDER BY winlostdate
-
+								END), 0) AS Withdrawal
+					,isnull(sum(CASE 
+								WHEN @SportType = 0
+									AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))  THEN (winlost - abs(actual_stake) + playercomm) * e.ActualRate2
+								WHEN @SportType = @SportsBookID
+									AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
+									AND bettype NOT IN (31, 32, 33, 41, 42, 43) THEN (winlost - abs(actual_stake) + playercomm) * e.ActualRate2
+								WHEN @SportType = @HorseRacingID
+									AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
+									AND bettype IN (31, 32, 33, 41, 42, 43) THEN (winlost - abs(actual_stake) + playercomm) * e.ActualRate2
+								ELSE 0
+								END), 0) AS MemberWinLost
+					,isnull(sum(CASE 
+								WHEN (
+										@SportType = @SportsBookID
+										OR @SportType = 0
+										)
+									AND bettype = 22004 THEN (winlost - abs(actual_stake)) * e.ActualRate2
+								ELSE 0
+								END), 0) AS Bonus
+					,isnull(sum(CASE 
+								WHEN (
+										@SportType = @SportsBookID
+										OR @SportType = 0
+										)
+									AND bettype IN (21001, 21002, 21003, 21004, 21005, 22005) THEN (winlost - abs(actual_stake)) * e.ActualRate2
+								ELSE 0
+								END), 0) AS Adjustment
+					,isnull(sum(CASE 
+								WHEN (
+										@SportType = 0
+										OR @SportType = @SportsBookID
+										)
+									AND bettype = 22001 THEN (winlost - abs(actual_stake)) * e.ActualRate2
+								ELSE 0
+								END), 0) * e.DepositPercent + abs(- isnull(sum(CASE 
+									WHEN (
+											@SportType = 0
+											OR @SportType = @SportsBookID
+											)
+										AND bettype IN (22002, 22003) THEN (winlost - abs(actual_stake)) * e.ActualRate2
+									ELSE 0
+									END), 0)) * e.WithdrawalPercent AS PSP
+				FROM bodb02.dbo.bettrans b WITH (NOLOCK)
+					INNER JOIN (
+					SELECT IBCCustID
+						,Currency
+					FROM MemberInfo WITH (NOLOCK)
+					WHERE AffID = @AffID
+						AND IsRemoved = 0
+					) m
+					ON m.IBCCustID = b.CustId
+					INNER JOIN Exchange_current e WITH (NOLOCK)
+					ON e.Exchangeid = m.Currency
+				WHERE @SportType <> @CasinoId
+					AND b.Winlostdate = @CurrDate
+					AND b.ruben = 1
+					AND (
+						b.bettype <= 999
+						OR ( b.bettype BETWEEN 1301 AND 1399)
+						OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
+						) --get SB only
+					AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
+					AND b.bettype NOT IN (1000) --games
+					AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
+					AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
+					AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+							--and bettype not in (31,32,33,41,42,43)   
+					AND b.StatusID NOT IN (101, 102, 103, 121, 1)
+					AND b.custid > 0
+					--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
+				GROUP BY e.DepositPercent
+					,e.WithdrawalPercent
+				) t
+			GROUP BY t.winlostdate
+			ORDER BY winlostdate
+		END
 		INSERT INTO #AffComm (
 			SportID
 			,NetWinlost
@@ -229,6 +263,7 @@ BEGIN
 	BEGIN
 		INSERT INTO #AffDailyWL
 		SELECT d.winlostdate
+			,SportId
 			,sum(d.MemDeposit) AS Deposit
 			,sum(d.MemWithdrawal) AS Withdrawal
 			,sum(d.MemWinlost) AS MemberWinlost
@@ -254,7 +289,7 @@ BEGIN
 				OR isnull(MemDeposit, 0) <> 0
 				OR isnull(MemWithdrawal, 0) <> 0
 				)
-		GROUP BY d.winlostdate
+		GROUP BY d.winlostdate, SportId
 		ORDER BY d.winlostdate
 
 		INSERT INTO #AffComm (
@@ -268,28 +303,42 @@ BEGIN
 			OR SportId = @SportType
 	END
 	
+		
 	;WITH MaxWLDate AS (
-		SELECT MAX(WinlostDate) AS MaxWinlostDate
+		SELECT SportId
+			, MAX(WinlostDate) AS MaxWinlostDate
 		FROM #AffDailyWL wl
+		GROUP BY SportId
 	), SumWLExcludeMax AS (
-		SELECT SUM(MemWinlostFake) AS MemWinlostFake
+		SELECT wl.SportId
+			, SUM(MemWinlostFake) AS MemWinlostFake
 		FROM #AffDailyWL wl
-		WHERE WinlostDate <> (SELECT MaxWinlostDate FROM MaxWLDate)
+			INNER JOIN MaxWLDate md 
+			ON wl.SportId = md.SportId
+		WHERE wl.WinlostDate <> md.MaxWinlostDate
+		GROUP BY wl.SportId
 	)
 	UPDATE wl
-		SET MemWinlostFake = nwl.NetWinlost - swl.MemWinlostFake
+		SET wl.MemWinlostFake = ac.NetWinlost - swl.MemWinlostFake
 	FROM #AffDailyWL wl
 		INNER JOIN MaxWLDate md 
-		ON wl.WinlostDate = md.MaxWinlostDate
-		CROSS APPLY SumWLExcludeMax swl
-		CROSS APPLY (
-			SELECT SUM(NetWinlost) AS NetWinlost
-			FROM #AffComm ac
-		) AS nwl
+		ON wl.SportId = md.SportId AND wl.WinlostDate = md.MaxWinlostDate
+		INNER JOIN SumWLExcludeMax swl 
+		ON wl.SportId = swl.SportId
+		INNER JOIN #AffComm ac
+		ON wl.SportId = ac.SportId
 		
 	-- select daily WL
-	SELECT *
+	SELECT WinlostDate 
+		,SUM(Deposit) 		AS Deposit
+		,SUM(Withdrawal)		AS Withdrawal
+		,SUM(MemberWinlost)		AS MemberWinlost
+		,SUM(MemWinlostFake)	AS MemWinlostFake
+		,SUM(Bonus)				AS Bonus
+		,SUM(Adjustment)		AS Adjustment
+		,SUM(PSP)				AS PSP
 	FROM #AffDailyWL wl
+	GROUP BY WinlostDate
 	ORDER BY WinlostDate
 	
 	-- select sum WL
@@ -308,6 +357,7 @@ BEGIN
 	GROUP BY nwl.NetWinlost	
 	
 
+	--DROP TABLE #AffSumTotalWL
 	DROP TABLE #AffDailyWL
 	DROP TABLE #AffComm
 
@@ -315,12 +365,10 @@ BEGIN
 END
 GO
 
-GRANT EXECUTE ON [dbo].[Aff_EarningSelDaily] TO [bodbAdminNet]
-GO
 
-GRANT EXECUTE ON [dbo].[Aff_EarningSelDaily] TO [bodbDownlineNet]
-GO
 
-GRANT EXECUTE ON [dbo].[Aff_EarningSelDaily] TO [bodbDownlineNetView]
-GO
 
+exec [dbo].[Aff_EarningSelDaily_xtest] 
+	@AffID = 92036089
+	,@SportType  = 0
+	,@monthdate = '2014/12/31'
