@@ -183,6 +183,7 @@ BEGIN
 				ELSE 1
 			END
 	HAVING SUM(md.Deposit) 		> 0
+		OR SUM(md.Withdrawal) 	<> 0
 		OR SUM(md.Winlost) 		<> 0
 		OR SUM(md.Bonus) 		> 0
 		OR SUM(md.Adjustment)	> 0

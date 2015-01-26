@@ -13,7 +13,7 @@ AS
 	Revisions: 		
 		- Johnny@20130402: Fix the way import transfer transaction
 		- Peter@20131028 : Add more DB columns https://redmine.nexcel.vn/issues/5280
-		- 20141028@Bobby: hotfix#24904 - remove abs() function when calculating PSP fee
+		- 20141028@Bobby: hotfix#24904 - remove abs() function for Withdrawal value when calculating PSP fee
 */
 BEGIN
 	SET NOCOUNT ON

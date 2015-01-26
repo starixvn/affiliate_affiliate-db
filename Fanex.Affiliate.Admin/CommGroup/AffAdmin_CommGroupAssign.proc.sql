@@ -14,7 +14,7 @@ DB: DB052.Affiliate_AoncashUAT
 Original:  
   
 Revisions:  
-	- 20141028@Bobby: hotfix#24904 - remove abs() function when calculating PSP fee
+	- 20141028@Bobby: hotfix#24904 - remove abs() function for Withdrawal value when calculating PSP fee
 Parameters:  
 .@UserID : Administrator user id  
 .@GroupID : <1000  
@@ -304,11 +304,15 @@ CREATE TABLE #MemberDailySum (AffID int, MemCurrency int,Winlostdate smalldateti
 
 	--AffDailySummary
 	UPDATE ad
-	SET ad.MemMarketing = tmp.MemMarketing
-		,ad.MemPSP = tmp.MemPSP
-		,ad.MemOddsFee = tmp.MemOddsFee
-		,ad.MemPLayTechFee = tmp.MemPlayTechFee
-	FROM AffDaily ad WITH (ROWLOCK, UPDLOCK)
+	SET ad.MemMarketing 		= tmp.MemMarketing
+		,ad.MemMarketing_aff 	= tmp.MemMarketing_aff
+		,ad.MemPSP 				= tmp.MemPSP
+		,ad.MemPSP_aff 			= tmp.MemPSP_aff
+		,ad.MemOddsFee 			= tmp.MemOddsFee
+		,ad.MemOddsFee_aff 		= tmp.MemOddsFee_aff
+		,ad.MemPLayTechFee 		= tmp.MemPlayTechFee
+		,ad.MemPLayTechFee_aff 	= tmp.MemPlayTechFee_aff
+	FROM AffDailySummary ad WITH (ROWLOCK, UPDLOCK)
 		INNER JOIN (
 		SELECT md.AffID
 			,md.Winlostdate
