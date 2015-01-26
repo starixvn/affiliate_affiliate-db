@@ -187,6 +187,7 @@ BEGIN
 					ELSE DATEADD(m, DATEDIFF(m, 0, rpt.WinlostDate), 0) 
 				END
 		HAVING SUM(rpt.MemDeposit) 		> 0
+			OR SUM(rpt.MemWithdrawal) 	<> 0
 			OR SUM(rpt.MemWinlost) 		<> 0
 			OR SUM(rpt.MemBonus) 		> 0
 			OR SUM(rpt.MemAdjustment)	> 0
