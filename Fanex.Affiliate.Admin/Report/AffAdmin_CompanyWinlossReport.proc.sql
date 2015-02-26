@@ -30,6 +30,7 @@ AS
 		- 20140513@Bobby: Add Playtech Casio product
 		- 20140612@Bobby: Add PShare & PWin columns    
 		- 20140827@Bobby: Add Virtual Sport & PlayerComm - apply style-scope
+		- 20150126@bobby.nguyen: Check for having report data 
                 
 	Param's Explanation: 
 	• @UserId: Admin user id

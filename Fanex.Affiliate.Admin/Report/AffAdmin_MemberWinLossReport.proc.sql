@@ -28,6 +28,7 @@ AS
 	Revisions:           
 		- 20140827@Bobby: Add Virtual Sport & PlayerComm - apply style-scope
 		- 20141112@Bobby: Add more PlayerCurrencyId and AffCurrencyId
+		- 20150126@bobby.nguyen: Check for having report data 
                 
 	Param's Explanation: 
 	• @UserId: Admin user id
