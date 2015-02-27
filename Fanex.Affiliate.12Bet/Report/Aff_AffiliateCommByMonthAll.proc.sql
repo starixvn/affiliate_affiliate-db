@@ -1,4 +1,12 @@
-﻿ALTER PROCEDURE [dbo].[Aff_AffiliateCommByMonthAll] 
+﻿USE [Affiliate_12bet]
+GO
+/****** Object:  StoredProcedure [dbo].[Aff_AffiliateCommByMonthAll]    Script Date: 02/27/2015 05:51:55 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/****** Object:  Stored Procedure dbo.Aff_AffiliateCommByMonthAll    Script Date: 1/7/2015 1:02:16 PM ******/
+ALTER PROCEDURE [dbo].[Aff_AffiliateCommByMonthAll] 
 	@Month					TINYINT			
 	,@Year					INT
 	,@SportId 				TINYINT = NULL
@@ -12,6 +20,7 @@ Orgiginal:
 Revisions:    
 	- 20141217@Bobby.Nguyen: Initial SP
 	- 20150105@Bobby.Nguyen: Update fomular commission (check member WL between Sportsbook and Casino)
+	- 20150227@DanNguyen: fix bug - wrong last date in case view current month
 */  
 BEGIN
 	SET NOCOUNT ON
@@ -270,7 +279,7 @@ BEGIN
 				UNION 
 				SELECT a.AffId
 					, ai.GroupId
-					, DATEADD(DD, 1, DATEADD(MM, -1, @LastDay)) AS MonthDate
+					, @LastDay AS MonthDate
 				FROM dbo.AffInfo ai WITH (NOLOCK)
 					INNER JOIN #AffList a 
 					ON ai.AffID = a.AffId
@@ -539,55 +548,4 @@ BEGIN
 	RETURN;
 END
 GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateCommByMonthAll] TO [bodbAdminNet]
-GO
-
-/*
-create table #AffComm(
-		AffId INT
-		,GroupID INT
-		,SportID TINYINT
-		,MonthDate SMALLDATETIME
-		,TotalQM INT
-		,CommRate FLOAT
-		,Commission MONEY
-		,Deposit MONEY
-		,TurnOver MONEY
-		,Winlost MONEY
-		,NetWinlost MONEY
-)
-
-SELECT top 100
-		ai.AffId
-		,ai.UserName
-		,ai.IsClosed
-		,ai.Currency
-	INTO #AffList
-	FROM dbo.AffInfo ai WITH (NOLOCK)
-		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) 
-		ON ai.AffId = ad.AffId
-		
-	WHERE ai.STATUS = 'Approved'
-		and ai.IsClosed=0
-		
-INSERT INTO #AffComm(
-	AffId
-		,GroupID
-		,SportID
-		,MonthDate
-		,TotalQM
-		,CommRate
-		,Commission
-		,Deposit
-		,TurnOver
-		,Winlost
-		,NetWinlost
-)
-exec [dbo].[Aff_AffiliateCommByMonthAll]  12, 2014, 1
-
-select * from #AffComm
-
-DROP TABLE #AffComm
-DROP TABLE #AffList
-
-*/
+GRANT EXECUTE ON [dbo].[Aff_AffiliateCommByMonthAll] TO [bodbAdminNet] AS [dbo]
