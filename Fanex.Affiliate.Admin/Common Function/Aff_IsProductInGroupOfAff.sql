@@ -5,6 +5,19 @@
 	)
 RETURNS INT
 AS
+/*
+Created: Peter
+Date: 2009-12-10 
+Task : Check Aff - group - product
+DB: DBAFF/Athena000
+Original: 
+
+Revisions:
+	- 20150413@Bobby: Update comparision with current month
+
+Param's Explanation: 
+
+*/
 BEGIN
 	IF @MonthDate > CURRENT_TIMESTAMP RETURN 0
 
@@ -32,9 +45,9 @@ BEGIN
 		FROM AffGroupHistory a WITH (NOLOCK)
 			INNER JOIN GroupSettingHistory c WITH (NOLOCK)
 			ON a.GroupId = c.GroupId
+				AND a.MonthDate = c.MonthDate
 		WHERE a.AffId = @AffId
 			AND a.MonthDate = @MonthDate
-			AND c.MonthDate = @MonthDate
 			AND c.ProductID = @ProductID
 	END
 

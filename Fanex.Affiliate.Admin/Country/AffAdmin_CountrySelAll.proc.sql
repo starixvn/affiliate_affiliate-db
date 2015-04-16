@@ -1,9 +1,9 @@
-﻿ALTER Procedure [dbo].[AffAdmin_CountrySelAll]		
-	@Name NVARCHAR(255) = NULL,	
-	@PageSize INT = 50,
-	@PageIndex INT = 1,
-	@TotalPages INT = 0 OUTPUT,
-	@NRows INT=0 OUTPUT
+﻿ALTER PROCEDURE [dbo].[AffAdmin_CountrySelAll]        
+    @Name NVARCHAR(255) = NULL,    
+    @PageSize INT = 50,
+    @PageIndex INT = 1,
+    @TotalPages INT = 0 OUTPUT,
+    @NRows INT=0 OUTPUT
 AS
 /*
 Created: 20130118@Joseph
@@ -14,29 +14,36 @@ Original:
 Param's Explanation (filtered by):
 
 */
-SET NOCOUNT ON
+BEGIN
+	SET NOCOUNT ON
 
-Select @Name='%' + isnull(rtrim(ltrim(@Name)),'') + '%'
---count nrows
-select @NRows=count(1)
-FROM Country N WITH (NOLOCK)	
-where CountryName like @Name
-
-if(isnull(@NRows,0)=0)
-   return
-   
-DECLARE @RowStart int, @RowEnd int	
-
-SELECT @TotalPages=@NRows/@PageSize + case when @NRows%@PageSize>0 then 1 else 0 end,
-       @PageIndex = @PageIndex - 1, @RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1   
-	
-SELECT CountryID, CountryName,Description,Icon,DisplayOrder,IsEnabled
-from (
-	SELECT TOP(@RowEnd) ROW_NUMBER() OVER(ORDER BY CountryName asc) AS TheCount,
-		C.*
-	FROM Country C WITH (NOLOCK)		
+	Select @Name='%' + isnull(rtrim(ltrim(@Name)),'') + '%'
+	--count nrows
+	select @NRows=count(1)
+	FROM Country N WITH (NOLOCK)    
 	where CountryName like @Name
-	) x
-where x.TheCount >= @RowStart
 
+	if(isnull(@NRows,0)=0)
+	   return
+	   
+	DECLARE @RowStart int, @RowEnd int    
 
+	SELECT @TotalPages=@NRows/@PageSize + case when @NRows%@PageSize>0 then 1 else 0 end,
+		   @PageIndex = @PageIndex - 1, @RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1   
+	    
+	SELECT CountryID, CountryName,Description,Icon,DisplayOrder,IsEnabled
+	from (
+		SELECT TOP(@RowEnd) ROW_NUMBER() OVER(ORDER BY DisplayOrder asc) AS TheCount,
+			C.*
+		FROM Country C WITH (NOLOCK)        
+		where CountryName like @Name
+		) x
+	where x.TheCount >= @RowStart
+
+END
+GO
+
+GO
+GRANT EXECUTE ON [dbo].[AffAdmin_CountrySelAll] TO [bodbAdminNet]
+GO
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CountrySelAll] TO [vnteam]

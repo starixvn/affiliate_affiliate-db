@@ -21,6 +21,7 @@ Orgiginal:
 
 Revisions:    
 	- 20150312@Bobby.Nguyen: Initial SP
+	- 20150327@Bobby.Nguyen: Ignore currency checking when an affiliate belongs to NoCommission group
 */     
 BEGIN    
 	SET NOCOUNT ON;
@@ -63,6 +64,8 @@ BEGIN
 		INNER JOIN dbo.CommGroup g WITH (NOLOCK)
 		ON a.GroupId = g.GroupId
 	WHERE a.AffId = @AffId
+		AND (a.Currency = g.Currency 
+			OR g.GroupName = 'NoCommission')
 	
 	-- gather member info for both (Athena & 12Bet)
 
