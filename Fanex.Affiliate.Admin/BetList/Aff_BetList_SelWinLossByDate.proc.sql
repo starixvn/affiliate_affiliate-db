@@ -32,6 +32,7 @@ Original: DBEXT.bodb02.dbo.[Age_BetList_SelWinLossByDate_Mem]
 Revisions:           
 	20141016@Bobby.Nguyen: Initial affiliate member betlist
 	20150217@Bobby.Nguyen: Apply sport type matrix table
+	20150415@Bobby.Nguyen: Support for new 60 bettypes betradar
 	
 Param's Explanation: 
 	- @CustID: 		Customer/Player ID
@@ -223,7 +224,7 @@ BEGIN
 				ISNULL(m.isNeutral, CONVERT(BIT,0)) AS IsNeutral,
 				b.custid,
 				isnull(m.showtime,'') as showtime,
-				'' as betcheck,
+				CASE WHEN b.bettype IN (216,217) THEN b.betcheck ELSE '' END AS betcheck,
 				CASE WHEN b.comstatus = '1' THEN '1' ELSE '0' END AS comstatus
 			FROM
 				dbo.bettrans AS b WITH (NOLOCK, index=IX_custid_matchid_bettype)		
@@ -980,7 +981,7 @@ BEGIN
 				ISNULL(m.isNeutral, CONVERT(BIT,0)) AS IsNeutral,
 				b.custid,
 				'' showtime,
-				'' as betcheck,
+				CASE WHEN b.bettype IN (216,217) THEN b.betcheck ELSE '' END AS betcheck,
 				CASE WHEN b.comstatus = '1' THEN '1' ELSE '0' END AS comstatus
 			FROM
 				dbo.bettrans14 AS b WITH (NOLOCK, INDEX=bettrans1413)		

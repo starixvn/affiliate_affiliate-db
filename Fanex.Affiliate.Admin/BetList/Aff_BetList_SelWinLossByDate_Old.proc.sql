@@ -28,6 +28,7 @@ Revisions:
 	20141016@Bobby.Nguyen: Initial affiliate member betlist
 	20141222@Bobby.Nguyen: Checking status ID for archiving betlist
 	20150217@Bobby.Nguyen: Apply sport type matrix table
+	20150415@Bobby.Nguyen: Support for new 60 bettypes betradar
 	
 Param's Explanation: 
 	- @CustID: 		Customer/Player ID
@@ -211,7 +212,7 @@ BEGIN
 			isnull(m.isNeutral, CONVERT(BIT,0)) as IsNeutral,
 			b.custid,
 			isnull(m.showtime,'') as showtime,
-			'' betcheck,
+			CASE WHEN b.bettype IN (216,217) THEN b.betcheck ELSE '' END AS betcheck,
 			CASE WHEN b.comstatus = '1' THEN '1' ELSE '0' END AS comstatus
 		FROM
 			dbo.bettrans_bk AS b with (nolock, index=IX_custid)		
