@@ -33,6 +33,7 @@ Revisions:
 	- 20140326@Bobby : check IsCLosed affiliate user
 	- 20140708@Bobby : Apply DeviceType info
 	- 20141013@Bobby : Hot fix Euro (PC-Mobile) site
+	- 20150728@Bobby : Update new formation of mobile link
 	
 Param's Explanation:   
 	- @DeviceType: 0-PC & 1-Mobile
@@ -96,9 +97,10 @@ BEGIN
 
 	IF (@RedirectPage IS NULL)
 	BEGIN
-		DECLARE @AffDomainId INT
-			,@AffDomainName NVARCHAR(255)
-
+		DECLARE @AffDomainId 	INT
+			,@AffDomainName 	NVARCHAR(255)
+			
+		
 		SELECT @AffDomainId = DomainID
 			,@AffDomainName = DomainName
 		FROM AffDomain WITH(NOLOCK)
@@ -119,10 +121,50 @@ BEGIN
 			AND a.DeviceType = @DeviceType
 
 		--Replace Aff Domain by 12bet domain to redirect to 12bet site
-		SET @RedirectPage = CASE 
+		IF(@DeviceType = 0)
+		BEGIN
+			SET @RedirectPage = CASE 
 				WHEN @DomainName IS NOT NULL THEN @W3Http + '://' + @DomainName + '/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
 				ELSE @Default12Betdomain
 				END
+		END
+		ELSE -- Mobile link
+		BEGIN
+			IF(@PageCode IN ('Signup', 'Home'))
+			BEGIN
+				SET @RedirectPage = CASE 
+					WHEN @DomainName IS NOT NULL THEN @W3Http + '://' + @DomainName + '/index.aspx?pid=' + @PageCode 
+						+ '&afid=' + CAST(@AffiliateID AS VARCHAR(15)) 
+						+ '&lng=' + @LanguageCode 
+						+ '&clickid={clickid}&type={typeid}'
+					ELSE @Default12Betdomain
+					END
+			END
+			
+			IF(@PageCode IN ('sports', 'sportstoday', 'sportsbook', 'Numbergame'))
+			BEGIN
+				SET @RedirectPage = CASE 
+					WHEN @DomainName IS NOT NULL 
+						THEN @W3Http + '://' + @DomainName + '/index.aspx#sports.aspx?market=today' 
+							+ CASE WHEN @PageCode IN ('Numbergame') THEN '&sportType=161' ELSE '' END 
+							+ '&afid=' 	+ CAST(@AffiliateID AS VARCHAR(15)) 
+							+ '&lng=' 	+ @LanguageCode 
+							+ '&clickid={clickid}&type={typeid}'
+					ELSE @Default12Betdomain
+					END
+			END
+			
+			IF(@PageCode IN ('Promotion'))
+			BEGIN
+				SET @RedirectPage = CASE 
+					WHEN @DomainName IS NOT NULL 
+						THEN @W3Http + '://' + @DomainName + '/index.aspx#Promotions.aspx?afid=' + CAST(@AffiliateID AS VARCHAR(15)) 
+							+ '&lng=' + @LanguageCode 
+							+ '&clickid={clickid}&type={typeid}'
+					ELSE @Default12Betdomain
+					END
+			END
+		END
 	END
 	ELSE
 	BEGIN --This aff is special aff and pagecode = '12betcasino'
@@ -158,13 +200,18 @@ BEGIN
 			,@EUMobileDomain 	= 'smart.bolakipas7789.com'
 		
 		--final check for EU member (PC or Mobile) site
-		IF(@LanguageCode IN ('eneuro', 'es')
-				AND (@DomainName <> @EUDomain OR @DomainName <> @EUMobileDomain))
+		IF(@LanguageCode IN ('eneuro', 'es'))
 		BEGIN
-			SET @RedirectPage = CASE 
+			-- Reset language code
+			SELECT @RedirectPage = REPLACE(@RedirectPage, 'eneuro', 'en')
+			-- Reset mobile link
+			IF(@DomainName <> @EUDomain OR @DomainName <> @EUMobileDomain)
+			BEGIN
+				SET @RedirectPage = CASE 
 									WHEN @DeviceType = 1 THEN REPLACE(@RedirectPage, @DomainName, @EUMobileDomain)
 									ELSE REPLACE(@RedirectPage, @DomainName, @EUDomain)
 								END
+			END
 		END
 	END
 	
