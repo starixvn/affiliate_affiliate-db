@@ -1,6 +1,8 @@
 ﻿ALTER PROCEDURE [dbo].[Task_Aff_DailyImportExchange]
-	@Date	SMALLDATETIME=NULL,
-	@Xml	XML = NULL
+	@Date		SMALLDATETIME	= NULL
+	,@Xml		XML 			= NULL
+	,@ErrCode 	INT 			= 0 OUTPUT
+	,@ErrMsg 	NVARCHAR(500) 	= '' OUTPUT
 AS
 /*
 	Created: 20110223@Peter
@@ -10,15 +12,16 @@ AS
 		- 20110223@Peter: initialize SP
 		- 20140110@Bobby.Nguyen: Add KRW & JPY currency
 		- 20140219@Dan.Nguyen: Update for supporting duplicate currency from XML
-		
+		- 20150817@Bobby.Nguyen: Add output parameters
 */
 BEGIN
 
 	SET NOCOUNT ON;
+	
+	SELECT @Date 	= COALESCE(CONVERT(VARCHAR(10)	, @Date, 120), CONVERT(VARCHAR(10), CURRENT_TIMESTAMP, 120))
+		,@ErrCode 	= 0
+		,@ErrMsg	= ''
 
-	SELECT @Date = COALESCE(CONVERT(VARCHAR(10)	, @Date, 120), CONVERT(VARCHAR(10), CURRENT_TIMESTAMP, 120));
-
-	DECLARE @count INT;
 
 	DECLARE @TempTrans TABLE(
 		ExchangeDate DATETIME
@@ -258,4 +261,7 @@ END
 
 GO
 
-
+GRANT EXECUTE ON [dbo].[Task_Aff_DailyImportExchange] TO [bodbAdminNet]
+GO
+GRANT VIEW DEFINITION ON [dbo].[Task_Aff_DailyImportExchange] TO [vnteam] 
+GO
