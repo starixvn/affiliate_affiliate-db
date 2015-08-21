@@ -1,6 +1,3 @@
-use Affiliate_12BET
-go
-
 ALTER PROCEDURE [dbo].[Aff_BetList_CheckBelonging]    
 	@AdminName 			VARCHAR(30)	= NULL
 	,@AffId 			INT = 0
@@ -12,15 +9,18 @@ AS
 /*
 Created:20150312@Bobby.Nguyen
 Task: Aff Betlist
-DB: DBAFF/Affiliate_Athena000
+DB: DBEXT/Affiliate_12Bet
 Orgiginal: 
 
 Revisions:    
 	- 20150312@Bobby.Nguyen: Initial SP
+	- 20150821@Bobby.Nguyen: Cover the username and username2
 */     
 BEGIN    
 	SET NOCOUNT ON;
-		
+	DECLARE @username 	VARCHAR(30)
+		, @username2	VARCHAR(50)
+	
 	DECLARE @tblMember TABLE(
 		MemberName	VARCHAR(30)
 		,Currency	SMALLINT
@@ -29,15 +29,18 @@ BEGIN
 	-- reset value 
 	SELECT @BelongLevel1 	= 0
 		, @BelongLevel2 	= 0
-	
+		, @username			= SUBSTRING(@MemberName,CHARINDEX ('$',@MemberName,1)+1,LEN(@MemberName))
+		, @username2		= '12Bet$' + @username
+		
 	-- gather member info for both (Athena & 12Bet)
 	INSERT INTO @tblMember(MemberName, Currency)
-	SELECT a.UserName
+	SELECT  
+		a.UserName
 		, a.Currency
 	FROM dbo.MemberInfo a WITH (NOLOCK)
-	WHERE a.UserName = @MemberName
-		AND a.AffId = @AffId
-	
+	WHERE a.AffId 		= @AffId
+		AND (a.UserName = @username OR a.UserName = @username2)
+		
 	IF EXISTS(SELECT TOP 1 1 FROM @tblMember a)
 	BEGIN 
 		SET @BelongLevel2 = 1
@@ -46,7 +49,6 @@ BEGIN
 	RETURN;
 END  
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_BetList_CheckBelonging] TO [bodbAdminNet] AS [dbo]
 GO
 
