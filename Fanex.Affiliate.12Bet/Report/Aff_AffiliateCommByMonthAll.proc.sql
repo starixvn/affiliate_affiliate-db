@@ -21,6 +21,7 @@ Revisions:
 	- 20141217@Bobby.Nguyen: Initial SP
 	- 20150105@Bobby.Nguyen: Update fomular commission (check member WL between Sportsbook and Casino)
 	- 20150227@DanNguyen: fix bug - wrong last date in case view current month
+	- 20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval 
 */  
 BEGIN
 	SET NOCOUNT ON
@@ -257,6 +258,7 @@ BEGIN
 			ON md.AffID = a.AffId
 		WHERE WinlostDate = @CurrentDay
 			AND SportType = @CasinoID
+			AND mi.IsRemoved = 0
 	END
 	
 	;WITH AffGroupInfo 
@@ -363,8 +365,19 @@ BEGIN
 					,sum(isnull(Deposit, 0) * isnull(AffExRate, 1)) AS Deposit
 				FROM dbo.MemberDaily md WITH(NOLOCK)
 				INNER JOIN #AffList a ON md.AffID = a.AffId
-				WHERE WinlostDate BETWEEN @FirstDay
-						AND (CASE WHEN DATEDIFF(MM, @LastDay, @CurrentDay) = 0 THEN DATEADD(DD, -1, @CurrentDay) ELSE @LastDay END)
+				WHERE (WinlostDate BETWEEN @FirstDay
+						AND (CASE WHEN DATEDIFF(MM, @LastDay, @CurrentDay) = 0 THEN DATEADD(DD, -1, @CurrentDay) ELSE @LastDay END))
+					AND md.IBCCustID NOT IN (
+						SELECT mi.IBCCustID
+						FROM dbo.MemberInfo mi WITH (NOLOCK)
+							LEFT JOIN dbo.MemberRemoval mr WITH (NOLOCK) 
+							ON mi.IBCCustID = mr.IBCCustID
+						WHERE mi.IsRemoved = 1
+							AND (
+								DATEDIFF(mm, mr.RemovedDate, md.WinlostDate) >= 0 
+								OR mr.IBCCustID IS NULL
+							)
+					)
 				GROUP BY IBCCustID
 					,SportType
 					,md.AffID

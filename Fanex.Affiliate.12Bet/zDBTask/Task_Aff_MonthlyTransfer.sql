@@ -91,7 +91,8 @@ Revisions:
 			 else
 				   CNW in sportspook=Member Winlost In SB - Marketing Fee- Odds Fee
 				   Net Winlost for Casino = Member Winlost In Casino - Marketing Casino - Playtech Royalty Fee - PSP Fee
-
+	20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval 
+	
 Param's Explanation:  
 • @Month: The month to transfer  
 • @Year :  The year to transfer       
@@ -216,18 +217,29 @@ FROM
    ) t        
    left join   
    (  
-  select IBCCustID,SportType,AffID  
-	,sum(isnull(Winlost,0) * isnull(AffExRate,1)) as Winlost  
-	  ,sum(isnull(Bonus,0) * isnull(AffExRate,1)) as Bonus  
-	  ,sum(isnull(Adjustment,0) * isnull(AffExRate,1)) as Adjustment  
-	  ,sum(isnull(PSP,0) * isnull(AffExRate,1)) as PSP  
-	  ,sum(isnull(Marketing,0) * isnull(AffExRate,1)) as Marketing  
-	  ,sum(isnull(TurnOver,0) * isnull(AffExRate,1)) as TurnOver  
-	  ,sum(isnull(Deposit,0) * isnull(AffExRate,1)) as Deposit  
-  from MemberDaily md  (nolock)   
-  where WinlostDate between @FirstDay and @LastDay   
-  group by IBCCustID,SportType,AffID  
-  
+	  select IBCCustID,SportType,AffID  
+		,sum(isnull(Winlost,0) * isnull(AffExRate,1)) as Winlost  
+		  ,sum(isnull(Bonus,0) * isnull(AffExRate,1)) as Bonus  
+		  ,sum(isnull(Adjustment,0) * isnull(AffExRate,1)) as Adjustment  
+		  ,sum(isnull(PSP,0) * isnull(AffExRate,1)) as PSP  
+		  ,sum(isnull(Marketing,0) * isnull(AffExRate,1)) as Marketing  
+		  ,sum(isnull(TurnOver,0) * isnull(AffExRate,1)) as TurnOver  
+		  ,sum(isnull(Deposit,0) * isnull(AffExRate,1)) as Deposit  
+	  from MemberDaily md  (nolock)   
+	  where WinlostDate between @FirstDay and @LastDay   
+		AND md.IBCCustID NOT IN (
+				SELECT mi.IBCCustID
+				FROM dbo.MemberInfo mi WITH (NOLOCK)
+					LEFT JOIN dbo.MemberRemoval mr WITH (NOLOCK) 
+					ON mi.IBCCustID = mr.IBCCustID
+				WHERE mi.IsRemoved = 1
+					AND (
+						DATEDIFF(mm, RemovedDate, @LastDay) >= 0 
+						OR mr.IBCCustID IS NULL
+					)
+			)
+	  group by IBCCustID,SportType,AffID  
+	  
    ) r on r.AffID=t.AffID and t.SportType = r.SportType  
    left join SportType s (nolock) on s.SportID=r.SportType  
   --where  r.SportType in (select distinct SportType from GroupSettingHistory (nolock) where GroupID=t.GroupID and MonthDate=@LastDay)  
