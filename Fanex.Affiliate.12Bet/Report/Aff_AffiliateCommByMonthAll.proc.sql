@@ -1,6 +1,6 @@
-﻿USE [Affiliate_12BET]
+﻿USE [Affiliate_12bet]
 GO
-/****** Object:  StoredProcedure [dbo].[Aff_AffiliateCommByMonthAll]    Script Date: 8/25/2015 10:12:05 AM ******/
+/****** Object:  StoredProcedure [dbo].[Aff_AffiliateCommByMonthAll]    Script Date: 02/27/2015 05:51:55 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -21,7 +21,6 @@ Revisions:
 	- 20141217@Bobby.Nguyen: Initial SP
 	- 20150105@Bobby.Nguyen: Update fomular commission (check member WL between Sportsbook and Casino)
 	- 20150227@DanNguyen: fix bug - wrong last date in case view current month
-	- 20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval 
 */  
 BEGIN
 	SET NOCOUNT ON
@@ -256,9 +255,8 @@ BEGIN
 			ON md.IBCCustID = mi.IBCCustID
 			INNER JOIN #AffList a 
 			ON md.AffID = a.AffId
-		WHERE md.WinlostDate = @CurrentDay
-			AND md.SportType = @CasinoID
-			AND mi.IsRemoved = 0
+		WHERE WinlostDate = @CurrentDay
+			AND SportType = @CasinoID
 	END
 	
 	;WITH AffGroupInfo 
@@ -365,19 +363,8 @@ BEGIN
 					,sum(isnull(Deposit, 0) * isnull(AffExRate, 1)) AS Deposit
 				FROM dbo.MemberDaily md WITH(NOLOCK)
 				INNER JOIN #AffList a ON md.AffID = a.AffId
-				WHERE (WinlostDate BETWEEN @FirstDay
-						AND (CASE WHEN DATEDIFF(MM, @LastDay, @CurrentDay) = 0 THEN DATEADD(DD, -1, @CurrentDay) ELSE @LastDay END))
-					AND md.IBCCustID NOT IN (
-						SELECT mi.IBCCustID
-						FROM dbo.MemberInfo mi WITH (NOLOCK)
-							LEFT JOIN dbo.MemberRemoval mr WITH (NOLOCK) 
-							ON mi.IBCCustID = mr.IBCCustID
-						WHERE mi.IsRemoved = 1
-							AND (
-								DATEDIFF(mm, mr.RemovedDate, md.WinlostDate) >= 0 
-								OR mr.IBCCustID IS NULL
-							)
-					)
+				WHERE WinlostDate BETWEEN @FirstDay
+						AND (CASE WHEN DATEDIFF(MM, @LastDay, @CurrentDay) = 0 THEN DATEADD(DD, -1, @CurrentDay) ELSE @LastDay END)
 				GROUP BY IBCCustID
 					,SportType
 					,md.AffID
@@ -560,6 +547,5 @@ BEGIN
 	
 	RETURN;
 END
-
 GO
 GRANT EXECUTE ON [dbo].[Aff_AffiliateCommByMonthAll] TO [bodbAdminNet] AS [dbo]

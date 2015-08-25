@@ -30,8 +30,8 @@ AS
 	 20140402@Dan:  exclude Keno product
 	 20141125@Bobby:  Add 2 more columns OpeningBalance & ClosingBalance
 	 20141217@Bobby:  Include Sporting Solution's tickets
-	20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval 
 	 
+  
  Param's Explanation:  
  • @winlostdate: The data need to summary  
 */
@@ -49,12 +49,9 @@ BEGIN
 			WHERE datediff(m, winlostdate, @Winlostdate) = 0
 			) RETURN
 
-	DECLARE @CutDate 	DATETIME
-		,@MoveBetsDay 	DATETIME
-		,@CurrentDate	DATETIME
-	
-	SELECT @CurrentDate = CURRENT_TIMESTAMP
-	
+	DECLARE @CutDate DATETIME
+		,@MoveBetsDay DATETIME
+
 	SELECT @CutDate = min(winlostdate)
 	FROM DBRPT.bodb_report.dbo.rptdepwinlost WITH (NOLOCK)
 
@@ -122,25 +119,19 @@ BEGIN
 		CustID
 		,AffID
 		,Currency
-	)
-	SELECT mi.IBCCustID
-		,mi.AffID
-		,mi.Currency
-	FROM dbo.MemberInfo mi WITH (NOLOCK)
-		LEFT JOIN dbo.MemberRemoval mr (nolock) 
-		ON mi.IBCCustID = mr.IBCCustID
-	WHERE mi.CreatedDate IS NOT NULL
-		AND DATEDIFF(DD, mi.CreatedDate, @WinlostDate) >= 0
-		AND (mi.IsRemoved 		= 0
-			OR (
-				mi.IsRemoved 	= 1	
-				AND (
-					DATEDIFF(MM, RemovedDate, @Winlostdate) < 0
-					OR mr.IBCCustID IS NOT NULL
-				)
-			)
 		)
-		
+	SELECT IBCCustID
+		,AffID
+		,Currency
+	FROM MemberInfo m WITH (NOLOCK)
+	WHERE CreatedDate IS NOT NULL
+		AND datediff(d, CreatedDate, @WinlostDate) >= 0
+		AND IBCCustID NOT IN (
+			SELECT IBCCustID
+			FROM MemberRemoval WITH (NOLOCK)
+			WHERE datediff(mm, RemovedDate, @Winlostdate) >= 0
+			)
+
 	CREATE TABLE #Data (
 		IBCCustID INT PRIMARY KEY
 		,Currency INT
