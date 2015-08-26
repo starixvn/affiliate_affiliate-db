@@ -28,7 +28,7 @@ AS
 				   CNW in sportspook=Member Winlost In SB - Marketing Fee- Odds Fee
 				   Net Winlost for Casino = Member Winlost In Casino - Marketing Casino - Playtech Royalty Fee - PSP Fee
 
- 
+  - 20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval 
 */  
 BEGIN  
   
@@ -87,7 +87,19 @@ Declare @AffSummary Table
  PlayTechRoyaltiesPercent float ,
 IsPSPIncluded int -- flag to check PSP Fee is included or not for this product  
 )  
-  
+
+;WITH CTE_MemberRemoval AS
+	(
+		SELECT mi.IBCCustID
+		FROM dbo.MemberInfo mi WITH (NOLOCK)
+			LEFT JOIN dbo.MemberRemoval mr WITH (NOLOCK) 
+			ON mi.IBCCustID = mr.IBCCustID
+		WHERE mi.IsRemoved = 1
+			AND (
+				DATEDIFF(mm, mr.RemovedDate, @LastDay) >= 0 
+				OR mr.IBCCustID IS NULL
+			)
+	) 
 INSERT INTO @AffSummary(AffID,Currency,GroupID,SportID,MemWinlost,MemBonus,MemAdjustment,MemPSP,Marketing,MemDeposit,MemTurnover,TotalQM,  
 BonusPercent,  
 AdjustmentPercent,  
@@ -131,6 +143,10 @@ FROM
 	  ,sum(isnull(Deposit,0) * isnull(AffExRate,1)) as Deposit  
   from MemberDaily md  (nolock)   
   where WinlostDate between @FirstDay and @LastDay and md.AffID=@AffID  
+	AND md.IBCCustID NOT IN (
+					SELECT IBCCustID
+					FROM CTE_MemberRemoval
+				)
   group by IBCCustID,SportType,AffID  
   
    ) r on r.AffID=t.AffID  

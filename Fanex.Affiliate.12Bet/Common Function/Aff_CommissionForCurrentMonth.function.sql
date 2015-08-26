@@ -21,6 +21,7 @@ AS
 				   Net Winlost for Casino = Member Winlost In Casino - Marketing Casino - Playtech Royalty Fee - PSP Fee
 		- 20140403@Bobby:  exclude Keno product & other sports
 		- 20141218@Bobby: Update SS's bettype
+		- 20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval 
 */
 BEGIN
 	DECLARE @Today SMALLDATETIME
@@ -76,6 +77,18 @@ BEGIN
 	/*Select @TodayPSP=Sum(PSP * AffExRate)  
    from MemberDaily (nolock)  
   where AffID=@AffID and WinlostDate=@Today*/
+	;WITH CTE_MemberRemoval AS
+	(
+		SELECT mi.IBCCustID
+		FROM dbo.MemberInfo mi WITH (NOLOCK)
+			LEFT JOIN dbo.MemberRemoval mr WITH (NOLOCK) 
+			ON mi.IBCCustID = mr.IBCCustID
+		WHERE mi.IsRemoved = 1
+			AND (
+				DATEDIFF(mm, mr.RemovedDate, @LastDay) >= 0 
+				OR mr.IBCCustID IS NULL
+			)
+	)
 	INSERT INTO @AffSummary (
 		SportID
 		,MemWinlost
@@ -139,6 +152,10 @@ BEGIN
 			FROM MemberDaily md(NOLOCK)
 			WHERE AffID = @AffID
 				AND WinlostDate BETWEEN @FirstDay AND @LastDay
+				AND md.IBCCustID NOT IN (
+						SELECT IBCCustID
+						FROM CTE_MemberRemoval
+					)
 			-- addd casino data for current day  
 			
 			UNION ALL
@@ -157,6 +174,10 @@ BEGIN
 			WHERE AffID = @AffID
 				AND WinlostDate = @Today
 				AND SportType = @CasinoID
+				AND md.IBCCustID NOT IN (
+						SELECT IBCCustID
+						FROM CTE_MemberRemoval
+					)
 			
 			UNION ALL
 			SELECT ci.IBCCustID
