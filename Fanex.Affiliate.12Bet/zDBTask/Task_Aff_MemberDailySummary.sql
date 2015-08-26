@@ -132,10 +132,7 @@ BEGIN
 		AND (mi.IsRemoved 		= 0
 			OR (
 				mi.IsRemoved 	= 1	
-				AND (
-					DATEDIFF(MM, RemovedDate, @Winlostdate) < 0
-					OR mr.IBCCustID IS NOT NULL
-				)
+				AND DATEDIFF(MM, RemovedDate, @Winlostdate) < 0
 			)
 		)
 
