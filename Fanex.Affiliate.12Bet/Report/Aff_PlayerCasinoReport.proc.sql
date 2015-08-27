@@ -17,6 +17,7 @@ Orgiginal:
 
 Revisions:    
 	- 20141119@Bobby.Nguyen: Initial SP
+	- 20150827@Bobby.Nguyen: Convert to base currency US$
 */   
 BEGIN
 	SET NOCOUNT ON
@@ -108,10 +109,10 @@ BEGIN
 		,ai.UserName 					AS AffUserName
 	
 		----------------------------------------------
-		,SUM(ISNULL(md.Turnover,0)) 	AS Turnover
-		,SUM(ISNULL(md.Winlost,0)) 		AS WinLoss
-		,SUM(ISNULL(md.Deposit,0)) 		AS Deposit
-		,SUM(ISNULL(md.Bonus,0)) 		AS Bonus
+		,SUM(ISNULL(md.Turnover,0) * ISNULL(AffExRate, 1)) 	AS Turnover
+		,SUM(ISNULL(md.Winlost,0) * ISNULL(AffExRate, 1)) 	AS WinLoss
+		,SUM(ISNULL(md.Deposit,0) * ISNULL(AffExRate, 1)) 	AS Deposit
+		,SUM(ISNULL(md.Bonus,0) * ISNULL(AffExRate, 1)) 	AS Bonus
 	
 	FROM dbo.MemberDaily md WITH (NOLOCK)
 	
@@ -143,14 +144,7 @@ GO
 GRANT EXECUTE ON [dbo].[Aff_PlayerCasinoReport] TO [bodbAdminNet]
 GO
 /*
-declare @NRows int
-EXEC [Aff_PlayerCasinoReport] 
-	@FromDate				= '2012/11/01'
-	,@ToDate				= '2014/11/24'
-	,@NRows = @NRows OUTPUT
-	,@pageindex = 1
-	,@pagesize = 200
-
-
-select @NRows
+exec [dbo].[Aff_PlayerCasinoReport]
+	@FromDate	= '20140101'
+	,@ToDate	= '20150101'
 */

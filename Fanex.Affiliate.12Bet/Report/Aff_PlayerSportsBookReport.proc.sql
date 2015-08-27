@@ -17,6 +17,7 @@ Orgiginal:
 
 Revisions:    
 	- 20141119@Bobby.Nguyen: Initial SP
+	- 20150827@Bobby.Nguyen: Convert to base currency US$
 */   
 BEGIN
 	SET NOCOUNT ON
@@ -125,16 +126,16 @@ BEGIN
 		SELECT md.IBCCustId
 			,md.AffID
 			----------------------------------------------
-			,SUM(ISNULL(md.Deposit,0)) 		AS Deposit
-			,SUM(ISNULL(md.Withdrawal,0)) 	AS Withdrawal
-			,SUM(ISNULL(md.Bonus,0)) 		AS Bonus
-			,SUM(ISNULL(md.Adjustment,0)) 	AS Adjustment
-			,SUM(ISNULL(md.Turnover,0)) 	AS Turnover
-			,SUM(ISNULL(md.DrawGame,0)) 	AS DrawGame
-			,SUM(ISNULL(md.Turnover,0) - ISNULL(md.DrawGame,0))		
-											AS NetTurnover
-			,SUM(ISNULL(md.Outstanding,0)) 	AS Outstanding
-			,SUM(ISNULL(md.Winlost,0)) 		AS WinLoss
+			,SUM(ISNULL(md.Deposit,0) * ISNULL(AffExRate, 1)) 		AS Deposit
+			,SUM(ISNULL(md.Withdrawal,0) * ISNULL(AffExRate, 1)) 	AS Withdrawal
+			,SUM(ISNULL(md.Bonus,0) * ISNULL(AffExRate, 1)) 		AS Bonus
+			,SUM(ISNULL(md.Adjustment,0) * ISNULL(AffExRate, 1)) 	AS Adjustment
+			,SUM(ISNULL(md.Turnover,0) * ISNULL(AffExRate, 1)) 		AS Turnover
+			,SUM(ISNULL(md.DrawGame,0) * ISNULL(AffExRate, 1)) 		AS DrawGame
+			,SUM((ISNULL(md.Turnover,0) - ISNULL(md.DrawGame,0)) 
+						* ISNULL(AffExRate, 1))						AS NetTurnover
+			,SUM(ISNULL(md.Outstanding,0) * ISNULL(AffExRate, 1)) 	AS Outstanding
+			,SUM(ISNULL(md.Winlost,0) * ISNULL(AffExRate, 1)) 		AS WinLoss
 		
 		FROM dbo.MemberDaily md WITH (NOLOCK)
 	
@@ -194,14 +195,7 @@ GO
 GRANT EXECUTE ON [dbo].[Aff_PlayerSportsBookReport] TO [bodbAdminNet]
 GO
 /*
-declare @NRows int
-EXEC [Aff_PlayerSportsBookReport] 
-	@FromDate				= '2014/11/01'
-	,@ToDate				= '2014/11/02'
-	,@NRows = @NRows OUTPUT
-	,@pageindex = 1
-	,@IsGetall = 1
-
-
-select @NRows
+exec [dbo].[Aff_PlayerSportsBookReport]
+	@FromDate	= '20140101'
+	,@ToDate	= '20150101'
 */
