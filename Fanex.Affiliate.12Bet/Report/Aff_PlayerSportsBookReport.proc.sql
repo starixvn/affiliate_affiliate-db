@@ -103,7 +103,7 @@ BEGIN
 	;WITH OpeningBalanceInfo (IBCCustId, OpeningBalance)
 	AS (
 		SELECT md.IBCCustId
-			,md.OpeningBalance
+			,(md.OpeningBalance  * ISNULL(AffExRate, 1)) AS OpeningBalance
 		FROM dbo.MemberDaily md WITH (NOLOCK)
 			INNER JOIN @MemberPaging p
 			ON md.IBCCustId = p.MemberId
@@ -114,7 +114,7 @@ BEGIN
 	), ClosingBalanceInfo (IBCCustId, ClosingBalance)
 	AS (
 		SELECT md.IBCCustId
-			,md.ClosingBalance
+			,(md.ClosingBalance * ISNULL(AffExRate, 1)) AS ClosingBalance
 		FROM dbo.MemberDaily md WITH (NOLOCK)
 			INNER JOIN @MemberPaging p
 			ON md.IBCCustId = p.MemberId
