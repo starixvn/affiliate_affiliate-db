@@ -1,4 +1,4 @@
-﻿ 
+ 
 ALTER PROCEDURE [dbo].[Aff_CasinoImportData]	
 	@AdminID int,
 	@ImportDate smalldatetime,
@@ -21,16 +21,6 @@ AS
 */
 BEGIN  
 	SET NOCOUNT ON  
-	   
-	EXEC [dbo].[Aff_Con_CheckPermission]  
-			@custid=@AdminID,
-			@funcname='[ImportData]',  
-			@System = 'AFFILIATE',  
-			@ErrCode=@ErrCode output,  
-			@ErrMsg=@ErrMsg output 
-
-	if @ErrCode <> 0
-		return
 
 	--Import new Data here
 	DECLARE @TempTrans TABLE(DateImport smalldatetime, UserName nvarchar(30), Currency nvarchar(50), Turnover money, Winlost money, Deposit money, Bonus money)--Convert XML to data table
