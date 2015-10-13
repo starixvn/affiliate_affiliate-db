@@ -20,12 +20,18 @@ Revisions:
 	- 20140708@Bobby: Apply MemberClickDetail info
 	- 20140801@Bobby: Update ins MemberClickDetail
 	- 20141013@Bobby: Enhance checking Deposit member by updating [d.AffiliateID = @AffId] 
+	- 20151013@Bobby: Check for validation of member affiliate
 */
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @RegisteredDate DATETIME
 		,@ClickId 			BIGINT
+	
+	SELECT @AffId			= ISNULL(@AffId, 0)
+		, @IBCCustID		= ISNULL(@IBCCustID, 0)
+	
+	IF(@AffId <= 0 	OR  @IBCCustID <=0 ) RETURN;
 	
 	SELECT TOP(1) @IBCCustID AS IBCCustID
 		,@AffID AS AffID
