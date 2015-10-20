@@ -24,6 +24,7 @@ Revisions:
 		+ Remove @TotalPages
 	- 20141218@Bobby: Enhance performance & update SS's bettype
 	- 20141223@Bobby: Hotfix#28059 - Filtering by PreferredLanguage
+	- 20150923@Bobby: Update formular of QM calculation change ">" to  ">="
 
 Param's Explanation:
 	• @SortBy: Default(0) - AffId ASC
@@ -238,7 +239,7 @@ BEGIN
 					GROUP BY IBCCustID
 						,AffID
 					
-					HAVING SUM(ISNULL(a.TurnOver, 0)) > @QmTurnOverSP
+					HAVING SUM(ISNULL(a.TurnOver, 0)) >= @QmTurnOverSP
 					
 			) t
 			GROUP BY t.AffID
@@ -265,8 +266,8 @@ BEGIN
 				GROUP BY md.AffID
 					,md.IBCCustID
 					
-				HAVING SUM(ISNULL(TurnOver, 0) * ISNULL(AffExRate, 1)) > @QmTurnOverCS
-					AND SUM(ISNULL(Deposit, 0) * ISNULL(AffExRate, 1)) > @QmDepositCS
+				HAVING SUM(ISNULL(TurnOver, 0) * ISNULL(AffExRate, 1)) >= @QmTurnOverCS
+					AND SUM(ISNULL(Deposit, 0) * ISNULL(AffExRate, 1)) >= @QmDepositCS
 			) t
 			GROUP BY t.AffID
 			HAVING COUNT(1) > 0

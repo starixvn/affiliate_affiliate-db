@@ -23,6 +23,7 @@ Revisions:
 	- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
 	- 20140403@Bobby:  exclude Keno product & other sports
 	- 20141218@Bobby: Update SS's bettype
+	- 20150923@Bobby: Change refering currency from bodb02.bettrans to memberinfo
 
 Param's Explanation:
 	• @Fromdate Month search from
@@ -120,7 +121,7 @@ BEGIN
 				ON b.CustId = m.IBCCustId
 					AND m.IsRemoved = 0
 				INNER JOIN Exchange_Current e WITH (NOLOCK)
-				ON e.exchangeid = b.currency
+				ON e.exchangeid = m.currency
 			WHERE @ToDate >= @CurrDate
 				AND b.Winlostdate = @CurrDate
 				AND (

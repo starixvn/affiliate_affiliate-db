@@ -15,62 +15,51 @@ AS
 		-20140217@Dan: optimize perf
 		-20140424@Bobby: formating code
 		-20140522@Bobby: Update OUTPUT params and revise logic code
+		-20150917@Bobby: allow searchng LIKE by @AffUsername
 */
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @AffID INT
+	DECLARE @affFilter BIT
 		,@CurrDate SMALLDATETIME
-
-	IF @AffUsername IS NOT NULL
+	
+	DECLARE @tempAff TABLE (AffID INT)
+	
+	SELECT @AffUsername 	= ISNULL(@AffUsername, '')
+		,@Username 			= '%' + isnull(@Username, '') + '%'
+		,@IBCUserName 		= '%' + isnull(@IBCUserName, '') + '%'
+		,@CurrDate 			= dateadd(d, 0, (datediff(d, 0, current_timestamp)))
+		,@affFilter			= 0
+		
+	IF @AffUsername <> ''
 	BEGIN
-		SELECT @AffID = AffId
+		INSERT INTO @tempAff
+		SELECT AffId
 		FROM AffInfo WITH (NOLOCK)
-		WHERE Username = @AffUsername
+		WHERE Username LIKE '%' + @AffUsername + '%'
+		
+		SET @affFilter = 1
 	END
+	
+	DECLARE @RowStart 	INT
+		,@RowEnd 		INT
+		
+	DECLARE @TempMember TABLE (IBCCustId INT, TotalRow INT)
+	
+	SELECT @RowStart 	= @PageSize * (@PageIndex - 1) + 1
+		,@RowEnd 		= @RowStart + @PageSize - 1
 
-	SELECT @CurrDate = dateadd(d, 0, (datediff(d, 0, current_timestamp)))
-
-	SELECT @Username = '%' + isnull(@Username, '') + '%'
-		,@IBCUserName = '%' + isnull(@IBCUserName, '') + '%'
-
-	IF (@AffID IS NULL)
-	BEGIN
-		SELECT @NRows = count(1)
-		FROM dbo.MemberInfo m WITH (NOLOCK)
-		WHERE m.Username LIKE @Username
-			AND IBCUserName LIKE @IBCUserName
-			AND m.IsRemoved = 0
-	END
-	ELSE
-	BEGIN
-		SELECT @NRows = count(1)
-		FROM dbo.MemberInfo m WITH (NOLOCK)
-		WHERE @AffID = m.AffID
-			AND m.Username LIKE @Username
-			AND IBCUserName LIKE @IBCUserName
-			AND m.IsRemoved = 0
-	END
-
-	IF (isnull(@NRows, 0) = 0) RETURN
-
-	DECLARE @RowStart INT
-		,@RowEnd INT
-
-	SELECT @RowStart = @PageSize * (@PageIndex - 1) + 1
-		,@RowEnd = @RowStart + @PageSize - 1
-
-	DECLARE @TempMember TABLE (IBCCustId INT)
-
-	IF (@AffID IS NULL)
+	
+	IF (@affFilter = 0)
 	BEGIN
 		INSERT INTO @TempMember
-		SELECT m.IBCCustId
+		SELECT m.IBCCustId, TotalRow
 		FROM (
 			SELECT ROW_NUMBER() OVER (
 					ORDER BY m.CreatedDate DESC
 					) AS TheCount
 				,m.IBCCustID
+				,TotalRow = COUNT(1) OVER()
 			FROM dbo.MemberInfo m WITH (NOLOCK)
 			WHERE m.Username LIKE @Username
 				AND m.IBCUserName LIKE @IBCUserName
@@ -81,21 +70,25 @@ BEGIN
 	ELSE
 	BEGIN
 		INSERT INTO @TempMember
-		SELECT m.IBCCustId
+		SELECT m.IBCCustId, TotalRow
 		FROM (
 			SELECT ROW_NUMBER() OVER (
 					ORDER BY m.CreatedDate DESC
 					) AS TheCount
 				,m.IBCCustID
+				,TotalRow = COUNT(1) OVER()
 			FROM dbo.MemberInfo m WITH (NOLOCK)
-			WHERE @AffID = m.AffID
-				AND m.Username LIKE @Username
+			INNER JOIN @tempAff aff ON m.affid = aff.affid
+			WHERE m.Username LIKE @Username
 				AND m.IBCUserName LIKE @IBCUserName
 				AND m.IsRemoved = 0
 			) m
 		WHERE m.TheCount BETWEEN @RowStart AND @RowEnd
 	END
-
+	
+	SELECT TOP 1 @NRows = TotalRow
+	FROM @TempMember
+	
 	-- fetch final results
 	SELECT mi.IBCCustID
 		,mi.UserName
