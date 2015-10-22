@@ -8,6 +8,7 @@
 	@Platform NVARCHAR(255) = NULL,  
 	@CountryCode VARCHAR(64) = NULL,  	
 	@Langkey VARCHAR(20) = 'en-US',
+	@UserID	INT OUTPUT,
 	@ErrCode INT = 0 OUTPUT,
 	@ErrMsg NVARCHAR(4000) = '' OUTPUT
 	
@@ -27,7 +28,6 @@ DECLARE @Duration	INT
 
 SET @Begin = GETDATE()
 
-DECLARE @UserID INT
 DECLARE @FirstName NVARCHAR(50)
 DECLARE @LastName NVARCHAR(50)
 DECLARE @UserRole VARCHAR(50)
