@@ -9,15 +9,15 @@ SET QUOTED_IDENTIFIER ON
 GO
 
 ALTER PROCEDURE [dbo].[Aff_PlayersWinlostByProductSel] 
-	@Xml XML
-	,@Prefix VARCHAR(100)
-	,@Date SMALLDATETIME
+	@Xml 			XML
+	,@Prefix 		VARCHAR(100)
+	,@Date 			SMALLDATETIME
+	,@ProductIDs 	VARCHAR(100) 	= NULL
 AS
 /*  
 Created: 20130111@Peter  
 Task :   
 DB: DB052/DB054.bodb02  
-  
   
 Revisions:  
     - 20131028@Peter : Add more DB columns https://redmine.nexcel.vn/issues/5280
@@ -26,7 +26,8 @@ Revisions:
 	- 20140502@Dan: support Playtech casino
 	- 20140610@Bobby: Add ProgressiveShare & ProgressiveWin columns
 	- 20141016@Bobby: Add bettype Tenis's Sporting Solution and IBC
-	- 20160301@Bobby: #53169 - Hotfix include OneRNG single wallet into Casino product
+	- 20151022@Bobby: Get member data by Product list
+	
   
 Param's Explanation:  
 	- @Xml: List member's username is under affiliate user
@@ -44,17 +45,37 @@ BEGIN
 
 	--create table #LicenseeCust(custID INT PRIMARY KEY,currency int,username varchar(100), srecommend int, mrecommend int, recommend int)  
 	CREATE TABLE #LicenseeCust (
-		custID INT
-		,currency INT
-		,username VARCHAR(100)
-		,srecommend INT
-		,mrecommend INT
-		,recommend INT
-		)
-
+		custID 			INT
+		,currency 		INT
+		,username 		VARCHAR(100)
+		,srecommend 	INT
+		,mrecommend 	INT
+		,recommend 		INT
+	)
+	-- Do filtering product 
+	CREATE TABLE #ProductBettype (
+		ProductId 		TINYINT
+		, Bettype		SMALLINT
+	)
+	DECLARE @ProductFilter TABLE (ProductId TINYINT)
+	INSERT INTO @ProductFilter ( ProductId )
+	SELECT CAST(item AS TINYINT) AS ProductId 
+	FROM [dbo].[fnSplit](@ProductIDs, ',')
+	
+	INSERT INTO #ProductBettype (
+		ProductId
+		, Bettype
+	)
+	SELECT DISTINCT ProductId
+		, Bettype
+	FROM dbo.SportBettypeMatrix bt WITH(NOLOCK)
+		INNER JOIN @ProductFilter p
+		ON bt.ProductId = p.ProductId
+	WHERE bt.IsTest = 1
+	
 	DECLARE @CutDate DATETIME
 		,@MaxDate DATETIME
-
+		
 	SELECT @CutDate = min(winlostdate)
 		,@MaxDate = MAX(Winlostdate)
 	FROM bodb_licensee.dbo.rptLicWinloss2 WITH (NOLOCK)
@@ -116,8 +137,8 @@ BEGIN
 		SELECT @Date
 			,b.custid
 			,c.username
-			,CASE 
-				WHEN (bettype IN (71, 72) OR bettype BETWEEN 2101 AND 2399) THEN 251 --casino
+			/*,CASE 
+				WHEN bettype IN (71, 72) THEN 251 --casino
 				WHEN bettype = 1000 THEN 253 --games
 				WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN 151 -- Horse Racing
 				WHEN bettype BETWEEN 81
@@ -135,31 +156,32 @@ BEGIN
 						OR ( b.bettype BETWEEN 1301 AND 1399) -- Tenis SS
 						) THEN 0 -- sportsbook 
 				ELSE - 1
-				END
+				END*/
+			,bt.ProductId
 			,-- undefined productid
-			SUM(b.stake)
+			SUM(b.stake) AS Turnover
 			,--Turnover  
 			SUM(CASE 
 					WHEN ruben = 0 THEN actual_stake
 					ELSE 0
-					END)
+					END) AS Outstanding  
 			,--Outstanding  
 			SUM(CASE 
 					WHEN ruben = 1 THEN b.winlost - b.actual_stake
 					ELSE 0
-					END)
+					END) AS WinLoss
 			,--Winloss      
 			SUM(CASE 
 					WHEN statusID = 111 THEN stake
 					ELSE 0
-					END)
+					END) AS DrawGame
 			,-- Draw game TO
 			SUM(CASE 
 					WHEN ruben = 1 THEN b.playercomm
 					ELSE 0
-					END)
+					END) AS PlayerComm
 			,--Playercomm      
-			COUNT(1)
+			COUNT(1) AS BetCount
 			,--betcount
 			SUM(stake * CASE 
 					WHEN statusID = 111 THEN 0
@@ -183,23 +205,28 @@ BEGIN
 						AND b.liveawayscore = 0
 						AND b.bettype IN (33, 43) THEN 0.5 -- Racing rules
 					ELSE 1
-					END)
+					END) AS TurnoverNoDraw
 			,-- Turnover No Draw
 			SUM(CASE 
 					WHEN b.statusID = 111 THEN 0
 					ELSE 1
-					END)
+					END) AS BetCountNoDraw
+					
 		FROM bettrans b WITH (NOLOCK, INDEX (IX_recommend_transid))
-			INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid = c.custid
-			AND b.recommend = c.recommend
-		WHERE winlostdate = @date
-			AND bettype < 19999
-			AND StatusID NOT IN (101, 102, 103, 121, 1)
-		--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'      
+			INNER JOIN #LicenseeCust c WITH (NOLOCK) 
+			ON b.custid 			= c.custid
+				AND b.recommend 	= c.recommend
+			INNER JOIN #ProductBettype bt
+			ON b.bettype 			= bt.bettype
+			
+		WHERE b.winlostdate = @date
+			AND b.StatusID NOT IN (101, 102, 103, 121, 1)--status not in ('VOID', 'REJECT', 'REFUND','DONE', 'waiting' )
+			
 		GROUP BY b.custid
 			,c.username
-			,CASE 
-				WHEN (bettype IN (71, 72) OR bettype BETWEEN 2101 AND 2399) THEN 251 --casino
+			,bt.ProductId
+			/*,CASE 
+				WHEN bettype IN (71, 72) THEN 251 --casino
 				WHEN bettype = 1000 THEN 253 --games
 				WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN 151 -- Horse Racing
 				WHEN bettype BETWEEN 81
@@ -217,7 +244,7 @@ BEGIN
 						OR ( b.bettype BETWEEN 1301 AND 1399) -- Tenis SS
 						) THEN 0 -- sportsbook 
 				ELSE - 1
-				END
+			END*/
 	END
 	ELSE IF @Date >= @CutDate
 	BEGIN
@@ -238,10 +265,7 @@ BEGIN
 		SELECT b.winlostdate
 			,b.CustID
 			,c.username
-			,CASE 
-				WHEN b.Sporttype IN (251,208,209,210) THEN 251 -- Casino
-				ELSE b.Sporttype 
-			END AS Sporttype
+			,b.Sporttype
 			,sum(b.turnover)
 			,0 AS Outstanding
 			,sum(b.winlost)
@@ -267,22 +291,22 @@ BEGIN
 					ELSE BetCount
 					END) -- Betcount No Draw
 		FROM bodb_licensee.dbo.rptLicWinloss2 b WITH (NOLOCK)
-			INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid = c.custid
-			AND b.recommend = c.recommend
-			AND b.srecommend = c.srecommend
+			INNER JOIN #LicenseeCust c WITH (NOLOCK) 
+			ON b.custid 			= c.custid
+				AND b.recommend 	= c.recommend
+				AND b.srecommend 	= c.srecommend
+			INNER JOIN #ProductBettype bt
+			ON b.bettype 			= bt.bettype
+			
 		WHERE b.winlostdate = @Date
-			AND b.BetCount > 0
-			AND b.roleid = 1
-			AND b.sporttype IN (0, 151, 161, 162, 180, 201, 251, 253, 202, 208,209,210)
-			-- and b.isBA=0
+			AND b.BetCount 	> 0
+			AND b.roleid 	= 1
+			--AND b.sporttype IN (0, 151, 161, 162, 180, 201, 251, 253, 202)
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
 		GROUP BY b.winlostdate
 			,b.CustID
 			,c.username
-			,CASE 
-				WHEN b.Sporttype IN (251, 208,209,210) THEN 251 -- Casino
-				ELSE b.Sporttype 
-			END
+			,bt.ProductId
 	END
 	ELSE IF @Date < @CutDate
 	BEGIN
@@ -303,10 +327,7 @@ BEGIN
 		SELECT b.winlostdate
 			,b.CustID
 			,c.username
-			,CASE 
-				WHEN b.Sporttype IN (251,208,209,210) THEN 251 -- Casino
-				ELSE b.Sporttype 
-			END AS Sporttype
+			,bt.ProductId
 			,SUM(b.turnover)
 			,0 AS Outstanding
 			,SUM(b.winlost)
@@ -332,24 +353,25 @@ BEGIN
 					ELSE BetCount
 					END) -- Betcount No Draw
 		FROM bodb_licensee.dbo.rptLicWinloss_old b WITH (NOLOCK)
-			INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid = c.custid
-			AND b.recommend = c.recommend
-			AND b.srecommend = c.srecommend
+			INNER JOIN #LicenseeCust c WITH (NOLOCK) 
+				ON b.custid 		= c.custid
+				AND b.recommend 	= c.recommend
+				AND b.srecommend 	= c.srecommend
+			INNER JOIN #ProductBettype bt
+			ON b.bettype 			= bt.bettype
 		WHERE b.winlostdate = @Date
-			AND b.BetCount > 0
-			AND b.roleid = 1
-			AND b.sporttype IN (0, 151, 161, 162, 180, 201, 251, 253, 202,208,209,210)
-			-- and b.isBA=0
+			AND b.BetCount 	> 0
+			AND b.roleid 	= 1
+			--AND b.sporttype IN (0, 151, 161, 162, 180, 201, 251, 253, 202)
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
+			
 		GROUP BY b.winlostdate
 			,b.CustID
 			,c.username
-			,CASE 
-				WHEN b.Sporttype IN (251,208,209,210) THEN 251 -- Casino
-				ELSE b.Sporttype 
-			END
+			,bt.ProductId
 	END
-
+	
+	/*
 	INSERT INTO #tmpRpt (
 		Winlostdate
 		,CustID
@@ -385,11 +407,7 @@ BEGIN
 	WHERE b.winlostdate = @Date
 		AND sporttype = 254
 		AND b.BetCount > 0
-	
-	-- remove undefined product
-	DELETE b
-	FROM #tmpRpt b WITH (NOLOCK)
-	WHERE ProductID = -1
+	*/
 	
 	SELECT *
 	FROM #tmpRpt b WITH (NOLOCK)
