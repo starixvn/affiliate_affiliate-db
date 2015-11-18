@@ -1,4 +1,5 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_Con_GroupPolicyUpd]
+	@LicenseeID INT,
 	@GroupPolicys NVARCHAR(4000),
 	@UserID int, 
 	@Language varchar(5)= 'en-US', 
@@ -9,10 +10,11 @@ AS
 -- Update Acc_GroupPolicy
 -- Format of @GroupPolicys: @GroupID,@FuncID,@Policy;@GroupID,@FuncID,@Policy; ...;
 -- 20101214@Peter : Move this SP to DB DB052.Affiliate_ZZun
+-- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 SET NOCOUNT ON
 	
 --Check permission for account site: @phuc20080213
-EXEC [dbo].[AffAdmin_Con_CheckPermission] @custid=@UserID,@funcname='[UserControl]',@System='AFFILIATE',@ErrCode=@ErrCode output
+EXEC [dbo].[AffAdmin_Con_CheckPermission] @LicenseeID = @LicenseeID, @custid=@UserID,@funcname='[UserControl]',@System='AFFILIATE',@ErrCode=@ErrCode output
 If @ErrCode <> 0
 	RETURN
 --end
@@ -28,6 +30,8 @@ If @ErrCode <> 0
 		  FROM dbo.strSplit(@GroupPolicys, ';')
 		 ORDER BY row_index
 	
+	SELECT * INTO #GroupPolicy FROM dbo.AffAdmin_f_GroupPolicy_Select('', '')
+
 	OPEN GroupPolicysCur
 	FETCH NEXT FROM GroupPolicysCur INTO @GroupPolicy
 	WHILE @@FETCH_STATUS = 0
@@ -36,22 +40,15 @@ If @ErrCode <> 0
 		SET @GroupID = dbo.Aff_SplitIndex(@GroupPolicy, ',', 1)
 		SET @FuncID = dbo.Aff_SplitIndex(@GroupPolicy, ',', 2)
 		SET	@Policy = dbo.Aff_SplitIndex(@GroupPolicy, ',', 3)
-		SET @GroupPolicyCount = (SELECT COUNT(1) FROM AffGroupPolicy with (nolock) WHERE GroupID = @GroupID AND funcid = @FuncID)
+		SET @GroupPolicyCount = (SELECT COUNT(1) FROM #GroupPolicy WHERE GroupID = @GroupID AND functionid = @FuncID)
 
 		IF(@GroupPolicyCount = 0)
 			BEGIN
-				INSERT INTO AffGroupPolicy 
-					(GroupID, Funcid, Policy, Createdate, Modifydate, Creator)
-				Values
-					(@GroupID, @Funcid, @Policy, CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, @UserID)
+				EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupPolicy_Insert @GroupID = @GroupID, @FunctionIDs = @Funcid, @Policy = @Policy, @Creator = @UserID
 			END
 		ELSE
 			BEGIN
-				UPDATE AffGroupPolicy
-				   SET policy = @Policy,
-					 modifydate = CURRENT_TIMESTAMP
-				 WHERE GroupID = @GroupID
-				   AND funcid = @FuncID
+				EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupPolicy_Update @GroupID = @GroupID, @FunctionID = @FuncID, @Policy = @Policy
 			END
 		
 		DECLARE @SPName varchar(50), @LogData nvarchar(200)
@@ -75,7 +72,7 @@ If @ErrCode <> 0
 	DEALLOCATE GroupPolicysCur
 	
 	
-
+	DROP TABLE #GroupPolicy
 
 
 

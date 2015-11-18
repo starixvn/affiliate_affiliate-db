@@ -1,4 +1,5 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_Con_PolicyUpd]
+	@LicenseeID INT,
 	@MemPolicys NVARCHAR(4000),
 	@UserID int, 
 	@Language varchar(5)= 'en-US', 
@@ -7,12 +8,13 @@
 AS
 --DB03.bodb02 --> DB052.Affiliate_ZZun
 -- 20101214@Peter : Move this SP to DB DB052.Affiliate_ZZun
+-- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 -- Update Acc_GroupPolicy
 -- Format of @MemPolicys @CustID,@FuncID,@Policy;@CustID,@FuncID,@Policy; ...;
 SET NOCOUNT ON
 
 --Check permission for account site: @phuc20080213
-EXEC [dbo].[AffAdmin_Con_CheckPermission] @custid=@UserID,@funcname='[UserControl]',@System='AFFILIATE',@ErrCode=@ErrCode output
+EXEC [dbo].[AffAdmin_Con_CheckPermission] @LicenseeID = LicenseeID, @custid=@UserID,@funcname='[UserControl]',@System='AFFILIATE',@ErrCode=@ErrCode output
 If @ErrCode <> 0
 	RETURN
 --end
@@ -29,6 +31,7 @@ DECLARE CustPolicysCur CURSOR FOR
 	  FROM dbo.strSplit(@MemPolicys, ';')
 	 ORDER BY row_index	 
 
+SELECT * INTO #UserPolicy FROM dbo.AffAdmin_f_UserPolicy_Select('', @LicenseeID, '')
 
 OPEN CustPolicysCur
 FETCH NEXT FROM CustPolicysCur INTO @MemPolicy
@@ -38,22 +41,15 @@ BEGIN
 	SET @CustID = dbo.Aff_SplitIndex(@MemPolicy, ',', 1)
 	SET @FuncID = dbo.Aff_SplitIndex(@MemPolicy, ',', 2)
 	SET	@Policy = dbo.Aff_SplitIndex(@MemPolicy, ',', 3)
-	SET @CustPolicyCount = (SELECT COUNT(1) FROM AffMemberPolicy with (nolock) WHERE CustID = @CustID AND funcid = @FuncID)
+	SET @CustPolicyCount = (SELECT COUNT(1) FROM #UserPolicy with (nolock) WHERE UserID = @CustID AND FunctionID = @FuncID)
 
 	IF(@CustPolicyCount = 0)
 		BEGIN
-			INSERT INTO AffMemberPolicy 
-				(CustID, Funcid, Policy, Createdate, Modifydate, Creator)
-			Values
-				(@CustID, @Funcid, @Policy, CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, @UserID)
+			EXEC DBLIC.bodb_licensee.dbo.AffAdmin_UserPolicy_Insert @UserID = @CustID, @LicenseeID = @LicenseeID, @FunctionID = @FuncID, @Policy = @Policy, @Creator = @UserID
 		END
 	ELSE
 		BEGIN
-			UPDATE AffMemberPolicy
-			   SET policy = @Policy,
-				 modifydate = CURRENT_TIMESTAMP
-			 WHERE CustID = @CustID
-			   AND funcid = @FuncID
+			EXEC DBLIC.bodb_licensee.dbo.AffAdmin_UserPolicy_Update @UserID = @CustID, @LicenseeID = @LicenseeID, @FunctionID = @FuncID, @Policy = @Policy
 		END
 	
 	DECLARE @SPName varchar(50), @LogData nvarchar(200)
@@ -76,3 +72,4 @@ END
 CLOSE CustPolicysCur
 DEALLOCATE CustPolicysCur
 
+DROP TABLE #UserPolicy

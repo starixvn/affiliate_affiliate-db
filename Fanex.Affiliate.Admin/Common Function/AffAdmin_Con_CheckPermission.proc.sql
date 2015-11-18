@@ -1,4 +1,5 @@
-﻿CREATE PROCEDURE [dbo].[AffAdmin_Con_CheckPermission]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_Con_CheckPermission]
+	@LicenseeID INT,
 	@CustID int,   
 	@FuncID int=null,  
 	@FuncName nvarchar(50)='',  
@@ -13,26 +14,26 @@ AS
  DB: 
    
  Revisions: 
+	- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 */  
  SET NOCOUNT ON   
  IF @FuncID is null  
-  Select @FuncID=funcid from AffFunctionInfo with(nolock) where System = @System and FuncName=@Funcname  
+  Select @FuncID=functionid from dbo.AffAdmin_f_FunctionInfo_Select('',@LicenseeID) where FunctionName=@Funcname
    
  -- Permission: bitwise(OR) permission of the group that user belong to and permission of this user  
  -- IsAllow: 1:Readonly, 2:Host, 3:All  
    
  Declare @roleid tinyint,@IsAllow tinyint  
    
- IF exists(select 1 from AdminUser (nolock) where custid=@CustID)  
+ IF exists(select 1 from dbo.AffAdmin_f_AdminUserInfo_Select(@CustID,@LicenseeID))  
  BEGIN   
     
-   SELECT @IsAllow=(isnull(mp.policy,0)|isnull(gp.policy,0)) & isnull(fi.FuncRender,0)  
-   FROM AdminUser ac with(nolock)   
-		--inner join custinfo ci with(nolock) on ac.custid=ci.custid  
-		Left JOIN AffFunctionInfo fi with(nolock) on fi.funcid=@funcid  
-		LEFT JOIN AffMemberPolicy mp with(nolock) on mp.custid=ac.custid and mp.funcid=@funcid  
-		LEFT JOIN AffGroupPolicy gp with(nolock) on gp.groupid=ac.groupid and gp.funcid=@funcid  
-   WHERE ac.Custid=@Custid and ac.closed=0  
+   SELECT @IsAllow=(isnull(mp.policy,0)|isnull(gp.policy,0)) & isnull(fi.FunctionRender,0)  
+   FROM dbo.AffAdmin_f_AdminUserInfo_Select(@CustID,@LicenseeID) ac   
+		Left JOIN dbo.AffAdmin_f_FunctionInfo_Select(@funcid,@LicenseeID) fi on fi.FunctionID = @funcid
+		LEFT JOIN dbo.AffAdmin_f_UserPolicy_Select(@CustID, @LicenseeID, @funcID) mp on mp.userid=ac.userid and mp.functionid=@funcid
+		LEFT JOIN dbo.AffAdmin_f_GroupPolicy_Select('',@funcid) gp on gp.groupid=ac.groupid and gp.functionid=@funcid
+   WHERE ac.[Status]=0  
    SELECT @IsAllow = isnull(@IsAllow,0)  
     
  END  
