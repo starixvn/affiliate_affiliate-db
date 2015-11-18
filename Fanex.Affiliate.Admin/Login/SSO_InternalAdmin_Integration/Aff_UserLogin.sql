@@ -45,7 +45,7 @@ WHERE
 	(ISNULL(@UserPwd,'') = '' OR (ISNULL(@UserPwd,'') <> '' AND UserPwd = @UserPwd)) AND
 	IsInternal = 0
 
-IF (@UserID IS NULL)
+IF (ISNULL(@UserID, 0) = 0)
 BEGIN
 	SELECT @ErrMsg = CASE @Langkey WHEN 'en-US' THEN 'Wrong username or password.'  
 					 ELSE [bodb02].[dbo].[Lrf_f_Get_MsgNamebyMsgID](80001,@Langkey)

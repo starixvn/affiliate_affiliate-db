@@ -1,4 +1,5 @@
-﻿ALTER Procedure [dbo].[AffAdmin_UserOnlineList]       
+﻿ALTER Procedure [dbo].[AffAdmin_UserOnlineList]
+ @LicenseeID INT,       
  @PageSize int=50,        
  @PageIndex int=1,      
  @IsIt bit = 0,      
@@ -12,6 +13,7 @@ DB: DB052.Affiliate_MYM
 Revisions:
 	- 20130807@Johnny: initialize      
 	- 20131225@Bobby: update sorting result
+	- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
        
 Param's Explanation:      
  - PageSize: the selected page size on webpage      
@@ -24,17 +26,16 @@ BEGIN
 	declare @startNum int, @endNum int, @GroupIT int    
 	declare @Table table(UserName varchar(50),LoggedIn datetime,LastRequest datetime,IP varchar(20),Role varchar(20))       
     
-	Select @GroupIt = [dbo].[Aff_Con_GetGroupItID]()    
+	Select @GroupIt = [dbo].AffAdmin_f_GetITGroupID(@LicenseeID)    
         
 	insert into @Table(UserName,LoggedIn,LastRequest,IP,Role)       
 	select UserName,LoggedIn,LastRequest,IP,RoleName      
 	from      
 	(      
-	 (select au.username as UserName, au.lastlogged as LoggedIn, o.reload_time as LastRequest, o.IP as IP, 'Admin' as RoleName       
-	 from ON_USER o with(nolock)             
-	  inner join  dbo.AdminUser au with(nolock) on au.custid=o.custid       
-	 where o.subaccid = 6 and o.iskickedout=0    
-	   and (case when @IsIT = 1 then 1     
+	 (select au.username as UserName, /*au.lastlogged*/'' as LoggedIn, o.reload_time as LastRequest, o.IP as IP, 'Admin' as RoleName       
+	 from dbo.AffAdmin_f_OnUser_Select(0) o
+	  inner join  dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) au on au.userid=o.custid       
+	 where (case when @IsIT = 1 then 1     
 		when GroupID = @GroupIt then 0    
 		else 1 end) = 1    
 	 )          
