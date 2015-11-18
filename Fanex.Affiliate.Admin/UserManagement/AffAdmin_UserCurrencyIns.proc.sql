@@ -1,4 +1,5 @@
 ﻿ALTER PROCEDURE  [dbo].[AffAdmin_UserCurrencyIns]		
+	@LicenseeID INT,
 	@UserID INT,
 	@CurrencyXML VARCHAR(max),
 	@ModifyBy INT,
@@ -14,6 +15,7 @@ DB: DBLIC.Affiliate_Alpha
 
 Revisions:
     -20131223@Bobby: delete current setting on AffGroupPermissionDetail
+	-20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 Param's Explanation:
 @CurrencyXML format:
 
@@ -26,7 +28,7 @@ Param's Explanation:
 
 */
 /*
-	[Aff_UserCurrencyIns]		
+	[AffAdmin_UserCurrencyIns]		
 	@UserID =1,
 	@CurrencyXML =
 	'<currencies>
@@ -53,7 +55,7 @@ DECLARE @iDoc INT , @i INT, @max INT
 CREATE TABLE  #Currency (ID INT IDENTITY(1,1),currencyid INT, status INT)
 EXEC sp_xml_preparedocument @iDoc OUTPUT,@CurrencyXML
 
-SELECT @GroupID=GroupID FROM dbo.AdminUser WITH (NOLOCK) WHERE CustID=@UserID
+SELECT @GroupID=GroupID FROM dbo.AffAdmin_f_AdminUserInfo_Select(@UserID, @LicenseeID)
 INSERT INTO #Currency (CurrencyID,status)
 SELECT CurrencyID,status
 FROM 
@@ -72,13 +74,15 @@ WHILE (@i<=@max)
 	END
 
 BEGIN
-	DELETE dbo.AffGroupPermissionDetail WHERE ObjectID=@UserID 
-		--AND GroupID=@GroupID -- LicenseeID
+	EXEC DBLIC.bodb_licensee.dbo.AffAdmin_UserCurrency_Delete @UserID = @UserID, @LicenseeID = @LicenseeID
 	
-	INSERT INTO dbo.AffGroupPermissionDetail (GroupID,TypeID,AttributeID,ObjectID)
-	SELECT @GroupID,1,CurrencyID,@UserID
-	FROM #Currency
-	WHERE status=1
+	DECLARE @CurrencyIDs VARCHAR(1000)
+
+	SELECT	@CurrencyIDs = COALESCE(@CurrencyIDs + ', ', '') + CONVERT(VARCHAR(10), CurrencyID)
+	FROM	#Currency 
+	WHERE status = 1
+
+	EXEC DBLIC.bodb_licensee.dbo.AffAdmin_UserCurrency_Insert @UserID = @UserID, @LicenseeID = @LicenseeID, @CurrencyIDs = @CurrencyIDs, @IsActive = 1
 	
 	-------------------------------------
 	DROP TABLE #Currency
@@ -88,7 +92,7 @@ BEGIN
 		BEGIN 
 			SELECT @ErrCode = 2010
 		END 
-	SELECT @LogSPData = '<Aff_UserCurrencyIns GroupID="'+ COALESCE(CAST(@GroupID as VARCHAR(50)),SPACE(1)) + '" ' +
+	SELECT @LogSPData = '<AffAdmin_UserCurrencyIns GroupID="'+ COALESCE(CAST(@GroupID as VARCHAR(50)),SPACE(1)) + '" ' +
 			'UserID="'+ COALESCE(CAST(@UserID as VARCHAR(50)),SPACE(1)) + '" ' +
 			'Modifyby="'+ COALESCE(CAST(@ModifyBy as VARCHAR(50)),SPACE(1)) + '" ' +
 			'CurrencyID="'+ COALESCE(CAST(@LogSPData2  as VARCHAR(500)),SPACE(1)) + '" ' +

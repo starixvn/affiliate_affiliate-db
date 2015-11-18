@@ -1,12 +1,13 @@
 USE [Affiliate_Athena000]
 GO
-/****** Object:  StoredProcedure [dbo].[Aff_BetList_CheckBelonging]    Script Date: 3/13/2015 9:48:29 AM ******/
+
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 ALTER PROCEDURE [dbo].[Aff_BetList_CheckBelonging]    
-	@AdminName 			VARCHAR(30) = NULL
+	@LicenseeID			INT
+	,@AdminName 			VARCHAR(30) = NULL
 	,@AffId 			INT = 0
 	,@MemberName 		VARCHAR(30)
 	,@SysName			VARCHAR(30) = 'Athena'
@@ -22,6 +23,7 @@ Orgiginal:
 Revisions:    
 	- 20150312@Bobby.Nguyen: Initial SP
 	- 20150327@Bobby.Nguyen: Ignore currency checking when an affiliate belongs to NoCommission group
+	- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 */     
 BEGIN    
 	SET NOCOUNT ON;
@@ -50,10 +52,10 @@ BEGIN
 	-- gather admin info
 	INSERT INTO @tblAdmin(AdminName, Currency)
 	SELECT a.UserName
-		, p.AttributeID
-	FROM dbo.AffGroupPermissionDetail p WITH(NOLOCK)
-		INNER JOIN dbo.AdminUser a WITH (NOLOCK)
-		ON p.ObjectId = a.CustId
+		, p.AffCurrencyID
+	FROM dbo.AffAdmin_f_UserCurrency_Select('',@LicenseeID,'') p
+		INNER JOIN dbo.AffAdmin_f_AdminUserInfo_Select('',@LicenseeID) a
+		ON p.UserID = a.UserID
 	WHERE a.Username = @AdminName
 	
 	-- gather affiliate info
