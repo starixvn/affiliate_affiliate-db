@@ -2,6 +2,7 @@
 -- Script Template
 -- =============================================
 ALTER PROCEDURE [dbo].[AffAdmin_EmailHistoryDel]  
+  @licenseeID int,
   @listmid varchar(4000)=null,  
   @UserID int,  
   @IP varchar(20),  
@@ -15,7 +16,7 @@ DB: DB052.Affiliate_ZZun
 Original:  
   
 Revisions:  
-  
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 Param's Explanation:  
 • @listmid : list of mail id separated by a comma  
 • @UserID: user deleting mid will be logged  
@@ -31,6 +32,7 @@ SET NOCOUNT ON
 --Check permission(If AffId = userid => Affiliate update info else Admin Update Aff info)-----------------------------  
   
 EXEC [dbo].[Aff_Con_CheckPermission]   
+ @LicenseeID = @LicenseeID,
  @custid=@UserID,  
  @funcname='[Affiliate]',  
  @System = 'AFFILIATE',  
@@ -61,7 +63,7 @@ declare @midTable table(mid int)
          return        
         END      
 --Check UserID is valid  
-if(not exists(select 1 from AdminUser (nolock) where custid=@UserID))  
+if(not exists(select 1 from dbo.AffAdmin_f_AdminUserInfo_Select(@UserID,@LicenseeID)))  
 begin  
   Select @ErrCode = 8   --Admin id is invalid
          return  

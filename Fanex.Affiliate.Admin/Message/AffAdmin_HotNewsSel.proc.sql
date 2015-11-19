@@ -1,4 +1,5 @@
-﻿CREATE PROCEDURE [dbo].[AffAdmin_HotNewsSel]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_HotNewsSel]
+	@LicenseeID INT,
     @fromdate smalldatetime=null,
     @todate smalldatetime=null,
 	@Important bit=null,
@@ -17,6 +18,7 @@ Original:
 Revisions:
 - 20090819@DungTong : Add new Spanish language
 - 20090920@DungTong : Add new Vietnamese and Indonesia Language
+- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 Param's Explanation:
 • @fromdate : <> null: from postdate
@@ -50,7 +52,9 @@ where important=coalesce(@Important,important)
 
 SELECT @TotalPages=@NRows/@PageSize + case when @NRows%@PageSize>0 then 1 else 0 end,
        @PageIndex = @PageIndex - 1, @RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1   
-       
+
+SELECT * INTO #AdminUser FROM dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID)
+  
 if(@language is null)--select all column
 begin
    
@@ -73,8 +77,8 @@ begin
 		  ,[updateddate]
           ,ROW_NUMBER() OVER(ORDER BY msgid desc) AS TheCount
 	  FROM News n with (nolock)
-			LEFT JOIN AdminUser C  WITH (NOLOCK) ON C.CUSTID=n.[creator]
-			LEFT JOIN AdminUser u  WITH (NOLOCK) ON u.CUSTID=n.[updatedby]
+			LEFT JOIN #AdminUser C ON C.UserID=n.[creator]
+			LEFT JOIN #AdminUser u ON u.UserID=n.[updatedby]
 	  WHERE important=coalesce(@Important,important)
            and (case when @fromdate is null or @todate is null then 1
                     when posteddate between @fromdate and @todate then 1
@@ -109,6 +113,8 @@ else --select for specific language
      ) x
      where x.TheCount between @RowStart and @RowEnd
  end
+
+ DROP TABLE #AdminUser
 
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_HotNewsSel] TO [bodbAdminNet]

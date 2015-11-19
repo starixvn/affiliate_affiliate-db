@@ -1,4 +1,5 @@
 ALTER PROCEDURE [dbo].[AffAdmin_GetMemberDetail]
+	@LicenseeID INT,
 	@UserName VARCHAR(30)
 AS
 /*  Author:20140827@Bobby.Nguyen
@@ -7,7 +8,7 @@ AS
 	Revisions:           
 		- 20140909@Bobby: Create SP
 		- 20141711@Bobby: Update to get country info
-                
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site                
 	Param's Explanation: 
 */
 BEGIN
@@ -47,8 +48,8 @@ BEGIN
 			SELECT MAX(r.RemovedDate) AS RemovedDate
 					, ad.UserName AS RemovedBy
 				FROM dbo.MemberRemoval r WITH(NOLOCK)
-					INNER JOIN dbo.AdminUser ad WITH(NOLOCK)
-					ON r.RemovedBy = ad.CustID
+					INNER JOIN dbo.AffAdmin_f_AdminUserInfo_Select('',@LicenseeID) ad
+					ON r.RemovedBy = ad.UserID
 				WHERE r.UserName = m.UserName
 				GROUP BY ad.UserName
 				

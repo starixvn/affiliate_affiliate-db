@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupUpd] 
-	@UserId						INT
+	@LicenseeID					INT
+	,@UserId					INT
 	,@GroupId					INT
 	,@Currency					INT
 	,@QualifiedAmount			MONEY
@@ -33,6 +34,7 @@ Revisions:
 	- 20140723@Bobby: remove checking @GroupID < 1000
 	- 20140820@Bobby: Add Deposit & Withdrawal percent and apply SQL stylescope
 	- 20141028@Bobby: hotfix#24904 - remove abs() function for Withdrawal value when calculating PSP fee
+	- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 Parameters:  
 .@UserID : Administrator user id  
@@ -95,7 +97,8 @@ BEGIN
 	SET NOCOUNT ON
 
 	--Check permission  
-	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserID
+	EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
+		,@custid = @UserID
 		,@funcname = '[CommissionGroup]'
 		,@System = 'AFFILIATE'
 		,@ErrCode = @ErrCode OUTPUT
@@ -106,14 +109,9 @@ BEGIN
 	--Check Currency Permission
 	IF (@Currency = 0)
 	BEGIN
-		IF (
-				NOT EXISTS (
-					SELECT TOP 1 1
-					FROM dbo.AdminUser WITH(NOLOCK)
-					WHERE custid = @UserId
-						AND GroupID = 2
-					)
-				) RETURN
+		DECLARE @IsITAdmin BIT = 0
+		SELECT @IsITAdmin = dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID)
+		IF (@IsITAdmin = 0) RETURN
 	END
 	ELSE
 	BEGIN

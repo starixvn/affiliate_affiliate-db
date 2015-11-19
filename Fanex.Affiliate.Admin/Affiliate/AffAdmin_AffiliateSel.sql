@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateSel] 
-	@UserId				INT				= 0
+	@LicenseeID			INT
+	,@UserId				INT				= 0
 	,@AffName			NVARCHAR(100)	= NULL
 	,@AffTypes			VARCHAR(100)	= NULL
 	,@Currencies		VARCHAR(100)	= NULL
@@ -29,6 +30,8 @@ Revisions:
  - 20130828@Joseph: restrict user permission by currency   
  - 20130912@Victor: add search criteria, restructure the code
  - 20140924@Bobby: Add Email Info & refactor code
+ - 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+ 
                 
 Param's Explanation: 
 • @UserID: Admin UserID
@@ -85,10 +88,10 @@ BEGIN
 	END
 
 	INSERT INTO @tmpCurrency
-	SELECT AttributeID
+	SELECT r.AffCurrencyID
 		,0 AS ExRate
-	FROM dbo.Aff_f_GetCurrencybyUser(@userID, 1) r
-		INNER JOIN #TblCurrency s ON s.CurrencyID = r.AttributeID
+	FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID, '') r
+		INNER JOIN #TblCurrency s ON s.CurrencyID = r.AffCurrencyID
 
 	DROP TABLE #TblCurrency
 
@@ -166,12 +169,7 @@ BEGIN
 	-- Test Account
 	DECLARE @IsITAdmin BIT
 
-	SELECT @IsITAdmin = CASE GroupID
-			WHEN 2 THEN 1
-			ELSE 0
-			END
-	FROM dbo.AdminUser WITH(NOLOCK) 
-	WHERE custid = @UserId
+	SELECT @IsITAdmin = dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID)
 
 	-- Retrieve data
 	SELECT AI.AffID

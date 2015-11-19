@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateUpdInfo] 
-	@AffId INT
+	@LicenseeID INT
+	,@AffId INT
 	,@userid INT
 	,@firstname NVARCHAR(50) = NULL
 	,@lastname NVARCHAR(50) = NULL
@@ -58,6 +59,7 @@ AS
 		Johnny@20130319 : Do not allow update currency  
 		Long@20130911: do not check email existance in case of Kiosk
 		20140514@Bobby: check/remove unique email (remove check afftype [Kiosk, ...])
+		- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 	Param's Explanation:  
 		• @AffId : Affiliate custid  
@@ -70,7 +72,7 @@ BEGIN
 	--Check permission(If AffId = userid => Affiliate update info else Admin Update Aff info)-----------------------------  
 	IF @AffId <> @userid
 	BEGIN
-		EXEC [dbo].[AffAdmin_Con_CheckPermission] @custid = @UserID
+		EXEC [dbo].[AffAdmin_Con_CheckPermission] @LicenseeID = @LicenseeID, @custid = @UserID
 			,@funcname = '[Affiliate]'
 			,@System = 'AFFILIATE'
 			,@ErrCode = @ErrCode OUTPUT

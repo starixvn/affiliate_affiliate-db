@@ -1,4 +1,5 @@
-﻿CREATE PROCEDURE [dbo].[AffAdmin_BannerUpd]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_BannerUpd]
+	@LicenseeID INT,
 	@BannerID int ,
 	@Content nvarchar(4000)=null,
 	@Category smallint=null,
@@ -18,7 +19,7 @@ DB: DB052.Affiliate_MYM
 Original:
 
 Revisions:
-- 20090122@[Reviewer]: [Description of revision] 
+	- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site 
 
 Param's Explanation:
 
@@ -33,6 +34,7 @@ Param's Explanation:
 SET NOCOUNT ON
 --Check permission-----------------------------
 EXEC [dbo].[AffAdmin_Con_CheckPermission] 
+	@LicenseeID = @LicenseeID,
 	@custid=@UserID,@funcname='[Media]',
 	@System = 'AFFILIATE',
 	@ErrCode=@ErrCode output

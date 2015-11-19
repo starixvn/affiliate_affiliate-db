@@ -1,4 +1,5 @@
 ﻿ALTER Procedure [dbo].[AffAdmin_PaymentRequestSelDetail]  
+	@LicenseeID INT,
     @TransID bigint
 AS  
 /*  
@@ -7,6 +8,7 @@ DB: DB052.Affiliate_MYM
 Original: [Aff_PaymentRequestSelDetail]  
 Revisions:     
  - Get Username2 from customer table.  
+ - 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 Param's Explanation:  
 • @TransID : Payment Request's Transaction.  
  */  
@@ -59,7 +61,7 @@ FROM AffTrans b with(nolock)
     inner join AffDetail af with (nolock) on ai.AffID = af.AffID            
     inner join Exchange e with (nolock) on b.AffCurrency = e.ExchangeID  
     left join Exchange e1 with (nolock) on p.MemberCurrency = e1.ExchangeID  
-    left join AdminUser admin with(nolock) on admin.custid=b.creator    
+    left join dbo.AffAdmin_f_AdminUserInfo_Select('',@LicenseeID) admin on admin.UserID=b.creator    
     
 WHERE   
     b.Transtype = 202 and b.transid = @transid

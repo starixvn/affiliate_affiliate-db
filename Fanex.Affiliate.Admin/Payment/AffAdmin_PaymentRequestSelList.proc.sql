@@ -1,4 +1,5 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_PaymentRequestSelList]
+	@LicenseeID			INT,
     @Username			NVARCHAR(30) = NULL,
 	@AffType			varchar(20),
     @Status				VARCHAR(100) = NULL,   
@@ -16,7 +17,8 @@ AS
 DB: 
 Original: [Aff_BettransSelRequestPaymentList]
 Revisions:   
-	-20140102@Bobby: fixing bug - no need to convert to system currency when @BaseCurrency=0
+	- 20140102@Bobby: fixing bug - no need to convert to system currency when @BaseCurrency=0
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 Param's Explanation:
 • @Username: Affiliate username need to search
@@ -94,7 +96,7 @@ BEGIN
 		INNER JOIN AffDetail c WITH (nolock) ON b.AffId = c.AffId
 		INNER JOIN Exchange ex WITH (nolock) ON b.Currency = ex.ExchangeID
 		INNER JOIN AffType d  WITH (nolock) ON b.AffType = d.TypeID
-		LEFT Join AdminUser admin on a.creator = admin.CustId  
+		LEFT Join dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) admin on a.creator = admin.UserID  
 	where TransType = @TransType
 		and b.Username like @Username
 		AND b.AffType in (SELECT AffType from @AffTypeTable)

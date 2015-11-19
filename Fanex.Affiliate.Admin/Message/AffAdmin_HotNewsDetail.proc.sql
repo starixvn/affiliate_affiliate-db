@@ -1,4 +1,5 @@
-﻿CREATE PROCEDURE [dbo].[AffAdmin_HotNewsDetail]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_HotNewsDetail]
+	@LicenseeID INT,
 	@MsgID int=null
 AS
 /*
@@ -11,6 +12,7 @@ Revisions:
 - 20090317@DungTong: allow to get latest message id
 - 20090819@DungTong : Add new Spanish language
 - 20090920@DungTong : Add new Vietnamese and Indonesia Language
+- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 Param's Explanation:
 • @MsgID : >0 message id selected
            null: select the latest message
@@ -33,7 +35,7 @@ SET @Names =  stuff(
     from Language l1 (nolock)   
     for xml path('')
     ), 1, 1, '')  
-
+select * from dbo.AffAdmin_f_AdminUserInfo_Select('',@LicenseeID)
 DECLARE @Query VARCHAR(8000)   
 SET @Query = '
 select n.[creator]
@@ -43,7 +45,7 @@ select n.[creator]
 	  ,c.username as creatorname
 	  ,temp.*
 	  FROM News n with (nolock)
-	  LEFT JOIN AdminUser c WITH (NOLOCK) ON c.custid=n.[creator]
+	  LEFT JOIN dbo.AffAdmin_f_AdminUserInfo_Select('''',' + Cast(@LicenseeID AS VARCHAR(10)) + ') c ON c.userid=n.[creator]
 	  LEFT JOIN (
 			select * from (select ResourceKey,ResourceValue,LanguageCode from RefResources r (nolock) 
 			WHERE r.ResourceKey = ''' + @ID +''') a

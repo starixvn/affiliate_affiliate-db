@@ -1,4 +1,5 @@
-﻿CREATE PROCEDURE [dbo].[AffAdmin_BannerDel]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_BannerDel]
+	@LicenseeID INT, 
 	@ListBannerID varchar(4000),
 	@UserID int,	
 	@IP nvarchar(15)='',
@@ -12,7 +13,7 @@ DB: DB052.Affiliate_ZZun
 Original:
 
 Revisions:
-- 20090122@[Reviewer]: [Description of revision] 
+- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 Param's Explanation:
 • @ListBannerID : list of banner ids need to delete separated by a comma
@@ -27,6 +28,7 @@ Param's Explanation:
 SET NOCOUNT ON
 --Check permission-----------------------------
 EXEC [dbo].[AffAdmin_Con_CheckPermission]
+	@LicenseeID = @LicenseeID,
 	@custid=@UserID,@funcname='[Media]',
 	@System = 'AFFILIATE',
 	@ErrCode=@ErrCode output

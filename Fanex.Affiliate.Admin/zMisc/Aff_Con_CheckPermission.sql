@@ -5,7 +5,8 @@
 	@FuncName nvarchar(50)='',
 	@System nvarchar(50) = 'AFFILIATE',
 	@Language varchar(5) = 'en-US',
-	@ErrCode int = 0 OUTPUT	
+	@ErrCode int = 0 OUTPUT,
+    @ErrMsg nvarchar(200) = '' OUTPUT
 AS
 /*
 	Created by: []
@@ -47,7 +48,13 @@ AS
 		
 	IF @IsAllow <2
 	BEGIN
-		SELECT @ErrCode = 500 --You are not authorized on this function
+		SELECT @ErrMsg =  case @Language
+                            when 'E' then N'You are not authorized on this function'
+                            when 'CS' then N'You are not authorized on this function'
+                            when 'J' then N'You are not authorized on this function'
+                            else N'You are not authorized on this function'
+                            --else N'You are not authorized to create/edit this information'
+                        end, @ErrCode = 500
 		RETURN 
 	END
 	ELSE

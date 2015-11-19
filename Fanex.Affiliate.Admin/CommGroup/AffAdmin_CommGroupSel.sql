@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupSel] 
-	@GroupName		NVARCHAR(100)	= ''
+	@LicenseeID		INT
+	,@GroupName		NVARCHAR(100)	= ''
 	,@Currencies	VARCHAR(1000)	= ''
 	,@Date			DATETIME
 	,@UserId		INT
@@ -19,6 +20,7 @@ Revisions:
     - 20130913@Joseph: new version
     - 20131121@Joseph: filter by TestLevel
 	- 20140820@Bobby: Add Deposit & Withdrawal percent - apply SQL stylescope
+	- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 Params Explaination:
 */
@@ -38,12 +40,7 @@ BEGIN
 	DECLARE @TblCurrency 	TABLE (val NVARCHAR(6))
 	DECLARE @CommTmp		TABLE (GroupID INT, Currency INT, MonthDate SMALLDATETIME, RowIDX INT IDENTITY(1,1))
 	
-	SELECT @IsITAdmin 	= CASE ad.GroupID
-			WHEN 2 THEN 1
-			ELSE 0
-			END
-	FROM dbo.AdminUser ad WITH(NOLOCK)
-	WHERE ad.custid = @UserId
+	SELECT @IsITAdmin 	= dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID)
 
 	SELECT AttributeID AS CurrencyID
 	INTO #tmpCurrency
@@ -185,8 +182,8 @@ BEGIN
 		,ai.NoOfAffiliate
 		,@HasCashback AS HasCashback
 	FROM CommPaging g
-		LEFT JOIN dbo.AdminUser au WITH (NOLOCK) 
-		ON au.custid = g.Creator
+		LEFT JOIN dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) au 
+		ON au.userid = g.Creator
 		CROSS APPLY (
 				SELECT COUNT(1) AS NoOfAffiliate
 				FROM dbo.AffInfo ai WITH (NOLOCK)

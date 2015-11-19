@@ -1,10 +1,15 @@
-﻿CREATE Procedure [dbo].[AffAdmin_DomainMemSelById]  
+﻿ALTER Procedure [dbo].[AffAdmin_DomainMemSelById]  
+	@LicenseeID int,
    @DomainId int
+/*
+Revisions:
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+*/
 AS  
 
 Select a.DomainID, a.DomainName
 From [MemberDomain] a with(nolock)  
-	inner join AdminUser b with (nolock) on a.Creator = b.CustId  
+	inner join dbo.AffAdmin_f_AdminUserInfo_Select('',@LicenseeID) b on a.Creator = b.UserID
 where DomainId = @DomainId
 order by a.DomainName  
   

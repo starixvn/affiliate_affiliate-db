@@ -1,20 +1,21 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_Con_CheckPermission]
+﻿ALTER PROCEDURE [AffAdmin_Con_CheckPermission]
 	@LicenseeID INT,
-	@CustID int,   
-	@FuncID int=null,  
-	@FuncName nvarchar(50)='',  
-	@System nvarchar(50) = 'AFFILIATE',
-	@Language varchar(2) = 'E',  
-	@ErrCode int = 0 OUTPUT,  
-	@ErrMsg nvarchar(200) = '' OUTPUT  
-AS  
-/*  
- Created: 20131105@Johnny
- Task: Check permission by CustID and Function
- DB: 
-   
- Revisions: 
-	- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+    @CustID int, 
+    @FuncID int=null,
+    @FuncName nvarchar(50)='',
+    @System nvarchar(50) = 'AFFILIATE',
+    @Language varchar(5) = 'en-US',
+    @ErrCode int = 0 OUTPUT    
+AS
+/*
+	Created by: []
+    Task: Check permission by CustID and Function 
+    DB: DB03.BODB02 --> DB052.Affiliate_ZZun
+    
+    Revisions:
+        - 20101123@Jamie: Change to use acc_functioninfo instead of acc_functioninfo_1 
+        - 20101214@Peter : Move this SP to DB DB052.Affiliate_ZZun
+		- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 */  
  SET NOCOUNT ON   
  IF @FuncID is null  
@@ -46,13 +47,7 @@ AS
     
  IF @IsAllow <2  
  BEGIN  
-	SELECT @ErrMsg =  case @Language  
-		when 'E' then N'You are not authorized on this function'  
-		when 'CS' then N'You are not authorized on this function'  
-		when 'J' then N'You are not authorized on this function'  
-		else N'You are not authorized on this function'  
-		--else N'You are not authorized to create/edit this information'  
-		end, @ErrCode = 500  
+	SELECT @ErrCode = 500  --You are not authorized on this function
 	RETURN   
  END  
  ELSE  

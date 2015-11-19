@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_StatementHistorySel] 
-	@AffId INT
+	@LicenseeID INT
+	,@AffId INT
 	,@TransType VARCHAR(100) = NULL
 	,@Status VARCHAR(100) = NULL
 	,@DateOption TINYINT = 0
@@ -15,6 +16,7 @@ Revisions:
     - 20131126@Johnny: Fix filter by transaction type and status
 	- 20140520@Bobby: check data existing in MemberDaily for previous month
 	- 20140703@Bobby: check data existing in AffCommission
+	- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 Param's Explanation:    
 • @AffID : Affiliate custid    
@@ -209,8 +211,8 @@ BEGIN
 	FROM AffTrans a(NOLOCK)
 		LEFT JOIN AffPayout ap(NOLOCK)
 		ON ap.RefID = a.RefID
-		LEFT JOIN AdminUser i WITH (NOLOCK)
-		ON i.custid = a.Creator
+		LEFT JOIN dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) i
+		ON i.userID = a.Creator
 	WHERE a.AffID = @AffID
 	ORDER BY (CASE 
 			WHEN a.STATUS = 'pending'

@@ -1,4 +1,5 @@
-﻿CREATE PROCEDURE [dbo].[AffAdmin_HotNewsDel]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_HotNewsDel]
+	@LicenseeID INT,
 	@listmsgid varchar(4000)=null,
 	@UserID int,
 	@IP varchar(20),
@@ -11,7 +12,7 @@ DB: DB052.Affiliate_ZZun
 Original:
 
 Revisions:
-- 20090122@[Reviewer]: [Description of revision] 
+- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site 
 
 Param's Explanation:
 • @listmsgid : list of message ids need to delete separated by a comma
@@ -26,6 +27,7 @@ Param's Explanation:
 SET NOCOUNT ON
 --Check permission-----------------------------
 EXEC [dbo].[Aff_Con_CheckPermission]
+	@LicenseeID = @LicenseeID,
 	@custid=@UserID,@funcname='[HotNews]',
 	@System = 'AFFILIATE',
 	@ErrCode=@ErrCode output
@@ -55,7 +57,7 @@ declare @msgidTable table(msgid int)
 	        return      
         END    
 --Check UserID is valid
-if(not exists(select 1 from AdminUser (nolock) where custid=@UserID))
+if(not exists(select 1 from dbo.AffAdmin_f_AdminUserInfo_Select(@UserID, @LicenseeID)))
 begin
 	 Select @ErrCode = 205
 	        return
