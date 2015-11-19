@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_CopyRateFromMarket] 
-	@UserId INT
+	@LicenseeID INT
+	,@UserId INT
 	,@ExchangeIdList VARCHAR(max) = ''
 	,@IP VARCHAR(20)
 	,@ErrCode INT = 0 OUTPUT
@@ -11,13 +12,15 @@ AS
 	DB: DB052.Affiliate_ZZun
 	Revisions:
 		- 20110223@Viet: initialize SP
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		
 */
 BEGIN
 	SET NOCOUNT ON
 
 	--Check permission-----------------------------
-	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserId
+	EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
+		,@custid = @UserId
 		,@funcname = '[AffEx.Rate]'
 		,@System = 'AFFILIATE'
 		,@ErrCode = @ErrCode OUTPUT

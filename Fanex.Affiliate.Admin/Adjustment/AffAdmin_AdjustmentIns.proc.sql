@@ -1,4 +1,5 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_AdjustmentIns]  
+	@LicenseeID	INT,
 	@Amount  money,   
 	@AffID  int,  
 	@AdminID int,   
@@ -27,13 +28,15 @@ Input
   = 0: Transaction recorded successfully.  
   > 0: Specific Error.  
     2) @ErrMsg: Error description.  
-Revisions:  
+Revisions: 
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
   
 */  
 SET NOCOUNT ON  
   
 --SELECT @ErrCode = 101, @ErrMsg = 'do it later..'  
 EXEC [dbo].[Aff_Con_CheckPermission]  
+	@LicenseeID = @LicenseeID,
 	@custid=@AdminID,  
 	@funcname='[Payment]',--User the same with payment  
 	@System = 'AFFILIATE',  

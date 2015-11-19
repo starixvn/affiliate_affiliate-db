@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_PaymentRequestUpd] 
-	@TransID BIGINT
+	@LicenseeID INT
+	,@TransID BIGINT
 	,@Status NVARCHAR(50)
 	,@AdminDesc NVARCHAR(300) = NULL
 	,@AffDesc NVARCHAR(300) = NULL
@@ -29,6 +30,7 @@ Input
      
 Revisions:  
 	- Johnny@20131126: Update field BF in table AffInfo
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 • @ErrCode:  
  = 0: Transaction recorded successfully.  
  > 0: Specific Error.  
@@ -63,7 +65,9 @@ BEGIN
 	IF (@UserID <> @AffID)
 	BEGIN
 		--Check permission-----------------------------  
-		EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserID
+		EXEC [dbo].[Aff_Con_CheckPermission] 
+			@LicenseeID = @LicenseeID
+			,@custid = @UserID
 			,@funcname = '[Payment]'
 			,@System = 'AFFILIATE'
 			,@ErrCode = @ErrCode OUTPUT

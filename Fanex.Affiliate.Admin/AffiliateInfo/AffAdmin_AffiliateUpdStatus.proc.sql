@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateUpdStatus] 
-	@AffID INT
+	@LicenseeID INT
+	,@AffID INT
 	,@UserID INT
 	,@Status VARCHAR(30)
 	,@Password VARCHAR(40) = NULL
@@ -16,6 +17,7 @@ Revisions:
   -Long@20130911: do not check email existance in case of Kiosk
   -20140127@Bobby: inogre currency checking when assign NoCommission group
   -20140325@Bobby: check/remove unique email
+  -20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 Param's Explanation:  
 • @AffID : Affiliate ID  
@@ -33,7 +35,8 @@ BEGIN
 	SET NOCOUNT ON;
 
 	--Check permission-----------------------------  
-	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserID
+	EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
+		,@custid = @UserID
 		,@funcname = '[Affiliate]'
 		,@System = 'AFFILIATE'
 		,@ErrCode = @ErrCode OUTPUT

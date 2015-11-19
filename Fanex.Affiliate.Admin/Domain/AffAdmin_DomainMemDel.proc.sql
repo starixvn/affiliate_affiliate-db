@@ -1,4 +1,5 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_DomainMemDel]
+	@LicenseeID	INT,
 	@DomainID int OUTPUT,
 	@UserID int,	
 	@IP nvarchar(15)='',
@@ -8,10 +9,13 @@ AS
 Created: 20121115@ThaiTran
 Task : Del a AffDomain
 DB: DB052.Affiliate_12BET
+Revisions:
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 */
 SET NOCOUNT ON
 --Check permission-----------------------------
 EXEC [dbo].[Aff_Con_CheckPermission]
+	@LicenseeID = @LicenseeID,
 	@custid=@UserID,@funcname='[Domain]',
 	@System = 'AFFILIATE',
 	@ErrCode=@ErrCode output

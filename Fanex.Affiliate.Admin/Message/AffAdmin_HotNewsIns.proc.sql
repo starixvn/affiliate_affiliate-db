@@ -1,4 +1,5 @@
-﻿CREATE PROCEDURE [dbo].[AffAdmin_HotNewsIns]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_HotNewsIns]
+		@LicenseeID INT,
 		@important bit,
 		@xml xml,
 		@IP varchar(20),
@@ -18,6 +19,7 @@ Revisions:
 - 20090819@DungTong : Add new Spanish language
 - 20090920@DungTong : Add new Vietnamese and Indonesia Language
 - 20130225@Joseph : Insert data into RefResources table
+- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 Param's Explanation:
 • @important: message important or not
 • @xml: data containing all messages that will be inserted
@@ -31,6 +33,7 @@ Param's Explanation:
 SET NOCOUNT ON
 --Check permission-----------------------------
 EXEC [dbo].[Aff_Con_CheckPermission]
+	@LicenseeID = @LicenseeID,
 	@custid=@UserID,@funcname='[HotNews]',
 	@System = 'AFFILIATE',
 	@ErrCode=@ErrCode output

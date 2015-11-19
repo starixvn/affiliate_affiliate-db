@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateUpdAccountType] 
-	@AffIDs NVARCHAR(4000) = NULL
+	@LicenseeID	INT
+	,@AffIDs NVARCHAR(4000) = NULL
 	,@TestLevel TINYINT
 	,@UserId INT = NULL
 	,@IP VARCHAR(20)
@@ -11,7 +12,8 @@ AS
 	DB: DB052.Affiliate_MYM
 
 	Revisions:
-	  - 20131007@BrianDinh: Change Affiliate's Account Type 	  
+	  - 20131007@BrianDinh: Change Affiliate's Account Type 
+	  - 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site	  
 	Param's Explanation:
 	• 
 */
@@ -19,7 +21,8 @@ BEGIN
 	SET NOCOUNT ON
 
 	--Check permission-----------------------------
-	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserID
+	EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
+		,@custid = @UserID
 		,@funcname = '[Affiliate]'
 		,@System = 'AFFILIATE'
 		,@ErrCode = @ErrCode OUTPUT

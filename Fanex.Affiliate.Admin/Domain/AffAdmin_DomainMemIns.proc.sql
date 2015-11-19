@@ -1,4 +1,5 @@
-﻿CREATE PROC [dbo].[AffAdmin_DomainMemIns]
+﻿ALTER PROC [dbo].[AffAdmin_DomainMemIns]
+	@LicenseeID INT,
 	@DomainID int OUTPUT,
 	@DomainName nvarchar(50), 	
 	@UserID int,		
@@ -9,10 +10,13 @@ AS
 Created: 20130822@Johnny
 Task : Add a new Member domain
 DB: 
+Revisions:
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 */
 SET NOCOUNT ON
 --Check permission-----------------------------
 EXEC [dbo].[Aff_Con_CheckPermission]
+	@LicenseeID = @LicenseeID,
 	@custid=@UserID,@funcname='[Domain]',
 	@System = 'AFFILIATE',
 	@ErrCode=@ErrCode output

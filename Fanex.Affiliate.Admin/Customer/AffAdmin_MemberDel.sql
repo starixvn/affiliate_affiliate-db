@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_MemberDel] 
-	@Username VARCHAR(30)
+	@LicenseeID	INT
+	,@Username VARCHAR(30)
 	,@UserID INT
 	,@IP VARCHAR(20)
 	,@RefNo BIGINT = 0 OUTPUT
@@ -19,6 +20,7 @@ Revisions:
 	- 20100927@Peter : Add OddsFee column for AffDetail  
 	- 20140110@Bobby.Nguyen: revise logical code
 	- 20140429@Bobby.Nguyen: Re-arrange try..catch code to specify error code
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 	
 Param's Explanation:  
 	.@IP: ip of computer sent,  
@@ -31,7 +33,8 @@ BEGIN
 	SET NOCOUNT ON;
 
 	--Check permission-----------------------------  
-	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserID
+	EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
+		,@custid = @UserID
 		,@funcname = '[Affiliate]'
 		,@System = 'AFFILIATE'
 		,@ErrCode = @ErrCode OUTPUT;

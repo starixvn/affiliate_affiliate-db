@@ -1,4 +1,5 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_DomainControlUpd]  
+ @LicenseeID INT,
  @ID int,  
  @AffDomainID int,  
  @MemberDomainID int,  
@@ -13,10 +14,13 @@ AS
 Created: 20121115@Johnny.Trinh  
 Task : Update Domain control info  
 DB: DB052.Affiliate_12BET  
+Revisions:
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 */  
 SET NOCOUNT ON  
 --Check permission-----------------------------  
 EXEC [dbo].[Aff_Con_CheckPermission]  
+ @LicenseeID = @LicenseeID,
  @custid=@UserID,@funcname='[Domain]',  
  @System = 'AFFILIATE',  
  @ErrCode=@ErrCode output

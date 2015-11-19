@@ -2,6 +2,7 @@
 -- Script Template
 -- =============================================
 ALTER PROCEDURE [dbo].[AffAdmin_ExchangeUpdate]
+	@LicenseeID INT,
 	@UserId int,
 	@ExchangeId int,
 	@Rate float,
@@ -17,6 +18,7 @@ AS
 	Revisions:
 		- 20091014@Johnny initialize
 		- 20110223@Viet: Revise
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		
 	Param's Explanation:
 
@@ -24,6 +26,7 @@ AS
 SET NOCOUNT ON
 --Check permission-----------------------------
 EXEC [dbo].[Aff_Con_CheckPermission]
+	@LicenseeID = @LicenseeID,
 	@custid=@UserId,@funcname='[AffEx.Rate]',
 	@System = 'AFFILIATE',
 	@ErrCode=@ErrCode output,

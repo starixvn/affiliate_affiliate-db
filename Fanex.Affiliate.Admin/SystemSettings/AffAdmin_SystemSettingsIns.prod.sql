@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_SystemSettingsIns] 
-	@Updatedby INT
+	@LicenseeID INT
+	,@Updatedby INT
 	,@Key VARCHAR(50)
 	,@Value NVARCHAR(max)
 	,@Type VARCHAR(50) = ''
@@ -20,6 +21,7 @@ Original:
 Revisions:
 	- 20090122@[Reviewer]: [Description of revision] 
 	- 20140122@Bobby: add checking enviroment
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 Param's Explanation:
 
@@ -33,7 +35,8 @@ Param's Explanation:
 BEGIN
 	SET NOCOUNT ON
 
-	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @Updatedby
+	EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
+		,@custid = @Updatedby
 		,@funcname = '[SystemSettings]'
 		,@System = 'AFFILIATE'
 		,@ErrCode = @ErrCode OUTPUT

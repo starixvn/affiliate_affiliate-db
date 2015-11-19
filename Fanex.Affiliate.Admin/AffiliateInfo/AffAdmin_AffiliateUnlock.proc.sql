@@ -1,4 +1,5 @@
 ﻿ALTER Procedure [dbo].[AffAdmin_AffiliateUnlock]  
+	@LicenseeID INT,
 	@UserId int,   
 	@AffId int,      
 	@Ip varchar(20),  
@@ -11,6 +12,7 @@ DB: DB052.Affiliate_AoncashUAT
 Original:  
   
 Revisions:  
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 Parameters:  
 .@UserID : Administrator user id  
 .@GroupID : <1000  
@@ -24,6 +26,7 @@ Parameters:
 SET NOCOUNT ON  
 --Check permission  
 EXEC [dbo].[Aff_Con_CheckPermission]  
+	@LicenseeID = @LicenseeID,
 	@custid=@UserID,
 	@funcname='[Affiliate]',  
 	@System = 'AFFILIATE',  
