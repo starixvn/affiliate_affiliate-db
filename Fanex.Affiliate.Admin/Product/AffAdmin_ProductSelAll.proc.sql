@@ -1,4 +1,5 @@
 ALTER PROCEDURE [dbo].[AffAdmin_ProductSelAll] 
+	@LicenseeID INT,
 	@Name VARCHAR(255) = NULL
 AS
 /*
@@ -8,7 +9,8 @@ DB: DB052.Affiliate_MYM
 Original:AffAdmin_ProductSelAll
 
 Revisions:
-	-20140826@Bobby: add IsEnabled info
+	- 20140826@Bobby: add IsEnabled info
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 Param's Explanation (filtered by):
 
@@ -21,7 +23,7 @@ BEGIN
 	SELECT ProductID
 		,ProductName
 		,Description
-		,au.custid AS Creator
+		,au.UserID AS Creator
 		,ISNULL(au.username, 'System') AS CreatorName
 		,CreatedDate
 		,BettypeList
@@ -39,7 +41,7 @@ BEGIN
 		FROM dbo.Product C WITH (NOLOCK)
 		WHERE ProductName LIKE @Name
 		) x
-		LEFT JOIN dbo.AdminUser au ON x.Creator = au.custid
+		LEFT JOIN dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) au ON x.Creator = au.UserID
 END
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_ProductSelAll] TO [bodbAdminNet] AS [dbo]
