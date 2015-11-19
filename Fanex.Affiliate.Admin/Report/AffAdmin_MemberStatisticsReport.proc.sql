@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_MemberStatisticsReport] 
-	@UserId INT = 0
+	@LicenseeID INT
+	,@UserId INT = 0
 	,@AffName NVARCHAR(100) = NULL
 	,@AffTypes VARCHAR(100) = NULL
 	,@PreferLanguages VARCHAR(1000) = NULL
@@ -18,6 +19,7 @@ AS
 	Revisions:             
 		-20140509:Bobby: update UniqueClick by date
 		-20140509:Bobby: update ActiveMember by date
+		-20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 	Param's Explanation:   
 	• @UserId: Admin user id  
@@ -66,7 +68,7 @@ BEGIN
 		,LANGUAGE
 		,Currency
 		,STATUS
-	FROM [dbo].[AffAdmin_AffiliateListForReport](@UserId, @AffName, @AffTypes, NULL, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate)
+	FROM [dbo].[AffAdmin_AffiliateListForReport](@LicenseeID, @UserId, @AffName, @AffTypes, NULL, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate)
 
 	DECLARE @clickStats AS TABLE (
 		AffId INT

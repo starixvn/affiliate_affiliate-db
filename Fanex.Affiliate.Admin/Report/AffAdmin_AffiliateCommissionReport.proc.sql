@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateCommissionReport] 
-	@UserId 			INT 			= 0
+	@LicenseeID			INT
+	,@UserId 			INT 			= 0
 	,@AffName 			NVARCHAR(100) 	= NULL
 	,@AffTypes 			VARCHAR(100) 	= NULL
 	,@CommGroups 		VARCHAR(1000) 	= NULL
@@ -28,6 +29,7 @@ DB: DBAFFATHENA000\Affiliate_Athena000
 Original: [AffAdmin_CommissionSettle]
 Revisions:
 	- 20140825@Bobby: Add Virtual Sport & PlayerComm - apply SQL stylecope
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 	
 Param's Explanation: 
 	-@TransferStatus: 	0 - ALL, 1 - Is Processing, 2 - Transferred
@@ -104,7 +106,7 @@ BEGIN
 		,MonthDate
 		,GroupId
 		,GroupName
-	FROM [dbo].[AffAdmin_AffiliateListForReport](@UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
+	FROM [dbo].[AffAdmin_AffiliateListForReport](@LicenseeID, @UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
 	
 	IF( NOT EXISTS(SELECT TOP 1 1 FROM @AffUserRpt))
 	BEGIN

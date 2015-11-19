@@ -42,9 +42,9 @@ BEGIN
 	
 	SELECT @IsITAdmin 	= dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID)
 
-	SELECT AttributeID AS CurrencyID
+	SELECT AffCurrencyID AS CurrencyID
 	INTO #tmpCurrency
-	FROM dbo.Aff_f_GetCurrencybyUser(@UserId, 1)
+	FROM dbo.AffAdmin_f_UserCurrency_Select(@UserId,@LicenseeID, '')
 
 	-- Insert statements for procedure here  
 	IF @Currencies != 'All'

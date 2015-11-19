@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_QualifiedMembersReport] 
-	@UserId			INT
+	@LicenseeID		INT
+	,@UserId			INT
 	,@AffId			INT
 	,@MonthDate		DATETIME
 	,@BaseCurrency	TINYINT 		= 2
@@ -14,6 +15,7 @@ Revisions:
 	- 20140514@Bobby: Add Playtech Casio product    
 	- 20140523@Bobby: Rollback check QualifiedAmount
 	- 20140523@Bobby: Add Virtual Sport & apply style-scope
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 Param's Explanation: 
 • @UserId: Admin user id
@@ -25,7 +27,7 @@ BEGIN
 
 	DECLARE @HasPermission BIT
 
-	SELECT @HasPermission = [dbo].[AffAdmin_PermissionOnAffiliate](@UserId, @AffId)
+	SELECT @HasPermission = [dbo].[AffAdmin_PermissionOnAffiliate](@LicenseeID, @UserId, @AffId)
 
 	IF (@HasPermission = 0) RETURN
 

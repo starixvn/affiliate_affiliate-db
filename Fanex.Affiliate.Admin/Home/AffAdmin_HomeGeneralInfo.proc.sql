@@ -1,4 +1,5 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_HomeGeneralInfo] 
+	@LicenseeID INT,
 	@UserId INT = 0
 AS
 /*Created: 20090828@Bryan    
@@ -14,6 +15,7 @@ Revisions:
  - 20140703@bobby: Exclude Payment info that belongs to affiliate test account
  - 20140819@Bobby: Apply SQL style scope
  - 20150107@Bobby: Update counting bannset stats info
+ - 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 Param's Explanation:    
     
@@ -82,9 +84,9 @@ BEGIN
 		,@TransType = 202 -- payment request    
 
 	INSERT INTO @tmpCurrency
-	SELECT AttributeID
+	SELECT AffCurrencyID
 		,0 AS ExRate
-	FROM dbo.Aff_f_GetCurrencybyUser(@userID, 1)
+	FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID, '')
 
 	SELECT @PaymentReqNum = SUM(1)
 	FROM dbo.AffTrans af WITH (NOLOCK)
@@ -200,7 +202,8 @@ BEGIN
 
 	--Get statistics of normal affiliate    
 	EXEC [AffAdmin_GetMemberStatistics] 
-		@UserId 			= @UserId
+		@LicenseeID			= @LicenseeID
+		,@UserId 			= @UserId
 		,@DepositAll 		= @DepositAll 		OUTPUT
 		,@DepositMonth 		= @DepositMonth 	OUTPUT
 		,@PSPFeeAll 		= @PSPFeeAll 		OUTPUT

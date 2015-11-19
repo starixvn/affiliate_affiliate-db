@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateWinLossReport] 
-	@UserId 			INT				= 0
+	@LicenseeID			INT
+	,@UserId 			INT				= 0
 	,@AffName 			NVARCHAR(100) 	= NULL
 	,@AffTypes 			VARCHAR(100)	= NULL
 	,@CommGroups 		VARCHAR(1000) 	= NULL
@@ -26,6 +27,7 @@ DB:
 Original: [AffAdmin_AffiliateWinLossReport]
 Revisions:      
 	- 20140821@Bobby: Add new Virtual Sport product & PlayerComm
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
                 
 Param's Explanation: 
 • @UserId: Admin user id
@@ -143,7 +145,7 @@ BEGIN
 		,MonthDate
 		,GroupId
 		,GroupName
-	FROM [dbo].[AffAdmin_AffiliateListForReport](@UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
+	FROM [dbo].[AffAdmin_AffiliateListForReport](@LicenseeID ,@UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
 
 	IF( NOT EXISTS(SELECT TOP 1 1 FROM @AffUserRpt))
 	BEGIN

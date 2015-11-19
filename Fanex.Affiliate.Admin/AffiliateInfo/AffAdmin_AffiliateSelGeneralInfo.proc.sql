@@ -1,5 +1,6 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateSelGeneralInfo] 
-	@Username		NVARCHAR(30)
+﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateSelGeneralInfo]
+	@LicenseeID		INT 
+	,@Username		NVARCHAR(30)
 	,@UserId		INT				= 0
 	,@Currencies	VARCHAR(100)	= NULL
 	,@IsITAdmin		BIT				= 0
@@ -14,6 +15,7 @@ AS
                      Remove the theory of pending commission and CurrCommEarning     
                      Get PreferredPayment to check approve   
 	- 20140819@Bobby: Apply SQL style scope
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 	
  Param's Explanation:  
  • @Username : Affiliate username  
@@ -51,17 +53,17 @@ BEGIN
 			) -- All Currency selected
 	BEGIN
 		INSERT INTO @tmpCurrency
-		SELECT AttributeID
+		SELECT AffCurrencyID
 			,0 AS ExRate
-		FROM dbo.Aff_f_GetCurrencybyUser(@userID, 1)
+		FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID, '')
 	END
 	ELSE
 	BEGIN
 		INSERT INTO @tmpCurrency
-		SELECT AttributeID
+		SELECT AffCurrencyID
 			,0 AS ExRate
-		FROM dbo.Aff_f_GetCurrencybyUser(@userID, 1) r
-			INNER JOIN #TblCurrency s ON s.CurrencyID = r.AttributeID
+		FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID, '') r
+			INNER JOIN #TblCurrency s ON s.CurrencyID = r.AffCurrencyID
 	END
 
 	DROP TABLE #TblCurrency

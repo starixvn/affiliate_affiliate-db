@@ -1,5 +1,6 @@
 ﻿ALTER FUNCTION [dbo].[AffAdmin_AffiliateListForReport] (
-	@UserId 			INT 			= 0
+	@LicenseeID			INT
+	,@UserId 			INT 			= 0
 	,@AffName 			NVARCHAR(100) 	= NULL
 	,@AffTypes 			VARCHAR(100) 	= NULL
 	,@CommGroups 		VARCHAR(1000) 	= NULL
@@ -33,6 +34,7 @@ AS
 		- 20140218@bobby.nguyen: Fixbug#15128 - Check NoCommission Group
 		- 20140513@Bobby: Add GroupId & GroupName
 		- 20140713@Bobby: Checking filer commgroup: include CommGroupHistory
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 	Param's Explanation: 
 */
@@ -42,9 +44,9 @@ BEGIN
 		,@CurrentDate 		DATETIME
 		
 	DECLARE @tmpCurrency 	TABLE (CurrencyID 	INT)
-		,@AffTypeList 		TABLE (AffTypeID 	INT)
-		,@CommGroupList 	TABLE (CommGroupID 	INT)
-		,@PreferLangList 	TABLE (LanguageID VARCHAR(8))
+	DECLARE @AffTypeList 	TABLE (AffTypeID 	INT)
+	DECLARE @CommGroupList 	TABLE (CommGroupID 	INT)
+	DECLARE @PreferLangList TABLE (LanguageID VARCHAR(8))
 	
 	--AffName
 	SET @AffName = '%' + ISNULL(@AffName, '') + '%'
@@ -53,9 +55,9 @@ BEGIN
 	IF (@Currencies <> 'All')
 	BEGIN
 		INSERT INTO @tmpCurrency
-		SELECT AttributeID
-		FROM dbo.Aff_f_GetCurrencybyUser(@userID, 1) r
-			INNER JOIN [dbo].[strSplit](@Currencies, ',') s ON s.val = r.AttributeID
+		SELECT r.AffCurrencyID
+		FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID, '') r
+			INNER JOIN [dbo].[strSplit](@Currencies, ',') s ON s.val = r.AffCurrencyID
 	END
 
 	--SysCurrency
@@ -71,7 +73,7 @@ BEGIN
 	FROM [dbo].[strSplit](@AffTypes, ',')
 
 	-- filter CommGroup merge with CommGroupHistory
-	INSERT INTO @CommGroupList(GroupID)
+	INSERT INTO @CommGroupList(CommGroupID)
 	SELECT GroupID
 	FROM [dbo].[strSplit](@CommGroups, ',') AS tmp
 		INNER JOIN (

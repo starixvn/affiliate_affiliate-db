@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_GetMemberStatistics] 
-	@UserId 			INT 	= 0
+	@LicenseeID			INT
+	,@UserId 			INT 	= 0
 	,@AffType 			TINYINT = 0
 	,@DepositAll 		MONEY 	= 0 OUTPUT
 	,@DepositMonth 		MONEY 	= 0 OUTPUT
@@ -26,7 +27,8 @@ DB: DB052.Affiliate_AoncashUAT
 Revisions:  
 	- 20131002@Johnny: Apply test level
 	- 20131007@Johnny: Get turnover and withdrawal instead of PSP fee
-	- 20114-819@Bobby: Apply SQL style scope
+	- 20140819@Bobby: Apply SQL style scope
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 	
 Param's Explanation:  
     - @TestLevel: 0: real acc; 1: csd test; 2: QC Test
@@ -47,9 +49,9 @@ BEGIN
 	FROM dbo.AffCommission WITH (NOLOCK)
 
 	INSERT INTO @tmpCurrency
-	SELECT AttributeID
+	SELECT AffCurrencyID
 		,0 AS ExRate
-	FROM dbo.Aff_f_GetCurrencybyUser(@userID, 1)
+	FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID, '')
 
 	IF @MaxWinLostDateAffComm IS NULL
 	BEGIN

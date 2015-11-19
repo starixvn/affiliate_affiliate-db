@@ -115,7 +115,9 @@ BEGIN
 	END
 	ELSE
 	BEGIN
-		EXEC [dbo].[AffAdmin_CheckPermissionCurrency] @UserId = @UserID
+		EXEC [dbo].[AffAdmin_CheckPermissionCurrency] 
+			@LicenseeID = @LicenseeID
+			,@UserId = @UserID
 			,@CurrencyId = @Currency
 			,@ErrCode = @ErrCode OUTPUT
 

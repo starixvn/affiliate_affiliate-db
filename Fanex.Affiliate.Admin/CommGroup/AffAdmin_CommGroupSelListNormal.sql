@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupSelListNormal] 
-	@UserID 	INT 			= NULL
+	@LicenseeID	INT
+	,@UserID 	INT 			= NULL
 	,@Currency 	VARCHAR(255) 	= NULL
 AS
 /*
@@ -15,6 +16,7 @@ Revisions:
 	- 20130903@Joseph: Get NoCommission group (for all currency)
 	- 20140704@Bobby: Include commgroup from CommGroupHistory
 	- 20140818@Bobby: Standalize SP coding
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 */
 BEGIN
 	SET NOCOUNT ON
@@ -24,9 +26,9 @@ BEGIN
 	SET @Currency = ISNULL(@Currency, '')
 
 	INSERT INTO @TblCurrency (CurrencyID)
-	SELECT AttributeID AS CurrencyID
-	FROM dbo.Aff_f_GetCurrencybyUser(@UserID, 1)
-	GROUP BY AttributeID
+	SELECT AffCurrencyID AS CurrencyID
+	FROM dbo.AffAdmin_f_UserCurrency_Select(@UserID, @LicenseeID, '')
+	GROUP BY AffCurrencyID
 
 	IF (@Currency <> 'All')
 	BEGIN

@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupIns] 
-	@UserId 					INT
+	@LicenseeID					INT
+	,@UserId 					INT
 	,@Currency 					INT
 	,@QualifiedAmount 			MONEY
 	,@GroupName 				NVARCHAR(100)
@@ -32,6 +33,7 @@ Revisions:
 	- 20131105@Johnny: Check currency permission
 	- 20140724@Bobby: Update generating @GroupId
 	- 20140820@Bobby: Add Deposit & Withdrawal percent and apply SQL stylescope
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 	
 Parameters:  
 .@UserID : Administrator user id  
@@ -94,7 +96,9 @@ BEGIN
 	SET NOCOUNT ON;
 
 	--Check permission  
-	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserID
+	EXEC [dbo].[Aff_Con_CheckPermission] 
+		@LicenseeID = @LicenseeID
+		,@custid = @UserID
 		,@funcname = '[CommissionGroup]'
 		,@System = 'AFFILIATE'
 		,@ErrCode = @ErrCode OUTPUT
@@ -103,7 +107,9 @@ BEGIN
 	IF (@ErrCode <> 0) RETURN
 
 	--Check Currency Permission
-	EXEC [dbo].[AffAdmin_CheckPermissionCurrency] @UserId = @UserID
+	EXEC [dbo].[AffAdmin_CheckPermissionCurrency] 
+		@LicenseeID = @LicenseeID
+		,@UserId = @UserID
 		,@CurrencyId = @Currency
 		,@ErrCode = @ErrCode OUTPUT
 

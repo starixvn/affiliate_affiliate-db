@@ -1,4 +1,6 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_SystemSupportedCurrencies] @UserId INT
+﻿ALTER PROCEDURE [dbo].[AffAdmin_SystemSupportedCurrencies] 
+	@LicenseeID INT,
+	@UserId INT
 AS
 /*    
 Task : Get Affiliate System Supported Currencies Information  
@@ -8,13 +10,14 @@ Revisions:
  - 20130219@Peter: created 
  - 20130830@Joseph: restrict user permission by currency   
  - 20140112@Bobby.Nguyen: replace AFF_AffiliateCurrencies to AffiliateCurrencies key
+ - 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
  */
 BEGIN
 	SET NOCOUNT ON;
 
-	SELECT AttributeID AS CurrencyID
+	SELECT AffCurrencyID AS CurrencyID
 	INTO #tmpCurrency
-	FROM dbo.Aff_f_GetCurrencybyUser(@UserId, 1)
+	FROM dbo.AffAdmin_f_UserCurrency_Select(@UserId, @LicenseeID, '')
 
 	DECLARE @Currencies VARCHAR(max)
 

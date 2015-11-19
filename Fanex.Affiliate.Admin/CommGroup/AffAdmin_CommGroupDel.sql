@@ -2,6 +2,7 @@
 -- Script Template
 -- =============================================
 ALTER Procedure [dbo].[AffAdmin_CommGroupDel]  
+ @LicenseeID INT,
  @UserId int,  
  @GroupId int,  
  @IP varchar(20),  
@@ -13,11 +14,13 @@ Task : Delete a Commission Group
 DB: DB052.Affiliate_ZZun  
 Original:  
   
-Revisions:  
+Revisions: 
+	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site 
 */  
 SET NOCOUNT ON  
 --Check permission  
 EXEC [dbo].[Aff_Con_CheckPermission]  
+ @LicenseeID = @LicenseeID,
  @custid=@UserID,@funcname='[CommissionGroup]',  
  @System = 'AFFILIATE',  
  @ErrCode=@ErrCode output
@@ -29,6 +32,7 @@ if(@ErrCode<>0)
 DECLARE @Currency int
 Select @Currency = Currency from CommGroup nolock where GroupID=@GroupID
 EXEC [dbo].[AffAdmin_CheckPermissionCurrency]
+	@LicenseeID = @LicenseeID,
 	@UserId = @UserID,
 	@CurrencyId = @Currency,
 	@ErrCode = @ErrCode output

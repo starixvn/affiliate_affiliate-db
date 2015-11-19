@@ -1,14 +1,13 @@
 ﻿USE [Affiliate_Athena000]
 GO
-/****** Object:  StoredProcedure [dbo].[AffAdmin_MemberListSel]    Script Date: 12/16/2014 23:04:15 ******/
+
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-/****** Object:  Stored Procedure dbo.AffAdmin_MemberListSel    Script Date: 5/6/2014 11:15:40 PM ******/
-/****** Object:  Stored Procedure dbo.AffAdmin_MemberListSel    Script Date: 3/2/2014 11:41:01 PM ******/
 ALTER PROCEDURE [dbo].[AffAdmin_MemberListSel]    
+	@LicenseeID INT,
     @UserId int,  
     @AffUsername nvarchar(50) = null,    
     @Username nvarchar(30) = null,      
@@ -35,6 +34,7 @@ AS
         -20130808@Jim: restrict user permission by currency      
         -20131003@Joseph: add more parameters
         -20131227@Bobby: add removed member sorting
+		-20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
  Param's Explanation: 
 • @UserId: Admin UserID
 • @AffUserName: Affiliate name to search 
@@ -59,9 +59,9 @@ BEGIN
     SET NOCOUNT ON    
     declare @AffID int, @CurrDate smalldatetime    
 
-    select  AttributeID as CurrencyID 
+    select  AffCurrencyID as CurrencyID 
     INTO #AffCurrency    
-    from dbo.Aff_f_GetCurrencybyUser (@UserId,1)   
+    from dbo.AffAdmin_f_UserCurrency_Select(@UserId,@LicenseeID, '')   
 
     
     -- declare #TblAffType table (id int primary key, rank int, val nvarchar( 6) )
