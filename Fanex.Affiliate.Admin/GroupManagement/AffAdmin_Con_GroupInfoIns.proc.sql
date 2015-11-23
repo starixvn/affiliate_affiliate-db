@@ -24,7 +24,7 @@ SET NOCOUNT ON
 
 IF exists (select 1 from dbo.AffAdmin_f_GroupInfo_Select('', @LicenseeID) WHERE GroupName = @GroupName)
 BEGIN
-	Select @ErrCode = 13
+	Select @ErrCode = 21
 	return
 END
 

@@ -20,7 +20,7 @@ If @ErrCode <> 0
 
 IF exists (select 1 from dbo.AffAdmin_f_GroupInfo_Select('', @LicenseeID) where Groupname = @GroupName and GroupID <> @GroupID)
 BEGIN
-	Select @ErrCode = 13	
+	Select @ErrCode = 21	
 	return
 END 
 ELSE
