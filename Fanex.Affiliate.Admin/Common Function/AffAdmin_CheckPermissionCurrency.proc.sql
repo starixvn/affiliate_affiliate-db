@@ -10,7 +10,7 @@ Revisions:
 AS
 
 
-IF (Not Exists (SELECT 1 FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID, @CurrencyID)))
+IF (Not Exists (SELECT 1 FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID) WHERE AffCurrencyID = @CurrencyID))
 BEGIN
 	SELECT @ErrCode = 503 --You are not authorized on this Currency.
 	Return

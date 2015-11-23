@@ -61,7 +61,7 @@ BEGIN
 
     select  AffCurrencyID as CurrencyID 
     INTO #AffCurrency    
-    from dbo.AffAdmin_f_UserCurrency_Select(@UserId,@LicenseeID, '')   
+    from dbo.AffAdmin_f_UserCurrency_Select(@UserId,@LicenseeID)   
 
     
     -- declare #TblAffType table (id int primary key, rank int, val nvarchar( 6) )

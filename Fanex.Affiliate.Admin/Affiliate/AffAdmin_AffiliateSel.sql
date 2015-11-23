@@ -90,7 +90,7 @@ BEGIN
 	INSERT INTO @tmpCurrency
 	SELECT r.AffCurrencyID
 		,0 AS ExRate
-	FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID, '') r
+	FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID) r
 		INNER JOIN #TblCurrency s ON s.CurrencyID = r.AffCurrencyID
 
 	DROP TABLE #TblCurrency

@@ -17,7 +17,7 @@ BEGIN
 
 	SELECT AffCurrencyID AS CurrencyID
 	INTO #tmpCurrency
-	FROM dbo.AffAdmin_f_UserCurrency_Select(@UserId, @LicenseeID, '')
+	FROM dbo.AffAdmin_f_UserCurrency_Select(@UserId, @LicenseeID)
 
 	DECLARE @Currencies VARCHAR(max)
 

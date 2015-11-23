@@ -50,13 +50,14 @@ BEGIN
 		, @BelongLevel2 	= 0
 	
 	-- gather admin info
+	DECLARE @AdminID INT
+	SELECT TOP 1 @AdminID = UserID FROM AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) WHERE Username LIKE @AdminName
+
 	INSERT INTO @tblAdmin(AdminName, Currency)
-	SELECT a.UserName
+	SELECT @AdminName
 		, p.AffCurrencyID
-	FROM dbo.AffAdmin_f_UserCurrency_Select('',@LicenseeID,'') p
-		INNER JOIN dbo.AffAdmin_f_AdminUserInfo_Select('',@LicenseeID) a
-		ON p.UserID = a.UserID
-	WHERE a.Username = @AdminName
+	FROM dbo.AffAdmin_f_UserCurrency_Select(@AdminID,@LicenseeID) p
+
 	
 	-- gather affiliate info
 	INSERT INTO @tblAff(AffName, Currency)

@@ -56,7 +56,7 @@ BEGIN
 	BEGIN
 		INSERT INTO @tmpCurrency
 		SELECT r.AffCurrencyID
-		FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID, '') r
+		FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID) r
 			INNER JOIN [dbo].[strSplit](@Currencies, ',') s ON s.val = r.AffCurrencyID
 	END
 

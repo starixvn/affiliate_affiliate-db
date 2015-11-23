@@ -86,7 +86,7 @@ BEGIN
 	INSERT INTO @tmpCurrency
 	SELECT AffCurrencyID
 		,0 AS ExRate
-	FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID, '')
+	FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID)
 
 	SELECT @PaymentReqNum = SUM(1)
 	FROM dbo.AffTrans af WITH (NOLOCK)

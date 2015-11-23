@@ -1,8 +1,7 @@
 ﻿ALTER FUNCTION [dbo].AffAdmin_f_UserCurrency_Select
 (		
 	@UserID INT,
-	@LicenseeID INT,
-	@AffCurrencyID INT
+	@LicenseeID INT
 )
 RETURNS @tbData TABLE
 (
@@ -23,26 +22,42 @@ Param's Explanation:
 */
 
 BEGIN
-	SET @UserID = ISNULL(@UserID,'')
-	SET @LicenseeID = ISNULL(@LicenseeID,'')
-	SET @AffCurrencyID = ISNULL(@AffCurrencyID,'')
 
-	INSERT INTO @tbData (UserID, LicenseeID, CurrencyID, AffCurrencyID)
-	SELECT UsrID, LicenseeID, CurrencyID, NULL
-	FROM DBLIC.bodb_licensee.dbo.CurrencyUser cu WITH (NOLOCK) 
-	WHERE SystemID = 7 -- Affliate
-		AND IsActive = 1
-		AND (@UserID = '' OR UsrID = @UserID)
-		AND (@LicenseeID = '' OR LicenseeID = @LicenseeID)
-	
-	UPDATE @tbData
-	SET AffCurrencyID = c.ExchangeID
-	FROM @tbData d
-		INNER JOIN dbo.CurrencyConverter c ON c.PartnerExchangeID = d.CurrencyID
+	DECLARE @sql VARCHAR(1000)	
+	DECLARE @GroupID INT
+	DECLARE @IsITAdmin BIT = 0
 
-	IF (@AffCurrencyID != '')
-		DELETE FROM @tbData WHERE AffCurrencyID != @AffCurrencyID
+	DECLARE @AffiliateCurrencies NVARCHAR(MAX)
+	select @AffiliateCurrencies=Svalue FROM SystemSettings WITH (NOLOCK) WHERE Sname='AffiliateCurrencies'
 
+	SELECT @GroupID = GroupID FROM DBLIC.bodb_licensee.dbo.Aff_LicenseeUser lu WITH (NOLOCK) WHERE lu.IsActive = 1 AND lu.UserID = @UserID AND lu.LicenseeID = @LicenseeID
+	SELECT @IsITAdmin = CASE WHEN GroupName LIKE 'Aff_IT_Dept' THEN 1 ELSE 0 END FROM DBLIC.bodb_licensee.dbo.Aff_GroupInfo WITH (NOLOCK) WHERE GroupID = @GroupID
+
+	IF (@IsITAdmin = 0)
+	BEGIN
+		INSERT INTO @tbData (UserID, LicenseeID, CurrencyID, AffCurrencyID)
+		SELECT UsrID, cu.LicenseeID, CurrencyID, NULL 
+		FROM DBLIC.bodb_licensee.dbo.CurrencyUser cu WITH (NOLOCK) 
+		WHERE SystemID = 7 -- Affliate 
+			AND cu.IsActive = 1
+			AND cu.UsrID = @UserID
+			AND cu.LicenseeID = @LicenseeID
+
+		UPDATE @tbData
+		SET AffCurrencyID = c.ExchangeID
+		FROM @tbData d
+			INNER JOIN dbo.CurrencyConverter c ON c.PartnerExchangeID = d.CurrencyID
+
+		DELETE FROM @tbData WHERE AffCurrencyID IS NULL
+	END
+	ELSE -- IT Admin account
+	BEGIN
+		INSERT INTO @tbData (UserID, LicenseeID, CurrencyID, AffCurrencyID)
+		SELECT @UserID, @LicenseeID, cc.PartnerExchangeID, c.CurrencyID
+		FROM dbo.strsplit(@AffiliateCurrencies, ',')
+			INNER JOIN dbo.Currency c WITH (NOLOCK) ON c.CurrencyCode = val
+			LEFT JOIN dbo.CurrencyConverter cc WITH (NOLOCK) ON c.CurrencyID = cc.ExchangeID
+	END
 	RETURN
 END
 

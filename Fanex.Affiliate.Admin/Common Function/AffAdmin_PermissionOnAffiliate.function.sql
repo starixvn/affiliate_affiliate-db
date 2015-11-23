@@ -14,7 +14,7 @@ BEGIN
 	Declare @result bit
 	Select @result = 0
 	If Exists ( SELECT 1	
-				FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID, '') r
+				FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID) r
 					INNER JOIN AffInfo a with (nolock) on r.AffCurrencyID = a.Currency
 				WHERE a.AffId = @AffId
 			)

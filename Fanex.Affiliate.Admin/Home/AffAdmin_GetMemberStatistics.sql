@@ -51,7 +51,7 @@ BEGIN
 	INSERT INTO @tmpCurrency
 	SELECT AffCurrencyID
 		,0 AS ExRate
-	FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID, '')
+	FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID)
 
 	IF @MaxWinLostDateAffComm IS NULL
 	BEGIN

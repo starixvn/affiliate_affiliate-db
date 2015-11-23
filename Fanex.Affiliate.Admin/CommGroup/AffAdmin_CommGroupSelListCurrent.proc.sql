@@ -24,7 +24,7 @@ BEGIN
 
 	INSERT INTO @TblCurrency (CurrencyID)
 	SELECT AffCurrencyID AS CurrencyID
-	FROM dbo.AffAdmin_f_UserCurrency_Select(@UserID, @LicenseeID, '')
+	FROM dbo.AffAdmin_f_UserCurrency_Select(@UserID, @LicenseeID)
 	GROUP BY AffCurrencyID
 
 	IF (@Currency <> 'All')
