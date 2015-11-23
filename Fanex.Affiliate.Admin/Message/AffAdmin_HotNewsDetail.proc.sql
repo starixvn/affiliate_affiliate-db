@@ -35,7 +35,7 @@ SET @Names =  stuff(
     from Language l1 (nolock)   
     for xml path('')
     ), 1, 1, '')  
-select * from dbo.AffAdmin_f_AdminUserInfo_Select('',@LicenseeID)
+
 DECLARE @Query VARCHAR(8000)   
 SET @Query = '
 select n.[creator]

@@ -1,4 +1,5 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_NoteUpd]
+	@LicenseeID INT,
 	@Noteid int ,
 	@Content nvarchar(1000) ,
 	@Updatedby int ,
@@ -16,6 +17,7 @@ Original:
 
 Revisions:
 - 20100904@Johnny: Check permission (media affiliate, normal affiliate on this function)
+- 20151123@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 Param's Explanation:
 . @Noteid : autonumber output
@@ -32,6 +34,7 @@ Param's Explanation:
 SET NOCOUNT ON
 
 EXEC dbo.Aff_CheckPermissionOnAff 
+	@LicenseeID = @LicenseeID,
 	@custid=@Updatedby,
 	@AffId=@AffId,
 	@ErrCode=@ErrCode output

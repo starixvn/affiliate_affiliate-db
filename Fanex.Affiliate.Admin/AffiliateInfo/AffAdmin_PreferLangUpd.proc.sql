@@ -1,4 +1,5 @@
-﻿CREATE Procedure [dbo].[AffAdmin_PreferLangUpd]  
+﻿ALTER Procedure [dbo].[AffAdmin_PreferLangUpd]  
+ @LicenseeID INT,
  @affid int,  
  @userid int,  
  @PreferredLanguage varchar(5),    
@@ -11,7 +12,8 @@ AS
 Task : [description of SP]  
 DB: DB052.Affiliate_ZZun  
 Original : [Aff_PreferLangUpd]  
-Revision:s  
+Revisions:
+	- 20151123@Victor: Implement SSO from Internal Admin to Affiliate Admin site
   
 Param's Explanation:  
 • @custid : Affiliate custid  
@@ -27,6 +29,7 @@ SET NOCOUNT ON
  @ErrMsg=@ErrMsg output*/  
    
 EXEC dbo.Aff_CheckPermissionOnAff   
+ @LicenseeID = @LicenseeID,
  @custid=@UserID,  
  @AffId=@AffId,  
  @ErrCode=@ErrCode output

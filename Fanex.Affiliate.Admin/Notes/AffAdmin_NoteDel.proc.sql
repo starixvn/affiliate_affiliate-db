@@ -1,4 +1,5 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_NoteDel]
+	@LicenseeID INT,
 	@AffId int,
 	@listnode varchar(500),
 	@UserID int,
@@ -15,7 +16,7 @@ DB: DB052.Affiliate_ZZun
 Original:
 
 Revisions:
-- 20090122@[Reviewer]: [Description of revision] 
+	- 20151123@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 Param's Explanation:
 .@Noteid: Note needs to be deleted.
@@ -36,6 +37,7 @@ SET NOCOUNT ON
 	@ErrMsg=@ErrMsg output*/
 	
 EXEC dbo.Aff_CheckPermissionOnAff 
+	@LicenseeID = @LicenseeID,
 	@custid=@UserID,
 	@AffId=@AffId,
 	@ErrCode=@ErrCode output,

@@ -1,4 +1,5 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_UpdAffType]
+	@LicenseeID INT,
 	@UserId int ,  
 	@AffID int,  
 	@AffType tinyint,    
@@ -6,11 +7,16 @@
 	@Language varchar(5)= 'en-US',   
 	@ErrCode int = 0 OUTPUT 
 as  
+/*
+	Revisions:
+		- 20151123@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+*/
 begin   
   
 SET NOCOUNT ON  
   
 EXEC dbo.Aff_CheckPermissionOnAff     
+	@LicenseeID = @LicenseeID,
 	@custid=@UserId,    
 	@AffId=@AffId,    
 	@ErrCode=@ErrCode output  

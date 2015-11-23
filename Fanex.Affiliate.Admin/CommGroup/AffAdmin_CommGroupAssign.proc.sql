@@ -1,5 +1,6 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupAssign] 
-	@UserId INT
+	@LicenseeID INT
+	,@UserId INT
 	,@GroupId INT
 	,@AffIDList NVARCHAR(4000)
 	,@IP VARCHAR(20)
@@ -15,6 +16,8 @@ Original:
   
 Revisions:  
 	- 20141028@Bobby: hotfix#24904 - remove abs() function for Withdrawal value when calculating PSP fee
+	- 20151123@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+
 Parameters:  
 .@UserID : Administrator user id  
 .@GroupID : <1000  
@@ -63,7 +66,9 @@ If @ErrCode <> 0
 	SELECT @AffId = AffID
 	FROM @AffCurrency
 
-	EXEC dbo.Aff_CheckPermissionOnAff @custid = @UserID
+	EXEC dbo.Aff_CheckPermissionOnAff 
+		@LicenseeID = @LicenseeID
+		,@custid = @UserID
 		,@AffId = @AffId
 		,@ErrCode = @ErrCode OUTPUT
 		,@ErrMsg = @ErrMsg OUTPUT

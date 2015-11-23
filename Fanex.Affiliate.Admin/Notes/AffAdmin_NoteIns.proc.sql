@@ -1,4 +1,5 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_NoteIns]  
+ @LicenseeID INT,
  @Content [nvarchar](1000),  
  @AffId [int],  
  @Updatedby [int],  
@@ -16,7 +17,7 @@ DB: DB052.Affiliate_ZZun
 Original:  
   
 Revisions:  
-- 20090122@[Reviewer]: [Description of revision]   
+	- 20151123@Victor: Implement SSO from Internal Admin to Affiliate Admin site
   
 Param's Explanation:  
 . @Noteid : autonumber output  
@@ -35,6 +36,7 @@ SET NOCOUNT ON
 DECLARE @Noteid int
 
 EXEC dbo.Aff_CheckPermissionOnAff   
+ @LicenseeID = @LicenseeID,
  @custid=@Updatedby,  
  @AffId=@AffId,  
  @ErrCode=@ErrCode output
