@@ -45,7 +45,7 @@ BEGIN
 		INNER JOIN dbo.Currency c WITH (NOLOCK) ON cy.val=c.CurrencyCode 
 		left JOIN (	select au.UserID, ag.affcurrencyID 
 					from dbo.AffAdmin_f_AdminUserInfo_Select(@UserID, @LicenseeID) au
-						join dbo.AffAdmin_f_UserCurrency_Select(@UserID,@LicenseeID,'') ag on au.userid=ag.userid) ctmp 
+						join dbo.AffAdmin_f_UserCurrency_Select(@UserID,@LicenseeID) ag on au.userid=ag.userid) ctmp 
 					ON c.CurrencyID=ctmp.affcurrencyID
 		--LEFT JOIN dbo.AffGroupPermissionDetail ad WITH (NOLOCK) ON c.CurrencyID=ad.AttributeID AND ad.ObjectID=@UserID AND ad.TypeID=1 ---- Currency permission
 	ORDER BY CASE 	WHEN c.CurrencyID =20 THEN 'UUS'
