@@ -13,12 +13,15 @@ ALTER PROCEDURE [dbo].[AffAdmin_UserCurrency_Insert]
 */
 AS
 BEGIN
+	DECLARE @System INT
+	SELECT @System = id FROM dbo.Systems WITH (NOLOCK) WHERE SystemName LIKE 'AFF'
+
 	DECLARE @CurrencyList TABLE (CurrencyID INT)
 	INSERT INTO @CurrencyList (CurrencyID)
 	SELECT CAST(val AS INT) FROM bodb02.dbo.Lrf_f_StringSplit(@currencyIDs, ',')
 	
 	INSERT INTO dbo.CurrencyUser (usrID, LicenseeID, CurrencyID, SystemID, isActive)
-	SELECT @UserID, @LicenseeID, CurrencyID, 7, @IsActive -- Affiliate System: 7
+	SELECT @UserID, @LicenseeID, CurrencyID, @System, @IsActive -- Affiliate
 	FROM @CurrencyList
 
 END

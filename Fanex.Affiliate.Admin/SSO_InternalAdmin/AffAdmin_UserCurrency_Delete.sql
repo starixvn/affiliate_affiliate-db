@@ -11,8 +11,11 @@ ALTER PROCEDURE [dbo].[AffAdmin_UserCurrency_Delete]
 */
 AS
 BEGIN
+	DECLARE @System INT
+	SELECT @System = id FROM dbo.Systems WITH (NOLOCK) WHERE SystemName LIKE 'AFF'
+
 	DELETE FROM dbo.CurrencyUser 
-	WHERE SystemID = 7 -- Affiliate
+	WHERE SystemID = @System -- Affiliate
 		AND UsrID = @UserID
 		AND LicenseeID = @LicenseeID
 END

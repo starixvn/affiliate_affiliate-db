@@ -35,10 +35,13 @@ BEGIN
 
 	IF (@IsITAdmin = 0)
 	BEGIN
+		DECLARE @System INT
+		SELECT @System = id FROM DBLIC.bodb_licensee.dbo.Systems WITH (NOLOCK) WHERE SystemName LIKE 'AFF'
+
 		INSERT INTO @tbData (UserID, LicenseeID, CurrencyID, AffCurrencyID)
 		SELECT UsrID, cu.LicenseeID, CurrencyID, NULL 
 		FROM DBLIC.bodb_licensee.dbo.CurrencyUser cu WITH (NOLOCK) 
-		WHERE SystemID = 7 -- Affliate 
+		WHERE SystemID = @System -- Affliate 
 			AND cu.IsActive = 1
 			AND cu.UsrID = @UserID
 			AND cu.LicenseeID = @LicenseeID
