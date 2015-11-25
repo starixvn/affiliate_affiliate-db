@@ -7,6 +7,7 @@ RETURNS @tbData TABLE
 (
 	UserID		INT,
 	Username	VARCHAR(50),
+	UserPwd		VARCHAR(50),
 	GroupID		INT,
 	[Status]	BIT,
 	FirstName	NVARCHAR(50),
@@ -28,8 +29,8 @@ Param's Explanation:
 BEGIN
 	SELECT @UserID = ISNULL(@UserID, '')
 
-	INSERT INTO @tbData (UserID, Username, GroupID, [Status], FirstName, LastName, CreateDate, Creator)
-	SELECT u.UserID, u.Username, lu.GroupID, 
+	INSERT INTO @tbData (UserID, Username, UserPwd, GroupID, [Status], FirstName, LastName, CreateDate, Creator)
+	SELECT u.UserID, u.Username, u.UserPwd, lu.GroupID, 
 		CASE WHEN u.Status LIKE 'Closed' THEN 1 ELSE 0 END AS [Status], 
 		u.FirstName, u.LastName, u.CreateDate, u.Creator
 	FROM DBLIC.bodb_licensee.dbo.Users u WITH (NOLOCK) 

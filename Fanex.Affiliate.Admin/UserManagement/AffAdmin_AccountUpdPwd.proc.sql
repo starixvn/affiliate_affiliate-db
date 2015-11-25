@@ -10,10 +10,15 @@ AS
 SET NOCOUNT ON  
 --DB02.bodb02 --> DB052.Affiliate_ZZun
 -- 20101214@Peter : Move this SP to DB DB052.Affiliate_ZZun
+-- 20151125@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 --Check permission-----------------------------
+DECLARE @LicenseeID INT
+SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
+
 if @OldPwd is null
 BEGIN
 	EXEC [dbo].[AffAdmin_Con_CheckPermission] 
+		@LicenseeID = @LicenseeID,
 		@custid=@UserID,
 		@funcname='[UserControl]',
 		@System = 'AFFILIATE',
@@ -23,24 +28,14 @@ BEGIN
 END
 	
 	
-if not exists(select 1 from AdminUser with (NOLOCK) 
-				where CustID = @CustID 
-				and (case when (@OldPwd is not null and UserPwd = @OldPwd) or @OldPwd is null then 1 
+if not exists(select 1 from dbo.AffAdmin_f_AdminUserInfo_Select(@CustID, @LicenseeID) where (case when (@OldPwd is not null and UserPwd = @OldPwd) or @OldPwd is null then 1 
 						else 0 end ) = 1 )
 BEGIN
 	Select @ErrCode = 11
 	RETURN 
 END
 
-
-	  
-declare @PwdExpiry datetime
-  
-select @PwdExpiry = dateadd(dd, 30, getdate())  
-UPDATE AdminUser  with (ROWLOCK, UPDLOCK)  
-SET userpwd=@UserPwd, pwdexpiry=@PwdExpiry   
-where custid=@CustID  
- 
+EXEC DBLIC.bodb_licensee.dbo.AffAdmin_ITAdminUser_Update @UserID = @CustID, @UserPwd = @UserPwd
  
  --Write log
 declare @SPName varchar(50),@LogData nvarchar(200)  

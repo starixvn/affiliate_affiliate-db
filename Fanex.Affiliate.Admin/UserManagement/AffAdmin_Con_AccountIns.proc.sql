@@ -1,11 +1,8 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_Con_AccountIns] 
-	@FirstName nvarchar(50),
-	@LastName nvarchar(50),	
 	@UserName nvarchar(50),
 	@UserPwd nvarchar(50) = '',
 	@CustID int OUTPUT,
-	@UserID int,
-	@GroupID int,	
+	@UserID int,	
 	@IP varchar(15) = '',
 	@Language varchar(5)= 'en-US',
 	@ErrCode int = 0 OUTPUT
@@ -26,6 +23,7 @@ Revisions:
 	- 20100713@Peter : Remove Write Log on IBC DB
 	- 20101112@Henry: add Maxperball161
 	- 20101214@Peter : Move this SP to DB DB052.Affiliate_ZZun
+	- 20151120@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 Param's Explanation:
 • @ErrCode:
     = 0: super create master successfully.
@@ -41,43 +39,30 @@ If @ErrCode <> 0
 	RETURN*/
 --end
 
+DECLARE @LicenseeID INT
+SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
 
-Declare @pwdexpiry datetime, @roleid int, @closed bit
+DECLARE @AddErrCode INT = 0
 
-Select @RoleID = 6,
-	@pwdexpiry =  DATEADD(month,1,CURRENT_TIMESTAMP),
-	@closed = 0
+EXEC DBLIC.bodb_licensee.dbo.AffAdmin_ITAdminUser_Insert @LicenseeID = @LicenseeID, @Username = @Username, @UserPwd = @UserPwd, @Creator = @UserID, @ErrCode = @AddErrCode OUTPUT, @UserID = @CustID OUTPUT
+
 	
-if exists(select 1 from AdminUser with (NOLOCK) where username=@username) 
+IF (@AddErrCode = 1)
 BEGIN
 	SELECT @ErrCode = 2005
-	return
+	RETURN
 END
-
-BEGIN TRANSACTION
-
-	INSERT INTO AdminUser (username, UserPwd, roleid, firstname, lastname, creator, pwdexpiry,closed,GroupId,createdate) 
-	VALUES (@username, @userpwd, @roleid, @firstname, @lastname, @UserID, @pwdexpiry,@closed,@GroupID,getdate()) 
-
-	Select @CustID = @@IDENTITY
-
 	
-	if @@ERROR <> 0
-	BEGIN
-		ROLLBACK TRANSACTION
-		select @ErrCode = 10	
-		return
-	END
-
-COMMIT TRANSACTION 	
-
-EXEC dbo.AffAdmin_Con_PolicyIns @CustID=@Custid,@Userid=@UserID,@GroupID=@GroupID,@IP=@IP
-
+IF @AddErrCode = 2
+BEGIN
+	SELECT @ErrCode = 10	
+	RETURN
+END
 
 DECLARE @SPName varchar(50), @LogData nvarchar(200)
 select @SPName = OBJECT_NAME(@@ProcID)
 
-SELECT @LogData = 'NEW AFFILIATE Admin custid:' + dbo.Aff_ToString(@custid) + ' username:' + @UserName + ' GroupID:' + dbo.Aff_ToString(@GroupID)
+SELECT @LogData = 'NEW AFFILIATE Admin custid:' + dbo.Aff_ToString(@custid) + ' username:' + @UserName
 
 
 EXEC [dbo].[Aff_WriteLog]
