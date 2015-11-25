@@ -1,4 +1,4 @@
-﻿ALTER PROCEDURE [dbo].[Aff_CheckIn]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_CheckIn]
 	@CustID INT,
 	@NetSessionID VARCHAR(30),
 	@ServerID INT,
@@ -24,6 +24,6 @@ SELECT @On_UserID = SCOPE_IDENTITY()
 
 GO
 
-GRANT EXECUTE ON [dbo].[Aff_CheckIn] TO [bodbAdminNet] 
+GRANT EXECUTE ON [dbo].[AffAdmin_CheckIn] TO [bodbAdminNet] 
 GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_CheckIn] TO [vnteam] 
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CheckIn] TO [vnteam] 

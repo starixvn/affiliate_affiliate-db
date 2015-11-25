@@ -1,4 +1,4 @@
-﻿ALTER PROCEDURE [dbo].[Aff_ReCheckIn]     
+﻿ALTER PROCEDURE [dbo].[AffAdmin_ReCheckIn]     
 	@On_UserID INT,    
 	@IsKickedOut BIT = 0 OUTPUT    
 AS    
@@ -33,6 +33,6 @@ ELSE
 
 GO
 
-GRANT EXECUTE ON [dbo].[Aff_ReCheckIn] TO [bodbAdminNet] 
+GRANT EXECUTE ON [dbo].[AffAdmin_ReCheckIn] TO [bodbAdminNet] 
 GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_ReCheckIn] TO [vnteam] 
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_ReCheckIn] TO [vnteam] 
