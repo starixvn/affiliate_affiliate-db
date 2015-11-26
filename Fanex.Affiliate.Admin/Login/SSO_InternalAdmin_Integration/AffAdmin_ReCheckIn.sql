@@ -35,4 +35,6 @@ GO
 
 GRANT EXECUTE ON [dbo].[AffAdmin_ReCheckIn] TO [bodbAdminNet] 
 GO
+GRANT EXECUTE ON [dbo].[AffAdmin_ReCheckIn] TO [bodbLicenseeNet] 
+GO
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_ReCheckIn] TO [vnteam] 

@@ -131,4 +131,6 @@ EXEC Aff_WriteLog_UserLog_Login
 GO
 GRANT EXECUTE ON [dbo].[Aff_UserLogin] TO [bodbAdminNet]
 GO
+GRANT EXECUTE ON [dbo].[Aff_UserLogin] TO [bodbLicenseeNet]
+GO
 GRANT VIEW DEFINITION ON [dbo].[Aff_UserLogin] TO [vnteam]

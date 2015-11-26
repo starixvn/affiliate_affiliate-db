@@ -19,5 +19,7 @@ GO
 
 GRANT EXECUTE ON [dbo].[Aff_UserLogout] TO [bodbAdminNet] 
 GO
+GRANT EXECUTE ON [dbo].[Aff_UserLogout] TO [bodbLicenseeNet] 
+GO
 GRANT VIEW DEFINITION ON [dbo].[Aff_UserLogout] TO [vnteam] 
 GO
