@@ -14,7 +14,7 @@ AS
 SET NOCOUNT ON
 
 --Check permission for account site: @phuc20080213
-EXEC [dbo].[AffAdmin_Con_CheckPermission] @LicenseeID = LicenseeID, @custid=@UserID,@funcname='[UserControl]',@System='AFFILIATE',@ErrCode=@ErrCode output
+EXEC [dbo].[AffAdmin_Con_CheckPermission] @LicenseeID = @LicenseeID, @custid=@UserID,@funcname='[UserControl]',@System='AFFILIATE',@ErrCode=@ErrCode output
 If @ErrCode <> 0
 	RETURN
 --end
