@@ -3,6 +3,7 @@ ALTER PROCEDURE [dbo].[AffAdmin_ITAdminUser_Insert]
 	@LicenseeID	INT,
 	@Username	VARCHAR(50),
 	@UserPwd	VARCHAR(50),
+	@UserSalt	VARCHAR(50),
 	@Status		VARCHAR(30) = 'Open',
 	@CreateDate	DATETIME = NULL,
 	@Creator	INT = NULL,
@@ -30,7 +31,7 @@ BEGIN
 	IF @UserID IS NULL
 	BEGIN
 		INSERT INTO dbo.Users (Username, UserPwd, UserSalt, UserRole, FirstName, LastName, [Status], Creator, CreateDate, LicenseeName, isInternal)
-		SELECT @Username, @UserPwd, '', 'Admin', '', '', @Status, @Creator, @CreateDate, NULL, 1
+		SELECT @Username, @UserPwd, @UserSalt, 'Admin', '', '', @Status, @Creator, @CreateDate, NULL, 0
 
 		SELECT @UserID = SCOPE_IDENTITY()
 	END

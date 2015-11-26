@@ -2,7 +2,9 @@
 	@CustID int,
 	@UserID int,  
 	@OldPwd nvarchar(50)=null,
-	@UserPwd nvarchar(50),    
+	@OldSalt varchar(50)=null,
+	@UserPwd nvarchar(50),   
+	@UserSalt varchar(50), 
 	@IP varchar(20), 
 	@ErrCode int = 0 OUTPUT
 AS  
@@ -28,14 +30,15 @@ BEGIN
 END
 	
 	
-if not exists(select 1 from dbo.AffAdmin_f_AdminUserInfo_Select(@CustID, @LicenseeID) where (case when (@OldPwd is not null and UserPwd = @OldPwd) or @OldPwd is null then 1 
-						else 0 end ) = 1 )
+if not exists(	select 1 from dbo.AffAdmin_f_AdminUserInfo_Select(@CustID, @LicenseeID) 
+				where (case when (@OldPwd is not null and UserPwd = @OldPwd) or @OldPwd is null then 1 else 0 end ) = 1 
+					AND (case when (@OldSalt is not null and UserSalt = @OldSalt) or @OldSalt is null then 1 else 0 end ) = 1)
 BEGIN
 	Select @ErrCode = 11
 	RETURN 
 END
 
-EXEC DBLIC.bodb_licensee.dbo.AffAdmin_ITAdminUser_Update @UserID = @CustID, @UserPwd = @UserPwd
+EXEC DBLIC.bodb_licensee.dbo.AffAdmin_ITAdminUser_Update @UserID = @CustID, @UserPwd = @UserPwd, @UserSalt = @UserSalt
  
  --Write log
 declare @SPName varchar(50),@LogData nvarchar(200)  

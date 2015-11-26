@@ -1,6 +1,7 @@
 ﻿ALTER PROCEDURE [dbo].[AffAdmin_Con_AccountIns] 
 	@UserName nvarchar(50),
 	@UserPwd nvarchar(50) = '',
+	@UserSalt varchar(50) = '',
 	@CustID int OUTPUT,
 	@UserID int,	
 	@IP varchar(15) = '',
@@ -44,7 +45,7 @@ SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LI
 
 DECLARE @AddErrCode INT = 0
 
-EXEC DBLIC.bodb_licensee.dbo.AffAdmin_ITAdminUser_Insert @LicenseeID = @LicenseeID, @Username = @Username, @UserPwd = @UserPwd, @Creator = @UserID, @ErrCode = @AddErrCode OUTPUT, @UserID = @CustID OUTPUT
+EXEC DBLIC.bodb_licensee.dbo.AffAdmin_ITAdminUser_Insert @LicenseeID = @LicenseeID, @Username = @Username, @UserPwd = @UserPwd, @UserSalt = @UserSalt, @Creator = @UserID, @ErrCode = @AddErrCode OUTPUT, @UserID = @CustID OUTPUT
 
 	
 IF (@AddErrCode = 1)
@@ -73,8 +74,7 @@ EXEC [dbo].[Aff_WriteLog]
 		@IP =@IP,
 		@Details=@LogData	
 		
-
-
-
-
-
+GO
+GRANT EXECUTE ON [dbo].[AffAdmin_Con_AccountIns] TO [bodbAdminNet]
+GO
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_Con_AccountIns] TO [vnteam]
