@@ -8,6 +8,7 @@ SET NOCOUNT ON
 
 declare @IsIT bit
 DECLARE @LicenseeID INT
+SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
 
 SELECT @IsIT = CASE WHEN GroupName LIKE 'Aff_IT_Dept' THEN 1 ELSE 0 END 
 	, @LicenseeID = LicenseeID
@@ -28,10 +29,10 @@ Declare @Tmp table(createdate smalldatetime, modifydate smalldatetime, gpolicy t
 Insert into @Tmp
 SELECT gp.createdate,gp.modifydate,gp.policy,gp.groupid,fi.FunctionID,gi.groupname,fi.functionname
 	,fi.functiondesc,fi.parentid ,count(fip.functionid) as SubFuncCount,fi.DisplayOrder
-FROM dbo.AffAdmin_f_GroupPolicy_Select(@GroupID,'') gp
-	INNER JOIN AffAdmin_f_GroupInfo_Select('','') gi on gp.groupid=gi.groupid  
-	INNER JOIN @FuncList fi on gp.FunctionID=fi.FunctionId 
+FROM @FuncList fi
 	left join @FuncList fip on fi.FunctionID = fip.ParentID and fip.parentid <> fip.functionid
+	LEFT JOIN dbo.AffAdmin_f_GroupPolicy_Select(@GroupID,'') gp ON gp.FunctionID = fi.FunctionID
+	LEFT JOIN AffAdmin_f_GroupInfo_Select(@Groupid,'') gi on gp.groupid=gi.groupid  	
 group by gp.createdate,gp.modifydate,gp.policy,gp.groupid,fi.FunctionID,gi.groupname,fi.functionname
 	,fi.functiondesc,fi.parentid, fi.DisplayOrder
 ORDER BY fi.parentid,count(fip.functionid) DESC, fi.DisplayOrder
@@ -45,5 +46,7 @@ End
 
 Select * from @Tmp
 
-
-
+GO
+GRANT EXECUTE ON [dbo].[AffAdmin_Con_GroupPolicySel] TO [bodbAdminNet]
+GO
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_Con_GroupPolicySel] TO [vnteam]
