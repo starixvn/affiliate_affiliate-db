@@ -8,8 +8,13 @@ Original: [Aff_Con_AdminSelByCustID]
 Revisions:
 	- VinhTrinh@20100507: Get closed field from AdminUser instead of CustInfo 
 	-- 20101214@Peter : Move this SP to DB DB052.Affiliate_MYM
+	-- 20151127@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+
 */
 SET NOCOUNT ON
-SELECT ac.custid,ac.username,ac.firstname,ac.lastname,ac.groupid, ac.roleid, ac.closed,ac.userpwd
-FROM AdminUser ac with(nolock)	
-WHERE	ac.custid=@custid
+
+DECLARE @LicenseeID INT
+SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
+
+SELECT ac.userid,ac.username,ac.firstname,ac.lastname,ac.groupid, ac.[Status],ac.userpwd
+FROM dbo.AffAdmin_f_AdminUserInfo_Select(@CustID, @LicenseeID) ac
