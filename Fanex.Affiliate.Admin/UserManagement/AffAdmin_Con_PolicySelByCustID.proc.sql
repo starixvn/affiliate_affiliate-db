@@ -22,19 +22,19 @@ insert into @Tmp
 SELECT   ac.username,
        fi.functionname,
        fi.functiondesc,
-       mp.functionid,
-       mp.policy,
-       gp.policy AS gpolicy,
+       fi.functionid,
+       ISNULL(mp.policy,0) AS policy,
+       ISNULL(gp.policy,0) AS gpolicy,
        (Isnull(mp.policy,0) | Isnull(gp.policy,0)) & Isnull(fi.functionrender,0) AS actual_policy,
        fi.parentid,
        COUNT(fip.functionid) AS subfunccount,
        fi.displayorder
-FROM     #UserPolicy mp WITH (nolock)
-       INNER JOIN #AdminUser ac WITH (nolock)  ON ac.userid = mp.userid
-       INNER JOIN #FuncInfo fi WITH (nolock) ON mp.functionid = fi.functionid        
-       INNER JOIN #GroupPolicy gp WITH (nolock) ON gp.groupid = ac.groupid AND gp.functionid = mp.functionid
-       LEFT JOIN #FuncInfo fip WITH (nolock) ON fi.functionid = fip.parentid AND fip.parentid <> fip.functionid
-GROUP BY ac.username,fi.functionname,fi.functiondesc,mp.functionid,
+FROM    #AdminUser ac WITH (nolock)
+		CROSS JOIN #FuncInfo fi WITH (nolock)
+		LEFT JOIN #FuncInfo fip WITH (nolock) ON fi.functionid = fip.parentid AND fip.parentid <> fip.functionid
+		LEFT JOIN #UserPolicy mp WITH (nolock) ON mp.userid = ac.userid AND mp.functionID = fi.functionID
+		LEFT JOIN #GroupPolicy gp WITH (nolock) ON gp.groupid = ac.groupid AND gp.functionid = fi.functionid
+GROUP BY ac.username,fi.functionname,fi.functiondesc,fi.functionid,
        mp.policy,fi.displayorder,gp.policy,fi.functionrender,
        fi.parentid
 ORDER BY fi.parentid,
