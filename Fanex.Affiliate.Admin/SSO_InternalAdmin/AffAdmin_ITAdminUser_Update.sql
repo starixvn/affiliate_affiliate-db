@@ -17,7 +17,7 @@ AS
 BEGIN
 	UPDATE Users WITH (ROWLOCK, UPDLOCK) 
 	SET UserPwd = ISNULL(@UserPwd, UserPwd),
-		@UserSalt = ISNULL(@UserSalt, UserSalt),
+		UserSalt = ISNULL(@UserSalt, UserSalt),
 		FirstName = ISNULL(@FirstName, FirstName),
 		LastName = ISNULL(@LastName, LastName),
 		[Status] = ISNULL(@Status, [Status])
