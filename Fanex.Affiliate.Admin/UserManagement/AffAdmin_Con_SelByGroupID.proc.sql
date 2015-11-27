@@ -28,7 +28,8 @@ SELECT * INTO #AdminUser FROM dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeI
 
 IF @Groupid is null
 BEGIN
-	SELECT gi.groupname,ac.groupid,ac.userid AS custid, ac.username, ac.firstname, ac.lastname,
+	SELECT gi.groupname,ac.groupid, CASE WHEN ac.GroupId = @GroupIT THEN 1 ELSE 0 END AS IsITAdmin, 
+		ac.userid AS custid, ac.username, ac.firstname, ac.lastname,
 		ac.[Status],ac.createdate,ct.username as creator
 	FROM #AdminUser ac 
 		INNER JOIN dbo.AffAdmin_f_GroupInfo_Select('',@LicenseeID) gi on ac.groupid=gi.groupid
@@ -42,7 +43,8 @@ BEGIN
 END
 ELSE
 BEGIN
-	SELECT gi.groupname,ac.groupid,ac.userid as custid, ac.username, ac.firstname, ac.lastname,
+	SELECT gi.groupname,ac.groupid, CASE WHEN ac.GroupId = @GroupIT THEN 1 ELSE 0 END AS IsITAdmin, 
+		ac.userid as custid, ac.username, ac.firstname, ac.lastname,
 		ac.[Status],ac.createdate,ct.username as creator
 	FROM #AdminUser ac with (nolock) 		
 		INNER JOIN dbo.AffAdmin_f_GroupInfo_Select('',@LicenseeID) gi on ac.groupid=gi.groupid
