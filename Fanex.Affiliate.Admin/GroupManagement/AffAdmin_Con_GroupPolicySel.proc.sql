@@ -27,13 +27,13 @@ Declare @Tmp table(createdate smalldatetime, modifydate smalldatetime, gpolicy t
 					)
 
 Insert into @Tmp
-SELECT gp.createdate,gp.modifydate,gp.policy,gp.groupid,fi.FunctionID,gi.groupname,fi.functionname
+SELECT gp.createdate,gp.modifydate,ISNULL(gp.policy,0) AS policy,gi.groupid,fi.FunctionID,gi.groupname,fi.functionname
 	,fi.functiondesc,fi.parentid ,count(fip.functionid) as SubFuncCount,fi.DisplayOrder
 FROM @FuncList fi
 	left join @FuncList fip on fi.FunctionID = fip.ParentID and fip.parentid <> fip.functionid
+	CROSS JOIN AffAdmin_f_GroupInfo_Select(@Groupid,'') gi
 	LEFT JOIN dbo.AffAdmin_f_GroupPolicy_Select(@GroupID,'') gp ON gp.FunctionID = fi.FunctionID
-	LEFT JOIN AffAdmin_f_GroupInfo_Select(@Groupid,'') gi on gp.groupid=gi.groupid  	
-group by gp.createdate,gp.modifydate,gp.policy,gp.groupid,fi.FunctionID,gi.groupname,fi.functionname
+group by gp.createdate,gp.modifydate,gp.policy,gi.groupid,fi.FunctionID,gi.groupname,fi.functionname
 	,fi.functiondesc,fi.parentid, fi.DisplayOrder
 ORDER BY fi.parentid,count(fip.functionid) DESC, fi.DisplayOrder
 
