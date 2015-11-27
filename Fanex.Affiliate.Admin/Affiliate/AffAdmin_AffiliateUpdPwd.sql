@@ -14,16 +14,22 @@ AS
 	Revisions:
 	  - 20090930@VinhTrinh: Admin Change Affiliate Password
 	  - 20130827@Joseph: rename and update params
+	  - 20151127@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+
 	Param's Explanation:
 	• 
 */
 
 SET NOCOUNT ON
 
+DECLARE @LicenseeID INT
+SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
+
 --Check permission-----------------------------
 if @OldPassword is null
 BEGIN
 	EXEC [dbo].[Aff_Con_CheckPermission] 
+		@LicenseeID = @LicenseeID,
 		@custid=@UserID,
 		@funcname='[Affiliate]',
 		@System = 'AFFILIATE',
