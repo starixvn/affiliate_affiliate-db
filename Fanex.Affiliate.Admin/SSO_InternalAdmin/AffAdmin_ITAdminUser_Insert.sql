@@ -19,6 +19,7 @@ ALTER PROCEDURE [dbo].[AffAdmin_ITAdminUser_Insert]
 AS
 BEGIN
 	SELECT @CreateDate = ISNULL(@CreateDate, GETDATE())
+	SELECT @UserID = NULL
 
 	SELECT TOP 1 @UserID = UserID FROM dbo.Users WITH (NOLOCK) WHERE Username LIKE @Username AND isInternal = 0
 
