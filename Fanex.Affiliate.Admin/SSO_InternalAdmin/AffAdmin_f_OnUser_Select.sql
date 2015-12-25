@@ -1,4 +1,4 @@
-﻿ALTER  FUNCTION  [dbo].AffAdmin_f_OnUser_Select
+﻿ALTER  FUNCTION  [dbo].[AffAdmin_f_OnUser_Select]
 (		
 	@IsKickedOut BIT
 )
@@ -19,6 +19,8 @@ Task :  SSO from Internal Admin to Affiliate Admin
 DB: DBAFF - Affiliate database
 
 Revisions:
+	- 20151224@Bobby: Add limit time range
+	
 Param's Explanation:
 
 */
@@ -30,6 +32,7 @@ BEGIN
 	SELECT On_UserID, CustID, Reload_Time, ServerID, IP, IsKickedOut, NetSessionID
 	FROM DBLIC.bodb_licensee.dbo.Aff_On_User o WITH (NOLOCK) 
 	WHERE IsKickedOut = @IsKickedOut
+		AND reload_time >= dateadd(minute,-15,CURRENT_TIMESTAMP)
 
 	RETURN
 END

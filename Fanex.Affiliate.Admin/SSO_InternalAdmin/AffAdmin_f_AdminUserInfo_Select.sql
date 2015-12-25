@@ -14,7 +14,8 @@ RETURNS @tbData TABLE
 	FirstName	NVARCHAR(50),
 	LastName	NVARCHAR(50),
 	CreateDate DATETIME,
-	Creator		INT
+	Creator		INT,
+	LastLogin  DATETIME
 ) 
 AS	
 /*
@@ -23,6 +24,8 @@ Task :  SSO from Internal Admin to Affiliate Admin
 DB: DBAFF - Affiliate database
 
 Revisions:
+	- 20151224@Bobby: Add last login date into
+	
 Param's Explanation:
 
 */
@@ -30,14 +33,20 @@ Param's Explanation:
 BEGIN
 	SELECT @UserID = ISNULL(@UserID, '')
 
-	INSERT INTO @tbData (UserID, Username, UserPwd, UserSalt, GroupID, [Status], FirstName, LastName, CreateDate, Creator)
-	SELECT u.UserID, u.Username, u.UserPwd, u.UserSalt, lu.GroupID, 
+	INSERT INTO @tbData (UserID, Username, GroupID, [Status], FirstName, LastName, UserPwd, UserSalt, CreateDate, Creator, LastLogin)
+	SELECT u.UserID, u.Username, lu.GroupID, 
 		CASE WHEN u.Status LIKE 'Closed' THEN 1 ELSE 0 END AS [Status], 
-		u.FirstName, u.LastName, u.CreateDate, u.Creator
+		u.FirstName, u.LastName, u.UserPwd, u.UserSalt, u.CreateDate, u.Creator
+		,l.LastLogin
 	FROM DBLIC.bodb_licensee.dbo.Users u WITH (NOLOCK) 
 		INNER JOIN DBLIC.bodb_licensee.dbo.Aff_LicenseeUser lu WITH (NOLOCK) ON lu.UserID = u.UserID AND lu.LicenseeID = @LicenseeID
+		OUTER APPLY (
+			SELECT MAX(LogDate) AS LastLogin
+			FROM DBLIC.bodb_CustomerLog.dbo.UserLog_Login_Aff WITH(NOLOCK)
+			WHERE UserID = lu.UserID
+		) AS l
 	WHERE (@UserID = '' OR u.UserID = @UserID)
-
+	
 	RETURN
 END
 

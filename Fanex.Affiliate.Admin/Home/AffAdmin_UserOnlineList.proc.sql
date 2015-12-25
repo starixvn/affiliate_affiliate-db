@@ -1,5 +1,6 @@
-﻿ALTER Procedure [dbo].[AffAdmin_UserOnlineList]
- @LicenseeID INT,       
+﻿ALTER PROCEDURE [dbo].[AffAdmin_UserOnlineList]
+ @LicenseeID INT,
+ @UserID INT,       
  @PageSize int=50,        
  @PageIndex int=1,      
  @IsIt bit = 0,      
@@ -14,7 +15,9 @@ Revisions:
 	- 20130807@Johnny: initialize      
 	- 20131225@Bobby: update sorting result
 	- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
-       
+    - 20151207@Francis: Revise sp to return only affiliate under user's currency permissions
+    - 20151224@Bobby: Add last login date into
+    
 Param's Explanation:      
  - PageSize: the selected page size on webpage      
  - PageIndex: the index of selected page in paging structure      
@@ -24,28 +27,39 @@ Param's Explanation:
 BEGIN        
 	SET NOCOUNT ON      
 	declare @startNum int, @endNum int, @GroupIT int    
-	declare @Table table(UserName varchar(50),LoggedIn datetime,LastRequest datetime,IP varchar(20),Role varchar(20))       
-    
+	declare @Table table(UserName varchar(50),LoggedIn datetime,LastRequest datetime,IP varchar(20),Role varchar(20)) 
+	    
 	Select @GroupIt = [dbo].AffAdmin_f_GetITGroupID(@LicenseeID)    
         
 	insert into @Table(UserName,LoggedIn,LastRequest,IP,Role)       
-	select UserName,LoggedIn,LastRequest,IP,RoleName      
-	from      
-	(      
-	 (select au.username as UserName, /*au.lastlogged*/'' as LoggedIn, o.reload_time as LastRequest, o.IP as IP, 'Admin' as RoleName       
+	select a.UserName,a.LoggedIn,a.LastRequest,a.IP,a.RoleName      
+	from            
+	 (select au.username as UserName, au.LastLogin as LoggedIn, o.reload_time as LastRequest, o.IP as IP, 'Admin' as RoleName       
 	 from dbo.AffAdmin_f_OnUser_Select(0) o
 	  inner join  dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) au on au.userid=o.custid       
 	 where (case when @IsIT = 1 then 1     
 		when GroupID = @GroupIt then 0    
 		else 1 end) = 1    
-	 )          
-	 union all       
-	 (select aff.username as UserName, aff.lastlogindate as LoggedIn, o.reload_time as LastRequest, o.IP as IP, 'Affiliate' as RoleName      
-	 from ON_USER o with(nolock)      
-	 inner join dbo.affdetail aff with(nolock) on aff.affid=o.custid  and o.iskickedout=0)      
-	) x          
-	--order by       
-
+	 ) a     
+     if (@IsIt = 1)
+     begin     
+		 insert into @Table(UserName,LoggedIn,LastRequest,IP,Role)       
+		 select aff.username as UserName, aff.lastlogindate as LoggedIn, o.reload_time as LastRequest, o.IP as IP, 'Affiliate' as RoleName      
+		 from ON_USER o with(nolock)      
+		 inner join dbo.affdetail aff with(nolock) on aff.affid = o.custid  and o.iskickedout = 0 
+	end
+	else
+	begin
+		insert into @Table(UserName,LoggedIn,LastRequest,IP,Role)       
+		select aff.username as UserName, aff.lastlogindate as LoggedIn, o.reload_time as LastRequest, o.IP as IP, 'Affiliate' as RoleName      
+		from ON_USER o with(nolock)      
+		inner join dbo.affdetail aff with(nolock) on aff.affid = o.custid and o.iskickedout = 0 
+		inner join dbo.AffInfo ai with (nolock) on aff.AffID = ai.AffID
+		where ai.Currency in (select AffCurrencyID from AffAdmin_f_UserCurrency_Select(@UserID, @LicenseeID))
+	end
+	
+	
+	
 	select @NRows=@@ROWCOUNT      
 	select @startNum = (@PageIndex-1)*@PageSize;  
 	select @endNum = (@startNum + @PageSize);      
@@ -61,7 +75,7 @@ BEGIN
 
 	SELECT @TotalPages=@NRows/@PageSize + case when @NRows%@PageSize>0 then 1 else 0 end      
         
-END 
+END
 
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_UserOnlineList] TO [bodbAdminNet]
