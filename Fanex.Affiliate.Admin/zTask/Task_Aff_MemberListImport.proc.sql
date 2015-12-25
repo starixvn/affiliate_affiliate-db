@@ -35,7 +35,7 @@ BEGIN
 		, ProductName
 	FROM dbo.Product WITH(NOLOCK)
 	WHERE IsEnabled = 1
-	
+		AND EffectiveDate <= @ImportDate
 	RETURN 0
 END
    

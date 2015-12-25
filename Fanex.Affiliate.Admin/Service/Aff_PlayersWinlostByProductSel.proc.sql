@@ -66,12 +66,13 @@ BEGIN
 		ProductId
 		, Bettype
 	)
-	SELECT DISTINCT ProductId
-		, Bettype
+	SELECT DISTINCT p.ProductId
+		, bt.Bettype
 	FROM dbo.SportBettypeMatrix bt WITH(NOLOCK)
 		INNER JOIN @ProductFilter p
 		ON bt.ProductId = p.ProductId
-	WHERE bt.IsTest = 1
+	WHERE bt.IsTest 	= 0
+		AND bt.Enabled 	= 1
 	
 	DECLARE @CutDate DATETIME
 		,@MaxDate DATETIME
@@ -265,7 +266,7 @@ BEGIN
 		SELECT b.winlostdate
 			,b.CustID
 			,c.username
-			,b.Sporttype
+			,bt.ProductId
 			,sum(b.turnover)
 			,0 AS Outstanding
 			,sum(b.winlost)
@@ -372,6 +373,7 @@ BEGIN
 	END
 	
 	/*
+	-- turn-off playtech casino product
 	INSERT INTO #tmpRpt (
 		Winlostdate
 		,CustID
