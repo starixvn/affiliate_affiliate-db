@@ -26,7 +26,12 @@ Param's Explanation:
 BEGIN
 	SET NOCOUNT ON
 
+	DECLARE @HasPermission BIT
+
 	SELECT @HasPermission = [dbo].[AffAdmin_PermissionOnAffiliate](@LicenseeID, @UserId, @AffId)
+
+	IF (@HasPermission = 0) RETURN
+	
 	-- Get productid
 	DECLARE @FromDate 		DATETIME
 		,@ToDate 			DATETIME
