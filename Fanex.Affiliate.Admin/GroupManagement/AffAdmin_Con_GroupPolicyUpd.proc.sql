@@ -44,11 +44,11 @@ If @ErrCode <> 0
 
 		IF(@GroupPolicyCount = 0)
 			BEGIN
-				EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupPolicy_Insert @GroupID = @GroupID, @FunctionIDs = @Funcid, @Policy = @Policy, @Creator = @UserID
+																EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupPolicy_Insert @GroupID = @GroupID, @FunctionIDs = @Funcid, @Policy = @Policy, @Creator = @UserID
 			END
 		ELSE
 			BEGIN
-				EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupPolicy_Update @GroupID = @GroupID, @FunctionID = @FuncID, @Policy = @Policy
+																EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupPolicy_Update @GroupID = @GroupID, @FunctionID = @FuncID, @Policy = @Policy
 			END
 		
 		DECLARE @SPName varchar(50), @LogData nvarchar(200)
@@ -73,6 +73,3 @@ If @ErrCode <> 0
 	
 	
 	DROP TABLE #GroupPolicy
-
-
-

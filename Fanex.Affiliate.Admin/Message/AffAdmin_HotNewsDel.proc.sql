@@ -86,8 +86,7 @@ EXEC [dbo].[Aff_WriteLog]
 	@SPName=@SPName,
 	@IP =@IP,
 	@Details=@LogData
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_HotNewsDel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_HotNewsDel] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_HotNewsDel] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_HotNewsDel] TO [vnteam] AS [dbo]

@@ -1,4 +1,4 @@
-﻿ALTER Procedure [dbo].[AffAdmin_PreferLangUpd]  
+﻿ALTER PROCEDURE [dbo].[AffAdmin_PreferLangUpd]  
  @LicenseeID INT,
  @affid int,  
  @userid int,  
@@ -8,7 +8,7 @@
  @ErrCode int = 0 OUTPUT
 AS  
   
-/*Created: 20090822@Peter  
+/*ALTERd: 20090822@Peter  
 Task : [description of SP]  
 DB: DB052.Affiliate_ZZun  
 Original : [Aff_PreferLangUpd]  
@@ -29,7 +29,7 @@ SET NOCOUNT ON
  @ErrMsg=@ErrMsg output*/  
    
 EXEC dbo.Aff_CheckPermissionOnAff   
- @LicenseeID = @LicenseeID,
+ --@LicenseeID = @LicenseeID,
  @custid=@UserID,  
  @AffId=@AffId,  
  @ErrCode=@ErrCode output
@@ -66,7 +66,4 @@ EXEC [dbo].[Aff_WriteLog]
  @Typename= 'UserInfo',   
  @SPName=@SPName ,  
  @IP =@IP,  
- @Details=@LogData  
-	
-
-
+ @Details=@LogData

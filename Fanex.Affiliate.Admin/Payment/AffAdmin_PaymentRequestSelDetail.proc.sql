@@ -1,4 +1,4 @@
-﻿ALTER Procedure [dbo].[AffAdmin_PaymentRequestSelDetail]  
+﻿ALTER PROCEDURE [dbo].[AffAdmin_PaymentRequestSelDetail]  
 	@LicenseeID INT,
     @TransID bigint
 AS  
@@ -65,8 +65,7 @@ FROM AffTrans b with(nolock)
     
 WHERE   
     b.Transtype = 202 and b.transid = @transid
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_PaymentRequestSelDetail] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_PaymentRequestSelDetail] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_PaymentRequestSelDetail] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_PaymentRequestSelDetail] TO [vnteam] AS [dbo]

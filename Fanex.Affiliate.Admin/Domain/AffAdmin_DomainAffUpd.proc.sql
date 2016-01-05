@@ -1,4 +1,4 @@
-﻿ALTER PROC [dbo].[AffAdmin_DomainAffUpd]  
+﻿ALTER PROCEDURE [dbo].[AffAdmin_DomainAffUpd]  
  @LicenseeID INT,
  @DomainID int,  
  @DomainName nvarchar(50),    
@@ -59,10 +59,8 @@ EXEC [dbo].[Aff_WriteLog]
  @Typename = 'AffDomain', -- refer to table LogType  
  @SPName = @SPName,  
  @Details = @Detail,  
- @IP = @IP  
-  
-
+ @IP = @IP
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_DomainAffUpd] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_DomainAffUpd] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainAffUpd] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainAffUpd] TO [vnteam] AS [dbo]

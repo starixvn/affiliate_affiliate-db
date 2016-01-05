@@ -12,8 +12,8 @@ AS
 BEGIN
 	DELETE FROM dbo.Aff_GroupPolicy WHERE GroupID = @GroupID
 END
-GO
 
-GRANT EXECUTE ON [dbo].[AffAdmin_GroupPolicy_Delete] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_GroupPolicy_Delete] TO [vnteam]
+GRANT EXECUTE ON [dbo].[AffAdmin_GroupPolicy_Delete] TO [bodbAdminNet] AS [dbo]
+GO
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_GroupPolicy_Delete] TO [vnteam] AS [dbo]

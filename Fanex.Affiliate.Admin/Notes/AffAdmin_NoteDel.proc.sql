@@ -10,7 +10,7 @@
 as
 begin 
 /*
-Created: 20090122@TrangLe
+ALTERd: 20090122@TrangLe
 Task : [description of SP]
 DB: DB052.Affiliate_ZZun
 Original:
@@ -37,7 +37,7 @@ SET NOCOUNT ON
 	@ErrMsg=@ErrMsg output*/
 	
 EXEC dbo.Aff_CheckPermissionOnAff 
-	@LicenseeID = @LicenseeID,
+	--@LicenseeID = @LicenseeID,
 	@custid=@UserID,
 	@AffId=@AffId,
 	@ErrCode=@ErrCode output,
@@ -68,7 +68,4 @@ EXEC [dbo].[Aff_WriteLog]
 @SPName = @SPName,
 @IP=@IP,
 @Details = @LogData
-end 
-
-
-
+end

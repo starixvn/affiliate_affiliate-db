@@ -20,8 +20,7 @@ BEGIN
 
 	RETURN @GroupIT
 END
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_f_GetITGroupID] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_f_GetITGroupID] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_GetITGroupID] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_GetITGroupID] TO [vnteam] AS [dbo]

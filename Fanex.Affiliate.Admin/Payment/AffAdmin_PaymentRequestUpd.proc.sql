@@ -65,7 +65,7 @@ BEGIN
 	IF (@UserID <> @AffID)
 	BEGIN
 		--Check permission-----------------------------  
-		EXEC [dbo].[Aff_Con_CheckPermission] 
+								EXEC [dbo].[Aff_Con_CheckPermission] 
 			@LicenseeID = @LicenseeID
 			,@custid = @UserID
 			,@funcname = '[Payment]'
@@ -154,8 +154,6 @@ BEGIN
 		,@Details = @LogData
 END
 GO
-
-GRANT EXECUTE ON [dbo].[AffAdmin_PaymentRequestUpd] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_PaymentRequestUpd] TO [bodbAdminNet] AS [dbo]
 GO
-
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_PaymentRequestUpd] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_PaymentRequestUpd] TO [vnteam] AS [dbo]

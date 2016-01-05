@@ -120,8 +120,7 @@ EXEC [dbo].[Aff_WriteLog]	@Creator = @UserID,
 							@SPName = @SPName,
 							@Details = @Detail,
 							@IP = @IP
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_BannerIns] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_BannerIns] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_BannerIns] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_BannerIns] TO [vnteam] AS [dbo]

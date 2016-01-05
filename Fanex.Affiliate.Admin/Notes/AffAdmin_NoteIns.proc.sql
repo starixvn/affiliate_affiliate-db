@@ -11,7 +11,7 @@ WITH EXECUTE AS CALLER
 AS  
 begin   
 /*  
-Created: 20090122@TrangLe  
+ALTERd: 20090122@TrangLe  
 Task : [description of SP]  
 DB: DB052.Affiliate_ZZun  
 Original:  
@@ -36,7 +36,7 @@ SET NOCOUNT ON
 DECLARE @Noteid int
 
 EXEC dbo.Aff_CheckPermissionOnAff   
- @LicenseeID = @LicenseeID,
+ --@LicenseeID = @LicenseeID,
  @custid=@Updatedby,  
  @AffId=@AffId,  
  @ErrCode=@ErrCode output
@@ -70,7 +70,7 @@ COMMIT TRANSACTION
   
 declare @SPName varchar(50), @Detail nvarchar(4000)   
 select @SPName = OBJECT_NAME(@@ProcID)  
-select @Detail = 'Create Note ID:' + dbo.Aff_ToString(@Noteid)  
+select @Detail = 'ALTER Note ID:' + dbo.Aff_ToString(@Noteid)  
   
 EXEC [dbo].[Aff_WriteLog]   
  @Creator = @Updatedby,  
@@ -80,4 +80,4 @@ EXEC [dbo].[Aff_WriteLog]
  @Details = @Detail,  
  @IP = @IP  
    
-end  
+end

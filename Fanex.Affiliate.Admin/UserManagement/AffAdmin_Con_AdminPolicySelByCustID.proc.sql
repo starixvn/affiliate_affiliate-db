@@ -1,4 +1,4 @@
-﻿ALTER Procedure [dbo].[AffAdmin_Con_AdminPolicySelByCustID] 
+﻿ALTER PROCEDURE [dbo].[AffAdmin_Con_AdminPolicySelByCustID] 
 	@LicenseeID INT,
 	@CustID  INT,  
     @GroupID INT  = NULL OUTPUT  
@@ -14,7 +14,7 @@ Declare @Tmp table(username varchar(50), funcname varchar(50), funcdesc nvarchar
  , gpolicy tinyint, actual_policy tinyint, parentid int, subfunccount int, displayorder int)  
 
 SELECT * INTO #AdminUser FROM dbo.AffAdmin_f_AdminUserInfo_Select(@CustID, @LicenseeID)
-SELECT * INTO #FuncInfo FROM dbo.AffAdmin_FunctionInfo_Select('',@LicenseeID)
+SELECT * INTO #FuncInfo FROM dbo.AffAdmin_f_FunctionInfo_Select('',@LicenseeID)
 SELECT * INTO #GroupPolicy FROM dbo.AffAdmin_f_GroupPolicy_Select('','')
 SELECT * INTO #UserPolicy FROM dbo.AffAdmin_f_UserPolicy_Select(@CustID,@LicenseeID,'')
 
@@ -64,8 +64,7 @@ DROP TABLE #AdminUser
 DROP TABLE #FuncInfo
 DROP TABLE #GroupPolicy
 DROP TABLE #UserPolicy
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_Con_AdminPolicySelByCustID] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_Con_AdminPolicySelByCustID] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_Con_AdminPolicySelByCustID] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_Con_AdminPolicySelByCustID] TO [vnteam] AS [dbo]

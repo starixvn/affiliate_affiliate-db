@@ -72,9 +72,8 @@ EXEC [dbo].[Aff_WriteLog]
 		@Typename= 'UserControl',	
 		@SPName=@SPName ,		
 		@IP =@IP,
-		@Details=@LogData	
-		
+		@Details=@LogData
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_Con_AccountIns] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_Con_AccountIns] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_Con_AccountIns] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_Con_AccountIns] TO [vnteam] AS [dbo]

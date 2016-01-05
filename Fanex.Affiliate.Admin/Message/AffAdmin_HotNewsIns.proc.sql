@@ -102,8 +102,7 @@ EXEC [dbo].[Aff_WriteLog]
 	@IP = @IP,
 	@Details = @LogData
 end
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_HotNewsIns] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_HotNewsIns] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_HotNewsIns] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_HotNewsIns] TO [vnteam] AS [dbo]

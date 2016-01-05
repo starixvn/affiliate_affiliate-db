@@ -35,7 +35,7 @@ BEGIN
 	SET NOCOUNT ON;
 
 	--Check permission-----------------------------  
-	EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
+				EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
 		,@custid = @UserID
 		,@funcname = '[Affiliate]'
 		,@System = 'AFFILIATE'
@@ -167,15 +167,8 @@ BEGIN
 		,@Details = @LogData
 END
 GO
-
-
-GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateUpdStatus] TO [bodbDownlineNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateUpdStatus] TO [bodbAdminNet] AS [dbo]
 GO
-
-GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateUpdStatus] TO bodbAdminNet
+GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateUpdStatus] TO [bodbDownlineNet] AS [dbo]
 GO
-
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateUpdStatus] TO [VNTeam]
-
-
-
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateUpdStatus] TO [vnteam] AS [dbo]

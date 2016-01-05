@@ -1,7 +1,4 @@
-﻿-- =============================================
--- Script Template
--- =============================================
-ALTER PROCEDURE [dbo].[AffAdmin_EmailHistoryDel]  
+﻿ALTER PROCEDURE [dbo].[AffAdmin_EmailHistoryDel]  
   @licenseeID int,
   @listmid varchar(4000)=null,  
   @UserID int,  
@@ -91,13 +88,8 @@ EXEC [dbo].[Aff_WriteLog]
  @TypeName= 'Email',   
  @SPName=@SPName,  
  @IP =@IP,  
- @Details=@LogData  
-   
-	
-
-
-
+ @Details=@LogData
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_EmailHistoryDel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_EmailHistoryDel] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_EmailHistoryDel] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_EmailHistoryDel] TO [vnteam] AS [dbo]

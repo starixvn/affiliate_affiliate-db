@@ -1,4 +1,4 @@
-﻿ALTER  PROCEDURE  [dbo].[AffAdmin_UserCurrencySel]	
+﻿ALTER PROCEDURE  [dbo].[AffAdmin_UserCurrencySel]	
 	@LicenseeID INT,	
 	@UserID INT
 AS	
@@ -54,5 +54,3 @@ BEGIN
 			 END 
 		
 END
-
-

@@ -61,8 +61,6 @@ BEGIN
 		,cg.GroupName
 END
 GO
-
-GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupSelListNormal] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupSelListNormal] TO [bodbAdminNet] AS [dbo]
 GO
-
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupSelListNormal] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupSelListNormal] TO [vnteam] AS [dbo]

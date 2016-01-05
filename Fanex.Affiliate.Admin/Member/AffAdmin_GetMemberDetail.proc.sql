@@ -67,5 +67,4 @@ BEGIN
 	WHERE m.UserName = @UserName
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_GetMemberDetail] TO [bodbAdminNet]
-GO
+GRANT EXECUTE ON [dbo].[AffAdmin_GetMemberDetail] TO [bodbAdminNet] AS [dbo]

@@ -19,8 +19,6 @@ Task :  SSO from Internal Admin to Affiliate Admin
 DB: DBAFF - Affiliate database
 
 Revisions:
-	- 20151224@Bobby: Add limit time range
-	
 Param's Explanation:
 
 */
@@ -36,10 +34,7 @@ BEGIN
 
 	RETURN
 END
-
 GO
-GRANT SELECT ON [dbo].AffAdmin_f_OnUser_Select TO [bodbAdminNet]
+GRANT SELECT ON [dbo].[AffAdmin_f_OnUser_Select] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].AffAdmin_f_OnUser_Select TO [vnteam]
-
-
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_OnUser_Select] TO [vnteam] AS [dbo]

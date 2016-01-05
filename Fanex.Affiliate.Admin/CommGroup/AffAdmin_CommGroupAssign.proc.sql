@@ -9,7 +9,7 @@
 	,@RefNo BIGINT = NULL OUTPUT
 AS
 /*  
-Created: 20090719@DungTong  
+ALTERd: 20090719@DungTong  
 Task : Assign a commission group (GroupID<1000) for multiple Affilites   
 DB: DB052.Affiliate_AoncashUAT
 Original:  
@@ -66,9 +66,9 @@ If @ErrCode <> 0
 	SELECT @AffId = AffID
 	FROM @AffCurrency
 
-	EXEC dbo.Aff_CheckPermissionOnAff 
-		@LicenseeID = @LicenseeID
-		,@custid = @UserID
+				EXEC dbo.Aff_CheckPermissionOnAff 
+		--@LicenseeID = @LicenseeID
+		@custid = @UserID
 		,@AffId = @AffId
 		,@ErrCode = @ErrCode OUTPUT
 		,@ErrMsg = @ErrMsg OUTPUT
@@ -258,7 +258,7 @@ If @ErrCode <> 0
 			)
 
 	/*
-CREATE TABLE #MemberDailySum (AffID int, MemCurrency int,Winlostdate smalldatetine, ProductID tinyint,SysExRate float, AffExRate float, MemMarketing money, MemPSP money,
+ALTER TABLE #MemberDailySum (AffID int, MemCurrency int,Winlostdate smalldatetine, ProductID tinyint,SysExRate float, AffExRate float, MemMarketing money, MemPSP money,
                                MemWinlostFake money, MemOddsFee money, MemPlayTechFee money)*/
 	SELECT m.[AffID]
 		,m.[Currency] AS [MemCurrency]
@@ -391,7 +391,4 @@ CREATE TABLE #MemberDailySum (AffID int, MemCurrency int,Winlostdate smalldateti
 		,@Details = @LogData
 END
 GO
-
-GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupAssign] TO [bodbAdminNet]
-GO
-
+GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupAssign] TO [bodbAdminNet] AS [dbo]

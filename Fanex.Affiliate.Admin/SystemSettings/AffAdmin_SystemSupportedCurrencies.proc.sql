@@ -38,6 +38,8 @@ BEGIN
 			SELECT val
 			FROM [dbo].[strSplit](@Currencies, ',')
 			)
-END 
+END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_SystemSupportedCurrencies] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_SystemSupportedCurrencies] TO [bodbAdminNet] AS [dbo]
+GO
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_SystemSupportedCurrencies] TO [vnteam] AS [dbo]

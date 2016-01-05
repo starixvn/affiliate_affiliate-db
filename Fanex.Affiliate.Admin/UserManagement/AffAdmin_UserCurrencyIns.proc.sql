@@ -74,15 +74,15 @@ WHILE (@i<=@max)
 	END
 
 BEGIN
-	EXEC DBLIC.bodb_licensee.dbo.AffAdmin_UserCurrency_Delete @UserID = @UserID, @LicenseeID = @LicenseeID
+				EXEC DBLIC.bodb_licensee.dbo.AffAdmin_UserCurrency_Delete @UserID = @UserID, @LicenseeID = @LicenseeID
 	
 	DECLARE @CurrencyIDs VARCHAR(1000)
 
-	SELECT	@CurrencyIDs = COALESCE(@CurrencyIDs + ', ', '') + CONVERT(VARCHAR(10), CurrencyID)
-	FROM	#Currency 
-	WHERE status = 1
+	SELECT	@CurrencyIDs = COALESCE(@CurrencyIDs + ', ', '') + CONVERT(VARCHAR(10), cc.PartnerExchangeID)
+	FROM	#Currency c INNER JOIN CurrencyConverter cc ON c.currencyid = cc.ExchangeID
+	WHERE STATUS = 1
 
-	EXEC DBLIC.bodb_licensee.dbo.AffAdmin_UserCurrency_Insert @UserID = @UserID, @LicenseeID = @LicenseeID, @CurrencyIDs = @CurrencyIDs, @IsActive = 1
+				EXEC DBLIC.bodb_licensee.dbo.AffAdmin_UserCurrency_Insert @UserID = @UserID, @LicenseeID = @LicenseeID, @CurrencyIDs = @CurrencyIDs, @IsActive = 1
 	
 	-------------------------------------
 	DROP TABLE #Currency

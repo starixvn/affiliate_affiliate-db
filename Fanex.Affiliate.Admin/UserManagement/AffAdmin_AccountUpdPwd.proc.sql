@@ -19,7 +19,7 @@ SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LI
 
 if @OldPwd is null
 BEGIN
-	EXEC [dbo].[AffAdmin_Con_CheckPermission] 
+				EXEC [dbo].[AffAdmin_Con_CheckPermission] 
 		@LicenseeID = @LicenseeID,
 		@custid=@UserID,
 		@funcname='[UserControl]',
@@ -50,8 +50,4 @@ EXEC [dbo].[Aff_WriteLog]
 	@Typename = 'Password', -- refer to table LogType
 	@SPName = @SPName,
 	@Details = @LogData,
-	@IP = @IP  
-  
-
-
-
+	@IP = @IP

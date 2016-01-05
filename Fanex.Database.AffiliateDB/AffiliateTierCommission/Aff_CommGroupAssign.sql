@@ -1,11 +1,9 @@
-﻿
-  
-ALTER Procedure [dbo].[Aff_CommGroupAssign]  
+﻿ALTER PROCEDURE [dbo].[Aff_CommGroupAssign]  
  @UserId int,  
  @GroupId int,  
  @AffIDList nvarchar(4000),      
  @IP varchar(20),  
-	@Language varchar(5)= 'en-US',
+    @Language varchar(5)= 'en-US',
  @ErrCode int = 0 OUTPUT,  
  @ErrMsg nvarchar(4000) = '' OUTPUT,  
  @RefNo bigint = null OUTPUT  
@@ -44,24 +42,30 @@ select @AffId = AffID
 from (select top 1 cast(val as int) as AffID from dbo.strsplit(@AffIDList, ';')) tmp  
   
 EXEC dbo.Aff_CheckPermissionOnAff   
+ --@LicenseeID = @LicenseeID,
+ @custid=@UserID,  
+ @AffId=@AffId,  
+ @ErrCode=@ErrCode output   
+
+/*EXEC dbo.Aff_CheckPermissionOnAff   
  @custid=@UserID,  
  @AffId=@AffId,  
  @ErrCode=@ErrCode output,  
  @ErrMsg=@ErrMsg output  
-  
-   
+ */
+ 
 if(@ErrMsg<>'')  
   return  
   
 if (@GroupID>1000 or  not exists (select 1 from CommGroup(nolock) where GroupID=@GroupID and IsDeleted=0))  
   begin  
    select @ErrCode=101,
-			@ErrMsg = case @Language 
-							when 'en-US' then 'Invalid Group. Please check.'
-							when 'zh-CN' then N'無效的群組.請確認.'
-							when 'zh-TW' then N'无效的群组请确认。'
-							else N'Invalid Group. Please check.'
-						end
+            @ErrMsg = case @Language 
+                            when 'en-US' then 'Invalid Group. Please check.'
+                            when 'zh-CN' then N'無效的群組.請確認.'
+                            when 'zh-TW' then N'无效的群组请确认。'
+                            else N'Invalid Group. Please check.'
+                        end
     return  
   end  
   
@@ -80,12 +84,12 @@ BEGIN TRY
  if(@NoAff<> (select sum(1) from dbo.strsplit(@AffIDList, ';')))  
  begin  
   select @ErrCode=102,
-		@ErrMsg = case @Language 
-							when 'en-US' then 'Invalid Affiliate List. Please check.'
-							when 'zh-CN' then N'無效的工作夥伴名單.請確認.'
-							when 'zh-TW' then N'无效的工作伙伴名单，请确认。'
-							else N'Invalid Affiliate List. Please check.'
-						end
+        @ErrMsg = case @Language 
+                            when 'en-US' then 'Invalid Affiliate List. Please check.'
+                            when 'zh-CN' then N'無效的工作夥伴名單.請確認.'
+                            when 'zh-TW' then N'无效的工作伙伴名单，请确认。'
+                            else N'Invalid Affiliate List. Please check.'
+                        end
   return  
  end   
   
@@ -98,24 +102,24 @@ BEGIN TRY
  if(isnull(@CountCurrency,0) > 1)  
  begin  
   Select @ErrCode=104,
-		@ErrMsg = case @Language 
-							when 'en-US' then 'Currency of the group does not match with affiliate''s currency. Please check.'
-							when 'zh-CN' then N'貨幣的群組與工作夥伴的群組不相配.請確認.'
-							when 'zh-TW' then N'货币的群组与工作伙伴的群组不相配。请确认。'
-							else N'Currency of the group does not match with affiliate''s currency. Please check.'
-						end
-						
+        @ErrMsg = case @Language 
+                            when 'en-US' then 'Currency of the group does not match with affiliate''s currency. Please check.'
+                            when 'zh-CN' then N'貨幣的群組與工作夥伴的群組不相配.請確認.'
+                            when 'zh-TW' then N'货币的群组与工作伙伴的群组不相配。请确认。'
+                            else N'Currency of the group does not match with affiliate''s currency. Please check.'
+                        end
+                        
   return  
  end  
   
 ENd TRY  
 BEGIN CATCH  
  select @ErrCode=103,@ErrMsg = case @Language 
-							when 'en-US' then 'Invalid Affiliate List. Please check.'
-							when 'zh-CN' then N'無效的工作夥伴名單.請確認.'
-							when 'zh-TW' then N'无效的工作伙伴名单，请确认。'
-							else N'Invalid Affiliate List. Please check.'
-						end    
+                            when 'en-US' then 'Invalid Affiliate List. Please check.'
+                            when 'zh-CN' then N'無效的工作夥伴名單.請確認.'
+                            when 'zh-TW' then N'无效的工作伙伴名单，请确认。'
+                            else N'Invalid Affiliate List. Please check.'
+                        end    
     return  
 END CATCH  
   
@@ -135,12 +139,12 @@ BEGIN TRANSACTION
    begin  
         ROLLBACK TRANSACTION  
         Select @ErrMsg = case @Language 
-							when 'en-US' then 'There was an error when updating data.Please try again!'
-							when 'zh-CN' then N'當在更新資料時,會有錯誤.請重新再試一次!'
-							when 'zh-TW' then N'当在更新资料时，会有错误，请重新再试一次！'
-							else N'There was an error when updating data.Please try again!'
-						end   
-						, @ErrCode = 105  
+                            when 'en-US' then 'There was an error when updating data.Please try again!'
+                            when 'zh-CN' then N'當在更新資料時,會有錯誤.請重新再試一次!'
+                            when 'zh-TW' then N'当在更新资料时，会有错误，请重新再试一次！'
+                            else N'There was an error when updating data.Please try again!'
+                        end   
+                        , @ErrCode = 105  
      return   
    end  
      
@@ -156,11 +160,11 @@ BEGIN TRANSACTION
    begin  
         ROLLBACK TRANSACTION  
         Select @ErrMsg = case @Language 
-							when 'en-US' then 'There was an error when updating data.Please try again!'
-							when 'zh-CN' then N'當在更新資料時,會有錯誤.請重新再試一次!'
-							when 'zh-TW' then N'当在更新资料时，会有错误，请重新再试一次！'
-							else N'There was an error when updating data.Please try again!'
-						end, @ErrCode = 106  
+                            when 'en-US' then 'There was an error when updating data.Please try again!'
+                            when 'zh-CN' then N'當在更新資料時,會有錯誤.請重新再試一次!'
+                            when 'zh-TW' then N'当在更新资料时，会有错误，请重新再试一次！'
+                            else N'There was an error when updating data.Please try again!'
+                        end, @ErrCode = 106  
      return   
    end   
     
@@ -177,11 +181,11 @@ BEGIN TRANSACTION
    begin  
         ROLLBACK TRANSACTION  
         Select @ErrMsg = case @Language 
-							when 'en-US' then 'There was an error when updating data.Please try again!'
-							when 'zh-CN' then N'當在更新資料時,會有錯誤.請重新再試一次!'
-							when 'zh-TW' then N'当在更新资料时，会有错误，请重新再试一次！'
-							else N'There was an error when updating data.Please try again!'
-						end, @ErrCode = 107  
+                            when 'en-US' then 'There was an error when updating data.Please try again!'
+                            when 'zh-CN' then N'當在更新資料時,會有錯誤.請重新再試一次!'
+                            when 'zh-TW' then N'当在更新资料时，会有错误，请重新再试一次！'
+                            else N'There was an error when updating data.Please try again!'
+                        end, @ErrCode = 107  
      return   
    end  
   
@@ -193,11 +197,11 @@ BEGIN TRANSACTION
    begin  
         ROLLBACK TRANSACTION  
         Select @ErrMsg = case @Language 
-							when 'en-US' then 'There was an error when updating data.Please try again!'
-							when 'zh-CN' then N'當在更新資料時,會有錯誤.請重新再試一次!'
-							when 'zh-TW' then N'当在更新资料时，会有错误，请重新再试一次！'
-							else N'There was an error when updating data.Please try again!'
-						end, @ErrCode = 108  
+                            when 'en-US' then 'There was an error when updating data.Please try again!'
+                            when 'zh-CN' then N'當在更新資料時,會有錯誤.請重新再試一次!'
+                            when 'zh-TW' then N'当在更新资料时，会有错误，请重新再试一次！'
+                            else N'There was an error when updating data.Please try again!'
+                        end, @ErrCode = 108  
      return   
    end  
           
@@ -219,11 +223,8 @@ EXEC [dbo].[Aff_WriteLog]
  @SPName=@SPName ,  
  @IP =@IP,  
  @RefNo = @RefNo OUTPUT,   
- @Details=@LogData  
-  
-
+ @Details=@LogData
 GO
-GRANT EXECUTE ON [dbo].[Aff_CommGroupAssign] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[Aff_CommGroupAssign] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_CommGroupAssign] TO [vnteam]
-
+GRANT VIEW DEFINITION ON [dbo].[Aff_CommGroupAssign] TO [vnteam] AS [dbo]

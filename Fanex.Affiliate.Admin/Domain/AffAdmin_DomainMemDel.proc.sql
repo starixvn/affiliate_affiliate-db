@@ -48,8 +48,7 @@ EXEC [dbo].[Aff_WriteLog]
 	@SPName = @SPName,
 	@Details = @Detail,
 	@IP = @IP
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_DomainMemDel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_DomainMemDel] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainMemDel] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainMemDel] TO [vnteam] AS [dbo]

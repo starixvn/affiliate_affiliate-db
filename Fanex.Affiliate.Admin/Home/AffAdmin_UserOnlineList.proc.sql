@@ -16,8 +16,6 @@ Revisions:
 	- 20131225@Bobby: update sorting result
 	- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
     - 20151207@Francis: Revise sp to return only affiliate under user's currency permissions
-    - 20151224@Bobby: Add last login date into
-    
 Param's Explanation:      
  - PageSize: the selected page size on webpage      
  - PageIndex: the index of selected page in paging structure      
@@ -76,8 +74,7 @@ BEGIN
 	SELECT @TotalPages=@NRows/@PageSize + case when @NRows%@PageSize>0 then 1 else 0 end      
         
 END
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_UserOnlineList] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_UserOnlineList] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_UserOnlineList] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_UserOnlineList] TO [vnteam] AS [dbo]

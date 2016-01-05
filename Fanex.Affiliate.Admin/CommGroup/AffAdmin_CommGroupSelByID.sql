@@ -1,7 +1,4 @@
-﻿-- =============================================
--- Script Template
--- =============================================
-ALTER Procedure [dbo].[AffAdmin_CommGroupSelByID]		
+﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupSelByID]		
 	@LicenseeID INT,
 	@GroupID int,
 	@UserId int
@@ -19,7 +16,7 @@ Revisions:
 SET NOCOUNT ON
 
 SELECT AffCurrencyID AS CurrencyID INTO #tmpCurrency 
-FROM dbo.AffAdmin_f_UserCurrency_Select(@UserID, @LicenseeID, '')
+FROM dbo.AffAdmin_f_UserCurrency_Select(@UserID, @LicenseeID)
 
 DECLARE @IsITAdmin BIT
 SELECT @IsITAdmin = dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID)
@@ -40,6 +37,6 @@ i.Username,e.CurrencyID,e.CurrencyCode
 
 DROP TABLE #tmpCurrency
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupSelByID] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupSelByID] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupSelByID] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupSelByID] TO [vnteam] AS [dbo]

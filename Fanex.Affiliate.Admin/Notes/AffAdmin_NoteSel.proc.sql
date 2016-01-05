@@ -1,4 +1,4 @@
-﻿ALTER Procedure [dbo].[AffAdmin_NoteSel]	
+﻿ALTER PROCEDURE [dbo].[AffAdmin_NoteSel]	
 	@LicenseeID INT,
 	@AffID int,
 	@NoteId int = null
@@ -23,5 +23,3 @@ FROM AdminNotes N WITH (NOLOCK)
 	INNER JOIN dbo.AffAdmin_f_AdminUserInfo_Select('',@LicenseeID) U ON U.UserID=N.UPDATEDBY
 WHERE AffID = @AffID and
 	(@NoteId is null or NoteId = @NoteId)
-
-

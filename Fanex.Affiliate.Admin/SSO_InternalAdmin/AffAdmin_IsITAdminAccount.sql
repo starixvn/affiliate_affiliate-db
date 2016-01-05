@@ -15,7 +15,6 @@ BEGIN
 	SELECT @IsITAdmin = dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID)
 END
 GO
-
-GRANT EXECUTE ON [dbo].[AffAdmin_IsITAdminAccount] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_IsITAdminAccount] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_IsITAdminAccount] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_IsITAdminAccount] TO [vnteam] AS [dbo]

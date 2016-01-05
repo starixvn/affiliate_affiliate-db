@@ -55,8 +55,7 @@ select n.[creator]
 	 WHERE n.msgid = ' + convert(varchar(10),@MsgID)
 
 exec (@Query)
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_HotNewsDetail] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_HotNewsDetail] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_HotNewsDetail] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_HotNewsDetail] TO [vnteam] AS [dbo]

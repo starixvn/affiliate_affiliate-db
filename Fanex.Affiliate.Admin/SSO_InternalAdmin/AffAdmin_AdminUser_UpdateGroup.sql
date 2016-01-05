@@ -21,8 +21,8 @@ BEGIN
 	WHERE UserID = @UserID
 		AND LicenseeID = @LicenseeID
 END
-GO
 
-GRANT EXECUTE ON [dbo].[AffAdmin_AdminUser_UpdateGroup] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AdminUser_UpdateGroup] TO [vnteam]
+GRANT EXECUTE ON [dbo].[AffAdmin_AdminUser_UpdateGroup] TO [bodbAdminNet] AS [dbo]
+GO
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AdminUser_UpdateGroup] TO [vnteam] AS [dbo]

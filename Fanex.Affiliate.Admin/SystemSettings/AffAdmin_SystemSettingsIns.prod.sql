@@ -35,7 +35,7 @@ Param's Explanation:
 BEGIN
 	SET NOCOUNT ON
 
-	EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
+				EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
 		,@custid = @Updatedby
 		,@funcname = '[SystemSettings]'
 		,@System = 'AFFILIATE'
@@ -122,6 +122,3 @@ BEGIN
 END
 
 GRANT EXECUTE ON [dbo].[AffAdmin_DeductionTypeSel] TO [bodbAdminNet]
-GO
-
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DeductionTypeSel] TO [vnteam]

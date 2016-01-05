@@ -25,8 +25,8 @@ BEGIN
 	FROM @CurrencyList
 
 END
-GO
 
-GRANT EXECUTE ON [dbo].[AffAdmin_UserCurrency_Insert] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_UserCurrency_Insert] TO [vnteam]
+GRANT EXECUTE ON [dbo].[AffAdmin_UserCurrency_Insert] TO [bodbAdminNet] AS [dbo]
+GO
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_UserCurrency_Insert] TO [vnteam] AS [dbo]

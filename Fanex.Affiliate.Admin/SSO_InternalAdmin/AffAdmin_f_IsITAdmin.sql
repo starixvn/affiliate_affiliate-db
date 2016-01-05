@@ -20,13 +20,12 @@ BEGIN
 	WHERE LicenseeID = @LicenseeID AND GroupName LIKE 'Aff_IT_Dept'
 
 	SELECT @IsITAdmin = CASE WHEN lu.GroupID = @ITGroupID THEN 1 ELSE 0 END
-	FROM bodb_licensee.dbo.Aff_LicenseeUser lu WITH (NOLOCK) 
+	FROM DBLIC.bodb_licensee.dbo.Aff_LicenseeUser lu WITH (NOLOCK) 
 	WHERE lu.LicenseeID = @LicenseeID AND lu.UserID = @UserID AND lu.IsActive = 1
 
 	RETURN @IsITAdmin
 END
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_f_IsITAdmin] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_f_IsITAdmin] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_IsITAdmin] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_IsITAdmin] TO [vnteam] AS [dbo]

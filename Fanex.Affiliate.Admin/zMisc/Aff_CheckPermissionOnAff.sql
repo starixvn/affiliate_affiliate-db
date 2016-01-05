@@ -1,15 +1,5 @@
-﻿USE [Affiliate_Athena000]
-GO
-
-SET ANSI_NULLS ON
-GO
-
-SET QUOTED_IDENTIFIER ON
-GO
-
-ALTER PROCEDURE [dbo].[Aff_CheckPermissionOnAff]
-	@LicenseeID INT,
-    @CustId int,
+﻿ALTER PROCEDURE [dbo].[Aff_CheckPermissionOnAff]
+	@CustId int,
     @Username varchar(50) = '',
     @AffId int = 0,
     @ErrCode int = 0 OUTPUT,
@@ -30,8 +20,9 @@ AS
     • @Username : Affiliate username
 */
 SET NOCOUNT ON
-
 Declare @AffType tinyint
+DECLARE @LicenseeID INT
+SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
 
 if @AffId != 0
 Begin
@@ -56,7 +47,7 @@ End
 
 If @AffType = 2
 Begin
-	EXEC [dbo].[Aff_Con_CheckPermission] 
+				EXEC [dbo].[Aff_Con_CheckPermission] 
 		@LicenseeID = @LicenseeID,
         @custid=@CustId,
         @funcname='[MediaAffiliate]',
@@ -67,17 +58,12 @@ Begin
 End
 Else
 Begin
-	EXEC [dbo].[Aff_Con_CheckPermission]
+				EXEC [dbo].[Aff_Con_CheckPermission]
 		@LicenseeID = @LicenseeID,
         @custid=@CustId,@funcname='[Affiliate]',
         @System = 'AFFILIATE',
         @ErrCode=@ErrCode output,
         @ErrMsg=@ErrMsg output    
 End
-
 GO
-
 GRANT VIEW DEFINITION ON [dbo].[Aff_CheckPermissionOnAff] TO [vnteam] AS [dbo]
-GO
-
-

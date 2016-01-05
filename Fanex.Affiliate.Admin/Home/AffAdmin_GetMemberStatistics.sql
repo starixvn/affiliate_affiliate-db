@@ -131,6 +131,7 @@ BEGIN
 			)
 		AND Winlostdate BETWEEN @NextMaxWinlostDate AND @CurrentDate
 		AND ISNULL(ai.TestLevel, 0) <= @TestLevel
+
 	GROUP BY dateadd(mm, DATEDIFF(m, 0, md.winlostdate), 0)
 
 	SELECT @DepositAll = SUM(ISNULL(Deposit, 0))
@@ -174,5 +175,6 @@ BEGIN
 		,@NetWinlostMonth = ISNULL(@WinlostMonth, 0) + ISNULL(@BonusMonth, 0) + ISNULL(@AdjustmentMonth, 0)
 END
 GO
-
-
+GRANT EXECUTE ON [dbo].[AffAdmin_GetMemberStatistics] TO [bodbAdminNet] AS [dbo]
+GO
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_GetMemberStatistics] TO [vnteam] AS [dbo]

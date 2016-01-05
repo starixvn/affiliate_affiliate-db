@@ -16,10 +16,8 @@ SET NOCOUNT ON
 DELETE FROM Aff_On_User WHERE on_userid = @On_UserID
 
 GO
-
-GRANT EXECUTE ON [dbo].[Aff_UserLogout] TO [bodbAdminNet] 
+GRANT EXECUTE ON [dbo].[Aff_UserLogout] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT EXECUTE ON [dbo].[Aff_UserLogout] TO [bodbLicenseeNet] 
+GRANT EXECUTE ON [dbo].[Aff_UserLogout] TO [bodbLicenseeNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_UserLogout] TO [vnteam] 
-GO
+GRANT VIEW DEFINITION ON [dbo].[Aff_UserLogout] TO [vnteam] AS [dbo]

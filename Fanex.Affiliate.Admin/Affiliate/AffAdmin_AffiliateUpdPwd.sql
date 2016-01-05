@@ -1,4 +1,4 @@
-﻿ALTER Procedure [dbo].[AffAdmin_AffiliateUpdPwd]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateUpdPwd]
 	@Id int,
 	@OldPassword nvarchar(50)=null,
 	@Password nvarchar(50),
@@ -28,7 +28,7 @@ SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LI
 --Check permission-----------------------------
 if @OldPassword is null
 BEGIN
-	EXEC [dbo].[Aff_Con_CheckPermission] 
+				EXEC [dbo].[Aff_Con_CheckPermission] 
 		@LicenseeID = @LicenseeID,
 		@custid=@UserID,
 		@funcname='[Affiliate]',
@@ -65,5 +65,3 @@ EXEC [dbo].[Aff_WriteLog]
 	@SPName = @SPName,
 	@Details = @LogData,
 	@IP = @IP
-
-

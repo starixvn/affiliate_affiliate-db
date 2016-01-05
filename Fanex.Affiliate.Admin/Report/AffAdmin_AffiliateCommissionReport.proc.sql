@@ -550,9 +550,6 @@ BEGIN
 	RETURN;
 END
 GO
-
-
 GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateCommissionReport] TO [bodbAdminNet] AS [dbo]
 GO
-
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateCommissionReport] TO [vnteam] AS [dbo]

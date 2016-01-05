@@ -1,4 +1,4 @@
-﻿ALTER FUNCTION [dbo].AffAdmin_f_UserPolicy_Select
+﻿ALTER FUNCTION [dbo].[AffAdmin_f_UserPolicy_Select]
 (		
 	@UserID INT,
 	@LicenseeID INT,
@@ -39,10 +39,7 @@ BEGIN
 	
 	RETURN
 END
-
 GO
-GRANT SELECT ON [dbo].AffAdmin_f_UserPolicy_Select TO [bodbAdminNet]
+GRANT SELECT ON [dbo].[AffAdmin_f_UserPolicy_Select] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].AffAdmin_f_UserPolicy_Select TO [vnteam]
-
-
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_UserPolicy_Select] TO [vnteam] AS [dbo]

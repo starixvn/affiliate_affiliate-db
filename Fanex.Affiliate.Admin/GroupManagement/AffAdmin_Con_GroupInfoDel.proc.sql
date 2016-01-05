@@ -20,7 +20,11 @@ If @ErrCode <> 0
 --end
 SET NOCOUNT ON
 
-IF EXISTS (SELECT 1 FROM AdminUser with (NOLOCK) where GroupID = @GroupID) 
+DECLARE @LicenseeID INT
+SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
+
+
+IF EXISTS (SELECT 1 FROM dbo.AffAdmin_f_AdminUserInfo_Select('',@LicenseeID) where GroupID = @GroupID) 
 BEGIN
 	SELECT @ErrCode = 14
 	RETURN
@@ -43,7 +47,4 @@ EXEC [dbo].[Aff_WriteLog]
 		@Typename= 'UserControl',	
 		@SPName=@SPName ,		
 		@IP =@IP,
-		@Details=@LogData	
-
-
-
+		@Details=@LogData

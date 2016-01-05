@@ -23,9 +23,8 @@ VALUES (@custid, @NetSessionid, @ServerID, 0, @IP)
 SELECT @On_UserID = SCOPE_IDENTITY()
 
 GO
-
-GRANT EXECUTE ON [dbo].[AffAdmin_CheckIn] TO [bodbAdminNet] 
+GRANT EXECUTE ON [dbo].[AffAdmin_CheckIn] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_CheckIn] TO [bodbLicenseeNet] 
+GRANT EXECUTE ON [dbo].[AffAdmin_CheckIn] TO [bodbLicenseeNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CheckIn] TO [vnteam] 
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CheckIn] TO [vnteam] AS [dbo]

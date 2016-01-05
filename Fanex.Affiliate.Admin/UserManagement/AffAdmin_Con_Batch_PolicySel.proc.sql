@@ -1,4 +1,4 @@
-﻿ALTER Procedure [dbo].[AffAdmin_Con_Batch_PolicySel]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_Con_Batch_PolicySel]
 	@LicenseeID INT,
 	@CustIDs nvarchar(4000),
 	@GroupID int = NULL OUTPUT	
@@ -12,7 +12,7 @@ SET NOCOUNT ON
 SELECT * INTO #AdminUser FROM dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID)
 SELECT TOP 1 @GroupID = GroupID FROM #AdminUser WHERE UserID IN (SELECT val FROM dbo.strSplit_Key(@CustIDs,','))
 
-SELECT * INTO #FuncInfo FROM dbo.AffAdmin_FunctionInfo_Select('',@LicenseeID)
+SELECT * INTO #FuncInfo FROM dbo.AffAdmin_f_FunctionInfo_Select('',@LicenseeID)
 SELECT * INTO #GroupPolicy FROM dbo.AffAdmin_f_GroupPolicy_Select(@GroupID,'')
 SELECT * INTO #UserPolicy FROM dbo.AffAdmin_f_UserPolicy_Select('',@LicenseeID,'')
 
@@ -49,8 +49,7 @@ DROP TABLE #AdminUser
 DROP TABLE #FuncInfo
 DROP TABLE #GroupPolicy
 DROP TABLE #UserPolicy
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_Con_Batch_PolicySel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_Con_Batch_PolicySel] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_Con_Batch_PolicySel] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_Con_Batch_PolicySel] TO [vnteam] AS [dbo]

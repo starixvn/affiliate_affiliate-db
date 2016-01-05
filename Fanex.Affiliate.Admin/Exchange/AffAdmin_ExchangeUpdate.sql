@@ -1,7 +1,4 @@
-﻿-- =============================================
--- Script Template
--- =============================================
-ALTER PROCEDURE [dbo].[AffAdmin_ExchangeUpdate]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_ExchangeUpdate]
 	@LicenseeID INT,
 	@UserId int,
 	@ExchangeId int,
@@ -101,9 +98,7 @@ EXEC [dbo].[Aff_WriteLog]
 	@SPName=@SPName,
 	@IP =@IP,
 	@Details=@LogData
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_ExchangeUpdate] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_ExchangeUpdate] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_ExchangeUpdate] TO [vnteam]	
-
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_ExchangeUpdate] TO [vnteam] AS [dbo]

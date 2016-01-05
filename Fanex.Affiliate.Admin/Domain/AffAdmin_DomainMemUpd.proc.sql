@@ -1,4 +1,4 @@
-﻿ALTER PROC [dbo].[AffAdmin_DomainMemUpd]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_DomainMemUpd]
 	@LicenseeID INT,
 	@DomainID int,
 	@DomainName nvarchar(50), 	
@@ -60,8 +60,7 @@ EXEC [dbo].[Aff_WriteLog]
 	@SPName = @SPName,
 	@Details = @Detail,
 	@IP = @IP
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_DomainMemUpd] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_DomainMemUpd] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainMemUpd] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainMemUpd] TO [vnteam] AS [dbo]

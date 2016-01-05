@@ -45,4 +45,3 @@ BEGIN
 END
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_ProductSelAll] TO [bodbAdminNet] AS [dbo]
-GO

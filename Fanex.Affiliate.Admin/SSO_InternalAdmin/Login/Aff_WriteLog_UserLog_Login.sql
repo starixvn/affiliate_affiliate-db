@@ -11,7 +11,7 @@
     @Duration INT = NULL		 
 AS  
 /*  
-Creator: 20151007@Victor
+Creator: Victor
   
 DB: DBLIC/bodb_Licensee
  
@@ -47,12 +47,10 @@ SET NOCOUNT ON
     @CountryCode,
     @Duration
 	)
-	
-
 
 GO
-GRANT EXECUTE ON [dbo].[Aff_WriteLog_UserLog_Login] TO [bodbLicenseeNet]
+GRANT EXECUTE ON [dbo].[Aff_WriteLog_UserLog_Login] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT EXECUTE ON [dbo].[Aff_WriteLog_UserLog_Login] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[Aff_WriteLog_UserLog_Login] TO [bodbLicenseeNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_WriteLog_UserLog_Login] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[Aff_WriteLog_UserLog_Login] TO [vnteam] AS [dbo]

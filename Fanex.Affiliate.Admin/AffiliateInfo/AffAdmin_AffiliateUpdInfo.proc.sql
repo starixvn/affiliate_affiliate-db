@@ -72,7 +72,7 @@ BEGIN
 	--Check permission(If AffId = userid => Affiliate update info else Admin Update Aff info)-----------------------------  
 	IF @AffId <> @userid
 	BEGIN
-		EXEC [dbo].[AffAdmin_Con_CheckPermission] @LicenseeID = @LicenseeID, @custid = @UserID
+								EXEC [dbo].[AffAdmin_Con_CheckPermission] @LicenseeID = @LicenseeID, @custid = @UserID
 			,@funcname = '[Affiliate]'
 			,@System = 'AFFILIATE'
 			,@ErrCode = @ErrCode OUTPUT
@@ -237,4 +237,5 @@ BEGIN
 		,@SPName = @SPName
 		,@IP = @IP
 		,@Details = @Detail
+
 END

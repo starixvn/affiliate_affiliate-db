@@ -115,8 +115,7 @@ else --select for specific language
  end
 
  DROP TABLE #AdminUser
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_HotNewsSel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_HotNewsSel] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_HotNewsSel] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_HotNewsSel] TO [vnteam] AS [dbo]

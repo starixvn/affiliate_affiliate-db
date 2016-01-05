@@ -9,12 +9,11 @@ AS
 	From [MemberDomain] a with(nolock)
 		inner join dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) b on a.Creator = b.UserID
 	order by a.DomainName
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_DomainMemSel] TO [bodbDownlineNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_DomainMemSel] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_DomainMemSel] TO [bodbDownlineNetView]
+GRANT EXECUTE ON [dbo].[AffAdmin_DomainMemSel] TO [bodbDownlineNet] AS [dbo]
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_DomainMemSel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_DomainMemSel] TO [bodbDownlineNetView] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainMemSel] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainMemSel] TO [vnteam] AS [dbo]

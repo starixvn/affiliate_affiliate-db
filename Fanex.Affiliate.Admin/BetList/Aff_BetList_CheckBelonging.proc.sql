@@ -1,13 +1,5 @@
-USE [Affiliate_Athena000]
-GO
-
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
 ALTER PROCEDURE [dbo].[Aff_BetList_CheckBelonging]    
-	@LicenseeID			INT
-	,@AdminName 			VARCHAR(30) = NULL
+	@AdminName 			VARCHAR(30) = NULL
 	,@AffId 			INT = 0
 	,@MemberName 		VARCHAR(30)
 	,@SysName			VARCHAR(30) = 'Athena'
@@ -27,6 +19,9 @@ Revisions:
 */     
 BEGIN    
 	SET NOCOUNT ON;
+	
+	DECLARE @LicenseeID INT
+	SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
 	
 	DECLARE @IsNoComm	BIT
 	
@@ -94,12 +89,8 @@ BEGIN
 	END
 	
 	RETURN;
-END  
-
+END
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_BetList_CheckBelonging] TO [bodbAdminNet] AS [dbo]
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_BetList_CheckBelonging] TO [bodbDownlineNet] AS [dbo]
-GO

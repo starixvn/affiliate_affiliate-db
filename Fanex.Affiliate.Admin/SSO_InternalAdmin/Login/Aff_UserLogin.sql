@@ -1,4 +1,4 @@
-﻿ALTER   PROCEDURE [dbo].[Aff_UserLogin]
+﻿ALTER PROCEDURE [dbo].[Aff_UserLogin]
 	@UserName VARCHAR(50),
 	@UserPwd VARCHAR(50) = '',	
 	@LoginIP VARCHAR(20),
@@ -129,8 +129,8 @@ EXEC Aff_WriteLog_UserLog_Login
 		 @Duration = @Duration
 
 GO
-GRANT EXECUTE ON [dbo].[Aff_UserLogin] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[Aff_UserLogin] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT EXECUTE ON [dbo].[Aff_UserLogin] TO [bodbLicenseeNet]
+GRANT EXECUTE ON [dbo].[Aff_UserLogin] TO [bodbLicenseeNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_UserLogin] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[Aff_UserLogin] TO [vnteam] AS [dbo]

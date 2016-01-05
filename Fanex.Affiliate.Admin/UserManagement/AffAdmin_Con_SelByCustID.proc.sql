@@ -1,4 +1,4 @@
-﻿ALTER Procedure [dbo].[AffAdmin_Con_SelByCustID]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_Con_SelByCustID]
 	@CustID int
 AS
 /*
@@ -16,5 +16,9 @@ SET NOCOUNT ON
 DECLARE @LicenseeID INT
 SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
 
-SELECT ac.userid,ac.username,ac.firstname,ac.lastname,ac.groupid, ac.[Status],ac.userpwd
+Declare @GroupIT int
+Select @GroupIt = [dbo].AffAdmin_f_GetITGroupID(@LicenseeID)
+
+SELECT ac.userid,ac.username,ac.firstname,ac.lastname,ac.groupid, ac.[Status],
+CASE WHEN ac.GroupId = @GroupIT THEN 1 ELSE 0 END AS IsIT
 FROM dbo.AffAdmin_f_AdminUserInfo_Select(@CustID, @LicenseeID) ac

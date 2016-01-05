@@ -1,4 +1,4 @@
-﻿ALTER Procedure [dbo].[AffAdmin_Con_SelByGroupID]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_Con_SelByGroupID]
 	@LicenseeID INT,
 	@Groupid int=null,
 	@Username varchar(30)='%',
@@ -28,7 +28,7 @@ SELECT * INTO #AdminUser FROM dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeI
 
 IF @Groupid is null
 BEGIN
-	SELECT gi.groupname,ac.groupid, CASE WHEN ac.GroupId = @GroupIT THEN 1 ELSE 0 END AS IsITAdmin, 
+	SELECT gi.groupname,ac.groupid, CASE WHEN ac.GroupId = @GroupIT THEN 1 ELSE 0 END AS IsIT, 
 		ac.userid AS custid, ac.username, ac.firstname, ac.lastname,
 		ac.[Status],ac.createdate,ct.username as creator
 	FROM #AdminUser ac 
@@ -43,7 +43,7 @@ BEGIN
 END
 ELSE
 BEGIN
-	SELECT gi.groupname,ac.groupid, CASE WHEN ac.GroupId = @GroupIT THEN 1 ELSE 0 END AS IsITAdmin, 
+	SELECT gi.groupname,ac.groupid, CASE WHEN ac.GroupId = @GroupIT THEN 1 ELSE 0 END AS IsIT, 
 		ac.userid as custid, ac.username, ac.firstname, ac.lastname,
 		ac.[Status],ac.createdate,ct.username as creator
 	FROM #AdminUser ac with (nolock) 		
@@ -59,9 +59,3 @@ BEGIN
 END
 
 DROP TABLE #AdminUser
-
-
-
-
-
-

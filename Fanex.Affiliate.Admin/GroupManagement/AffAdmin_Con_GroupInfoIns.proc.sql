@@ -44,7 +44,7 @@ EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupPolicy_Insert @GroupID = @NewGroupID,
 
 IF @@ERROR <> 0
 BEGIN
-	EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupInfo_Delete @GroupID = @NewGroupID
+				EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupInfo_Delete @GroupID = @NewGroupID
 	select @ErrCode = 12
 	return
 END
@@ -61,7 +61,4 @@ EXEC [dbo].[Aff_WriteLog]
 		@Typename= 'UserControl',	
 		@SPName=@SPName ,		
 		@IP =@IP,
-		@Details=@LogData	
-
-
-
+		@Details=@LogData

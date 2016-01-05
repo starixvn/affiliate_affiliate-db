@@ -1,4 +1,4 @@
-﻿ALTER Procedure [dbo].[AffAdmin_AffiliateUpdClosedStatus]  
+﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateUpdClosedStatus]  
  @LicenseeID INT,
  @affid int,  
  @userid int,  
@@ -7,7 +7,7 @@
 	@Language varchar(5)= 'en-US', 
  @ErrCode int = 0 OUTPUT 
 AS    
-/*Created: 20090321@Peter  
+/*ALTERd: 20090321@Peter  
 Task : [description of SP]  
 DB: DB052.Affiliate_ZZun  
 Original : [Aff_AffiliateUpdClosedStatus]  
@@ -27,7 +27,7 @@ SET NOCOUNT ON
  @ErrMsg=@ErrMsg output*/  
    
 EXEC dbo.Aff_CheckPermissionOnAff   
- @LicenseeID = @LicenseeID,
+ --@LicenseeID = @LicenseeID,
  @custid=@UserID,  
  @AffId=@AffId,  
  @ErrCode=@ErrCode output 
@@ -39,7 +39,7 @@ If @ErrCode <> 0
 /*if @Closed = 1  
 Begin  
  --Check permission whether this user has [CommissionGroup] right  
- EXEC [dbo].[Aff_Con_CheckPermission]  
+    EXEC [dbo].[Aff_Con_CheckPermission]  
   @custid=@UserID,@funcname='[CommissionGroup]',  
   @System = 'AFFILIATE',  
   @ErrCode=@ErrCode output,  
@@ -113,6 +113,4 @@ EXEC [dbo].[Aff_WriteLog]
  @SPName=@SPName ,  
  @IP =@IP,  
  @RefNo = @RefNo,  
- @Details=@LogData  	
-
-
+ @Details=@LogData

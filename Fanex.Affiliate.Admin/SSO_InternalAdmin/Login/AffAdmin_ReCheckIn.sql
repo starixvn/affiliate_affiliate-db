@@ -29,12 +29,11 @@ IF @@ROWCOUNT = 0
 ELSE IF EXISTS (SELECT 1 FROM @OUTPUT WHERE IsKickedOut = 1)
 	SELECT @IsKickedOut = 1
 ELSE
-	SET @IsKickedOut = 0    
+	SET @IsKickedOut = 0
 
 GO
-
-GRANT EXECUTE ON [dbo].[AffAdmin_ReCheckIn] TO [bodbAdminNet] 
+GRANT EXECUTE ON [dbo].[AffAdmin_ReCheckIn] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_ReCheckIn] TO [bodbLicenseeNet] 
+GRANT EXECUTE ON [dbo].[AffAdmin_ReCheckIn] TO [bodbLicenseeNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_ReCheckIn] TO [vnteam] 
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_ReCheckIn] TO [vnteam] AS [dbo]

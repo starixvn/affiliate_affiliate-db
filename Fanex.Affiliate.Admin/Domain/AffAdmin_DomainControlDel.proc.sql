@@ -1,4 +1,4 @@
-﻿ALTER Procedure [dbo].[AffAdmin_DomainControlDel]  
+﻿ALTER PROCEDURE [dbo].[AffAdmin_DomainControlDel]  
  @LicenseeID INT,
  @Id int,  
  @UserID int,   
@@ -44,10 +44,8 @@ EXEC [dbo].[Aff_WriteLog]
  @Typename = 'AffDomainControl', -- refer to table LogType  
  @SPName = @SPName,  
  @Details = @Detail,  
- @IP = @IP  
-
-  
+ @IP = @IP
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_DomainControlDel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_DomainControlDel] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainControlDel] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainControlDel] TO [vnteam] AS [dbo]

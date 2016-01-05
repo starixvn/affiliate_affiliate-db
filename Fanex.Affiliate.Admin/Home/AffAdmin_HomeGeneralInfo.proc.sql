@@ -201,7 +201,7 @@ BEGIN
 	SELECT @NextMaxWinlostDate = dateadd(d, 1, @MaxWinLostDateAffComm)
 
 	--Get statistics of normal affiliate    
-	EXEC [AffAdmin_GetMemberStatistics] 
+				EXEC [AffAdmin_GetMemberStatistics] 
 		@LicenseeID			= @LicenseeID
 		,@UserId 			= @UserId
 		,@DepositAll 		= @DepositAll 		OUTPUT
@@ -288,9 +288,6 @@ BEGIN
 		,ISNULL(@NonDepositMemMonthNum, 0) AS NonDepositMemMonthNum
 END
 GO
-
-GRANT EXECUTE ON [dbo].[AffAdmin_HomeGeneralInfo] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_HomeGeneralInfo] TO [bodbAdminNet] AS [dbo]
 GO
-
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_HomeGeneralInfo] TO [vnteam]
-
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_HomeGeneralInfo] TO [vnteam] AS [dbo]

@@ -16,7 +16,7 @@ begin
 SET NOCOUNT ON  
   
 EXEC dbo.Aff_CheckPermissionOnAff     
-	@LicenseeID = @LicenseeID,
+	--@LicenseeID = @LicenseeID,
 	@custid=@UserId,    
 	@AffId=@AffId,    
 	@ErrCode=@ErrCode output  
@@ -49,10 +49,8 @@ EXEC [dbo].[Aff_WriteLog]
 	@Details = @Detail,  
 	@IP = @IP  
    
-end  
-  
-     
+end
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_UpdAffType] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_UpdAffType] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_UpdAffType] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_UpdAffType] TO [vnteam] AS [dbo]

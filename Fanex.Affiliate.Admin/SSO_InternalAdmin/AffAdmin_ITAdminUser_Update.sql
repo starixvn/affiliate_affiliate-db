@@ -24,8 +24,8 @@ BEGIN
 	WHERE UserID = @UserID
 
 END
-GO
 
-GRANT EXECUTE ON [dbo].[AffAdmin_ITAdminUser_Update] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_ITAdminUser_Update] TO [vnteam]
+GRANT EXECUTE ON [dbo].[AffAdmin_ITAdminUser_Update] TO [bodbAdminNet] AS [dbo]
+GO
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_ITAdminUser_Update] TO [vnteam] AS [dbo]

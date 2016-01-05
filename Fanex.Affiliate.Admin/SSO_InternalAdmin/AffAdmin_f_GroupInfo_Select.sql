@@ -37,10 +37,7 @@ BEGIN
 	
 	RETURN
 END
-
 GO
-GRANT SELECT ON [dbo].[AffAdmin_f_GroupInfo_Select] TO [bodbAdminNet]
+GRANT SELECT ON [dbo].[AffAdmin_f_GroupInfo_Select] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_GroupInfo_Select] TO [vnteam]
-
-
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_GroupInfo_Select] TO [vnteam] AS [dbo]

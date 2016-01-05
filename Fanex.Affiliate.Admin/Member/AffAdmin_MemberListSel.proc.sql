@@ -1,12 +1,4 @@
-﻿USE [Affiliate_Athena000]
-GO
-
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-
-ALTER PROCEDURE [dbo].[AffAdmin_MemberListSel]    
+﻿ALTER PROCEDURE [dbo].[AffAdmin_MemberListSel]    
 	@LicenseeID INT,
     @UserId int,  
     @AffUsername nvarchar(50) = null,    
@@ -163,4 +155,6 @@ BEGIN
     ---------------------- 
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_MemberListSel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_MemberListSel] TO [bodbAdminNet] AS [dbo]
+GO
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_MemberListSel] TO [vnteam] AS [dbo]

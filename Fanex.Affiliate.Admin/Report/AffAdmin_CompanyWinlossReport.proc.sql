@@ -453,8 +453,6 @@ BEGIN
 	RETURN;
 END
 GO
-
-GRANT EXECUTE ON [dbo].[AffAdmin_CompanyWinLossReport] TO [bodbAdminNet] AS [dbo]
+GRANT EXECUTE ON [dbo].[AffAdmin_CompanyWinlossReport] TO [bodbAdminNet] AS [dbo]
 GO
-
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CompanyWinLossReport] TO [vnteam] AS [dbo]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CompanyWinlossReport] TO [vnteam] AS [dbo]

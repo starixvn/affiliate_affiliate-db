@@ -122,8 +122,6 @@ BEGIN
 	ORDER BY on_userid
 END
 GO
-
-GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateSelGeneralInfo] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateSelGeneralInfo] TO [bodbAdminNet] AS [dbo]
 GO
-
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateSelGeneralInfo] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateSelGeneralInfo] TO [vnteam] AS [dbo]

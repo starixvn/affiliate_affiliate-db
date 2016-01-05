@@ -35,6 +35,7 @@ EXEC [dbo].[AffAdmin_Con_CheckPermission]
 	
 If @ErrCode <> 0
 	RETURN
+	
 -----------------------------------------------
 --Check list of bannerID
 if(@ListBannerID is null)
@@ -61,7 +62,7 @@ from Banners a (nolock)
 	        return      
         END    
 --Check UserID is valid
-if(not exists(select 1 from AdminUser (nolock) where custid=@UserID))
+if(not exists(select 1 from dbo.AffAdmin_f_AdminUserInfo_Select(@UserID, @LicenseeID)))
 begin
 	 Select @ErrCode = 302
 	        return
@@ -88,9 +89,7 @@ EXEC [dbo].[Aff_WriteLog]
 	@SPName = @SPName,
 	@Details = @Detail,
 	@IP = @IP
-
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_BannerDel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_BannerDel] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_BannerDel] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_BannerDel] TO [vnteam] AS [dbo]

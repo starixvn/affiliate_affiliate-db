@@ -16,7 +16,6 @@ BEGIN
 	Return
 END
 Select @ErrCode = 0
-
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_CheckPermissionCurrency] TO [bodbAdminNet] AS [dbo]
 GO

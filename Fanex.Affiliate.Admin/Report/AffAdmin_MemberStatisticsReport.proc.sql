@@ -431,8 +431,6 @@ BEGIN
 	RETURN 0
 END
 GO
-
 GRANT EXECUTE ON [dbo].[AffAdmin_MemberStatisticsReport] TO [bodbAdminNet] AS [dbo]
 GO
-
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_MemberStatisticsReport] TO [vnteam] AS [dbo]

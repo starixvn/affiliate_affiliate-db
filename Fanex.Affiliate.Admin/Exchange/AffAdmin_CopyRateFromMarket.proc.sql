@@ -19,7 +19,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	--Check permission-----------------------------
-	EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
+				EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
 		,@custid = @UserId
 		,@funcname = '[AffEx.Rate]'
 		,@System = 'AFFILIATE'
@@ -92,6 +92,3 @@ BEGIN
 		,@IP = @IP
 		,@Details = @LogData
 END
-GO
-
-

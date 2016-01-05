@@ -1,4 +1,4 @@
-﻿ALTER Procedure [dbo].[AffAdmin_AffiliateUnlock]  
+﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateUnlock]  
 	@LicenseeID INT,
 	@UserId int,   
 	@AffId int,      
@@ -63,9 +63,8 @@ EXEC [dbo].[Aff_WriteLog]
 		@Typename= 'Affiliate',   
 		@SPName=@SPName,  
 		@IP=@IP,  
-		@Details=@LogData  
-
+		@Details=@LogData
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateUnlock] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateUnlock] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateUnlock] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateUnlock] TO [vnteam] AS [dbo]

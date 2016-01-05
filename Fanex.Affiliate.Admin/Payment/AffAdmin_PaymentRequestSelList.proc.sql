@@ -119,6 +119,6 @@ BEGIN
 			END, transid desc
 	END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_PaymentRequestSelList] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_PaymentRequestSelList] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_PaymentRequestSelList] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_PaymentRequestSelList] TO [vnteam] AS [dbo]

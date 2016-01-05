@@ -45,11 +45,11 @@ BEGIN
 
 	IF(@CustPolicyCount = 0)
 		BEGIN
-			EXEC DBLIC.bodb_licensee.dbo.AffAdmin_UserPolicy_Insert @UserID = @CustID, @LicenseeID = @LicenseeID, @FunctionID = @FuncID, @Policy = @Policy, @Creator = @UserID
+												EXEC DBLIC.bodb_licensee.dbo.AffAdmin_UserPolicy_Insert @UserID = @CustID, @LicenseeID = @LicenseeID, @FunctionID = @FuncID, @Policy = @Policy, @Creator = @UserID
 		END
 	ELSE
 		BEGIN
-			EXEC DBLIC.bodb_licensee.dbo.AffAdmin_UserPolicy_Update @UserID = @CustID, @LicenseeID = @LicenseeID, @FunctionID = @FuncID, @Policy = @Policy
+												EXEC DBLIC.bodb_licensee.dbo.AffAdmin_UserPolicy_Update @UserID = @CustID, @LicenseeID = @LicenseeID, @FunctionID = @FuncID, @Policy = @Policy
 		END
 	
 	DECLARE @SPName varchar(50), @LogData nvarchar(200)

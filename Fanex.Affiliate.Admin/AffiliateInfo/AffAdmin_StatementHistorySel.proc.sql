@@ -261,7 +261,7 @@ BEGIN
 		,TransType DESC
 		,transID ASC
 END
-
 GO
-
-GRANT EXECUTE ON [dbo].[AffAdmin_StatementHistorySel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_StatementHistorySel] TO [bodbAdminNet] AS [dbo]
+GO
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_StatementHistorySel] TO [vnteam] AS [dbo]

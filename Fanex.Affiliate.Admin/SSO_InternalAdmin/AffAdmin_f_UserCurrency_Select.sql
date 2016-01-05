@@ -1,4 +1,4 @@
-﻿ALTER FUNCTION [dbo].AffAdmin_f_UserCurrency_Select
+﻿ALTER FUNCTION [dbo].[AffAdmin_f_UserCurrency_Select]
 (		
 	@UserID INT,
 	@LicenseeID INT
@@ -63,10 +63,7 @@ BEGIN
 	END
 	RETURN
 END
-
 GO
-GRANT SELECT ON [dbo].AffAdmin_f_UserCurrency_Select TO [bodbAdminNet]
+GRANT SELECT ON [dbo].[AffAdmin_f_UserCurrency_Select] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].AffAdmin_f_UserCurrency_Select TO [vnteam]
-
-
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_UserCurrency_Select] TO [vnteam] AS [dbo]

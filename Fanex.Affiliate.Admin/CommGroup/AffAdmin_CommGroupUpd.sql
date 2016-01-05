@@ -97,7 +97,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	--Check permission  
-	EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
+				EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
 		,@custid = @UserID
 		,@funcname = '[CommissionGroup]'
 		,@System = 'AFFILIATE'
@@ -115,7 +115,7 @@ BEGIN
 	END
 	ELSE
 	BEGIN
-		EXEC [dbo].[AffAdmin_CheckPermissionCurrency] 
+								EXEC [dbo].[AffAdmin_CheckPermissionCurrency] 
 			@LicenseeID = @LicenseeID
 			,@UserId = @UserID
 			,@CurrencyId = @Currency
@@ -394,6 +394,7 @@ BEGIN
 										AND @MinQM = @PreMaxQM + 1
 										AND @Commission >= @PreCommission
 										) THEN 1
+
 								ELSE 0 END
 								) = 1
 							)
@@ -703,7 +704,6 @@ CREATE TABLE #MemberDailySum (AffID int, MemCurrency int,Winlostdate smalldateti
 		,@Details = @LogData
 END
 GO
-
 GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupUpd] TO [bodbAdminNet] AS [dbo]
 GO
-
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupUpd] TO [vnteam] AS [dbo]

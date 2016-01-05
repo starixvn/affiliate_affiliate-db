@@ -21,7 +21,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	--Check permission-----------------------------
-	EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
+				EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
 		,@custid = @UserID
 		,@funcname = '[Affiliate]'
 		,@System = 'AFFILIATE'
@@ -72,6 +72,5 @@ BEGIN
 		,@Details = @LogData
 		,@IP = @IP
 END
-GO
 
 GRANT EXECUTE ON [dbo].[AffAdmin_UpdAffType] TO [bodbAdminNet]

@@ -7,13 +7,13 @@ RETURNS @tbData TABLE
 (
 	UserID		INT,
 	Username	VARCHAR(50),
-	UserPwd		VARCHAR(50),
-	UserSalt	VARCHAR(50),
 	GroupID		INT,
 	[Status]	BIT,
 	FirstName	NVARCHAR(50),
 	LastName	NVARCHAR(50),
-	CreateDate DATETIME,
+	UserPwd		NVARCHAR(50),
+	UserSalt	NVARCHAR(50),
+	CreateDate  DATETIME,
 	Creator		INT,
 	LastLogin  DATETIME
 ) 
@@ -24,8 +24,6 @@ Task :  SSO from Internal Admin to Affiliate Admin
 DB: DBAFF - Affiliate database
 
 Revisions:
-	- 20151224@Bobby: Add last login date into
-	
 Param's Explanation:
 
 */
@@ -46,11 +44,10 @@ BEGIN
 			WHERE UserID = lu.UserID
 		) AS l
 	WHERE (@UserID = '' OR u.UserID = @UserID)
-	
+
 	RETURN
 END
-
 GO
-GRANT SELECT ON [dbo].[AffAdmin_f_AdminUserInfo_Select] TO [bodbAdminNet]
+GRANT SELECT ON [dbo].[AffAdmin_f_AdminUserInfo_Select] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_AdminUserInfo_Select] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_AdminUserInfo_Select] TO [vnteam] AS [dbo]

@@ -18,11 +18,11 @@ BEGIN
 	DECLARE @LicenseeID INT
 	SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
 
-	EXEC [dbo].[AffAdmin_Con_CheckPermission] @LicenseeID = @LicenseeID, @custid=@UserID,@funcname='[UserControl]',@System='AFFILIATE',@ErrCode=@ErrCode output
+				EXEC [dbo].[AffAdmin_Con_CheckPermission] @LicenseeID = @LicenseeID, @custid=@UserID,@funcname='[UserControl]',@System='AFFILIATE',@ErrCode=@ErrCode output
 	If @ErrCode <> 0
 		RETURN
 	--end
-	EXEC DBLIC.bodb_licensee.dbo.AffAdmin_AdminUser_UpdateGroup @UserID=@CustID, @LicenseeID = @LicenseeID, @GroupID=@GroupID, @ModifyBy = @UserID
+				EXEC DBLIC.bodb_licensee.dbo.AffAdmin_AdminUser_UpdateGroup @UserID=@CustID, @LicenseeID = @LicenseeID, @GroupID=@GroupID, @ModifyBy = @UserID
 
 	DECLARE @SPName varchar(50), @LogData nvarchar(200)
 	select @SPName = OBJECT_NAME(@@ProcID)
@@ -40,9 +40,3 @@ BEGIN
 
 
 END
-GO
---depends on SPs:
---[dbo].[AffAdmin_Con_CheckPermission]
-
-
-

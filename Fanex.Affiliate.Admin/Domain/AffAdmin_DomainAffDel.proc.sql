@@ -48,10 +48,8 @@ EXEC [dbo].[Aff_WriteLog]
  @Typename = 'AffDomain', -- refer to table LogType  
  @SPName = @SPName,  
  @Details = @Detail,  
- @IP = @IP  
-  
-    
+ @IP = @IP
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_DomainAffDel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_DomainAffDel] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainAffDel] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainAffDel] TO [vnteam] AS [dbo]

@@ -170,6 +170,6 @@ BEGIN
 			AND @RowEnd
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_BannerSel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_BannerSel] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_BannerSel] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_BannerSel] TO [vnteam] AS [dbo]

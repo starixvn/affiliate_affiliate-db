@@ -1,4 +1,4 @@
-﻿ALTER PROCEDURE [AffAdmin_Con_CheckPermission]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_Con_CheckPermission]
 	@LicenseeID INT,
     @CustID int, 
     @FuncID int=null,
@@ -51,9 +51,7 @@ AS
 	RETURN   
  END  
  ELSE  
-	SET @ErrCode=0  
-
-
+	SET @ErrCode=0
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_Con_CheckPermission] TO [bodbAdminNet] AS [dbo]
 GO

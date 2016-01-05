@@ -25,7 +25,7 @@ BEGIN
 END 
 ELSE
 BEGIN
-	EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupInfo_Update @GroupID = @GroupID, @GroupName = @GroupName, @GroupDesc = @GroupDesc, @Creator = @UserID
+				EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupInfo_Update @GroupID = @GroupID, @GroupName = @GroupName, @GroupDesc = @GroupDesc, @Creator = @UserID
 		
 	DECLARE @SPName varchar(50), @LogData nvarchar(200)
 	select @SPName = OBJECT_NAME(@@ProcID)
@@ -41,8 +41,3 @@ BEGIN
 			@IP =@IP,
 			@Details=@LogData	
 END
-
-
-
-
-

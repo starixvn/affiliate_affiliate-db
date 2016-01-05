@@ -19,8 +19,8 @@ BEGIN
 		AND UsrID = @UserID
 		AND LicenseeID = @LicenseeID
 END
-GO
 
-GRANT EXECUTE ON [dbo].[AffAdmin_UserCurrency_Delete] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_UserCurrency_Delete] TO [vnteam]
+GRANT EXECUTE ON [dbo].[AffAdmin_UserCurrency_Delete] TO [bodbAdminNet] AS [dbo]
+GO
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_UserCurrency_Delete] TO [vnteam] AS [dbo]

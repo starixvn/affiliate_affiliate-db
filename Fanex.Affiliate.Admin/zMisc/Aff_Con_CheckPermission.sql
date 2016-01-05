@@ -59,10 +59,7 @@ AS
 	END
 	ELSE
 		SET @ErrCode=0
-	
-
-	
 GO
-GRANT EXECUTE ON [dbo].[Aff_Con_CheckPermission] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[Aff_Con_CheckPermission] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_Con_CheckPermission] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[Aff_Con_CheckPermission] TO [vnteam] AS [dbo]

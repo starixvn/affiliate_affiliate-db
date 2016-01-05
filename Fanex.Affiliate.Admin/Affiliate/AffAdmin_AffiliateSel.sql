@@ -405,9 +405,6 @@ BEGIN
 	DROP TABLE #tmpAffList
 END
 GO
-
-GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateSel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateSel] TO [bodbAdminNet] AS [dbo]
 GO
-
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateSel] TO [vnteam]
-GO
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateSel] TO [vnteam] AS [dbo]

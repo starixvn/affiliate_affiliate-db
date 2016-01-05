@@ -201,23 +201,6 @@ BEGIN
 	RETURN;
 END
 GO
-
-GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupSel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupSel] TO [bodbAdminNet] AS [dbo]
 GO
-
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupSel] TO [vnteam]
-GO
-
-/*
-declare @p7 varchar(1000)
-declare @p10 int
-EXEC AffAdmin_CommGroupSel @GroupName = N''
-	,@Currencies = '5,22,34,47,52,56,64,91,98,102,108,109,113,9999'
-	,@Date = '2014-09-01 00:00:00'
-	,@UserId = 33
-	,@GroupID = NULL
-	,@GroupIDList = @p7 OUTPUT
-	,@NRows = @p10 OUTPUT
-select @p7, @p10
-go
-*/
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupSel] TO [vnteam] AS [dbo]

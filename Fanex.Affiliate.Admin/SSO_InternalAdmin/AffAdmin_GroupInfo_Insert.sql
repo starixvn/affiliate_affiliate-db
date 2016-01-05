@@ -25,8 +25,8 @@ BEGIN
 
 	SELECT @GroupID = SCOPE_IDENTITY()
 END
-GO
 
-GRANT EXECUTE ON [dbo].[AffAdmin_GroupInfo_Insert] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_GroupInfo_Insert] TO [vnteam]
+GRANT EXECUTE ON [dbo].[AffAdmin_GroupInfo_Insert] TO [bodbAdminNet] AS [dbo]
+GO
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_GroupInfo_Insert] TO [vnteam] AS [dbo]

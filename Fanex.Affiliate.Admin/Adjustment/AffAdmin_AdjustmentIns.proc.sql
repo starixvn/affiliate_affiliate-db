@@ -1,4 +1,13 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_AdjustmentIns]  
+﻿USE [Affiliate_Athena000]
+GO
+/****** Object:  StoredProcedure [dbo].[AffAdmin_AdjustmentIns]    Script Date: 01/04/2016 13:31:28 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/****** Object:  Stored Procedure dbo.AffAdmin_AdjustmentIns    Script Date: 12/22/2015 4:34:22 AM ******/
+/****** Object:  Stored Procedure dbo.AffAdmin_AdjustmentIns    Script Date: 12/8/2015 09:52:20 ******/
+ALTER PROCEDURE [dbo].[AffAdmin_AdjustmentIns]  
 	@LicenseeID	INT,
 	@Amount  money,   
 	@AffID  int,  

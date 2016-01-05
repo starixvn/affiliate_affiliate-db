@@ -1,4 +1,4 @@
-﻿ALTER Procedure [dbo].[AffAdmin_DomainControlSel]  
+﻿ALTER PROCEDURE [dbo].[AffAdmin_DomainControlSel]  
 	@LicenseeID INT,
 	@CountryID nvarchar(10) = null  
 AS  
@@ -26,9 +26,8 @@ from AffDomainControl a with (nolock)
 	inner join Country d with (nolock) on a.CountryID = d.CountryID  
 	inner join dbo.AffAdmin_f_AdminUserInfo_Select('',@LicenseeID) e on a.Creator = e.UserID  
 where ISNULL(@CountryID, a.CountryID) = a.CountryID  
-order by a.[Status] desc, b.DomainName  
-  
+order by a.[Status] desc, b.DomainName
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_DomainControlSel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[AffAdmin_DomainControlSel] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainControlSel] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainControlSel] TO [vnteam] AS [dbo]

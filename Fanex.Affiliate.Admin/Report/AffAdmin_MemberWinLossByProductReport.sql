@@ -427,9 +427,6 @@ BEGIN
 	RETURN;
 END
 GO
-
 GRANT EXECUTE ON [dbo].[AffAdmin_MemberWinLossByProductReport] TO [bodbAdminNet] AS [dbo]
 GO
-
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_MemberWinLossByProductReport] TO [vnteam] AS [dbo]
-

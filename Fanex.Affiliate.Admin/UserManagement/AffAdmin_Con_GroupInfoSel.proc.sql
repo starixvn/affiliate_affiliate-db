@@ -1,4 +1,4 @@
-﻿ALTER Procedure [dbo].[AffAdmin_Con_GroupInfoSel]
+﻿ALTER PROCEDURE [dbo].[AffAdmin_Con_GroupInfoSel]
 	@LicenseeID INT,
 	@GroupID int=null,
 	@IsIT bit = 0
@@ -51,6 +51,3 @@ BEGIN
 	GROUP BY gi.groupid,gi.groupname,gi.groupdesc,gi.displayorder
 	ORDER BY gi.displayorder ,gi.groupname
 END
-
-
-

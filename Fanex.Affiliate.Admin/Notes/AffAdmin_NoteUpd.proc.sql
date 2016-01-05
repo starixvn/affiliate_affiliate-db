@@ -10,7 +10,7 @@
 as
 begin 
 /*
-Created: 20090122@TrangLe
+ALTERd: 20090122@TrangLe
 Task : [description of SP]
 DB: DB052.Affiliate_ZZun
 Original:
@@ -34,7 +34,7 @@ Param's Explanation:
 SET NOCOUNT ON
 
 EXEC dbo.Aff_CheckPermissionOnAff 
-	@LicenseeID = @LicenseeID,
+	--@LicenseeID = @LicenseeID,
 	@custid=@Updatedby,
 	@AffId=@AffId,
 	@ErrCode=@ErrCode output
@@ -70,10 +70,3 @@ EXEC [dbo].[Aff_WriteLog]
 @IP=@IP
 
 end
-
-
-
-
-
-
-

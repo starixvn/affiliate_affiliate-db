@@ -1,7 +1,4 @@
-﻿-- =============================================
--- Script Template
--- =============================================
-ALTER Procedure [dbo].[AffAdmin_CommGroupDel]  
+﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupDel]  
  @LicenseeID INT,
  @UserId int,  
  @GroupId int,  
@@ -75,11 +72,8 @@ EXEC [dbo].[Aff_WriteLog]
  @Typename= 'CommissionGroup',   
  @SPName=@SPName ,  
  @IP =@IP,  
- @Details=@LogData  
- 
- 
- GO
-GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupDel] TO [bodbAdminNet]
+ @Details=@LogData
 GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupDel] TO [vnteam]
-
+GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupDel] TO [bodbAdminNet] AS [dbo]
+GO
+GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupDel] TO [vnteam] AS [dbo]
