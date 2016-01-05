@@ -12,13 +12,15 @@ ALTER PROCEDURE [dbo].[Aff_BetList_SelWinLossByDate]
 	,@MoveBetsDay 				SMALLDATETIME
 	,@Language 					VARCHAR(2) 		= 'E'
 	,@ShowSB 					BIT 			= 1
-	,@ShowCasino 				BIT 			= 0
+	,@ShowCS 					BIT 			= 0
 	,@ShowRB 					BIT 			= 0
 	,@ShowNG 					BIT 			= 0
-	,@ShowLiveCasino 			BIT 			= 0
+	,@ShowLC 					BIT 			= 0
 	,@ShowVS 					BIT 			= 0
-	,@ShowProgressiveBonus 		BIT 			= 0
-	,@ShowKeno 					BIT 			= 0
+	,@ShowKN 					BIT 			= 0
+	,@ShowAG					BIT 			= 0
+	,@ShowGD					BIT 			= 0
+	,@ShowVG					BIT 			= 0
 	,@Error						INT 			= 0 	OUTPUT
 	,@ErrorMsg					NVARCHAR(500) 	= '' 	OUTPUT
 	,@Duration					INT 			= 0 	OUTPUT
@@ -41,13 +43,15 @@ Param's Explanation:
 	- @Language: 	translate to which language
 	- @MoveBetsDay: Date only that is a move bet day
 	- @ShowSB: 		Show sportbooks
-	- @ShowCasino: 	Show casino
-	- @ShowRB:		Show racing,
+	- @ShowCS: 		Show RnG Casino
+	- @ShowRB:		Show Racing,
 	- @ShowNG:		Show Number Game
-	- @ShowKeno:	Show Keno
+	- @ShowKN:		Show Keno
 	- @ShowVS:		Show Virtual Sports
-	- @ShowLiveCasino: 			Show Live Casino
-	- @ShowProgressiveBonus: 	Show Playtech Casino
+	- @ShowLC:		Show Live Casino
+	- @ShowAG:		Show AG Casino
+	- @ShowGD:		Show Gold Delux
+	- @ShowVG:		Show Macau - Vegas Game
 */
 BEGIN
 	SET NOCOUNT ON;
@@ -161,12 +165,14 @@ BEGIN
 	WHERE ProductID		= CASE WHEN @ShowSB					= 0 THEN 1 END
 		OR ProductID	= CASE WHEN @ShowRB					= 0 THEN 2 END
 		OR ProductID	= CASE WHEN @ShowNG					= 0 THEN 3 END
-		OR ProductID	= CASE WHEN @ShowLiveCasino			= 0 THEN 4 END
+		OR ProductID	= CASE WHEN @ShowLC					= 0 THEN 4 END
 		OR ProductID	= CASE WHEN @ShowVS					= 0 THEN 5 END
-		OR ProductID	= CASE WHEN @ShowKeno				= 0 THEN 8 END
-		OR 1			= CASE WHEN @ShowCasino				= 0 AND ProductID = 6 AND Bettype = 71 THEN 1 END
-		OR 1			= CASE WHEN @ShowProgressiveBonus	= 0 AND ProductID = 6 AND Bettype = 72 THEN 1 END
-		OR ProductID NOT IN (1,2,3,4,5,6,8) -- not suport for affiliate system
+		OR ProductID	= CASE WHEN @ShowCS					= 0 THEN 6 END
+		OR ProductID	= CASE WHEN @ShowKN					= 0 THEN 8 END
+		OR ProductID	= CASE WHEN @ShowAG					= 0 THEN 11 END
+		OR ProductID	= CASE WHEN @ShowGD					= 0 THEN 12 END
+		OR ProductID	= CASE WHEN @ShowVG					= 0 THEN 14 END
+		OR ProductID NOT IN (1,2,3,4,5,6,8,11,12,14) -- not suport for affiliate system
 	-- end filer bettypes by sporttype
 
 	-- select from bettrans
@@ -234,15 +240,6 @@ BEGIN
 				b.winlostdate BETWEEN @fromdate AND @todate 
 				AND	b.recommend = @Recommend 
 				AND b.custid	= @CustID 
-				/*
-				b.bettype < 19001 AND
-				b.bettype NOT IN (51,52,53,54,55,56,61,62,63,64,65,66,10,31,32,33,41,42,43) AND --20120626@Elodie: exclude outright, HR from sportbook
-				b.bettype NOT BETWEEN 81 AND 120 AND 
-				b.bettype NOT BETWEEN 1101 AND 1199 AND 
-				b.bettype NOT BETWEEN 1201 AND 1299 AND 
-				b.bettype NOT BETWEEN 1501 AND 1599 -- exclude Keno
-				--b.status not in ('running','waiting') 
-				*/
 				AND sbt.ProductID = 1 
 				AND sbt.EventType = 1
 				AND b.statusID IN (111,112,113)
@@ -450,7 +447,7 @@ BEGIN
 		END
 					
 		-- Casino
-		IF @ShowCasino = 1
+		IF @ShowCS = 1
 		BEGIN
 			INSERT INTO @BetListByDateMem
 			SELECT
@@ -586,7 +583,7 @@ BEGIN
 		END
 
 		--Live Casino
-		IF @ShowLiveCasino = 1
+		IF @ShowLC = 1
 		BEGIN	
 			INSERT INTO @BetListByDateMem
 			SELECT
@@ -787,76 +784,8 @@ BEGIN
 				AND b.statusID  IN (111,112,113)
 		END 
 		
-		-- Progressive bonus
-		IF @ShowProgressiveBonus = 1
-		BEGIN
-			INSERT INTO @BetListByDateMem
-			SELECT
-				251, --Sporttype
-				@Username, 
-				b.TransID,
-				ISNULL(b.BetID,0),
-				b.bettype,
-				0, 
-				0,
-				0 AS OddsType,  
-				0 as Odds, 
-				0 as modds,
-				b.Stake, 
-				b.actual_stake,
-				'', --Betteam
-				b.Status,
-				b.Refno,				
-				b.Transdate,	
-				b.winlostdate,						
-				b.winlost-actual_stake,
-				b.awinlost,
-				b.mwinlost,
-				b.swinlost,
-				
-				b.PlayerComm,
-				(b.comm - b.playercomm) AS comm,
-				(b.acomm - b.comm) AS acomm ,
-				(b.scomm - b.acomm) AS scomm,
-				
-				b.APositiontaking,
-				b.MPositiontaking,
-				b.SPositiontaking,
-				
-				b.discount,
-				b.adiscount,
-				b.sdiscount,
-				
-				0,
-				0,
-				0,
-				b.IP AS IP,
-				0, --LeagueID
-				0, --MatchID	
-				'',--MatchCode
-				'',--Race
-				0, --HomeID
-				0, --AwayID		
-				0, --Betstatus
-				CONVERT(BIT,0) AS IsNeutral,
-				b.custid,
-				'' as showtime,
-				'' as betcheck,
-				CASE WHEN b.comstatus = '1' THEN '1' ELSE '0' END AS comstatus
-			FROM
-				dbo.bettrans AS b WITH (NOLOCK, index=IX_custid_matchid_bettype)	
-				INNER JOIN @SportBettype sbt ON b.bettype = sbt.Bettype
-			WHERE
-				b.winlostdate BETWEEN @fromdate AND @todate 
-				AND b.recommend 	= @Recommend 
-				AND b.custid		= @CustID
-				AND sbt.ProductID 	= 6
-				AND b.bettype 		= 72 
-				AND	b.statusID  IN (111,112,113)				
-		END	
-
 		--Keno
-		IF @ShowKeno = 1
+		IF @ShowKN = 1
 		BEGIN	
 			INSERT INTO @BetListByDateMem
 			SELECT
@@ -917,7 +846,6 @@ BEGIN
 				b.winlostdate BETWEEN @fromdate AND @todate 
 				AND b.recommend = @Recommend 
 				AND b.custid	= @CustID 
-				/*AND b.bettype BETWEEN 1501 AND 1599 */
 				AND sbt.ProductID = 8
 				AND b.statusID  IN (111,112,113)					
 		END
@@ -1203,7 +1131,7 @@ BEGIN
 		END
 				
 		-- Casino
-		IF @ShowCasino = 1
+		IF @ShowCS = 1
 		BEGIN
 			INSERT INTO @BetListByDateMem
 			SELECT
@@ -1338,7 +1266,7 @@ BEGIN
 		END
 			
 		--Live Casino
-		IF @ShowLiveCasino = 1
+		IF @ShowLC = 1
 		BEGIN	
 			INSERT INTO @BetListByDateMem
 			SELECT
@@ -1610,7 +1538,7 @@ BEGIN
 		END
 
 		--Keno
-		IF @ShowKeno = 1
+		IF @ShowKN = 1
 		BEGIN	
 			INSERT INTO @BetListByDateMem
 			SELECT
@@ -1763,7 +1691,7 @@ BEGIN
 		
 		END
 
-		IF @ShowLiveCasino = 1
+		IF @ShowLC = 1
 		BEGIN
 
 			IF @Todate > @MoveBetsDay 

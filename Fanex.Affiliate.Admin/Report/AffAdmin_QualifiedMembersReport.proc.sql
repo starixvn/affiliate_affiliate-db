@@ -11,7 +11,7 @@ Task : Qualified Members Report
 DB:    
 Original: [AffAdmin_CommissionReport]
 Revisions:           
-	- 20140213@Bobbby.Nguyen: Multiply exchange rate
+	- 20140213@Bobby.Nguyen: Multiply exchange rate
 	- 20140514@Bobby: Add Playtech Casio product    
 	- 20140523@Bobby: Rollback check QualifiedAmount
 	- 20140523@Bobby: Add Virtual Sport & apply style-scope
@@ -25,7 +25,7 @@ Param's Explanation:
 */
 BEGIN
 	SET NOCOUNT ON
-
+	
 	DECLARE @HasPermission BIT
 
 	SELECT @HasPermission = [dbo].[AffAdmin_PermissionOnAffiliate](@LicenseeID, @UserId, @AffId)

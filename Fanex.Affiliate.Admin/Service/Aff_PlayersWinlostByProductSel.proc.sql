@@ -98,15 +98,12 @@ BEGIN
 		,ProgressiveWin MONEY DEFAULT(0)
 	)
 
-	DECLARE @TempTrans TABLE
-		--CREATE TABLE #TempTrans
-		(UserName VARCHAR(30))
+	CREATE TABLE #TempTrans(UserName VARCHAR(30))
 
-	INSERT INTO @TempTrans (UserName) --Convert xml to table
+	INSERT INTO #TempTrans (UserName) --Convert xml to table
 	SELECT [Table].[Column].value('./@username', 'varchar(30)') AS UserName
 	FROM @Xml.nodes('/root/trans') AS [Table]([Column])
 
-	--print @sqlCommand
 	INSERT INTO #LicenseeCust
 	SELECT c.CustID
 		,c.Currency
@@ -115,10 +112,9 @@ BEGIN
 		,c.mrecommend
 		,c.recommend
 	FROM bodb02.dbo.customer c WITH (NOLOCK)
-		INNER JOIN @TempTrans AS t ON @Prefix + t.username = c.username2
+		INNER JOIN #TempTrans AS t ON @Prefix + t.username = c.username2
 	WHERE c.roleid = 1
 
-	-- select * from #LicenseeCust  (nolock)
 	IF @Date > @MaxDate
 	BEGIN
 		INSERT INTO #tmpRpt (
@@ -138,26 +134,6 @@ BEGIN
 		SELECT @Date
 			,b.custid
 			,c.username
-			/*,CASE 
-				WHEN bettype IN (71, 72) THEN 251 --casino
-				WHEN bettype = 1000 THEN 253 --games
-				WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN 151 -- Horse Racing
-				WHEN bettype BETWEEN 81
-						AND 120 THEN 161 -- Number Game 
-				WHEN bettype BETWEEN 1101
-						AND 1199 THEN 162 -- Live Casino
-				WHEN bettype BETWEEN 1201
-						AND 1299 THEN 180 --Virtual Sport	
-				WHEN bettype BETWEEN 51
-						AND 69 THEN 201 -- Financial	
-				WHEN bettype BETWEEN 1501
-						AND 1599 THEN 202 -- Keno  
-				WHEN ( b.bettype < 31
-						OR ( b.bettype BETWEEN 121 	AND 999 ) -- included (153 -156) Tenis IBC
-						OR ( b.bettype BETWEEN 1301 AND 1399) -- Tenis SS
-						) THEN 0 -- sportsbook 
-				ELSE - 1
-				END*/
 			,bt.ProductId
 			,-- undefined productid
 			SUM(b.stake) AS Turnover
@@ -216,7 +192,7 @@ BEGIN
 		FROM bettrans b WITH (NOLOCK, INDEX (IX_recommend_transid))
 			INNER JOIN #LicenseeCust c WITH (NOLOCK) 
 			ON b.custid 			= c.custid
-				AND b.recommend 	= c.recommend
+			AND b.recommend 	= c.recommend
 			INNER JOIN #ProductBettype bt
 			ON b.bettype 			= bt.bettype
 			
@@ -226,26 +202,6 @@ BEGIN
 		GROUP BY b.custid
 			,c.username
 			,bt.ProductId
-			/*,CASE 
-				WHEN bettype IN (71, 72) THEN 251 --casino
-				WHEN bettype = 1000 THEN 253 --games
-				WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN 151 -- Horse Racing
-				WHEN bettype BETWEEN 81
-						AND 120 THEN 161 -- Number Game 
-				WHEN bettype BETWEEN 1101
-						AND 1199 THEN 162 -- Live Casino
-				WHEN bettype BETWEEN 1201
-						AND 1299 THEN 180 --Virtual Sport	
-				WHEN bettype BETWEEN 51
-						AND 69 THEN 201 -- Financial
-				WHEN bettype BETWEEN 1501
-						AND 1599 THEN 202 -- Keno  
-				WHEN ( b.bettype < 31
-						OR ( b.bettype BETWEEN 121 AND 999 ) -- included (153 -156) Tenis IBC
-						OR ( b.bettype BETWEEN 1301 AND 1399) -- Tenis SS
-						) THEN 0 -- sportsbook 
-				ELSE - 1
-			END*/
 	END
 	ELSE IF @Date >= @CutDate
 	BEGIN
@@ -302,7 +258,6 @@ BEGIN
 		WHERE b.winlostdate = @Date
 			AND b.BetCount 	> 0
 			AND b.roleid 	= 1
-			--AND b.sporttype IN (0, 151, 161, 162, 180, 201, 251, 253, 202)
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
 		GROUP BY b.winlostdate
 			,b.CustID
@@ -363,7 +318,6 @@ BEGIN
 		WHERE b.winlostdate = @Date
 			AND b.BetCount 	> 0
 			AND b.roleid 	= 1
-			--AND b.sporttype IN (0, 151, 161, 162, 180, 201, 251, 253, 202)
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
 			
 		GROUP BY b.winlostdate
@@ -371,45 +325,6 @@ BEGIN
 			,c.username
 			,bt.ProductId
 	END
-	
-	/*
-	-- turn-off playtech casino product
-	INSERT INTO #tmpRpt (
-		Winlostdate
-		,CustID
-		,Username
-		,ProductID
-		,Turnover
-		,Outstanding
-		,Winloss
-		,DrawGame
-		,PlayerComm
-		,BetCount
-		,TurnoverNoDraw
-		,BetCountNoDraw
-		,ProgressiveShare
-		,ProgressiveWin
-	)
-	SELECT b.winlostdate
-		,b.CustID
-		,c.username
-		,b.Sporttype
-		,b.turnover
-		,Outstanding
-		,b.winlost
-		,drawTO AS DrawGame
-		,b.playercomm
-		,b.BetCount
-		,(b.turnover - b.drawTO) AS TurnoverNoDraw
-		,(b.BetCount - drawBetCount) AS BetCountNoDraw
-		,ProgressiveShare
-		,ProgressiveWin
-	FROM DBRPT.bodb_Report.dbo.rptDepWinlost_PlaytechCS b WITH (NOLOCK)
-		INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid = c.custid
-	WHERE b.winlostdate = @Date
-		AND sporttype = 254
-		AND b.BetCount > 0
-	*/
 	
 	SELECT *
 	FROM #tmpRpt b WITH (NOLOCK)

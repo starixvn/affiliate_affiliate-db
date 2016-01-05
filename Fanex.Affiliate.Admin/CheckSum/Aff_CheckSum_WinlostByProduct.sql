@@ -1,12 +1,4 @@
-﻿USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Aff_CheckSum_WinlostByProduct]    Script Date: 03/30/2016 23:26:55 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Aff_CheckSum_WinlostByProduct    Script Date: 3/2/2016 2:21:19 PM ******/
-ALTER PROCEDURE [dbo].[Aff_CheckSum_WinlostByProduct] 
+﻿ALTER PROCEDURE [dbo].[Aff_CheckSum_WinlostByProduct] 
 	@Xml 			XML
 	,@Prefix 		VARCHAR(100)
 	,@Date 			SMALLDATETIME
@@ -19,8 +11,7 @@ Task : #1052 -  Create a daily checksum data service
 DB: DB054/DB052.bodb02
 Original : [Aff_PlayersWinlostByProductSel]  
 Revisions:  
-	- 20140820@Bobby: Add filtering by ProductIDs
-	- 20160302@Bobby: #53169 - Hotfix include OneRNG single wallet into Casino product
+	-20140820@Bobby: Add filtering by ProductIDs
 	
 Param's Explanation:  
 	@Xml: 
@@ -52,7 +43,28 @@ BEGIN
 		,mrecommend INT
 		,recommend INT
 		)
-
+	-- Do filtering product 
+	CREATE TABLE #ProductBettype (
+		ProductId 		TINYINT
+		, Bettype		SMALLINT
+	)
+	DECLARE @ProductFilter TABLE (ProductId TINYINT)
+	INSERT INTO @ProductFilter ( ProductId )
+	SELECT CAST(item AS TINYINT) AS ProductId 
+	FROM [dbo].[fnSplit](@ProductIDs, ',')
+	
+	INSERT INTO #ProductBettype (
+		ProductId
+		, Bettype
+	)
+	SELECT DISTINCT ProductId
+		, Bettype
+	FROM dbo.SportBettypeMatrix bt WITH(NOLOCK)
+		INNER JOIN @ProductFilter p
+		ON bt.ProductId = p.ProductId
+	WHERE bt.IsTest 	= 0
+		AND bt.Enabled 	= 1
+		
 	DECLARE @CutDate_LIC DATETIME
 		,@MaxDate_LIC DATETIME
 		,@CutDate_RPT DATETIME
@@ -68,7 +80,7 @@ BEGIN
 
 	CREATE TABLE #tmpBettrans (
 		Winlostdate SMALLDATETIME
-		,ProductID INT
+		,ProductID TINYINTINT
 		,Turnover MONEY
 		,TurnoverNoDraw MONEY
 		,Outstanding MONEY
@@ -87,9 +99,9 @@ BEGIN
 		,Adjustment MONEY
 		)
 
-	DECLARE @TempTrans TABLE (UserName VARCHAR(30))
+	CREATE TABLE #TempTrans (UserName VARCHAR(30))
 
-	INSERT INTO @TempTrans (UserName) --Convert xml to table
+	INSERT INTO #TempTrans (UserName) --Convert xml to table
 	SELECT [Table].[Column].value('./@username', 'varchar(30)') AS UserName
 	FROM @Xml.nodes('/root/trans') AS [Table]([Column])
 
@@ -100,7 +112,7 @@ BEGIN
 		,c.mrecommend
 		,c.recommend
 	FROM bodb02.dbo.customer c WITH (NOLOCK)
-		INNER JOIN @TempTrans AS t
+		INNER JOIN #TempTrans AS t
 		ON @Prefix + t.username = c.username2
 	WHERE c.roleid = 1
 
@@ -120,22 +132,7 @@ BEGIN
 			,BetCountNoDraw
 			)
 		SELECT b.winlostdate
-			,CASE 
-				WHEN (bettype IN (71, 72) or b.bettype between 2101 and 2399 ) THEN 251 --casino
-				WHEN bettype = 1000 THEN 253 --games
-				WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN 151 -- Horse Racing
-				WHEN bettype BETWEEN 81 AND 120 THEN 161 -- Number Game 
-				WHEN bettype BETWEEN 1101 AND 1199 THEN 162 -- Live Casino
-				WHEN bettype BETWEEN 1201 AND 1299 THEN 180 --Virtual Sport	
-				WHEN bettype BETWEEN 51 AND 69 THEN 201 -- Financial	
-				WHEN bettype BETWEEN 1501 AND 1599 THEN 202 -- Keno  
-				WHEN ( b.bettype < 31
-						OR ( b.bettype BETWEEN 121 AND 999 ) -- included (153 -156) Tenis IBC
-						OR ( b.bettype BETWEEN 1301 AND 1399) -- Tenis SS
-						) THEN 0 -- sportsbook 
-				ELSE - 1
-				END
-			,-- undefined productid
+			,bt.productid
 			SUM(b.stake)
 			,--Turnover  
 			SUM(CASE 
@@ -184,26 +181,14 @@ BEGIN
 			INNER JOIN #LicenseeCust c WITH (NOLOCK)
 			ON b.custid = c.custid
 				AND b.recommend = c.recommend
+			INNER JOIN #ProductBettype bt
+			ON b.bettype = bt.bettype
+			
 		WHERE b.winlostdate = @date
 			AND bettype < 19999
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
-		--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'      
 		GROUP BY b.winlostdate
-			,CASE 
-				WHEN (bettype IN (71, 72) or b.bettype between 2101 and 2399 ) THEN 251 --casino
-				WHEN bettype = 1000 THEN 253 --games
-				WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN 151 -- Horse Racing
-				WHEN bettype BETWEEN 81 AND 120 THEN 161 -- Number Game 
-				WHEN bettype BETWEEN 1101 AND 1199 THEN 162 -- Live Casino
-				WHEN bettype BETWEEN 1201 AND 1299 THEN 180 --Virtual Sport	
-				WHEN bettype BETWEEN 51 AND 69 THEN 201 -- Financial
-				WHEN bettype BETWEEN 1501 AND 1599 THEN 202 -- Keno  
-				WHEN ( b.bettype < 31
-						OR ( b.bettype BETWEEN 121 AND 999 ) -- included (153 -156) Tenis IBC
-						OR ( b.bettype BETWEEN 1301 AND 1399) -- Tenis SS
-						) THEN 0 -- sportsbook 
-				ELSE - 1
-				END;
+			,bt.productid
 	END
 	ELSE IF @Date < @CutDate_LIC
 	BEGIN
@@ -219,7 +204,7 @@ BEGIN
 			,BetCountNoDraw
 			)
 		SELECT b.winlostdate 
-			,CASE WHEN b.Sporttype IN (251,208,209,210) THEN 251 ELSE b.Sporttype END AS Sporttype
+			,bt.productid
 			,SUM(b.turnover)
 			,0 AS Outstanding
 			,SUM(b.winlost)
@@ -245,14 +230,14 @@ BEGIN
 			ON b.custid = c.custid
 				AND b.recommend = c.recommend
 				AND b.srecommend = c.srecommend
+			INNER JOIN #ProductBettype bt
+			ON b.bettype = bt.bettype
 		WHERE b.winlostdate = @Date
 			AND b.BetCount > 0
 			AND b.roleid = 1
-			AND b.sporttype IN (0, 151, 161, 162, 180, 201, 251, 253, 202,208,209,210)
-			-- and b.isBA=0
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
 		GROUP BY b.winlostdate
-			,CASE WHEN b.Sporttype IN (251,208,209,210) THEN 251 ELSE b.Sporttype END
+			,bt.productid
 	END
 	ELSE IF @Date >= @CutDate_LIC
 	BEGIN
@@ -268,7 +253,7 @@ BEGIN
 			,BetCountNoDraw
 			)
 		SELECT b.winlostdate 
-			,CASE WHEN b.Sporttype IN (251,208,209,210) THEN 251 ELSE b.Sporttype END AS Sporttype
+			,bt.productid
 			,sum(b.turnover)
 			,0 AS Outstanding
 			,sum(b.winlost)
@@ -294,45 +279,15 @@ BEGIN
 			ON b.custid = c.custid
 				AND b.recommend = c.recommend
 				AND b.srecommend = c.srecommend
+			INNER JOIN #ProductBettype bt
+			ON b.bettype = bt.bettype
 		WHERE b.winlostdate = @Date
 			AND b.BetCount > 0
 			AND b.roleid = 1
-			AND b.sporttype IN (0, 151, 161, 162, 180, 201, 251, 253, 202,208,209,210)
-			-- and b.isBA=0
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
 		GROUP BY b.winlostdate
-			,CASE WHEN b.Sporttype IN (251,208,209,210) THEN 251 ELSE b.Sporttype END
+			,bt.productid
 	END
-
-	-- import PlaytechCS product
-	INSERT INTO #tmpBettrans (
-		Winlostdate
-		,ProductID
-		,Turnover
-		,Outstanding
-		,Winloss
-		,PlayerComm
-		,BetCount
-		,TurnoverNoDraw
-		,BetCountNoDraw
-		)
-	SELECT b.winlostdate
-		,b.Sporttype
-		,SUM(ISNULL(b.turnover, 0)) AS Turnover
-		,SUM(ISNULL(Outstanding, 0)) AS Outstanding
-		,SUM(ISNULL(b.winlost, 0)) AS Winloss
-		,SUM(ISNULL(b.playercomm, 0))AS PlayerComm
-		,SUM(ISNULL(b.BetCount, 0)) AS BetCount
-		,SUM((ISNULL(b.turnover,0) - ISNULL(b.drawTO,0))) AS TurnoverNoDraw
-		,SUM((ISNULL(b.BetCount,0) - ISNULL(drawBetCount,0))) AS BetCountNoDraw
-	FROM DBRPT.bodb_report.dbo.rptDepWinlost_PlaytechCS b WITH (NOLOCK)
-		INNER JOIN #LicenseeCust c WITH (NOLOCK)
-		ON b.custid = c.custid
-	WHERE b.winlostdate = @Date
-		AND sporttype = 254
-		AND b.BetCount > 0
-	GROUP BY b.winlostdate
-		,b.Sporttype
 
 	-- import funding data
 	IF DATEDIFF(d, @Date, CURRENT_TIMESTAMP) <= 1
@@ -422,31 +377,10 @@ BEGIN
 		GROUP BY b.winlostdate
 	END
 	
-	-- filer product list
-	;WITH indices AS (
-		SELECT 0 S
-			,1 E
-		UNION ALL
-		SELECT E
-			,CHARINDEX(@Separator, @ProductIDs, E) + LEN(@Separator)
-		FROM indices
-		WHERE E > S
-	)
-	SELECT SUBSTRING(@ProductIDs, S, CASE 
-			WHEN E > LEN(@Separator) THEN e - s - LEN(@Separator)
-			ELSE LEN(@ProductIDs) - s + 1
-			END) SVal
-	INTO #SValues
-	FROM indices
-	WHERE S > 0
-	GROUP BY SUBSTRING(@ProductIDs, S, CASE 
-				WHEN E > LEN(@Separator) THEN e - s - LEN(@Separator)
-				ELSE LEN(@ProductIDs) - s + 1
-				END)
 	
 	-- fetch final result
 	;WITH rptProduct AS (
-		SELECT TOP 1 0 AS ProductID 
+		SELECT TOP 1 1 AS ProductID 
 			,@Date AS Winlostdate
 		FROM #tmpFunding
 		UNION
@@ -474,31 +408,22 @@ BEGIN
 		ON p.ProductID = f.ProductID AND p.Winlostdate = f.Winlostdate
 		LEFT JOIN #tmpBettrans b
 		ON p.ProductID = b.ProductID AND p.Winlostdate = b.Winlostdate
-	WHERE 1 = CASE 
-				WHEN (@ProductIDs IS NULL OR @ProductIDs = '') THEN 1 
-				WHEN (@ProductIDs IS NOT NULL AND p.ProductID IN (SELECT CAST(SVal AS INT) ProductID FROM #SValues WHERE SVal <> '')) THEN 1
-			END
 
 	-- product detail
-	;WITH CTE_ProductSport AS (
-		SELECT DISTINCT productid, SportType
-		FROM SportBettypeMatrix WITH (NOLOCK)
-	)
-	SELECT rpt.Winlostdate
-		,ps.ProductID
-		,rpt.Deposit
-		,rpt.Withdrawal
-		,rpt.Bonus
-		,rpt.Adjustment
-		,rpt.Turnover
-		,rpt.Outstanding
-		,rpt.Winloss
-		,rpt.PlayerComm
-		,rpt.BetCount
-		,rpt.TurnoverNoDraw
-		,rpt.BetCountNoDraw 
-	FROM #rptData rpt
-		INNER JOIN CTE_ProductSport ps ON CASE WHEN rpt.ProductID = 0 THEN 1 ELSE rpt.ProductID END = ps.SportType
+	SELECT Winlostdate
+		,ProductID
+		,Deposit
+		,Withdrawal
+		,Bonus
+		,Adjustment
+		,Turnover
+		,Outstanding
+		,Winloss
+		,PlayerComm
+		,BetCount
+		,TurnoverNoDraw
+		,BetCountNoDraw 
+	FROM #rptData
 
 	--sum total
 	SELECT  Winlostdate
@@ -517,8 +442,7 @@ BEGIN
 	GROUP BY Winlostdate
 
 	-- drop tables
-	DROP TABLE #SValues
-	
+		
 	DROP TABLE #rptData
 
 	DROP TABLE #tmpBettrans

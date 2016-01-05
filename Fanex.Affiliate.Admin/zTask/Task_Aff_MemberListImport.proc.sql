@@ -6,7 +6,7 @@ AS
 	Task : Get list of member for task import member daily
 	DB:  Affiliate DB
 	Revisions:
-		201501022@Bobby.Nguyen: Add more product list
+		20150102@Bobby.Nguyen: Add more product list
 		
 	Param's explanation:
 		@ImportDate: date of import member daily
