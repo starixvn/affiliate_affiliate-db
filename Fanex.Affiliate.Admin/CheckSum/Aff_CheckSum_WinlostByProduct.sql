@@ -50,14 +50,14 @@ BEGIN
 	)
 	DECLARE @ProductFilter TABLE (ProductId TINYINT)
 	INSERT INTO @ProductFilter ( ProductId )
-	SELECT CAST(item AS TINYINT) AS ProductId 
-	FROM [dbo].[fnSplit](@ProductIDs, ',')
+	SELECT CAST(val AS TINYINT) AS ProductId 
+	FROM [dbo].[strSplit_Key](@ProductIDs, ',')
 	
 	INSERT INTO #ProductBettype (
 		ProductId
 		, Bettype
 	)
-	SELECT DISTINCT ProductId
+	SELECT DISTINCT p.ProductId
 		, Bettype
 	FROM dbo.SportBettypeMatrix bt WITH(NOLOCK)
 		INNER JOIN @ProductFilter p
@@ -133,7 +133,7 @@ BEGIN
 			)
 		SELECT b.winlostdate
 			,bt.productid
-			SUM(b.stake)
+			,SUM(b.stake)
 			,--Turnover  
 			SUM(CASE 
 					WHEN ruben = 0 THEN actual_stake

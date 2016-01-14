@@ -13,6 +13,7 @@ AS
 	Revisions: 		
 		- 20140509@Dan: support Playtech casino
 		- 20140610@Bobby: Add PShare & PWin columns
+		- 20150102@Bobby.Nguyen: Add more product list - change API_ProductId to bodb02.dbo.Products.ProductID
 */
 BEGIN
 	SET NOCOUNT ON

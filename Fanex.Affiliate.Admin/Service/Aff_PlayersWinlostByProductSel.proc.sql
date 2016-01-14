@@ -59,8 +59,8 @@ BEGIN
 	)
 	DECLARE @ProductFilter TABLE (ProductId TINYINT)
 	INSERT INTO @ProductFilter ( ProductId )
-	SELECT CAST(item AS TINYINT) AS ProductId 
-	FROM [dbo].[fnSplit](@ProductIDs, ',')
+	SELECT CAST(val AS TINYINT) AS ProductId 
+	FROM [dbo].[strSplit_Key](@ProductIDs, ',')
 	
 	INSERT INTO #ProductBettype (
 		ProductId
