@@ -161,6 +161,5 @@ END
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_QualifiedMembersReport] TO [bodbAdminNet] AS [dbo]
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_QualifiedMembersReport] TO [olympus] AS [dbo]
-GO
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_QualifiedMembersReport] TO [vnteam] AS [dbo]
+GO
