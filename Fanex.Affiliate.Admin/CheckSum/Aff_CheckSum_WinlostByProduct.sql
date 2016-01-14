@@ -80,7 +80,7 @@ BEGIN
 
 	CREATE TABLE #tmpBettrans (
 		Winlostdate SMALLDATETIME
-		,ProductID TINYINTINT
+		,ProductID TINYINT
 		,Turnover MONEY
 		,TurnoverNoDraw MONEY
 		,Outstanding MONEY
@@ -185,7 +185,6 @@ BEGIN
 			ON b.bettype = bt.bettype
 			
 		WHERE b.winlostdate = @date
-			AND bettype < 19999
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
 		GROUP BY b.winlostdate
 			,bt.productid
@@ -289,6 +288,160 @@ BEGIN
 			,bt.productid
 	END
 
+	--AG-Casino
+	IF (EXISTS (SELECT 1 FROM #ProductBettype WHERE ProductId = 11) )
+	BEGIN
+		DECLARE @AGCS_BackupDay 	DATE
+		
+		SELECT @AGCS_BackupDay 		= ISNULL(MIN(Winlostdate),'') 
+		FROM DBPTCS.bodb_PlaytechCS.dbo.bettrans_AGCasino WITH(NOLOCK)
+		
+		IF (@Date >= @AGCS_BackupDay)-- Get data in bettrans_AGCasino table
+		BEGIN
+			INSERT INTO #tmpBettrans (
+				Winlostdate
+				,ProductID
+				,Turnover
+				,Outstanding
+				,Winloss
+				,PlayerComm
+				,BetCount
+				,TurnoverNoDraw
+				,BetCountNoDraw
+			)
+			SELECT 
+				Winlostdate
+				,11 AS ProductID
+				,SUM(Stake) AS Turnover
+				,0 AS Outstanding
+				,SUM(Winlost) AS Winloss
+				,0 AS PlayerComm
+				,COUNT(1) AS BetCount
+				,SUM(CASE WHEN StatusID <> 111 THEN Stake ELSE 0 END) AS TurnoverNoDraw
+				,SUM(CASE WHEN StatusID <> 111 THEN 1 ELSE 0 END) AS BetCountNoDraw
+	
+			FROM DBPTCS.bodb_PlaytechCS.dbo.bettrans_AGCasino b WITH(NOLOCK)
+				
+				INNER JOIN #LicenseeCust c WITH (NOLOCK) 
+				ON b.custid 		= c.custid
+				AND b.recommend 	= c.recommend
+				
+			WHERE Winlostdate = @Date
+				AND StatusId IN (111, 112, 113)
+			GROUP BY Winlostdate
+			
+		END
+		ELSE
+		BEGIN
+			INSERT INTO #tmpBettrans (
+				Winlostdate
+				,ProductID
+				,Turnover
+				,Outstanding
+				,Winloss
+				,PlayerComm
+				,BetCount
+				,TurnoverNoDraw
+				,BetCountNoDraw
+			)
+			SELECT 
+				Winlostdate
+				,11 AS ProductID
+				,SUM(Stake) AS Turnover
+				,0 AS Outstanding
+				,SUM(Winlost) AS Winloss
+				,0 AS PlayerComm
+				,COUNT(1) AS BetCount
+				,SUM(CASE WHEN StatusID <> 111 THEN Stake ELSE 0 END) AS TurnoverNoDraw
+				,SUM(CASE WHEN StatusID <> 111 THEN 1 ELSE 0 END) AS BetCountNoDraw
+
+			FROM DBARC.bodb_archive.dbo.bettrans_AGCasino_bk b WITH(NOLOCK)
+				
+				INNER JOIN #LicenseeCust c WITH (NOLOCK) 
+				ON b.custid 		= c.custid
+				AND b.recommend 	= c.recommend
+				
+			WHERE Winlostdate = @Date
+				AND StatusId IN (111, 112, 113)
+
+			GROUP BY Winlostdate
+		END
+	END
+	
+	--Gold-Delux
+	IF (EXISTS (SELECT 1 FROM #ProductBettype WHERE ProductId = 12)) 
+	BEGIN
+		INSERT INTO #tmpBettrans (
+				Winlostdate
+				,ProductID
+				,Turnover
+				,Outstanding
+				,Winloss
+				,PlayerComm
+				,BetCount
+				,TurnoverNoDraw
+				,BetCountNoDraw
+			)
+		SELECT 
+			Winlostdate
+			,12 AS ProductID
+			,SUM(Stake) AS Turnover
+			,0 AS Outstanding
+			,SUM(Winlost) AS Winloss
+			,0 AS PlayerComm
+			,COUNT(1) AS BetCount
+			,SUM(CASE WHEN StatusID <> 111 THEN Stake ELSE 0 END) AS TurnoverNoDraw
+			,SUM(CASE WHEN StatusID <> 111 THEN 1 ELSE 0 END) AS BetCountNoDraw
+
+		FROM DBPTCS.bodb_PlaytechCS.dbo.bettrans_GoldDeluxe b WITH(NOLOCK)
+			
+			INNER JOIN #LicenseeCust c WITH (NOLOCK) 
+			ON b.custid 		= c.custid
+			AND b.recommend 	= c.recommend
+			
+		WHERE Winlostdate = @Date
+			AND StatusId IN (111, 112, 113)
+
+		GROUP BY Winlostdate
+	END
+	
+	--Macau - Voidbridge
+	IF (EXISTS (SELECT 1 FROM #ProductBettype WHERE ProductId = 14)) 
+	BEGIN
+		INSERT INTO #tmpBettrans (
+				Winlostdate
+				,ProductID
+				,Turnover
+				,Outstanding
+				,Winloss
+				,PlayerComm
+				,BetCount
+				,TurnoverNoDraw
+				,BetCountNoDraw
+			)
+		SELECT 
+			Winlostdate
+			,14 AS ProductID
+			,SUM(ABS(ISNULL([StakeAmount], 0))) AS Turnover
+			,0 AS Outstanding
+			,SUM(ISNULL(b.[WinAmount],0) - ABS(ISNULL(b.[StakeAmount], 0)))  AS Winloss
+			,0 AS PlayerComm
+			,COUNT(1) AS BetCount
+			,SUM(CASE WHEN Status <> 'Draw' THEN ABS(ISNULL([StakeAmount], 0)) ELSE 0 END) AS TurnoverNoDraw
+			,SUM(CASE WHEN Status <> 'Draw' THEN 1 ELSE 0 END) AS BetCountNoDraw
+
+		FROM DBLIC.bodb_3rdProduct.dbo.BetTrans_VoidBridge b WITH(NOLOCK)
+			
+			INNER JOIN #LicenseeCust c WITH (NOLOCK) 
+			ON b.custid 		= c.custid
+			AND b.recommend 	= c.recommend
+			
+		WHERE Winlostdate = @Date
+			AND [Status] IN ('Win','Lose')
+			
+		GROUP BY Winlostdate
+	END
+	
 	-- import funding data
 	IF DATEDIFF(d, @Date, CURRENT_TIMESTAMP) <= 1
 	BEGIN
@@ -378,6 +531,7 @@ BEGIN
 	END
 	
 	
+	
 	-- fetch final result
 	;WITH rptProduct AS (
 		SELECT TOP 1 1 AS ProductID 
@@ -442,7 +596,10 @@ BEGIN
 	GROUP BY Winlostdate
 
 	-- drop tables
-		
+	DROP TABLE #TempTrans
+	
+	DROP TABLE #ProductBettype
+	
 	DROP TABLE #rptData
 
 	DROP TABLE #tmpBettrans
@@ -455,14 +612,8 @@ GO
 
 GRANT EXECUTE ON [dbo].[Aff_CheckSum_WinlostByProduct] TO [bodbAdminNet] AS [dbo]
 GO
-
---USE bodb02
---go
-
---exec [dbo].[Aff_CheckSum_WinlostByProduct] 
---	@Xml = '<root>
---		<trans username="LBUUSMem001"></trans>
---	</root>'
---	,@Prefix  = 'LiveBet365$'
---	,@Date  = '2014-05-19 00:00:00'
---	,@ProductIDs = ''
+-- exec [dbo].[Aff_CheckSum_WinlostByProduct]
+-- @Xml 			= '<root><trans username="member01"></trans><trans username="member02"></trans><trans username="member06"></trans><trans username="member08"></trans></root>'
+-- ,@Prefix 		= 'Athena000$'
+-- ,@Date 			= '20160110'
+-- ,@ProductIDs 	= '1,6,3,4,10,5,2,8,11,12,14';
