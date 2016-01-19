@@ -27,6 +27,7 @@ Revisions:
 	- 20140610@Bobby: Add ProgressiveShare & ProgressiveWin columns
 	- 20141016@Bobby: Add bettype Tenis's Sporting Solution and IBC
 	- 20151022@Bobby: Get member data by Product list
+	- 20160119@Bobby: #51099 - Get member data by sporttype after movebetday
 	
   
 Param's Explanation:  
@@ -56,17 +57,37 @@ BEGIN
 		ProductId 		TINYINT
 		, Bettype		SMALLINT
 	)
+	
+	CREATE TABLE #ProductSporttype (
+		ProductId 		TINYINT
+		, Sporttype 	SMALLINT
+	)
+	
 	DECLARE @ProductFilter TABLE (ProductId TINYINT)
 	INSERT INTO @ProductFilter ( ProductId )
 	SELECT CAST(val AS TINYINT) AS ProductId 
 	FROM [dbo].[strSplit_Key](@ProductIDs, ',')
 	
+	-- insert product & bettype mapping
 	INSERT INTO #ProductBettype (
 		ProductId
 		, Bettype
 	)
 	SELECT DISTINCT p.ProductId
 		, bt.Bettype
+	FROM dbo.SportBettypeMatrix bt WITH(NOLOCK)
+		INNER JOIN @ProductFilter p
+		ON bt.ProductId = p.ProductId
+	WHERE bt.IsTest 	= 0
+		AND bt.Enabled 	= 1
+	
+	-- insert product & Sporttype mapping
+	INSERT INTO #ProductSporttype (
+		ProductId
+		, Sporttype
+	)
+	SELECT DISTINCT p.ProductId
+		, bt.Sporttype
 	FROM dbo.SportBettypeMatrix bt WITH(NOLOCK)
 		INNER JOIN @ProductFilter p
 		ON bt.ProductId = p.ProductId
@@ -101,7 +122,7 @@ BEGIN
 
 	INSERT INTO #TempTrans (UserName) --Convert xml to table
 	SELECT [Table].[Column].value('./@username', 'varchar(30)') AS UserName
-	FROM @Xml.nodes('/root/trans') AS [Table]([Column])
+	FROM @Xml.nodes('//root/trans') AS [Table]([Column])
 
 	INSERT INTO #LicenseeCust
 	SELECT c.CustID
@@ -115,8 +136,6 @@ BEGIN
 		--INNER JOIN #TempTrans AS t ON t.username = c.username
 	WHERE c.roleid = 1
 	
-	--select * from #LicenseeCust
-
 	IF @Date > @MaxDate
 	BEGIN
 		INSERT INTO #tmpRpt (
@@ -254,8 +273,8 @@ BEGIN
 			ON b.custid 			= c.custid
 				AND b.recommend 	= c.recommend
 				AND b.srecommend 	= c.srecommend
-			INNER JOIN #ProductBettype bt
-			ON b.bettype 			= bt.bettype
+			INNER JOIN #ProductSporttype bt
+			ON b.Sporttype			= bt.Sporttype
 			
 		WHERE b.winlostdate = @Date
 			AND b.BetCount 	> 0
@@ -315,8 +334,8 @@ BEGIN
 				ON b.custid 		= c.custid
 				AND b.recommend 	= c.recommend
 				AND b.srecommend 	= c.srecommend
-			INNER JOIN #ProductBettype bt
-			ON b.bettype 			= bt.bettype
+			INNER JOIN #ProductSporttype bt
+			ON b.Sporttype			= bt.Sporttype
 		WHERE b.winlostdate = @Date
 			AND b.BetCount 	> 0
 			AND b.roleid 	= 1
@@ -525,6 +544,7 @@ BEGIN
 
 	DROP TABLE #TempTrans	
 	DROP TABLE #ProductBettype
+	DROP TABLE #ProductSporttype
 	DROP TABLE #tmpRpt
 	DROP TABLE #LicenseeCust
 END
