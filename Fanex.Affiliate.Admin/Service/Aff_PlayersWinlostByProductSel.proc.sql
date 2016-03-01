@@ -26,7 +26,7 @@ Revisions:
 	- 20140502@Dan: support Playtech casino
 	- 20140610@Bobby: Add ProgressiveShare & ProgressiveWin columns
 	- 20141016@Bobby: Add bettype Tenis's Sporting Solution and IBC
-	
+	- 20160301@Bobby: #53169 - Hotfix include OneRNG single wallet into Casino product
   
 Param's Explanation:  
 	- @Xml: List member's username is under affiliate user
@@ -117,7 +117,7 @@ BEGIN
 			,b.custid
 			,c.username
 			,CASE 
-				WHEN bettype IN (71, 72) THEN 251 --casino
+				WHEN (bettype IN (71, 72) OR bettype BETWEEN 2101 AND 2399) THEN 251 --casino
 				WHEN bettype = 1000 THEN 253 --games
 				WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN 151 -- Horse Racing
 				WHEN bettype BETWEEN 81
@@ -199,7 +199,7 @@ BEGIN
 		GROUP BY b.custid
 			,c.username
 			,CASE 
-				WHEN bettype IN (71, 72) THEN 251 --casino
+				WHEN (bettype IN (71, 72) OR bettype BETWEEN 2101 AND 2399) THEN 251 --casino
 				WHEN bettype = 1000 THEN 253 --games
 				WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN 151 -- Horse Racing
 				WHEN bettype BETWEEN 81
@@ -238,7 +238,10 @@ BEGIN
 		SELECT b.winlostdate
 			,b.CustID
 			,c.username
-			,b.Sporttype
+			,CASE 
+				WHEN b.Sporttype IN (251,208,209,210) THEN 251 -- Casino
+				ELSE b.Sporttype 
+			END AS Sporttype
 			,sum(b.turnover)
 			,0 AS Outstanding
 			,sum(b.winlost)
@@ -270,13 +273,16 @@ BEGIN
 		WHERE b.winlostdate = @Date
 			AND b.BetCount > 0
 			AND b.roleid = 1
-			AND b.sporttype IN (0, 151, 161, 162, 180, 201, 251, 253, 202)
+			AND b.sporttype IN (0, 151, 161, 162, 180, 201, 251, 253, 202, 208,209,210)
 			-- and b.isBA=0
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
 		GROUP BY b.winlostdate
 			,b.CustID
 			,c.username
-			,b.Sporttype
+			,CASE 
+				WHEN b.Sporttype IN (251, 208,209,210) THEN 251 -- Casino
+				ELSE b.Sporttype 
+			END
 	END
 	ELSE IF @Date < @CutDate
 	BEGIN
@@ -297,7 +303,10 @@ BEGIN
 		SELECT b.winlostdate
 			,b.CustID
 			,c.username
-			,b.Sporttype
+			,CASE 
+				WHEN b.Sporttype IN (251,208,209,210) THEN 251 -- Casino
+				ELSE b.Sporttype 
+			END AS Sporttype
 			,SUM(b.turnover)
 			,0 AS Outstanding
 			,SUM(b.winlost)
@@ -329,13 +338,16 @@ BEGIN
 		WHERE b.winlostdate = @Date
 			AND b.BetCount > 0
 			AND b.roleid = 1
-			AND b.sporttype IN (0, 151, 161, 162, 180, 201, 251, 253, 202)
+			AND b.sporttype IN (0, 151, 161, 162, 180, 201, 251, 253, 202,208,209,210)
 			-- and b.isBA=0
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
 		GROUP BY b.winlostdate
 			,b.CustID
 			,c.username
-			,b.Sporttype
+			,CASE 
+				WHEN b.Sporttype IN (251,208,209,210) THEN 251 -- Casino
+				ELSE b.Sporttype 
+			END
 	END
 
 	INSERT INTO #tmpRpt (
@@ -373,7 +385,12 @@ BEGIN
 	WHERE b.winlostdate = @Date
 		AND sporttype = 254
 		AND b.BetCount > 0
-
+	
+	-- remove undefined product
+	DELETE b
+	FROM #tmpRpt b WITH (NOLOCK)
+	WHERE ProductID = -1
+	
 	SELECT *
 	FROM #tmpRpt b WITH (NOLOCK)
 
