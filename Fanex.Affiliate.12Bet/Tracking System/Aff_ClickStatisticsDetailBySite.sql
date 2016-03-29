@@ -21,6 +21,8 @@ Revisions:
 	- 20140708@Bobby : Apply Device type info
 	- 20140801@Bobby : Update checking DeviceType in ClickStatistics1_bk
 	- 20141103@Bobby : Update checking DeviceType in ClickStatistics1_bk (change AND to OR)
+	- 20160327@Bobby : #54942 - Correct time range
+	
 */
 BEGIN
 	SET NOCOUNT ON
@@ -37,9 +39,10 @@ BEGIN
 
 	SELECT @LastDateSum = (
 			SELECT MAX(DATE)
-			FROM ClickStatistics1Sum
+			FROM ClickStatistics1Sum (NOLOCK)
 			)
 		,@FromDate = convert(VARCHAR(10), @FromDate, 120)
+		,@ToDate = dbo.Aff_GetEndDate(@ToDate)
 
 	SELECT @LastDateSum = isnull(@LastDateSum, dateadd(d, - 1, @FromDate))
 
