@@ -274,7 +274,10 @@ BEGIN
 				AND b.recommend 	= c.recommend
 				AND b.srecommend 	= c.srecommend
 			INNER JOIN #ProductSporttype bt
-			ON b.Sporttype			= bt.Sporttype
+			----ON b.Sporttype			= bt.Sporttype
+			ON CASE WHEN b.Sporttype = 0 THEN 1 -- Sportbook
+					ELSE b.Sporttype 
+				END = bt.Sporttype
 			
 		WHERE b.winlostdate = @Date
 			AND b.BetCount 	> 0
@@ -335,7 +338,11 @@ BEGIN
 				AND b.recommend 	= c.recommend
 				AND b.srecommend 	= c.srecommend
 			INNER JOIN #ProductSporttype bt
-			ON b.Sporttype			= bt.Sporttype
+			--ON b.Sporttype			= bt.Sporttype
+			ON CASE WHEN b.Sporttype = 0 THEN 1 -- Sportbook
+					ELSE b.Sporttype 
+				END = bt.Sporttype
+			
 		WHERE b.winlostdate = @Date
 			AND b.BetCount 	> 0
 			AND b.roleid 	= 1
@@ -378,7 +385,7 @@ BEGIN
 				,11 AS ProductID
 				,SUM(Stake) AS Turnover
 				,0 AS Outstanding
-				,SUM(Winlost) AS Winloss
+				,SUM(Winlost - actual_stake) AS Winloss
 				,SUM(CASE 
 							WHEN statusID = 111 THEN stake
 							ELSE 0
@@ -423,7 +430,7 @@ BEGIN
 				,11 AS ProductID
 				,SUM(Stake) AS Turnover
 				,0 AS Outstanding
-				,SUM(Winlost) AS Winloss
+				,SUM(Winlost - actual_stake) AS Winloss
 				,SUM(CASE 
 							WHEN statusID = 111 THEN stake
 							ELSE 0
@@ -471,7 +478,7 @@ BEGIN
 			,12 AS ProductID
 			,SUM(Stake) AS Turnover
 			,0 AS Outstanding
-			,SUM(Winlost) AS Winloss
+			,SUM(Winlost - Stake) AS Winloss
 			,SUM(CASE 
 						WHEN statusID = 111 THEN stake
 						ELSE 0
