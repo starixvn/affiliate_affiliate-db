@@ -8,6 +8,8 @@ DB: DBAFF.Affiliate_Licensee
 Original : [Task_CheckSum_WinlostByProduct]
 Revisions:  
 	-20140820@Bobby: Add checking enable Product
+	-20160120@Bobby: #51170 - Add ordering by product Id
+	-20160331@Bobby: #53169 - Update for check sum per Product Id
 	
 Param's Explanation:  
 	
@@ -19,8 +21,31 @@ BEGIN
 	
 	SET @Date = CAST(@Date AS DATE)
 
+	;WITH MemberList
+	AS (
+		SELECT m.username
+		FROM dbo.MemberInfo m(NOLOCK)
+		WHERE m.IsRemoved = 0
+			AND datediff(d, m.RegisteredDate, cast(@Date AS VARCHAR(50))) >= - 1
+			AND m.CreatedDate IS NOT NULL
+			AND datediff(d, m.AffAffectedDate, @Date) >= 0
+		
+		UNION
+		SELECT rm.UserName
+		FROM dbo.MemberRemoval rm WITH (NOLOCK)
+			INNER JOIN dbo.MemberInfo m WITH (NOLOCK)
+			ON rm.username = m.username
+		WHERE m.IsRemoved = 1
+			AND datediff(d, m.RegisteredDate, cast(@Date AS VARCHAR(50))) >= - 1
+			AND m.CreatedDate IS NOT NULL
+			AND datediff(d, m.AffAffectedDate, @Date) >= 0
+			AND datediff(m, cast(@Date AS VARCHAR(50)), isnull(rm.RemovedDate, GetDate())) > 0
+		GROUP BY rm.UserName
+	)
 	INSERT INTO @tblMember(UserName)
-	EXEC [dbo].[Aff_GetMembers] @Date = @Date
+	SELECT UserName
+	FROM MemberList
+	GROUP BY UserName
 
 	SELECT Winlostdate
 		,md.ProductID
@@ -64,6 +89,7 @@ BEGIN
 	FROM #rptData rpt
 		INNER JOIN dbo.Product p WITH(NOLOCK)
 		ON rpt.ProductID = p.ProductID
+	ORDER BY p.API_ProductID ASC
 	
 	--sum total
 	SELECT  Winlostdate
@@ -82,30 +108,17 @@ BEGIN
 	GROUP BY Winlostdate
 
 	--list product name
+	;WITH CTE_ProductRpt AS (
+		SELECT DISTINCT ProductID
+		FROM #rptData
+	)
 	SELECT p.API_ProductID AS ProductID
 		, p.ProductName
 	FROM dbo.Product p WITH(NOLOCK)
+		INNER JOIN CTE_ProductRpt rpt ON p.ProductID = rpt.ProductID
 	WHERE p.IsEnabled = 1
 		AND p.EffectiveDate <= @Date
-
+	ORDER BY p.API_ProductID ASC
+	
 	DROP TABLE #rptData
 END
-GO
-GRANT EXECUTE ON [dbo].[Task_CheckSum_WinlostByProduct] TO [bodbAdminNet] AS [dbo]
-
-GO
-
---USE Affiliate_Athena000
---GO
-
---EXEC [dbo].[Task_CheckSum_WinlostByProduct] @Date = '2014-04-23 00:00:00'
-
---USE bodb02
---GO
-
---EXEC [dbo].[Aff_CheckSum_WinlostByProduct] @Xml = '<root>
---		<trans username="LBUUSMem001"></trans>
---	</root>'
---	,@Prefix = 'LiveBet365$'
---	,@Date = '2014-05-19 00:00:00'
---	,@ProductIDs = '0'
