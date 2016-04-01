@@ -8,7 +8,7 @@ AS
 	Revisions:
 		- 20130731@Don : Fixed bug [Data isn't saved in DB when winlostdate < transdate in table bodb02.bettrans] (redmine.nexcel.vn/issues/4195)
 		- 20140328@Bobby : Unique username [https://redmine.nexcel.vn/issues/14111]
-		
+		201501022@Bobby.Nguyen: Add more product list
 */
 BEGIN
 	SET @Date = ISNULL(@Date, GETDATE());
@@ -33,8 +33,18 @@ BEGIN
 			AND datediff(d, m.AffAffectedDate, @Date) >= 0
 			AND datediff(m, cast(@Date AS VARCHAR(50)), isnull(rm.RemovedDate, GetDate())) > 0
 		GROUP BY rm.UserName
-		)
+	)
 	SELECT UserName
 	FROM MemberList
 	GROUP BY UserName
+	
+	
+	-- List supported product
+	SELECT [API_ProductID] AS ProductId
+		, ProductName
+	FROM dbo.Product WITH(NOLOCK)
+	WHERE IsEnabled = 1
+		AND EffectiveDate <= @Date
+	
+	RETURN 0
 END

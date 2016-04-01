@@ -13,6 +13,7 @@ AS
 	Revisions: 		
 		- 20140509@Dan: support Playtech casino
 		- 20140610@Bobby: Add PShare & PWin columns
+		- 20150102@Bobby.Nguyen: Add more product list - change API_ProductId to bodb02.dbo.Products.ProductID
 */
 BEGIN
 	SET NOCOUNT ON
@@ -136,12 +137,12 @@ BEGIN
 		,t1.PShare
 		,t1.PWin
 	FROM @TempTrans AS t1
-		INNER JOIN MemberInfo AS mi ON t1.UserName = mi.UserName
-		INNER JOIN affinfo AS ai WITH (NOLOCK) ON mi.AffId = ai.AffId
+		INNER JOIN dbo.MemberInfo AS mi ON t1.UserName = mi.UserName
+		INNER JOIN dbo.AffInfo AS ai WITH (NOLOCK) ON mi.AffId = ai.AffId
 	-- inner join Exchange as ex with (nolock) on ai.Currency = ex.ExchangeId
-		INNER JOIN Product AS p WITH (NOLOCK) ON t1.ProductID = p.API_ProductId
-		AND IsEnabled = 1
-		AND EffectiveDate <= @WinlostDate
+		INNER JOIN dbo.Product AS p WITH (NOLOCK) ON t1.ProductID = p.API_ProductId
+		AND p.IsEnabled = 1
+		AND p.EffectiveDate <= @WinlostDate
 	WHERE t1.WinlostDate = @WinlostDate
 		AND mi.IsRemoved = 0
 END
