@@ -27,7 +27,7 @@ BEGIN
 		, @affPrefix 		= '12BETAFF'
 		, @RefCode			= LTRIM(RTRIM(@RefCode))
 		
-	SELCT @affUsername  	= @affPrefix + @RefCode
+	SELECT @affUsername  	= @affPrefix + @RefCode
 	
 	SELECT TOP(1) 
 		@AffiliateId 		= AffID
