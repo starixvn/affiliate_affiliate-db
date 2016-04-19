@@ -1,6 +1,6 @@
 ﻿USE Affiliate_12bet
 GO
-ALTER PROCEDURE [dbo].[Aff_API_AffiliateUser_SelStatus]
+ALTER PROCEDURE [dbo].[Aff_Dot_AffiliateUser_SelStatus]
 	@RefCode		VARCHAR(30)
 	, @AffiliateId 	INT = 0 OUTPUT
 	, @ErrCode 		INT = 0 OUTPUT
@@ -56,7 +56,7 @@ BEGIN
 	RETURN;
 END
 
-GRANT EXECUTE ON [dbo].[Aff_API_AffiliateUser_SelStatus] TO [Dot_Member] AS [dbo]
+GRANT EXECUTE ON [dbo].[Aff_Dot_AffiliateUser_SelStatus] TO [Dot_Member] AS [dbo]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_API_AffiliateUser_SelStatus] TO [vnteam] AS [dbo]
+GRANT VIEW DEFINITION ON [dbo].[Aff_Dot_AffiliateUser_SelStatus] TO [vnteam] AS [dbo]
 GO
