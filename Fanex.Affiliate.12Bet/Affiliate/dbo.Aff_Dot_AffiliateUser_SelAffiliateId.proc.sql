@@ -55,7 +55,7 @@ BEGIN
 		
 	RETURN;
 END
-
+GO
 GRANT EXECUTE ON [dbo].[Aff_Dot_AffiliateUser_SelAffiliateId] TO [Dot_Member] AS [dbo]
 GO
 GRANT VIEW DEFINITION ON [dbo].[Aff_Dot_AffiliateUser_SelAffiliateId] TO [vnteam] AS [dbo]
