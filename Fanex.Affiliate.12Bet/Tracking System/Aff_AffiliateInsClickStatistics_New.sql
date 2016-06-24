@@ -34,6 +34,7 @@ Revisions:
 	- 20140708@Bobby : Apply DeviceType info
 	- 20141013@Bobby : Hot fix Euro (PC-Mobile) site
 	- 20150728@Bobby : Update new formation of mobile link
+	- 20160624@Bobby : #59652 - Update new formation of mobile link
 	
 Param's Explanation:   
 	- @DeviceType: 0-PC & 1-Mobile
@@ -128,42 +129,20 @@ BEGIN
 				ELSE @Default12Betdomain
 				END
 		END
-		ELSE -- Mobile link
+		ELSE IF (@DeviceType = 1)-- Mobile link
 		BEGIN
-			IF(@PageCode IN ('Signup', 'Home'))
-			BEGIN
-				SET @RedirectPage = CASE 
+			/**
+			http://membersitedomain/index.aspx?pid=[PageCode] & afid=[AffiliateID] & lng= [LanguageCode]& type=[typeid] & clickid=[clickid]  
+			[PageCode] will have the below values : home, signup, sportsbook, numbergame, promotion
+			[typeid] : Affiliate Type ID which is got from DB Table "AffType"
+			**/
+			SET @RedirectPage = CASE 
 					WHEN @DomainName IS NOT NULL THEN @W3Http + '://' + @DomainName + '/index.aspx?pid=' + @PageCode 
 						+ '&afid=' + CAST(@AffiliateID AS VARCHAR(15)) 
 						+ '&lng=' + @LanguageCode 
-						+ '&clickid={clickid}&type={typeid}'
+						+ '&type={typeid}&clickid={clickid}'
 					ELSE @Default12Betdomain
-					END
-			END
-			
-			IF(@PageCode IN ('sports', 'sportstoday', 'sportsbook', 'Numbergame'))
-			BEGIN
-				SET @RedirectPage = CASE 
-					WHEN @DomainName IS NOT NULL 
-						THEN @W3Http + '://' + @DomainName + '/index.aspx#sports.aspx?market=today' 
-							+ CASE WHEN @PageCode IN ('Numbergame') THEN '&sportType=161' ELSE '' END 
-							+ '&afid=' 	+ CAST(@AffiliateID AS VARCHAR(15)) 
-							+ '&lng=' 	+ @LanguageCode 
-							+ '&clickid={clickid}&type={typeid}'
-					ELSE @Default12Betdomain
-					END
-			END
-			
-			IF(@PageCode IN ('Promotion'))
-			BEGIN
-				SET @RedirectPage = CASE 
-					WHEN @DomainName IS NOT NULL 
-						THEN @W3Http + '://' + @DomainName + '/index.aspx#Promotions.aspx?afid=' + CAST(@AffiliateID AS VARCHAR(15)) 
-							+ '&lng=' + @LanguageCode 
-							+ '&clickid={clickid}&type={typeid}'
-					ELSE @Default12Betdomain
-					END
-			END
+				END
 		END
 	END
 	ELSE
@@ -174,7 +153,7 @@ BEGIN
 					OR @LanguageCode = 'es' THEN 'en'
 				WHEN @LanguageCode = 'vn' THEN 'vi'
 				ELSE @LanguageCode END
-				)
+			)
 
 		SELECT @RedirectPage = replace(@RedirectPage, '{custid}', @AffiliateID)
 
