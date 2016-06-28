@@ -183,6 +183,7 @@ BEGIN
 		BEGIN
 			-- Reset language code
 			SELECT @RedirectPage = REPLACE(@RedirectPage, 'eneuro', 'en')
+			SELECT @RedirectPage = REPLACE(@RedirectPage, 'es', 'en')
 			-- Reset mobile link
 			IF(@DomainName <> @EUDomain OR @DomainName <> @EUMobileDomain)
 			BEGIN
