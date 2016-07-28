@@ -12,6 +12,7 @@ DB: DB054/DB052.bodb02
 Original : [Aff_PlayersWinlostByProductSel]  
 Revisions:  
 	-20140820@Bobby: Add filtering by ProductIDs
+	-20160726@Victor: Move licensee's summary tables to bodb_LicenseeReport [Redmine: #60449]
 	
 Param's Explanation:  
 	@Xml: 
@@ -72,7 +73,7 @@ BEGIN
 
 	SELECT @CutDate_LIC = MIN(winlostdate)
 		,@MaxDate_LIC = MAX(Winlostdate)
-	FROM bodb_licensee.dbo.rptLicWinloss2 WITH (NOLOCK)
+	FROM bodb_LicenseeReport.dbo.rptLicWinloss2 WITH (NOLOCK)
 
 	SELECT @CutDate_RPT = MIN(winlostdate)
 		,@MaxDate_RPT = MAX(Winlostdate)
@@ -224,7 +225,7 @@ BEGIN
 					WHEN b.statusID = 111 THEN 0
 					ELSE BetCount
 					END) -- Betcount No Draw
-		FROM bodb_licensee.dbo.rptLicWinloss_old b WITH (NOLOCK)
+		FROM bodb_LicenseeReport.dbo.rptLicWinloss_old b WITH (NOLOCK)
 			INNER JOIN #LicenseeCust c WITH (NOLOCK)
 			ON b.custid = c.custid
 				AND b.recommend = c.recommend
@@ -273,7 +274,7 @@ BEGIN
 					WHEN b.statusID = 111 THEN 0
 					ELSE BetCount
 					END) -- Betcount No Draw
-		FROM bodb_licensee.dbo.rptLicWinloss2 b WITH (NOLOCK)
+		FROM bodb_LicenseeReport.dbo.rptLicWinloss2 b WITH (NOLOCK)
 			INNER JOIN #LicenseeCust c WITH (NOLOCK)
 			ON b.custid = c.custid
 				AND b.recommend = c.recommend

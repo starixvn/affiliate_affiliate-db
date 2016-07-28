@@ -28,7 +28,7 @@ Revisions:
 	- 20141016@Bobby: Add bettype Tenis's Sporting Solution and IBC
 	- 20151022@Bobby: Get member data by Product list
 	- 20160119@Bobby: #51099 - Get member data by sporttype after movebetday
-	
+	- 20160726@Victor: Move licensee's summary tables to bodb_LicenseeReport [Redmine: #60449]
   
 Param's Explanation:  
 	- @Xml: List member's username is under affiliate user
@@ -99,7 +99,7 @@ BEGIN
 		
 	SELECT @CutDate = min(winlostdate)
 		,@MaxDate = MAX(Winlostdate)
-	FROM bodb_licensee.dbo.rptLicWinloss2 WITH (NOLOCK)
+	FROM bodb_LicenseeReport.dbo.rptLicWinloss2 WITH (NOLOCK)
 
 	CREATE TABLE #tmpRpt (
 		Winlostdate SMALLDATETIME
@@ -268,7 +268,7 @@ BEGIN
 					WHEN b.statusID = 111 THEN 0
 					ELSE BetCount
 					END) -- Betcount No Draw
-		FROM bodb_licensee.dbo.rptLicWinloss2 b WITH (NOLOCK)
+		FROM bodb_LicenseeReport.dbo.rptLicWinloss2 b WITH (NOLOCK)
 			INNER JOIN #LicenseeCust c WITH (NOLOCK) 
 			ON b.custid 			= c.custid
 				AND b.recommend 	= c.recommend
@@ -332,7 +332,7 @@ BEGIN
 					WHEN b.statusID = 111 THEN 0
 					ELSE BetCount
 					END) -- Betcount No Draw
-		FROM bodb_licensee.dbo.rptLicWinloss_old b WITH (NOLOCK)
+		FROM bodb_LicenseeReport.dbo.rptLicWinloss_old b WITH (NOLOCK)
 			INNER JOIN #LicenseeCust c WITH (NOLOCK) 
 				ON b.custid 		= c.custid
 				AND b.recommend 	= c.recommend
