@@ -1,14 +1,5 @@
-USE [bodb02]
-GO
-
-/****** Object:  StoredProcedure [dbo].[Aff_PlayersWinlostByProductSel]    Script Date: 05/09/2014 00:20:02 ******/
-SET ANSI_NULLS ON
-GO
-
-SET QUOTED_IDENTIFIER ON
-GO
-
-ALTER PROCEDURE [dbo].[Aff_PlayersWinlostByProductSel] 
+ 
+CREATE PROCEDURE [dbo].[Aff_PlayersWinlostByProductSel] 
 	@Xml 			XML
 	,@Prefix 		VARCHAR(100)
 	,@Date 			SMALLDATETIME
@@ -28,7 +19,8 @@ Revisions:
 	- 20141016@Bobby: Add bettype Tenis's Sporting Solution and IBC
 	- 20151022@Bobby: Get member data by Product list
 	- 20160119@Bobby: #51099 - Get member data by sporttype after movebetday
-	- 20160726@Victor: Move licensee's summary tables to bodb_LicenseeReport [Redmine: #60449]
+	- 20161022@Jim:move table to bodb_licenseereport [RedmineID :#60449]
+	
   
 Param's Explanation:  
 	- @Xml: List member's username is under affiliate user
@@ -99,7 +91,7 @@ BEGIN
 		
 	SELECT @CutDate = min(winlostdate)
 		,@MaxDate = MAX(Winlostdate)
-	FROM bodb_LicenseeReport.dbo.rptLicWinloss2 WITH (NOLOCK)
+	FROM bodb_licenseeReport.dbo.rptLicWinloss2 WITH (NOLOCK)
 
 	CREATE TABLE #tmpRpt (
 		Winlostdate SMALLDATETIME
@@ -268,7 +260,7 @@ BEGIN
 					WHEN b.statusID = 111 THEN 0
 					ELSE BetCount
 					END) -- Betcount No Draw
-		FROM bodb_LicenseeReport.dbo.rptLicWinloss2 b WITH (NOLOCK)
+		FROM bodb_licenseeReport.dbo.rptLicWinloss2 b WITH (NOLOCK)
 			INNER JOIN #LicenseeCust c WITH (NOLOCK) 
 			ON b.custid 			= c.custid
 				AND b.recommend 	= c.recommend
@@ -332,7 +324,7 @@ BEGIN
 					WHEN b.statusID = 111 THEN 0
 					ELSE BetCount
 					END) -- Betcount No Draw
-		FROM bodb_LicenseeReport.dbo.rptLicWinloss_old b WITH (NOLOCK)
+		FROM bodb_licenseeReport.dbo.rptLicWinloss_old b WITH (NOLOCK)
 			INNER JOIN #LicenseeCust c WITH (NOLOCK) 
 				ON b.custid 		= c.custid
 				AND b.recommend 	= c.recommend
@@ -557,11 +549,16 @@ BEGIN
 END
 GO
 
-GRANT EXECUTE ON [dbo].[Aff_PlayersWinlostByProductSel] TO [bodbAdminNet] AS [dbo]
+SET QUOTED_IDENTIFIER OFF 
+GO
+SET ANSI_NULLS ON 
 GO
 
-GRANT EXECUTE ON [dbo].[Aff_PlayersWinlostByProductSel] TO [vnteam] AS [dbo]
-GO
 
-GRANT VIEW DEFINITION ON [dbo].[Aff_PlayersWinlostByProductSel] TO [vnteam] AS [dbo]
-GO
+GO 
+ GRANT EXECUTE ON [dbo].[Aff_PlayersWinlostByProductSel] TO [vnteam]
+GO 
+ GRANT VIEW DEFINITION ON [dbo].[Aff_PlayersWinlostByProductSel] TO [vnteam]
+GO 
+ GRANT EXECUTE ON [dbo].[Aff_PlayersWinlostByProductSel] TO [bodbAdminNet]
+GO 
