@@ -1,4 +1,10 @@
-﻿ALTER PROCEDURE [dbo].[Aff_CheckSum_WinlostByProduct] 
+﻿
+SET QUOTED_IDENTIFIER ON 
+GO
+SET ANSI_NULLS ON 
+GO
+ 
+CREATE PROCEDURE [dbo].[Aff_CheckSum_WinlostByProduct] 
 	@Xml 			XML
 	,@Prefix 		VARCHAR(100)
 	,@Date 			SMALLDATETIME
@@ -12,6 +18,7 @@ DB: DB054/DB052.bodb02
 Original : [Aff_PlayersWinlostByProductSel]  
 Revisions:  
 	-20140820@Bobby: Add filtering by ProductIDs
+	-20161022@Jim:move table to bodb_licenseereport [RedmineID :#60449]
 	
 Param's Explanation:  
 	@Xml: 
@@ -72,7 +79,7 @@ BEGIN
 
 	SELECT @CutDate_LIC = MIN(winlostdate)
 		,@MaxDate_LIC = MAX(Winlostdate)
-	FROM bodb_licensee.dbo.rptLicWinloss2 WITH (NOLOCK)
+	FROM bodb_licenseeReport.dbo.rptLicWinloss2 WITH (NOLOCK)
 
 	SELECT @CutDate_RPT = MIN(winlostdate)
 		,@MaxDate_RPT = MAX(Winlostdate)
@@ -224,7 +231,7 @@ BEGIN
 					WHEN b.statusID = 111 THEN 0
 					ELSE BetCount
 					END) -- Betcount No Draw
-		FROM bodb_licensee.dbo.rptLicWinloss_old b WITH (NOLOCK)
+		FROM bodb_licenseeReport.dbo.rptLicWinloss_old b WITH (NOLOCK)
 			INNER JOIN #LicenseeCust c WITH (NOLOCK)
 			ON b.custid = c.custid
 				AND b.recommend = c.recommend
@@ -273,7 +280,7 @@ BEGIN
 					WHEN b.statusID = 111 THEN 0
 					ELSE BetCount
 					END) -- Betcount No Draw
-		FROM bodb_licensee.dbo.rptLicWinloss2 b WITH (NOLOCK)
+		FROM bodb_licenseeReport.dbo.rptLicWinloss2 b WITH (NOLOCK)
 			INNER JOIN #LicenseeCust c WITH (NOLOCK)
 			ON b.custid = c.custid
 				AND b.recommend = c.recommend
@@ -610,10 +617,12 @@ BEGIN
 END
 GO
 
-GRANT EXECUTE ON [dbo].[Aff_CheckSum_WinlostByProduct] TO [bodbAdminNet] AS [dbo]
+SET QUOTED_IDENTIFIER OFF 
 GO
--- exec [dbo].[Aff_CheckSum_WinlostByProduct]
--- @Xml 			= '<root><trans username="member01"></trans><trans username="member02"></trans><trans username="member06"></trans><trans username="member08"></trans></root>'
--- ,@Prefix 		= 'Athena000$'
--- ,@Date 			= '20160110'
--- ,@ProductIDs 	= '1,6,3,4,10,5,2,8,11,12,14';
+SET ANSI_NULLS ON 
+GO
+
+
+GO 
+ GRANT EXECUTE ON [dbo].[Aff_CheckSum_WinlostByProduct] TO [bodbAdminNet]
+GO 
