@@ -19,6 +19,7 @@ Original : [Aff_PlayersWinlostByProductSel]
 Revisions:  
 	-20140820@Bobby: Add filtering by ProductIDs
 	-20161022@Jim:move table to bodb_licenseereport [RedmineID :#60449]
+	-20161110@Bobby: #67071 - Correct productid for funding data
 	
 Param's Explanation:  
 	@Xml: 
@@ -29,13 +30,17 @@ Param's Explanation:
 		<trans_N username="XXX"></trans></root>
 	- @Prefix: Is the Licensee Name as default plus ($) sign
 	- @Date: Date only
-	- @ProductIDs: IBC sportypes ID
-		+ 0: 	Sportsbook
-		+ 251: 	RNG Casino
-		+ 161: 	Number Game
-		+ 162: 	Live Casino
-		+ 160: 	Virtual Sports
-		+ 254:	Playtech Casino	
+	- @ProductIDs: IBC product ID
+		+ 1:	Sportsbook
+		+ 2: 	RNG Casino	
+		+ 3:	Number Game
+		+ 4:	Live Casino
+		+ 5:	Virtual Sports
+		+ 6:	RNG Casino
+		+ 8:	Keno
+		+ 11:	AG Casino
+		+ 12:	Gold Deluxe
+		+ 14:	Macau
 */
 BEGIN
 	SET NOCOUNT ON;
@@ -99,7 +104,7 @@ BEGIN
 
 	CREATE TABLE #tmpFunding (
 		Winlostdate SMALLDATETIME
-		,ProductID INT DEFAULT(0)
+		,ProductID INT DEFAULT(1)
 		,Deposit MONEY
 		,Withdrawal MONEY
 		,Bonus MONEY
