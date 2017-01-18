@@ -35,7 +35,8 @@ Revisions:
 	- 20141013@Bobby : Hot fix Euro (PC-Mobile) site
 	- 20150728@Bobby : Update new formation of mobile link
 	- 20160624@Bobby : #59652 - Update new formation of mobile link
-	
+	- 20161215@Bobby : #68815 - Update new link formation for promotion page
+	 
 Param's Explanation:   
 	- @DeviceType: 0-PC & 1-Mobile
 */
@@ -192,6 +193,10 @@ BEGIN
 									ELSE REPLACE(@RedirectPage, @DomainName, @EUDomain)
 								END
 			END
+		END
+		IF(@PageCode IN ('promotion') AND @LanguageCode IN ('hien'))
+		BEGIN
+			SELECT @RedirectPage = REPLACE(@RedirectPage, 'hien', 'hi')
 		END
 	END
 	
