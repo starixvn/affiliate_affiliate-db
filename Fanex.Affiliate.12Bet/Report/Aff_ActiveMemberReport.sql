@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[Aff_ActiveMemberReport] 
+﻿USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_ActiveMemberReport] 
 	@Fromdate 				DATETIME 		=	NULL
 	,@Todate 				DATETIME 		= NULL
 	,@IsGetAll 				BIT 			= 0
@@ -20,6 +23,7 @@ Revisions:
 	- 20141114@Bobby: 
 		+ Add sorting [@SortBy] value
 		+ Remove @TotalPages
+	- 20170214@Percy: Fix FDM/Signup Issue [RedmineID: #70507]
 		
 Param's Explanation:
 	• @Fromdate Time search From
@@ -54,7 +58,7 @@ BEGIN
 	
 	SELECT @UserName = '%' + Coalesce(@UserName, '') + '%'
 
-	SELECT @ToDate		= dateadd(s, - 60, dateadd(d, datediff(d, 0, @ToDate) + 1, 0))
+	SELECT @ToDate		= dateadd(s, -1, dateadd(d, datediff(d, 0, @ToDate) + 1, 0))
 		, @CurrDate		= GETDATE()
 		, @CurrMonth	= DATEADD(M, DATEDIFF(M, 0, @CurrDate), 0)
 
@@ -89,42 +93,18 @@ BEGIN
 						ELSE @PageIndex 
 					END
 	
-	;WITH MemberStats (AffId, Signup, FDM)
-	AS (
-		SELECT AffId
-			,SUM(Signups)
-			,SUM(FDMs)
-		FROM (
-			SELECT md.AffID
-				,0 AS Signups
-				,COUNT(1) AS FDMs
-			FROM dbo.MemberInfo md WITH (NOLOCK)
-				INNER JOIN @AffList m
-				ON md.AffID = m.AffId
-			WHERE (@IsGetAll = 1 OR md.CreatedDate BETWEEN @FromDate AND @ToDate)
-				AND md.IBCCustId NOT IN (
-					SELECT IBCCustId
-					FROM dbo.MemberRemoval WITH (NOLOCK)
-					WHERE RemovedDate BETWEEN @FromDate AND @ToDate
-					)
-			GROUP BY md.AffID
-			
-			UNION ALL
-			SELECT m.AffID
-				,COUNT(1) AS Signups
-				,0 AS FDMs
-			FROM [DBDeposit].deposit_db.dbo.Deposit_Customer md WITH (NOLOCK)
-				INNER JOIN @AffList m
-				ON md.AffiliateId = m.AffId
-			WHERE (@IsGetAll = 1 OR (md.CreatDate >= @FromDate AND md.CreatDate < DATEADD(D, 1,@ToDate)))
-				AND md.AffiliateId > 0
-				
-			GROUP BY m.AffID
-		) AS t
-		GROUP BY t.AffID
-		HAVING SUM(Signups) > 0
-			OR SUM(FDMs)	> 0
-
+	;WITH MemberStats (AffId, Signup, FDM) AS
+	(
+		SELECT
+			AffiliateID AS AffId,
+			COUNT(1) AS Signup,
+			COUNT(IBCCustID) AS FDM
+		FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer c WITH (NOLOCK)
+		WHERE
+			(@IsGetAll = 1 OR CreatDate >= @FromDate AND CreatDate <=@ToDate)
+			AND EXISTS (SELECT 1 FROM @AffList a WHERE c.AffiliateID = a.AffId)
+		GROUP BY AffiliateID
+		HAVING COUNT(1) > 0 OR COUNT(IBCCustID) > 0
 	)
 	INSERT INTO #AffTotal(AffId, Signup, FDM, RowIDX, NRows)
 	SELECT AffId, Signup, FDM, RowIDX, NRows
@@ -151,86 +131,81 @@ BEGIN
 	ORDER BY t.RowIDX
 	
 	SELECT TOP 1 @NRows = NRows FROM #AffTotal
-	
-	;WITH OldTracking (AffId, TotalClick, UniqueClick) 
+
+	-- TotalClick, UniqueClick --
+	CREATE TABLE #OldTracking (AffId INT, TotalClick INT, UniqueClick INT)
+	CREATE TABLE #NewTracking (AffId INT, TotalClick INT, UniqueClick INT)
+
+		/* Old */
+	INSERT INTO #OldTracking
+	SELECT
+		c.AffID,
+		SUM(c.TotalClick),
+		SUM(c.UniqueClick)
+	FROM dbo.ClickStatisticsSum c WITH(NOLOCK)
+	WHERE 
+		(@IsGetAll = 1 OR c.Date BETWEEN @FromDate AND @CurrMonth)
+		AND c.IsForMonth = 1
+		AND c.TrackingID = 0 -- sum for months
+		AND EXISTS (SELECT 1 FROM #AffTotal a WHERE a.AffId = c.AffID)
+	GROUP BY c.AffID, c.Date
+
+	INSERT INTO #OldTracking
+	SELECT
+		t.AffID,
+		COUNT(1) AS TotalClick,
+		COUNT(DISTINCT c.IP) AS UniqueClick
+	FROM dbo.ClickStatistics c WITH(NOLOCK)
+		INNER JOIN dbo.TrackingCode t WITH(NOLOCK) ON c.TrackingID = c.TrackingID
+	WHERE
+		(@IsGetAll = 1 OR c.Date BETWEEN @CurrMonth AND @ToDate)
+		AND c.Date >= @CurrMonth
+		AND c.IP <> ''
+		AND EXISTS (SELECT 1 FROM #AffTotal a WHERE a.AffId = t.AffID)
+	GROUP BY t.AffID, c.Date
+		/* End Old */
+
+		/* New */
+	INSERT INTO #NewTracking
+	SELECT
+		c.AffID,
+		COUNT(1) AS TotalClick,
+		COUNT(DISTINCT c.IP) AS UniqueClick
+	FROM dbo.ClickStatistics1 c WITH (NOLOCK)
+	WHERE
+		c.Date BETWEEN @FromDate AND @ToDate
+		AND EXISTS (SELECT 1 FROM #AffTotal a WHERE c.AffId = a.AffId)
+	GROUP BY c.AffID, c.Date
+
+	INSERT INTO #NewTracking
+	SELECT
+		c.AffID,
+		SUM(TotalClick) AS TotalClick,
+		SUM(UniqueClick) AS UniqueClick
+	FROM dbo.ClickStatistics1Sum c WITH (NOLOCK)
+	WHERE
+		(@IsGetAll = 1 OR c.Date BETWEEN @FromDate AND @ToDate)
+		AND EXISTS (SELECT 1 FROM #AffTotal a WHERE c.AffId = a.AffId)
+	GROUP BY c.AffID, c.Date
+		/* End New */
+	;WITH OldTracking (AffId, TotalClick, UniqueClick)
 	AS (
-		SELECT t.AffId 
-			, SUM(t.TotalClick)	
-			, SUM(t.UniqueClick)
+		SELECT AffId, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
 		FROM (
-			SELECT t1.AffId 
-				, SUM(t1.TotalClick)	AS TotalClick
-				, SUM(t1.UniqueClick)	AS UniqueClick
-			FROM (
-					SELECT a.AffId
-						,[DATE]
-						,COUNT(1) TotalClick
-						,COUNT(DISTINCT s.IP) AS UniqueClick
-					FROM dbo.ClickStatistics s(NOLOCK)
-						INNER JOIN dbo.TrackingCode a(NOLOCK) 
-						ON a.TrackingID = s.TrackingID
-						INNER JOIN #AffTotal m
-						ON a.AffID = m.AffId
-					WHERE s.DATE >= @CurrMonth
-						AND s.IP <> ''
-						AND [Date] BETWEEN @CurrMonth AND @ToDate
-					GROUP BY a.AffId
-						,[DATE]
-			) t1
-
-			GROUP BY t1.AffID
-
+			SELECT AffId, -ISNULL(TotalClick, 0) AS TotalClick, -ISNULL(UniqueClick, 0) AS UniqueClick
+			FROM #NewTracking
 			UNION ALL
-			SELECT s.AffId
-				,SUM(TotalClick)
-				,SUM(UniqueClick)
-			FROM dbo.ClickStatisticsSum s(NOLOCK)
-			INNER JOIN #AffTotal m
-				ON s.AffID = m.AffId
-			WHERE TrackingID = 0
-				AND IsForMonth = 1
-				AND (@IsGetAll = 1 OR [DATE] BETWEEN @FromDate AND @CurrMonth)
-
-			GROUP BY s.AffId
-		) t
-		GROUP BY t.AffId 
-
+			SELECT AffId, ISNULL(TotalClick, 0) AS TotalClick, ISNULL(UniqueClick, 0) AS UniqueClick
+			FROM #OldTracking
+		) A
+		GROUP BY AffId
+		HAVING SUM(TotalClick) >= 0 OR SUM(UniqueClick) >= 0
 	)
-	, NewTracking (AffId, TotalClick, UniqueClick)
+	,NewTracking (AffId, TotalClick, UniqueClick)
 	AS (
-		SELECT t.AffId 
-			, SUM(t.TotalClick)
-			, SUM(t.UniqueClick)
-		FROM (
-			SELECT t1.AffId 
-				, SUM(t1.TotalClick) TotalClick
-				, SUM(t1.UniqueClick) UniqueClick
-			FROM (
-				SELECT m.AffId 
-					,[Date]
-					,SUM(1)					AS TotalClick
-					,COUNT(DISTINCT s.IP)	AS UniqueClick
-				FROM dbo.ClickStatistics1 s WITH(NOLOCK)
-					INNER JOIN #AffTotal m
-					ON s.AffID = m.AffId
-				WHERE [Date] BETWEEN @FromDate AND @ToDate
-				GROUP BY m.AffId 
-					,[Date]
-			) t1
-			GROUP BY t1.AffId 
-
-			UNION ALL
-			SELECT m.AffId 
-				,SUM(TotalClick)	AS TotalClick
-				,SUM(UniqueClick)	AS UniqueClick
-			FROM dbo.ClickStatistics1Sum s WITH(NOLOCK)
-				INNER JOIN #AffTotal m
-				ON s.AffID = m.AffId
-			WHERE (@IsGetAll = 1 OR [Date] BETWEEN @FromDate AND @ToDate)
-			GROUP BY m.AffId 
-		) t
-		GROUP BY t.AffId 
-
+		SELECT AffId, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
+		FROM #NewTracking
+		GROUP BY AffId
 	)
 	SELECT t.AffId
 		,m.UserName
@@ -254,31 +229,14 @@ BEGIN
 		ON t.AffId = nt.AffId
 		
 	ORDER BY t.RowIDX
-		
 	
 	DROP TABLE #AffTotal
+	DROP TABLE #OldTracking
+	DROP TABLE #NewTracking
 	
 	SET @NRows = ISNULL(@NRows, 0)
-
-	RETURN
 END
 GO
 
 GRANT EXECUTE ON [dbo].[Aff_ActiveMemberReport] TO [bodbAdminNet]
 GO
-
-declare @p9 int
-declare @p10 int
-EXEC Aff_ActiveMemberReport @Fromdate = '2014-12-08'
-	,@Todate = '2014-12-09'
-	,@IsGetAll = 0
-	,@UserName = DEFAULT
-	,@PreferredLanguage = DEFAULT
-	,@AffType = DEFAULT
-	,@PageSize = 20
-	,@PageIndex = 1
-	,@SortBy = 1
-	,@NRows = @p10 OUTPUT
-
-select @p9, @p10
-go

@@ -1,3 +1,6 @@
+USE [Affiliate_12BET]
+GO
+
 ALTER PROCEDURE [dbo].[Aff_StatisticsSel] 
 	@AffID INT
 	,@MonthDate SMALLDATETIME
@@ -6,7 +9,9 @@ ALTER PROCEDURE [dbo].[Aff_StatisticsSel]
 	,@TotalQualifiedMembersHR INT OUTPUT
 	,@TotalActivePlayer INT OUTPUT
 	,@TotalPlayerDepUp INT OUTPUT
+	,@TotalPlayer INT OUTPUT
 	,@NewSignUpDep INT OUTPUT
+	,@NewSignUp INT OUTPUT
 	,@BalBroughtforward MONEY = 0 OUTPUT
 	,@TotalDeposit MONEY OUTPUT
 	,@TotalDepositUp MONEY OUTPUT
@@ -23,7 +28,7 @@ ALTER PROCEDURE [dbo].[Aff_StatisticsSel]
 AS
 /*Created: 20090325@VinhTrinh
 Task : Get statistics for affiliate
-DB: DB052.Affiliate_12BET
+DB: DBAFF12BET.Affiliate_12BET
 Original : [Aff_CustomerSelStatistics]
 Revisions:
 	- 20090513@VinhTrinh: return 2 more result(winlost up to now and winlos for search month).
@@ -35,6 +40,7 @@ Revisions:
 	- 20140403@Bobby:  exclude Keno product & other sports
 	- 20140801@Bobby:  Update MemberClickStatistics
 	- 20141218@Bobby: Update SS's bettype
+	- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
 
 Param's Explanation:
 	• @AffID : Affiliate custid
@@ -94,23 +100,29 @@ BEGIN
 
 	SELECT @FromDate = dateadd(d, 1, @MaxTransDate)
 
-	SELECT @NewSignUpDep = Count(1)
-	FROM MemberInfo m WITH (NOLOCK)
-	WHERE m.AffId = @AffId
-		AND CreatedDate >= @FromBeginMonth
-		AND CreatedDate < @ToNextMonth -- datediff(m, CreatedDate, @MonthDate) = 0
-		AND m.IBCCustId NOT IN (
-			SELECT IBCCustId
-			FROM MemberRemoval WITH (NOLOCK)
-			WHERE RemovedDate >= @FromBeginMonth
-				AND RemovedDate < @ToNextMonth
-			) --datediff(m, RemovedDate, @MonthDate) = 0	
+	-- FDM --
+	SELECT @NewSignUpDep = COUNT(1)
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+	WHERE AffiliateId = @AffId
+		AND IBCCustID IS NOT NULL -- deposit
+		AND CreatDate >= @FromBeginMonth AND CreatDate < @ToNextMonth
 
-	SELECT --If member is created and removed in the same month, he/she will not be counted.
-		@TotalPlayerDepUp = Count(*)
-	FROM MemberInfo m WITH (NOLOCK)
-	WHERE m.AffId = @AffId
-		AND IsRemoved = 0
+	SELECT @TotalPlayerDepUp = COUNT(1)
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+	WHERE AffiliateId = @AffId
+		AND IBCCustID IS NOT NULL -- deposit
+	-----
+
+	-- Signups --
+	SELECT @NewSignUp = COUNT(1)
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+	WHERE AffiliateId = @AffId
+		AND CreatDate >= @FromBeginMonth AND CreatDate < @ToNextMonth
+
+	SELECT @TotalPlayer = COUNT(1)
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+	WHERE AffiliateId = @AffId
+	-----
 
 	DECLARE @TblStatistics AS TABLE (
 		IBCCustID INT
@@ -351,10 +363,10 @@ BEGIN
 	SELECT @BalBroughtforward = isnull(dbo.Aff_GetAffBalance(@AffID), 0)
 END
 GO
+
 GRANT EXECUTE ON [dbo].[Aff_StatisticsSel] TO [bodbDownlineNet] AS [dbo]
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_StatisticsSel] TO [bodbDownlineNetView] AS [dbo]
 GO
-
 GRANT VIEW DEFINITION ON [dbo].[Aff_StatisticsSel] TO [vnteam] AS [dbo]
+GO
