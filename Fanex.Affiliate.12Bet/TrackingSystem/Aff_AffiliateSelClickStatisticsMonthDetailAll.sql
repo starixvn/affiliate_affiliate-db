@@ -1,4 +1,6 @@
-﻿ALTER PROCEDURE [Aff_AffiliateSelClickStatisticsMonthDetailAll]
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
+ALTER PROCEDURE [Aff_AffiliateSelClickStatisticsMonthDetailAll]
 	@AffID int,
 	@MonthDate smalldatetime,	
 	@TotalUniqueClicks int OUTPUT,
@@ -39,13 +41,6 @@ end
 
 	
 GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateSelClickStatisticsMonthDetailAll] TO [bodbAdminNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateSelClickStatisticsMonthDetailAll] TO [bodbDownlineNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateSelClickStatisticsMonthDetailAll] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateSelClickStatisticsMonthDetailAll] TO [VNTeam]
 
 
 

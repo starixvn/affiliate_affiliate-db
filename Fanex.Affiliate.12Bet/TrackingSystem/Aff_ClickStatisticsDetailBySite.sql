@@ -1,5 +1,4 @@
-﻿USE [Affiliate_12BET]
-GO
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Aff_ClickStatisticsDetailBySite] 
 	@AffID INT
@@ -34,127 +33,92 @@ BEGIN
 
 	IF (@FromDate > @ToDate) RETURN
 
-	DECLARE @Result AS TABLE (
-		UrlReferrer NVARCHAR(300)
-		,TotalClick INT
-		,UniqueClick INT
-		)
+	DECLARE @Result TABLE
+	(
+		UrlReferrer		NVARCHAR(300),
+		DeviceType		TINYINT,
+		TotalClick		INT,
+		UniqueClick		INT
+	)
 
-	SELECT @LastDateSum = (
-			SELECT MAX(DATE)
-			FROM ClickStatistics1Sum (NOLOCK)
-			)
-		,@FromDate = convert(VARCHAR(10), @FromDate, 120)
-		,@ToDate = dbo.Aff_GetEndDate(@ToDate)
+	SELECT	@LastDateSum =  MAX(DATE) FROM ClickStatistics1Sum (NOLOCK)
 
-	SELECT @LastDateSum = isnull(@LastDateSum, dateadd(d, - 1, @FromDate))
+	SELECT	@FromDate = CONVERT(VARCHAR(10), @FromDate, 120),
+			@ToDate = dbo.Aff_GetEndDate(@ToDate)
+
+	SELECT @LastDateSum = ISNULL(@LastDateSum, DATEADD(DAY, -1, @FromDate))
 
 	IF (@LastDateSum < @FromDate) --get from main table
 	BEGIN
 		INSERT INTO @Result
-		SELECT URLReferrer
-			,sum(TotalClick) AS TotalClick
-			,sum(UniqueClick) AS UniqueClick
-		FROM (
-			SELECT URLReferrer
-				,sum(1) AS TotalClick
-				,count(DISTINCT IP) AS UniqueClick
-			FROM ClickStatistics1 c WITH (NOLOCK)
-			WHERE [Date] BETWEEN @FromDate
-					AND @ToDate
+		SELECT URLReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
+		FROM
+		(
+			SELECT URLReferrer, DeviceType, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
+			FROM ClickStatistics1 WITH (NOLOCK)
+			WHERE [Date] BETWEEN @FromDate AND @ToDate
 				AND AffId = @AffID
-				AND DomainReferrer = isnull(@Domain, DomainReferrer)
-				AND SportCode = isnull(@SportCode, SportCode)
-				AND LanguageCode = isnull(@LanguageCode, LanguageCode)
-				AND DeviceType = @DeviceType
-			GROUP BY URLReferrer
-				,[Date]
-			) AS t
-		GROUP BY URLReferrer
+				AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
+				AND SportCode = ISNULL(@SportCode, SportCode)
+				AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
+			GROUP BY URLReferrer, DeviceType, [Date]
+		) AS t
+		GROUP BY URLReferrer, DeviceType
 	END
 	ELSE IF (@LastDateSum > @ToDate) --get from bk table
 	BEGIN
 		INSERT INTO @Result
-		SELECT URLReferrer
-			,sum(TotalClick) AS TotalClick
-			,sum(UniqueClick) AS UniqueClick
-		FROM (
-			SELECT URLReferrer
-				,sum(1) AS TotalClick
-				,count(DISTINCT IP) AS UniqueClick
+		SELECT URLReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
+		FROM
+		(
+			SELECT URLReferrer, ISNULL(DeviceType, 0) AS DeviceType, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 			FROM ClickStatistics1_bk c WITH (NOLOCK)
-			WHERE [Date] BETWEEN @FromDate
-					AND @ToDate
+			WHERE [Date] BETWEEN @FromDate AND @ToDate
 				AND AffId = @AffID
-				AND DomainReferrer = isnull(@Domain, DomainReferrer)
-				AND SportCode = isnull(@SportCode, SportCode)
-				AND LanguageCode = isnull(@LanguageCode, LanguageCode)
-				AND ( 
-					(@DeviceType = 0 AND (c.DeviceType = @DeviceType OR c.DeviceType IS NULL))
-					OR 
-					(@DeviceType = 1 AND c.DeviceType = @DeviceType)
-				)
-			GROUP BY URLReferrer
-				,[Date]
-			) AS t
-		GROUP BY URLReferrer
+				AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
+				AND SportCode = ISNULL(@SportCode, SportCode)
+				AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
+			GROUP BY URLReferrer, ISNULL(DeviceType, 0), [Date]
+		) AS t
+		GROUP BY URLReferrer, DeviceType
 	END
 	ELSE --@fromdate < @LastDateSum < @ToDate
 	BEGIN
 		INSERT INTO @Result
-		SELECT URLReferrer
-			,sum(TotalClick) AS TotalClick
-			,sum(UniqueClick) AS UniqueClick
-		FROM (
-			SELECT URLReferrer
-				,sum(1) AS TotalClick
-				,count(DISTINCT IP) AS UniqueClick
+		SELECT URLReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
+		FROM
+		(
+			SELECT URLReferrer, ISNULL(DeviceType, 0) AS DeviceType, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 			FROM ClickStatistics1_bk c WITH (NOLOCK)
-			WHERE [Date] BETWEEN @FromDate
-					AND @ToDate
+			WHERE [Date] BETWEEN @FromDate AND @ToDate
 				AND AffId = @AffID
-				AND DomainReferrer = isnull(@Domain, DomainReferrer)
-				AND SportCode = isnull(@SportCode, SportCode)
-				AND LanguageCode = isnull(@LanguageCode, LanguageCode)
-				AND ( 
-					(@DeviceType = 0 AND (c.DeviceType = @DeviceType OR c.DeviceType IS NULL))
-					OR 
-					(@DeviceType = 1 AND c.DeviceType = @DeviceType)
-				)
-			GROUP BY URLReferrer
-				,[Date]
-			
+				AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
+				AND SportCode = ISNULL(@SportCode, SportCode)
+				AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
+			GROUP BY URLReferrer, ISNULL(DeviceType, 0), [Date]
+
 			UNION ALL
-			SELECT URLReferrer
-				,sum(1) AS TotalClick
-				,count(DISTINCT IP) AS UniqueClick
-			FROM ClickStatistics1 c WITH (NOLOCK)
-			WHERE [Date] BETWEEN @LastDateSum
-					AND @ToDate
+			SELECT URLReferrer, DeviceType, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
+			FROM ClickStatistics1 WITH (NOLOCK)
+			WHERE [Date] BETWEEN @LastDateSum AND @ToDate
 				AND AffId = @AffID
-				AND DomainReferrer = isnull(@Domain, DomainReferrer)
-				AND SportCode = isnull(@SportCode, SportCode)
-				AND LanguageCode = isnull(@LanguageCode, LanguageCode)
-				AND DeviceType = @DeviceType
-			GROUP BY URLReferrer
-				,[Date]
-			) tmp
-		GROUP BY URLReferrer
+				AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
+				AND SportCode = ISNULL(@SportCode, SportCode)
+				AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
+			GROUP BY URLReferrer, DeviceType, [Date]
+		) AS t
+		GROUP BY URLReferrer, DeviceType
 	END
 
 	--count nrows
-	SELECT @NRows = count(1)
-	FROM @Result
+	SELECT @NRows = COUNT(1) FROM (SELECT URLReferrer FROM @Result WHERE DeviceType = @DeviceType GROUP BY URLReferrer) AS r
 
-	IF (isnull(@NRows, 0) = 0) RETURN
+	IF ISNULL(@NRows, 0) = 0
+		RETURN
 
-	DECLARE @RowStart INT
-		,@RowEnd INT
+	DECLARE @RowStart INT, @RowEnd INT
 
-	SELECT @TotalPages = @NRows / @PageSize + CASE 
-			WHEN @NRows % @PageSize > 0 THEN 1
-			ELSE 0
-			END
+	SELECT @TotalPages = @NRows / @PageSize + CASE WHEN @NRows % @PageSize > 0 THEN 1 ELSE 0 END
 		,@PageIndex = @PageIndex - 1
 		,@RowStart = @PageSize * @PageIndex + 1
 		,@RowEnd = @RowStart + @PageSize - 1
@@ -164,6 +128,7 @@ BEGIN
 	CREATE TABLE #memberStats
 	(
 		URLReferrer NVARCHAR(600),
+		DeviceType	TINYINT,
 		Signups		BIGINT,
 		FDM			BIGINT
 	)
@@ -173,29 +138,29 @@ BEGIN
 		-- sign-up
 		SELECT
 			URLReferrer,
+			DeviceType,
 			COUNT(1) AS Signups,
 			0 AS FDM
 		FROM dbo.MemberClickDetail WITH (NOLOCK)
 		WHERE CreatedDate BETWEEN @FromDate AND @ToDate
 			AND AffId = @AffID
-			AND DeviceType = @DeviceType
 			AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
 			AND SportCode = ISNULL(@SportCode, SportCode)
 			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
-		GROUP BY URLReferrer
+		GROUP BY URLReferrer, DeviceType
 
 		UNION ALL
 
 		-- fdm
 		SELECT
 			ISNULL(md.URLReferrer, 'none') AS URLReferrer,
+			ISNULL(md.DeviceType, 0) AS DeviceType,
 			0 AS Signups,
 			COUNT(mi.IBCCustID) AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
 			LEFT JOIN dbo.MemberClickDetail md WITH (NOLOCK) ON md.IBCCustID = mi.IBCCustID
 		WHERE mi.CreatedDate BETWEEN @FromDate AND @ToDate
 			AND mi.AffId = @AffID
-			AND ISNULL(md.DeviceType, 0) = @DeviceType
 			AND (@Domain IS NULL OR ISNULL(md.DomainReferrer, 'none') = @Domain)
 			AND (@SportCode IS NULL OR ISNULL(md.SportCode, 'none') = @SportCode)
 			AND (@LanguageCode IS NULL OR ISNULL(md.LanguageCode, 'none') = @LanguageCode)
@@ -205,12 +170,12 @@ BEGIN
 					mr.IBCCustID = mi.IBCCustID
 					AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
 			)
-		GROUP BY ISNULL(md.URLReferrer, 'none')
+		GROUP BY ISNULL(md.URLReferrer, 'none'), ISNULL(md.DeviceType, 0)
 	)
-	INSERT INTO #memberStats (URLReferrer, Signups, FDM)
-	SELECT URLReferrer, SUM(Signups), SUM(FDM)
+	INSERT INTO #memberStats (URLReferrer, DeviceType, Signups, FDM)
+	SELECT URLReferrer, DeviceType, SUM(Signups), SUM(FDM)
 	FROM memberStats
-	GROUP BY URLReferrer
+	GROUP BY URLReferrer, DeviceType
 
 	;WITH CTE_UrlReferrer AS
 	(
@@ -220,9 +185,9 @@ BEGIN
 		FROM (
 			SELECT DISTINCT URLReferrer
 			FROM (
-				SELECT TOP (@RowEnd) URLReferrer FROM @Result ORDER BY URLReferrer
+				SELECT TOP (@RowEnd) URLReferrer FROM @Result WHERE DeviceType = @DeviceType ORDER BY URLReferrer
 				UNION ALL
-				SELECT TOP (@RowEnd) URLReferrer FROM #memberStats ORDER BY URLReferrer
+				SELECT TOP (@RowEnd) URLReferrer FROM #memberStats WHERE DeviceType = @DeviceType ORDER BY URLReferrer
 			) A
 		) B
 	)
@@ -234,19 +199,10 @@ BEGIN
 		ISNULL(m.Signups, 0) Signups,
 		ISNULL(m.FDM, 0) FDM
 	FROM CTE_UrlReferrer c
-		LEFT JOIN @Result r ON c.URLReferrer = r.URLReferrer
-		LEFT JOIN #memberStats m ON c.URLReferrer = m.URLReferrer
+		LEFT JOIN @Result r ON c.URLReferrer = r.URLReferrer AND r.DeviceType = @DeviceType
+		LEFT JOIN #memberStats m ON c.URLReferrer = m.URLReferrer AND m.DeviceType = @DeviceType
 	WHERE c.TheCount BETWEEN @RowStart AND @RowEnd
 
 	DROP TABLE #memberStats
 END
 GO
-
-GRANT EXECUTE ON [dbo].[Aff_ClickStatisticsDetailBySite] TO [bodbAdminNet]
-GO
-
-GRANT EXECUTE ON [dbo].[Aff_ClickStatisticsDetailBySite] TO [bodbDownlineNet]
-GO
-
-
-

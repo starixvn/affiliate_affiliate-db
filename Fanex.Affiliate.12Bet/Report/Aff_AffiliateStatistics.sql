@@ -1,5 +1,4 @@
-﻿USE [Affiliate_12BET]
-GO
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Aff_AffiliateStatistics]
 	@Fromdate 			datetime
@@ -87,6 +86,20 @@ BEGIN
 	
 	IF( @SortBy = 1)
 	BEGIN
+		;WITH memberStats AS (
+			SELECT md.AffID, COUNT(1) AS Signups
+			FROM dbo.MemberClickDetail md WITH (NOLOCK)
+			WHERE (@IsGetAll = 1 OR md.CreatedDate BETWEEN @FromDate AND @ToDate)
+				AND EXISTS (SELECT 1 FROM @AffList a WHERE md.AffID = a.AffId)
+			GROUP BY md.AffID
+
+			UNION ALL
+			SELECT md.AffiliateId AS AffID, COUNT(1) AS Signups
+			FROM [DBDeposit].deposit_db.dbo.Deposit_Customer md WITH (NOLOCK)
+			WHERE (@IsGetAll = 1 OR md.CreatDate BETWEEN @FromDate AND @ToDate)
+				AND EXISTS (SELECT 1 FROM @AffList a WHERE a.AffId = md.AffiliateId)
+			GROUP BY md.AffiliateId
+		)
 		INSERT INTO #AffTotal
 		SELECT AffId
 			, Total
@@ -94,21 +107,11 @@ BEGIN
 		FROM (
 			SELECT m.AffId
 				,ISNULL(dep.Signups, 0) AS Total
-				,ROW_NUMBER() OVER ( 
-					ORDER BY ISNULL(dep.Signups, 0) DESC
-				) AS RowIDX
+				,ROW_NUMBER() OVER (ORDER BY ISNULL(dep.Signups, 0) DESC) AS RowIDX
 			FROM @AffList m
 				LEFT JOIN (
-					SELECT md.AffiliateId AS AffID
-						,COUNT(1) AS Signups
-					FROM [DBDeposit].deposit_db.dbo.Deposit_Customer md WITH (NOLOCK)
-					WHERE (@IsGetAll = 1 OR (md.CreatDate BETWEEN @FromDate AND @ToDate))
-						AND md.AffiliateId > 0
-						AND EXISTS (SELECT 1 FROM @AffList a WHERE a.AffId = md.AffiliateId)
-					GROUP BY md.AffiliateId				
-					HAVING COUNT(1) > 0
-				) dep
-				ON m.AffId = dep.AffID
+					SELECT AffID, MAX(Signups) AS Signups FROM memberStats GROUP BY AffID
+				) dep ON m.AffId = dep.AffID
 		) t
 		WHERE t.RowIDX BETWEEN (((@PageIndex - 1) * @PageSize) + 1) AND (@PageSize * @PageIndex)
 	END
@@ -121,39 +124,40 @@ BEGIN
 		FROM (
 			SELECT m.AffId
 				,0 AS Total
-				,ROW_NUMBER() OVER ( 
-					ORDER BY m.AffId ASC
-				) AS RowIDX
+				,ROW_NUMBER() OVER (ORDER BY m.AffId ASC) AS RowIDX
 			FROM @AffList m
 				
 		) t
 		WHERE t.RowIDX BETWEEN (((@PageIndex - 1) * @PageSize) + 1) AND (@PageSize * @PageIndex)
 		
 		-- update total SignUp
+		;WITH memberStats AS (
+			SELECT md.AffID, COUNT(1) AS Signups
+			FROM dbo.MemberClickDetail md WITH (NOLOCK)
+			WHERE (@IsGetAll = 1 OR md.CreatedDate BETWEEN @FromDate AND @ToDate)
+				AND EXISTS (SELECT 1 FROM @AffList a WHERE md.AffID = a.AffId)
+			GROUP BY md.AffID
+
+			UNION ALL
+			SELECT md.AffiliateId AS AffID, COUNT(1) AS Signups
+			FROM [DBDeposit].deposit_db.dbo.Deposit_Customer md WITH (NOLOCK)
+			WHERE (@IsGetAll = 1 OR md.CreatDate BETWEEN @FromDate AND @ToDate)
+				AND EXISTS (SELECT 1 FROM @AffList a WHERE a.AffId = md.AffiliateId)
+			GROUP BY md.AffiliateId
+		)
 		UPDATE d
 		SET d.Total = ISNULL(dep.Signups, 0)
 		FROM #AffTotal d
 			LEFT JOIN (
-				SELECT
-					md.AffiliateId AS AffID,
-					COUNT(1) AS Signups
-				FROM [DBDeposit].deposit_db.dbo.Deposit_Customer md WITH (NOLOCK)
-				WHERE
-					(
-						@IsGetAll = 1
-						OR (md.CreatDate BETWEEN @FromDate AND @ToDate)
-					)
-					AND EXISTS (SELECT 1 FROM #AffTotal a WHERE a.AffId = md.AffiliateId)
-				GROUP BY md.AffiliateId
-			) dep ON d.AffId = dep.AffId
+					SELECT AffID, MAX(Signups) AS Signups FROM memberStats GROUP BY AffID
+				) dep ON d.AffId = dep.AffID
 	END
 
 	;WITH DepositMember(AffId, IBCCustID)
 	AS (
 		SELECT mi.AffId, IBCCustID
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
-			INNER JOIN #AffTotal m
-			ON mi.AffID = m.AffId
+			INNER JOIN #AffTotal m ON mi.AffID = m.AffId
 		WHERE mi.AffId > 0
 			AND mi.IBCCustID > 0
 			AND (@IsGetAll = 1 OR mi.CreatedDate BETWEEN @Fromdate AND @Todate)
@@ -161,9 +165,32 @@ BEGIN
 	)
 	, ActiveMember(AffId, Total)
 	AS (
-		SELECT md.AffiliateId AS AffId
-			,COUNT(DISTINCT md.IBCCustID) AS Total
+		SELECT
+			mi.AffId,
+			COUNT(mi.IBCCustID) AS Total
+		FROM dbo.MemberInfo mi WITH (NOLOCK)
+		WHERE
+			(
+				@IsGetAll = 1
+				OR (mi.CreatedDate BETWEEN @FromDate AND @ToDate)
+			)
+			AND EXISTS (SELECT 1 FROM #AffTotal a WHERE a.AffId = mi.AffId)
+			AND
+			(
+				@IsGetAll = 1
+				OR NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+					WHERE
+						mr.IBCCustID = mi.IBCCustID
+						AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
+				)
+			)
+		GROUP BY mi.AffId
 
+		UNION ALL
+		SELECT
+			md.AffiliateId AS AffId,
+			COUNT(md.IBCCustID) AS Total
 		FROM [DBDeposit].deposit_db.dbo.Deposit_Customer md WITH (NOLOCK)
 		WHERE
 			(
@@ -171,7 +198,6 @@ BEGIN
 				OR (md.CreatDate BETWEEN @FromDate AND @ToDate)
 			)
 			AND EXISTS (SELECT 1 FROM #AffTotal a WHERE a.AffId = md.AffiliateId)
-			AND md.IBCCustID IS NOT NULL
 		GROUP BY md.AffiliateId
 	)
 	-- sum total
@@ -182,17 +208,10 @@ BEGIN
 		,at.RowIDX
 
 	FROM #AffTotal at
-
-		INNER JOIN @AffList m
-		ON at.AffId = m.AffId
-
-		LEFT JOIN ActiveMember am
-		ON m.AffId = am.AffId
-
-		ORDER BY at.RowIDX
+		INNER JOIN @AffList m ON at.AffId = m.AffId
+		LEFT JOIN (SELECT AffId, MAX(Total) AS Total FROM ActiveMember GROUP BY AffId) AS am ON m.AffId = am.AffId
+	ORDER BY at.RowIDX
 
 	DROP TABLE #AffTotal
 END
-GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateStatistics] TO [bodbAdminNet]
 GO

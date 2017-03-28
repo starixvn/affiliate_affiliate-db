@@ -1,5 +1,4 @@
-﻿USE [Affiliate_12BET]
-GO
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Aff_ClickStatisticsSelBySite] 
 	@AffID INT
@@ -122,86 +121,67 @@ BEGIN
 
 	DECLARE @LastDateSum DATETIME
 	
-	DECLARE @Result AS TABLE (
-		DomainReferrer NVARCHAR(600)
-		,TotalClick INT
-		,UniqueClick INT
-		)
+	DECLARE @Result TABLE
+	(
+		DomainReferrer	NVARCHAR(600),
+		DeviceType		TINYINT,
+		TotalClick		INT,
+		UniqueClick		INT
+	)
 
 	SELECT @ToDate = dbo.Aff_GetEndDate(@ToDate)
 
-	SELECT @LastDateSum = (
-			SELECT MAX(DATE)
-			FROM ClickStatistics1Sum
-			)
+	SELECT @LastDateSum = MAX(DATE) FROM ClickStatistics1Sum WITH(NOLOCK)
 
-	SELECT @LastDateSum = isnull(@LastDateSum, dateadd(d, - 1, @FromDate))
-		,@FromDate = convert(VARCHAR(10), @FromDate, 120)
+	SELECT	@LastDateSum = ISNULL(@LastDateSum, DATEADD(DAY, -1, @FromDate)),
+			@FromDate = CONVERT(VARCHAR(10), @FromDate, 120)
 
 	IF (@LastDateSum < @FromDate) --get from main table
 	BEGIN
 		INSERT INTO @Result
-		SELECT DomainReferrer
-			,sum(TotalClick) AS TotalClick
-			,sum(UniqueClick) AS UniqueClick
+		SELECT DomainReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
 		FROM (
-			SELECT DomainReferrer
-				,sum(1) AS TotalClick
-				,count(DISTINCT IP) AS UniqueClick
+			SELECT DomainReferrer, DeviceType, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 			FROM ClickStatistics1 c WITH (NOLOCK)
-			WHERE [Date] BETWEEN @FromDate
-					AND @ToDate
+			WHERE [Date] BETWEEN @FromDate AND @ToDate
 				AND AffId = @AffID
-				AND DeviceType = @DeviceType
-			GROUP BY DomainReferrer
-				,[Date]
-			) AS t
-		GROUP BY DomainReferrer
+			GROUP BY DomainReferrer, DeviceType, [Date]
+		) AS t
+		GROUP BY DomainReferrer, DeviceType
 	END
 	ELSE IF (@LastDateSum > @ToDate) --get from summary table
 	BEGIN
 		INSERT INTO @Result
-		SELECT DomainReferrer
-			,sum(TotalClick) AS TotalClick
-			,sum(UniqueClick) AS UniqueClick
+		SELECT DomainReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
 		FROM ClickStatistics1Sum WITH (NOLOCK)
-		WHERE [Date] BETWEEN @FromDate
-				AND @ToDate
+		WHERE [Date] BETWEEN @FromDate AND @ToDate
 			AND AffId = @AffID
 			AND DeviceType = @DeviceType
-		GROUP BY DomainReferrer
+		GROUP BY DomainReferrer, DeviceType
 	END
 	ELSE --@fromdate < @LastDateSum < @ToDate
 	BEGIN
 		INSERT INTO @Result
-		SELECT DomainReferrer
-			,sum(TotalClick) AS TotalClick
-			,sum(UniqueClick) AS UniqueClick
+		SELECT DomainReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
 		FROM (
-			SELECT DomainReferrer
-				,sum(TotalClick) AS TotalClick
-				,sum(UniqueClick) AS UniqueClick
+			SELECT DomainReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
 			FROM ClickStatistics1Sum WITH (NOLOCK)
 			WHERE [Date] BETWEEN @FromDate
 					AND @LastDateSum
 				AND AffId = @AffID
 				AND DeviceType = @DeviceType
-			GROUP BY DomainReferrer
-				,[Date]
+			GROUP BY DomainReferrer, DeviceType, [Date]
 			
 			UNION ALL
-			SELECT DomainReferrer
-				,sum(1) AS TotalClick
-				,count(DISTINCT IP) AS UniqueClick
+
+			SELECT DomainReferrer, DeviceType, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 			FROM ClickStatistics1 c WITH (NOLOCK)
-			WHERE [Date] BETWEEN @LastDateSum
-					AND @ToDate
+			WHERE [Date] BETWEEN @LastDateSum AND @ToDate
 				AND AffId = @AffID
 				AND DeviceType = @DeviceType
-			GROUP BY DomainReferrer
-				,[Date]
-			) tmp
-		GROUP BY DomainReferrer
+			GROUP BY DomainReferrer, DeviceType, [Date]
+		) AS tmp
+		GROUP BY DomainReferrer, DeviceType
 	END
 
 	/**
@@ -218,26 +198,16 @@ BEGIN
 	;WITH memberStats AS (
 
 		-- sign-up
-		SELECT
-			DomainReferrer,
-			DeviceType,
-			COUNT(1) AS Signups,
-			0 AS FDM
+		SELECT DomainReferrer, DeviceType, COUNT(1) AS Signups, 0 AS FDM
 		FROM dbo.MemberClickDetail WITH (NOLOCK)
 		WHERE CreatedDate BETWEEN @FromDate AND @ToDate
 			AND AffId = @AffID
-		GROUP BY
-			DomainReferrer,
-			DeviceType
+		GROUP BY DomainReferrer, DeviceType
 
 		UNION ALL
 
 		-- fdm
-		SELECT
-			ISNULL(md.DomainReferrer, 'none') AS DomainReferrer,
-			ISNULL(md.DeviceType, 0) AS DeviceType,
-			0 AS Signups,
-			COUNT(mi.IBCCustID) AS FDM
+		SELECT ISNULL(md.DomainReferrer, 'none') AS DomainReferrer, ISNULL(md.DeviceType, 0) AS DeviceType, 0 AS Signups, COUNT(mi.IBCCustID) AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
 			LEFT JOIN dbo.MemberClickDetail md WITH (NOLOCK) ON md.IBCCustID = mi.IBCCustID
 		WHERE mi.CreatedDate BETWEEN @FromDate AND @ToDate
@@ -248,45 +218,45 @@ BEGIN
 					mr.IBCCustID = mi.IBCCustID
 					AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
 			)
-		GROUP BY
-			ISNULL(md.DomainReferrer, 'none'),
-			ISNULL(md.DeviceType, 0)
+		GROUP BY ISNULL(md.DomainReferrer, 'none'), ISNULL(md.DeviceType, 0)
 	)
 	INSERT INTO #memberStats (DomainReferrer, DeviceType, Signups, FDM)
-	SELECT DomainReferrer, DeviceType, SUM(Signups), SUM(FDM)
+	SELECT DomainReferrer, DeviceType, SUM(ISNULL(Signups, 0)), SUM(ISNULL(FDM, 0))
 	FROM memberStats
 	GROUP BY DomainReferrer, DeviceType
 
 	--megre member signup & FDM result
 	;WITH CTE_DomainReferrer AS
 	(
-		SELECT DISTINCT DomainReferrer
+		SELECT DISTINCT DomainReferrer, DeviceType
 		FROM (
-			SELECT DomainReferrer FROM @Result
+			SELECT DomainReferrer, DeviceType FROM @Result
 			UNION ALL
-			SELECT DomainReferrer FROM #memberStats WHERE DeviceType = @DeviceType
+			SELECT DomainReferrer, DeviceType FROM #memberStats
 		) A
 	)
 	,CTE_Result AS
 	(
 		SELECT
-			c.DomainReferrer,
+			c.DomainReferrer, c.DeviceType,
 			ISNULL(r.TotalClick, 0) AS TotalClick,
 			ISNULL(r.UniqueClick, 0) AS UniqueClick,
 			ISNULL(m.Signups, 0) AS Signups,
 			ISNULL(m.FDM, 0) AS FDM
 		FROM CTE_DomainReferrer c
-			LEFT JOIN @Result r ON r.DomainReferrer = c.DomainReferrer
-			LEFT JOIN #memberStats m ON m.DomainReferrer = c.DomainReferrer
+			LEFT JOIN @Result r ON r.DomainReferrer = c.DomainReferrer AND r.DeviceType = c.DeviceType
+			LEFT JOIN #memberStats m ON m.DomainReferrer = c.DomainReferrer AND m.DeviceType = c.DeviceType
 	)
 	INSERT INTO @tmpResult
 	SELECT
 		DomainReferrer,
-		TotalClick,
-		UniqueClick,
-		Signups,
-		FDM
+		SUM(TotalClick),
+		SUM(UniqueClick),
+		SUM(Signups),
+		SUM(FDM)
 	FROM CTE_Result
+	WHERE DeviceType = @DeviceType
+	GROUP BY DomainReferrer
 	
 	-- Old Url
 	UNION ALL
@@ -335,19 +305,14 @@ BEGIN
 	SELECT @TotalClicks = SUM(TotalClick)
 		,@UniqueClicks = SUM(UniqueClick)
 	FROM @Result
+	WHERE DeviceType = @DeviceType
 
 	--sum total signup & fdm
-	SELECT @TotalSignUps = ISNULL(SUM(m.Signups), 0)
-		,@TotalFDMs = ISNULL(SUM(m.FDM), 0)
-	FROM #memberStats m
+	SELECT @TotalSignUps = ISNULL(SUM(Signups), 0)
+		,@TotalFDMs = ISNULL(SUM(FDM), 0)
+	FROM #memberStats
+	WHERE DeviceType = @DeviceType
 
 	DROP TABLE #memberStats
 END
-GO
-
-GRANT EXECUTE ON [dbo].[Aff_ClickStatisticsSelBySite] TO [bodbAdminNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_ClickStatisticsSelBySite] TO [bodbDownlineNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_ClickStatisticsSelBySite] TO [bodbDownlineNetView]
 GO

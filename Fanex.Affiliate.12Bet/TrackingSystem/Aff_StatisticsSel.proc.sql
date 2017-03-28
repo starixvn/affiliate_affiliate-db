@@ -1,5 +1,4 @@
-USE [Affiliate_12BET]
-GO
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNetView" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Aff_StatisticsSel] 
 	@AffID INT
@@ -100,24 +99,48 @@ BEGIN
 
 	SELECT @FromDate = dateadd(d, 1, @MaxTransDate)
 
-	-- FDM --
-	SELECT @NewSignUpDep = COUNT(1)
-	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
-	WHERE AffiliateId = @AffId
-		AND IBCCustID IS NOT NULL -- deposit
-		AND CreatDate >= @FromBeginMonth AND CreatDate < @ToNextMonth
+	-- signup, FDM --
+	;WITH NewStats AS (
 
+		-- signup
+		SELECT COUNT(1) AS Signups, 0 AS FDM
+		FROM dbo.MemberClickDetail WITH (NOLOCK)
+		WHERE CreatedDate >= @FromBeginMonth AND CreatedDate < @ToNextMonth
+			AND AffId = @AffID
+
+		UNION ALL
+
+		-- fdm
+		SELECT 0 AS Signups, COUNT(mi.IBCCustID) AS FDM
+		FROM dbo.MemberInfo mi WITH (NOLOCK)
+		WHERE mi.CreatedDate >= @FromBeginMonth AND mi.CreatedDate < @ToNextMonth
+			AND mi.AffId = @AffID
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE
+					mr.IBCCustID = mi.IBCCustID
+					AND mr.RemovedDate >= @FromBeginMonth AND mr.RemovedDate < @ToNextMonth
+			)
+	)
+	, OldStats AS (
+
+		SELECT COUNT(1) AS Signups, COUNT(IBCCustID) AS FDM
+		FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+		WHERE AffiliateId = @AffId
+			AND CreatDate >= @FromBeginMonth AND CreatDate < @ToNextMonth
+	)
+	SELECT @NewSignUp = MAX(Signups), @NewSignUpDep = MAX(FDM)
+	FROM (
+		SELECT SUM(ISNULL(Signups, 0)) AS Signups, SUM(ISNULL(FDM, 0)) AS FDM FROM NewStats
+		UNION ALL
+		SELECT SUM(ISNULL(Signups, 0)) AS Signups, SUM(ISNULL(FDM, 0)) AS FDM FROM OldStats
+	) A
+
+	-- Total
 	SELECT @TotalPlayerDepUp = COUNT(1)
 	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
 	WHERE AffiliateId = @AffId
 		AND IBCCustID IS NOT NULL -- deposit
-	-----
-
-	-- Signups --
-	SELECT @NewSignUp = COUNT(1)
-	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
-	WHERE AffiliateId = @AffId
-		AND CreatDate >= @FromBeginMonth AND CreatDate < @ToNextMonth
 
 	SELECT @TotalPlayer = COUNT(1)
 	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
@@ -319,22 +342,16 @@ BEGIN
 
 	--End Calculate for Month Search	
 	--Get tracking information
-	IF (datediff(mm, @MonthDate, current_timestamp) = 0)
+	IF (DATEDIFF(MONTH, @MonthDate, CURRENT_TIMESTAMP) = 0)
 	BEGIN
-		SELECT @TotalClicks = count(1)
-		FROM ClickStatistics s(NOLOCK)
-			INNER JOIN TrackingCode a(NOLOCK)
-			ON a.TrackingID = s.TrackingID
-				AND a.AffID = @AffID
-		WHERE s.DATE >= @MonthDate
-
-		SELECT @TotalUniqueClicks = count(DISTINCT s.IP)
-		FROM ClickStatistics s(NOLOCK)
-			INNER JOIN TrackingCode a(NOLOCK)
-			ON a.TrackingID = s.TrackingID
-				AND a.AffID = @AffID
-		WHERE s.DATE >= @MonthDate
-			--group by a.AffiliateID,month(s.Date),year(s.Date)
+		SELECT @TotalUniqueClicks = SUM(UniqueClick), @TotalClicks = SUM(TotalClick)
+		FROM (
+			SELECT s.Date, COUNT(DISTINCT s.IP) AS UniqueClick, COUNT(1) AS TotalClick
+			FROM ClickStatistics s(NOLOCK)
+				INNER JOIN TrackingCode a(NOLOCK) ON a.TrackingID = s.TrackingID
+			WHERE s.Date >= @MonthDate AND a.AffID = @AffID
+			GROUP BY s.Date
+		) AS A
 	END
 	ELSE
 	BEGIN
@@ -349,24 +366,40 @@ BEGIN
 	END
 
 	--Tracking statistics for new link
-	DECLARE @ToDate SMALLDATETIME
+	;WITH CTE_Device AS (
+		SELECT DeviceType, SUM(TotalClick) AS TotalClicks, SUM(UniqueClick) AS UniqueClicks
+		FROM (
+			SELECT
+				ISNULL(c.DeviceType, 0) AS DeviceType,
+				COUNT(1) AS TotalClick,
+				COUNT(DISTINCT c.IP) AS UniqueClick
+			FROM dbo.ClickStatistics1 c WITH (NOLOCK)
+			WHERE
+				c.Date >= @FromBeginMonth AND c.Date < @ToNextMonth
+				AND c.AffId = @AffId
+			GROUP BY ISNULL(c.DeviceType, 0), c.Date
 
-	SELECT @ToDate = dateadd(d, - 1, dateadd(mm, 1, @MonthDate))
-
-	SELECT @TotalClicksBySite = CASE when DeviceType = 0 then ISNULL(TotalClicks,0) else @TotalClicksBySite end
-		,@TotalUniqueClicksBySite = CASE when DeviceType = 0 then UniqueClicks else @TotalUniqueClicksBySite end
-		,@TotalClicksByMobile = CASE when DeviceType = 1 then TotalClicks else @TotalClicksByMobile end
-		,@TotalUniqueClicksByMobile = CASE when DeviceType = 1 then UniqueClicks else @TotalUniqueClicksByMobile end
-	FROM [dbo].[Aff_GetClickStatisticsNew_Func](@AffId, @MonthDate, @Todate)
+			UNION ALL
+			SELECT
+				ISNULL(c.DeviceType, 0) AS DeviceType,
+				SUM(TotalClick) AS TotalClick,
+				SUM(UniqueClick) AS UniqueClick
+			FROM dbo.ClickStatistics1Sum c WITH (NOLOCK)
+			WHERE
+				c.Date >= @FromBeginMonth AND c.Date < @ToNextMonth
+				AND c.AffId = @AffId
+			GROUP BY ISNULL(c.DeviceType, 0), c.Date
+		) AS A
+		GROUP BY DeviceType
+	)
+	SELECT
+		@TotalClicksBySite			= CASE WHEN DeviceType = 0 THEN ISNULL(TotalClicks, 0) ELSE @TotalClicksBySite END,
+		@TotalUniqueClicksBySite	= CASE WHEN DeviceType = 0 THEN ISNULL(UniqueClicks, 0) ELSE @TotalUniqueClicksBySite END,
+		@TotalClicksByMobile		= CASE WHEN DeviceType = 1 THEN ISNULL(TotalClicks, 0) ELSE @TotalClicksByMobile END,
+		@TotalUniqueClicksByMobile	= CASE WHEN DeviceType = 1 THEN ISNULL(UniqueClicks, 0) ELSE @TotalUniqueClicksByMobile END
+	FROM CTE_Device
 
 	--get Balance broughtForward
 	SELECT @BalBroughtforward = isnull(dbo.Aff_GetAffBalance(@AffID), 0)
 END
-GO
-
-GRANT EXECUTE ON [dbo].[Aff_StatisticsSel] TO [bodbDownlineNet] AS [dbo]
-GO
-GRANT EXECUTE ON [dbo].[Aff_StatisticsSel] TO [bodbDownlineNetView] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_StatisticsSel] TO [vnteam] AS [dbo]
 GO

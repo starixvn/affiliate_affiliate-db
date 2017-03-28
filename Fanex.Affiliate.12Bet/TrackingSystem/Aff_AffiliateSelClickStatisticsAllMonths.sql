@@ -1,100 +1,68 @@
-﻿ALTER PROCEDURE [dbo].[Aff_AffiliateSelClickStatisticsAllMonths]
-		@AffID int,
-		@TrackingCode varchar(20)=null--Statistics for all TrackingCode
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
+ALTER PROCEDURE [dbo].[Aff_AffiliateSelClickStatisticsAllMonths]
+	@AffID INT,
+	@TrackingCode VARCHAR(20) = NULL -- Statistics for all TrackingCode
 AS
+
 /*
-Created: 20090427@Peter
-Task : summary of TotalClick,Unique Click for all month 
-DB: DB052.Affiliate_12BET
-Original:
+	Created by: Percy
+	Date: 2017-04-03
+	Task: Summary of TotalClick, Unique Click for all month 
+	DB: DBAFF12BET.Affiliate_12BET
+	Original:
 
-Revisions:
-- 20090122@[Reviewer]: [Description of revision] 
+	Revisions:
 
-Param's Explanation:
-.@AffID: id of affiliate in the system,
-• @ErrCode:
-= 0: Transaction recorded successfully.
-> 0: Insert unsuccessful.
-
-• @ErrMsg: Error description.
+	Param's Explanation:
+		@AffID: id of affiliate in the system
 */
- SET NOCOUNT ON
---Select Statistics for all TrackingCode
-Declare @CurrMonth smalldatetime
 
-select @CurrMonth = dateadd(m, datediff(m, 0, current_timestamp), 0)
+BEGIN
 
-if(coalesce(@TrackingCode,'')='')
-begin
- --Select for current month
-	select @CurrMonth as Date, SUM(TotalClick) as TotalClick, SUM(UniqueClick) as UniqueClick
-	from
-		(
-		select sum(1) as TotalClick, 0 as UniqueClick
-		from ClickStatistics s (nolock)
-			inner join TrackingCode a (nolock)  on a.TrackingID=s.TrackingID and a.AffID=@AffID
-		where s.date >= @CurrMonth 
-				and s.IP <> ''
+	SET NOCOUNT ON
 
-		union all
+	DECLARE @CurrMonth SMALLDATETIME
 
-		select 0 as TotalClick, count(distinct s.IP) as UniqueClick
-		from ClickStatistics s (nolock)
-			inner join TrackingCode a (nolock)  on a.TrackingID=s.TrackingID and a.AffID=@AffID
-		where s.date >= @CurrMonth 
-				and s.IP <> ''
-		) as tmp
+	SELECT @CurrMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, CURRENT_TIMESTAMP), 0)
 
+	IF COALESCE(@TrackingCode, '') = ''
+	BEGIN
+		SELECT @CurrMonth AS Date, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
+		FROM (
+			SELECT s.Date, COUNT(1) AS TotalClick, COUNT(DISTINCT s.IP) AS UniqueClick
+			FROM dbo.ClickStatistics s WITH(NOLOCK)
+				INNER JOIN dbo.TrackingCode a WITH(NOLOCK) ON a.TrackingID = s.TrackingID
+			WHERE s.Date >= @CurrMonth AND a.AffID = @AffID
+			GROUP BY s.Date
+		) AS tmp
 
-  --Select for previous month
-	select Date,TotalClick,UniqueClick
-	from ClickStatisticsSum s (nolock)
-	where AffID=@AffID and TrackingID=0 and IsForMonth=1
-	order by Date desc
+		SELECT s.Date, s.TotalClick, s.UniqueClick
+		FROM dbo.ClickStatisticsSum s WITH(NOLOCK)
+		WHERE s.AffID = @AffID AND s.TrackingID = 0 AND s.IsForMonth = 1
+		ORDER BY s.Date DESC
  
- end
-else -- Select for specific TrackingCode
-begin
-		--Select for current month
-	select @CurrMonth as Date, SUM(TotalClick) as TotalClick, SUM(UniqueClick) as UniqueClick
-	from
-		(
-		select sum(1) as TotalClick, 0 as UniqueClick
-		from ClickStatistics s (nolock)
-			inner join TrackingCode a (nolock)  on a.TrackingID=s.TrackingID and a.AffID=@AffID and a.TrackingCode=@TrackingCode
-		where s.date >= @CurrMonth 
-				and s.IP <> ''
+	END
+	ELSE
+	BEGIN
+		SELECT @CurrMonth AS Date, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
+		FROM (
+			SELECT s.Date, COUNT(1) AS TotalClick, COUNT(DISTINCT s.IP) AS UniqueClick
+			FROM dbo.ClickStatistics s WITH(NOLOCK)
+				INNER JOIN dbo.TrackingCode a WITH(NOLOCK) ON a.TrackingID = s.TrackingID
+			WHERE s.Date >= @CurrMonth AND a.AffID = @AffID AND a.TrackingCode = @TrackingCode
+			GROUP BY s.Date
+		) AS tmp
 
-		union all
-
-		select 0 as TotalClick, count(distinct s.IP) as UniqueClick
-		from ClickStatistics s (nolock)
-			inner join TrackingCode a (nolock)  on a.TrackingID=s.TrackingID and a.AffID=@AffID and a.TrackingCode=@TrackingCode
-		where s.date >= @CurrMonth 
-				and s.IP <> ''
-		) as tmp
-	           
-
-	  --Select for previous month
-	  select Date,TotalClick,UniqueClick
-	  from ClickStatisticsSum s (nolock)
-	  where AffID=@AffID 
-			and TrackingID in (
-			  select trackingid 
-			  from TrackingCode (nolock) 
-			  where AffID=@AffID and TrackingCode=@TrackingCode
+		SELECT s.Date, s.TotalClick, s.UniqueClick
+		FROM dbo.ClickStatisticsSum s WITH(NOLOCK)
+		WHERE s.AffID = @AffID AND s.IsForMonth = 1
+			AND EXISTS (
+				SELECT 1
+				FROM dbo.TrackingCode t WITH(NOLOCK)
+				WHERE t.AffID = @AffID AND t.TrackingCode = @TrackingCode AND s.TrackingID = t.TrackingID
 			)
-			and IsForMonth=1
-	  order by Date desc 
-	 
-  end
-GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateSelClickStatisticsAllMonths] TO [bodbAdminNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateSelClickStatisticsAllMonths] TO [bodbDownlineNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateSelClickStatisticsAllMonths] TO [bodbDownlineNetView]
-GO  
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateSelClickStatisticsAllMonths] TO [vnteam]
+		ORDER BY s.Date DESC
+	END
+END
 GO

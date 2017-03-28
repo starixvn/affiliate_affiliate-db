@@ -1,4 +1,6 @@
-﻿ALTER PROCEDURE [dbo].[Aff_AffiliateSelTrackingCode]
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
+ALTER PROCEDURE [dbo].[Aff_AffiliateSelTrackingCode]
   @AffID int  
   as
   /*  
@@ -24,12 +26,4 @@ begin
    from TrackingCode (nolock)
    where AffID =  @AffID
 end
-GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateSelTrackingCode] TO [bodbAdminNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateSelTrackingCode] TO [bodbDownlineNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateSelTrackingCode] TO [bodbDownlineNetView]
-GO  
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateSelTrackingCode] TO [vnteam]
 GO

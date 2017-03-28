@@ -1,4 +1,6 @@
-﻿ALTER PROCEDURE [dbo].[Aff_AffiliateInsClickStatistics]
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="Dot_Member" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
+ALTER PROCEDURE [dbo].[Aff_AffiliateInsClickStatistics]
 	@AffiliateID int,
 	@TrackingCode varchar(20)='[None]',
 	@IP varchar(20),
@@ -80,8 +82,3 @@ INSERT INTO ClickStatistics(TrackingID, UpdatedTime, IP, Date, Browser, URLRefer
 VALUES(@TrackingID,CURRENT_TIMESTAMP,@IP,CONVERT(varchar(10), CURRENT_TIMESTAMP, 120),@Browser,@URLReferrer)
    
 GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateInsClickStatistics] TO [Dot_Member]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateInsClickStatistics] TO [vnteam]
-GO
-
