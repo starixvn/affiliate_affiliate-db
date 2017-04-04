@@ -52,7 +52,7 @@ BEGIN
 
 	SELECT @UserName = '%' + COALESCE(@UserName, '') + '%'
 
-	SELECT @ToDate = DATEADD(s, - 60, DATEADD(d, DATEDIFF(d, 0, @ToDate) + 1, 0))
+	SELECT @ToDate = DATEADD(s, - 1, DATEADD(d, DATEDIFF(d, 0, @ToDate) + 1, 0))
 
 	--count nrows
 	

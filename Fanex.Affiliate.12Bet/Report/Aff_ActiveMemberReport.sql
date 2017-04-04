@@ -57,7 +57,7 @@ BEGIN
 	
 	SELECT @UserName = '%' + Coalesce(@UserName, '') + '%'
 
-	SELECT @ToDate		= DATEADD(s, -60, DATEADD(DAY, DATEDIFF(DAY, 0, @ToDate) + 1, 0))
+	SELECT @ToDate		= DATEADD(s, -1, DATEADD(DAY, DATEDIFF(DAY, 0, @ToDate) + 1, 0))
 		, @CurrDate		= GETDATE()
 		, @CurrMonth	= DATEADD(M, DATEDIFF(M, 0, @CurrDate), 0)
 
