@@ -57,7 +57,7 @@ BEGIN
 	
 	SELECT @UserName = '%' + Coalesce(@UserName, '') + '%'
 
-	SELECT @ToDate		= dateadd(s, -1, dateadd(d, datediff(d, 0, @ToDate) + 1, 0))
+	SELECT @ToDate		= DATEADD(s, -60, DATEADD(DAY, DATEDIFF(DAY, 0, @ToDate) + 1, 0))
 		, @CurrDate		= GETDATE()
 		, @CurrMonth	= DATEADD(M, DATEDIFF(M, 0, @CurrDate), 0)
 
@@ -91,13 +91,13 @@ BEGIN
 						WHEN @IsGetAll = 1 THEN 1 
 						ELSE @PageIndex 
 					END
-	
+
 	;WITH NewStats AS (
 
 		-- signup
 		SELECT md.AffID, COUNT(1) AS Signup, 0 AS FDM
 		FROM dbo.MemberClickDetail md WITH (NOLOCK)
-		WHERE (@IsGetAll = 1 OR md.CreatedDate >= @FromDate AND md.CreatedDate < DATEADD(DAY, 1, @ToDate))
+		WHERE (@IsGetAll = 1 OR md.CreatedDate BETWEEN @FromDate AND @ToDate)
 			AND EXISTS (SELECT 1 FROM @AffList a WHERE md.AffID = a.AffId)
 		GROUP BY md.AffID
 
@@ -106,7 +106,7 @@ BEGIN
 		-- fdm
 		SELECT mi.AffID, 0 AS Signup, COUNT(mi.IBCCustID) AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
-		WHERE (@IsGetAll = 1 OR mi.CreatedDate >= @FromDate AND mi.CreatedDate < DATEADD(DAY, 1, @ToDate))
+		WHERE (@IsGetAll = 1 OR mi.CreatedDate BETWEEN @FromDate AND @ToDate)
 			AND EXISTS (SELECT 1 FROM @AffList a WHERE mi.AffID = a.AffId)
 			AND
 			(
@@ -116,7 +116,7 @@ BEGIN
 					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 					WHERE
 						mr.IBCCustID = mi.IBCCustID
-						AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
+						AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
 				)
 			)
 		GROUP BY mi.AffID
@@ -128,7 +128,7 @@ BEGIN
 			COUNT(IBCCustID) AS FDM
 		FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer c WITH (NOLOCK)
 		WHERE
-			(@IsGetAll = 1 OR CreatDate >= @FromDate AND CreatDate < DATEADD(DAY, 1, @ToDate))
+			(@IsGetAll = 1 OR CreatDate BETWEEN @FromDate AND @ToDate)
 			AND EXISTS (SELECT 1 FROM @AffList a WHERE c.AffiliateID = a.AffId)
 		GROUP BY AffiliateID
 	)

@@ -52,17 +52,24 @@ BEGIN
 	
 	IF @FromDate < @MaxSumDate
 	BEGIN
-		SELECT @tmpFromDate = DATEADD(MONTH, DATEDIFF(MONTH, -1, @FromDate), 0) -- the first day of next month
+		IF DAY(@FromDate) = 1
+		BEGIN
+			SELECT @tmpFromDate = @FromDate
+		END
+		ELSE
+		BEGIN
+			SELECT @tmpFromDate = DATEADD(MONTH, DATEDIFF(MONTH, -1, @FromDate), 0) -- the first day of next month
+		END
 
-		IF @ToDate > @MaxSumDate
+		IF DATEADD(DAY, 1, @ToDate) > @MaxSumDate
 		BEGIN
 			SELECT @tmpToDate = @MaxSumDate
 		END
 		ELSE
 		BEGIN
-			SELECT @tmpToDate = DATEADD(MONTH, DATEDIFF(MONTH, -1, @ToDate)-1, -1) -- the last day of previous month
+			SELECT @tmpToDate = DATEADD(MONTH, DATEDIFF(MONTH, -1, DATEADD(DAY, 1, @ToDate))-1, -1) -- the last day of previous month
 		END
-
+		
 		INSERT INTO @OldResult
 		SELECT
 			SUM(TotalClick),
@@ -87,6 +94,7 @@ BEGIN
 			WHERE s.Date >= @FromDate AND s.Date < @tmpFromDate
 				AND EXISTS (SELECT 1 FROM dbo.TrackingCode t WITH(NOLOCK)
 							WHERE t.AffID = @AffID AND t.TrackingID = s.TrackingID)
+			GROUP BY s.Date
 		END
 
 		IF @tmpToDate < @ToDate
@@ -101,7 +109,27 @@ BEGIN
 			WHERE s.Date > @tmpToDate AND s.Date <= @ToDate
 				AND EXISTS (SELECT 1 FROM dbo.TrackingCode t WITH(NOLOCK)
 							WHERE t.AffID = @AffID AND t.TrackingID = s.TrackingID)
+			GROUP BY s.Date
 		END
+	END
+	ELSE
+	BEGIN
+		INSERT INTO @OldResult
+		SELECT
+			SUM(TotalClick),
+			SUM(UniqueClick),
+			0 AS Signups,
+			0 AS FDM
+		FROM (
+			SELECT
+				COUNT(1) AS TotalClick,
+				COUNT(DISTINCT s.IP) AS UniqueClick
+			FROM dbo.ClickStatistics s WITH(NOLOCK)
+			WHERE s.Date >= @FromDate AND s.Date < DATEADD(DAY, 1, @ToDate)
+				AND EXISTS (SELECT 1 FROM dbo.TrackingCode t WITH(NOLOCK)
+						WHERE t.AffID = @AffID AND t.TrackingID = s.TrackingID)
+			GROUP BY s.Date
+		) A
 	END
 		-- End TotalClick, UniqueClick --
 
@@ -118,7 +146,6 @@ BEGIN
 		-- End Signups, FDM --
 	
 	-- End Old Url
-
 	DECLARE @LastDateSum DATETIME
 	
 	DECLARE @Result TABLE
@@ -275,8 +302,8 @@ BEGIN
 			SUM(FDM) AS FDM
 		FROM (
 			SELECT
-				-SUM(TotalClick) AS TotalClick,
-				-SUM(UniqueClick) AS UniqueClick,
+				0 AS TotalClick,
+				0 AS UniqueClick,
 				-SUM(Signups) AS Signups,
 				-SUM(FDM) AS FDM
 			FROM CTE_Result
@@ -291,10 +318,10 @@ BEGIN
 	) B
 	WHERE @DeviceType = 0
 
-	IF (SELECT COUNT(1) FROM @tmpResult) = 1
+	IF (SELECT COUNT(1) FROM @tmpResult WHERE DomainReferrer <> 'Old URL') = 0
 	BEGIN
 		SELECT * FROM @tmpResult
-		WHERE 1 = 0
+		WHERE TotalClick > 0 OR UniqueClick > 0 OR Signups > 0 OR FDM > 0
 	END
 	ELSE
 	BEGIN

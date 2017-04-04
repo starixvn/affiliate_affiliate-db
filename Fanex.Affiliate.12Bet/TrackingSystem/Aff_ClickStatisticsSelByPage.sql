@@ -51,15 +51,22 @@ BEGIN
 	
 	IF @FromDate < @MaxSumDate
 	BEGIN
-		SELECT @tmpFromDate = DATEADD(MONTH, DATEDIFF(MONTH, -1, @FromDate), 0) -- the first day of next month
+		IF DAY(@FromDate) = 1
+		BEGIN
+			SELECT @tmpFromDate = @FromDate
+		END
+		ELSE
+		BEGIN
+			SELECT @tmpFromDate = DATEADD(MONTH, DATEDIFF(MONTH, -1, @FromDate), 0) -- the first day of next month
+		END
 
-		IF @ToDate > @MaxSumDate
+		IF DATEADD(DAY, 1, @ToDate) > @MaxSumDate
 		BEGIN
 			SELECT @tmpToDate = @MaxSumDate
 		END
 		ELSE
 		BEGIN
-			SELECT @tmpToDate = DATEADD(MONTH, DATEDIFF(MONTH, -1, @ToDate), -1) -- the last day of previous month
+			SELECT @tmpToDate = DATEADD(MONTH, DATEDIFF(MONTH, -1, DATEADD(DAY, 1, @ToDate)), -1) -- the last day of previous month
 		END
 
 		INSERT INTO @OldResult
@@ -127,7 +134,7 @@ BEGIN
 					COUNT(1) AS TotalClick,
 					COUNT(DISTINCT s.IP) AS UniqueClick
 				FROM dbo.ClickStatistics s WITH(NOLOCK)
-				WHERE s.Date BETWEEN @FromDate AND @ToDate
+				WHERE s.Date >= @FromDate AND s.Date < DATEADD(DAY, 1, @ToDate)
 					AND EXISTS (SELECT 1 FROM dbo.TrackingCode t WITH(NOLOCK)
 							WHERE t.AffID = @AffID AND t.TrackingID = s.TrackingID)
 				GROUP BY s.Date
@@ -332,8 +339,8 @@ BEGIN
 			SUM(FDM) AS FDM
 		FROM (
 			SELECT
-				-SUM(TotalClick) AS TotalClick,
-				-SUM(UniqueClick) AS UniqueClick,
+				-0 AS TotalClick,
+				-0 AS UniqueClick,
 				-SUM(Signups) AS Signups,
 				-SUM(FDM) AS FDM
 			FROM CTE_Result
@@ -346,12 +353,12 @@ BEGIN
 			FROM @OldResult
 		) A
 	) B
-	WHERE @DeviceType = 0
+	WHERE @DeviceType = 0 AND ISNULL(@SportCode, 'none') = 'none' AND ISNULL(@LanguageCode, 'none') = 'none'
 
-	IF (SELECT COUNT(1) FROM @tmpResult) = 1
+	IF (SELECT COUNT(1) FROM @tmpResult WHERE SportCode <> 'Old URL') = 0
 	BEGIN
 		SELECT * FROM @tmpResult
-		WHERE 1 = 0
+		WHERE TotalClick > 0 OR UniqueClick > 0 OR Signups > 0 OR FDM > 0
 	END
 	ELSE
 	BEGIN
