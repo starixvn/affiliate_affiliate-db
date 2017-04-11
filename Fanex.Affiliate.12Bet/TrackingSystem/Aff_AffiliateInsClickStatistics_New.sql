@@ -1,4 +1,6 @@
-﻿ALTER PROCEDURE [dbo].[Aff_AffiliateInsClickStatistics_New] 
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbDownlineNet,bodbDownlineNetView" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
+ALTER PROCEDURE [dbo].[Aff_AffiliateInsClickStatistics_New] 
 	@AffiliateID INT
 	,@AffDomain NVARCHAR(256) = ''
 	,--Url is showed in affiliate site
@@ -299,10 +301,4 @@ BEGIN
 	RETURN;
 END
 
-GO
-
-GRANT EXECUTE ON [dbo].[Aff_AffiliateInsClickStatistics_New] TO [bodbDownlineNet] AS [dbo]
-GO
-
-GRANT EXECUTE ON [dbo].[Aff_AffiliateInsClickStatistics_New] TO [bodbDownlineNetView] AS [dbo]
 GO

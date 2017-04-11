@@ -1,11 +1,5 @@
-USE [IPDB]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_GetIPInfo_Full]    Script Date: 10/5/2015 2:27:14 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_GetIPInfo_Full    Script Date: 4/1/2010 4:40:30 PM ******/
+/*<info serverAlias="DBCUST-IPDB" executers="bodbDownlineNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
 ALTER PROCEDURE [dbo].[Aff_GetIPInfo]
 	@IP VARCHAR(15)
 AS
@@ -39,8 +33,4 @@ BEGIN
 	) AS X
 	WHERE @IPVal <= IPTo
 END
-GO
-GRANT EXECUTE ON [dbo].[Aff_GetIPInfo] TO [bodbDownlineNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_GetIPInfo] TO [vnteam] AS [dbo]
 GO
