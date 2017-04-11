@@ -1,7 +1,8 @@
 ﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Aff_AffiliateReport] 
-	@FromDate 			DATE
+	@Username			NVARCHAR(50) = NULL
+	,@FromDate 			DATE
 	,@ToDate 			DATE
 	,@IsGetAll 			BIT
 	,@PreferredLanguage VARCHAR(11) = NULL
@@ -26,6 +27,7 @@ Revisions:
 	- 20141218@Bobby: Update SS's bettype
 	- 20141223@Bobby: Hotfix#28059 - Filtering by PreferredLanguage
 	- 20170214@Percy: Fix FDM/Signup Issue [RedmineID: #70507]
+	- 20170411@Percy: Support search by Affiliate name [RedmineID: #74588]
 
 Param's Explanation:
 	• @Fromdate Time search From
@@ -145,7 +147,7 @@ BEGIN
 	WHERE  ai.STATUS		= 'Approved'
 		AND (@AffType IS NULL OR ai.AffType	= @AffType)
 		AND (@PreferredLanguage IS NULL OR ad.PreferredLanguage	= @PreferredLanguage)
-		
+		AND ai.UserName LIKE '%' + ISNULL(@Username, '') + '%'
 	ORDER BY ai.AffId
 	
 	SELECT @NRows = @@ROWCOUNT

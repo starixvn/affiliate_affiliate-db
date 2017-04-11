@@ -1,6 +1,9 @@
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
 ALTER PROCEDURE [dbo].[Aff_PlayerCasinoReport]
 (
-	@FromDate				DATE
+	@Username				NVARCHAR(50) = NULL
+	,@FromDate				DATE
 	,@ToDate				DATE
 	,@PreferedLanguage		VARCHAR(10)	= NULL
 	,@IsGetAll				BIT 		= 0
@@ -18,6 +21,7 @@ Orgiginal:
 Revisions:    
 	- 20141119@Bobby.Nguyen: Initial SP
 	- 20150827@Bobby.Nguyen: Convert to base currency US$
+	- 20170411@Percy: Support search by Affiliate name [RedmineID: #74588]
 */   
 BEGIN
 	SET NOCOUNT ON
@@ -73,7 +77,7 @@ BEGIN
 		AND md.SportType = @SportType
 		AND md.AffId > 0
 		AND ai.STATUS	= 'Approved'
-	
+		AND ai.UserName LIKE '%' + ISNULL(@Username, '') + '%'
 	GROUP BY md.IBCCustId
 		,mi.UserName
 	ORDER BY mi.UserName
