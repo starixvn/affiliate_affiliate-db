@@ -537,18 +537,60 @@ BEGIN
 	END
 			
 		-- Signup, FDM --
+	/*
+	CREATE TABLE #custInfo (custid INT, creatdate DATETIME)
+	INSERT INTO #custInfo (custid, creatdate)
+	SELECT custid, creatdate
+	FROM bodb02.dbo.Customer c WITH(NOLOCK)
+	WHERE roleid = 1
+		AND creatdate >= @FromDate AND creatdate < DATEADD(DAY, 1, @ToDate)
+	*/
+	
+	DECLARE @TrackingCode TABLE (AffId INT, IBCCustID INT, TrackingDate DATETIME, IsFDM BIT, IsNew BIT)
+	
+	INSERT INTO @TrackingCode (AffId, IBCCustID, TrackingDate, IsFDM, IsNew)
+	SELECT mi.AffId, mi.IBCCustID, mi.CreatedDate, 1, 1
+	FROM dbo.MemberInfo mi WITH (NOLOCK)
+	WHERE mi.CreatedDate >= @FromDate AND mi.CreatedDate < DATEADD(DAY, 1, @ToDate)
+		AND EXISTS (SELECT 1 FROM #AffPaging a WHERE mi.AffID = a.AffId)
+		AND NOT EXISTS (
+			SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+			WHERE
+				mr.IBCCustID = mi.IBCCustID
+				AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
+		)
+
+	INSERT INTO @TrackingCode (AffId, IBCCustID, TrackingDate, IsFDM, IsNew)
+	SELECT md.AffID, md.IBCCustID, md.CreatedDate, 0, 1
+	FROM dbo.MemberClickDetail md WITH (NOLOCK)
+	WHERE md.CreatedDate >= @FromDate AND md.CreatedDate < DATEADD(DAY, 1, @ToDate)
+		AND EXISTS (SELECT 1 FROM #AffPaging a WHERE md.AffID = a.AffId)
+	
+	/*
+	INSERT INTO @TrackingCode (AffId, IBCCustID, TrackingDate, IsFDM, IsNew)
+	SELECT dc.AffiliateId, dc.IBCCustID, dc.CreatDate, 0, 0
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer dc WITH (NOLOCK)
+	WHERE EXISTS (SELECT 1 FROM #AffPaging a WHERE dc.AffiliateId = a.AffId)
+		AND dc.CreatDate >= @FromDate AND dc.CreatDate < DATEADD(DAY, 1, @ToDate)
+
+	INSERT INTO @TrackingCode (AffId, IBCCustID, TrackingDate, IsFDM, IsNew)
+	SELECT dc.AffiliateId, dc.IBCCustID, c.creatdate, 1, 0
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer dc WITH (NOLOCK)
+		INNER JOIN #custInfo c ON dc.IBCCustID = c.custid
+	WHERE EXISTS (SELECT 1 FROM @AffList a WHERE dc.AffiliateId = a.AffId)
+	
+	DELETE t1
+	FROM @TrackingCode t1
+		INNER JOIN @TrackingCode t2
+			ON t1.AffId = t2.AffId
+				AND ISNULL(t1.IBCCustID, 0) = ISNULL(t2.IBCCustID, 0) AND t1.TrackingDate = t2.TrackingDate
+				AND t1.IsNew = 0 AND t2.IsNew = 1
+				AND t1.IsFDM = t2.IsFDM
+	*/
+
 	INSERT INTO #OldTracking
-	SELECT
-		AffiliateID,
-		0 AS TotalClick,
-		0 AS UniqueClick,
-		COUNT(1) AS Signup,
-		COUNT(IBCCustID) AS FDM
-	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer c WITH (NOLOCK)
-	WHERE
-		(@IsGetAll = 1 OR CreatDate >= @FromDate AND CreatDate < DATEADD(DAY, 1, @ToDate))
-		AND EXISTS (SELECT 1 FROM #AffPaging a WHERE c.AffiliateID = a.AffId)
-	GROUP BY AffiliateID
+	SELECT AffID, 0 AS TotalClick, 0 AS UniqueClick, SUM(CASE WHEN IsFDM = 1 THEN 0 ELSE 1 END) AS Signup, COUNT(CASE WHEN IsFDM = 1 THEN IBCCustID ELSE NULL END) AS FDM
+	FROM @TrackingCode GROUP BY AffID
 		/* End Old */
 
 		/* New */
@@ -578,47 +620,6 @@ BEGIN
 		(@IsGetAll = 1 OR c.Date >= @FromDate AND c.Date < DATEADD(DAY, 1, @ToDate))
 		AND EXISTS (SELECT 1 FROM #AffPaging a WHERE c.AffId = a.AffId)
 	GROUP BY c.AffID, c.Date
-		
-		-- Signup, FDM --
-	;WITH NewStats AS (
-
-		-- signup
-		SELECT md.AffID, COUNT(1) AS Signups, 0 AS FDM
-		FROM dbo.MemberClickDetail md WITH (NOLOCK)
-		WHERE (@IsGetAll = 1 OR md.CreatedDate >= @FromDate AND md.CreatedDate < DATEADD(DAY, 1, @ToDate))
-			AND EXISTS (SELECT 1 FROM #AffPaging a WHERE md.AffID = a.AffId)
-		GROUP BY md.AffID
-
-		UNION ALL
-
-		-- fdm
-		SELECT mi.AffID, 0 AS Signups, COUNT(mi.IBCCustID) AS FDM
-		FROM dbo.MemberInfo mi WITH (NOLOCK)
-		WHERE (@IsGetAll = 1 OR mi.CreatedDate >= @FromDate AND mi.CreatedDate < DATEADD(DAY, 1, @ToDate))
-			AND EXISTS (SELECT 1 FROM #AffPaging a WHERE mi.AffID = a.AffId)
-			AND
-			(
-				(@IsGetAll = 1 AND mi.IsRemoved = 0)
-				OR NOT EXISTS
-				(
-					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-					WHERE
-						mr.IBCCustID = mi.IBCCustID
-						AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
-				)
-			)
-		GROUP BY mi.AffID
-	)
-
-	INSERT INTO #NewTracking
-	SELECT
-		AffId,
-		0 AS TotalClick,
-		0 AS UniqueClick,
-		SUM(ISNULL(Signups, 0)),
-		SUM(ISNULL(FDM, 0))
-	FROM NewStats
-	GROUP BY AffId
 		/* End New */
 	
 	;WITH OldTracking (AffId, TotalClick, UniqueClick)
@@ -636,12 +637,8 @@ BEGIN
 	)
 	,MemberStats (AffId, Signups, FDMs)
 	AS (
-		SELECT AffId, MAX(Signups) AS Signups, MAX(FDMs) AS FDMs
-		FROM (
-			SELECT AffId, SUM(ISNULL(Signup, 0)) AS Signups, SUM(ISNULL(FDM, 0)) AS FDMs FROM #NewTracking GROUP BY AffId
-			UNION ALL
-			SELECT AffId, SUM(ISNULL(Signup, 0)) AS Signups, SUM(ISNULL(FDM, 0)) AS FDMs FROM #OldTracking GROUP BY AffId
-		) A
+		SELECT AffId, SUM(Signup) AS Signups, SUM(FDM) AS FDMs
+		FROM #OldTracking
 		GROUP BY AffId
 	)
 	,ActiveMember (AffId, TotalAM)
@@ -847,6 +844,5 @@ BEGIN
 	DROP TABLE #AffReport
 	DROP TABLE #OldTracking
 	DROP TABLE #NewTracking
-
 END
 GO

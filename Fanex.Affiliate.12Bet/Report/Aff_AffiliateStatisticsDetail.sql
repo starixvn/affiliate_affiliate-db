@@ -1,185 +1,146 @@
-﻿Alter Procedure [Aff_AffiliateStatisticsDetail]
-	@AffId int,
-	@Fromdate datetime,
-	@Todate datetime,
-	@IsGetAll bit
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
+ALTER PROCEDURE [Aff_AffiliateStatisticsDetail]
+	@AffId		INT,
+	@FromDate	DATETIME,
+	@ToDate		DATETIME,
+	@IsGetAll	BIT
 AS
+
 /*
-Created: @VinhTrinh
-Task : Get statistics report detail for affiliate.
-DB: DB052.Affiliate_12BET
-Original: [Aff_CustomerSelDetailsByAff]
-Revisions:
+	Created by: Percy
+	Date: 2017-04-11
+	DB: DBAFF12BET.Affiliate_12BET
+	Task: Get statistics report detail for affiliate - Change formula Active, Dormant, Total and TotalRegistered columns [RedmineID: #74560]
 	
-Param's Explanation:
-	• @AffId Affiliate Id
-	• @Fromdate Time search From
-	• @Todate Time search To,
-	• @IsGetAll if getall = 1 => get data in all date of Affiliate,
+	Original: Aff_AffiliateStatisticsDetail
+	
+	Revisions:
+	
+	Param's Explanation:
+		• @FromDate, @ToDate: date range
+		• @IsGetAll: = 1 => get data all date of Affiliate
 */
-Set Nocount On	
 
---Calculate tracking statistics
-Declare @Tracking as Table (TrackingDate smallDatetime, TotalClick int, UniqueClick int)
+BEGIN
+	SET NOCOUNT ON
 
-if @IsGetAll = 1
-Begin
-	insert into @Tracking
-	select Date, sum(1) as TotalClick, count(distinct s.IP) as UniqueClick
-	from ClickStatistics s (nolock)
-	where IP <> '' and datediff(mm, current_timestamp, s.date)=0
-		and trackingid in (
-			select trackingid 
-			from TrackingCode (nolock) 
-			where AffID=@AffID
-			) 
-	group by s.Date
-   
-	Union all
-	
-	select Date, TotalClick, UniqueClick
-	from ClickStatisticsSum s (nolock)
-	where AffID=@AffID 
-	   and TrackingID=0
-	   and IsForMonth=0 
-End
-else
-Begin
-	
-	Declare @FirstDateOfThisMonth smalldatetime, @TmpFDate smalldatetime, @TmpTDate smalldatetime
-	
-	select @FirstDateOfThisMonth = dateadd(m, datediff(m, 0, current_timestamp), 0),
-		@TmpFDate = case when @Fromdate <= @FirstDateOfThisMonth then @FirstDateOfThisMonth else @Fromdate end,
-		@TmpTDate = case when @ToDate >= @FirstDateOfThisMonth then dateadd(d, -1, @FirstDateOfThisMonth) else @ToDate end
-	
-	insert into @Tracking 
-	select Date, sum(1) as TotalClick, count(distinct s.IP) as UniqueClick--Current month
-	from ClickStatistics s (nolock)
-	where IP <> '' 
-		and s.date between @TmpFDate and @ToDate
-		and trackingid in (
-			select trackingid 
-			from TrackingCode (nolock) 
-			where AffID=@AffID
-			) 
-	group by s.Date
-   
-	Union all
-	
-	select Date, TotalClick, UniqueClick--Old month
-	from ClickStatisticsSum s (nolock)
-	where AffID=@AffID 
-	   and TrackingID=0
-	   and IsForMonth=0
-	   and s.date between @FromDate and @TmpTDate 
-End
+	SELECT  @ToDate = DATEADD(SECOND, -1, DATEADD(DAY, DATEDIFF(DAY, 0, @ToDate) + 1, 0))
 
+	DECLARE @Tracking TABLE (TrackingDate SMALLDATETIME, TotalClick INT, UniqueClick INT, Signups INT, FDMs INT, Active INT)
 
-----Get data----
-if @IsGetAll = 1
-Begin
-	select datediff(d, 0, CreatedDate) as ForeignKey,
-		CreatedDate,
-		Sum(Active) as Active,
-		Sum(Total) as Total,
-		Sum(TotalClick) as TotalClick,
-		Sum(UniqueClick) as UniqueClick
-	From
-	(	
-		select convert(varchar(10), CreatedDate, 120) as CreatedDate,
-			0 as Active,
-			count(distinct IBCCustId) as Total,
-			0 as TotalClick,
-			0 as UniqueClick
-		from MemberInfo with (nolock)
-		where AffId = @AffId
-		group by convert(varchar(10), CreatedDate, 120)
-		
-		Union All
-		
-		select WinlostDate as CreatedDate,
-			count(distinct m.IBCCustId) as Active,
-			0 as Total,
-			0 as TotalClick,
-			0 as UniqueClick
-		from MemberDaily m with (nolock)
-			inner join
-			(
-				select IBCCustId,
-					convert(varchar(10), CreatedDate, 120) as CreatedDate
-				from MemberInfo with (nolock) 
-				where AffId = @AffId
-			)as tmp on m.IBCCustId = tmp.IBCCustId and m.WinlostDate = tmp.CreatedDate		
-		where AffID = @AffId
-			and turnover > 0
-		group by WinlostDate
-		
-		Union All
-		
-		select TrackingDate,
-			0,
-			0,
-			TotalClick,
-			UniqueClick
-		from @Tracking
-		) tmp
-	Group by datediff(d, 0, CreatedDate), CreatedDate
-End
-Else
-Begin	
-	Select @ToDate = dateadd(s, -60, dateadd(d, datediff(d, 0, @ToDate) + 1, 0))
+	-- Tracking statistics
+	INSERT INTO @Tracking
+	SELECT
+		Date AS TrackingDate,
+		SUM(ISNULL(TotalClick, 0)) AS TotalClick,
+		SUM(ISNULL(UniqueClick, 0)) AS UniqueClick,
+		0 AS Signups,
+		0 AS FDMs,
+		0 AS Active
+	FROM (
+		SELECT
+			c.Date,
+			COUNT(1) AS TotalClick,
+			COUNT(DISTINCT c.IP) AS UniqueClick
+		FROM dbo.ClickStatistics1 c WITH (NOLOCK)
+		WHERE
+			c.Date BETWEEN @FromDate AND @ToDate
+			AND c.AffId = @AffId
+		GROUP BY c.Date
+
+		UNION ALL
+		SELECT
+			c.Date,
+			SUM(TotalClick) AS TotalClick,
+			SUM(UniqueClick) AS UniqueClick
+		FROM dbo.ClickStatistics1Sum c WITH (NOLOCK)
+		WHERE
+			(@IsGetAll = 1 OR c.Date BETWEEN @FromDate AND @ToDate)
+			AND c.AffId = @AffId
+		GROUP BY c.Date
+	) AS A
+	GROUP BY Date
+
+	-- FDM/Sigup statistics
+	/*
+	CREATE TABLE #custInfo (custid INT, creatdate DATETIME)
+	INSERT INTO #custInfo (custid, creatdate)
+	SELECT custid, creatdate
+	FROM bodb02.dbo.Customer c WITH(NOLOCK)
+	WHERE roleid = 1
+		AND creatdate BETWEEN @FromDate AND @ToDate
+	*/
+
+	DECLARE @TrackingCode TABLE (TrackingDate DATE, IBCCustID INT, IsFDM BIT, IsNew BIT)
 	
-	select datediff(d, 0, CreatedDate) as ForeignKey, CreatedDate,
-		Sum(Active) as Active,
-		Sum(Total) as Total,
-		Sum(TotalClick) as TotalClick,
-		Sum(UniqueClick) as UniqueClick
-	From
-		(
-		select convert(varchar(10), CreatedDate, 120) as CreatedDate,
-			0 as Active,
-			count(distinct m.IBCCustId) as Total,
-			0 as TotalClick,
-			0 as UniqueClick
-		from MemberInfo m with (nolock)
-		where AffID = @AffId
-			and CreatedDate Between @Fromdate and @Todate	
-		group by convert(varchar(10), CreatedDate, 120)
-		
-		Union All
-		
-		select WinlostDate as CreatedDate,
-			count(distinct m.IBCCustId) as Active,
-			0 as Total,
-			0 as TotalClick,
-			0 as UniqueClick
-		from MemberDaily m with (nolock)
-			inner join 
-			(
-				select IBCCustId,
-					convert(varchar(10), CreatedDate, 120) as CreatedDate
-				from MemberInfo with (nolock) 
-				where AffId = @AffId and CreatedDate Between @Fromdate and @Todate
-			)as tmp on m.IBCCustId = tmp.IBCCustId and m.WinlostDate = tmp.CreatedDate
-		where AffID = @AffId
-			and turnover > 0
-			and WinlostDate Between @Fromdate and @Todate
-		group by WinlostDate		
-		
-		Union All
-		
-		select TrackingDate,
-			0,
-			0,
-			TotalClick,
-			UniqueClick
-		from @Tracking
-		) tmp
-	Group by datediff(d, 0, CreatedDate), CreatedDate
+	INSERT INTO @TrackingCode (TrackingDate, IBCCustID, IsFDM, IsNew)
+	SELECT mi.CreatedDate, mi.IBCCustID, 1, 1
+	FROM dbo.MemberInfo mi WITH (NOLOCK)
+	WHERE mi.CreatedDate BETWEEN @FromDate AND @ToDate
+		AND mi.AffID = @AffId
+		AND NOT EXISTS (
+			SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+			WHERE
+				mr.IBCCustID = mi.IBCCustID
+				AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
+		)
 
-End
+	INSERT INTO @TrackingCode (TrackingDate, IBCCustID, IsFDM, IsNew)
+	SELECT md.CreatedDate, md.IBCCustID, 0, 1
+	FROM dbo.MemberClickDetail md WITH (NOLOCK)
+	WHERE md.CreatedDate BETWEEN @FromDate AND @ToDate
+		AND md.AffID = @AffId
+	
+	/*
+	INSERT INTO @TrackingCode (TrackingDate, IBCCustID, IsFDM, IsNew)
+	SELECT dc.CreatDate, dc.IBCCustID, 0, 0
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer dc WITH (NOLOCK)
+	WHERE dc.AffiliateId = @AffId
+		AND dc.CreatDate BETWEEN @FromDate AND @ToDate
 
-GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateStatisticsDetail] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateStatisticsDetail] TO [VNTeam] 
+	INSERT INTO @TrackingCode (TrackingDate, IBCCustID, IsFDM, IsNew)
+	SELECT c.creatdate, dc.IBCCustID, 1, 0
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer dc WITH (NOLOCK)
+		INNER JOIN #custInfo c ON dc.IBCCustID = c.custid
+	WHERE dc.AffiliateId = @AffId
+
+	DELETE t1
+	FROM @TrackingCode t1
+		INNER JOIN @TrackingCode t2
+			ON ISNULL(t1.IBCCustID, 0) = ISNULL(t2.IBCCustID, 0) AND t1.TrackingDate = t2.TrackingDate
+				AND t1.IsNew = 0 AND t2.IsNew = 1
+				AND t1.IsFDM = t2.IsFDM
+	*/
+
+	INSERT INTO @Tracking
+	SELECT CONVERT(DATE, TrackingDate), 0 AS TotalClick, 0 AS UniqueClick, SUM(CASE WHEN IsFDM = 1 THEN 0 ELSE 1 END) AS Signups, COUNT(CASE WHEN IsFDM = 1 THEN IBCCustID ELSE NULL END) AS FDMs, 0 AS Active
+	FROM @TrackingCode
+	GROUP BY TrackingDate
+
+	-- Active statistics
+	INSERT INTO @Tracking
+	SELECT md.WinlostDate, 0 AS TotalClick, 0 AS UniqueClick, 0 AS Signups, 0 AS FDMs, COUNT(DISTINCT md.IBCCustID) AS Active
+	FROM dbo.MemberDaily md WITH(NOLOCK)
+	WHERE (@IsGetAll = 1 OR md.WinlostDate BETWEEN @FromDate AND @ToDate)
+		AND md.AffId = @AffId
+		AND EXISTS (
+			SELECT 1 FROM @TrackingCode t WHERE md.IBCCustID = t.IBCCustID AND t.IsFDM = 1 AND md.WinlostDate = t.TrackingDate
+		)
+	GROUP BY WinlostDate
+
+	-- Return Data
+	SELECT
+		DATEDIFF(DAY, 0, TrackingDate) AS ForeignKey,
+		TrackingDate AS CreatedDate,
+		SUM(Active) AS Active,
+		SUM(FDMs - Active) AS Dormant,
+		SUM(FDMs) AS Total,
+		SUM(Signups) AS TotalRegistered,
+		SUM(TotalClick) AS TotalClick,
+		SUM(UniqueClick) AS UniqueClick
+	FROM @Tracking
+	GROUP BY DATEDIFF(DAY, 0, TrackingDate), TrackingDate
+	ORDER BY DATEDIFF(DAY, 0, TrackingDate), TrackingDate
+
+END

@@ -22,6 +22,7 @@ Revisions:
 		+ Remove @TotalPages
 	- 20141223@Bobby: Hotfix#28059 - Filtering by PreferredLanguage
 	- 20170214@Percy: Fix FDM/Signup Issue [RedmineID: #70507]
+	- 20170411@Percy: Change formula Active, Dormant, Total and TotalRegistered columns [RedmineID: #74560]
 	
 Param's Explanation:
 	• @Fromdate Time search From
@@ -51,7 +52,7 @@ BEGIN
 	FROM [DBDeposit].deposit_db.dbo.Deposit_Customer md WITH (NOLOCK) 
 		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON md.AffiliateId = ai.AffId
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
-	WHERE (@IsGetAll = 1 OR (md.CreatDate >= @FromDate AND md.CreatDate < DATEADD(D, 1,@ToDate)))
+	WHERE (@IsGetAll = 1 OR (md.CreatDate BETWEEN @FromDate AND @ToDate))
 		AND md.AffiliateId > 0
 		AND ai.ApprovedDate <= @ToDate 
 		AND ai.STATUS	= 'Approved'
@@ -75,55 +76,76 @@ BEGIN
 		Signups		INT,
 		RowIDX		INT
 	)
+
+	-- signup, FDM --
+	/*
+	CREATE TABLE #custInfo (custid INT, creatdate DATETIME)
+	INSERT INTO #custInfo (custid, creatdate)
+	SELECT custid, creatdate
+	FROM bodb02.dbo.Customer c WITH(NOLOCK)
+	WHERE roleid = 1
+		AND creatdate BETWEEN @FromDate AND @ToDate
+	*/
 	
+	DECLARE @TrackingCode TABLE (AffId INT, IBCCustID INT, TrackingDate DATETIME, IsFDM BIT, IsNew BIT)
+	
+	INSERT INTO @TrackingCode (AffId, IBCCustID, TrackingDate, IsFDM, IsNew)
+	SELECT mi.AffId, mi.IBCCustID, mi.CreatedDate, 1, 1
+	FROM dbo.MemberInfo mi WITH (NOLOCK)
+	WHERE mi.CreatedDate BETWEEN @FromDate AND @ToDate
+		AND EXISTS (SELECT 1 FROM @AffList a WHERE mi.AffID = a.AffId)
+		AND NOT EXISTS (
+			SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+			WHERE
+				mr.IBCCustID = mi.IBCCustID
+				AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
+		)
+
+	INSERT INTO @TrackingCode (AffId, IBCCustID, TrackingDate, IsFDM, IsNew)
+	SELECT md.AffID, md.IBCCustID, md.CreatedDate, 0, 1
+	FROM dbo.MemberClickDetail md WITH (NOLOCK)
+	WHERE md.CreatedDate BETWEEN @FromDate AND @ToDate
+		AND EXISTS (SELECT 1 FROM @AffList a WHERE md.AffID = a.AffId)
+	
+	/*
+	INSERT INTO @TrackingCode (AffId, IBCCustID, TrackingDate, IsFDM, IsNew)
+	SELECT dc.AffiliateId, dc.IBCCustID, dc.CreatDate, 0, 0
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer dc WITH (NOLOCK)
+	WHERE EXISTS (SELECT 1 FROM @AffList a WHERE dc.AffiliateId = a.AffId)
+		AND dc.CreatDate BETWEEN @FromDate AND @ToDate
+
+	INSERT INTO @TrackingCode (AffId, IBCCustID, TrackingDate, IsFDM, IsNew)
+	SELECT dc.AffiliateId, dc.IBCCustID, c.creatdate, 1, 0
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer dc WITH (NOLOCK)
+		INNER JOIN #custInfo c ON dc.IBCCustID = c.custid
+	WHERE EXISTS (SELECT 1 FROM @AffList a WHERE dc.AffiliateId = a.AffId)
+
+	DELETE t1
+	FROM @TrackingCode t1
+		INNER JOIN @TrackingCode t2
+			ON t1.AffId = t2.AffId
+				AND ISNULL(t1.IBCCustID, 0) = ISNULL(t2.IBCCustID, 0) AND t1.TrackingDate = t2.TrackingDate
+				AND t1.IsNew = 0 AND t2.IsNew = 1
+				AND t1.IsFDM = t2.IsFDM
+	*/
+
 	IF @SortBy = 1 -- sort by Total Registered
 	BEGIN
 		;WITH memberStats AS (
-			SELECT AffID, SUM(ISNULL(Signups, 0)) AS Signups, SUM(ISNULL(FDMs, 0)) AS FDMs
-			FROM (
-				SELECT md.AffID, COUNT(1) AS Signups, 0 AS FDMs
-				FROM dbo.MemberClickDetail md WITH (NOLOCK)
-				WHERE (@IsGetAll = 1 OR md.CreatedDate BETWEEN @FromDate AND @ToDate)
-					AND EXISTS (SELECT 1 FROM @AffList a WHERE md.AffID = a.AffId)
-				GROUP BY md.AffID
-
-				UNION ALL
-				SELECT mi.AffID, 0 AS Signups, COUNT(mi.IBCCustID) AS FDMs
-				FROM dbo.MemberInfo mi WITH (NOLOCK)
-				WHERE (@IsGetAll = 1 OR mi.CreatedDate BETWEEN @FromDate AND @ToDate)
-					AND EXISTS (SELECT 1 FROM @AffList a WHERE mi.AffID = a.AffId)
-					AND
-					(
-						(@IsGetAll = 1 AND mi.IsRemoved = 0)
-						OR NOT EXISTS (
-							SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-							WHERE
-								mr.IBCCustID = mi.IBCCustID
-								AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
-						)
-					)
-				GROUP BY mi.AffID
-			) AS A
+			SELECT AffID, COUNT(1) AS Signups
+			FROM @TrackingCode WHERE IsFDM = 0
 			GROUP BY AffID
-
-			UNION ALL
-			SELECT md.AffiliateId AS AffID, COUNT(1) AS Signups, COUNT(IBCCustID) AS FDMs
-			FROM [DBDeposit].deposit_db.dbo.Deposit_Customer md WITH (NOLOCK)
-			WHERE (@IsGetAll = 1 OR md.CreatDate BETWEEN @FromDate AND @ToDate)
-				AND EXISTS (SELECT 1 FROM @AffList a WHERE a.AffId = md.AffiliateId)
-			GROUP BY md.AffiliateId
 		)
-
 		INSERT INTO #AffTotal (AffId, UserName, FDMs, Signups, RowIDX)
-		SELECT AffId, UserName, FDMs, Signups, RowIDX
+		SELECT AffId, UserName, 0, Signups, RowIDX
 		FROM
 		(
 			SELECT
-				m.AffId, m.UserName, ISNULL(dep.FDMs, 0) AS FDMs, ISNULL(dep.Signups, 0) AS Signups,
+				m.AffId, m.UserName, ISNULL(dep.Signups, 0) AS Signups,
 				ROW_NUMBER() OVER (ORDER BY ISNULL(dep.Signups, 0) DESC) AS RowIDX
 			FROM @AffList m
 				LEFT JOIN (
-					SELECT AffID, MAX(FDMs) AS FDMs, MAX(Signups) AS Signups FROM memberStats GROUP BY AffID
+					SELECT AffID, MAX(Signups) AS Signups FROM memberStats GROUP BY AffID
 				) dep ON m.AffId = dep.AffID
 		) AS t
 		WHERE t.RowIDX BETWEEN (((@PageIndex - 1) * @PageSize) + 1) AND (@PageSize * @PageIndex)
@@ -142,49 +164,22 @@ BEGIN
 		
 		-- update total SignUp
 		;WITH memberStats AS (
-			SELECT AffID, SUM(ISNULL(Signups, 0)) AS Signups, SUM(ISNULL(FDMs, 0)) AS FDMs
-			FROM (
-				SELECT md.AffID, COUNT(1) AS Signups, 0 AS FDMs
-				FROM dbo.MemberClickDetail md WITH (NOLOCK)
-				WHERE (@IsGetAll = 1 OR md.CreatedDate BETWEEN @FromDate AND @ToDate)
-					AND EXISTS (SELECT 1 FROM #AffTotal a WHERE md.AffID = a.AffId)
-				GROUP BY md.AffID
-
-				UNION ALL
-				SELECT mi.AffID, 0 AS Signups, COUNT(mi.IBCCustID) AS FDMs
-				FROM dbo.MemberInfo mi WITH (NOLOCK)
-				WHERE (@IsGetAll = 1 OR mi.CreatedDate BETWEEN @FromDate AND @ToDate)
-					AND EXISTS (SELECT 1 FROM #AffTotal a WHERE mi.AffID = a.AffId)
-					AND
-					(
-						(@IsGetAll = 1 AND mi.IsRemoved = 0)
-						OR NOT EXISTS (
-							SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-							WHERE
-								mr.IBCCustID = mi.IBCCustID
-								AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
-						)
-					)
-				GROUP BY mi.AffID
-			) AS A
+			SELECT AffID, COUNT(1) AS Signups
+			FROM @TrackingCode WHERE IsFDM = 0
 			GROUP BY AffID
-
-			UNION ALL
-			SELECT md.AffiliateId AS AffID, COUNT(1) AS Signups, COUNT(IBCCustID) AS FDMs
-			FROM [DBDeposit].deposit_db.dbo.Deposit_Customer md WITH (NOLOCK)
-			WHERE (@IsGetAll = 1 OR md.CreatDate BETWEEN @FromDate AND @ToDate)
-				AND EXISTS (SELECT 1 FROM #AffTotal a WHERE a.AffId = md.AffiliateId)
-			GROUP BY md.AffiliateId
 		)
 		UPDATE d
-		SET
-			d.FDMs = ISNULL(dep.FDMs, 0),
-			d.Signups = ISNULL(dep.Signups, 0)
+		SET d.Signups = ISNULL(dep.Signups, 0)
+		FROM #AffTotal d
+			LEFT JOIN memberStats dep ON d.AffId = dep.AffID
+	END
+
+	UPDATE d
+		SET d.FDMs = ISNULL(dep.FDMs, 0)
 		FROM #AffTotal d
 			LEFT JOIN (
-					SELECT AffID, MAX(FDMs) AS FDMs, MAX(Signups) AS Signups FROM memberStats GROUP BY AffID
+					SELECT AffID, COUNT(IBCCustID) AS FDMs FROM @TrackingCode WHERE IsFDM = 1 GROUP BY AffID
 				) dep ON d.AffId = dep.AffID
-	END
 
 	;WITH ActiveMember AS
 	(
@@ -193,44 +188,14 @@ BEGIN
 		WHERE (@IsGetAll = 1 OR md.WinlostDate BETWEEN @FromDate AND @ToDate)
 			AND EXISTS (SELECT 1 FROM #AffTotal a WHERE a.AffId = md.AffID)
 			AND EXISTS (
-				SELECT 1
-				FROM dbo.MemberInfo mi WITH (NOLOCK)
-				WHERE (@IsGetAll = 1 OR mi.CreatedDate BETWEEN @FromDate AND @ToDate)
-					AND EXISTS (SELECT 1 FROM #AffTotal a WHERE mi.AffID = a.AffId)
-					AND
-					(
-						(@IsGetAll = 1 AND mi.IsRemoved = 0)
-						OR NOT EXISTS (
-							SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-							WHERE
-								mr.IBCCustID = mi.IBCCustID
-								AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
-						)
-					)
-					AND mi.IBCCustID = md.IBCCustID
-			)
-		GROUP BY md.AffID
-
-		UNION ALL
-		SELECT md.AffID, COUNT(DISTINCT md.IBCCustID) AS Active
-		FROM dbo.MemberDaily md WITH(NOLOCK)
-		WHERE (@IsGetAll = 1 OR md.WinlostDate BETWEEN @FromDate AND @ToDate)
-			AND EXISTS (SELECT 1 FROM #AffTotal a WHERE a.AffId = md.AffID)
-			AND EXISTS (
-				SELECT 1
-				FROM [DBDeposit].deposit_db.dbo.Deposit_Customer dc WITH (NOLOCK)
-				WHERE (@IsGetAll = 1 OR dc.CreatDate BETWEEN @FromDate AND @ToDate)
-					AND EXISTS (SELECT 1 FROM #AffTotal a WHERE a.AffId = dc.AffiliateId)
-					AND dc.IBCCustID = md.IBCCustID
+				SELECT 1 FROM @TrackingCode t WHERE md.IBCCustID = t.IBCCustID AND t.IsFDM = 1
 			)
 		GROUP BY md.AffID
 	)
 	UPDATE d
 	SET d.Active = ISNULL(dep.Active, 0), d.Dormant = d.FDMs - ISNULL(dep.Active, 0)
 	FROM #AffTotal d
-		LEFT JOIN (
-				SELECT AffID, MAX(Active) AS Active FROM ActiveMember GROUP BY AffID
-			) dep ON d.AffId = dep.AffID
+		LEFT JOIN ActiveMember dep ON d.AffId = dep.AffID
 	
 	-- sum total
 	SELECT

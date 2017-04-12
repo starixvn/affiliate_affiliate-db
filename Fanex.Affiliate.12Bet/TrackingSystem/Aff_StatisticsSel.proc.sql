@@ -100,41 +100,57 @@ BEGIN
 	SELECT @FromDate = dateadd(d, 1, @MaxTransDate)
 
 	-- signup, FDM --
-	;WITH NewStats AS (
+	/*
+	CREATE TABLE #custInfo (custid INT, creatdate DATETIME)
+	INSERT INTO #custInfo (custid, creatdate)
+	SELECT custid, creatdate
+	FROM bodb02.dbo.Customer c WITH(NOLOCK)
+	WHERE roleid = 1
+		AND creatdate >= @FromBeginMonth AND creatdate < @ToNextMonth
+	*/
 
-		-- signup
-		SELECT COUNT(1) AS Signups, 0 AS FDM
-		FROM dbo.MemberClickDetail WITH (NOLOCK)
-		WHERE CreatedDate >= @FromBeginMonth AND CreatedDate < @ToNextMonth
-			AND AffId = @AffID
+	DECLARE @TrackingCode TABLE (IBCCustID INT, TrackingDate DATETIME, IsFDM BIT, IsNew BIT)
+	
+	INSERT INTO @TrackingCode (IBCCustID, TrackingDate, IsFDM, IsNew)
+	SELECT mi.IBCCustID, mi.CreatedDate, 1, 1
+	FROM dbo.MemberInfo mi WITH (NOLOCK)
+	WHERE mi.CreatedDate >= @FromBeginMonth AND mi.CreatedDate < @ToNextMonth
+		AND mi.AffId = @AffID
+		AND NOT EXISTS (
+			SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+			WHERE
+				mr.IBCCustID = mi.IBCCustID
+				AND mr.RemovedDate >= @FromBeginMonth AND mr.RemovedDate < @ToNextMonth
+		)
 
-		UNION ALL
+	INSERT INTO @TrackingCode (IBCCustID, TrackingDate, IsFDM, IsNew)
+	SELECT IBCCustID, CreatedDate, 0, 1
+	FROM dbo.MemberClickDetail WITH (NOLOCK)
+	WHERE CreatedDate >= @FromBeginMonth AND CreatedDate < @ToNextMonth
+		AND AffId = @AffID
+	
+	/*
+	INSERT INTO @TrackingCode (IBCCustID, TrackingDate, IsFDM, IsNew)
+	SELECT IBCCustID, CreatDate, 0, 0
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+	WHERE AffiliateId = @AffId
+		AND CreatDate >= @FromBeginMonth AND CreatDate < @ToNextMonth
 
-		-- fdm
-		SELECT 0 AS Signups, COUNT(mi.IBCCustID) AS FDM
-		FROM dbo.MemberInfo mi WITH (NOLOCK)
-		WHERE mi.CreatedDate >= @FromBeginMonth AND mi.CreatedDate < @ToNextMonth
-			AND mi.AffId = @AffID
-			AND NOT EXISTS (
-				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-				WHERE
-					mr.IBCCustID = mi.IBCCustID
-					AND mr.RemovedDate >= @FromBeginMonth AND mr.RemovedDate < @ToNextMonth
-			)
-	)
-	, OldStats AS (
+	INSERT INTO @TrackingCode (IBCCustID, TrackingDate, IsFDM, IsNew)
+	SELECT c.custid, c.creatdate, 1, 0
+	FROM #custInfo c
+	WHERE EXISTS (SELECT 1 FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer dc WITH (NOLOCK) WHERE dc.AffiliateId = @AffId AND dc.IBCCustID = c.custid)
 
-		SELECT COUNT(1) AS Signups, COUNT(IBCCustID) AS FDM
-		FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
-		WHERE AffiliateId = @AffId
-			AND CreatDate >= @FromBeginMonth AND CreatDate < @ToNextMonth
-	)
-	SELECT @NewSignUp = MAX(Signups), @NewSignUpDep = MAX(FDM)
-	FROM (
-		SELECT SUM(ISNULL(Signups, 0)) AS Signups, SUM(ISNULL(FDM, 0)) AS FDM FROM NewStats
-		UNION ALL
-		SELECT SUM(ISNULL(Signups, 0)) AS Signups, SUM(ISNULL(FDM, 0)) AS FDM FROM OldStats
-	) A
+	DELETE t1
+	FROM @TrackingCode t1
+		INNER JOIN @TrackingCode t2
+			ON ISNULL(t1.IBCCustID, 0) = ISNULL(t2.IBCCustID, 0) AND t1.TrackingDate = t2.TrackingDate
+				AND t1.IsNew = 0 AND t2.IsNew = 1
+				AND t1.IsFDM = t2.IsFDM
+	*/
+
+	SELECT @NewSignUp = SUM(CASE WHEN IsFDM = 1 THEN 0 ELSE 1 END), @NewSignUpDep = COUNT(CASE WHEN IsFDM = 1 THEN IBCCustID ELSE NULL END)
+	FROM @TrackingCode
 
 	-- Total
 	SELECT @TotalPlayerDepUp = COUNT(1)
