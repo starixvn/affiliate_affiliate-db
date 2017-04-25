@@ -1,5 +1,8 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNetView" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 
+USE [Affiliate_12BET]
+GO
+
 ALTER PROCEDURE [dbo].[Aff_StatisticsSel] 
 	@AffID INT
 	,@MonthDate SMALLDATETIME
@@ -25,6 +28,7 @@ ALTER PROCEDURE [dbo].[Aff_StatisticsSel]
 	,@TotalUniqueClicksByMobile INT = 0 OUTPUT
 	,@TotalClicksByMobile INT = 0 OUTPUT
 AS
+
 /*Created: 20090325@VinhTrinh
 Task : Get statistics for affiliate
 DB: DBAFF12BET.Affiliate_12BET
@@ -50,8 +54,8 @@ Param's Explanation:
 	• @TotalDeposit : total deposit money for month search
 	• @TotalDepositUp money OUTPUT,--total deposit money up to now
 	• @TotalTurnover money OUTPUT,--total turnover money up to now
-
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -100,41 +104,21 @@ BEGIN
 	SELECT @FromDate = dateadd(d, 1, @MaxTransDate)
 
 	-- signup, FDM --
-	;WITH NewStats AS (
+	SELECT @NewSignUpDep = COUNT(1)
+	FROM dbo.MemberInfo mi WITH (NOLOCK)
+	WHERE mi.CreatedDate >= @FromBeginMonth AND mi.CreatedDate < @ToNextMonth
+		AND mi.AffId = @AffID
+		AND NOT EXISTS (
+			SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+			WHERE
+				mr.IBCCustID = mi.IBCCustID
+				AND mr.RemovedDate >= @FromBeginMonth AND mr.RemovedDate < @ToNextMonth
+		)
 
-		-- signup
-		SELECT COUNT(1) AS Signups, 0 AS FDM
-		FROM dbo.MemberClickDetail WITH (NOLOCK)
-		WHERE CreatedDate >= @FromBeginMonth AND CreatedDate < @ToNextMonth
-			AND AffId = @AffID
-
-		UNION ALL
-
-		-- fdm
-		SELECT 0 AS Signups, COUNT(mi.IBCCustID) AS FDM
-		FROM dbo.MemberInfo mi WITH (NOLOCK)
-		WHERE mi.CreatedDate >= @FromBeginMonth AND mi.CreatedDate < @ToNextMonth
-			AND mi.AffId = @AffID
-			AND NOT EXISTS (
-				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-				WHERE
-					mr.IBCCustID = mi.IBCCustID
-					AND mr.RemovedDate >= @FromBeginMonth AND mr.RemovedDate < @ToNextMonth
-			)
-	)
-	, OldStats AS (
-
-		SELECT COUNT(1) AS Signups, COUNT(IBCCustID) AS FDM
-		FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
-		WHERE AffiliateId = @AffId
-			AND CreatDate >= @FromBeginMonth AND CreatDate < @ToNextMonth
-	)
-	SELECT @NewSignUp = MAX(Signups), @NewSignUpDep = MAX(FDM)
-	FROM (
-		SELECT SUM(ISNULL(Signups, 0)) AS Signups, SUM(ISNULL(FDM, 0)) AS FDM FROM NewStats
-		UNION ALL
-		SELECT SUM(ISNULL(Signups, 0)) AS Signups, SUM(ISNULL(FDM, 0)) AS FDM FROM OldStats
-	) A
+	SELECT @NewSignUp = COUNT(1)
+	FROM dbo.MemberClickDetail WITH (NOLOCK)
+	WHERE CreatedDate >= @FromBeginMonth AND CreatedDate < @ToNextMonth
+		AND AffId = @AffID
 
 	-- Total
 	SELECT @TotalPlayerDepUp = COUNT(1)

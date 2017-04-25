@@ -1,5 +1,8 @@
 ﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 
+USE [Affiliate_12BET]
+GO
+
 ALTER PROCEDURE [dbo].[Aff_ActiveMemberReport] 
 	@Fromdate 				DATETIME 		=	NULL
 	,@Todate 				DATETIME 		= NULL
@@ -91,56 +94,27 @@ BEGIN
 						WHEN @IsGetAll = 1 THEN 1 
 						ELSE @PageIndex 
 					END
-
-	;WITH NewStats AS (
-
-		-- signup
-		SELECT md.AffID, COUNT(1) AS Signup, 0 AS FDM
-		FROM dbo.MemberClickDetail md WITH (NOLOCK)
-		WHERE (@IsGetAll = 1 OR md.CreatedDate BETWEEN @FromDate AND @ToDate)
-			AND EXISTS (SELECT 1 FROM @AffList a WHERE md.AffID = a.AffId)
-		GROUP BY md.AffID
-
-		UNION ALL
-
-		-- fdm
-		SELECT mi.AffID, 0 AS Signup, COUNT(mi.IBCCustID) AS FDM
+	
+	;WITH MemberStats (AffId, Signup, FDM) AS
+	(
+		SELECT mi.AffId, 0 AS Signup, COUNT(1) AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
-		WHERE (@IsGetAll = 1 OR mi.CreatedDate BETWEEN @FromDate AND @ToDate)
+		WHERE mi.CreatedDate BETWEEN @FromDate AND @ToDate
 			AND EXISTS (SELECT 1 FROM @AffList a WHERE mi.AffID = a.AffId)
-			AND
-			(
-				(@IsGetAll = 1 AND mi.IsRemoved = 0)
-				OR NOT EXISTS
-				(
-					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-					WHERE
-						mr.IBCCustID = mi.IBCCustID
-						AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
-				)
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE
+					mr.IBCCustID = mi.IBCCustID
+					AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
 			)
 		GROUP BY mi.AffID
-	)
-	, OldStats AS (
-		SELECT
-			AffiliateID AS AffID,
-			COUNT(1) AS Signup,
-			COUNT(IBCCustID) AS FDM
-		FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer c WITH (NOLOCK)
-		WHERE
-			(@IsGetAll = 1 OR CreatDate BETWEEN @FromDate AND @ToDate)
-			AND EXISTS (SELECT 1 FROM @AffList a WHERE c.AffiliateID = a.AffId)
-		GROUP BY AffiliateID
-	)
-	, MemberStats (AffId, Signup, FDM) AS
-	(
-		SELECT AffId, MAX(Signup) AS Signup, MAX(FDM) AS FDM
-		FROM (
-			SELECT AffId, SUM(ISNULL(Signup, 0)) AS Signup, SUM(ISNULL(FDM, 0)) AS FDM FROM NewStats GROUP BY AffId
-			UNION ALL
-			SELECT AffId, SUM(ISNULL(Signup, 0)) AS Signup, SUM(ISNULL(FDM, 0)) AS FDM FROM OldStats GROUP BY AffId
-		) A
-		GROUP BY AffId
+		
+		UNION ALL
+		SELECT md.AffID, COUNT(1) AS Signup, 0 AS FDM
+		FROM dbo.MemberClickDetail md WITH (NOLOCK)
+		WHERE md.CreatedDate BETWEEN @FromDate AND @ToDate
+			AND EXISTS (SELECT 1 FROM @AffList a WHERE md.AffID = a.AffId)
+		GROUP BY md.AffID
 	)
 	INSERT INTO #AffTotal(AffId, Signup, FDM, RowIDX, NRows)
 	SELECT AffId, Signup, FDM, RowIDX, NRows

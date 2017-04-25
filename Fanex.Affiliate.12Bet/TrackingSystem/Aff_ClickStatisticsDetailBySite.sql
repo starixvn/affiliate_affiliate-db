@@ -1,5 +1,8 @@
 ﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 
+USE [Affiliate_12BET]
+GO
+
 ALTER PROCEDURE [dbo].[Aff_ClickStatisticsDetailBySite] 
 	@AffID INT
 	,@Domain NVARCHAR(300) = NULL
@@ -13,6 +16,7 @@ ALTER PROCEDURE [dbo].[Aff_ClickStatisticsDetailBySite]
 	,@TotalPages INT = 0 OUTPUT
 	,@NRows INT = 0 OUTPUT
 AS
+
 /*  
 Created: 20111005@Johnny  
 Task :   Report click statistics by Referrer site
@@ -26,6 +30,7 @@ Revisions:
 	- 20160327@Bobby : #54942 - Correct time range
 	- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
 */
+
 BEGIN
 	SET NOCOUNT ON
 
