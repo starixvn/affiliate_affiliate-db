@@ -26,6 +26,7 @@ Revisions:
 		+ Add sorting [@SortBy] value
 		+ Remove @TotalPages
 	- 20170214@Percy: Fix FDM/Signup Issue [RedmineID: #70507]
+	- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
 		
 Param's Explanation:
 	• @Fromdate Time search From
@@ -110,11 +111,11 @@ BEGIN
 		GROUP BY mi.AffID
 		
 		UNION ALL
-		SELECT md.AffID, COUNT(1) AS Signup, 0 AS FDM
-		FROM dbo.MemberClickDetail md WITH (NOLOCK)
-		WHERE md.CreatedDate BETWEEN @FromDate AND @ToDate
-			AND EXISTS (SELECT 1 FROM @AffList a WHERE md.AffID = a.AffId)
-		GROUP BY md.AffID
+		SELECT AffiliateID, COUNT(1) AS Signup, 0 AS FDM
+		FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer md WITH (NOLOCK)
+		WHERE creatdate BETWEEN @FromDate AND @ToDate
+			AND EXISTS (SELECT 1 FROM @AffList a WHERE md.AffiliateID = a.AffId)
+		GROUP BY AffiliateID
 	)
 	INSERT INTO #AffTotal(AffId, Signup, FDM, RowIDX, NRows)
 	SELECT AffId, Signup, FDM, RowIDX, NRows

@@ -25,6 +25,7 @@ Revisions:
 	- 20140805@Bobby : Support sum TotalSignUps & TotalFDMs
 	- 20141103@Bobby : Change FromDate & ToDate to DATETIME
 	- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
+	- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
 */
 
 BEGIN
@@ -225,6 +226,13 @@ BEGIN
 		ISNULL(md.LanguageCode, 'none'),
 		ISNULL(md.DeviceType, 0)
 
+	DECLARE @tmp TABLE (ClickID BIGINT)
+	INSERT INTO @tmp (ClickID)
+	SELECT ISNULL(ClickID, 0)
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH(NOLOCK)
+	WHERE creatdate BETWEEN @FromDate AND @ToDate
+		AND AffiliateID = @AffID
+
 	INSERT INTO #tmpResult (SportCode, LanguageCode, DeviceType, TotalClick, UniqueClick, Signups, FDM)
 	SELECT
 		ISNULL(SportCode, 'none')		AS SportCode,
@@ -234,10 +242,9 @@ BEGIN
 		0								AS UniqueClick,
 		COUNT(1)						AS Signups,
 		0								AS FDM
-	FROM dbo.MemberClickDetail WITH (NOLOCK)
-	WHERE CreatedDate BETWEEN @FromDate AND @ToDate
-		AND AffId = @AffID
-		AND (@SportCode IS NULL OR ISNULL(SportCode, 'none') = @SportCode)
+	FROM @tmp tmp
+		LEFT JOIN dbo.ClickStatistics1 c WITH (NOLOCK) ON tmp.ClickID = c.ClickID
+	WHERE (@SportCode IS NULL OR ISNULL(SportCode, 'none') = @SportCode)
 		AND (@LanguageCode IS NULL OR ISNULL(LanguageCode, 'none') = @LanguageCode)
 	GROUP BY
 		ISNULL(SportCode, 'none'),

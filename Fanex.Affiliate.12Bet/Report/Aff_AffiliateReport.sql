@@ -33,6 +33,7 @@ AS
 		- 20141223@Bobby: Hotfix#28059 - Filtering by PreferredLanguage
 		- 20170214@Percy: Fix FDM/Signup Issue [RedmineID: #70507]
 		- 20170411@Percy: Support search by Affiliate name [RedmineID: #74588]
+		- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
 
 	Param's Explanation:
 		• @Fromdate Time search From
@@ -554,15 +555,15 @@ BEGIN
 
 	INSERT INTO #OldTracking
 	SELECT
-		md.AffID	AS AffID,
+		AffiliateID	AS AffID,
 		0			AS TotalClick,
 		0			AS UniqueClick,
 		COUNT(1)	AS Signup,
 		0			AS FDM
-	FROM dbo.MemberClickDetail md WITH (NOLOCK)
-	WHERE md.CreatedDate >= @FromDate AND md.CreatedDate < DATEADD(DAY, 1, @ToDate)
-		AND EXISTS (SELECT 1 FROM #AffPaging a WHERE md.AffID = a.AffId)
-	GROUP BY md.AffID
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer md WITH (NOLOCK)
+	WHERE creatdate >= @FromDate AND creatdate < DATEADD(DAY, 1, @ToDate)
+		AND EXISTS (SELECT 1 FROM #AffPaging a WHERE md.AffiliateID = a.AffId)
+	GROUP BY AffiliateID
 
 		-- TotalClick, UniqueClick --
 	INSERT INTO #NewTracking

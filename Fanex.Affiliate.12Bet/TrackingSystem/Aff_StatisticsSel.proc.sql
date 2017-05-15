@@ -46,6 +46,7 @@ AS
 		- 20140801@Bobby:  Update MemberClickStatistics
 		- 20141218@Bobby: Update SS's bettype
 		- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
+		- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
 
 	Param's Explanation:
 		• @AffID : Affiliate custid
@@ -118,9 +119,9 @@ BEGIN
 		)
 
 	SELECT @NewSignUp = COUNT(1)
-	FROM dbo.MemberClickDetail WITH (NOLOCK)
-	WHERE CreatedDate >= @FromBeginMonth AND CreatedDate < @ToNextMonth
-		AND AffId = @AffID
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH(NOLOCK)
+	WHERE creatdate >= @FromBeginMonth AND creatdate < @ToNextMonth
+		AND AffiliateID = @AffID
 
 	-- Total
 	SELECT @TotalPlayerDepUp = COUNT(1)

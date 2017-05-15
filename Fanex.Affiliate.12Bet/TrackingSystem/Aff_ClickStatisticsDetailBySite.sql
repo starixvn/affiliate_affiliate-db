@@ -29,6 +29,7 @@ Revisions:
 	- 20141103@Bobby : Update checking DeviceType in ClickStatistics1_bk (change AND to OR)
 	- 20160327@Bobby : #54942 - Correct time range
 	- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
+	- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
 */
 
 BEGIN
@@ -137,22 +138,30 @@ BEGIN
 		Signups		BIGINT,
 		FDM			BIGINT
 	)
+
+	DECLARE @tmp TABLE (ClickID BIGINT)
+	INSERT INTO @tmp (ClickID)
+	SELECT ISNULL(ClickID, 0)
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH(NOLOCK)
+	WHERE creatdate BETWEEN @FromDate AND @ToDate
+		AND AffiliateID = @AffID
 	
 	;WITH memberStats AS (
 
 		-- sign-up
 		SELECT
-			URLReferrer,
-			DeviceType,
-			COUNT(1) AS Signups,
-			0 AS FDM
-		FROM dbo.MemberClickDetail WITH (NOLOCK)
-		WHERE CreatedDate BETWEEN @FromDate AND @ToDate
-			AND AffId = @AffID
-			AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
+			ISNULL(URLReferrer, 'none')		AS URLReferrer,
+			ISNULL(DeviceType, 0)			AS DeviceType,
+			COUNT(1)						AS Signups,
+			0								AS FDM
+		FROM @tmp tmp
+			LEFT JOIN dbo.ClickStatistics1 c WITH (NOLOCK) ON tmp.ClickID = c.ClickID
+		WHERE DomainReferrer = ISNULL(@Domain, DomainReferrer)
 			AND SportCode = ISNULL(@SportCode, SportCode)
 			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
-		GROUP BY URLReferrer, DeviceType
+		GROUP BY
+			ISNULL(URLReferrer, 'none'),
+			ISNULL(DeviceType, 0)
 
 		UNION ALL
 

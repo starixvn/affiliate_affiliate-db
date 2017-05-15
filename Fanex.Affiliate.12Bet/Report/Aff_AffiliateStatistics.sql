@@ -26,6 +26,7 @@ Revisions:
 	- 20141223@Bobby: Hotfix#28059 - Filtering by PreferredLanguage
 	- 20170214@Percy: Fix FDM/Signup Issue [RedmineID: #70507]
 	- 20170411@Percy: Change formula Active, Dormant, Total and TotalRegistered columns [RedmineID: #74560]
+	- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
 	
 Param's Explanation:
 	• @Fromdate Time search From
@@ -96,10 +97,10 @@ BEGIN
 		)
 
 	INSERT INTO @TrackingCode (AffId, IBCCustID, TrackingDate, IsFDM)
-	SELECT md.AffID, md.IBCCustID, md.CreatedDate, 0
-	FROM dbo.MemberClickDetail md WITH (NOLOCK)
-	WHERE md.CreatedDate BETWEEN @FromDate AND @ToDate
-		AND EXISTS (SELECT 1 FROM @AffList a WHERE md.AffID = a.AffId)
+	SELECT AffiliateID, IBCCustID, creatdate, 0
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer md WITH (NOLOCK)
+	WHERE creatdate BETWEEN @FromDate AND @ToDate
+		AND EXISTS (SELECT 1 FROM @AffList a WHERE md.AffiliateID = a.AffId)
 
 	IF @SortBy = 1 -- sort by Total Registered
 	BEGIN
