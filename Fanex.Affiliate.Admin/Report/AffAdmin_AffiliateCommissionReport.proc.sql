@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateCommissionReport] 
+﻿USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_AffiliateCommissionReport] 
 	@LicenseeID			INT
 	,@UserId 			INT 			= 0
 	,@AffName 			NVARCHAR(100) 	= NULL
@@ -22,21 +25,23 @@
 	,@Error 			INT 			= 0 	OUTPUT
 	,@Error_Msg 		NVARCHAR(100) 	= '' 	OUTPUT
 AS
-/*    
-Author: 20140825@Bobby.Nguyen
-Task : Affiliate Commission Report - Company View     
-DB: DBAFFATHENA000\Affiliate_Athena000
-Original: [AffAdmin_CommissionSettle]
-Revisions:
-	- 20140825@Bobby: Add Virtual Sport & PlayerComm - apply SQL stylecope
-	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
-	
-Param's Explanation: 
-	-@TransferStatus: 	0 - ALL, 1 - Is Processing, 2 - Transferred
-	-@GroupBy:			0 - Affiliate, 1 - Affiliate & Month
-	-@SortBy:			0 - Affiliate, 1 - Month (& @GroupBy = 1), 2 - Total Payment (Commission)
 
+/*    
+	Author: 20140825@Bobby.Nguyen
+	Task: Affiliate Commission Report - Company View     
+	DB: DBAFF.Affiliate_Athena000
+	Original: [AffAdmin_CommissionSettle]
+
+	Revisions:
+		- 20140825@Bobby: Add Virtual Sport & PlayerComm - apply SQL stylecope
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	
+	Param's Explanation: 
+		-@TransferStatus: 	0 - ALL, 1 - Is Processing, 2 - Transferred
+		-@GroupBy:			0 - Affiliate, 1 - Affiliate & Month
+		-@SortBy:			0 - Affiliate, 1 - Month (& @GroupBy = 1), 2 - Total Payment (Commission)
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -108,14 +113,15 @@ BEGIN
 		,GroupName
 	FROM [dbo].[AffAdmin_AffiliateListForReport](@LicenseeID, @UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
 	
-	IF( NOT EXISTS(SELECT TOP 1 1 FROM @AffUserRpt))
+	IF(NOT EXISTS(SELECT TOP 1 1 FROM @AffUserRpt))
 	BEGIN
 		SELECT @Error 	= 101
 			,@Error_Msg = 'There is not avaiable affiliate user.'
 		RETURN;
 	END
 	
-	CREATE TABLE #AffCommissionRpt (
+	CREATE TABLE #AffCommissionRpt
+	(
 		AffId								INT
 		,WinlostDate						SMALLDATETIME
 		,GroupID							INT
@@ -133,13 +139,13 @@ BEGIN
 		,MemPSP								MONEY
 		,MemPlayerComm						MONEY
 		,ZeroCommission						BIT
-		)
+	)
 	
 	--Is All|Transfered Commission
-	IF(@FromDate <= @MaxCalculatedDate
-		AND @TransferStatus	IN (2, 0) )
+	IF(@FromDate <= @MaxCalculatedDate AND @TransferStatus IN (2, 0))
 	BEGIN
-		INSERT INTO #AffCommissionRpt(
+		INSERT INTO #AffCommissionRpt
+		(
 			AffId
 			,GroupID
 			,ProductID
@@ -149,7 +155,7 @@ BEGIN
 			,MemBonus
 			,MemPSP					
 			,MemPlayerComm						
-			)
+		)
 		SELECT ac.AffId
 			,ac.GroupID
 			,ac.ProductID
@@ -160,19 +166,16 @@ BEGIN
 			,ac.MemberPSP_aff				 		AS MemPSP
 			,ac.PlayerComm_aff 						AS MemPlayerComm
 		FROM [dbo].[AffCommission] ac WITH(NOLOCK)
-			INNER JOIN @AffUserRpt t
-			ON ac.AffID = t.AffId
-				AND ac.Winlostdate = t.MonthDate
-			INNER JOIN @ProductFilter p
-			ON ac.ProductId = p.ProductId
+			INNER JOIN @AffUserRpt t ON ac.AffID = t.AffId AND ac.Winlostdate = t.MonthDate
+			INNER JOIN @ProductFilter p ON ac.ProductId = p.ProductId
 		WHERE ac.Winlostdate BETWEEN @FromDate AND @MaxCalculatedDate
 	END
 		
 	--Is All|Processing Commission
-	IF(@ToDate > @MaxCalculatedDate
-		AND @TransferStatus	IN (1, 0) )
+	IF(@ToDate > @MaxCalculatedDate AND @TransferStatus	IN (1, 0))
 	BEGIN
-		INSERT INTO #AffCommissionRpt(
+		INSERT INTO #AffCommissionRpt
+		(
 			AffId
 			,GroupID
 			,ProductID
@@ -182,7 +185,7 @@ BEGIN
 			,MemBonus
 			,MemPSP					
 			,MemPlayerComm						
-			)
+		)
 		SELECT ad.AffId
 			,t.GroupID
 			,ad.ProductID
@@ -193,11 +196,8 @@ BEGIN
 			,SUM(ISNULL(ad.MemPSP_aff, 0)) 			AS MemPSP
 			,SUM(ISNULL(ad.MemPlayerComm_aff, 0)) 	AS MemPlayerComm
 		FROM dbo.AffDailySummary ad WITH (NOLOCK)
-			INNER JOIN @AffUserRpt t
-			ON ad.AffID = t.AffId
-				AND DATEDIFF(M, ad.Winlostdate, t.MonthDate) = 0
-			INNER JOIN @ProductFilter p
-			ON ad.ProductId = p.ProductId
+			INNER JOIN @AffUserRpt t ON ad.AffID = t.AffId AND DATEDIFF(M, ad.Winlostdate, t.MonthDate) = 0
+			INNER JOIN @ProductFilter p ON ad.ProductId = p.ProductId
 		WHERE ad.Winlostdate > @MaxCalculatedDate AND ad.Winlostdate <= @ToDate
 		GROUP BY ad.AffId
 			,t.MonthDate
@@ -206,18 +206,6 @@ BEGIN
 			,ad.ProductID
 	END
 	
-	--Check transfer status
-	/*
-	DELETE d
-	FROM #AffCommissionRpt d
-		LEFT JOIN dbo.AffCommission ac WITH(NOLOCK)
-		ON d.AffID = ac.AffID 
-			AND d.Winlostdate = ac.Winlostdate
-	WHERE 1 = CASE WHEN @TransferStatus		= 1 AND ac.Commission IS NULL		THEN 1 -- Is Processing
-					WHEN @TransferStatus	= 2 AND ac.Commission IS NOT NULL	THEN 1 -- Is Transferred
-					ELSE 0
-				END
-	*/
 	IF(NOT EXISTS(SELECT TOP 1 1 FROM #AffCommissionRpt))
 	BEGIN 
 		SELECT @Error 	= 101
@@ -286,7 +274,7 @@ BEGIN
 			AND rpt.ProductID	= sf.ProductID
 			AND rpt.GroupID		= sf.GroupID
 			AND rpt.WinlostDate	= sf.WinlostDate
-	;
+	
 	-- remove NetWinlost is zero and No bonus
 	DELETE rpt
 	FROM #AffCommissionRpt rpt
@@ -352,7 +340,6 @@ BEGIN
 			AND rpt.GroupID		= comm.GroupID
 			AND rpt.ProductID	= comm.ProductID
 			AND rpt.WinlostDate	= comm.WinlostDate
-	;
 		
 	-- update zero-comm
 	UPDATE rpt
@@ -377,7 +364,8 @@ BEGIN
 			
 			) AS t
 			GROUP BY t.ProductID
-		);
+		)
+
 	-- update final netwinloss
 	UPDATE rpt
 	SET rpt.Commission = ((rpt.NetWinlost - (CAST(rpt.HasBonus AS INT) * ISNULL(rpt.MemBonus, 0) * ISNULL(rpt.BonusPercent, 1))) * ISNULL(rpt.CommissionPercent, 0)) * CASE 
@@ -424,8 +412,7 @@ BEGIN
 		,ai.Currency
 	
 	--select PageTotal
-	SELECT @NRows = COUNT(1)
-	FROM #AffCommPaging rpt;
+	SELECT @NRows = COUNT(1) FROM #AffCommPaging
 
 	SELECT r.RowIDX
 		,r.AffID
@@ -451,11 +438,8 @@ BEGIN
 				* dbo.Aff_GetExchangeRate(r.ExchangeId, @SystemExchangeId, NULL)) 
 												AS TotalPaymentBase
 	FROM #AffCommPaging r
-		INNER JOIN #AffCommissionRpt rpt
-		ON r.AffId = rpt.AffId
-			AND (r.WinlostDate = 0 OR r.WinlostDate = rpt.WinlostDate)
-		INNER JOIN dbo.Product p WITH(NOLOCK)
-		ON rpt.ProductId = p.ProductId
+		INNER JOIN #AffCommissionRpt rpt ON r.AffId = rpt.AffId AND (r.WinlostDate = 0 OR r.WinlostDate = rpt.WinlostDate)
+		INNER JOIN dbo.Product p WITH(NOLOCK) ON rpt.ProductId = p.ProductId
 	WHERE r.RowIDX BETWEEN ((@PageCurrent - 1) * @PageSize) + 1 AND @PageSize * (@PageCurrent)
 	GROUP BY r.RowIDX
 		,r.AffID
@@ -499,10 +483,8 @@ BEGIN
 		,s.TotalPayment
 		,s.TotalPaymentBase
 	FROM SumCurrency s
-		INNER JOIN #AffCommissionRpt rpt
-		ON s.ExchangeId = rpt.ExchangeId
-		INNER JOIN dbo.Product p WITH(NOLOCK)
-		ON rpt.ProductId = p.ProductId
+		INNER JOIN #AffCommissionRpt rpt ON s.ExchangeId = rpt.ExchangeId
+		INNER JOIN dbo.Product p WITH(NOLOCK) ON rpt.ProductId = p.ProductId
 	GROUP BY s.Currency
 		,rpt.ProductId
 		,p.ProductName
@@ -534,8 +516,7 @@ BEGIN
 		,t.TotalPayment
 		,t.TotalPaymentBase
 	FROM #AffCommissionRpt rpt
-		INNER JOIN dbo.Product p WITH(NOLOCK)
-		ON rpt.ProductId = p.ProductId
+		INNER JOIN dbo.Product p WITH(NOLOCK) ON rpt.ProductId = p.ProductId
 		CROSS APPLY SumProduct t
 	GROUP BY rpt.ProductId
 		,p.ProductName
@@ -544,12 +525,10 @@ BEGIN
 	ORDER BY rpt.ProductId
 		
 	DROP TABLE #AffCommPaging
-	
 	DROP TABLE #AffCommissionRpt
-	
-	RETURN;
 END
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateCommissionReport] TO [bodbAdminNet] AS [dbo]
 GO
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateCommissionReport] TO [vnteam] AS [dbo]
+GO

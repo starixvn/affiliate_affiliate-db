@@ -1,25 +1,31 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_HomeGeneralInfo] 
+﻿USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_HomeGeneralInfo] 
 	@LicenseeID INT,
 	@UserId INT = 0
 AS
-/*Created: 20090828@Bryan    
-Task : Gather overview statistic information of aff-admin site    
-DB: DB052.Affiliate_MYM    
-    
-Revisions:    
- - 20090829@Bryan initialize    
- - 20100520@Johnny: apply StatusID in bettrans table    
- - 20100729@Johnny: Apply Media affiliate statistics    
- - 20131007@Johnny: Get Turnover
- - 20140515@bobby: Exclude member test account
- - 20140703@bobby: Exclude Payment info that belongs to affiliate test account
- - 20140819@Bobby: Apply SQL style scope
- - 20150107@Bobby: Update counting bannset stats info
- - 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
-Param's Explanation:    
+/*
+	Created: 20090828@Bryan    
+	Task: Gather overview statistic information of aff-admin site    
+	DB: DBAFF.Affiliate_Athena000    
     
+	Revisions:    
+		- 20090829@Bryan initialize    
+		- 20100520@Johnny: apply StatusID in bettrans table    
+		- 20100729@Johnny: Apply Media affiliate statistics    
+		- 20131007@Johnny: Get Turnover
+		- 20140515@bobby: Exclude member test account
+		- 20140703@bobby: Exclude Payment info that belongs to affiliate test account
+		- 20140819@Bobby: Apply SQL style scope
+		- 20150107@Bobby: Update counting bannset stats info
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+
+	Param's Explanation:    
+
 */
+
 BEGIN
 	SET NOCOUNT ON;
 	
@@ -90,8 +96,7 @@ BEGIN
 
 	SELECT @PaymentReqNum = SUM(1)
 	FROM dbo.AffTrans af WITH (NOLOCK)
-		INNER JOIN dbo.AffInfo ai WITH(NOLOCK)
-		ON af.AffId = ai.AffId 
+		INNER JOIN dbo.AffInfo ai WITH(NOLOCK) ON af.AffId = ai.AffId 
 	WHERE af.TransType = @TransType 
 		AND af.AffCurrency IN (
 			SELECT CurrencyID
@@ -181,16 +186,11 @@ BEGIN
 				ELSE 0
 				END)
 	FROM dbo.Banners b WITH (NOLOCK)
-		LEFT JOIN BannerTypes bts 
-		ON (bts.TypeID = b.Size AND bts.Type = 'Size')
-		LEFT JOIN BannerTypes bt 
-		ON (bt.TypeID = b.ImageType	AND bt.Type = 'ImageType')
-		INNER JOIN BannerTypes btc 
-		ON (btc.TypeID = b.Category	AND btc.Type IN ('MediaCategory','MediaSubCategory'))
-		INNER JOIN LANGUAGE l 
-			ON l.LanguageID = b.LANGUAGE
-		INNER JOIN Currency c 
-			ON c.CurrencyID = b.Currency
+		LEFT JOIN BannerTypes bts ON (bts.TypeID = b.Size AND bts.Type = 'Size')
+		LEFT JOIN BannerTypes bt ON (bt.TypeID = b.ImageType AND bt.Type = 'ImageType')
+		INNER JOIN BannerTypes btc ON (btc.TypeID = b.Category	AND btc.Type IN ('MediaCategory','MediaSubCategory'))
+		INNER JOIN LANGUAGE l ON l.LanguageID = b.LANGUAGE
+		INNER JOIN Currency c ON c.CurrencyID = b.Currency
 
 	DECLARE @MaxWinLostDateAffComm 	SMALLDATETIME
 		,@NextMaxWinlostDate 		SMALLDATETIME
@@ -239,8 +239,7 @@ BEGIN
 				ELSE 0
 				END)
 	FROM dbo.MemberInfo m WITH (NOLOCK)
-		INNER JOIN dbo.AffInfo ai WITH (NOLOCK)
-		ON m.AffId = ai.AffId
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON m.AffId = ai.AffId
 	WHERE m.IsRemoved = 0
 		AND ai.TestLevel = 0
 

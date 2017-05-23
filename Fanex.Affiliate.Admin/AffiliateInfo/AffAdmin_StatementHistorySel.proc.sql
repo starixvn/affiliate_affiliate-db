@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_StatementHistorySel] 
+﻿USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_StatementHistorySel] 
 	@LicenseeID INT
 	,@AffId INT
 	,@TransType VARCHAR(100) = NULL
@@ -8,26 +11,30 @@
 	,@ToDate SMALLDATETIME = NULL
 	,@BaseCurrency INT = 0
 AS
-/*Created: 20090901@Peter  
-Task : Getting all of transactions for an affiliate (Monthly transfer, Payment Request , Adjustment)  
-DB:   
-Original: [Aff_CustomerSelStatementHistory]    
-Revisions:     
-    - 20131126@Johnny: Fix filter by transaction type and status
-	- 20140520@Bobby: check data existing in MemberDaily for previous month
-	- 20140703@Bobby: check data existing in AffCommission
-	- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
-Param's Explanation:    
-• @AffID : Affiliate custid    
-• @TransType :   
-             + 201 : Monthly Winlost  
-             + 202 : Payment Request  
-             + 203 : Adjustment    
-             + -1 : Get all   
-• @FromDate : search From date (null: get all)  
-• @ToDate : search To date    (null: get all)   
+/*
+	Created: 20090901@Peter  
+	Task: Getting all of transactions for an affiliate (Monthly transfer, Payment Request , Adjustment)  
+	DB:   
+	Original: [Aff_CustomerSelStatementHistory]
+  
+	Revisions:     
+		- 20131126@Johnny: Fix filter by transaction type and status
+		- 20140520@Bobby: check data existing in MemberDaily for previous month
+		- 20140703@Bobby: check data existing in AffCommission
+		- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+
+	Param's Explanation:    
+		• @AffID: Affiliate custid    
+		• @TransType:   
+					 + 201: Monthly Winlost  
+					 + 202: Payment Request  
+					 + 203: Adjustment    
+					 +  -1: Get all   
+		• @FromDate: search From date (null: get all)
+		• @ToDate: search To date (null: get all)
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -102,18 +109,9 @@ BEGIN
 		,@CurrentDate = current_timestamp
 
 	IF (
-			(
-				@TransType IS NULL
-				OR @MonthlyTransferType IN (
-					SELECT *
-					FROM @TransTypeTable
-					)
-				)
-			AND (
-				@DateOption = 0
-				OR @Currentdate BETWEEN @FromDate AND @ToDate
-				)
-			)
+		(@TransType IS NULL OR @MonthlyTransferType IN (SELECT TransType FROM @TransTypeTable))
+		AND (@DateOption = 0 OR @Currentdate BETWEEN @FromDate AND @ToDate)
+	)
 	BEGIN
 		EXEC [dbo].[Aff_CalMonthlyEarningCurrent] @AffID = @AffID
 			,@Amount = @Amount OUTPUT
@@ -143,9 +141,7 @@ BEGIN
 					FROM AffCommission(NOLOCK)
 					WHERE AffID = @AffID
 					), Current_timestamp) = 2
-				OR NOT EXISTS(SELECT top 1 1
-					FROM AffCommission ac(NOLOCK)
-					WHERE ac.AffID = @AffID)	
+				OR NOT EXISTS(SELECT TOP 1 1 FROM AffCommission ac(NOLOCK) WHERE ac.AffID = @AffID)	
 				)
 			AND (
 				@DateOption = 0
@@ -156,16 +152,14 @@ BEGIN
 					SELECT TOP 1 1
 					FROM dbo.MemberDaily m (NOLOCK)
 						INNER JOIN (
-						SELECT sg.ProductId 
-						FROM AffGroupHistory ag (NOLOCK)
-							INNER JOIN GroupSettingHistory sg (NOLOCK)
-							ON ag.GroupId = sg.GroupId AND ag.MonthDate = sg.MonthDate
-						WHERE ag.AffId = @AffId AND ag.MonthDate = CAST(dbo.Aff_GetLastDayOfMonth(DATEADD(m, - 1, @CurrentDate)) AS DATE)
+							SELECT sg.ProductId 
+							FROM AffGroupHistory ag (NOLOCK)
+								INNER JOIN GroupSettingHistory sg (NOLOCK) ON ag.GroupId = sg.GroupId AND ag.MonthDate = sg.MonthDate
+							WHERE ag.AffId = @AffId AND ag.MonthDate = CAST(dbo.Aff_GetLastDayOfMonth(DATEADD(m, - 1, @CurrentDate)) AS DATE)
 						) g ON m.ProductId = g.ProductId
 					WHERE AffId = @AffId
 						AND Winlostdate BETWEEN dbo.Aff_GetFirstDayOfMonth(DATEADD(m, - 1, @CurrentDate)) AND dbo.Aff_GetLastDayOfMonth(DATEADD(m, - 1, @CurrentDate))
 					)
-
 			)
 	BEGIN
 		SELECT @Month = month(dateadd(m, - 1, @CurrentDate))
@@ -197,8 +191,7 @@ BEGIN
 			ELSE a.Amount END
 			) AS Amount
 		,(CASE 
-			WHEN transtype = @MonthlyTransferType
-				OR transtype = @AdjustmentType THEN 'B/F'
+			WHEN transtype = @MonthlyTransferType OR transtype = @AdjustmentType THEN 'B/F'
 			WHEN a.STATUS = 'Pending' THEN 'Processing'
 			WHEN a.STATUS = 'Completed' THEN 'Approved'
 			ELSE a.STATUS END
@@ -209,10 +202,8 @@ BEGIN
 			ELSE a.Description END
 			)
 	FROM AffTrans a(NOLOCK)
-		LEFT JOIN AffPayout ap(NOLOCK)
-		ON ap.RefID = a.RefID
-		LEFT JOIN dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) i
-		ON i.userID = a.Creator
+		LEFT JOIN AffPayout ap(NOLOCK) ON ap.RefID = a.RefID
+		LEFT JOIN dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) i ON i.userID = a.Creator
 	WHERE a.AffID = @AffID
 	ORDER BY (CASE 
 			WHEN a.STATUS = 'pending'
@@ -240,23 +231,17 @@ BEGIN
 			OR (
 				@DateOption = 1
 				AND a.TransDate BETWEEN @FromDate AND @ToDate
-				)
+			)
 			OR (
 				@DateOption = 2
 				AND a.CompletedDate BETWEEN @FromDate AND @ToDate
-				)
 			)
+		)
 		AND (
 			@TransType IS NULL
-			OR a.TransType IN (
-				SELECT *
-				FROM @TransTypeTable
-				)
-			)
-		AND a.STATUS IN (
-			SELECT *
-			FROM @TransStatusTable
-			)
+			OR a.TransType IN (SELECT TransType FROM @TransTypeTable)
+		)
+		AND a.STATUS IN (SELECT TransStatus FROM @TransStatusTable)
 	ORDER BY TransDate DESC
 		,TransType DESC
 		,transID ASC

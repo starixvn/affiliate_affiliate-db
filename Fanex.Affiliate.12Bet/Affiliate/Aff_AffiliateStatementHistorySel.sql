@@ -1,14 +1,18 @@
-﻿ALTER PROCEDURE [Aff_AffiliateStatementHistorySel] 
+﻿USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [Aff_AffiliateStatementHistorySel] 
 	@AffId INT
 	,@PageSize INT = 50
 	,@PageIndex INT = 1
 	,@TotalPages INT = 0 OUTPUT
 	,@NRows INT = 0 OUTPUT
 AS
+
 /*
 	Created: 20091225@Peter  
-	Task : Getting all of transactions for an affiliate (Monthly transfer, Payment Request , Adjustment)  
-	DB: DB052.Affiliate_12BET  
+	Task: Getting all of transactions for an affiliate (Monthly transfer, Payment Request , Adjustment)  
+	DB: DBAFF12BET.Affiliate_12BET  
 	Original: [Aff_AffiliateStatementHistorySel]    
 	
 	Revisions:  
@@ -19,7 +23,8 @@ AS
 		• @PageIndex : current page  
 		• @TotalPages : number of pages  
 		• @NRows : number of rows  
-*/							
+*/
+						
 BEGIN
 	SET NOCOUNT ON
 
@@ -97,10 +102,8 @@ BEGIN
 			ELSE coalesce(p.AffDesc, a.Description)
 			END AS Description
 	FROM AffTrans a(NOLOCK)
-		LEFT JOIN AffPayout p(NOLOCK)
-		ON p.RefID = a.RefID
-		LEFT JOIN Affiliate_User i WITH (NOLOCK)
-		ON i.custid = a.Creator
+		LEFT JOIN AffPayout p(NOLOCK) ON p.RefID = a.RefID
+		LEFT JOIN Affiliate_User i WITH (NOLOCK) ON i.custid = a.Creator
 	WHERE a.AffId = @AffId
 		AND TransType IN (202, 203) --202: Payment request and 203 : adjustment  
 	
@@ -121,13 +124,12 @@ BEGIN
 			AND TransType = 201 --201: Monthly Transfer  
 		) a
 		LEFT JOIN (
-		SELECT TransDate AS MonthDate
-			,Amount
-		FROM AffTrans a(NOLOCK)
-		WHERE AffId = @AffId
-			AND TransType = 204 --204 : Marketing fee(deduction 20% per Affiliate Net Winlost)  
-		) b
-		ON a.MonthDate = b.MonthDate
+			SELECT TransDate AS MonthDate
+				,Amount
+			FROM AffTrans a(NOLOCK)
+			WHERE AffId = @AffId
+				AND TransType = 204 --204 : Marketing fee(deduction 20% per Affiliate Net Winlost)  
+		) b ON a.MonthDate = b.MonthDate
 
 	SELECT @NRows = Count(*)
 	FROM @AffTrans
@@ -166,11 +168,9 @@ BEGIN
 	WHERE m.TheCount BETWEEN @RowStart AND @RowEnd
 END
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_AffiliateStatementHistorySel] TO [bodbDownlineNet]
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_AffiliateStatementHistorySel] TO [bodbDownlineNetView]
 GO
-
 GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateStatementHistorySel] TO [VNTeam]
+GO

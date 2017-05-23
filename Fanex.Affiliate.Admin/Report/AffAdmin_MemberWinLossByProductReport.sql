@@ -1,3 +1,6 @@
+USE [Affiliate_Athena000]
+GO
+
 ALTER PROCEDURE [dbo].[AffAdmin_MemberWinLossByProductReport] 
 	@LicenseeID				INT
 	,@UserId 				INT 			= 0
@@ -22,33 +25,37 @@ ALTER PROCEDURE [dbo].[AffAdmin_MemberWinLossByProductReport]
 	,@Error_Msg 			NVARCHAR(100) 	= '' 	OUTPUT
 	,@Duration 				INT 			= 0 	OUTPUT
 AS
-/*  Author:20140827@Bobby.Nguyen
+
+/*
+	Author:20140827@Bobby.Nguyen
 	Task: Member Win Loss Report     
-	DB:	DBAFFATHENA000\Affiliate_Athena000 
+	DB:	DBAFF.Affiliate_Athena000 
 	Original:[AffAdmin_MemberWinLossReport]
+	
 	Revisions:           
 		- 20140827@Bobby: Add Virtual Sport & PlayerComm - apply style-scope
 		- 20141112@Bobby: Add more PlayerCurrencyId and AffCurrencyId
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
                 
 	Param's Explanation: 
-	• @UserId: Admin user id
-	• @AffName: Affiliate username
-	• @AffTypes: List affilaite type
-	• @CommGroups: List Commission group
-	• @PreferLanguages: list preference language
-	• @GroupBy: by date or month (0: by date; 1: by Member)
-	• @FromDate: From date
-	• @ToDate: To date
-	• @DrawFilter: Bet Count & Turnover filter 
-		- 0: "Normal" Betcount and turnover are included
-		- 1: "No Draw" The Betcount will be exluded Draw tickets. The turnover will exclude draw & half draw tickets.
-		- 2: "No Draw For Turnover Only" The Betcount will be included Draw tickets. The turnover will exclude draw & half draw tickets.
-	• @BaseCurrency: The current exchange rate will be used if we wanna convert the affiliate's currency to system currency
-		- 0: Original
-		- 1: Convert to System Currency.
-	• @ExcludeTest: not include test accounts if true.
+		• @UserId: Admin user id
+		• @AffName: Affiliate username
+		• @AffTypes: List affilaite type
+		• @CommGroups: List Commission group
+		• @PreferLanguages: list preference language
+		• @GroupBy: by date or month (0: by date; 1: by Member)
+		• @FromDate: From date
+		• @ToDate: To date
+		• @DrawFilter: Bet Count & Turnover filter 
+			- 0: "Normal" Betcount and turnover are included
+			- 1: "No Draw" The Betcount will be exluded Draw tickets. The turnover will exclude draw & half draw tickets.
+			- 2: "No Draw For Turnover Only" The Betcount will be included Draw tickets. The turnover will exclude draw & half draw tickets.
+		• @BaseCurrency: The current exchange rate will be used if we wanna convert the affiliate's currency to system currency
+			- 0: Original
+			- 1: Convert to System Currency.
+		• @ExcludeTest: not include test accounts if true.
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -58,9 +65,10 @@ BEGIN
 		,@PlaytechCasino 	INT
 		,@RptByAff			BIT = 0
 		
-	DECLARE @ProductFilter 	TABLE ( ProductId INT, ProductName VARCHAR(100) )
-	DECLARE @MemCurrencies 	TABLE ( ExchangeId SMALLINT, Currency VARCHAR(10) )
-	DECLARE @AffUserRpt 	TABLE (
+	DECLARE @ProductFilter 	TABLE (ProductId INT, ProductName VARCHAR(100))
+	DECLARE @MemCurrencies 	TABLE (ExchangeId SMALLINT, Currency VARCHAR(10))
+	DECLARE @AffUserRpt 	TABLE
+	(
 		AffId 				INT
 		,Username 			NVARCHAR(30)
 		,AffType 			VARCHAR(50)
@@ -69,15 +77,12 @@ BEGIN
 		,MonthDate 			DATETIME
 		,GroupId 			INT
 		,GroupName 			NVARCHAR(100)
-	);
+	)
+	
 	--Reset todate to ending of date
 	SELECT @CurrentDate = GETDATE()
-		, @FromDate		= CASE WHEN @FromDate IS NULL THEN dbo.Aff_GetFirstDayOfMonth(@CurrentDate) 
-								ELSE dbo.Aff_GetStartDate(@FromDate) 
-							END
-		, @ToDate		= CASE WHEN @ToDate IS NULL OR @ToDate > @CurrentDate THEN @CurrentDate 
-							ELSE dbo.Aff_GetEndDate(ISNULL(@ToDate, @CurrentDate)) 
-							END
+		,@FromDate		= CASE WHEN @FromDate IS NULL THEN dbo.Aff_GetFirstDayOfMonth(@CurrentDate) ELSE dbo.Aff_GetStartDate(@FromDate) END
+		,@ToDate		= CASE WHEN @ToDate IS NULL OR @ToDate > @CurrentDate THEN @CurrentDate ELSE dbo.Aff_GetEndDate(ISNULL(@ToDate, @CurrentDate)) END
 		,@PlayerName 	= '%' + ISNULL(@PlayerName, '') + '%'
 		,@startRun		= @CurrentDate
 
@@ -90,17 +95,14 @@ BEGIN
 	IF (LEN(@ProductIds) > 0)
 	BEGIN
 		INSERT INTO @ProductFilter (ProductId, ProductName)
-		SELECT t.Val
-			, p.ProductName
-		FROM [dbo].[strSplit_key](@ProductIds, ',') t
-			INNER JOIN dbo.Product p WITH (NOLOCK)
-			ON t.Val = p.ProductId
+		SELECT t.Val, p.ProductName
+		FROM [dbo].[strSplit_key] (@ProductIds, ',') t
+			INNER JOIN dbo.Product p WITH (NOLOCK) ON t.Val = p.ProductId
 	END
 	ELSE
 	BEGIN
 		INSERT INTO @ProductFilter (ProductId, ProductName)
-		SELECT p.ProductId
-			, p.ProductName
+		SELECT p.ProductId, p.ProductName
 		FROM dbo.Product p WITH (NOLOCK)
 	END
 
@@ -109,8 +111,7 @@ BEGIN
 	SELECT ex.ExchangeId
 		,ex.Code
 	FROM [dbo].[strSplit](@PlayerCurrencies, ',') tmp
-		INNER JOIN dbo.Exchange ex WITH (NOLOCK)
-		ON tmp.Val = ex.ExchangeId
+		INNER JOIN dbo.Exchange ex WITH (NOLOCK) ON tmp.Val = ex.ExchangeId
 	
 	-- affiliate user filterring
 	INSERT INTO @AffUserRpt
@@ -132,16 +133,11 @@ BEGIN
 	END
 	ELSE
 	BEGIN
-		SET @RptByAff = CAST (CASE 
-							WHEN LEN(@AffName) > 0 AND (SELECT COUNT(DISTINCT UserName) FROM @AffUserRpt) = 1 THEN 1 
-							ELSE @RptByAff 
-						END AS BIT)
+		SET @RptByAff = CASE WHEN LEN(@AffName) > 0 AND (SELECT COUNT(DISTINCT UserName) FROM @AffUserRpt) = 1 THEN CONVERT(BIT, 1) ELSE @RptByAff END
 	END
 	
 	SELECT 
-		CASE WHEN @GroupBy = 0 THEN md.WinlostDate	
-				ELSE 0 
-			END 							AS WinlostDate
+		CASE WHEN @GroupBy = 0 THEN md.WinlostDate ELSE 0 END AS WinlostDate
 		,md.AffID
 		,ai.Username 						AS UserName
 		,md.AffCurrency						AS AffCurrencyId
@@ -149,28 +145,15 @@ BEGIN
 		,md.Username 						AS PlayerUsername
 		,md.Currency 						AS PlayerCurrencyId
 		,mc.Currency 						AS PlayerCurrency
-		,CASE WHEN @GroupBy = 0 THEN md.SysExRate 
-				ELSE 1
-			END 							AS SysExRate
-		,CASE WHEN @GroupBy = 0 AND @RptByAff = 1 THEN md.AffExRate 
-				ELSE 1
-			END 							AS AffExRate
-		,ROW_NUMBER() OVER (
-			ORDER BY 
-					CASE WHEN @GroupBy = 0 THEN md.WinlostDate ELSE 0 END ASC
-					,ai.UserName ASC
-		) AS RowIDX
+		,CASE WHEN @GroupBy = 0 THEN md.SysExRate ELSE 1 END AS SysExRate
+		,CASE WHEN @GroupBy = 0 AND @RptByAff = 1 THEN md.AffExRate ELSE 1 END AS AffExRate
+		,ROW_NUMBER() OVER (ORDER BY CASE WHEN @GroupBy = 0 THEN md.WinlostDate ELSE 0 END ASC, ai.UserName ASC) AS RowIDX
 	INTO #MemberList
 	FROM dbo.MemberDaily md WITH (NOLOCK)
-		INNER JOIN @AffUserRpt ai
-		ON md.AffID = ai.AffID
-			AND DATEDIFF(M, md.WinlostDate, ai.MonthDate) = 0
-		INNER JOIN @ProductFilter p
-		ON md.ProductID = p.ProductID
-		INNER JOIN @MemCurrencies mc
-		ON md.Currency = mc.ExchangeId
-		INNER JOIN dbo.Exchange ex WITH (NOLOCK)
-		ON md.AffCurrency = ex.ExchangeID
+		INNER JOIN @AffUserRpt ai ON md.AffID = ai.AffID AND DATEDIFF(M, md.WinlostDate, ai.MonthDate) = 0
+		INNER JOIN @ProductFilter p ON md.ProductID = p.ProductID
+		INNER JOIN @MemCurrencies mc ON md.Currency = mc.ExchangeId
+		INNER JOIN dbo.Exchange ex WITH (NOLOCK) ON md.AffCurrency = ex.ExchangeID
 	WHERE md.WinlostDate BETWEEN @FromDate AND @ToDate
 		AND md.UserName LIKE @PlayerName
 	GROUP BY 
@@ -182,21 +165,13 @@ BEGIN
 		,md.Username
 		,md.Currency 
 		,mc.Currency
-		,CASE WHEN @GroupBy = 0 THEN md.SysExRate 
-				ELSE 1
-			END
-		,CASE WHEN @GroupBy = 0 AND @RptByAff = 1 THEN md.AffExRate 
-				ELSE 1
-			END
-	HAVING SUM(md.Winlost) 		<> 0
-		OR SUM(CASE 
-				WHEN @DrawFilter = 0 THEN ISNULL(md.Turnover, 0)
-				ELSE ISNULL(md.TurnoverNoDraw, 0)
-			END) 				> 0
+		,CASE WHEN @GroupBy = 0 THEN md.SysExRate ELSE 1 END
+		,CASE WHEN @GroupBy = 0 AND @RptByAff = 1 THEN md.AffExRate ELSE 1 END
+	HAVING SUM(md.Winlost) <> 0
+		OR SUM(CASE WHEN @DrawFilter = 0 THEN ISNULL(md.Turnover, 0) ELSE ISNULL(md.TurnoverNoDraw, 0) END) > 0
 	
 	--set @NRows
-	SELECT @NRows = COUNT(DISTINCT rpt.RowIDX)
-	FROM #MemberList rpt
+	SELECT @NRows = COUNT(DISTINCT RowIDX) FROM #MemberList
 	
 	IF(@NRows = 0) 
 	BEGIN
@@ -274,13 +249,9 @@ BEGIN
 				ELSE 0
 			END * md.SysExRate) 			AS NetGamingBase
 	FROM #MemberList m
-		INNER JOIN dbo.MemberDaily md WITH (NOLOCK)
-		ON m.PlayerUsername = md.Username 
-			AND 1 = CASE WHEN @GroupBy = 0 AND m.WinlostDate = md.WinlostDate THEN 1 
-						WHEN @GroupBy = 1 THEN 1
-						ELSE 0 END
-		INNER JOIN @ProductFilter p
-		ON md.ProductID = p.ProductID
+		INNER JOIN dbo.MemberDaily md WITH (NOLOCK) ON m.PlayerUsername = md.Username
+			AND 1 = CASE WHEN @GroupBy = 0 AND m.WinlostDate = md.WinlostDate THEN 1 WHEN @GroupBy = 1 THEN 1 ELSE 0 END
+		INNER JOIN @ProductFilter p ON md.ProductID = p.ProductID
 	WHERE md.WinlostDate BETWEEN @FromDate AND @ToDate
 		AND m.RowIDX BETWEEN ((@PageCurrent - 1) * @PageSize) + 1 AND @PageSize * (@PageCurrent)
 	GROUP BY 
@@ -367,10 +338,8 @@ BEGIN
 				ELSE 0
 			END * md.SysExRate) 			AS NetGamingBase
 	FROM dbo.MemberDaily md WITH (NOLOCK)
-		INNER JOIN memberList mc
-		ON md.UserName = mc.PlayerUsername
-		INNER JOIN @ProductFilter p
-		ON md.ProductID = p.ProductID
+		INNER JOIN memberList mc ON md.UserName = mc.PlayerUsername
+		INNER JOIN @ProductFilter p ON md.ProductID = p.ProductID
 	WHERE md.WinlostDate BETWEEN @FromDate AND @ToDate
 	GROUP BY mc.PlayerCurrency
 		,md.ProductID
@@ -410,10 +379,8 @@ BEGIN
 				ELSE 0
 			END * md.SysExRate) 			AS NetGamingBase
 	FROM dbo.MemberDaily md WITH (NOLOCK)
-		INNER JOIN memberList m
-		ON md.UserName = m.PlayerUsername
-		INNER JOIN @ProductFilter p
-		ON md.ProductID = p.ProductID
+		INNER JOIN memberList m ON md.UserName = m.PlayerUsername
+		INNER JOIN @ProductFilter p ON md.ProductID = p.ProductID
 	WHERE md.WinlostDate BETWEEN @FromDate AND @ToDate
 	GROUP BY md.ProductID
 		,p.ProductName
@@ -430,3 +397,4 @@ GO
 GRANT EXECUTE ON [dbo].[AffAdmin_MemberWinLossByProductReport] TO [bodbAdminNet] AS [dbo]
 GO
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_MemberWinLossByProductReport] TO [vnteam] AS [dbo]
+GO

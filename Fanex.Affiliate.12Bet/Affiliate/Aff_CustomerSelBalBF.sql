@@ -1,23 +1,30 @@
-﻿ALTER PROCEDURE [Aff_CustomerSelBalBF]
-	@AffID int,
-	@BalBroughtForward money OUTPUT	
+﻿USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [Aff_CustomerSelBalBF]
+	@AffID INT,
+	@BalBroughtForward MONEY OUTPUT	
 AS
+
 /*
 	Created: 20090905@Peter
-	Task : Select Balance Brought Forward info.
-	DB: DB05.Affiliate_12Bet
-	Original: [Aff_CustomerSelBalBF]
+	Task: Select Balance Brought Forward info.
+	DB: DBAFF12BET.Affiliate_12Bet
+
 	Revisions:
+
 	Param's Explanation:
 		• @custid : Affiliate custid
 		• @BalBroughtForward: Commission has transferred and has been approved already.
 */
-SET NOCOUNT ON
 
+BEGIN
+	SET NOCOUNT ON
 
-select @BalBroughtForward = dbo.Aff_GetAffBalance(@AffID)	
-
+	SELECT @BalBroughtForward = dbo.Aff_GetAffBalance(@AffID)	
+END
 GO
 GRANT EXECUTE ON [dbo].[Aff_CustomerSelBalBF] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_CustomerSelBalBF] TO [VNTeam]
+GRANT VIEW DEFINITION ON [dbo].[Aff_CustomerSelBalBF] TO [vnteam]
+GO

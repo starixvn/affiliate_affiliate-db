@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupUpd] 
+﻿USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_CommGroupUpd] 
 	@LicenseeID					INT
 	,@UserId					INT
 	,@GroupId					INT
@@ -22,82 +25,45 @@
 	,@ErrCode					INT				= 0		OUTPUT
 	,@ErrMsg					NVARCHAR(4000)	= ''	OUTPUT
 AS
-/*  
-Created: 20090719@DungTong  
-Task : update an existing Commission Group  
-DB: DB052.Affiliate_ZZun  
-Original:  
-  
-Revisions:  
-    - 20131121@Joseph: allow updating currency 'All'
-    - 20140312@Peter: Update MemberDaily, AffDaily and AffDailySummary
-	- 20140723@Bobby: remove checking @GroupID < 1000
-	- 20140820@Bobby: Add Deposit & Withdrawal percent and apply SQL stylescope
-	- 20141028@Bobby: hotfix#24904 - remove abs() function for Withdrawal value when calculating PSP fee
-	- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
-Parameters:  
-.@UserID : Administrator user id  
-.@GroupID : if @GroupID=-1 (normal group)  
-            if @GroupID>1000 ==> Special Setting for Affiliate that has AffID=@GroupID  
- .@GroupName The name of this Group  
- .@Description : description for this group  
- .@ProductIDList: list of ProductID separated by semi colon  
-                1 : SportsBook  
-                2 : Casino  
-                Ex: 1;2        
- .@DeductionList: List of Deduction Setting for above Sport List.                     
-                  each deduction separated by a comma                    
-                  1 : HasPSP  
-                  2 : HasBonus  
-                  3 : Has Adjustment  
-                  4 : Has Marketing  
-                  5 : Has Bonus for Casino  
-                  6 : Has Adjustment for Casino  
-                 Ex: 1,2,3,5,6  
-                 Mean: SportsBook has deduction setting: HasPSP,HasBonus,Has Adjusment  
-                      Casino has deduction setting: Has Bonus for Casino, Has Adjustment for Casino  
-  .@DeductedPercentageList : List of Deducted Percentage  
-              Ex: 1,0.05,1,0.17,1                                       
-  . @TierList : List of number of Tiers for each sport type separated by a semi colon  
-                each sport type separated by a semi colon  
-                Ex: 3;4  
-                Mean: SportsBook has 3 tiers  
-                       Casino has 4 tiers  
-   . @MinAmountList: List of MinAmount for each tier (all sports)  
-                      each minAmount number separated by a comma  
-                      for each sport type separated by a semi colon  
-                  Ex: 0,1,100001;0,1,5001,700001  
-    . @MaxAmountList: List of MaxAmount for each tier (all sports)  
-                      each maxAmount number separated by a comma  
-                      for each sport type separated by a semi colon  
-                  Ex: 0,10000,100000000000000;0,5000,70000,100000000000000  
-     . @MinQMList: List of MinQM for each tier (all sports)  
-                      each minQM number separated by a comma  
-                      for each sport type separated by a semi colon  
-                  Ex: 0,10,20;0,5,10,21  
-    . @MaxQMList: List of MaxQM for each tier (all sports)  
-                      each maxQM number separated by a comma  
-                      for each sport type separated by a semi colon  
-                  Ex: 9,19,1000000000;4,9,20,1000000000  
-     . @CommissionList: List of Commission for each tier (all sports)  
-                         each commission number separated by a @  
-                      for each sport type separated by a semi colon  
-                  Ex: 0.00@0.20@0.35;0.00@0.10@0.15@0.20  
-     .@IP : IP of admin user               
-     .@ErrCode:    
-                  0 : no error raised  
-                  >0 : there was an error  
-     .@ErrMsg :     
-                  empty: no error raised  
-                  others : the error message detail                            
-                            
+/*  
+	Created: 20090719@DungTong  
+	Task : update an existing Commission Group  
+	DB: DB052.Affiliate_ZZun  
+	Original:  
+  
+	Revisions:  
+		- 20131121@Joseph: allow updating currency 'All'
+		- 20140312@Peter: Update MemberDaily, AffDaily and AffDailySummary
+		- 20140723@Bobby: remove checking @GroupID < 1000
+		- 20140820@Bobby: Add Deposit & Withdrawal percent and apply SQL stylescope
+		- 20141028@Bobby: hotfix#24904 - remove abs() function for Withdrawal value when calculating PSP fee
+		- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+
+	Parameters:
+		.@UserID : Administrator user id
+		.@GroupID:
+			-1		: normal group
+			>1000	: Special Setting for Affiliate that has AffID = @GroupID
+		.@GroupName The name of this Group
+		.@Description : description for this group
+		.@ProductIDList: list of ProductID separated by semi colon
+		.@DeductionList: List of Deduction Setting for above Sport List
+		.@DeductedPercentageList: List of Deducted Percentage
+		.@TierList: List of number of Tiers for each sport type separated by a semi colon
+		.@MinAmountList: List of MinAmount for each tier (all sports)
+		.@MaxAmountList: List of MaxAmount for each tier (all sports)
+		.@MinQMList: List of MinQM for each tier (all sports)
+		.@MaxQMList: List of MaxQM for each tier (all sports)
+		.@CommissionList: List of Commission for each tier (all sports)
 */
+
 BEGIN
 	SET NOCOUNT ON
 
 	--Check permission  
-				EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
+	EXEC [dbo].[Aff_Con_CheckPermission]
+		@LicenseeID = @LicenseeID
 		,@custid = @UserID
 		,@funcname = '[CommissionGroup]'
 		,@System = 'AFFILIATE'
@@ -109,13 +75,12 @@ BEGIN
 	--Check Currency Permission
 	IF (@Currency = 0)
 	BEGIN
-		DECLARE @IsITAdmin BIT = 0
-		SELECT @IsITAdmin = dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID)
-		IF (@IsITAdmin = 0) RETURN
+		IF (dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID) = 0)
+			RETURN
 	END
 	ELSE
 	BEGIN
-								EXEC [dbo].[AffAdmin_CheckPermissionCurrency] 
+		EXEC [dbo].[AffAdmin_CheckPermissionCurrency] 
 			@LicenseeID = @LicenseeID
 			,@UserId = @UserID
 			,@CurrencyId = @Currency
@@ -124,78 +89,55 @@ BEGIN
 		IF (@ErrCode <> 0) RETURN
 	END
 
-	IF (
-			NOT EXISTS (
-				SELECT TOP 1 1
-				FROM dbo.CommGroup WITH(NOLOCK)
-				WHERE GroupID = @GroupID
-					AND IsDeleted = 0
-				)
-			)
+	IF NOT EXISTS (
+		SELECT TOP 1 1 FROM dbo.CommGroup WITH(NOLOCK)
+		WHERE GroupID = @GroupID AND IsDeleted = 0
+	)
 	BEGIN
 		SELECT @ErrCode = 33 --'The group ID ' +  cast(@GroupId as varchar(10)) + ' is not existed. Please check.'         
 
 		RETURN
 	END
 
-	IF (
-			@GroupName IS NULL
-			OR LTRIM(RTRIM(@GroupName)) = ''
-			)
+	IF @GroupName IS NULL OR LTRIM(RTRIM(@GroupName)) = ''
 	BEGIN
 		SELECT @ErrCode = 34 -- Group name is empty. Please choose a name!
 
 		RETURN
 	END
 
-	IF (
-			EXISTS (
-				SELECT TOP 1 1
-				FROM dbo.CommGroup WITH(NOLOCK)
-				WHERE GroupID <> @GroupID
-					AND GroupName = @GroupName
-					AND IsDeleted = 0
-				)
-			)
+	IF EXISTS (
+		SELECT TOP 1 1 FROM dbo.CommGroup WITH(NOLOCK)
+		WHERE GroupID <> @GroupID AND GroupName = @GroupName AND IsDeleted = 0
+	)
 	BEGIN
 		SELECT @ErrCode = 35 --Group name existed. Please choose another name!
 
 		RETURN
 	END
 
-	--Check Currency Is different -> do not allow to update when have an Affiliate Assign to this group  
-	IF (
-			EXISTS (
-				SELECT TOP 1 1
-				FROM dbo.CommGroup WITH(NOLOCK)
-				WHERE GroupID = @GroupID
-					AND currency <> @Currency
-				)
-			AND (
-				EXISTS (
-					SELECT TOP (1) 1
-					FROM dbo.AffCommission WITH(NOLOCK)
-					WHERE GroupID = @GroupID
-					)
-				OR EXISTS (
-					SELECT TOP (1) 1
-					FROM dbo.AffInfo ai WITH(NOLOCK)
-					WHERE ai.GroupID = @GroupID
-					)
-				)
-			)
+	-- Check Currency Is different -> do not allow to update when have an Affiliate Assign to this group  
+	IF EXISTS (SELECT TOP 1 1 FROM dbo.CommGroup WITH(NOLOCK) WHERE GroupID = @GroupID AND currency <> @Currency)
 	BEGIN
-		SELECT @ErrCode = 36 --The group has been used. Cannot change the currency. Please check!
+		IF (
+			EXISTS (SELECT TOP 1 1 FROM dbo.AffCommission WITH(NOLOCK) WHERE GroupID = @GroupID)
+			OR EXISTS (SELECT TOP 1 1 FROM dbo.AffInfo ai WITH(NOLOCK) WHERE ai.GroupID = @GroupID)
+		)
+		BEGIN
+			SELECT @ErrCode = 36 --The group has been used. Cannot change the currency. Please check!
 
-		RETURN
+			RETURN
+		END
 	END
 
-	DECLARE @DeductionSetting TABLE (
+	DECLARE @DeductionSetting TABLE
+	(
 		GroupID 			INT
 		,DeductionID 		TINYINT
 		,DeductedPercentage FLOAT
-		)
-	DECLARE @GroupSetting TABLE (
+	)
+	DECLARE @GroupSetting TABLE
+	(
 		GroupID 	INT
 		,ProductID 	TINYINT
 		,TierID 	TINYINT
@@ -204,7 +146,7 @@ BEGIN
 		,MinQM 		INT
 		,MaxQM 		INT
 		,Commission DECIMAL(9, 8)
-		)
+	)
 	
 	-- Check for updating Deposit & Withdrawal percent
 	SELECT @DepositPercent 		= ISNULL(@DepositPercent, ex.DepositPercent)
@@ -213,25 +155,15 @@ BEGIN
 	WHERE ex.ExchangeId = @Currency
 		
 	--Insert Deduction Setting  
-	IF (len(@DeductionList) > 0)
+	IF (LEN(@DeductionList) > 0)
 	BEGIN
-		INSERT INTO @DeductionSetting (
-			GroupID
-			,DeductionID
-			,DeductedPercentage
-			)
-		SELECT @GroupID
-			,cast(t.val AS TINYINT)
-			,cast(p.val AS FLOAT)
+		INSERT INTO @DeductionSetting (GroupID, DeductionID, DeductedPercentage)
+		SELECT @GroupID, CAST(t.val AS TINYINT), CAST(p.val AS FLOAT)
 		FROM dbo.strsplit(@DeductionList, ',') t
 			INNER JOIN dbo.strsplit(@DeductedPercentageList, ',') p ON p.rank = t.rank
-			INNER JOIN DeductionType d WITH (NOLOCK) ON d.DTypeID = cast(t.val AS TINYINT)
+			INNER JOIN DeductionType d WITH (NOLOCK) ON d.DTypeID = CAST(t.val AS TINYINT)
 
-		IF @@Rowcount <> (
-				SELECT count(1)
-				FROM dbo.strsplit(@DeductionList, ',')
-				)
-			OR @@ERROR <> 0
+		IF @@ERROR <> 0 OR @@ROWCOUNT <> (SELECT COUNT(1) FROM dbo.strsplit(@DeductionList, ','))
 		BEGIN
 			SELECT @ErrCode = 37 --Error! Invalid Deduction Setting!
 
@@ -461,19 +393,14 @@ BEGIN
 	END
 
 	--Checking again  
-	IF (
-			NOT EXISTS (
-				SELECT 1
-				FROM @GroupSetting
-				)
-			)
+	IF NOT EXISTS (SELECT 1 FROM @GroupSetting)
 	BEGIN
 		SELECT @ErrCode = 41
 
 		RETURN
 	END
 
-	--BEGIN TRANSACTIOn AFTER CHECKING VALID INPUT DATA  
+	--BEGIN TRANSACTION AFTER CHECKING VALID INPUT DATA  
 	BEGIN TRANSACTION
 
 	UPDATE cg
@@ -484,8 +411,7 @@ BEGIN
 		,cg.DepositPercent 		= @DepositPercent
 		,cg.WithdrawalPercent	= @WithdrawalPercent
 	FROM dbo.CommGroup cg WITH (ROWLOCK, UPDLOCK)
-		INNER JOIN dbo.Exchange ex WITH(NOLOCK)
-		ON cg.Currency = ex.ExchangeID
+		INNER JOIN dbo.Exchange ex WITH(NOLOCK) ON cg.Currency = ex.ExchangeID
 	WHERE cg.GroupID = @GroupID
 	
 
@@ -510,14 +436,8 @@ BEGIN
 		RETURN
 	END
 
-	INSERT INTO dbo.DeductionSetting (
-		GroupID
-		,DeductionID
-		,DeductedPercentage
-		)
-	SELECT GroupID
-		,DeductionID
-		,DeductedPercentage
+	INSERT INTO dbo.DeductionSetting (GroupID, DeductionID, DeductedPercentage)
+	SELECT GroupID, DeductionID, DeductedPercentage
 	FROM @DeductionSetting
 
 	IF (@@ERROR <> 0)
@@ -561,13 +481,7 @@ BEGIN
 		,Commission
 	FROM @GroupSetting
 
-	IF (
-			@@ERROR <> 0
-			OR @@ROWCOUNT <> (
-				SELECT count(1)
-				FROM @GroupSetting
-				)
-			)
+	IF @@ERROR <> 0 OR @@ROWCOUNT <> (SELECT COUNT(1) FROM @GroupSetting)
 	BEGIN
 		ROLLBACK TRANSACTION
 
@@ -587,14 +501,11 @@ BEGIN
 		,MemOddsFee = ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', NULL), 0)
 		,MemPLayTechFee = ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL), 0)
 		,MemWinlostFake = - (- Winlost - ((ABS(Deposit) * @DepositPercent + Withdrawal * @WithdrawalPercent)) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, @SportsBookID, 'PSP', NULL), 0) - ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Marketing', NULL), 0) - ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'Odds Fee', NULL), 0) - ABS(Winlost) * ISNULL(dbo.Aff_GetDeductionPercent(m.AffID, ProductId, 'PlayTech Royalties', NULL), 0))
-	FROM dbo.MemberDaily AS m WITH (ROWLOCK, UPDLOCK)
+	FROM dbo.MemberDaily m WITH (ROWLOCK, UPDLOCK)
 		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON m.AffId = ai.AffId
 	WHERE DATEDIFF(m, m.WinlostDate, CURRENT_TIMESTAMP) = 0
 		AND ai.GroupId = @GroupId
 
-	/*
-CREATE TABLE #MemberDailySum (AffID int, MemCurrency int,Winlostdate smalldatetine, ProductID tinyint,SysExRate float, AffExRate float, MemMarketing money, MemPSP money,
-                               MemWinlostFake money, MemOddsFee money, MemPlayTechFee money)*/
 	SELECT m.[AffID]
 		,m.[Currency] AS [MemCurrency]
 		,m.[WinlostDate]
@@ -683,18 +594,29 @@ CREATE TABLE #MemberDailySum (AffID int, MemCurrency int,Winlostdate smalldateti
 	COMMIT TRANSACTION
 
 	--Write the log   
-	DECLARE @LogData NVARCHAR(MAX)
-		,@AffID INT
-		,@SPName VARCHAR(100)
+	DECLARE @LogData NVARCHAR(MAX), @AffID INT, @SPName VARCHAR(100)
 
 	IF (@GroupID > 1000)
 		SELECT @AffID = @GroupID
 	ELSE
 		SELECT @AffID = 0
 
-	SELECT @LogData = N'Update a commission group.GroupID=' + dbo.Aff_ToString(@GroupID) + '\n GroupName=' + @GroupName + '\n Currency=' + dbo.Aff_ToString(@Currency) + '\n QualifiedAmount=' + dbo.Aff_ToString(@QualifiedAmount) + '\n Description=' + @Description + '\n ProductIDList=' + @ProductIDList + '\n DeductionList=' + @DeductionList + '\n DeductedPercentageList=' + @DeductedPercentageList + '\n TierList=' + @TierList + '\n MinAmountList=' + @MinAmountList + '\n MaxAmountList=' + @MaxAmountList + '\n MinQMList=' + @MinQMList + '\n MaxQMList=' + @MaxQMList + '\n CommissionList=' + @CommissionList
+	SELECT @LogData = N'Update a commission group.GroupID=' + dbo.Aff_ToString(@GroupID)
+					+ '\n GroupName=' + @GroupName
+					+ '\n Currency='+ dbo.Aff_ToString(@Currency)
+					+ '\n QualifiedAmount=' + dbo.Aff_ToString(@QualifiedAmount)
+					+ '\n Description=' + @Description
+					+ '\n ProductIDList=' + @ProductIDList
+					+ '\n DeductionList=' + @DeductionList
+					+ '\n DeductedPercentageList=' + @DeductedPercentageList
+					+ '\n TierList=' + @TierList
+					+ '\n MinAmountList=' + @MinAmountList
+					+ '\n MaxAmountList=' + @MaxAmountList
+					+ '\n MinQMList=' + @MinQMList
+					+ '\n MaxQMList=' + @MaxQMList
+					+ '\n CommissionList=' + @CommissionList
 
-	SELECT @SPName = OBJECT_NAME(@@ProcID)
+	SELECT @SPName = OBJECT_NAME(@@PROCID)
 
 	EXEC [dbo].[Aff_WriteLog] @Creator = @UserId
 		,@AffID = @AffID
@@ -707,3 +629,4 @@ GO
 GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupUpd] TO [bodbAdminNet] AS [dbo]
 GO
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupUpd] TO [vnteam] AS [dbo]
+GO

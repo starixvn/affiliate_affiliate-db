@@ -16,27 +16,30 @@ ALTER PROCEDURE [dbo].[Aff_AffiliateReport]
 	,@NRows				INT 		= 0 OUTPUT
 	
 AS
-/*
-Created: @VinhTrinh
-Task : Get report by date for each affiliate.
-DB: DBAFF12BET.Affiliate_12BET
-Original: [Aff_AffiliateReport]
-Revisions:
-	- 20101228@Henry: change bettype to new range
-	- 20110420@Johnny: Filter by Sporttype and restore code to old bettype range
-	- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
-	- 20140403@Bobby: exclude Keno product & other sports
-	- 20141113@Bobby: Add columns (Tracking Rate (Unique/Total), New Trk. Rate (Unique/Total), Total Sign up, Total FDM, Active Member, Total QM)
-	- 20141218@Bobby: Update SS's bettype
-	- 20141223@Bobby: Hotfix#28059 - Filtering by PreferredLanguage
-	- 20170214@Percy: Fix FDM/Signup Issue [RedmineID: #70507]
-	- 20170411@Percy: Support search by Affiliate name [RedmineID: #74588]
 
-Param's Explanation:
-	• @Fromdate Time search From
-	• @Todate Time search To,
-	• @IsGetAll if getall = 1 => get data in all date,
+/*
+	Created: @VinhTrinh
+	Task : Get report by date for each affiliate.
+	DB: DBAFF12BET.Affiliate_12BET
+	Original: [Aff_AffiliateReport]
+
+	Revisions:
+		- 20101228@Henry: change bettype to new range
+		- 20110420@Johnny: Filter by Sporttype and restore code to old bettype range
+		- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
+		- 20140403@Bobby: exclude Keno product & other sports
+		- 20141113@Bobby: Add columns (Tracking Rate (Unique/Total), New Trk. Rate (Unique/Total), Total Sign up, Total FDM, Active Member, Total QM)
+		- 20141218@Bobby: Update SS's bettype
+		- 20141223@Bobby: Hotfix#28059 - Filtering by PreferredLanguage
+		- 20170214@Percy: Fix FDM/Signup Issue [RedmineID: #70507]
+		- 20170411@Percy: Support search by Affiliate name [RedmineID: #74588]
+
+	Param's Explanation:
+		• @Fromdate Time search From
+		• @Todate Time search To
+		• @IsGetAll if getall = 1 => get data in all date
 */
+
 BEGIN
 	SET NOCOUNT ON
 	
@@ -275,12 +278,9 @@ BEGIN
 				END AS Adjustment
 			,e.ActualRate2
 		FROM bodb02.dbo.Bettrans b WITH (NOLOCK)
-			INNER JOIN dbo.MemberInfo m WITH (NOLOCK)
-			ON b.CustId = m.IBCCustID	
-			INNER JOIN #AffPaging ml
-			ON m.AffId = ml.AffId
-			INNER JOIN dbo.Exchange_Current e WITH (NOLOCK)
-			ON m.Currency = e.ExchangeId
+			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON b.CustId = m.IBCCustID	
+			INNER JOIN #AffPaging ml ON m.AffId = ml.AffId
+			INNER JOIN dbo.Exchange_Current e WITH (NOLOCK) ON m.Currency = e.ExchangeId
 		WHERE b.WinlostDate = @CurrDate
 			AND m.IsRemoved = 0
 			AND (
@@ -331,10 +331,8 @@ BEGIN
 		,0 AS AffWithdrawal
 		,SUM(AffNetWinlost * ExRate2) AS AffBF
 	FROM dbo.AffDaily ad WITH (NOLOCK)
-		INNER JOIN #AffPaging m
-		ON ad.AffID = m.AffId
-	WHERE (@IsGetAll = 1
-			OR ad.WinlostDate BETWEEN @FromDate AND @TmpToDate)
+		INNER JOIN #AffPaging m ON ad.AffID = m.AffId
+	WHERE (@IsGetAll = 1 OR ad.WinlostDate BETWEEN @FromDate AND @TmpToDate)
 		AND ISNULL(@SportId, SPortId) = SPortId
 	GROUP BY ad.AffID
 
@@ -401,13 +399,8 @@ BEGIN
 				END) AS AffWithdrawal
 		,0 AS AffBF
 	FROM dbo.AffTrans a WITH (NOLOCK)
-		INNER JOIN #AffPaging m
-		ON a.AffId = m.AffId
-	WHERE (
-			@IsGetAll = 1
-				--OR DATEADD(d, DATEDIFF(d, 0, TransDate), 0) BETWEEN @FromDate AND DATEADD(d, DATEDIFF(d, 0, @ToDate), 0)
-				OR a.TransDate BETWEEN @FromDate AND @ToDate
-			)
+		INNER JOIN #AffPaging m ON a.AffId = m.AffId
+	WHERE (@IsGetAll = 1 OR a.TransDate BETWEEN @FromDate AND @ToDate)
 		AND a.Transtype IN (202, 203)
 		AND a.STATUS IN ('Pending', 'Approved', 'Completed')
 	GROUP BY a.AffId

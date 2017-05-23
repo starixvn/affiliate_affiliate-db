@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_QualifiedMembersReport] 
+﻿USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_QualifiedMembersReport] 
 	@LicenseeID		INT
 	,@UserId			INT
 	,@AffId			INT
@@ -6,29 +9,31 @@
 	,@BaseCurrency	TINYINT 		= 2
 	,@ProductIds 	VARCHAR(100)	= NULL
 AS
-/*    
-Task : Qualified Members Report  
-DB:    
-Original: [AffAdmin_CommissionReport]
-Revisions:           
-	- 20140213@Bobby.Nguyen: Multiply exchange rate
-	- 20140514@Bobby: Add Playtech Casio product    
-	- 20140523@Bobby: Rollback check QualifiedAmount
-	- 20140523@Bobby: Add Virtual Sport & apply style-scope
-	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
-	- 20151119@Bobby: Do update for listing product dynamically
 
-Param's Explanation: 
-• @UserId: Admin user id
-• @AffId: Affiliate ID
-• @Month: Month need to view
+/*    
+	Task: Qualified Members Report  
+	DB: DBAFF.Affiliate_Athena000
+	Original: [AffAdmin_CommissionReport]
+
+	Revisions:           
+		- 20140213@Bobby.Nguyen: Multiply exchange rate
+		- 20140514@Bobby: Add Playtech Casio product    
+		- 20140523@Bobby: Rollback check QualifiedAmount
+		- 20140523@Bobby: Add Virtual Sport & apply style-scope
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20151119@Bobby: Do update for listing product dynamically
+
+	Param's Explanation: 
+		• @UserId: Admin user id
+		• @AffId: Affiliate ID
+		• @Month: Month need to view
 */
+
 BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @HasPermission BIT
-
-	SELECT @HasPermission = [dbo].[AffAdmin_PermissionOnAffiliate](@LicenseeID, @UserId, @AffId)
+	SELECT  @HasPermission = [dbo].[AffAdmin_PermissionOnAffiliate] (@LicenseeID, @UserId, @AffId)
 
 	IF (@HasPermission = 0) RETURN
 	
@@ -38,18 +43,19 @@ BEGIN
 		,@QualifiedAmount 	MONEY
 		,@AffCurrency 		INT
 		,@SysCurrency 		INT
-		,@SysExRate 		FLOAT = 1;
+		,@SysExRate 		FLOAT = 1
 
 	SELECT @FromDate 		= dbo.Aff_GetFirstDayOfMonth(@MonthDate)
 		,@ToDate 			= dbo.Aff_GetLastDayOfMonth(@MonthDate)
 		
 		
-	DECLARE @ProductFilter AS TABLE (ProductId INT)
+	DECLARE @ProductFilter TABLE (ProductId INT)
+	
 	IF (LEN(@ProductIds) > 0)
 	BEGIN
 		INSERT INTO @ProductFilter (ProductId)
-		SELECT Val
-		FROM [dbo].[strSplit_key](@ProductIds, ',')
+		SELECT CONVERT(INT, val)
+		FROM [dbo].[strSplit] (@ProductIds, ',')
 	END
 	ELSE
 	BEGIN
@@ -62,21 +68,19 @@ BEGIN
 
 	IF(@BaseCurrency = 1) -- convert QualifiedAmount to SysCurrency
 	BEGIN
-		SELECT TOP 1 
-			@AffCurrency = Currency
+		SELECT TOP 1 @AffCurrency = Currency
 		FROM dbo.AffInfo WITH(NOLOCK)
 		WHERE AffID = @AffId
 
 		SELECT TOP 1 @SysCurrency = cur.CurrencyID
 		FROM dbo.SystemSettings se WITH(NOLOCK)
-			INNER JOIN dbo.Currency cur WITH(NOLOCK)
-			ON se.SValue = cur.CurrencyCode
+			INNER JOIN dbo.Currency cur WITH(NOLOCK) ON se.SValue = cur.CurrencyCode
 		WHERE SName = 'SystemCurrency'
 			AND [Type] = 'Meta'
 		
 		IF(@AffCurrency <> @SysCurrency)
 		BEGIN
-			SET @SysExRate = [dbo].[Aff_GetExchangeRate](@AffCurrency, @SysCurrency, null);
+			SET @SysExRate = [dbo].[Aff_GetExchangeRate](@AffCurrency, @SysCurrency, NULL)
 		END
 	END
 
@@ -89,23 +93,17 @@ BEGIN
 		, p.ProductName
 		,SUM(ISNULL(Turnover,0) * ISNULL(m.SysExRate, 0)) AS TurnoverBase
 		,SUM(ISNULL(Turnover,0) * ISNULL(m.AffExRate, 0)) AS Turnover
-		
 	FROM dbo.MemberDaily m WITH (NOLOCK)
-		INNER JOIN dbo.Exchange e WITH (NOLOCK)
-		ON m.Currency = e.ExchangeID
-		INNER JOIN @ProductFilter pt
-		ON m.ProductId = pt.ProductId
-		INNER JOIN dbo.Product p
-		ON pt.ProductId = p.ProductId
+		INNER JOIN dbo.Exchange e WITH (NOLOCK) ON m.Currency = e.ExchangeID
+		INNER JOIN @ProductFilter pt ON m.ProductId = pt.ProductId
+		INNER JOIN dbo.Product p ON pt.ProductId = p.ProductId
 	WHERE AffId = @AffID
 		AND m.WinlostDate BETWEEN @FromDate AND @ToDate
 	GROUP BY m.Username
 		, e.Code
 		, m.ProductId
 		, p.ProductName
-	
 END
-
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_QualifiedMembersReport] TO [bodbAdminNet] AS [dbo]
 GO

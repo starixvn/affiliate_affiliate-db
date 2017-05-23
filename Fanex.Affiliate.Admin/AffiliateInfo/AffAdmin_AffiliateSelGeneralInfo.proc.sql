@@ -1,25 +1,30 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateSelGeneralInfo]
+﻿USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_AffiliateSelGeneralInfo]
 	@LicenseeID		INT 
 	,@Username		NVARCHAR(30)
 	,@UserId		INT				= 0
 	,@Currencies	VARCHAR(100)	= NULL
 	,@IsITAdmin		BIT				= 0
 AS
+
 /*  
- Created: 20090730@Peter  
- Task : Select affiliate info for left panel  
- DB: DB052.Affiliate_ZZun  
+	Created: 20090730@Peter  
+	Task: Select affiliate info for left panel  
+	DB: DBAFF.Affiliate_Athena000  
   
- Revisions:  
-	- 20090823@Peter : Rewrite the sp for new DB DB052.Affiliate_ZZun  
-                     Remove the theory of pending commission and CurrCommEarning     
-                     Get PreferredPayment to check approve   
-	- 20140819@Bobby: Apply SQL style scope
-	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	Revisions:  
+		- 20090823@Peter : Rewrite the sp for new DB DB052.Affiliate_ZZun  
+							Remove the theory of pending commission and CurrCommEarning     
+							Get PreferredPayment to check approve   
+		- 20140819@Bobby: Apply SQL style scope
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 	
- Param's Explanation:  
- • @Username : Affiliate username  
+	Param's Explanation:  
+		• @Username : Affiliate username  
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -38,10 +43,11 @@ BEGIN
 		IF @affID IS NULL RETURN
 	END
 
-	DECLARE @tmpCurrency TABLE (
+	DECLARE @tmpCurrency TABLE
+	(
 		CurrencyID INT
 		,ExRate FLOAT
-		)
+	)
 
 	SELECT CAST(val AS INT) AS CurrencyID
 	INTO #TblCurrency
@@ -125,3 +131,4 @@ GO
 GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateSelGeneralInfo] TO [bodbAdminNet] AS [dbo]
 GO
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateSelGeneralInfo] TO [vnteam] AS [dbo]
+GO
