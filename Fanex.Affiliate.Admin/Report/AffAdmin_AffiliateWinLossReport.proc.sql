@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateWinLossReport] 
+﻿USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_AffiliateWinLossReport] 
 	@LicenseeID			INT
 	,@UserId 			INT				= 0
 	,@AffName 			NVARCHAR(100) 	= NULL
@@ -21,45 +24,48 @@
 	,@Error 			INT 			= 0 OUTPUT
 	,@Error_Msg 		NVARCHAR(100) 	= '' OUTPUT
 AS
+
 /*    
-Task : Affiliate Win Loss by Product Report - Company View     
-DB:    
-Original: [AffAdmin_AffiliateWinLossReport]
-Revisions:      
-	- 20140821@Bobby: Add new Virtual Sport product & PlayerComm
-	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	Task: Affiliate Win Loss by Product Report - Company View     
+	DB: DBAFF.Affiliate_Athena000
+	Original: [AffAdmin_AffiliateWinLossReport]
+
+	Revisions:      
+		- 20140821@Bobby: Add new Virtual Sport product & PlayerComm
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
                 
-Param's Explanation: 
-• @UserId: Admin user id
-• @AffName: Affiliate username
-• @AffTypes: List affilaite type
-• @CommGroups: List Commission group
-• @PreferLanguages: list preference language
-• @Currencies: List currencies
-• @GroupBy:	0 - Affiliate, 1 - Affiliate & Month
-• @FromDate: From date
-• @ToDate: To date
-• @DrawFilter: Bet Count & Turnover filter 
-    - 0: "Normal" Betcount and turnover are included
-    - 1: "No Draw" The Betcount will be exluded Draw tickets. The turnover will exclude draw & half draw tickets.
-    - 2: "No Draw For Turnover Only" The turnover will be excluded draw & half draw tickets.
-• @BaseCurrency: The current exchange rate will be used if we wanna convert the affiliate's currency to system currency
-    - 0: Original
-    - 1: Convert to System Currency.
-    - Note: The exchange rate value will be the exchange rate of current date when we convert the commission value into System Currency.
-• @SortBy: Dropdown list Sort By
-    - 0: ActivePlayer
-	- 1: AffID
-	- 2: BetCount
-	- 3: PlayerComm
-	- 4: DepositBase
-	- 5: WinlostDate
-	- 6: TurnoverBase
-	- 7: WinlossBase
-	- 8: WithdrawalBase
-    - Note: Order by field must be converted to system exchange rate.
-• @ExcludeTest: not include test accounts if true.
+	Param's Explanation: 
+		• @UserId: Admin user id
+		• @AffName: Affiliate username
+		• @AffTypes: List affilaite type
+		• @CommGroups: List Commission group
+		• @PreferLanguages: list preference language
+		• @Currencies: List currencies
+		• @GroupBy:	0 - Affiliate, 1 - Affiliate & Month
+		• @FromDate: From date
+		• @ToDate: To date
+		• @DrawFilter: Bet Count & Turnover filter 
+			- 0: "Normal" Betcount and turnover are included
+			- 1: "No Draw" The Betcount will be exluded Draw tickets. The turnover will exclude draw & half draw tickets.
+			- 2: "No Draw For Turnover Only" The turnover will be excluded draw & half draw tickets.
+		• @BaseCurrency: The current exchange rate will be used if we wanna convert the affiliate's currency to system currency
+			- 0: Original
+			- 1: Convert to System Currency.
+			- Note: The exchange rate value will be the exchange rate of current date when we convert the commission value into System Currency.
+		• @SortBy: Dropdown list Sort By
+			- 0: ActivePlayer
+			- 1: AffID
+			- 2: BetCount
+			- 3: PlayerComm
+			- 4: DepositBase
+			- 5: WinlostDate
+			- 6: TurnoverBase
+			- 7: WinlossBase
+			- 8: WithdrawalBase
+			- Note: Order by field must be converted to system exchange rate.
+		• @ExcludeTest: not include test accounts if true.
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -119,17 +125,14 @@ BEGIN
 	IF (LEN(@ProductIds) > 0)
 	BEGIN
 		INSERT INTO @ProductFilter (ProductId, ProductName)
-		SELECT t.Val
-			,p.ProductName
+		SELECT CONVERT(INT, t.Val), p.ProductName
 		FROM [dbo].[strSplit_key](@ProductIds, ',') t
-			INNER JOIN dbo.Product p WITH (NOLOCK)
-			ON t.Val = p.ProductId
+			INNER JOIN dbo.Product p WITH (NOLOCK) ON CONVERT(INT, t.Val) = p.ProductId
 	END
 	ELSE
 	BEGIN
 		INSERT INTO @ProductFilter (ProductId, ProductName)
-		SELECT p.ProductId
-			, p.ProductName
+		SELECT p.ProductId, p.ProductName
 		FROM dbo.Product p WITH (NOLOCK)
 	END
 	
@@ -236,11 +239,8 @@ BEGIN
 			,CASE WHEN @GroupBy = 1 THEN t.MonthDate ELSE 0 END AS WinlostDate
 			,COUNT(DISTINCT md.UserName) AS ActivePlayer
 		FROM dbo.MemberDaily md WITH (NOLOCK)
-			INNER JOIN @AffUserRpt AS t
-				ON md.AffId = t.AffId 
-					AND DATEDIFF(M, md.WinlostDate, t.MonthDate) = 0
-			INNER JOIN @ProductFilter p
-			ON md.ProductId = p.ProductId
+			INNER JOIN @AffUserRpt AS t ON md.AffId = t.AffId AND DATEDIFF(M, md.WinlostDate, t.MonthDate) = 0
+			INNER JOIN @ProductFilter p ON md.ProductId = p.ProductId
 		WHERE md.Winlostdate BETWEEN @FromDate AND @ToDate
 			AND md.Turnover > 0
 		GROUP BY md.AffID
@@ -330,10 +330,7 @@ BEGIN
 		) AS RowIDX
 	INTO #rptWinLossPaging
 	FROM #AffWinLossRpt rpt
-		INNER JOIN AffInfoTmp AS ai
-		ON rpt.AffId = ai.AffId 
-			AND rpt.WinlostDate = ai.MonthDate
-	
+		INNER JOIN AffInfoTmp AS ai ON rpt.AffId = ai.AffId AND rpt.WinlostDate = ai.MonthDate
 	
 	--select PageTotal
 	SELECT @NRows = COUNT(1)
@@ -448,10 +445,9 @@ BEGIN
 
 	DROP TABLE #rptWinLossPaging;
 	DROP TABLE #AffWinLossRpt
-	
-	RETURN;
 END
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateWinLossReport] TO [bodbAdminNet] AS [dbo]
 GO
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateWinLossReport] TO [vnteam] AS [dbo]
+GO

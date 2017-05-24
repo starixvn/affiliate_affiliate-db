@@ -29,31 +29,33 @@ ALTER PROCEDURE [dbo].[Aff_StatisticsSel]
 	,@TotalClicksByMobile INT = 0 OUTPUT
 AS
 
-/*Created: 20090325@VinhTrinh
-Task : Get statistics for affiliate
-DB: DBAFF12BET.Affiliate_12BET
-Original : [Aff_CustomerSelStatistics]
-Revisions:
-	- 20090513@VinhTrinh: return 2 more result(winlost up to now and winlos for search month).
-	- 20090827@DungTong: Convert to new DB version
-	- 20100511@Johnny: correct output params "@TotalPlayerDepUp" and "@NewSignUpDep"
-	- 20101228@Henry: change bettype to new range
-	- 20120507@Johnny: Get Casino qualified Active players
-	- 20120606@Peter : Exclude waiting tickets 
-	- 20140403@Bobby:  exclude Keno product & other sports
-	- 20140801@Bobby:  Update MemberClickStatistics
-	- 20141218@Bobby: Update SS's bettype
-	- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
+/*
+	Created: 20090325@VinhTrinh
+	Task : Get statistics for affiliate
+	DB: DBAFF12BET.Affiliate_12BET
+	Original : [Aff_CustomerSelStatistics]
 
-Param's Explanation:
-	• @AffID : Affiliate custid
-	• @MonthDate : Date search(format:first day of the month).
-	• @TotalActivePlayer : Get Active player in Month
-	• @TotalPlayerDepUp int OUTPUT,--Get player deposited in our system
-	• @NewSignUpDep : Get new signups of the month
-	• @TotalDeposit : total deposit money for month search
-	• @TotalDepositUp money OUTPUT,--total deposit money up to now
-	• @TotalTurnover money OUTPUT,--total turnover money up to now
+	Revisions:
+		- 20090513@VinhTrinh: return 2 more result(winlost up to now and winlos for search month).
+		- 20090827@DungTong: Convert to new DB version
+		- 20100511@Johnny: correct output params "@TotalPlayerDepUp" and "@NewSignUpDep"
+		- 20101228@Henry: change bettype to new range
+		- 20120507@Johnny: Get Casino qualified Active players
+		- 20120606@Peter : Exclude waiting tickets 
+		- 20140403@Bobby:  exclude Keno product & other sports
+		- 20140801@Bobby:  Update MemberClickStatistics
+		- 20141218@Bobby: Update SS's bettype
+		- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
+
+	Param's Explanation:
+		• @AffID : Affiliate custid
+		• @MonthDate : Date search(format:first day of the month).
+		• @TotalActivePlayer : Get Active player in Month
+		• @TotalPlayerDepUp int OUTPUT,--Get player deposited in our system
+		• @NewSignUpDep : Get new signups of the month
+		• @TotalDeposit : total deposit money for month search
+		• @TotalDepositUp money OUTPUT,--total deposit money up to now
+		• @TotalTurnover money OUTPUT,--total turnover money up to now
 */
 
 BEGIN
@@ -384,6 +386,6 @@ BEGIN
 	FROM CTE_Device
 
 	--get Balance broughtForward
-	SELECT @BalBroughtforward = isnull(dbo.Aff_GetAffBalance(@AffID), 0)
+	SELECT @BalBroughtforward = ISNULL(dbo.Aff_GetAffBalance(@AffID), 0)
 END
 GO

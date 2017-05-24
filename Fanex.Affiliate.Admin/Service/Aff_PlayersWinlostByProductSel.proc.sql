@@ -1,42 +1,46 @@
+USE [bodb02]
+GO
  
-CREATE PROCEDURE [dbo].[Aff_PlayersWinlostByProductSel] 
+ALTER PROCEDURE [dbo].[Aff_PlayersWinlostByProductSel] 
 	@Xml 			XML
 	,@Prefix 		VARCHAR(100)
 	,@Date 			SMALLDATETIME
 	,@ProductIDs 	VARCHAR(100) 	= NULL
 AS
+
 /*  
-Created: 20130111@Peter  
-Task :   
-DB: DB052/DB054.bodb02  
+	Created: 20130111@Peter  
+	Task :   
+	DB: DB052/DB054.bodb02  
   
-Revisions:  
-    - 20131028@Peter : Add more DB columns https://redmine.nexcel.vn/issues/5280
-	- 20140416@Dan: include Keno
-	- 20140502@Dan: optimize perfomance
-	- 20140502@Dan: support Playtech casino
-	- 20140610@Bobby: Add ProgressiveShare & ProgressiveWin columns
-	- 20141016@Bobby: Add bettype Tenis's Sporting Solution and IBC
-	- 20151022@Bobby: Get member data by Product list
-	- 20160119@Bobby: #51099 - Get member data by sporttype after movebetday
-	- 20161022@Jim:move table to bodb_licenseereport [RedmineID :#60449]
+	Revisions:  
+		- 20131028@Peter : Add more DB columns https://redmine.nexcel.vn/issues/5280
+		- 20140416@Dan: include Keno
+		- 20140502@Dan: optimize perfomance
+		- 20140502@Dan: support Playtech casino
+		- 20140610@Bobby: Add ProgressiveShare & ProgressiveWin columns
+		- 20141016@Bobby: Add bettype Tenis's Sporting Solution and IBC
+		- 20151022@Bobby: Get member data by Product list
+		- 20160119@Bobby: #51099 - Get member data by sporttype after movebetday
+		- 20161022@Jim:move table to bodb_licenseereport [RedmineID :#60449]
 	
   
-Param's Explanation:  
-	- @Xml: List member's username is under affiliate user
-		+ Example: '<root>
-		<trans username="train1991"></trans>
-		<trans_N username="XXX"></trans></root>
-	- @Prefix: Is the Licensee Name as default plus ($) sign
-	- @Date: Date only
- 
+	Param's Explanation:  
+		- @Xml: List member's username is under affiliate user
+			+ Example: '<root>
+			<trans username="train1991"></trans>
+			<trans_N username="XXX"></trans></root>
+		- @Prefix: Is the Licensee Name as default plus ($) sign
+		- @Date: Date only
 */
+
 BEGIN
 	SET NOCOUNT ON
 
 	SELECT @Date = dateadd(dd, datediff(dd, 0, @DATE), 0)
 
-	CREATE TABLE #LicenseeCust (
+	CREATE TABLE #LicenseeCust
+	(
 		custID 			INT
 		,currency 		INT
 		,username 		VARCHAR(100)
@@ -44,56 +48,36 @@ BEGIN
 		,mrecommend 	INT
 		,recommend 		INT
 	)
-	-- Do filtering product 
-	CREATE TABLE #ProductBettype (
-		ProductId 		TINYINT
-		, Bettype		SMALLINT
-	)
 	
-	CREATE TABLE #ProductSporttype (
-		ProductId 		TINYINT
-		, Sporttype 	SMALLINT
-	)
+	CREATE TABLE #ProductBettype   (ProductId INT, Bettype SMALLINT)
+	CREATE TABLE #ProductSporttype (ProductId INT, Sporttype SMALLINT)
 	
 	DECLARE @ProductFilter TABLE (ProductId TINYINT)
-	INSERT INTO @ProductFilter ( ProductId )
-	SELECT CAST(val AS TINYINT) AS ProductId 
-	FROM [dbo].[strSplit_Key](@ProductIDs, ',')
+
+	INSERT INTO @ProductFilter (ProductId)
+	SELECT CAST(val AS TINYINT) FROM dbo.strSplit (@ProductIDs, ',')
 	
 	-- insert product & bettype mapping
-	INSERT INTO #ProductBettype (
-		ProductId
-		, Bettype
-	)
-	SELECT DISTINCT p.ProductId
-		, bt.Bettype
+	INSERT INTO #ProductBettype (ProductId, Bettype)
+	SELECT DISTINCT bt.ProductId, bt.Bettype
 	FROM dbo.SportBettypeMatrix bt WITH(NOLOCK)
-		INNER JOIN @ProductFilter p
-		ON bt.ProductId = p.ProductId
-	WHERE bt.IsTest 	= 0
-		AND bt.Enabled 	= 1
+		INNER JOIN @ProductFilter p ON bt.ProductId = p.ProductId
+	WHERE bt.IsTest = 0 AND bt.Enabled 	= 1
 	
 	-- insert product & Sporttype mapping
-	INSERT INTO #ProductSporttype (
-		ProductId
-		, Sporttype
-	)
-	SELECT DISTINCT p.ProductId
-		, bt.Sporttype
+	INSERT INTO #ProductSporttype (ProductId, Sporttype)
+	SELECT DISTINCT bt.ProductId, CASE WHEN bt.ProductId = 1 THEN 0 ELSE bt.Sporttype END
 	FROM dbo.SportBettypeMatrix bt WITH(NOLOCK)
-		INNER JOIN @ProductFilter p
-		ON bt.ProductId = p.ProductId
-	WHERE bt.IsTest 	= 0
-		AND bt.Enabled 	= 1
+		INNER JOIN @ProductFilter p ON bt.ProductId = p.ProductId
+	WHERE bt.IsTest = 0 AND bt.Enabled 	= 1
 	
-	DECLARE @CutDate DATETIME
-		,@MaxDate DATETIME
+	DECLARE @CutDate DATETIME, @MaxDate DATETIME
 		
-	SELECT @CutDate = min(winlostdate)
-		,@MaxDate = MAX(Winlostdate)
+	SELECT @CutDate = MIN(winlostdate), @MaxDate = MAX(Winlostdate)
 	FROM bodb_licenseeReport.dbo.rptLicWinloss2 WITH (NOLOCK)
 
-	CREATE TABLE #tmpRpt (
+	CREATE TABLE #tmpRpt
+	(
 		Winlostdate SMALLDATETIME
 		,CustID INT
 		,Username NVARCHAR(50)
@@ -110,10 +94,10 @@ BEGIN
 		,ProgressiveWin MONEY DEFAULT(0)
 	)
 
-	CREATE TABLE #TempTrans(UserName VARCHAR(30))
+	CREATE TABLE #TempTrans(UserName VARCHAR(50))
 
 	INSERT INTO #TempTrans (UserName) --Convert xml to table
-	SELECT [Table].[Column].value('./@username', 'varchar(30)') AS UserName
+	SELECT [Table].[Column].value('./@username', 'varchar(50)') AS UserName
 	FROM @Xml.nodes('//root/trans') AS [Table]([Column])
 
 	INSERT INTO #LicenseeCust
@@ -125,12 +109,12 @@ BEGIN
 		,c.recommend
 	FROM bodb02.dbo.customer c WITH (NOLOCK)
 		INNER JOIN #TempTrans AS t ON @Prefix + t.username = c.username2
-		--INNER JOIN #TempTrans AS t ON t.username = c.username
 	WHERE c.roleid = 1
 	
 	IF @Date > @MaxDate
 	BEGIN
-		INSERT INTO #tmpRpt (
+		INSERT INTO #tmpRpt
+		(
 			Winlostdate
 			,CustID
 			,Username
@@ -143,7 +127,7 @@ BEGIN
 			,BetCount
 			,TurnoverNoDraw
 			,BetCountNoDraw
-			)
+		)
 		SELECT @Date
 			,b.custid
 			,c.username
@@ -201,24 +185,17 @@ BEGIN
 					WHEN b.statusID = 111 THEN 0
 					ELSE 1
 					END) AS BetCountNoDraw
-					
 		FROM bettrans b WITH (NOLOCK, INDEX (IX_recommend_transid))
-			INNER JOIN #LicenseeCust c WITH (NOLOCK) 
-			ON b.custid 			= c.custid
-			AND b.recommend 	= c.recommend
-			INNER JOIN #ProductBettype bt
-			ON b.bettype 			= bt.bettype
-			
+			INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid = c.custid AND b.recommend = c.recommend
+			INNER JOIN #ProductBettype bt ON b.bettype = bt.bettype
 		WHERE b.winlostdate = @date
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)--status not in ('VOID', 'REJECT', 'REFUND','DONE', 'waiting' )
-			
-		GROUP BY b.custid
-			,c.username
-			,bt.ProductId
+		GROUP BY b.custid, c.username, bt.ProductId
 	END
 	ELSE IF @Date >= @CutDate
 	BEGIN
-		INSERT INTO #tmpRpt (
+		INSERT INTO #tmpRpt
+		(
 			Winlostdate
 			,CustID
 			,Username
@@ -231,7 +208,7 @@ BEGIN
 			,BetCount
 			,TurnoverNoDraw
 			,BetCountNoDraw
-			)
+		)
 		SELECT b.winlostdate
 			,b.CustID
 			,c.username
@@ -261,24 +238,13 @@ BEGIN
 					ELSE BetCount
 					END) -- Betcount No Draw
 		FROM bodb_licenseeReport.dbo.rptLicWinloss2 b WITH (NOLOCK)
-			INNER JOIN #LicenseeCust c WITH (NOLOCK) 
-			ON b.custid 			= c.custid
-				AND b.recommend 	= c.recommend
-				AND b.srecommend 	= c.srecommend
-			INNER JOIN #ProductSporttype bt
-			----ON b.Sporttype			= bt.Sporttype
-			ON CASE WHEN b.Sporttype = 0 THEN 1 -- Sportbook
-					ELSE b.Sporttype 
-				END = bt.Sporttype
-			
+			INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid = c.custid AND b.recommend = c.recommend AND b.srecommend = c.srecommend
+			INNER JOIN #ProductSporttype bt ON b.Sporttype = bt.Sporttype
 		WHERE b.winlostdate = @Date
-			AND b.BetCount 	> 0
-			AND b.roleid 	= 1
+			AND b.BetCount > 0
+			AND b.roleid = 1
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
-		GROUP BY b.winlostdate
-			,b.CustID
-			,c.username
-			,bt.ProductId
+		GROUP BY b.winlostdate, b.CustID, c.username, bt.ProductId
 	END
 	ELSE IF @Date < @CutDate
 	BEGIN
@@ -325,29 +291,17 @@ BEGIN
 					ELSE BetCount
 					END) -- Betcount No Draw
 		FROM bodb_licenseeReport.dbo.rptLicWinloss_old b WITH (NOLOCK)
-			INNER JOIN #LicenseeCust c WITH (NOLOCK) 
-				ON b.custid 		= c.custid
-				AND b.recommend 	= c.recommend
-				AND b.srecommend 	= c.srecommend
-			INNER JOIN #ProductSporttype bt
-			--ON b.Sporttype			= bt.Sporttype
-			ON CASE WHEN b.Sporttype = 0 THEN 1 -- Sportbook
-					ELSE b.Sporttype 
-				END = bt.Sporttype
-			
+			INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid = c.custid AND b.recommend = c.recommend AND b.srecommend = c.srecommend
+			INNER JOIN #ProductSporttype bt ON b.Sporttype = bt.Sporttype
 		WHERE b.winlostdate = @Date
-			AND b.BetCount 	> 0
-			AND b.roleid 	= 1
+			AND b.BetCount > 0
+			AND b.roleid = 1
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
-			
-		GROUP BY b.winlostdate
-			,b.CustID
-			,c.username
-			,bt.ProductId
+		GROUP BY b.winlostdate, b.CustID, c.username, bt.ProductId
 	END
 	
 	--AG-Casino
-	IF (EXISTS (SELECT 1 FROM #ProductBettype WHERE ProductId = 11) )
+	IF (EXISTS (SELECT 1 FROM @ProductFilter WHERE ProductId = 11) )
 	BEGIN
 		DECLARE @AGCS_BackupDay 	DATE
 		
@@ -386,18 +340,11 @@ BEGIN
 				,COUNT(1) AS BetCount
 				,SUM(CASE WHEN StatusID <> 111 THEN Stake ELSE 0 END) AS TurnoverNoDraw
 				,SUM(CASE WHEN StatusID <> 111 THEN 1 ELSE 0 END) AS BetCountNoDraw
-	
 			FROM DBPTCS.bodb_PlaytechCS.dbo.bettrans_AGCasino b WITH(NOLOCK)
-				
-				INNER JOIN #LicenseeCust c WITH (NOLOCK) 
-				ON b.custid 		= c.custid
-				AND b.recommend 	= c.recommend
-				
+				INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid = c.custid AND b.recommend = c.recommend
 			WHERE Winlostdate = @Date
 				AND StatusId IN (111, 112, 113)
-			GROUP BY c.CustID
-					,c.Username
-			
+			GROUP BY c.CustID, c.Username
 		END
 		ELSE
 		BEGIN
@@ -431,23 +378,16 @@ BEGIN
 				,COUNT(1) AS BetCount
 				,SUM(CASE WHEN StatusID <> 111 THEN Stake ELSE 0 END) AS TurnoverNoDraw
 				,SUM(CASE WHEN StatusID <> 111 THEN 1 ELSE 0 END) AS BetCountNoDraw
-
 			FROM DBARC.bodb_archive.dbo.bettrans_AGCasino_bk b WITH(NOLOCK)
-				
-				INNER JOIN #LicenseeCust c WITH (NOLOCK) 
-				ON b.custid 		= c.custid
-				AND b.recommend 	= c.recommend
-				
+				INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid = c.custid AND b.recommend = c.recommend
 			WHERE Winlostdate = @Date
 				AND StatusId IN (111, 112, 113)
-
-			GROUP BY c.CustID
-					,c.Username
+			GROUP BY c.CustID, c.Username
 		END
 	END
 	
-	--Gold-Delux
-	IF (EXISTS (SELECT 1 FROM #ProductBettype WHERE ProductId = 12)) 
+	--Gold-Deluxe
+	IF (EXISTS (SELECT 1 FROM @ProductFilter WHERE ProductId = 12)) 
 	BEGIN
 		INSERT INTO #tmpRpt (
 			Winlostdate
@@ -479,22 +419,15 @@ BEGIN
 			,COUNT(1) AS BetCount
 			,SUM(CASE WHEN StatusID <> 111 THEN Stake ELSE 0 END) AS TurnoverNoDraw
 			,SUM(CASE WHEN StatusID <> 111 THEN 1 ELSE 0 END) AS BetCountNoDraw
-
 		FROM DBPTCS.bodb_PlaytechCS.dbo.bettrans_GoldDeluxe b WITH(NOLOCK)
-			
-			INNER JOIN #LicenseeCust c WITH (NOLOCK) 
-			ON b.custid 		= c.custid
-			AND b.recommend 	= c.recommend
-			
+			INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid = c.custid AND b.recommend = c.recommend
 		WHERE Winlostdate = @Date
 			AND StatusId IN (111, 112, 113)
-
-		GROUP BY c.CustID
-				,c.Username
+		GROUP BY c.CustID, c.Username
 	END
 	
-	--Macau - Voidbridge
-	IF (EXISTS (SELECT 1 FROM #ProductBettype WHERE ProductId = 14)) 
+	-- Macau - Voidbridge
+	IF (EXISTS (SELECT 1 FROM @ProductFilter WHERE ProductId = 14)) 
 	BEGIN
 		INSERT INTO #tmpRpt (
 			Winlostdate
@@ -523,18 +456,11 @@ BEGIN
 			,COUNT(1) AS BetCount
 			,SUM(CASE WHEN Status <> 'Draw' THEN ABS(ISNULL([StakeAmount], 0)) ELSE 0 END) AS TurnoverNoDraw
 			,SUM(CASE WHEN Status <> 'Draw' THEN 1 ELSE 0 END) AS BetCountNoDraw
-
 		FROM DBLIC.bodb_3rdProduct.dbo.BetTrans_VoidBridge b WITH(NOLOCK)
-			
-			INNER JOIN #LicenseeCust c WITH (NOLOCK) 
-			ON b.custid 		= c.custid
-			AND b.recommend 	= c.recommend
-			
+			INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid = c.custid AND b.recommend = c.recommend
 		WHERE Winlostdate = @Date
 			AND [Status] IN ('Win','Lose')
-			
-		GROUP BY c.CustID
-			,c.Username
+		GROUP BY c.CustID, c.Username
 	END
 	
 	--Final rersult OUTPUT
@@ -547,18 +473,10 @@ BEGIN
 	DROP TABLE #tmpRpt
 	DROP TABLE #LicenseeCust
 END
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
 GO 
- GRANT EXECUTE ON [dbo].[Aff_PlayersWinlostByProductSel] TO [vnteam]
+GRANT EXECUTE ON [dbo].[Aff_PlayersWinlostByProductSel] TO [vnteam]
 GO 
- GRANT VIEW DEFINITION ON [dbo].[Aff_PlayersWinlostByProductSel] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[Aff_PlayersWinlostByProductSel] TO [vnteam]
 GO 
- GRANT EXECUTE ON [dbo].[Aff_PlayersWinlostByProductSel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[Aff_PlayersWinlostByProductSel] TO [bodbAdminNet]
 GO 

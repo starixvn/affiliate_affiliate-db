@@ -1,17 +1,20 @@
-﻿ALTER PROCEDURE [dbo].[Aff_PerformanceReportByAff] 
+﻿USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_PerformanceReportByAff] 
 	@AffId INT
 	,@SportId INT = 1
 AS
 /*  
 	Created: @VinhTrinh  
-	Task : Get performance report for affiliate in range of time.  
-	DB: DB052.Affiliate_12BET  
+	Task: Get performance report for affiliate in range of time.  
+	DB: DBAFF12BET.Affiliate_12BET  
 	Original: [Aff_PerformanceReportByAff]  
 	Revisions:  
 		- 20110811@Johnny: Get last 6 months of affiliate performance report  
-		- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])  
-		- 20120606@Peter : Exclude waiting tickets  
-		- 20150108@Bobby.Nguyen : Update Withdrawal for casino product
+		- 20111031@Peter: Exclude Number Game from Sportsbook commission (bettype from [81-120])  
+		- 20120606@Peter: Exclude waiting tickets  
+		- 20150108@Bobby: Update Withdrawal for casino product
 */
 BEGIN
 	SET NOCOUNT ON
@@ -58,7 +61,7 @@ BEGIN
 			,MemberTurnover
 			,MemberWinlost
 			,AffWinlost AS Commission
-		FROM AffCommission NOLOCK
+		FROM AffCommission WITH(NOLOCK)
 		WHERE WinlostDate BETWEEN @Fromdate AND @LastMonthlydate
 			AND AffID = @AffId
 			AND SportId = @SportId
@@ -119,7 +122,7 @@ BEGIN
 			,0 AS Turnover
 			,0 AS WinLost
 			,0 AS Commission
-		FROM Memberdaily NOLOCK
+		FROM Memberdaily WITH(NOLOCK)
 		WHERE AffId = @AffId
 			AND winlostdate BETWEEN @FromDate AND @CurrentDate
 			AND (

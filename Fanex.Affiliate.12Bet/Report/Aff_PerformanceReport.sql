@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[Aff_PerformanceReport] 
+﻿USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_PerformanceReport] 
 	@UserName			VARCHAR(50) = NULL
 	,@Language			VARCHAR(11) = NULL
 	,@FromDate			DATETIME
@@ -10,37 +13,40 @@
 	,@PageIndex			INT			= 1
 	,@NRows				INT			= 0 OUTPUT
 AS
+
 /*
-Created: @VinhTrinh
-Task : Show performance report for admin.
-DB: DB052.Affiliate_12BET
-Original: [Aff_AffiliateReport]
-Revisions:
-	- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
-	- 20120606@Peter : Exclude waiting tickets
-	- 20141118@Bobby: 
-		+ Add sorting [@IsDesc] value
-		+ Remove @TotalPages
-	- 20141218@Bobby: Enhance performance & update SS's bettype
-	- 20150105@Bobby.Nguyen: Update checking uncalculated month
+	Created: @VinhTrinh
+	Task: Show performance report for admin.
+	DB: DBAFF12BET.Affiliate_12BET
+	Original: [Aff_AffiliateReport]
 
-Param's Explanation:
-	• @UserName Search by username
-	• @Language Search by language
-	• @FromDate From date
-	• @ToDate	To date
-	• @SortBy	0 Affilate
-		+ 1 - QualifiedMembers
-		+ 2 - Deposit
-		+ 3 - Turnover
-		+ 4 - Winlost
-		+ 5 - Commission
+	Revisions:
+		- 20111031@Peter: Exclude Number Game from Sportsbook commission (bettype from [81-120])
+		- 20120606@Peter: Exclude waiting tickets
+		- 20141118@Bobby: 
+			+ Add sorting [@IsDesc] value
+			+ Remove @TotalPages
+		- 20141218@Bobby: Enhance performance & update SS's bettype
+		- 20150105@Bobby: Update checking uncalculated month
 
-	If @SortBy=Commission and
-	@SportID=0 : View all
-	    1: View by Sportsbook
-		3: View by Casino
+	Param's Explanation:
+		• @UserName Search by username
+		• @Language Search by language
+		• @FromDate From date
+		• @ToDate	To date
+		• @SortBy	0 Affilate
+			+ 1 - QualifiedMembers
+			+ 2 - Deposit
+			+ 3 - Turnover
+			+ 4 - Winlost
+			+ 5 - Commission
+
+		If @SortBy=Commission and
+		@SportID=0 : View all
+			1: View by Sportsbook
+			3: View by Casino
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -152,14 +158,10 @@ BEGIN
 			ELSE 0
 		END AS Total
 	FROM dbo.AffCommission ac WITH (NOLOCK)
-		INNER JOIN #AffList a WITH (NOLOCK) 
-		ON ac.AffId = a.AffId
-
+		INNER JOIN #AffList a ON ac.AffId = a.AffId
 	WHERE ac.WinlostDate BETWEEN @FromDate AND (CASE WHEN @ToDate > @LastMonthlydate THEN @LastMonthlydate ELSE @ToDate END)
 		AND (@SportId IS NULL OR ac.SportId = @SportId)
-
 	GROUP BY ac.AffId
-	
 	HAVING SUM(ac.QualifiedMember) > 0
 		OR SUM(ac.MemberDeposit) > 0
 		OR SUM(ac.MemberTurnover) > 0
@@ -183,7 +185,6 @@ BEGIN
 			,NetWinlost
 		)
 		EXEC [dbo].[Aff_AffiliateCommByMonthAll]  @Month, @Year, @SportId
-			
 		
 		INSERT INTO #AffReport (AffId, ToTal)
 		SELECT ac.AffId
@@ -270,11 +271,8 @@ BEGIN
 					
 			) AS RowIDX
 		FROM #AffList a
-			INNER JOIN #AffReport rpt
-			ON a.AffId = rpt.AffId
-			
+			INNER JOIN #AffReport rpt ON a.AffId = rpt.AffId
 		WHERE 1 = (CASE WHEN @SortBy <> 0 AND rpt.Total <> 0 THEN 1 ELSE 1 END)
-		
 		GROUP BY a.AffId
 	) t
 	WHERE t.RowIDX BETWEEN (((@PageIndex - 1) * @PageSize) + 1) AND (@PageSize * @PageIndex)
@@ -296,14 +294,10 @@ BEGIN
 			,SUM(ac.MemberWinlost) as Winlost
 			,SUM(ac.AffWinlost) as AffComm
 		FROM dbo.AffCommission ac (NOLOCK)
-			INNER JOIN @AffPaging p
-			ON ac.AffID = p.AffId
-
+			INNER JOIN @AffPaging p ON ac.AffID = p.AffId
 		WHERE ac.WinlostDate BETWEEN @FromDate AND (CASE WHEN @ToDate > @LastMonthlydate THEN @LastMonthlydate ELSE @ToDate END)
 			AND (@SportId IS NULL OR ac.SportId = @SportId)
-
 		GROUP BY ac.AffID
-		
 		HAVING SUM(ac.QualifiedMember) > 0
 			OR SUM(ac.MemberDeposit) > 0
 			OR SUM(ac.MemberTurnover) > 0
@@ -319,8 +313,7 @@ BEGIN
 			, SUM(ac.Winlost) AS Winlost
 			, SUM(ac.Commission) AS AffComm
 		FROM @AffPaging a
-			INNER JOIN #AffCommTmp ac 
-			ON a.AffId = ac.AffId
+			INNER JOIN #AffCommTmp ac ON a.AffId = ac.AffId
 		WHERE (@SportId IS NULL OR ac.SportId = @SportId)
 		GROUP BY a.AffId
 	) t
@@ -332,10 +325,8 @@ BEGIN
 		SELECT af.AffId
 			,SUM(isnull(af.Amount, 0)) AS Withdrawal
 		FROM dbo.AffTrans af WITH(NOLOCK)
-			INNER JOIN @AffPaging r
-			ON af.AffId = r.AffId
-		WHERE af.CompletedDate BETWEEN @FromDate
-				AND @ToDate
+			INNER JOIN @AffPaging r ON af.AffId = r.AffId
+		WHERE af.CompletedDate BETWEEN @FromDate AND @ToDate
 			AND af.transtype = 202
 			AND af.STATUS = 'Approved' --For withdrawal 		
 		GROUP BY af.AffId
@@ -345,25 +336,19 @@ BEGIN
 	AS (
 		SELECT md.AffId
 			,COUNT(DISTINCT IBCCustID) AS ActivePlayer
-				
 		FROM dbo.MemberDaily md WITH(NOLOCK)
-			INNER JOIN @AffPaging rpt
-			ON md.AffId = rpt.AffId
-
-		WHERE md.WinlostDate BETWEEN @FromDate
-				AND @ToDate
+			INNER JOIN @AffPaging rpt ON md.AffId = rpt.AffId
+		WHERE md.WinlostDate BETWEEN @FromDate AND @ToDate
 			AND (
 				ISNULL(md.TurnOver, 0) > 0
 				OR ISNULL(md.Deposit, 0) > 0
 				)
 			AND md.SportType = @SportId
-
 		GROUP BY md.AffId
 	)
 	-- fetch final result
 	SELECT p.AffId
 		,ai.UserName
-		
 		,SUM(ISNULL(c.TotalQM, 0))			AS QualifiedMembers
 		,SUM(ISNULL(c.Deposit, 0))			AS Deposit
 		,SUM(ISNULL(c.Tunover, 0))			AS Turnover
@@ -371,52 +356,22 @@ BEGIN
 		,SUM(ISNULL(c.AffComm, 0))			AS Commission
 		,SUM(ISNULL(aw.Withdrawal, 0))		AS Withdrawal
 		,SUM(ISNULL(am.ActivePlayer, 0))	AS ActivePlayer
-		
 		,p.RowIDX
 	FROM @AffPaging p
-		
-		INNER JOIN dbo.AffInfo ai WITH (NOLOCK)
-		ON p.AffId = ai.AffID
-
-		LEFT JOIN #AffComm c
-		ON p.AffId = c.AffId
-
-		LEFT JOIN AffWithdraw aw
-		ON p.AffId = aw.AffId
-
-		LEFT JOIN ActiveMember am
-		ON p.AffId = am.AffId
-
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON p.AffId = ai.AffID
+		LEFT JOIN #AffComm c ON p.AffId = c.AffId
+		LEFT JOIN AffWithdraw aw ON p.AffId = aw.AffId
+		LEFT JOIN ActiveMember am ON p.AffId = am.AffId
 	GROUP BY p.AffId
 		,ai.UserName
 		,p.RowIDX
-
 	ORDER  BY p.RowIDX
 
 	DROP TABLE #AffList
 	DROP TABLE #AffReport
 	DROP TABLE #AffComm
 	DROP TABLE #AffCommTmp
-	
-	RETURN
-
 END
 GO 
-
 GRANT EXECUTE ON [dbo].[Aff_PerformanceReport] TO [bodbAdminNet]
 GO 
-
-
-/*
-declare @NRows int
-exec [dbo].[Aff_PerformanceReport_xtest] 
-	@FromDate			= '2014/11/01'
-	,@ToDate			= '2014/12/01'
-	,@sortby = 0
-	,@PageSize			= 20
-	,@PageIndex			= 25
-	,@NRows = @NRows output
-select @NRows
-*/
-	
-	

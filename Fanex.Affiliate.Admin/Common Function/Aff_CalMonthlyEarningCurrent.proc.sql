@@ -1,20 +1,25 @@
-﻿ALTER PROCEDURE [dbo].[Aff_CalMonthlyEarningCurrent] (
+﻿USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_CalMonthlyEarningCurrent]
 	@AffID INT
 	,@ProductID INT = 0
 	,@Amount MONEY OUTPUT
-	)
 AS
+
 /*
 	Task : Calculate monthy earning for affiliate current month
-	DB: DB052.Affiliate_MYM
-	Author : Peter@20090909
-	-20100709@Peter:
+	DB: DBAFF.Affiliate_Athena000
+	Author: Peter@20090909
+
+	Revisions:
+		- 20100709@Peter:
 	                http://ccs.sunplus.vn/viewtopic.php?f=4&t=2890&st=0&sk=t&sd=a&start=10
 	                Change the way to calculation:
 
                     if CNW <0 then we must also use the condition of Qualifying Members ( old way does not have)
                      and the minimum commission in this case is 10%  if the qualifying members <5.
-     -20100927@Peter:
+		- 20100927@Peter:
                  http://ccs.sunplus.vn/viewtopic.php?f=4&t=3845&p=19236#p19236  
                  Change the way to calculation:
                    PSP=deposit * depositpercent + withdrawal * withdrawalpercent
@@ -29,11 +34,12 @@ AS
                    CNW= MemberWinlost - Odds Management Fee - Marketing Fee - PSP Fee
                    From CNW => AComm
                    Affiliate Earning=(CNW - Bonus - Adjustement)* AComm                 
-	- 20101228@Henry: change bettype to new range
-	- 20140418@Bobby: Check NoCommission group
-	- 20140702@Bobby.Nguyen: Force to update Commission  when Company Net Win is negative
-	- 20140909@Bobby.Nguyen: Re-structure SP
+		- 20101228@Henry: change bettype to new range
+		- 20140418@Bobby: Check NoCommission group
+		- 20140702@Bobby.Nguyen: Force to update Commission  when Company Net Win is negative
+		- 20140909@Bobby.Nguyen: Re-structure SP
 */
+
 BEGIN
 	SET NOCOUNT ON
 	
@@ -51,14 +57,10 @@ BEGIN
 		,@ProductID 	= @ProductID
 		,@Amount  		= @CommAmount OUTPUT
 	
-	SET @Amount = ISNULL(@CommAmount, 0);
-	RETURN;
+	SET @Amount = ISNULL(@CommAmount, 0)
 END
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_CalMonthlyEarningCurrent] TO [bodbAdminNet]
 GO
-
 GRANT VIEW DEFINITION ON [dbo].[Aff_CalMonthlyEarningCurrent] TO [vnteam]
 GO
-

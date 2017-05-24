@@ -1,24 +1,28 @@
 ﻿USE [Affiliate_12BET]
 GO
-/****** Object:  UserDefinedFunction [dbo].[Aff_GetAffBalance]    Script Date: 09/09/2009 16:01:19 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
 
-ALTER function [dbo].[Aff_GetAffBalance] (
-@AffID int)
-RETURNS money
+ALTER FUNCTION [dbo].[Aff_GetAffBalance]
+(
+	@AffID INT
+)
+RETURNS MONEY
 AS
+
 /*
+	Created: 20090730@Peter
 	Task : Get Balance Brought Forward for Affiliate
-	Author : Peter@20090909
-	
+	DB: DBAFF12BET.Affiliate_12BET
+
+	Revisions:
 */
-BEGIN	
-   Declare @BalBroughtForward money
-	select @BalBroughtForward=sum(Amount)
-	from AffTrans (nolock)
-	where AffID=@AffId and status in ('approved','pending','completed')  
-	return isnull(@BalBroughtForward,0)
+
+BEGIN
+	DECLARE @BalBroughtForward MONEY
+
+	SELECT  @BalBroughtForward = SUM(Amount)
+	FROM dbo.AffTrans WITH(NOLOCK)
+	WHERE AffID = @AffId
+		AND status IN ('approved','pending','completed')
+
+	RETURN ISNULL(@BalBroughtForward, 0)
 END

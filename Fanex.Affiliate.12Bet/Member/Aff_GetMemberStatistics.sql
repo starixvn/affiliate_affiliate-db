@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[Aff_GetMemberStatistics] 
+﻿USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_GetMemberStatistics] 
 	@AffType TINYINT = 0
 	,@DepositAll MONEY = 0 OUTPUT
 	,@DepositMonth MONEY = 0 OUTPUT
@@ -13,21 +16,23 @@
 	,@NetWinlostAll MONEY = 0 OUTPUT
 	,@NetWinlostMonth MONEY = 0 OUTPUT
 AS
-/*
-Created: @
-Task : Get member statistic
-DB: DB052.Affiliate_12BET
-Original: 
-Revisions:
-	- 20101228@Henry: change bettype to new range
-	- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
-	- 20140228@Bobby : Apply AffType
-	- 20140403@Bobby:  exclude Keno product & other sports
-	- 20141218@Bobby: Update SS's bettype
 
-Param's Explanation:
+/*
+	Created:
+	Task : Get member statistic
+	DB: DBAFF12BET.Affiliate_12BET
+
+	Revisions:
+		- 20101228@Henry: change bettype to new range
+		- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
+		- 20140228@Bobby : Apply AffType
+		- 20140403@Bobby:  exclude Keno product & other sports
+		- 20141218@Bobby: Update SS's bettype
+
+	Param's Explanation:
 
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -67,11 +72,8 @@ BEGIN
 		,sum(isnull(MemberAdjustment, 0)) AS Adjustment
 		,@MaxWinLostDateAffComm AS winlostdate
 	FROM AffCommission ac WITH (NOLOCK)
-		INNER JOIN AffInfo ai WITH (NOLOCK)
-		ON ac.AffId = ai.AffId
-	--and ai.AffType = @AffType
-		INNER JOIN dbo.AffType at WITH (NOLOCK)
-		ON ai.AffType = at.TypeId
+		INNER JOIN AffInfo ai WITH (NOLOCK) ON ac.AffId = ai.AffId
+		INNER JOIN dbo.AffType at WITH (NOLOCK) ON ai.AffType = at.TypeId
 	WHERE ai.AffID > 0
 		AND SportID > 0
 		AND winlostdate < @MaxWinLostDateAffComm
@@ -84,11 +86,8 @@ BEGIN
 		,sum(isnull(MemAdjustment, 0) * ExRate2) AS Adjustment
 		,dateadd(mm, DATEDIFF(m, 0, md.Winlostdate), 0) AS winlostdate
 	FROM AffDaily md WITH (NOLOCK)
-		INNER JOIN AffInfo ai WITH (NOLOCK)
-		ON md.AffId = ai.AffId
-	--and ai.AffType = @AffType
-		INNER JOIN dbo.AffType at WITH (NOLOCK)
-		ON ai.AffType = at.TypeId
+		INNER JOIN AffInfo ai WITH (NOLOCK) ON md.AffId = ai.AffId
+		INNER JOIN dbo.AffType at WITH (NOLOCK) ON ai.AffType = at.TypeId
 	WHERE Winlostdate BETWEEN @NextMaxWinlostDate AND @PreviousDate
 	GROUP BY dateadd(mm, DATEDIFF(m, 0, md.winlostdate), 0)
 	
@@ -119,22 +118,17 @@ BEGIN
 		,@CurrentDate AS winlostdate
 	FROM bodb02.dbo.bettrans b WITH (NOLOCK)
 		INNER JOIN (
-		SELECT m.IBCCustID
-			,m.Currency
-			,ActualRate2
-			,e.DepositPercent
-			,e.WithdrawalPercent
-		FROM MemberInfo m WITH (NOLOCK)
-			INNER JOIN Exchange_Current e WITH (NOLOCK)
-			ON e.ExchangeID = m.Currency
-			INNER JOIN AffInfo ai WITH (NOLOCK)
-			ON m.AffId = ai.AffId
-		--and ai.AffType = @AffType
-			INNER JOIN dbo.AffType at WITH (NOLOCK)
-			ON ai.AffType = at.TypeId
-		WHERE m.IsRemoved = 0
-		) m
-		ON b.CustId = m.IBCCustID
+			SELECT m.IBCCustID
+				,m.Currency
+				,ActualRate2
+				,e.DepositPercent
+				,e.WithdrawalPercent
+			FROM MemberInfo m WITH (NOLOCK)
+				INNER JOIN Exchange_Current e WITH (NOLOCK) ON e.ExchangeID = m.Currency
+				INNER JOIN AffInfo ai WITH (NOLOCK) ON m.AffId = ai.AffId
+				INNER JOIN dbo.AffType at WITH (NOLOCK) ON ai.AffType = at.TypeId
+			WHERE m.IsRemoved = 0
+		) m ON b.CustId = m.IBCCustID
 	WHERE b.winlostdate = @CurrentDate
 		AND ruben = 1
 		AND (
@@ -184,8 +178,7 @@ BEGIN
 		,@NetWinlostMonth = isnull(@WinlostMonth, 0) + isnull(@BonusMonth, 0) + isnull(@AdjustmentMonth, 0)
 END
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_GetMemberStatistics] TO [bodbAdminNet]
 GO
-
 GRANT VIEW DEFINITION ON [dbo].[Aff_GetMemberStatistics] TO [vnteam]
+GO

@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_CompanyWinLossByProductReport] 
+﻿USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_CompanyWinLossByProductReport] 
 	@LicenseeID			INT
 	,@UserId 			INT 			= 0
 	,@AffName 			NVARCHAR(100) 	= NULL
@@ -20,12 +23,13 @@
 	,@Duration 			INT 			= 0 	OUTPUT
 	,@Error 			INT 			= 0 	OUTPUT
 	,@Error_Msg 		NVARCHAR(100) 	= '' 	OUTPUT
-	
 AS
+
 /*    
-	Task : Company winloss report      
-	DB:    
-	Original:[[AffAdmin_CompanyWinlossReport]]      
+	Task: Company winloss report      
+	DB: DBAFF.Affiliate_Athena000
+	Original: [AffAdmin_CompanyWinlossReport]
+
 	Revisions:
 		- 20140326@Bobby: Apply paging
 		- 20140513@Bobby: Add Playtech Casio product
@@ -34,25 +38,26 @@ AS
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
                 
 	Param's Explanation: 
-	• @UserId: Admin user id
-	• @AffName: Affiliate username
-	• @AffTypes: List affilaite type
-	• @CommGroups: List Commission group
-	• @PreferLanguages: list preference language
-	• @@PlayerCurrencies: List Player currencies
-	• @GroupBy: by date or month (0: by date; 1: by month)
-	• @FromDate: From date
-	• @ToDate: To date
-	• @DrawFilter: Bet Count & Turnover filter 
-		- 0: "Normal" Betcount and turnover are included
-		- 1: "No Draw" The Betcount will be exluded Draw tickets. The turnover will exclude draw & half draw tickets.
-		- 2: "No Draw For Turnover Only" The turnover will exclude only draw tickets.
-	• @BaseCurrency: The current exchange rate will be used if we wanna convert the affiliate's currency to system currency
-		- 0: Original
-		- 1: Convert to System Currency.
-		- 2: Convert to Affiliate Currency.
-	• @ExcludeTest: not include test accounts if true.
+		• @UserId: Admin user id
+		• @AffName: Affiliate username
+		• @AffTypes: List affilaite type
+		• @CommGroups: List Commission group
+		• @PreferLanguages: list preference language
+		• @@PlayerCurrencies: List Player currencies
+		• @GroupBy: by date or month (0: by date; 1: by month)
+		• @FromDate: From date
+		• @ToDate: To date
+		• @DrawFilter: Bet Count & Turnover filter 
+			- 0: "Normal" Betcount and turnover are included
+			- 1: "No Draw" The Betcount will be exluded Draw tickets. The turnover will exclude draw & half draw tickets.
+			- 2: "No Draw For Turnover Only" The turnover will exclude only draw tickets.
+		• @BaseCurrency: The current exchange rate will be used if we wanna convert the affiliate's currency to system currency
+			- 0: Original
+			- 1: Convert to System Currency.
+			- 2: Convert to Affiliate Currency.
+		• @ExcludeTest: not include test accounts if true.
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -71,7 +76,8 @@ BEGIN
 		,MonthDate 			DATETIME
 		,GroupId 			INT
 		,GroupName 			NVARCHAR(100)
-	);
+	)
+
 	DECLARE @ProductFilter TABLE ( ProductId INT, ProductName VARCHAR(100) )
 	DECLARE @MemCurrencies TABLE ( ExchangeId SMALLINT, Currency VARCHAR(10) )
 
@@ -95,16 +101,14 @@ BEGIN
 	IF (LEN(@ProductIds) > 0)
 	BEGIN
 		INSERT INTO @ProductFilter (ProductId, ProductName)
-		SELECT t.Val, p.ProductName
-		FROM [dbo].[strSplit_key](@ProductIds, ',') t
-			INNER JOIN dbo.Product p WITH (NOLOCK)
-			ON t.Val = p.ProductId
+		SELECT CONVERT(INT, t.Val), p.ProductName
+		FROM [dbo].[strSplit](@ProductIds, ',') t
+			INNER JOIN dbo.Product p WITH (NOLOCK) ON CONVERT(INT, t.Val) = p.ProductId
 	END
 	ELSE
 	BEGIN
 		INSERT INTO @ProductFilter (ProductId, ProductName)
-		SELECT p.ProductId
-			,p.ProductName 
+		SELECT p.ProductId, p.ProductName 
 		FROM dbo.Product p WITH (NOLOCK)
 	END
 	
@@ -113,8 +117,7 @@ BEGIN
 	SELECT ex.ExchangeId
 		,ex.Code
 	FROM [dbo].[strSplit](@PlayerCurrencies, ',') tmp
-		INNER JOIN dbo.Exchange ex WITH (NOLOCK)
-		ON tmp.Val = ex.ExchangeId
+		INNER JOIN dbo.Exchange ex WITH (NOLOCK) ON tmp.Val = ex.ExchangeId
 	
 	-- affiliate user filterring
 	INSERT INTO @AffUserRpt
@@ -162,13 +165,9 @@ BEGIN
 			,ad.PShare
 			,ad.PWin
 		FROM [dbo].[AffDaily] ad WITH (NOLOCK)
-			INNER JOIN @AffUserRpt ai
-			ON ad.AffID = ai.AffID
-				AND DATEDIFF(M, ad.Winlostdate, ai.MonthDate) = 0
-			INNER JOIN @ProductFilter p
-			ON ad.ProductID = p.ProductID
-			INNER JOIN @MemCurrencies mc
-			ON ad.MemCurrency = mc.ExchangeId
+			INNER JOIN @AffUserRpt ai ON ad.AffID = ai.AffID AND DATEDIFF(M, ad.Winlostdate, ai.MonthDate) = 0
+			INNER JOIN @ProductFilter p ON ad.ProductID = p.ProductID
+			INNER JOIN @MemCurrencies mc ON ad.MemCurrency = mc.ExchangeId
 		WHERE ad.Winlostdate BETWEEN @FromDate AND @ToDate
 	)
 	,rptDatePaging AS (
@@ -294,13 +293,9 @@ BEGIN
 			,md.ProductId
 			,COUNT(DISTINCT md.Username) 	AS ActivePlayer
 		FROM dbo.MemberDaily md WITH (NOLOCK)
-			INNER JOIN @AffUserRpt AS t
-			ON md.AffId = t.AffId
-				AND DATEDIFF(m, md.WinlostDate, t.MonthDate) = 0
-			INNER JOIN @ProductFilter p
-			ON md.ProductId = p.ProductId
-			INNER JOIN @MemCurrencies mc
-			ON md.Currency = mc.ExchangeId
+			INNER JOIN @AffUserRpt AS t ON md.AffId = t.AffId AND DATEDIFF(m, md.WinlostDate, t.MonthDate) = 0
+			INNER JOIN @ProductFilter p ON md.ProductId = p.ProductId
+			INNER JOIN @MemCurrencies mc ON md.Currency = mc.ExchangeId
 		WHERE md.Winlostdate BETWEEN @FromDate AND @ToDate 
 			AND md.Turnover > 0
 		GROUP BY md.Currency
@@ -405,10 +400,9 @@ BEGIN
 	
 	SELECT @endRun = GETDATE()
 		,@Duration = DATEDIFF(millisecond, @startRun, @endRun)
-		
-	RETURN;
 END
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_CompanyWinLossByProductReport] TO [bodbAdminNet] AS [dbo]
 GO
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CompanyWinLossByProductReport] TO [vnteam] AS [dbo]
+GO

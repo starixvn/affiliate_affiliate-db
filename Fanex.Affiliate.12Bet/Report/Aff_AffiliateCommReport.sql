@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[Aff_AffiliateCommReport] 
+﻿USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_AffiliateCommReport] 
 	@MonthDate 				DATETIME 		= NULL
 	,@SportId 				TINYINT 		= NULL
 	,@UserName 				NVARCHAR(50)	= NULL
@@ -10,29 +13,32 @@
 	,@IsDesc				BIT				= 1
 	,@NRows 				INT 			= 0 OUTPUT
 AS
+
 /*
-Created: @Peter
-Task : Get report of Active members 
-DB: DB052.Affiliate_12BET
-Original: [Aff_AffiliateCommReport]
-Revisions:
-	-20120508@Johnny: Add dropdown box for sport type
-	- 20141118@Bobby: 
-		+ Add sorting [@SortBy] value
-		+ Remove @TotalPages
-	- 20141218@Bobby: Enhance performance & update SS's bettype
+	Created: @Peter
+	Task: Get report of Active members 
+	DB: DBAFF12BET.Affiliate_12BET
+	Original: [Aff_AffiliateCommReport]
+
+	Revisions:
+		-20120508@Johnny: Add dropdown box for sport type
+		- 20141118@Bobby: 
+			+ Add sorting [@SortBy] value
+			+ Remove @TotalPages
+		- 20141218@Bobby: Enhance performance & update SS's bettype
 		
-Param's Explanation:
-	• @Fromdate Time search From
-	• @Todate Time search To,
-	• @IsGetAll if getall = 1 => get data in all date,
-	• @UserName Affiliate username need to search(must match username),
-	• @PageSize Page Size,
-	• @PageIndex Current page,
-	• @TotalPages num pages return,
-	• @NRows num rows return
-	• @SortBy: Default(0) - AffId ASC, 1 -  Earning desc
+	Param's Explanation:
+		• @Fromdate Time search From
+		• @Todate Time search To,
+		• @IsGetAll if getall = 1 => get data in all date,
+		• @UserName Affiliate username need to search(must match username),
+		• @PageSize Page Size,
+		• @PageIndex Current page,
+		• @TotalPages num pages return,
+		• @NRows num rows return
+		• @SortBy: Default(0) - AffId ASC, 1 -  Earning desc
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -69,7 +75,7 @@ BEGIN
 		, RowIDX	INT
 	)
 	
-	SELECT @UserName = '%' + Coalesce(@UserName, '') + '%'
+	SELECT @UserName = '%' + COALESCE(@UserName, '') + '%'
 
 	SELECT @MonthDate 	= convert(VARCHAR(10), DATEADD(s, - 1, DATEADD(mm, DATEDIFF(m, 0, @MonthDate) + 1, 0)), 120)
 		,@ToDate 		= dateadd(d, - 1, dateadd(m, datediff(m, 0, @MonthDate) + 1, 0)) --Assign todate to last date of month of todate
@@ -79,35 +85,23 @@ BEGIN
 	SELECT @SportbookId = dbo.Aff_GetSportID('SportsBook')
 		,@CasinoId 		= dbo.Aff_GetSportID('Casino')
 
-
 	--count nrows
 	INSERT INTO #AffList( AffId, UserName, IsClosed, Currency )
 	SELECT ai.AffId
 		,ai.UserName
 		,ai.IsClosed
 		,ai.Currency
-		
 	FROM dbo.AffInfo ai WITH (NOLOCK)
-		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) 
-		ON ai.AffId = ad.AffId
-		
+		INNER JOIN dbo.AffDetail ad WITH (NOLOCK)  ON ai.AffId = ad.AffId
 	WHERE ai.STATUS = 'Approved'
 		AND ai.Username LIKE @UserName
 		AND (@PreferredLanguage IS NULL OR ad.PreferredLanguage = @PreferredLanguage)
 		AND (@AffType IS NULL OR ai.AffType = @AffType)
 		AND ai.ApprovedDate < @ToDate
 	
-	
-	
 	IF (@@ROWCOUNT = 0) RETURN
 
-	IF (
-			NOT EXISTS (
-				SELECT TOP (1) 1
-				FROM dbo.AffCommission(NOLOCK)
-				WHERE winlostdate = @MonthDate
-				)
-			)
+	IF NOT EXISTS (SELECT TOP 1 1 FROM dbo.AffCommission(NOLOCK) WHERE winlostdate = @MonthDate)
 	BEGIN
 		IF (DATEDIFF(m, CURRENT_TIMESTAMP, @MonthDate) = 0)
 		BEGIN
@@ -147,7 +141,6 @@ BEGIN
 			) t
 			WHERE t.RowIDX BETWEEN (((@PageIndex - 1) * @PageSize) + 1) AND (@PageSize * @PageIndex)
 			ORDER BY t.RowIDX 	
-
 		END
 		ELSE
 		BEGIN
@@ -217,9 +210,7 @@ BEGIN
 							,CASE WHEN @SortBy = 0 THEN m.AffId ELSE 0 END ASC
 				) AS RowIDX
 			FROM dbo.AffCommission ac WITH (NOLOCK)
-				INNER JOIN #AffList m
-				ON ac.AffId = m.AffId
-				
+				INNER JOIN #AffList m ON ac.AffId = m.AffId
 			WHERE ac.WinlostDate = @MonthDate
 				AND (@SportId IS NULL OR ac.SportId = @SportId)
 			GROUP BY m.AffId
@@ -234,9 +225,7 @@ BEGIN
 				, ac.SportId
 				, m.IsClosed 
 			FROM dbo.AffCommission ac WITH (NOLOCK)
-				INNER JOIN #AffList m
-				ON ac.AffId = m.AffId
-				
+				INNER JOIN #AffList m ON ac.AffId = m.AffId
 			WHERE ac.WinlostDate = @MonthDate
 				AND (@SportId IS NULL OR ac.SportId = @SportId)
 			GROUP BY m.AffId
@@ -254,36 +243,13 @@ BEGIN
 		,t.Amount 	AS AffComm
 		,t.RowIDX
 	FROM #AffCommPaging t
-		
-		INNER JOIN #AffList m
-		ON t.AffId = m.AffId
-		
+		INNER JOIN #AffList m ON t.AffId = m.AffId
 	ORDER BY t.RowIDX
 	
 	DROP TABLE #AffCommPaging
 	DROP TABLE #AffCommTmp
-	
-	RETURN;
+	DROP TABLE #AffList
 END
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_AffiliateCommReport] TO [bodbAdminNet]
 GO
-/*
-
-declare @p8 int
-declare @p9 int
-EXEC Aff_AffiliateCommReport @MonthDate = '2014-12-01 00:00:00'
-	,@SportId = null
-	,@UserName = DEFAULT
-	,@PreferredLanguage = DEFAULT
-	,@AffType = DEFAULT
-	,@PageSize = 200
-	,@PageIndex = 11
-	,@SortBy	= 0
-	,@IsDesc	= 1
-	,@NRows = @p9 OUTPUT
-
-select @p8, @p9
-go
-*/

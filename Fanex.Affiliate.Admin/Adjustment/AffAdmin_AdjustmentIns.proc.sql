@@ -1,160 +1,142 @@
 ﻿USE [Affiliate_Athena000]
 GO
-/****** Object:  StoredProcedure [dbo].[AffAdmin_AdjustmentIns]    Script Date: 01/04/2016 13:31:28 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.AffAdmin_AdjustmentIns    Script Date: 12/22/2015 4:34:22 AM ******/
-/****** Object:  Stored Procedure dbo.AffAdmin_AdjustmentIns    Script Date: 12/8/2015 09:52:20 ******/
+
 ALTER PROCEDURE [dbo].[AffAdmin_AdjustmentIns]  
 	@LicenseeID	INT,
-	@Amount  money,   
-	@AffID  int,  
-	@AdminID int,   
-	@Description nvarchar(300) = '',  
-	@ip   nvarchar(15) = '',  
-	@Language varchar(5) = 'en-US',    
-	@ErrCode int = 0 OUTPUT
-AS  
-SET NOCOUNT ON  
--- DB: DB052.Affiliate_ZZun  
+	@Amount	MONEY,
+	@AffID	INT,
+	@AdminID INT,
+	@Description NVARCHAR(300) = '',
+	@ip	NVARCHAR(15) = '',
+	@Language VARCHAR(5) = 'en-US',
+	@ErrCode INT = 0 OUTPUT
+AS
+
 /*  
-Creator : Vinh  
-Date : 2009-07-30  
-Task : Approve a payment request.  
+	Creator: Vinh  
+	Date: 2009-07-30  
+	Task: Approve a payment request.
+	DB: DBAFF.Affiliate_Athena000
+
+	Revisions: 
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+*/
+
+BEGIN
+	SET NOCOUNT ON  
   
-Input   
- 0) @Amount Adjusment amount  
-    1) @AffId (For Double check)   
-    2) @AdminID User insert transaction  
-    3) @Description Description of transaction  
-    4) @transid transid for this Adjustment  
-    5) @userid ID of Admin update this Adjustment  
-    6) @IP IP update Adjustment  
-   Output  
-    1) @ErrCode:  
-  = 0: Transaction recorded successfully.  
-  > 0: Specific Error.  
-    2) @ErrMsg: Error description.  
-Revisions: 
-	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	EXEC [dbo].[Aff_Con_CheckPermission]  
+		@LicenseeID = @LicenseeID,
+		@custid=@AdminID,  
+		@funcname='[Payment]',--User the same with payment  
+		@System = 'AFFILIATE',  
+		@ErrCode=@ErrCode OUTPUT
   
-*/  
-SET NOCOUNT ON  
+	If @ErrCode <> 0  
+		RETURN  
   
---SELECT @ErrCode = 101, @ErrMsg = 'do it later..'  
-EXEC [dbo].[Aff_Con_CheckPermission]  
-	@LicenseeID = @LicenseeID,
-	@custid=@AdminID,  
-	@funcname='[Payment]',--User the same with payment  
-	@System = 'AFFILIATE',  
-	@ErrCode=@ErrCode output
+	IF @Amount = 0  
+	BEGIN  
+		Select @ErrCode = 1011
+		return  
+	END 
   
-If @ErrCode <> 0  
-	RETURN  
-  
-IF @Amount = 0  
-BEGIN  
-	Select @ErrCode = 1011
-	return  
-END 
-  
-if(not exists(select 1 from AffInfo(nolock) where AffID=@AffID ))  
-begin  
-	SELECT @ErrCode = 1006  
-	RETURN  
-end  
+	if(not exists(select 1 from AffInfo(nolock) where AffID=@AffID ))  
+	begin  
+		SELECT @ErrCode = 1006  
+		RETURN  
+	end  
   
 
-Declare @AffCurrency varchar(5), @AffCurrencyCode varchar(5), @SysCurrency varchar(5), @SysExRate float, @Status varchar(30), @IsClosed bit, @MaxAmount money
+	Declare @AffCurrency varchar(5), @AffCurrencyCode varchar(5), @SysCurrency varchar(5), @SysExRate float, @Status varchar(30), @IsClosed bit, @MaxAmount money
   
-select @AffCurrency = b.Currency,  @Status = Status, @IsClosed = IsClosed, @AffCurrencyCode = e.Code
-from AffInfo b with (nolock)   
-	inner join Exchange e (nolock) on e.ExchangeId=b.currency  
-where AffID = @AffID  
+	select @AffCurrency = b.Currency,  @Status = Status, @IsClosed = IsClosed, @AffCurrencyCode = e.Code
+	from AffInfo b with (nolock)   
+		inner join Exchange e (nolock) on e.ExchangeId=b.currency  
+	where AffID = @AffID  
 
-SET @MaxAmount = (Select SValue From SystemSettings (nolock) where SName = 'AFF_MaximumAdjustment' + @AffCurrencyCode)
+	SET @MaxAmount = (Select SValue From SystemSettings (nolock) where SName = 'AFF_MaximumAdjustment' + @AffCurrencyCode)
 
---Check Data 
-if (@AffCurrency is null or ABS(@Amount) > @MaxAmount)
-Begin  
-	Select @ErrCode = 1011 
-	return  
-End 
+	--Check Data 
+	if (@AffCurrency is null or ABS(@Amount) > @MaxAmount)
+	Begin  
+		Select @ErrCode = 1011 
+		return  
+	End 
  
-if @Status <> 'Approved'  
-Begin  
-	Select @ErrCode = 1013
-	return  
-End  
+	if @Status <> 'Approved'  
+	Begin  
+		Select @ErrCode = 1013
+		return  
+	End  
   
-if @IsClosed = 1  
-Begin  
-	Select @ErrCode = 1014
-	return  
-End  
+	if @IsClosed = 1  
+	Begin  
+		Select @ErrCode = 1014
+		return  
+	End  
   
+	declare @CurrentDate datetime  
+	Set @CurrentDate=current_timestamp  
   
-declare @CurrentDate datetime  
-Set @CurrentDate=current_timestamp  
+	select @SysCurrency=dbo.Aff_GetSystemCurrencyID()  
+	select @SysExRate=dbo.Aff_GetExchangeRate(@AffCurrency,@SysCurrency, default)  
   
-select @SysCurrency=dbo.Aff_GetSystemCurrencyID()  
-select @SysExRate=dbo.Aff_GetExchangeRate(@AffCurrency,@SysCurrency, default)  
-  
-insert into AffTrans([AffID]  
-	,[TransDate]  
-	,[CompletedDate]  
-	,[Amount]  
-	,[Status]  
-	,[Description]  
-	,[Creator]  
-	,[AffCurrency]  
-	,[SysCurrency]  
-	,[SysExRate]   
-	,[TransType]   
-	,[RefID])  
-values(  
-	@AffID,  
-	@CurrentDate,  
-	@CurrentDate,  
-	@Amount,  
-	'Completed',  
-	@Description,  
-	@AdminID,  
-	@AffCurrency,  
-	@SysCurrency,  
-	@SysExRate,  
-	203,--Adjustment TransType  
-	0
-)
-/*set @transid=SCOPE_IDENTITY() */  
+	insert into AffTrans
+	(
+		[AffID]  
+		,[TransDate]  
+		,[CompletedDate]  
+		,[Amount]  
+		,[Status]  
+		,[Description]  
+		,[Creator]  
+		,[AffCurrency]  
+		,[SysCurrency]  
+		,[SysExRate]   
+		,[TransType]   
+		,[RefID]
+	)  
+	values
+	(  
+		@AffID,  
+		@CurrentDate,  
+		@CurrentDate,  
+		@Amount,  
+		'Completed',  
+		@Description,  
+		@AdminID,  
+		@AffCurrency,  
+		@SysCurrency,  
+		@SysExRate,  
+		203,--Adjustment TransType  
+		0
+	)
+	
+	if @@ERROR <> 0  
+	begin  
+		Select @ErrCode = 1005   
+		return  
+	end      
+
+	 -- Recalculate BF in AffInfo table  
+	update AffInfo with (rowlock, updlock)
+	Set BF=dbo.Aff_GetAffBalance (AffID)  
+	where AffID=@AffID 
  
-if @@ERROR <> 0  
-begin  
-	Select @ErrCode = 1005   
-	return  
-end      
-
- -- Recalculate BF in AffInfo table  
-update AffInfo with (rowlock,updlock)  
-Set BF=dbo.Aff_GetAffBalance (AffID)  
-where AffID=@AffID 
- 
---Write log  
-declare @SPName varchar(50), @Detail nvarchar(4000)   
-select @SPName = OBJECT_NAME(@@ProcID)  
-select @Detail = 'Modify Balance Brought Forward. Amount = ' + dbo.Aff_ToString(@Amount)   
+	--Write log  
+	declare @SPName varchar(50), @Detail nvarchar(4000)   
+	select @SPName = OBJECT_NAME(@@PROCID)  
+	select @Detail = 'Modify Balance Brought Forward. Amount = ' + dbo.Aff_ToString(@Amount)   
   
-EXEC [dbo].[Aff_WriteLog]   
-	@Creator = @AdminID,  
-	@AffID = @AffID,  
-	@Typename = 'Adjustment', -- refer to table LogType  
-	@SPName = @SPName,  
-	@Details = @Detail,  
-	@IP = @IP  
-
-
+	EXEC [dbo].[Aff_WriteLog]   
+		@Creator = @AdminID,  
+		@AffID = @AffID,  
+		@Typename = 'Adjustment', -- refer to table LogType  
+		@SPName = @SPName,  
+		@Details = @Detail,  
+		@IP = @IP
+END
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateSel] TO [bodbAdminNet]
 GO

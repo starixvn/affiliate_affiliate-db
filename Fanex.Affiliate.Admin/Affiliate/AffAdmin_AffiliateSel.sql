@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateSel] 
+﻿USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_AffiliateSel] 
 	@LicenseeID			INT
 	,@UserId				INT				= 0
 	,@AffName			NVARCHAR(100)	= NULL
@@ -20,46 +23,47 @@
 	,@NRows				INT				= 0 OUTPUT
 	,@TotalAmount		MONEY			= 0 OUTPUT
 AS
-/*    
-Task : Get All Affiliate for a specific page      
-DB:    
-Original:[Aff_CustomerSelAffiliate]      
-Revisions:          
- - 20100208@Johnny: show one more column PreferredLanguage  
- - 20130826@Joseph: update currencies and statuses filter    
- - 20130828@Joseph: restrict user permission by currency   
- - 20130912@Victor: add search criteria, restructure the code
- - 20140924@Bobby: Add Email Info & refactor code
- - 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
- 
-                
-Param's Explanation: 
-• @UserID: Admin UserID
-• @AffName: Affiliate name to search 
-• @AffType: Affiliate type (1,2...)
-• @Currencies: list of currencies separated by commas, Ex: '1,2,3'
-• @CommGroups: list of Commission Group
-• @DateOption: 
-    . None (0): No date criteria
-    . Registered Date (1): Registered Date must be between @FromDate and @EndDate
-    . Approval Date (2): Approval day must be between @FromDate and @EndDate
-• @BaseCurrency
-    . Origial (0): original currency
-    . System Currency (1): convert to System currency
-• @SortBy
-    . Affiliate: 0
-    . BF: 1
-    . Total members: 2
-• @ExcludeTest: exclude test account or not
-• @FavoriteOnly: list Favorite Affiliate only
-• @Status: list of Statuses: All, Approved, Pending, Disapproved, closed, locked
-• @PageSize: Number of rows should be returned per each page
-• @PageIndex: Current page
-• @TotalPages OUTPUT: total pages of this search          
-• @NRows OUTPUT: total rows
-• @TotalAmount: Total amount in System currency
 
+/*    
+	Task: Get All Affiliate for a specific page      
+	DB: DBAFF.Affiliate_Athena000
+	Original:[Aff_CustomerSelAffiliate]
+	  
+	Revisions:          
+	 - 20100208@Johnny: show one more column PreferredLanguage  
+	 - 20130826@Joseph: update currencies and statuses filter    
+	 - 20130828@Joseph: restrict user permission by currency   
+	 - 20130912@Victor: add search criteria, restructure the code
+	 - 20140924@Bobby: Add Email Info & refactor code
+	 - 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+ 
+	Param's Explanation: 
+		• @UserID: Admin UserID
+		• @AffName: Affiliate name to search 
+		• @AffType: Affiliate type (1,2...)
+		• @Currencies: list of currencies separated by commas, Ex: '1,2,3'
+		• @CommGroups: list of Commission Group
+		• @DateOption: 
+			. None (0): No date criteria
+			. Registered Date (1): Registered Date must be between @FromDate and @EndDate
+			. Approval Date (2): Approval day must be between @FromDate and @EndDate
+		• @BaseCurrency
+			. Origial (0): original currency
+			. System Currency (1): convert to System currency
+		• @SortBy
+			. Affiliate: 0
+			. BF: 1
+			. Total members: 2
+		• @ExcludeTest: exclude test account or not
+		• @FavoriteOnly: list Favorite Affiliate only
+		• @Status: list of Statuses: All, Approved, Pending, Disapproved, closed, locked
+		• @PageSize: Number of rows should be returned per each page
+		• @PageIndex: Current page
+		• @TotalPages OUTPUT: total pages of this search          
+		• @NRows OUTPUT: total rows
+		• @TotalAmount: Total amount in System currency
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -68,10 +72,11 @@ BEGIN
 
 	-- Init criteria lists
 	-- Restrict currency list by user
-	DECLARE @tmpCurrency TABLE (
+	DECLARE @tmpCurrency TABLE
+	(
 		CurrencyID INT
 		,ExRate FLOAT
-		)
+	)
 
 	SELECT CAST(val AS INT) AS CurrencyID
 	INTO #TblCurrency
@@ -80,16 +85,12 @@ BEGIN
 	--Insert Currency default of NonCommission (=0)
 	IF (@@ROWCOUNT > 0)
 	BEGIN
-		INSERT INTO @tmpCurrency
-		VALUES (
-			0
-			,0
-			)
+		INSERT INTO @tmpCurrency (CurrencyID, ExRate)
+		VALUES (0 ,0)
 	END
 
-	INSERT INTO @tmpCurrency
-	SELECT r.AffCurrencyID
-		,0 AS ExRate
+	INSERT INTO @tmpCurrency (CurrencyID, ExRate)
+	SELECT r.AffCurrencyID, 0 AS ExRate
 	FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID) r
 		INNER JOIN #TblCurrency s ON s.CurrencyID = r.AffCurrencyID
 
@@ -108,12 +109,8 @@ BEGIN
 	INSERT INTO @CommGroupList
 	SELECT GroupID
 	FROM [dbo].[strSplit](@CommGroups, ',')
-		INNER JOIN dbo.CommGroup CG WITH (NOLOCK) ON CG.GroupID = CAST(val AS INT)
-		AND CG.IsDeleted = 0
-	WHERE CG.Currency IN (
-			SELECT CurrencyID
-			FROM @tmpCurrency
-			)
+		INNER JOIN dbo.CommGroup CG WITH (NOLOCK) ON CG.GroupID = CAST(val AS INT) AND CG.IsDeleted = 0
+	WHERE CG.Currency IN (SELECT CurrencyID FROM @tmpCurrency)
 
 	-- Prefer Languages
 	DECLARE @PreferLangList TABLE ([LanguageID] VARCHAR(8))
@@ -127,8 +124,7 @@ BEGIN
 	DECLARE @Hasclosed INT
 	DECLARE @Haslocked INT
 
-	SELECT @Hasclosed = - 1
-		,@Haslocked = - 1
+	SELECT @Hasclosed = - 1, @Haslocked = - 1
 
 	INSERT INTO @StatusList
 	SELECT val
@@ -136,15 +132,10 @@ BEGIN
 
 	IF (@Status IS NULL)
 	BEGIN
-		SELECT @Hasclosed = 1
-			,@Haslocked = 1
+		SELECT @Hasclosed = 1, @Haslocked = 1
 	END
 
-	IF EXISTS (
-			SELECT TOP 1 1
-			FROM @StatusList
-			WHERE StatusID LIKE 'closed%'
-			)
+	IF EXISTS (SELECT TOP 1 1 FROM @StatusList WHERE StatusID LIKE 'closed%')
 	BEGIN
 		SELECT @Hasclosed = 1
 
@@ -153,11 +144,7 @@ BEGIN
 		WHERE StatusID LIKE 'closed%'
 	END
 
-	IF EXISTS (
-			SELECT TOP 1 1
-			FROM @StatusList
-			WHERE StatusID LIKE 'locked%'
-			)
+	IF EXISTS (SELECT TOP 1 1 FROM @StatusList WHERE StatusID LIKE 'locked%')
 	BEGIN
 		SELECT @Haslocked = 1
 
@@ -199,73 +186,49 @@ BEGIN
 			@AffName IS NULL
 			OR AI.UserName LIKE '%' + @AffName + '%'
 			)
-		AND (
-			AI.AffType IN (
-				SELECT AffTypeID
-				FROM @AffTypeList
-				)
-			)
-		AND (
-			AI.Currency IN (
-				SELECT CurrencyID
-				FROM @tmpCurrency
-				)
-			)
+		AND AI.AffType IN (SELECT AffTypeID FROM @AffTypeList)
+		AND AI.Currency IN (SELECT CurrencyID FROM @tmpCurrency)
 		AND (
 			AI.STATUS IN ('Pending', 'Disapproved')
-			OR AI.GroupID IN (
-				SELECT CommGroupID
-				FROM @CommGroupList
-				)
-			)
+			OR AI.GroupID IN (SELECT CommGroupID FROM @CommGroupList)
+		)
 		AND (
 			@DateOption = 0
 			OR (
 				@DateOption = 1
-				AND AI.RegisteredDate BETWEEN @FromDate
-					AND @ToDate
-				)
+				AND AI.RegisteredDate BETWEEN @FromDate AND @ToDate
+			)
 			OR (
 				@DateOption = 2
-				AND AI.ApprovedDate BETWEEN @FromDate
-					AND @ToDate
-				)
+				AND AI.ApprovedDate BETWEEN @FromDate AND @ToDate
 			)
-		AND (
-			AD.PreferredLanguage IN (
-				SELECT LanguageID
-				FROM @PreferLangList
-				)
-			)
+		)
+		AND AD.PreferredLanguage IN (SELECT LanguageID FROM @PreferLangList)
 		AND (
 			(
-				LOWER(AI.STATUS) IN (
-					SELECT StatusID
-					FROM @StatusList
-					)
+				LOWER(AI.STATUS) IN (SELECT StatusID FROM @StatusList)
 				AND AI.IsLocked = 0
 				AND AI.IsClosed = 0
-				)
+			)
 			OR AI.IsClosed = @Hasclosed
 			OR AI.IsLocked = @Haslocked
-			)
+		)
 		AND (
 			(
 				@ExcludeTest = 1
 				AND AI.TestLevel = 0
-				)
+			)
 			OR (
 				@ExcludeTest = 0
 				AND @IsITAdmin = 1
-				)
+			)
 			OR (
 				@ExcludeTest = 0
 				AND @IsITAdmin = 0
 				AND AI.TestLevel IN (0, 1)
-				)
 			)
+		)
 
-	--Select * from #tmpAffList
 	-- Filter Favorite Affiliates
 	IF (@FavoriteOnly = 1)
 	BEGIN
@@ -278,10 +241,7 @@ BEGIN
 
 		DELETE
 		FROM #tmpAffList
-		WHERE AffID NOT IN (
-				SELECT AffID
-				FROM @FavoriteList
-				)
+		WHERE AffID NOT IN (SELECT AffID FROM @FavoriteList)
 	END
 
 	-- Calc total amount
@@ -293,9 +253,7 @@ BEGIN
 	WHERE SName LIKE 'SystemCurrency'
 
 	UPDATE @tmpCurrency
-	SET ExRate = (
-			SELECT ISNULL(dbo.Aff_GetExchangeRate(CurrencyID, @SysCurrency, GETDATE()), 0)
-			)
+	SET ExRate = (SELECT ISNULL(dbo.Aff_GetExchangeRate(CurrencyID, @SysCurrency, GETDATE()), 0))
 
 	UPDATE #tmpAffList
 	SET ConvertedBF = A.BF * C.ExRate
@@ -332,13 +290,10 @@ BEGIN
 	-- Determine the order direction.
 	DECLARE @Direction INT
 
-	SET @Direction = (CASE @SortBy
-			WHEN 0 THEN 1
-			ELSE - 1 END
-			);
+	SET @Direction = (CASE @SortBy WHEN 0 THEN 1 ELSE -1 END)
 
-	WITH ResTable
-	AS (
+	;WITH ResTable AS
+	(
 		SELECT *
 			,ROW_NUMBER() OVER (
 				ORDER BY (CASE @SortBy
@@ -349,24 +304,21 @@ BEGIN
 					,AffID DESC
 				) AS RowNo
 		FROM #tmpAffList t
-		)
-		,SortedResTable
-	AS (
+	)
+	,SortedResTable AS
+	(
 		SELECT *
 			,ROW_NUMBER() OVER (
 				ORDER BY RowNo * @Direction
 				) AS RowNum
 		FROM ResTable
-		)
+	)
 	SELECT R.RowNum AS RowNo
 		,R.AffID
 		,R.UserName
 		,R.FirstName
 		,R.LastName
-		,CAST((CASE 
-				WHEN f.AffId IS NULL THEN 0
-				ELSE 1 END
-				) AS BIT) AS Favorite
+		,CAST((CASE WHEN f.AffId IS NULL THEN 0 ELSE 1 END ) AS BIT) AS Favorite
 		,L.LanguageName
 		,T.NAME AS AffTypeName
 		,R.RegisteredDate
@@ -385,21 +337,13 @@ BEGIN
 		,R.TotalMembers
 		,R.Email
 	FROM SortedResTable R
-		LEFT JOIN dbo.AffType T WITH(NOLOCK) 
-		ON T.TypeID = R.AffType
-		LEFT JOIN dbo.CommGroup cg WITH(NOLOCK) 
-		ON R.GroupId = cg.GroupId
-		LEFT JOIN dbo.AdminFavorite f WITH(NOLOCK) 
-		ON R.AffId = f.AffId
-			AND f.AdminId = @UserId
-		LEFT JOIN dbo.Currency e WITH(NOLOCK) 
-		ON e.CurrencyID = R.Currency
-		LEFT JOIN dbo.[LANGUAGE] L WITH(NOLOCK) 
-		ON L.LanguageID = R.PreferredLanguage
-		LEFT JOIN dbo.AccountType AT  WITH(NOLOCK) 
-		ON R.TestLevel = AT.TypeID
-	WHERE RowNum BETWEEN @RowStart
-			AND @RowEnd
+		LEFT JOIN dbo.AffType T WITH(NOLOCK) ON T.TypeID = R.AffType
+		LEFT JOIN dbo.CommGroup cg WITH(NOLOCK) ON R.GroupId = cg.GroupId
+		LEFT JOIN dbo.AdminFavorite f WITH(NOLOCK) ON R.AffId = f.AffId AND f.AdminId = @UserId
+		LEFT JOIN dbo.Currency e WITH(NOLOCK) ON e.CurrencyID = R.Currency
+		LEFT JOIN dbo.[LANGUAGE] L WITH(NOLOCK) ON L.LanguageID = R.PreferredLanguage
+		LEFT JOIN dbo.AccountType AT  WITH(NOLOCK) ON R.TestLevel = AT.TypeID
+	WHERE RowNum BETWEEN @RowStart AND @RowEnd
 	ORDER BY RowNum
 
 	DROP TABLE #tmpAffList
@@ -408,3 +352,4 @@ GO
 GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateSel] TO [bodbAdminNet] AS [dbo]
 GO
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateSel] TO [vnteam] AS [dbo]
+GO

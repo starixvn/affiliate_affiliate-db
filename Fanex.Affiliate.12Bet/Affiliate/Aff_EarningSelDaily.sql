@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[Aff_EarningSelDaily_xtest] 
+﻿USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_EarningSelDaily] 
 	@AffID INT
 	,@SportType TINYINT = 0
 	,@monthdate SMALLDATETIME
@@ -8,29 +11,31 @@
 	,@CasinoMarketingPercent FLOAT = 0 OUTPUT
 	,@PLayTechFeePercent FLOAT = 0 OUTPUT
 AS
+
 /*
 	Created: 200900911@VinhTrinh 
 	Task : [description of SP]  
-	DB: DB052.Affiliate_12BET
+	DB: DBAFF12BET.Affiliate_12BET
+	
 	Revisions:  		
-		  - Get data for daily report from table AffDaily instead of MemberDaily
-		  - 20100520@Johnny: apply StatusID in bettrans table
-		  - 20100930@Peter : Change the new formula for displayed winlost
-					   Winlost on Aff site=Winlost-Odds Management - Marketing cost -  PSP
-					   --The formula change since 1 Oct 2010--need to consider a new column MemWinlostFake on MemberDaily table if it is changed again
-					   MemWinlostFake need to be updated on TaskMemberDaily
-		  - 20101228@Henry: change bettype to new range
-		  - 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
-		  - 20120606@Peter : Exclude waiting tickets
-		  - 20140403@Bobby:  exclude Keno product & other sports
-		  - 20141218@Bobby: Update SS's bettype & fix Casiso time range
-		  - 20150106@Bobby: Update WL fake
+		- Get data for daily report from table AffDaily instead of MemberDaily
+		- 20100520@Johnny: apply StatusID in bettrans table
+		- 20100930@Peter: Change the new formula for displayed winlost
+					Winlost on Aff site=Winlost-Odds Management - Marketing cost -  PSP
+					--The formula change since 1 Oct 2010--need to consider a new column MemWinlostFake on MemberDaily table if it is changed again
+					MemWinlostFake need to be updated on TaskMemberDaily
+		- 20101228@Henry: change bettype to new range
+		- 20111031@Peter: Exclude Number Game from Sportsbook commission (bettype from [81-120])
+		- 20120606@Peter: Exclude waiting tickets
+		- 20140403@Bobby:  exclude Keno product & other sports
+		- 20141218@Bobby: Update SS's bettype & fix Casiso time range
+		- 20150106@Bobby: Update WL fake
 
 	Param's Explanation:  
-	• @custid: affliate Id  
-	• @monthdate: Month date need to view.
-	
+		• @custid: affliate Id  
+		• @monthdate: Month date need to view.
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -217,15 +222,13 @@ BEGIN
 									END), 0)) * e.WithdrawalPercent AS PSP
 				FROM bodb02.dbo.bettrans b WITH (NOLOCK)
 					INNER JOIN (
-					SELECT IBCCustID
-						,Currency
-					FROM MemberInfo WITH (NOLOCK)
-					WHERE AffID = @AffID
-						AND IsRemoved = 0
-					) m
-					ON m.IBCCustID = b.CustId
-					INNER JOIN Exchange_current e WITH (NOLOCK)
-					ON e.Exchangeid = m.Currency
+						SELECT IBCCustID
+							,Currency
+						FROM MemberInfo WITH (NOLOCK)
+						WHERE AffID = @AffID
+							AND IsRemoved = 0
+					) m ON m.IBCCustID = b.CustId
+					INNER JOIN Exchange_current e WITH (NOLOCK) ON e.Exchangeid = m.Currency
 				WHERE @SportType <> @CasinoId
 					AND b.Winlostdate = @CurrDate
 					AND b.ruben = 1
@@ -309,24 +312,21 @@ BEGIN
 			, MAX(WinlostDate) AS MaxWinlostDate
 		FROM #AffDailyWL wl
 		GROUP BY SportId
-	), SumWLExcludeMax AS (
+	)
+	,SumWLExcludeMax AS (
 		SELECT wl.SportId
 			, SUM(MemWinlostFake) AS MemWinlostFake
 		FROM #AffDailyWL wl
-			INNER JOIN MaxWLDate md 
-			ON wl.SportId = md.SportId
+			INNER JOIN MaxWLDate md ON wl.SportId = md.SportId
 		WHERE wl.WinlostDate <> md.MaxWinlostDate
 		GROUP BY wl.SportId
 	)
 	UPDATE wl
 		SET wl.MemWinlostFake = ac.NetWinlost - swl.MemWinlostFake
 	FROM #AffDailyWL wl
-		INNER JOIN MaxWLDate md 
-		ON wl.SportId = md.SportId AND wl.WinlostDate = md.MaxWinlostDate
-		INNER JOIN SumWLExcludeMax swl 
-		ON wl.SportId = swl.SportId
-		INNER JOIN #AffComm ac
-		ON wl.SportId = ac.SportId
+		INNER JOIN MaxWLDate md ON wl.SportId = md.SportId AND wl.WinlostDate = md.MaxWinlostDate
+		INNER JOIN SumWLExcludeMax swl ON wl.SportId = swl.SportId
+		INNER JOIN #AffComm ac ON wl.SportId = ac.SportId
 		
 	-- select daily WL
 	SELECT WinlostDate 
@@ -356,19 +356,7 @@ BEGIN
 	) AS nwl
 	GROUP BY nwl.NetWinlost	
 	
-
-	--DROP TABLE #AffSumTotalWL
 	DROP TABLE #AffDailyWL
 	DROP TABLE #AffComm
-
-	RETURN;
 END
 GO
-
-
-
-
-exec [dbo].[Aff_EarningSelDaily_xtest] 
-	@AffID = 92036089
-	,@SportType  = 0
-	,@monthdate = '2014/12/31'

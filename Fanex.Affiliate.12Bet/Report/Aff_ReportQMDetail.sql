@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[Aff_ReportQMDetail] 
+﻿USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_ReportQMDetail] 
 	@AffID INT
 	,@Month INT
 	,@Year INT
@@ -7,21 +10,24 @@
 	,@TotalPages INT = 0 OUTPUT
 	,@NRows INT = 0 OUTPUT
 AS
-/*
-Created: 20091213@Peter
-Task : Get List of Qualifying members report for one affiliate.
-DB: DB052.Affiliate_12BET
-Original: 
-Revisions:
-	- 20110523@Henry: change bettype to new range
-	- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
-	- 20120606@Peter : Exclude waiting tickets
-	- 20140403@Bobby:  exclude Keno product & other sports
-	- 20141218@Bobby: Update SS's bettype
 
-Param's Explanation:
+/*
+	Created: 20091213@Peter
+	Task: Get List of Qualifying members report for one affiliate.
+	DB: DBAFF12BET.Affiliate_12BET
+	Original:
+
+	Revisions:
+		- 20110523@Henry: change bettype to new range
+		- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
+		- 20120606@Peter : Exclude waiting tickets
+		- 20140403@Bobby:  exclude Keno product & other sports
+		- 20141218@Bobby: Update SS's bettype
+
+	Param's Explanation:
 	
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -41,8 +47,7 @@ BEGIN
 	SELECT m.IBCCustId
 		,e.ActualRate2
 	FROM MemberInfo m WITH (NOLOCK)
-		INNER JOIN Exchange_Current e WITH (NOLOCK)
-		ON m.Currency = e.ExchangeId
+		INNER JOIN Exchange_Current e WITH (NOLOCK) ON m.Currency = e.ExchangeId
 	WHERE m.AffId = @AffId
 		AND IsRemoved = 0
 
@@ -113,8 +118,7 @@ BEGIN
 			,0 AS CATurnOver
 			,0 AS CADeposit
 		FROM bodb02.dbo.Bettrans b WITH (NOLOCK)
-			INNER JOIN @MemList m
-			ON b.CustId = m.IBCCustId
+			INNER JOIN @MemList m ON b.CustId = m.IBCCustId
 		WHERE datediff(m, @FirstDay, @CurrDate) = 0
 			AND Winlostdate = @CurrDate
 			AND (
@@ -157,8 +161,7 @@ BEGIN
 			,0 AS CATurnOver
 			,0 AS CADeposit
 		FROM bodb02.dbo.Bettrans b WITH (NOLOCK)
-			INNER JOIN @MemList m
-			ON b.CustId = m.IBCCustId
+			INNER JOIN @MemList m ON b.CustId = m.IBCCustId
 		WHERE datediff(m, @FirstDay, @CurrDate) = 0
 			AND Winlostdate = @CurrDate
 			AND (
@@ -243,13 +246,11 @@ BEGIN
 				ELSE 0 END
 				) AS IsCAQM
 		FROM @TblResult
-		) m
-		ON mi.IBCCustId = m.IBCCustId
+		) m ON mi.IBCCustId = m.IBCCustId
 	WHERE m.TheCount BETWEEN @RowStart AND @RowEnd
 END
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_ReportQMDetail] TO [bodbAdminNet]
 GO
-
 GRANT VIEW DEFINITION ON [dbo].[Aff_ReportQMDetail] TO [VNTeam]
+GO

@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupIns] 
+﻿USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_CommGroupIns] 
 	@LicenseeID					INT
 	,@UserId 					INT
 	,@Currency 					INT
@@ -22,81 +25,43 @@
 	,@ErrCode 					INT 			= 0 OUTPUT
 	,@ErrMsg 					NVARCHAR(4000) 	= '' OUTPUT
 AS
+
 /*  
-Created: 20090719@DungTong  
-Task : Add a new Commission Group  
-DB: DB052.Affiliate_ZZun  
-Original:  
+	Created: 20090719@DungTong  
+	Task: Add a new Commission Group  
+	DB: DBAFF.Affiliate_Athena000  
+	Original:  
   
-Revisions:  
-	- 20130924@Joseph: new version
-	- 20131105@Johnny: Check currency permission
-	- 20140724@Bobby: Update generating @GroupId
-	- 20140820@Bobby: Add Deposit & Withdrawal percent and apply SQL stylescope
-	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	Revisions:  
+		- 20130924@Joseph: new version
+		- 20131105@Johnny: Check currency permission
+		- 20140724@Bobby: Update generating @GroupId
+		- 20140820@Bobby: Add Deposit & Withdrawal percent and apply SQL stylescope
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 	
-Parameters:  
-.@UserID : Administrator user id  
-.@GroupID : if @GroupID=-1 (normal group)  
-            if @GroupID>1000 ==> Special Setting for Affiliate that has AffID=@GroupID  
- .@GroupName The name of this Group  
- .@Description : description for this group  
- .@ProductIDList: list of ProductID separated by semi colon  
-                1 : SportsBook  
-                2 : Casino  
-                Ex: 1;2        
- .@DeductionList: List of Deduction Setting for above Sport List.                     
-                  each deduction separated by a comma                    
-                  1 : HasPSP  
-                  2 : HasBonus  
-                  3 : Has Adjustment  
-                  4 : Has Marketing  
-                  5 : Has Bonus for Casino  
-                  6 : Has Adjustment for Casino  
-                 Ex: 1,2,3,5,6  
-                 Mean: SportsBook has deduction setting: HasPSP,HasBonus,Has Adjusment  
-                      Casino has deduction setting: Has Bonus for Casino, Has Adjustment for Casino  
-  .@DeductedPercentageList : List of Deducted Percentage  
-              Ex: 1,0.05,1,0.17,1                                     
-  . @TierList : List of number of Tiers for each sport type separated by a semi colon  
-                each sport type separated by a semi colon  
-                Ex: 3;4  
-                Mean: SportsBook has 3 tiers  
-                       Casino has 4 tiers  
-   . @MinAmountList: List of MinAmount for each tier (all sports)  
-                      each minAmount number separated by a comma  
-                      for each sport type separated by a semi colon  
-                  Ex: 0,1,100001;0,1,5001,700001  
-    . @MaxAmountList: List of MaxAmount for each tier (all sports)  
-                      each maxAmount number separated by a comma  
-                      for each sport type separated by a semi colon  
-                  Ex: 0,10000,100000000000000;0,5000,70000,100000000000000  
-     . @MinQMList: List of MinQM for each tier (all sports)  
-                      each minQM number separated by a comma  
-                      for each sport type separated by a semi colon  
-                  Ex: 0,10,20;0,5,10,21  
-    . @MaxQMList: List of MaxQM for each tier (all sports)  
-                      each maxQM number separated by a comma  
-                      for each sport type separated by a semi colon  
-                  Ex: 9,19,1000000000;4,9,20,1000000000  
-     . @CommissionList: List of Commission for each tier (all sports)  
-                         each commission number separated by a @  
-                      for each sport type separated by a semi colon  
-                  Ex: 0.00@0.20@0.35;0.00@0.10@0.15@0.20       
-     .@IP : IP of admin user               
-     .@ErrCode:    
-                  0 : no error raised  
-                  >0 : there was an error  
-     .@ErrMsg :     
-                  empty: no error raised  
-                  others : the error message detail                            
-                            
+	Parameters:  
+		.@UserID : Administrator user id  
+		.@GroupID:
+			-1		: normal group
+			>1000	: Special Setting for Affiliate that has AffID = @GroupID  
+		.@GroupName The name of this Group  
+		.@Description : description for this group  
+		.@ProductIDList: list of ProductID separated by semi colon  
+		.@DeductionList: List of Deduction Setting for above Sport List.                     
+		.@DeductedPercentageList: List of Deducted Percentage  
+		.@TierList: List of number of Tiers for each sport type separated by a semi colon  
+		.@MinAmountList: List of MinAmount for each tier (all sports)  
+		.@MaxAmountList: List of MaxAmount for each tier (all sports)  
+		.@MinQMList: List of MinQM for each tier (all sports)  
+		.@MaxQMList: List of MaxQM for each tier (all sports)  
+		.@CommissionList: List of Commission for each tier (all sports)  
 */
+
 BEGIN
-	SET NOCOUNT ON;
+	SET NOCOUNT ON
 
 	--Check permission  
-				EXEC [dbo].[Aff_Con_CheckPermission] 
+	EXEC [dbo].[Aff_Con_CheckPermission] 
 		@LicenseeID = @LicenseeID
 		,@custid = @UserID
 		,@funcname = '[CommissionGroup]'
@@ -107,7 +72,7 @@ BEGIN
 	IF (@ErrCode <> 0) RETURN
 
 	--Check Currency Permission
-				EXEC [dbo].[AffAdmin_CheckPermissionCurrency] 
+	EXEC [dbo].[AffAdmin_CheckPermissionCurrency] 
 		@LicenseeID = @LicenseeID
 		,@UserId = @UserID
 		,@CurrencyId = @Currency
@@ -115,24 +80,17 @@ BEGIN
 
 	IF (@ErrCode <> 0) RETURN
 
-	IF (
-			@GroupName IS NULL
-			OR LTRIM(RTRIM(@GroupName)) = ''
-			)
+	IF (@GroupName IS NULL OR LTRIM(RTRIM(@GroupName)) = '')
 	BEGIN
 		SELECT @ErrCode = 20 --Group name is empty. Please choose a name!
 
 		RETURN
 	END
 
-	IF (
-			EXISTS (
-				SELECT TOP 1 1
-				FROM CommGroup WITH (NOLOCK)
-				WHERE GroupName = @GroupName
-					AND IsDeleted = 0
-				)
-			)
+	IF EXISTS (
+		SELECT TOP 1 1 FROM CommGroup WITH (NOLOCK)
+		WHERE GroupName = @GroupName AND IsDeleted = 0
+	)
 	BEGIN
 		SELECT @ErrCode = 21 --Group name existed. Please choose another name!
 
@@ -180,7 +138,7 @@ BEGIN
 	VALUES (
 		@GroupID
 		,@GroupName
-		,current_timestamp
+		,CURRENT_TIMESTAMP
 		,@UserId
 		,0
 		,@Description
@@ -202,23 +160,13 @@ BEGIN
 	--Insert Deduction Setting  
 	IF (@DeductionList IS NOT NULL)
 	BEGIN
-		INSERT INTO DeductionSetting (
-			GroupID
-			,DeductionID
-			,DeductedPercentage
-			)
-		SELECT @GroupID
-			,cast(t.val AS TINYINT)
-			,cast(p.val AS FLOAT)
+		INSERT INTO DeductionSetting (GroupID, DeductionID, DeductedPercentage)
+		SELECT @GroupID, CAST(t.val AS TINYINT), CAST(p.val AS FLOAT)
 		FROM dbo.strsplit(@DeductionList, ',') t
 			INNER JOIN dbo.strsplit(@DeductedPercentageList, ',') p ON p.rank = t.rank
-			INNER JOIN DeductionType d WITH (NOLOCK) ON d.DTypeID = cast(t.val AS TINYINT)
+			INNER JOIN DeductionType d WITH (NOLOCK) ON d.DTypeID = CAST(t.val AS TINYINT)
 
-		IF @@Rowcount <> (
-				SELECT count(1)
-				FROM dbo.strsplit(@DeductionList, ',')
-				)
-			OR @@ERROR <> 0
+		IF @@ERROR <> 0 OR @@ROWCOUNT <> (SELECT COUNT(1) FROM dbo.strsplit(@DeductionList, ','))
 		BEGIN
 			ROLLBACK TRANSACTION
 
@@ -462,15 +410,24 @@ BEGIN
 	COMMIT TRANSACTION
 
 	--Write the log   
-	DECLARE @LogData NVARCHAR(4000)
-		,@AffID INT
-		,@SPName VARCHAR(100)
+	DECLARE @LogData NVARCHAR(4000), @AffID INT, @SPName VARCHAR(100)
 
-	SELECT @AffID = 0
+	SELECT @AffID = 0, @SPName = OBJECT_NAME(@@PROCID)
 
-	SELECT @LogData = N'Add a commission group.GroupID=' + dbo.Aff_ToString(@GroupID) + '\n GroupName=' + dbo.Aff_ToString(@GroupName) + '\n Currency' + dbo.Aff_ToString(@Currency) + '\n QualifiedAmount=' + dbo.Aff_ToString(@QualifiedAmount) + '\n Description=' + dbo.Aff_ToString(@Description) + '\n ProductIDList=' + dbo.Aff_ToString(@ProductIDList) + '\n DeductionList=' + dbo.Aff_ToString(@DeductionList) + '\n DeductedPercentageList=' + dbo.Aff_ToString(@DeductedPercentageList) + '\n TierList=' + dbo.Aff_ToString(@TierList) + '\n MinAmountList=' + dbo.Aff_ToString(@MinAmountList) + '\n MaxAmountList=' + dbo.Aff_ToString(@MaxAmountList) + '\n MinQMList=' + dbo.Aff_ToString(@MinQMList) + '\n MaxQMList=' + dbo.Aff_ToString(@MaxQMList) + '\n CommissionList=' + dbo.Aff_ToString(@CommissionList)
-
-	SELECT @SPName = OBJECT_NAME(@@ProcID)
+	SELECT @LogData = N'Add a commission group.GroupID=' + dbo.Aff_ToString(@GroupID)
+					+ '\n GroupName=' + dbo.Aff_ToString(@GroupName)
+					+ '\n Currency=' + dbo.Aff_ToString(@Currency)
+					+ '\n QualifiedAmount='+ dbo.Aff_ToString(@QualifiedAmount)
+					+ '\n Description=' + dbo.Aff_ToString(@Description)
+					+ '\n ProductIDList=' + dbo.Aff_ToString(@ProductIDList)
+					+ '\n DeductionList=' + dbo.Aff_ToString(@DeductionList)
+					+ '\n DeductedPercentageList=' + dbo.Aff_ToString(@DeductedPercentageList)
+					+ '\n TierList=' + dbo.Aff_ToString(@TierList)
+					+ '\n MinAmountList=' + dbo.Aff_ToString(@MinAmountList)
+					+ '\n MaxAmountList=' + dbo.Aff_ToString(@MaxAmountList)
+					+ '\n MinQMList=' + dbo.Aff_ToString(@MinQMList)
+					+ '\n MaxQMList=' + dbo.Aff_ToString(@MaxQMList)
+					+ '\n CommissionList=' + dbo.Aff_ToString(@CommissionList)
 
 	EXEC [dbo].[Aff_WriteLog] @Creator = @UserId
 		,@AffID = @AffID
@@ -483,3 +440,4 @@ GO
 GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupIns] TO [bodbAdminNet] AS [dbo]
 GO
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupIns] TO [vnteam] AS [dbo]
+GO

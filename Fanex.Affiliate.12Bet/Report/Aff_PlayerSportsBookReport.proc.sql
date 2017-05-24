@@ -1,5 +1,8 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 
+USE [Affiliate_12BET]
+GO
+
 ALTER PROCEDURE [dbo].[Aff_PlayerSportsBookReport]
 (
 	@Username				NVARCHAR(50) = NULL
@@ -12,17 +15,19 @@ ALTER PROCEDURE [dbo].[Aff_PlayerSportsBookReport]
 	,@NRows					INT			= 0 OUTPUT
 )
 AS
-/*
-Created:20141119@Bobby.Nguyen
-Task: Get  SB Player Turnover Report
-DB: DBAFFILIATE12BET/Affiliate_12Bet
-Orgiginal: 
 
-Revisions:    
-	- 20141119@Bobby.Nguyen: Initial SP
-	- 20150827@Bobby.Nguyen: Convert to base currency US$
-	- 20170411@Percy: Support search by Affiliate name [RedmineID: #74588]
-*/   
+/*
+	Created: 20141119@Bobby
+	Task: Get SB Player Turnover Report
+	DB: DBAFF12BET.Affiliate_12Bet
+	Orgiginal: 
+
+	Revisions:    
+		- 20141119@Bobby: Initial SP
+		- 20150827@Bobby: Convert to base currency US$
+		- 20170411@Percy: Support search by Affiliate name [RedmineID: #74588]
+*/
+  
 BEGIN
 	SET NOCOUNT ON
 	
@@ -61,18 +66,10 @@ BEGIN
 	INSERT INTO #MemberList
 	SELECT 
 		md.IBCCustId
-		
 	FROM dbo.MemberDaily md WITH (NOLOCK)
-	
-		INNER JOIN dbo.MemberInfo mi WITH(NOLOCK)
-		ON md.IBCCustID = mi.IBCCustID
-		
-		INNER JOIN dbo.AffInfo ai WITH (NOLOCK)
-		ON mi.AffId = ai.AffId
-		
-		INNER JOIN dbo.AffDetail ad WITH (NOLOCK)
-		ON ai.AffId = ad.AffId
-		
+		INNER JOIN dbo.MemberInfo mi WITH(NOLOCK) ON md.IBCCustID = mi.IBCCustID
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
+		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 	WHERE (md.WinlostDate BETWEEN @FromDate AND @ToDate)
 		AND (@PreferedLanguage IS NULL OR ad.PreferredLanguage = @PreferedLanguage)
 		AND md.SportType = @SportType
@@ -86,7 +83,6 @@ BEGIN
 	SET @NRows = @@ROWCOUNT
 	
 	IF(@NRows = 0) RETURN
-	
 
 	INSERT INTO @MemberPaging
 	SELECT mi.IBCCustId
@@ -95,9 +91,7 @@ BEGIN
 		, mi.IBCUserName
 		, m.RowIDX
 	FROM #MemberList m
-		LEFT JOIN dbo.MemberInfo mi with(nolock)
-		ON m.MemberId = mi.IBCCustId
-		
+		LEFT JOIN dbo.MemberInfo mi WITH(NOLOCK) ON m.MemberId = mi.IBCCustId
 	WHERE m.RowIDX BETWEEN (((@PageIndex - 1) * @PageSize) + 1) AND (@PageSize * @PageIndex)
 	ORDER BY m.RowIDX
 	
@@ -109,22 +103,21 @@ BEGIN
 		SELECT md.IBCCustId
 			,(md.OpeningBalance  * ISNULL(AffExRate, 1)) AS OpeningBalance
 		FROM dbo.MemberDaily md WITH (NOLOCK)
-			INNER JOIN @MemberPaging p
-			ON md.IBCCustId = p.MemberId
+			INNER JOIN @MemberPaging p ON md.IBCCustId = p.MemberId
 		WHERE md.WinlostDate = @FromDate
 			AND md.SportType = @SportType
-		
 
-	), ClosingBalanceInfo (IBCCustId, ClosingBalance)
+	)
+	, ClosingBalanceInfo (IBCCustId, ClosingBalance)
 	AS (
 		SELECT md.IBCCustId
 			,(md.ClosingBalance * ISNULL(AffExRate, 1)) AS ClosingBalance
 		FROM dbo.MemberDaily md WITH (NOLOCK)
-			INNER JOIN @MemberPaging p
-			ON md.IBCCustId = p.MemberId
+			INNER JOIN @MemberPaging p ON md.IBCCustId = p.MemberId
 		WHERE md.WinlostDate = @ToDate
 			AND md.SportType = @SportType	
-	),SumWinLoss 
+	)
+	,SumWinLoss 
 	AS (
 		-- fetch final result
 		SELECT md.IBCCustId
@@ -140,16 +133,10 @@ BEGIN
 						* ISNULL(AffExRate, 1))						AS NetTurnover
 			,SUM(ISNULL(md.Outstanding,0) * ISNULL(AffExRate, 1)) 	AS Outstanding
 			,SUM(ISNULL(md.Winlost,0) * ISNULL(AffExRate, 1)) 		AS WinLoss
-		
 		FROM dbo.MemberDaily md WITH (NOLOCK)
-	
-			INNER JOIN @MemberPaging p
-			ON md.IBCCustId = p.MemberId
-
-		
+			INNER JOIN @MemberPaging p ON md.IBCCustId = p.MemberId
 		WHERE (md.WinlostDate BETWEEN @FromDate AND @ToDate)
 			AND md.SportType = @SportType
-		
 		GROUP BY md.IBCCustId
 			,md.AffID
 	)
@@ -174,32 +161,13 @@ BEGIN
 		,ISNULL(cb.ClosingBalance, 0) AS ClosingBalance
 		---------------------------------------------
 		,p.RowIDX
-	
 	FROM @MemberPaging p
-
-		INNER JOIN dbo.AffInfo ai WITH (NOLOCK)
-		ON p.AffID	= ai.AffID
-		
-		LEFT JOIN SumWinLoss s
-		ON p.MemberId = s.IBCCustId
-
-		LEFT JOIN OpeningBalanceInfo ob
-		ON p.MemberId = ob.IBCCustId
-				
-		LEFT JOIN ClosingBalanceInfo cb
-		ON p.MemberId = cb.IBCCustId
-		
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON p.AffID	= ai.AffID
+		LEFT JOIN SumWinLoss s ON p.MemberId = s.IBCCustId
+		LEFT JOIN OpeningBalanceInfo ob ON p.MemberId = ob.IBCCustId
+		LEFT JOIN ClosingBalanceInfo cb ON p.MemberId = cb.IBCCustId
 	ORDER BY p.RowIDX
-
-	RETURN
-	
 END
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_PlayerSportsBookReport] TO [bodbAdminNet]
 GO
-/*
-exec [dbo].[Aff_PlayerSportsBookReport]
-	@FromDate	= '20140101'
-	,@ToDate	= '20150101'
-*/

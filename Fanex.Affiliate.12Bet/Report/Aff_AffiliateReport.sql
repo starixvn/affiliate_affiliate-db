@@ -16,27 +16,30 @@ ALTER PROCEDURE [dbo].[Aff_AffiliateReport]
 	,@NRows				INT 		= 0 OUTPUT
 	
 AS
-/*
-Created: @VinhTrinh
-Task : Get report by date for each affiliate.
-DB: DBAFF12BET.Affiliate_12BET
-Original: [Aff_AffiliateReport]
-Revisions:
-	- 20101228@Henry: change bettype to new range
-	- 20110420@Johnny: Filter by Sporttype and restore code to old bettype range
-	- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
-	- 20140403@Bobby: exclude Keno product & other sports
-	- 20141113@Bobby: Add columns (Tracking Rate (Unique/Total), New Trk. Rate (Unique/Total), Total Sign up, Total FDM, Active Member, Total QM)
-	- 20141218@Bobby: Update SS's bettype
-	- 20141223@Bobby: Hotfix#28059 - Filtering by PreferredLanguage
-	- 20170214@Percy: Fix FDM/Signup Issue [RedmineID: #70507]
-	- 20170411@Percy: Support search by Affiliate name [RedmineID: #74588]
 
-Param's Explanation:
-	• @Fromdate Time search From
-	• @Todate Time search To,
-	• @IsGetAll if getall = 1 => get data in all date,
+/*
+	Created: @VinhTrinh
+	Task : Get report by date for each affiliate.
+	DB: DBAFF12BET.Affiliate_12BET
+	Original: [Aff_AffiliateReport]
+
+	Revisions:
+		- 20101228@Henry: change bettype to new range
+		- 20110420@Johnny: Filter by Sporttype and restore code to old bettype range
+		- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
+		- 20140403@Bobby: exclude Keno product & other sports
+		- 20141113@Bobby: Add columns (Tracking Rate (Unique/Total), New Trk. Rate (Unique/Total), Total Sign up, Total FDM, Active Member, Total QM)
+		- 20141218@Bobby: Update SS's bettype
+		- 20141223@Bobby: Hotfix#28059 - Filtering by PreferredLanguage
+		- 20170214@Percy: Fix FDM/Signup Issue [RedmineID: #70507]
+		- 20170411@Percy: Support search by Affiliate name [RedmineID: #74588]
+
+	Param's Explanation:
+		• @Fromdate Time search From
+		• @Todate Time search To
+		• @IsGetAll if getall = 1 => get data in all date
 */
+
 BEGIN
 	SET NOCOUNT ON
 	
@@ -195,92 +198,89 @@ BEGIN
 				WHEN b.bettype IN (31, 32, 33, 41, 42, 43) THEN @HorseRacingID
 				ELSE @SportsBookID
 			END
-			,CASE 
-				WHEN (
-						@SportId IS NULL
-						OR @SportId = @SportsBookID
-						)
-					AND bettype = 22001 THEN ISNULL(SUM((winlost - ABS(actual_stake)) * e.ActualRate2), 0)
-				ELSE 0
-				END AS Deposit
-			,CASE 
-				WHEN (
-						@SportId IS NULL
-						OR @SportId = @SportsBookID
-						)
-					AND bettype IN (22002, 22003) THEN - ISNULL(SUM((winlost - ABS(actual_stake)) * e.ActualRate2), 0)
-				ELSE 0
-				END AS Withdrawal
-			,CASE 
-				WHEN @SportId IS NULL
-					AND (bettype <= 999 OR ( b.bettype BETWEEN 1301 AND 1399)) THEN ISNULL(SUM(CASE 
-								WHEN Bettype IN (33, 43)
-									AND liveawayscore = 0 THEN ISNULL(ABS(stake), 0) / 2 * e.ActualRate2
-								ELSE ISNULL(ABS(stake), 0) * e.ActualRate2
-								END), 0)
-				WHEN @SportId = @SportsBookID
-					AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
-					AND bettype NOT IN (31, 32, 33, 41, 42, 43) THEN ISNULL(SUM(ISNULL(ABS(stake), 0) * e.ActualRate2), 0)
-				WHEN @SportId = @HorseRacingID
-					AND bettype IN (31, 32, 33, 41, 42, 43) THEN ISNULL(SUM(CASE 
-								WHEN Bettype IN (33, 43)
-									AND liveawayscore = 0 THEN ISNULL(ABS(stake), 0) / 2 * e.ActualRate2
-								ELSE ISNULL(ABS(stake), 0) * e.ActualRate2
-								END), 0)
-				ELSE 0
-				END AS Turnover
-			,CASE 
-				WHEN @SportId IS NULL THEN ISNULL(SUM(CASE 
+			,ISNULL(SUM(CASE 
+						WHEN (
+								@SportId IS NULL
+								OR @SportId = @SportsBookID
+							)
+							AND bettype = 22001 THEN (winlost - ABS(actual_stake)) * e.ActualRate2
+						ELSE 0
+						END), 0) AS Deposit
+			,ISNULL(SUM(CASE 
+						WHEN (
+								@SportId IS NULL
+								OR @SportId = @SportsBookID
+							)
+							AND bettype IN (22002, 22003) THEN - (winlost - ABS(actual_stake)) * e.ActualRate2
+						ELSE 0
+						END), 0) AS Withdrawal
+			,ISNULL(SUM(CASE 
+						WHEN @SportId IS NULL
+							AND (bettype <= 999 OR ( b.bettype BETWEEN 1301 AND 1399)) THEN
+								CASE
+									WHEN Bettype IN (33, 43)
+										AND liveawayscore = 0 THEN ABS(stake) / 2 * e.ActualRate2
+									ELSE ABS(stake) * e.ActualRate2
+									END
+						WHEN @SportId = @SportsBookID
+							AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
+							AND bettype NOT IN (31, 32, 33, 41, 42, 43) THEN ABS(stake)* e.ActualRate2
+						WHEN @SportId = @HorseRacingID
+							AND bettype IN (31, 32, 33, 41, 42, 43) THEN
+								CASE 
+									WHEN Bettype IN (33, 43)
+										AND liveawayscore = 0 THEN ABS(stake) / 2 * e.ActualRate2
+									ELSE ABS(stake) * e.ActualRate2
+									END
+						ELSE 0
+						END), 0) AS Turnover
+			,ISNULL(SUM(CASE 
+						WHEN @SportId IS NULL THEN
+							CASE 
 								WHEN (bettype <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 									AND ruben = 1 THEN (winlost - ABS(actual_stake)) * e.ActualRate2
 								ELSE 0
-								END), 0)
-				WHEN @SportId = @SportsBookID THEN ISNULL(SUM(CASE 
+								END
+						WHEN @SportId = @SportsBookID THEN
+							CASE 
 								WHEN (bettype <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 									AND ruben = 1
 									AND bettype NOT IN (31, 32, 33, 41, 42, 43) THEN (winlost - ABS(actual_stake)) * e.ActualRate2
 								ELSE 0
-								END), 0)
-				WHEN @SportId = @HorseRacingID THEN ISNULL(SUM(CASE 
+								END
+						WHEN @SportId = @HorseRacingID THEN
+							CASE 
 								WHEN bettype IN (31, 32, 33, 41, 42, 43)
 									AND ruben = 1 THEN (winlost - ABS(actual_stake)) * e.ActualRate2
 								ELSE 0
-								END), 0)
-				ELSE 0
-				END AS Winlost
-			,CASE 
-				WHEN (
-						@SportId IS NULL
-						OR @SportId = @SportsBookID
-						)
-					AND bettype = 22004 THEN ISNULL(SUM((winlost - ABS(actual_stake)) * e.ActualRate2), 0)
-				ELSE 0
-				END AS Bonus
-			,CASE 
-				WHEN @SportId IS NULL
-					OR @SportId = @SportsBookID THEN ISNULL(SUM(CASE bettype
-								WHEN 22001 THEN (winlost - ABS(actual_stake)) * e.ActualRate2
-								ELSE 0
-								END), 0) * e.DepositPercent + ABS(- ISNULL(SUM(CASE 
-									WHEN bettype IN (22002, 22003) THEN (winlost - ABS(actual_stake)) * e.ActualRate2
-									ELSE 0
-									END), 0)) * e.WithdrawalPercent
-				ELSE 0
-				END AS PSP
-			,CASE 
-				WHEN @SportId IS NULL
-					OR @SportId = @SportsBookID
-					AND bettype IN (21001, 21002, 21003, 21004, 21005, 22005) THEN ISNULL(SUM((winlost - ABS(actual_stake)) * e.ActualRate2), 0)
-				ELSE 0
-				END AS Adjustment
+								END
+						ELSE 0
+						END), 0) AS Winlost
+			,ISNULL(SUM(CASE 
+						WHEN (
+								@SportId IS NULL
+								OR @SportId = @SportsBookID
+							)
+							AND bettype = 22004 THEN (winlost - ABS(actual_stake)) * e.ActualRate2
+						ELSE 0
+						END), 0) AS Bonus
+			,ISNULL(SUM(CASE 
+						WHEN @SportId IS NULL OR @SportId = @SportsBookID THEN
+							CASE bettype WHEN 22001 THEN (winlost - ABS(actual_stake)) * e.ActualRate2 ELSE 0 END * e.DepositPercent
+							+ ABS(CASE WHEN bettype IN (22002, 22003) THEN (winlost - ABS(actual_stake)) * e.ActualRate2 ELSE 0 END) * e.WithdrawalPercent
+						ELSE 0
+						END), 0) AS PSP
+			,ISNULL(SUM(CASE 
+						WHEN @SportId IS NULL
+							OR @SportId = @SportsBookID
+							AND bettype IN (21001, 21002, 21003, 21004, 21005, 22005) THEN (winlost - ABS(actual_stake)) * e.ActualRate2
+						ELSE 0
+						END), 0) AS Adjustment
 			,e.ActualRate2
 		FROM bodb02.dbo.Bettrans b WITH (NOLOCK)
-			INNER JOIN dbo.MemberInfo m WITH (NOLOCK)
-			ON b.CustId = m.IBCCustID	
-			INNER JOIN #AffPaging ml
-			ON m.AffId = ml.AffId
-			INNER JOIN dbo.Exchange_Current e WITH (NOLOCK)
-			ON m.Currency = e.ExchangeId
+			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON b.CustId = m.IBCCustID	
+			INNER JOIN #AffPaging ml ON m.AffId = ml.AffId
+			INNER JOIN dbo.Exchange_Current e WITH (NOLOCK) ON m.Currency = e.ExchangeId
 		WHERE b.WinlostDate = @CurrDate
 			AND m.IsRemoved = 0
 			AND (
@@ -299,9 +299,10 @@ BEGIN
 			
 		GROUP BY m.IBCCustID
 			,m.AffID
-			,e.DepositPercent
-			,e.WithdrawalPercent
-			,b.Bettype
+			,CASE 
+				WHEN b.bettype IN (31, 32, 33, 41, 42, 43) THEN @HorseRacingID
+				ELSE @SportsBookID
+			END
 			,e.ActualRate2
 	END
 	
@@ -331,10 +332,8 @@ BEGIN
 		,0 AS AffWithdrawal
 		,SUM(AffNetWinlost * ExRate2) AS AffBF
 	FROM dbo.AffDaily ad WITH (NOLOCK)
-		INNER JOIN #AffPaging m
-		ON ad.AffID = m.AffId
-	WHERE (@IsGetAll = 1
-			OR ad.WinlostDate BETWEEN @FromDate AND @TmpToDate)
+		INNER JOIN #AffPaging m ON ad.AffID = m.AffId
+	WHERE (@IsGetAll = 1 OR ad.WinlostDate BETWEEN @FromDate AND @TmpToDate)
 		AND ISNULL(@SportId, SPortId) = SPortId
 	GROUP BY ad.AffID
 
@@ -401,13 +400,8 @@ BEGIN
 				END) AS AffWithdrawal
 		,0 AS AffBF
 	FROM dbo.AffTrans a WITH (NOLOCK)
-		INNER JOIN #AffPaging m
-		ON a.AffId = m.AffId
-	WHERE (
-			@IsGetAll = 1
-				--OR DATEADD(d, DATEDIFF(d, 0, TransDate), 0) BETWEEN @FromDate AND DATEADD(d, DATEDIFF(d, 0, @ToDate), 0)
-				OR a.TransDate BETWEEN @FromDate AND @ToDate
-			)
+		INNER JOIN #AffPaging m ON a.AffId = m.AffId
+	WHERE (@IsGetAll = 1 OR a.TransDate BETWEEN @FromDate AND @ToDate)
 		AND a.Transtype IN (202, 203)
 		AND a.STATUS IN ('Pending', 'Approved', 'Completed')
 	GROUP BY a.AffId

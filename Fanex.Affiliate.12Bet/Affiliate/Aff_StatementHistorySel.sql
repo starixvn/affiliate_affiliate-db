@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[Aff_StatementHistorySel] 
+﻿USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_StatementHistorySel] 
 	@AffId INT
 	,@TransType INT = - 1
 	,@FDate SMALLDATETIME = NULL
@@ -8,10 +11,11 @@
 	,@TotalPages INT = 0 OUTPUT
 	,@NRows INT = 0 OUTPUT
 AS
+
 /*
 	Created: 20090901@Peter  
 	Task : Getting all of transactions for an affiliate (Monthly transfer, Payment Request , Adjustment)  
-	DB: DB052.Affiliate_12BET  
+	DB: DBAFF12BET.Affiliate_12BET  
 	Original: [Aff_CustomerSelStatementHistory]    
 
 	Revisions:     
@@ -30,17 +34,19 @@ AS
 		• @TotalPages : number of pages  
 		• @NRows : number of rows  
 */
+
 BEGIN
 	SET NOCOUNT ON
 
 	IF (
-			@FDate IS NOT NULL
-			AND @TDate IS NOT NULL
-			AND @FDate > @TDate
-			) RETURN
+		@FDate IS NOT NULL
+		AND @TDate IS NOT NULL
+		AND @FDate > @TDate
+	) 
+		RETURN
 
-	IF (@TDate > current_timestamp)
-		SELECT @TDate = current_timestamp
+	IF @TDate > CURRENT_TIMESTAMP
+		SELECT @TDate = CURRENT_TIMESTAMP
 
 	IF @FDate IS NOT NULL
 		SET @FDate = dbo.Aff_GetStartDate(@FDate)
@@ -63,13 +69,14 @@ BEGIN
 		,@NetPercentReceived FLOAT
 
 	SELECT @NetPercentReceived = 1.0
-		,@CurrentDate = current_timestamp
+		,@CurrentDate = CURRENT_TIMESTAMP
 
 	INSERT INTO @AffTrans
-	SELECT 0 AS TransID
-		,current_timestamp AS MonthDate
+	SELECT
+		0 AS TransID
+		,CURRENT_TIMESTAMP AS MonthDate
 		,0 AS TransType
-		,sum(isnull(Amount, 0)) * @NetPercentReceived AS Amount
+		,SUM(ISNULL(Amount, 0)) * @NetPercentReceived AS Amount
 		,'Current' AS STATUS
 		,'' AS Creator
 		,'Current Month Statistics' AS Description
@@ -108,52 +115,30 @@ BEGIN
 	SELECT a.TransID
 		,a.TransDate AS MonthDate
 		,a.TransType
-		,(CASE 
-			WHEN transtype = 202 THEN abs(a.Amount)
-			ELSE a.Amount END
-			) AS Amount
-		,(CASE 
-			WHEN transtype = 201
-				OR transtype = 203 THEN 'B/F'
-			ELSE a.STATUS END
-			) AS STATUS
-		,isnull(i.username, 'System') AS Creator
-		,(CASE 
-			WHEN transtype = 202 THEN ap.AdminDesc
-			ELSE a.Description END
-			)
-	FROM AffTrans a(NOLOCK)
-		LEFT JOIN AffPayout ap(NOLOCK)
-		ON ap.RefID = a.RefID
-		LEFT JOIN Affiliate_User i WITH (NOLOCK)
-		ON i.custid = a.Creator
+		,CASE WHEN transtype = 202 THEN ABS(a.Amount) ELSE a.Amount END AS Amount
+		,CASE WHEN transtype = 201 OR transtype = 203 THEN 'B/F' ELSE a.STATUS END AS STATUS
+		,ISNULL(i.username, 'System') AS Creator
+		,CASE WHEN transtype = 202 THEN ap.AdminDesc ELSE a.Description END
+	FROM AffTrans a WITH(NOLOCK)
+		LEFT JOIN AffPayout ap WITH(NOLOCK) ON ap.RefID = a.RefID
+		LEFT JOIN Affiliate_User i WITH(NOLOCK) ON i.custid = a.Creator
 	WHERE a.AffID = @AffID
-		AND (CASE 
-			WHEN @TransType = - 1
-				OR TransType = @TransType THEN 1
-			ELSE 0 END
-			) = 1
-		AND (CASE 
-			WHEN (
-					@FDate IS NOT NULL
-					AND @TDate IS NOT NULL
-					AND a.CompletedDate BETWEEN @FDate AND @TDate
-					)
+		AND (CASE WHEN @TransType = - 1 OR TransType = @TransType THEN 1 ELSE 0 END) = 1
+		AND (CASE WHEN
+				(@FDate IS NOT NULL AND @TDate IS NOT NULL AND a.CompletedDate BETWEEN @FDate AND @TDate)
 				OR @FDate IS NULL
-				OR @TDate IS NULL THEN 1
-			ELSE 0 END
+				OR @TDate IS NULL
+				THEN 1
+				ELSE 0 END
 			) = 1
 		AND a.STATUS IN ('pending', 'approved', 'completed')
-	ORDER BY (CASE 
-			WHEN a.STATUS = 'pending' THEN 1
-			ELSE 2 END
-			)
+	ORDER BY
+		CASE WHEN a.STATUS = 'pending' THEN 1 ELSE 2 END
 		,a.CompletedDate DESC
 		,a.TransType DESC
 		,a.TransID DESC
 
-	SELECT @NRows = count(*)
-	FROM @AffTrans
+	SELECT @NRows = COUNT(*) FROM @AffTrans
 
 	--Add more row if the month is completed but not transfer yet  
 	DECLARE @RowStart INT
@@ -174,10 +159,9 @@ BEGIN
 		,STATUS
 		,Creator
 		,Description
-	FROM (
-		SELECT ROW_NUMBER() OVER (
-				ORDER BY MonthDate DESC
-				) AS TheCount
+	FROM
+	(
+		SELECT ROW_NUMBER() OVER (ORDER BY MonthDate DESC) AS TheCount
 			,TransId
 			,MonthDate
 			,TransType
@@ -186,18 +170,15 @@ BEGIN
 			,Creator
 			,Description
 		FROM @AffTrans
-		) m
+	) m
 	WHERE m.TheCount BETWEEN @RowStart AND @RowEnd
 END
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_StatementHistorySel] TO [bodbDownlineNet]
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_StatementHistorySel] TO [bodbDownlineNetView]
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_StatementHistorySel] TO [bodbAdminNet]
 GO
-
 GRANT VIEW DEFINITION ON [dbo].[Aff_StatementHistorySel] TO [VNTeam]
+GO

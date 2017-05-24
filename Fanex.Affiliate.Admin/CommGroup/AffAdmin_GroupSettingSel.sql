@@ -1,23 +1,26 @@
-﻿-- =============================================
--- Script Template
--- =============================================
-ALTER Procedure [dbo].[AffAdmin_GroupSettingSel]
-	@GroupId int	
+﻿USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_GroupSettingSel]
+	@GroupId INT	
 AS
+
 /*
-Created: 20090719@DungTong
-Task : Get Group Setting for Editing an existing Group
-DB: DB052.Affiliate_MYM
-Original:
+	Created: 20090719@DungTong
+	Task: Get Group Setting for Editing an existing Group
+	DB: DBAFF.Affiliate_Athena000
+	Original:
 
-Revisions:
+	Revisions:
 */
-SET NOCOUNT ON
 
-select g.GroupID,g.ProductID,g.TierID,g.MinAmount,g.MaxAmount,g.MinQM,g.MaxQM,g.Commission
-from GroupSetting g (nolock)     
-where g.GroupID=@GroupId
+BEGIN
+	SET NOCOUNT ON
 
+	SELECT GroupID, ProductID, TierID, MinAmount, MaxAmount, MinQM, MaxQM, Commission
+	FROM GroupSetting WITH(NOLOCK)     
+	WHERE GroupID = @GroupId
+END
 
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_GroupSettingSel] TO [bodbAdminNet]

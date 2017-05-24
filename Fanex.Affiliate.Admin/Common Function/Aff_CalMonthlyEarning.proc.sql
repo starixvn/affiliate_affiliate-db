@@ -1,21 +1,27 @@
-﻿ALTER PROCEDURE [dbo].[Aff_CalMonthlyEarning] (
+﻿USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_CalMonthlyEarning]
 	@AffID 				INT
 	,@Month 			INT
 	,@Year 				INT
 	,@ProductID 		INT = 0
 	,@Amount 			MONEY OUTPUT
-	)
 AS
+
 /*
-    Task : Calculate monthy earning for affiliate
-    Author : Peter@20090909
-    -20100709@Peter:
+    Task: Calculate monthy earning for affiliate
+    Author: Peter@20090909
+	DB: DBAFF.Affiliate_Athena000
+
+	Revisions:
+		- 20100709@Peter:
                     http://ccs.sunplus.vn/viewtopic.php?f=4&t=2890&st=0&sk=t&sd=a&start=10
                     Change the way to calculation:
 
                     if CNW <0 then we must also use the condition of Qualifying Members ( old way does not have)
                      and the minimum commission in this case is 10%  if the qualifying members <5. 
-    -20100927@Peter:
+		- 20100927@Peter:
                  http://ccs.sunplus.vn/viewtopic.php?f=4&t=3845&p=19236#p19236  
                  Change the way to calculation:
                    PSP=deposit * depositpercent + withdrawal * withdrawalpercent
@@ -30,14 +36,12 @@ AS
                    CNW= MemberWinlost - Odds Management Fee - Marketing Fee - PSP Fee
                    From CNW => AComm
                    Affiliate Earning=(CNW - Bonus - Adjustement)* AComm
-
-	- 20140418@Bobby: Check NoCommission group
-	- 20140702@Bobby.Nguyen: Force to update Commission  when Company Net Win is negative
-	- 20140909@Bobby.Nguyen: Apply  Sharing fee - PlayerComm 
-	
+		- 20140418@Bobby: Check NoCommission group
+		- 20140702@Bobby.Nguyen: Force to update Commission  when Company Net Win is negative
+		- 20140909@Bobby.Nguyen: Apply  Sharing fee - PlayerComm 
 */
+
 BEGIN
-	
 	SET NOCOUNT ON
 
 	DECLARE @FirstDay 					SMALLDATETIME
@@ -158,10 +162,8 @@ BEGIN
 		GROUP BY md.username
 			,ProductID
 		) r
-	--left join Product s (nolock) on s.ProductID=r.ProductID 
 	GROUP BY r.ProductID
 
-	
 	--Choose commission value and calculate Total Balance after deduction for each Affiliate and ProductID
 	;WITH AffNetWinlostTmp AS (	
 		SELECT a.ProductID
@@ -219,13 +221,11 @@ BEGIN
 	SET a.NetWinlost	= ISNULL(wl.AffNetWinlost, 0)
 		,a.commission	= ISNULL(pc.CommPercent, 0)
 	FROM @AffSummary a
-		LEFT JOIN AffNetWinlostTmp wl
-		ON a.ProductID = wl.ProductID
-		LEFT JOIN ProductComm pc
-		ON a.ProductID = pc.ProductID
+		LEFT JOIN AffNetWinlostTmp wl ON a.ProductID = wl.ProductID
+		LEFT JOIN ProductComm pc ON a.ProductID = pc.ProductID
 
 	SET @ZeroCommission = CAST([dbo].[IsZeroCommissionGroup](@GroupID, @LastDay) AS INT)
-
+	
 	/* 
 	-- HotFix #18485:
 	-- check/update Negative Commission
@@ -262,14 +262,9 @@ BEGIN
 				ELSE 1
 				END
 	END
-
-	RETURN;
 END
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_CalMonthlyEarning] TO [bodbAdminNet]
 GO
-
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CalMonthlyEarning] TO [vnteam]
 GO
-

@@ -1,20 +1,27 @@
-﻿ALTER PROCEDURE [dbo].[Aff_HomeGeneralInfo]
+﻿USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_HomeGeneralInfo]
 AS
-/*Created: 20090828@Bryan
-Task : Gather overview statistic information of aff-admin site
-DB: DB052.Affiliate_12bet
 
-Revisions:
-	- 20090829@Bryan initialize
-	- 20100520@Johnny: apply StatusID in bettrans table
-	- 20100729@Johnny: Apply Media affiliate statistics
-	- 20140228@Bobby: Apply AffType
-	- 20140521@Bobby: Update @BannerNum = @FlashBannerNum + @ImageBannerNum
+/*
+	Created: 20090828@Bryan
+	Task : Gather overview statistic information of aff-admin site
+	DB: DBAFF12BET.Affiliate_12bet
 
-Param's Explanation:
+	Revisions:
+		- 20090829@Bryan initialize
+		- 20100520@Johnny: apply StatusID in bettrans table
+		- 20100729@Johnny: Apply Media affiliate statistics
+		- 20140228@Bobby: Apply AffType
+		- 20140521@Bobby: Update @BannerNum = @FlashBannerNum + @ImageBannerNum
 
+	Param's Explanation:
 */
+
 BEGIN
+	SET NOCOUNT ON
+
 	--Variables for Normal Affiliate
 	DECLARE @PaymentReqNum INT
 		,@AffInProAllNum INT
@@ -45,33 +52,12 @@ BEGIN
 		,@PSPFeeMonth MONEY
 		,@AdjustmentMonth MONEY
 		,@NetWinlostMonth MONEY
-	/*--Variables for Media Affiliate
-	Declare 
-		@MediaNum int,
-		@MediaActiveNum int,
-		@MediaClosedNum int,
-		@MediaMonthNum int,
-		@MediaActiveMonthNum int,
-		@MediaClosedMonthNum int,
-		@MediaDepositAll money,
-		@MediaDepositMonth money,
-		@MediaWinlostAll money,
-		@MediaWinlostMonth money,
-		@MediaBonusAll money,
-		@MediaBonusMonth money,
-		@MediaAdjustmentAll money,
-		@MediaAdjustmentMonth money,
-		@MediaNetWinlostAll money,
-		@MediaNetWinlostMonth money*/
+
 	DECLARE @TransType INT
 	DECLARE @CurrentDate SMALLDATETIME
 		,@PreviousDate SMALLDATETIME
 	DECLARE @AffNormal TINYINT
 		,@AffMedia TINYINT
-
-	--dflag=0 : for all previous months data
-	-- dflag=1 : for current month data
-	SET NOCOUNT ON;
 
 	SELECT @CurrentDate = convert(VARCHAR(10), current_timestamp, 120)
 		,@PreviousDate = dateadd(d, - 1, @CurrentDate)
@@ -133,22 +119,11 @@ BEGIN
 				ELSE 0
 				END)
 	FROM AffInfo WITH (NOLOCK)
-	--WHERE AffType = @AffNormal
 	WHERE AffType IN (
 			SELECT TypeId
 			FROM dbo.AffType WITH (NOLOCK)
 			)
 
-	/*--Media Affiliate statistics
-	SELECT 
-		@MediaActiveNum = sum(case when IsClosed = 0 then 1 else 0 end),
-		@MediaClosedNum = sum(case when IsClosed = 1 then 1 else 0 end),
-		@MediaNum = sum(1),
-		@MediaActiveMonthNum = sum(case when IsClosed = 0 and datediff(mm, RegisteredDate, @CurrentDate)=0 then 1 else 0 end),
-		@MediaClosedMonthNum = sum(case when IsClosed = 1 and datediff(mm, RegisteredDate, @CurrentDate)=0 then 1 else 0 end),
-		@MediaMonthNum = sum(case when datediff(mm, RegisteredDate, @CurrentDate)=0 then 1 else 0 end)
-	FROM AffInfo with(nolock)
-	WHERE AffType = @AffMedia*/
 	-- //all banner statc
 	SELECT @BannerNum = sum(CASE 
 				WHEN ImageType = 'Image' OR ImageType = 'Flash' THEN 1
@@ -177,7 +152,8 @@ BEGIN
 	SELECT @NextMaxWinlostDate = dateadd(d, 1, @MaxWinLostDateAffComm)
 
 	--Get statistics of normal affiliate
-	EXEC Aff_GetMemberStatistics @AffType = @AffNormal
+	EXEC Aff_GetMemberStatistics
+		@AffType = @AffNormal
 		,@DepositAll = @DepositAll OUTPUT
 		,@DepositMonth = @DepositMonth OUTPUT
 		,@PSPFeeAll = @PSPFeeAll OUTPUT
@@ -191,19 +167,6 @@ BEGIN
 		,@NetWinlostAll = @NetWinlostAll OUTPUT
 		,@NetWinlostMonth = @NetWinlostMonth OUTPUT
 
-	--Get statistics of media affiliate 
-	/*Exec Aff_GetMemberStatistics
-		@AffType = @AffMedia,
-		@DepositAll = @MediaDepositAll Output,
-		@DepositMonth = @MediaDepositMonth Output,
-		@WinlostAll = @MediaWinlostAll Output,
-		@WinlostMonth= @MediaWinlostMonth Output,
-		@BonusAll = @MediaBonusAll Output,
-		@BonusMonth = @MediaBonusMonth Output,
-		@AdjustmentAll = @MediaAdjustmentAll Output,
-		@AdjustmentMonth = @MediaAdjustmentMonth Output,
-		@NetWinlostAll = @MediaNetWinlostAll Output,
-		@NetWinlostMonth = @MediaNetWinlostMonth Output */
 	SELECT @DepositMemAllNum = sum(1)
 		,@DepositMemMonthNum = sum(CASE 
 				WHEN datediff(mm, CreatedDate, @CurrentDate) = 0 THEN 1
@@ -242,35 +205,10 @@ BEGIN
 		,isnull(@BonusMonth, 0) AS BonusMonth
 		,isnull(@PSPFeeMonth, 0) AS PSPFeeMonth
 		,isnull(@AdjustmentMonth, 0) AS AdjustmentMonth
-		,isnull(@NetWinlostMonth, 0) AS NetWinlostMonth 
-		/*,
-	--Media Affiliate
-	isnull(@MediaNum,0) as MediaNum,
-	isnull(@MediaActiveNum,0) as MediaActiveNum,
-	isnull(@MediaClosedNum,0) as MediaClosedNum,
-	isnull(@MediaActiveMonthNum,0) as MediaActiveMonthNum,
-	isnull(@MediaClosedMonthNum ,0) as MediaClosedMonthNum,
-	isnull(@MediaMonthNum ,0) as MediaMonthNum,
-	isnull(@MediaNum ,0) asMediaNum,
-	isnull(@MediaActiveNum ,0) as MediaActiveNum,
-	isnull(@MediaClosedNum ,0) as MediaClosedNum,
-	isnull(@MediaMonthNum ,0) as MediaMonthNum,
-	isnull(@MediaActiveMonthNum ,0) as MediaActiveMonthNum,
-	isnull(@MediaClosedMonthNum ,0) as MediaClosedMonthNum,
-	isnull(@MediaDepositAll ,0) as MediaDepositAll,
-	isnull(@MediaDepositMonth ,0) as MediaDepositMonth,
-	isnull(@MediaWinlostAll ,0) as MediaWinlostAll,
-	isnull(@MediaWinlostMonth ,0) as MediaWinlostMonth,
-	isnull(@MediaBonusAll ,0) as MediaBonusAll,
-	isnull(@MediaBonusMonth ,0) as MediaBonusMonth,
-	isnull(@MediaAdjustmentAll ,0) as MediaAdjustmentAll,
-	isnull(@MediaAdjustmentMonth ,0) as MediaAdjustmentMonth,
-	isnull(@MediaNetWinlostAll ,0) as MediaNetWinlostAll,
-	isnull(@MediaNetWinlostMonth  ,0) as MediaNetWinlostMonth*/
+		,isnull(@NetWinlostMonth, 0) AS NetWinlostMonth
 END
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_HomeGeneralInfo] TO [bodbAdminNet]
 GO
-
 GRANT VIEW DEFINITION ON [dbo].[Aff_HomeGeneralInfo] TO [vnteam]
+GO

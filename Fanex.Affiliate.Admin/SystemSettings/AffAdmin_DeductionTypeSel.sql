@@ -1,15 +1,19 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_DeductionTypeSel]
+﻿USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_DeductionTypeSel]
 AS
+
 /*
-Created: 20130909@Joseph
-Task : Get all deduction types (paging)
-DB: DB052.
-Original:
+	Created: 20130909@Joseph
+	Task: Get all deduction types (paging)
+	DB: DBAFF.Affiliate_Athena000
+	Original:
 
-Revisions:
-	-20140826@Bobby: add RemovedDate info
-
+	Revisions:
+		- 20140826@Bobby: add RemovedDate info
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -20,8 +24,6 @@ BEGIN
 		,dt.DeductedPercentage
 		,dt.RemovedDate
 	FROM dbo.DeductionType dt WITH(NOLOCK)
-
-	RETURN;
 END
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_DeductionTypeSel] TO [bodbAdminNet]

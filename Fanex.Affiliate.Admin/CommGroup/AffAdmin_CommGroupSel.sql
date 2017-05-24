@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupSel] 
+﻿USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_CommGroupSel] 
 	@LicenseeID		INT
 	,@GroupName		NVARCHAR(100)	= ''
 	,@Currencies	VARCHAR(1000)	= ''
@@ -10,20 +13,22 @@
 	,@GroupIDList	VARCHAR(1000)	= ''	OUTPUT
 	,@NRows			INT				= 0		OUTPUT
 AS
+
 /*
-Created: 20090719@DungTong
-Task : Search a Commission Group (paging)
-DB: DB052.Affiliate_MYM
-Original:
+	Created: 20090719@DungTong
+	Task: Search a Commission Group (paging)
+	DB: DBAFF.Affiliate_Athena000
+	Original:
 
-Revisions:
-    - 20130913@Joseph: new version
-    - 20131121@Joseph: filter by TestLevel
-	- 20140820@Bobby: Add Deposit & Withdrawal percent - apply SQL stylescope
-	- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	Revisions:
+		- 20130913@Joseph: new version
+		- 20131121@Joseph: filter by TestLevel
+		- 20140820@Bobby: Add Deposit & Withdrawal percent - apply SQL stylescope
+		- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
-Params Explaination:
+	Params Explaination:
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -55,44 +60,34 @@ BEGIN
 			INNER JOIN #tmpCurrency t ON c.val = t.CurrencyID
 
 		-- NoCommission group
-		IF (
-				SELECT count(1)
-				FROM @TblCurrency
-				) > 0
+		IF @@ROWCOUNT > 0
+		BEGIN
 			INSERT INTO @TblCurrency
 			VALUES (0)
+		END
 	END
 
 	SELECT @GroupName = '%' + COALESCE(@GroupName, '') + '%'
 
 	---CommGroup Detail va SportName se duoc cache tren web server dung co che notification
 	INSERT INTO @CommTmp(GroupID, Currency, MonthDate)
-	SELECT GroupID
-		, Currency
-		, MonthDate
+	SELECT GroupID, Currency, MonthDate
 	FROM (
-		SELECT cg.GroupID
-			, cg.Currency
-			, @CurrentDate AS MonthDate
+		SELECT cg.GroupID, cg.Currency, @CurrentDate AS MonthDate
 		FROM dbo.CommGroup cg WITH (NOLOCK)
-			WHERE cg.GroupName LIKE @GroupName
-				AND IsDeleted = 0
-				AND (
-					@Currencies = 'All'
-					OR (
-						@Currencies IS NOT NULL
-						AND Currency IN (
-							SELECT val
-							FROM @TblCurrency
-							)
-						)
-					)
-				AND DATEDIFF(m, @CurrentDate, @Date) = 0
+		WHERE cg.GroupName LIKE @GroupName
+			AND IsDeleted = 0
+			AND (
+				@Currencies = 'All'
+				OR (
+					@Currencies IS NOT NULL
+					AND Currency IN (SELECT val FROM @TblCurrency)
+				)
+			)
+			AND DATEDIFF(m, @CurrentDate, @Date) = 0
 		
 		UNION 
-		SELECT cg.GroupID
-			, cg.Currency
-			, cg.MonthDate
+		SELECT cg.GroupID, cg.Currency, cg.MonthDate
 		FROM dbo.CommGroupHistory cg WITH (NOLOCK)
 		WHERE GroupName LIKE @GroupName
 			AND IsDeleted = 0
@@ -100,12 +95,9 @@ BEGIN
 				@Currencies = 'All'
 				OR (
 					@Currencies IS NOT NULL
-					AND cg.Currency IN (
-						SELECT val
-						FROM @TblCurrency
-						)
-					)
+					AND Currency IN (SELECT val FROM @TblCurrency)
 				)
+			)
 			AND DATEDIFF(m, @Date, cg.MonthDate) = 0
 	) tmp
 	GROUP BY GroupID, Currency, MonthDate
@@ -117,7 +109,7 @@ BEGIN
 	SELECT @GroupIDList = ISNULL(@GroupIDList, '') + ',' + CAST(tmp.GroupID AS VARCHAR(10))
 	FROM @CommTmp tmp
 	WHERE tmp.RowIDX BETWEEN ((@PageIndex - 1) * @PageSize) + 1 AND @PageSize * (@PageIndex)
-	
+
 	--check has cashback
 	SELECT @HasCashback = MAX(ct.HasCashback)
 	FROM (
@@ -154,17 +146,10 @@ BEGIN
 				END 											AS WithdrawalPercent
 			,tmp.RowIDX
 		FROM @CommTmp tmp
-			LEFT JOIN dbo.CommGroup cg WITH(NOLOCK)
-			ON tmp.GroupId = cg.GroupId 
-				AND tmp.MonthDate = @CurrentDate
-			LEFT JOIN dbo.CommGroupHistory ch WITH(NOLOCK)
-			ON tmp.GroupId = ch.GroupId 
-				AND tmp.MonthDate = ch.MonthDate
-			LEFT JOIN dbo.Exchange ex WITH(NOLOCK)
-			ON cg.Currency = ex.ExchangeID
-			LEFT JOIN dbo.ExchangeDaily ed WITH(NOLOCK)
-			ON ch.Currency = ed.ExchangeID 
-				AND ch.MonthDate = ed.[Date]
+			LEFT JOIN dbo.CommGroup cg WITH(NOLOCK) ON tmp.GroupId = cg.GroupId AND tmp.MonthDate = @CurrentDate
+			LEFT JOIN dbo.CommGroupHistory ch WITH(NOLOCK) ON tmp.GroupId = ch.GroupId AND tmp.MonthDate = ch.MonthDate
+			LEFT JOIN dbo.Exchange ex WITH(NOLOCK) ON cg.Currency = ex.ExchangeID
+			LEFT JOIN dbo.ExchangeDaily ed WITH(NOLOCK) ON ch.Currency = ed.ExchangeID AND ch.MonthDate = ed.[Date]
 		WHERE tmp.RowIDX BETWEEN ((@PageIndex - 1) * @PageSize) + 1 AND @PageSize * (@PageIndex)
 	)
 	-- final result
@@ -182,25 +167,21 @@ BEGIN
 		,ai.NoOfAffiliate
 		,@HasCashback AS HasCashback
 	FROM CommPaging g
-		LEFT JOIN dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) au 
-		ON au.userid = g.Creator
+		LEFT JOIN dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) au ON au.userid = g.Creator
 		CROSS APPLY (
-				SELECT COUNT(1) AS NoOfAffiliate
-				FROM dbo.AffInfo ai WITH (NOLOCK)
-				WHERE ai.GroupID = g.GroupID
-					AND (
-						@IsITAdmin = 1
-						OR ai.TestLevel IN (0, 1)
-						)
-			) AS ai
+			SELECT COUNT(1) AS NoOfAffiliate
+			FROM dbo.AffInfo ai WITH (NOLOCK)
+			WHERE ai.GroupID = g.GroupID
+				AND (@IsITAdmin = 1 OR ai.TestLevel IN (0, 1))
+		) AS ai
 	ORDER BY g.RowIDX ASC
 	
 	SELECT @GroupIDList = SUBSTRING(@GroupIDList, 2, LEN(@GroupIDList) - 1)
-	DROP TABLE #tmpCurrency
 	
-	RETURN;
+	DROP TABLE #tmpCurrency
 END
 GO
 GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupSel] TO [bodbAdminNet] AS [dbo]
 GO
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupSel] TO [vnteam] AS [dbo]
+GO

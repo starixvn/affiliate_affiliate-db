@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[Aff_ReportQM] 
+﻿USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_ReportQM] 
 	@AffName 			VARCHAR(50) = NULL
 	,@PreferredLanguage VARCHAR(11) = NULL
 	,@Month 			INT
@@ -8,37 +11,39 @@
 	,@SortBy			TINYINT		= 0
 	,@NRows 			INT 		= 0 OUTPUT
 AS
-/*
-Created: 20091213@Peter
-Task : Get Qualifying member report for all affiliates.
-DB: DB052.Affiliate_12BET
-Original: 
-Revisions:
-	- 20110523@Henry: change bettype to new range
-	- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
-	- 20120508@Johnny: Add Casino 
-	- 20120606@Peter : Exclude waiting tickets
-	- 20140403@Bobby:  exclude Keno product & other sports
-	- 20141114@Bobby: 
-		+ Add sorting [@SortBy] value
-		+ Remove @TotalPages
-	- 20141218@Bobby: Enhance performance & update SS's bettype
-	- 20141223@Bobby: Hotfix#28059 - Filtering by PreferredLanguage
-	- 20150923@Bobby: Update formular of QM calculation change ">" to  ">="
 
-Param's Explanation:
-	• @SortBy: Default(0) - AffId ASC
-				, 1 - Sportsbook QM DESC
-				, 3 - Casino QM DESC
-	
+/*
+	Created: 20091213@Peter
+	Task: Get Qualifying member report for all affiliates.
+	DB: DBAFF12BET.Affiliate_12BET
+
+	Revisions:
+		- 20110523@Henry: change bettype to new range
+		- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
+		- 20120508@Johnny: Add Casino 
+		- 20120606@Peter : Exclude waiting tickets
+		- 20140403@Bobby:  exclude Keno product & other sports
+		- 20141114@Bobby: 
+			+ Add sorting [@SortBy] value
+			+ Remove @TotalPages
+		- 20141218@Bobby: Enhance performance & update SS's bettype
+		- 20141223@Bobby: Hotfix#28059 - Filtering by PreferredLanguage
+		- 20150923@Bobby: Update formular of QM calculation change ">" to  ">="
+
+	Param's Explanation:
+		• @SortBy:
+			0: AffId ASC
+			1 - Sportsbook QM DESC
+			3 - Casino QM DESC
 */
+
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @AffList 
-	AS TABLE (
+	DECLARE @AffList TABLE
+	(
 		AffId		INT
-		, UserName	VARCHAR(30)
+		,UserName	VARCHAR(30)
 	)
 	
 	DECLARE @FirstDay 	SMALLDATETIME
@@ -53,39 +58,33 @@ BEGIN
 		,@HorseRacingID 	= dbo.Aff_GetSportID('Horse Racing')
 		,@CasinoID 			= dbo.Aff_GetSportID('Casino')
 
-	SELECT @FirstDay = cast(cast(@Year AS VARCHAR(5)) + '-' + cast(@Month AS VARCHAR(5)) + '-' + '1' AS SMALLDATETIME)
+	SELECT @FirstDay = CAST(CAST(@Year AS VARCHAR(5)) + '-' + CAST(@Month AS VARCHAR(5)) + '-' + '1' AS SMALLDATETIME)
 
 	--Get last day of inputted month
 	SELECT @LastDay = DATEADD(d, - 1, DATEADD(mm, DATEDIFF(m, 0, @FirstDay) + 1, 0))
 
-	SELECT @MaxWinlostDate = max(WinlostDate)
+	SELECT @MaxWinlostDate = MAX(WinlostDate)
 	FROM AffCommission WITH (NOLOCK)
 
 	SELECT @NoComGroupID = GroupID
 	FROM CommGroup WITH (NOLOCK)
 	WHERE GroupName = 'NoCommission'
 
-	SELECT @AffName = '%' + Coalesce(@AffName, '') + '%'
+	SELECT @AffName = '%' + COALESCE(@AffName, '') + '%'
 	
 	--search for aff account whom had any transaction in the specific month
 	INSERT INTO @AffList( AffId, UserName )
-	SELECT ai.AffID
-		, ai.UserName
-
+	SELECT ai.AffID, ai.UserName
 	FROM dbo.AffInfo ai WITH (NOLOCK)
-		
-		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) 
-		ON ai.AffId = ad.AffId
-
+		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 	WHERE ai.STATUS		= 'Approved'
 		AND ai.Username LIKE @AffName
 		AND (@PreferredLanguage IS NULL OR ad.PreferredLanguage = @PreferredLanguage)
 		AND ai.ApprovedDate < @LastDay
-
-	GROUP BY ai.AffID
-		, ai.UserName
+	GROUP BY ai.AffID, ai.UserName
 		
-	IF (@@ROWCOUNT = 0) RETURN
+	IF (@@ROWCOUNT = 0)
+		RETURN
 	
 	IF (@LastDay <= @MaxWinlostDate) --Get Data from AffCommission
 	BEGIN
@@ -108,16 +107,10 @@ BEGIN
 								,CASE WHEN @SortBy = 3 THEN SUM(CASE WHEN ac.SportID = @CasinoID 		THEN ISNULL(QualifiedMember, 0) ELSE 0 END) ELSE 0 END DESC
 								,CASE WHEN @SortBy = 0 THEN m.AffId ELSE 0 END ASC
 					) AS RowIDX
-					
 			FROM @AffList m
-				INNER JOIN dbo.AffCommission ac WITH (NOLOCK)
-				ON m.AffId = ac.AffId
-				
+				INNER JOIN dbo.AffCommission ac WITH (NOLOCK) ON m.AffId = ac.AffId
 			WHERE ac.WinlostDate = @LastDay
-			
-			GROUP BY m.AffId
-				,m.UserName
-				
+			GROUP BY m.AffId, m.UserName
 			HAVING SUM(ISNULL(ac.QualifiedMember, 0)) > 0
 		) t
 		WHERE t.RowIDX BETWEEN (((@PageIndex - 1) * @PageSize) + 1) AND (@PageSize * @PageIndex)
@@ -127,9 +120,7 @@ BEGIN
 		FROM (
 			SELECT m.AffId
 			FROM @AffList m
-				INNER JOIN dbo.AffCommission ac WITH (NOLOCK)
-				ON m.AffId = ac.AffId
-				
+				INNER JOIN dbo.AffCommission ac WITH (NOLOCK) ON m.AffId = ac.AffId
 			WHERE ac.WinlostDate = @LastDay
 				AND ISNULL(ac.QualifiedMember, 0) > 0
 			GROUP BY m.AffId
@@ -139,8 +130,8 @@ BEGIN
 	END
 	ELSE --Calculate data for uncalculated month
 	BEGIN
-		DECLARE @MemList 
-		AS TABLE (
+		DECLARE @MemList TABLE
+		(
 			IBCCustId 			INT
 			,AffId 				INT
 			,ActualRate2 		FLOAT
@@ -161,10 +152,7 @@ BEGIN
 			,@CurrDate 			SMALLDATETIME
 
 		SELECT @CurrDate 		= CONVERT(VARCHAR(10), CURRENT_TIMESTAMP, 120)
-				,@LastDay 		= CASE 
-									WHEN @LastDay >= @CurrDate THEN DATEADD(d, - 1, @CurrDate)
-									ELSE @LastDay 
-								END
+				,@LastDay 		= CASE WHEN @LastDay >= @CurrDate THEN DATEADD(d, - 1, @CurrDate) ELSE @LastDay END
 
 		SELECT @QmTurnOverSP 	= CASE WHEN s.SportID = @SportsBookID 	THEN s.QMTurnOver 	ELSE @QmTurnOverSP 	END
 			, @QmTurnOverHR 	= CASE WHEN s.SportID = @HorseRacingID 	THEN s.QMTurnOver 	ELSE @QmTurnOverHR 	END
@@ -172,19 +160,13 @@ BEGIN
 			, @QmDepositCS 		= CASE WHEN s.SportID = @CasinoID 		THEN s.QMDeposit 	ELSE @QmDepositCS 	END
 		FROM dbo.SportType s WITH(NOLOCK)
 
-
 		INSERT INTO @MemList
 		SELECT mi.IbcCustId
 			,mi.AffId
 			,e.ActualRate2
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
-		
-			INNER JOIN @AffList a
-			ON mi.AffId = a.AffId
-			
-			INNER JOIN dbo.Exchange_Current e WITH (NOLOCK)
-			ON mi.Currency = e.ExchangeId
-			
+			INNER JOIN @AffList a ON mi.AffId = a.AffId
+			INNER JOIN dbo.Exchange_Current e WITH (NOLOCK) ON mi.Currency = e.ExchangeId
 		WHERE mi.IsRemoved = 0
 		
 		--Calculate Turnover for SP & HR & CA
@@ -200,9 +182,7 @@ BEGIN
 							,md.IBCCustID
 							,SUM(ISNULL(md.TurnOver, 0) * ISNULL(md.AffExRate, 1)) AS TurnOver
 						FROM @AffList m
-							LEFT JOIN dbo.MemberDaily md WITH(NOLOCK)
-							ON m.AffId = md.AffId
-							
+							LEFT JOIN dbo.MemberDaily md WITH(NOLOCK) ON m.AffId = md.AffId
 						WHERE md.WinlostDate BETWEEN @FirstDay AND @LastDay
 							AND SportType = @SportsBookID
 						GROUP BY m.AffID
@@ -214,10 +194,7 @@ BEGIN
 							, m.IbcCustId
 							,SUM(ISNULL(abs(b.stake), 0) * ISNULL(m.ActualRate2, 0)) AS TurnOver
 						FROM bodb02.dbo.Bettrans b WITH (NOLOCK)
-							
-							INNER JOIN @MemList m
-							ON b.CustId = m.IBCCustId
-							
+							INNER JOIN @MemList m ON b.CustId = m.IBCCustId
 						WHERE datediff(m, @LastDay, @CurrDate) = 0
 							AND b.WinlostDate = @CurrDate
 							AND (
@@ -238,9 +215,7 @@ BEGIN
 					) a
 					GROUP BY IBCCustID
 						,AffID
-					
 					HAVING SUM(ISNULL(a.TurnOver, 0)) >= @QmTurnOverSP
-					
 			) t
 			GROUP BY t.AffID
 			HAVING COUNT(1) > 0
@@ -254,18 +229,12 @@ BEGIN
 				--Get data from MemberDaily for HR
 				SELECT md.AffID 
 					,md.IBCCustID
-					
 				FROM dbo.MemberDaily md WITH(NOLOCK) 
-					
-					INNER JOIN @MemList a
-					ON md.IBCCustId = a.IBCCustId
-					
+					INNER JOIN @MemList a ON md.IBCCustId = a.IBCCustId
 				WHERE md.WinlostDate BETWEEN @FirstDay AND @LastDay
 					AND md.SportType = @CasinoID
-					
 				GROUP BY md.AffID
 					,md.IBCCustID
-					
 				HAVING SUM(ISNULL(TurnOver, 0) * ISNULL(AffExRate, 1)) >= @QmTurnOverCS
 					AND SUM(ISNULL(Deposit, 0) * ISNULL(AffExRate, 1)) >= @QmDepositCS
 			) t
@@ -279,11 +248,9 @@ BEGIN
 				SELECT sp.AffID
 				FROM SportsBookQM sp
 				
-				
 				UNION
 				SELECT cs.AffID
 				FROM CasinoQM cs
-				
 			) AS r
 		)
 		INSERT INTO #AffTotal(AffId, SPTotal, CSTotal, RowIDX, NRows)
@@ -303,20 +270,13 @@ BEGIN
 					) AS RowIDX
 				,r.NRows
 			FROM @AffList m
-				
-				LEFT JOIN SportsBookQM sp
-				ON m.AffID = sp.AffID
-				
-				LEFT JOIN CasinoQM cs
-				ON m.AffID = cs.AffID
-			
+				LEFT JOIN SportsBookQM sp ON m.AffID = sp.AffID
+				LEFT JOIN CasinoQM cs ON m.AffID = cs.AffID
 				CROSS APPLY TblNRows r
-			
 			WHERE ISNULL(sp.Total, 0) 	> 0
 				OR ISNULL(cs.Total, 0)  > 0
 		) t
 		WHERE t.RowIDX BETWEEN (((@PageIndex - 1) * @PageSize) + 1) AND (@PageSize * @PageIndex)
-		
 		ORDER BY t.RowIDX
 		
 		SELECT TOP 1 @NRows = NRows FROM #AffTotal
@@ -333,15 +293,10 @@ BEGIN
 						SELECT IBCCustID
 							,md.AffID 
 							,SUM(ISNULL(TurnOver, 0) * ISNULL(AffExRate, 1)) AS TurnOver
-							
 						FROM dbo.MemberDaily md(NOLOCK)
-							
-							INNER JOIN #AffTotal a
-							ON md.AffId = a.AffId
-							
+							INNER JOIN #AffTotal a ON md.AffId = a.AffId
 						WHERE md.WinlostDate BETWEEN @FirstDay AND @LastDay
 							AND SportType = @HorseRacingID
-							
 						GROUP BY IBCCustID
 							,md.AffID
 						
@@ -355,12 +310,8 @@ BEGIN
 									ELSE ISNULL(abs(stake), 0)
 									END * ISNULL(m.ActualRate2, 0)) AS TurnOver
 						FROM @MemList m
-							INNER JOIN #AffTotal a
-							ON m.AffId = a.AffId
-							
-							INNER JOIN bodb02.dbo.Bettrans b WITH (NOLOCK)
-							ON m.IBCCustId = b.CustId
-							
+							INNER JOIN #AffTotal a ON m.AffId = a.AffId
+							INNER JOIN bodb02.dbo.Bettrans b WITH (NOLOCK) ON m.IBCCustId = b.CustId
 						WHERE DATEDIFF(m, @LastDay, @CurrDate) = 0
 							AND b.WinlostDate = @CurrDate
 							AND b.bettype IN (33, 43) --get HR only
@@ -373,7 +324,6 @@ BEGIN
 					HAVING SUM(ISNULL(TurnOver, 0)) > @QmTurnOverHR
 				) t
 			GROUP BY t.AffID
-			
 		)
 		SELECT 
 			a.AffID
@@ -383,41 +333,14 @@ BEGIN
 			,ISNULL(hr.Total, 0) 	AS HRQM
 			,ISNULL(a.SPTotal, 0) + ISNULL(hr.Total, 0) + ISNULL(a.CSTotal, 0) AS TotalQM
 			,a.RowIDX
-				
 		FROM #AffTotal a
-		
-			INNER JOIN @AffList m
-			ON a.AffId = m.AffId
-						
-			LEFT JOIN HorseRacingQM hr
-			ON a.AffID = hr.AffID
-			
+			INNER JOIN @AffList m ON a.AffId = m.AffId
+			LEFT JOIN HorseRacingQM hr ON a.AffID = hr.AffID
 		ORDER BY a.RowIDX
 	END
 	
 	SET @NRows = ISNULL(@NRows, 0)
-
-	RETURN
-	
 END
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_ReportQM] TO [bodbAdminNet]
 GO
-
-/*
-DECLARE @p7 INT
-DECLARE @p8 INT
-
-EXEC Aff_ReportQM @AffName = DEFAULT
-	,@PreferredLanguage = 'En'
-	,@Month = 11
-	,@Year = 2014
-	,@PageSize = 200
-	,@PageIndex = 1
-	,@SortBy = 1
-	,@NRows = @p8 OUTPUT
-
-SELECT @p7
-	,@p8
-*/

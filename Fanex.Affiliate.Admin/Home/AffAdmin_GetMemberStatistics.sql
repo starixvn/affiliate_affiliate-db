@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_GetMemberStatistics] 
+﻿USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_GetMemberStatistics] 
 	@LicenseeID			INT
 	,@UserId 			INT 	= 0
 	,@AffType 			TINYINT = 0
@@ -20,47 +23,51 @@
 	,@WithdrawalMonth 	MONEY 	= 0 OUTPUT
 	,@TestLevel 		TINYINT = 0
 AS
-/*Created: 20131002@Johnny
-Task : Gather overview statistic of member information
-DB: DB052.Affiliate_AoncashUAT  
+
+/*
+	Created: 20131002@Johnny
+	Task: Gather overview statistic of member information
+	DB: DBAFF.Affiliate_Athena000  
   
-Revisions:  
-	- 20131002@Johnny: Apply test level
-	- 20131007@Johnny: Get turnover and withdrawal instead of PSP fee
-	- 20140819@Bobby: Apply SQL style scope
-	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	Revisions:  
+		- 20131002@Johnny: Apply test level
+		- 20131007@Johnny: Get turnover and withdrawal instead of PSP fee
+		- 20140819@Bobby: Apply SQL style scope
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 	
-Param's Explanation:  
-    - @TestLevel: 0: real acc; 1: csd test; 2: QC Test
-    
+	Param's Explanation:  
+		- @TestLevel: 0: real acc; 1: csd test; 2: QC Test
 */
+
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @MaxWinLostDateAffComm 	SMALLDATETIME
 		,@NextMaxWinlostDate 		SMALLDATETIME
 		,@CurrentDate 				SMALLDATETIME
-	DECLARE @tmpCurrency TABLE (
+	
+	DECLARE @tmpCurrency TABLE
+	(
 		CurrencyID INT
 		,ExRate FLOAT
-		)
+	)
 
 	SELECT @MaxWinLostDateAffComm = max(winlostdate)
 	FROM dbo.AffCommission WITH (NOLOCK)
 
-	INSERT INTO @tmpCurrency
-	SELECT AffCurrencyID
-		,0 AS ExRate
+	INSERT INTO @tmpCurrency (CurrencyID, ExRate)
+	SELECT AffCurrencyID, 0 AS ExRate
 	FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID)
 
 	IF @MaxWinLostDateAffComm IS NULL
 	BEGIN
-		SELECT @NextMaxWinlostDate = cast((
+		SELECT @NextMaxWinlostDate = CAST((
 					SELECT TOP (1) SValue
 					FROM dbo.SystemSettings WITH(NOLOCK)
 					WHERE Type = 'Meta'
 						AND SName = 'SystemStartDate'
-					) AS SMALLDATETIME)
+					) AS SMALLDATETIME
+				)
 	END
 	ELSE
 	BEGIN
@@ -69,7 +76,8 @@ BEGIN
 
 	SELECT @CurrentDate = getdate()
 
-	DECLARE @TblStatistics AS TABLE (
+	DECLARE @TblStatistics TABLE
+	(
 		deposit MONEY
 		,winlost MONEY
 		,bonus MONEY
@@ -78,9 +86,10 @@ BEGIN
 		,Turnover MONEY
 		,Withdrawal MONEY
 		,WinlostDate SMALLDATETIME
-		)
+	)
 
-	INSERT INTO @TblStatistics (
+	INSERT INTO @TblStatistics
+	(
 		deposit
 		,winlost
 		,bonus
@@ -89,7 +98,7 @@ BEGIN
 		,Turnover
 		,Withdrawal
 		,winlostdate
-		)
+	)
 	SELECT SUM(ISNULL(MemberDeposit, 0)) AS deposit
 		,SUM((ISNULL(MemberWinlost, 0))) AS winlost
 		,SUM(ISNULL(MemberBonus, 0)) AS bonus
@@ -99,14 +108,12 @@ BEGIN
 		,SUM(ISNULL(MemberWithdrawal, 0)) AS Withdrawal
 		,@MaxWinLostDateAffComm AS winlostdate
 	FROM dbo.AffCommission ac WITH (NOLOCK)
-		INNER JOIN dbo.AffInfo ai WITH (NOLOCK)
-		ON ac.AffId = ai.AffId
-		INNER JOIN @tmpCurrency t
-		ON ai.Currency = t.CurrencyID
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON ac.AffId = ai.AffId
+		INNER JOIN @tmpCurrency t ON ai.Currency = t.CurrencyID
 	WHERE (
 			@AffType = 0
 			OR ai.AffType = @AffType
-			)
+		)
 		AND ProductID > 0
 		AND winlostdate < @NextMaxWinlostDate
 		AND ISNULL(ai.TestLevel, 0) <= @TestLevel
@@ -121,14 +128,12 @@ BEGIN
 		,SUM(ISNULL(MemWithdrawal, 0) * SysExRate) AS Withdrawal
 		,dateadd(mm, DATEDIFF(m, 0, md.Winlostdate), 0) AS winlostdate
 	FROM dbo.AffDaily md WITH (NOLOCK)
-		INNER JOIN dbo.AffInfo ai WITH (NOLOCK)
-		ON md.AffId = ai.AffId
-		INNER JOIN @tmpCurrency t
-		ON ai.Currency = t.CurrencyID
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON md.AffId = ai.AffId
+		INNER JOIN @tmpCurrency t ON ai.Currency = t.CurrencyID
 	WHERE (
 			@AffType = 0
 			OR ai.AffType = @AffType
-			)
+		)
 		AND Winlostdate BETWEEN @NextMaxWinlostDate AND @CurrentDate
 		AND ISNULL(ai.TestLevel, 0) <= @TestLevel
 
@@ -178,3 +183,4 @@ GO
 GRANT EXECUTE ON [dbo].[AffAdmin_GetMemberStatistics] TO [bodbAdminNet] AS [dbo]
 GO
 GRANT VIEW DEFINITION ON [dbo].[AffAdmin_GetMemberStatistics] TO [vnteam] AS [dbo]
+GO
