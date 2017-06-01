@@ -32,6 +32,7 @@ AS
 			+ If update group has casino to group hasn't casino 
 				. do not update CasinoJoinedDate in AffInfo 
 				. if there is affiliate in group has casino, do not allow update this group
+		- 20170601@Percy: Add new column: isTest [RedmineID: #77521]
 
 	Parameters:
 		.@UserID: Administrator user id
@@ -54,6 +55,10 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
+
+	DECLARE @isTest BIT = 0
+
+	SELECT  @isTest = dbo.f_Aff_CheckSPVersion(@@PROCID)
 	
 	--Check permission
 	EXEC [dbo].[Aff_Con_CheckPermission]
@@ -95,6 +100,7 @@ BEGIN
 		from dbo.strsplit(@DeductionList, ',') t
 			 inner join dbo.strsplit(@DeductedPercentageList, ',') p on p.rank=t.rank    
 			 inner join DeductionType d with (nolock) on d.DTypeID=cast(t.val as tinyint)	
+		where d.IsTest <= @isTest
 
 		IF @@Rowcount<>(select count(1) from dbo.strsplit(@DeductionList, ',')) or @@ERROR <> 0
 		BEGIN

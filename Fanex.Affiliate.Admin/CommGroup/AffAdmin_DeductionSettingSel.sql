@@ -14,12 +14,17 @@ AS
 
 	Revisions:
 		- 20140820@Bobby: Apply SQL stylescope
+		- 20170601@Percy: Add new column: isTest [RedmineID: #77521]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @TblGroup TABLE (val NVARCHAR(6))
+
+	DECLARE @isTest BIT = 0
+
+	SELECT  @isTest = dbo.f_Aff_CheckSPVersion(@@PROCID)
 
 	INSERT INTO @TblGroup (val)
 	SELECT val FROM [dbo].[strSplit](@GroupIDList, ',')
@@ -35,6 +40,7 @@ BEGIN
 		FROM dbo.DeductionSetting ds WITH (NOLOCK)
 			INNER JOIN dbo.DeductionType d WITH (NOLOCK) ON ds.DeductionID = d.DTypeId
 		WHERE ds.GroupID IN (SELECT val FROM @TblGroup)
+			AND d.isTest <= @isTest
 	END
 	ELSE
 	BEGIN
@@ -48,6 +54,7 @@ BEGIN
 			INNER JOIN dbo.DeductionType d WITH (NOLOCK) ON ds.DeductionID = d.DTypeId
 		WHERE ds.GroupID IN (SELECT val FROM @TblGroup)
 			AND DATEDIFF(m, ds.MonthDate, @Date) = 0
+			AND d.isTest <= @isTest
 	END
 END
 GO

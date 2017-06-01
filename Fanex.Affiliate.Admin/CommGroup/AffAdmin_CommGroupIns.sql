@@ -38,6 +38,7 @@ AS
 		- 20140724@Bobby: Update generating @GroupId
 		- 20140820@Bobby: Add Deposit & Withdrawal percent and apply SQL stylescope
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170601@Percy: Add new column: isTest [RedmineID: #77521]
 	
 	Parameters:  
 		.@UserID : Administrator user id  
@@ -59,6 +60,10 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
+
+	DECLARE @isTest BIT = 0
+
+	SELECT  @isTest = dbo.f_Aff_CheckSPVersion(@@PROCID)
 
 	--Check permission  
 	EXEC [dbo].[Aff_Con_CheckPermission] 
@@ -165,6 +170,7 @@ BEGIN
 		FROM dbo.strsplit(@DeductionList, ',') t
 			INNER JOIN dbo.strsplit(@DeductedPercentageList, ',') p ON p.rank = t.rank
 			INNER JOIN DeductionType d WITH (NOLOCK) ON d.DTypeID = CAST(t.val AS TINYINT)
+		WHERE d.IsTest <= @isTest
 
 		IF @@ERROR <> 0 OR @@ROWCOUNT <> (SELECT COUNT(1) FROM dbo.strsplit(@DeductionList, ','))
 		BEGIN
