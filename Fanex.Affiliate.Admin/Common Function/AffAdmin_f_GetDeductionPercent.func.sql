@@ -1,3 +1,6 @@
+USE [Affiliate_Athena000]
+GO
+
 ALTER FUNCTION [dbo].[AffAdmin_f_GetDeductionPercent] (
 	@AffID 			INT
 	,@ProductID 	TINYINT
@@ -11,9 +14,16 @@ AS
     Author : Bobby@20140822
 	Orgiginal:Aff_GetDeductionPercent
     @MonthDate=null : current month
+
+	Revisions:
+		- 20170601@Percy: Add new column: isTest [RedmineID: #77521]
 */
 BEGIN
 	DECLARE @percent FLOAT
+
+	DECLARE @isTest BIT = 0
+
+	SELECT  @isTest = dbo.f_Aff_CheckSPVersion(@@PROCID)
 
 	SELECT @MonthDate = ISNULL(@MonthDate, CURRENT_TIMESTAMP)
 		,@percent = 0
@@ -31,6 +41,7 @@ BEGIN
 			AND DATEDIFF(m, ag.MonthDate, @MonthDate) = 0
 			AND dt.DTypeName = @DeductionName
 			AND dt.ProductID = @ProductID
+			AND dt.IsTest <= @isTest
 	END
 	ELSE
 	BEGIN
@@ -44,6 +55,7 @@ BEGIN
 		WHERE ai.AffID = @AffID
 			AND dt.ProductID = @ProductID
 			AND dt.DTypeName = @DeductionName
+			AND dt.IsTest <= @isTest
 	END
 
 	RETURN @percent

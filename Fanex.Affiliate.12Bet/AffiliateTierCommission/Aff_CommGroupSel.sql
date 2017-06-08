@@ -19,10 +19,15 @@ AS
 	Original:
 
 	Revisions:
+		- 20170601@Percy: Add new column: isTest [RedmineID: #77521]
 */
 
 BEGIN
 	SET NOCOUNT ON
+
+	DECLARE @isTest BIT = 0
+
+	SELECT  @isTest = dbo.f_Aff_CheckSPVersion(@@PROCID)
 	
 	if (isnull(@GroupName,'')='' OR lower(@GroupName)='[none]')
 	begin
@@ -82,6 +87,7 @@ BEGIN
  
 	Select DTypeID, SportID, DTypeName, DTypeDesc, DeductedPercentage 
 	from DeductionType (nolock)
+	where IsTest <= @isTest
 	
 	Select DeductionID,GroupID,DeductedPercentage 
 	from DeductionSetting (nolock)
