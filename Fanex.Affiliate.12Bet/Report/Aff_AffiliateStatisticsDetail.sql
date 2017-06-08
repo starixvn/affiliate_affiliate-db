@@ -19,6 +19,7 @@ AS
 	Original: Aff_AffiliateStatisticsDetail
 	
 	Revisions:
+		- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
 	
 	Param's Explanation:
 		• @FromDate, @ToDate: date range
@@ -69,7 +70,7 @@ BEGIN
 	DECLARE @TrackingCode TABLE (TrackingDate DATE, IBCCustID INT, IsFDM BIT)
 	
 	INSERT INTO @TrackingCode (TrackingDate, IBCCustID, IsFDM)
-	SELECT mi.CreatedDate, mi.IBCCustID, 1
+	SELECT CONVERT(DATE, mi.CreatedDate), mi.IBCCustID, 1
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
 	WHERE mi.CreatedDate BETWEEN @FromDate AND @ToDate
 		AND mi.AffID = @AffId
@@ -81,13 +82,13 @@ BEGIN
 		)
 
 	INSERT INTO @TrackingCode (TrackingDate, IBCCustID, IsFDM)
-	SELECT md.CreatedDate, md.IBCCustID, 0
-	FROM dbo.MemberClickDetail md WITH (NOLOCK)
-	WHERE md.CreatedDate BETWEEN @FromDate AND @ToDate
-		AND md.AffID = @AffId
+	SELECT CONVERT(DATE, creatdate), IBCCustID, 0
+	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH(NOLOCK)
+	WHERE creatdate BETWEEN @FromDate AND @ToDate
+		AND AffiliateID = @AffID
 	
 	INSERT INTO @Tracking
-	SELECT CONVERT(DATE, TrackingDate), 0 AS TotalClick, 0 AS UniqueClick, SUM(CASE WHEN IsFDM = 1 THEN 0 ELSE 1 END) AS Signups, SUM(CASE WHEN IsFDM = 0 THEN 0 ELSE 1 END) AS FDMs, 0 AS Active
+	SELECT TrackingDate, 0 AS TotalClick, 0 AS UniqueClick, SUM(CASE WHEN IsFDM = 1 THEN 0 ELSE 1 END) AS Signups, SUM(CASE WHEN IsFDM = 0 THEN 0 ELSE 1 END) AS FDMs, 0 AS Active
 	FROM @TrackingCode
 	GROUP BY TrackingDate
 
