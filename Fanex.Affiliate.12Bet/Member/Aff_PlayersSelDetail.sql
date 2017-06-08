@@ -217,11 +217,15 @@ BEGIN
 						WHEN @SportType < 2
 							AND bettype = 22001 THEN (winlost - actual_stake) * e.ActualRate2
 						ELSE 0
-						END), 0) * e.DepositPercent + abs(- isnull(sum(CASE 
+						END
+						* e.DepositPercent
+						+abs(CASE 
 							WHEN @SportType < 2
 								AND bettype IN (22002, 22003) THEN (winlost - actual_stake) * e.ActualRate2
 							ELSE 0
-							END), 0)) * e.WithdrawalPercent AS PSP
+							END)
+							* e.WithdrawalPercent
+						), 0) AS PSP
 		FROM bodb02.dbo.bettrans b WITH (NOLOCK)
 			INNER JOIN #ListCustId m WITH (NOLOCK) ON m.IBCCustID = b.custID
 			INNER JOIN Exchange_Current e WITH (NOLOCK) ON m.Currency = e.Exchangeid
