@@ -1,4 +1,7 @@
-﻿ALTER PROCEDURE [dbo].[Aff_AffiliateReportDetail] 
+﻿USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_AffiliateReportDetail] 
 	@AffUsername 	VARCHAR(50)
 	,@AffId 		INT = 0 OUTPUT
 	,@Fromdate 		DATE
@@ -28,7 +31,8 @@ BEGIN
 	FROM AffInfo WITH (NOLOCK)
 	WHERE Username = @AffUsername
 
-	IF @AffId = 0 --Invalid AffUsernameRETURN
+	IF @AffId = 0 --Invalid AffUsername
+		RETURN
 
 	DECLARE @CurrDate 	DATE
 		,@OldReportDate DATE
@@ -123,84 +127,68 @@ BEGIN
 			,--Get winlost member in Bettrans table
 			m.Currency
 			,e.ActualRate2 AS AffExRate
-			,CASE 
-				WHEN (
-						@SportId IS NULL
+			,ISNULL(SUM(
+				CASE 
+					WHEN (
+							@SportId IS NULL
+							OR @SportId = @SportsBookID
+							)
+						AND bettype = 22001 THEN winlost - ABS(actual_stake)
+					ELSE 0
+					END), 0) AS Deposit
+			,ISNULL(SUM(
+				CASE 
+					WHEN (
+							@SportId IS NULL
+							OR @SportId = @SportsBookID
+							)
+						AND bettype IN (22002, 22003) THEN -(winlost - ABS(actual_stake))
+					ELSE 0
+					END), 0) AS Withdrawal
+			,ISNULL(SUM(
+				CASE
+					WHEN @SportId IS NULL AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
+						THEN CASE WHEN Bettype IN (33, 43) AND liveawayscore = 0 THEN ABS(stake) / 2 ELSE ABS(stake) END
+					WHEN @SportId = @SportsBookID AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399)) AND bettype NOT IN (31, 32, 33, 41, 42, 43)
+						THEN ABS(stake)
+					WHEN @SportId = @HorseRacingID AND bettype IN (31, 32, 33, 41, 42, 43)
+						THEN CASE WHEN Bettype IN (33, 43) AND liveawayscore = 0 THEN ABS(stake) / 2 ELSE ABS(stake) END
+					ELSE 0
+					END), 0) AS Turnover
+			,ISNULL(SUM(
+				CASE 
+					WHEN @SportId IS NULL
+						THEN CASE WHEN (bettype <= 999 OR (b.bettype BETWEEN 1301 AND 1399)) AND ruben = 1 THEN (winlost - ABS(actual_stake)) ELSE 0 END
+					WHEN @SportId = @SportsBookID
+						THEN CASE WHEN (bettype <= 999 OR (b.bettype BETWEEN 1301 AND 1399)) AND ruben = 1
+										AND bettype NOT IN (31, 32, 33, 41, 42, 43) THEN (winlost - ABS(actual_stake)) ELSE 0 END
+					WHEN @SportId = @HorseRacingID
+						THEN CASE WHEN bettype IN (31, 32, 33, 41, 42, 43) AND ruben = 1 THEN (winlost - abs(actual_stake)) ELSE 0 END
+					ELSE 0
+					END), 0) AS Winlost
+			,ISNULL(SUM(
+				CASE 
+					WHEN (
+							@SportId IS NULL
+							OR @SportId = @SportsBookID
+							)
+						AND bettype = 22004 THEN (winlost - ABS(actual_stake))
+					ELSE 0
+					END), 0) AS Bonus
+			,ISNULL(SUM(
+				CASE 
+					WHEN @SportId IS NULL OR @SportId = @SportsBookID
+						THEN CASE WHEN bettype = 22001 THEN (winlost - ABS(actual_stake)) ELSE 0 END * e.DepositPercent
+						- CASE WHEN bettype IN (22002, 22003) THEN (winlost - abs(actual_stake)) ELSE 0 END * e.WithdrawalPercent
+					ELSE 0
+					END), 0) AS PSP
+			,ISNULL(SUM(
+				CASE 
+					WHEN @SportId IS NULL
 						OR @SportId = @SportsBookID
-						)
-					AND bettype = 22001 THEN isnull(sum(winlost - abs(actual_stake)), 0)
-				ELSE 0
-				END AS Deposit
-			,CASE 
-				WHEN (
-						@SportId IS NULL
-						OR @SportId = @SportsBookID
-						)
-					AND bettype IN (22002, 22003) THEN - isnull(sum(winlost - abs(actual_stake)), 0)
-				ELSE 0
-				END AS Withdrawal
-			,CASE 
-				WHEN @SportId IS NULL
-					AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))  THEN isnull(sum(CASE 
-						WHEN Bettype IN (33, 43)
-							AND liveawayscore = 0 THEN isnull(abs(stake), 0) / 2
-						ELSE isnull(abs(stake), 0)
-						END), 0)
-				WHEN @SportId = @SportsBookID
-					AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
-					AND bettype NOT IN (31, 32, 33, 41, 42, 43) THEN isnull(sum(isnull(abs(stake), 0)), 0)
-				WHEN @SportId = @HorseRacingID
-					AND bettype IN (31, 32, 33, 41, 42, 43) THEN isnull(sum(CASE 
-								WHEN Bettype IN (33, 43)
-									AND liveawayscore = 0 THEN isnull(abs(stake), 0) / 2
-								ELSE isnull(abs(stake), 0)
-								END), 0)
-				ELSE 0
-				END AS Turnover
-			,CASE 
-				WHEN @SportId IS NULL THEN isnull(sum(CASE 
-								WHEN (bettype <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
-									AND ruben = 1 THEN (winlost - abs(actual_stake))
-								ELSE 0
-								END), 0)
-				WHEN @SportId = @SportsBookID THEN isnull(sum(CASE 
-								WHEN (bettype <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
-									AND ruben = 1
-									AND bettype NOT IN (31, 32, 33, 41, 42, 43) THEN (winlost - abs(actual_stake))
-								ELSE 0
-								END), 0)
-				WHEN @SportId = @HorseRacingID THEN isnull(sum(CASE 
-								WHEN bettype IN (31, 32, 33, 41, 42, 43)
-									AND ruben = 1 THEN (winlost - abs(actual_stake))
-								ELSE 0
-								END), 0)
-				ELSE 0
-				END AS Winlost
-			,CASE 
-				WHEN (
-						@SportId IS NULL
-						OR @SportId = @SportsBookID
-						)
-					AND bettype = 22004 THEN isnull(sum((winlost - abs(actual_stake))), 0)
-				ELSE 0
-				END AS Bonus
-			,CASE 
-				WHEN @SportId IS NULL
-					OR @SportId = @SportsBookID THEN isnull(sum(CASE bettype
-								WHEN 22001 THEN (winlost - abs(actual_stake))
-								ELSE 0
-								END), 0) * e.DepositPercent + abs(- isnull(sum(CASE 
-									WHEN bettype IN (22002, 22003) THEN (winlost - abs(actual_stake))
-									ELSE 0
-									END), 0)) * e.WithdrawalPercent
-				ELSE 0
-				END AS PSP
-			,CASE 
-				WHEN @SportId IS NULL
-					OR @SportId = @SportsBookID
-					AND bettype IN (21001, 21002, 21003, 21004, 21005, 22005) THEN isnull(sum((winlost - abs(actual_stake))), 0)
-				ELSE 0
-				END AS Adjustment
+						AND bettype IN (21001, 21002, 21003, 21004, 21005, 22005) THEN (winlost - abs(actual_stake))
+					ELSE 0
+					END), 0) AS Adjustment
 			,0 AS AffAdjustment
 			,0 AS AffWithdrawal
 			,0 AS AffBF
@@ -226,12 +214,8 @@ BEGIN
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
 			--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
 			AND b.custid > 0
-		GROUP BY b.WinlostDate
-			,m.Currency
+		GROUP BY m.Currency
 			,e.ActualRate2
-			,e.DepositPercent
-			,e.WithdrawalPercent
-			,b.Bettype
 		
 		UNION ALL
 		SELECT dateadd(d, datediff(d, 0, a.TransDate), 0) AS WinlostDate

@@ -1,34 +1,26 @@
-﻿ALTER PROCEDURE [dbo].[Aff_ReportDetailSelByAff] 
+﻿USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_ReportDetailSelByAff] 
 	@AffID INT
 	,@Fromdate DATETIME
 	,@Todate DATETIME
 AS
 /*
-Created: @VinhTrinh
-Task : Get report by date for all affiliate.
-	Three cases to calculate report:
-	  + @Todate<=@OldReportDate ---> use old formula
-	  + @FromDate>@OldReportDate
-		 . @FromDate --> @MaxTransDate : use new formula MemberDaily (need to join AffCommission to calculate)
-		 . @MaxTransDate + 1 --> @Todate-1: use new formula MemberDaily and cannot calculate Affiliate Winlost and House Winlost
-		 . @CurDate : from bettrans	 and cannot calculate Affiliate Winlost and House Winlost
-	  + @FromDate-->@OldReportDate-->@Todate:
-		 .@FromDate -->@OldReportDate:use old formula
-		 .@OldReportDate + 1 --->@MaxTransDate : use new formula MemberDaily (need to join AffCommission to calculate)
-		 .@MaxTransDate +1 --->@Todate-1 :use new formula MemberDaily and cannot calculate Affiliate Winlost and House Winlost
-		 . @CurDate : from bettrans	 and cannot calculate Affiliate Winlost and House Winlost 
-DB: DB052.Affiliate_12BET
-Original: [Aff_CustomerSelDetailsByAff]
-Revisions:
-	- 20101228@Henry: change bettype to new range
-	- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
-	- 20140403@Bobby:  exclude Keno product & other sports
-	- 20141218@Bobby: Update SS's bettype
+	Created: @VinhTrinh
+	Task : Get report by date for all affiliate.
+	DB: DB052.Affiliate_12BET
+	Original: [Aff_CustomerSelDetailsByAff]
 	
+	Revisions:
+		- 20101228@Henry: change bettype to new range
+		- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
+		- 20140403@Bobby:  exclude Keno product & other sports
+		- 20141218@Bobby: Update SS's bettype
 
-Param's Explanation:
-	• @Fromdate Month search from
-	• @Todate To month.
+	Param's Explanation:
+		• @Fromdate Month search from
+		• @Todate To month.
 */
 BEGIN
 	SET NOCOUNT ON
@@ -91,25 +83,23 @@ BEGIN
 				,b.Currency AS exchangeID
 				,e.Currency
 				,e.ActualRate2 AS Actualrate
-				,isnull(sum(CASE bettype
+				,ISNULL(SUM(CASE bettype
 							WHEN 22001 THEN b.winlost - abs(b.actual_stake)
 							ELSE 0
 							END), 0) AS Deposit
-				,sum(CASE 
+				,ISNULL(SUM(CASE 
 						WHEN (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399)) THEN (CASE 
 								WHEN Bettype IN (33, 43)
 									AND liveawayscore = 0 THEN isnull(abs(stake), 0) / 2
 								ELSE isnull(abs(stake), 0) END
 								)
 						ELSE 0
-						END) AS Turnover
-				,
-				--isnull(sum(case when BetType <= 999  then stake else 0 end),0) as Turnover,
-				isnull(sum(CASE bettype
+						END), 0) AS Turnover
+				,ISNULL(SUM(CASE bettype
 							WHEN 22004 THEN winlost - abs(actual_stake)
 							ELSE 0
 							END), 0) AS Bonus
-				,isnull(sum(CASE 
+				,ISNULL(SUM(CASE 
 							WHEN (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 								AND ruben = 1 THEN winlost - abs(actual_stake) + playercomm
 							ELSE 0
