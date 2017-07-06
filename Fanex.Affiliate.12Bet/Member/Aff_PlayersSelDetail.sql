@@ -22,6 +22,7 @@ AS
 		- 20120606@Peter: Exclude waiting tickets
 		- 20140403@Bobby:  exclude Keno product & other sports
 		- 20141218@Bobby: Update SS's bettype
+		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 
 	Param's Explanation:
 		• @AffID : Affiliate custid
@@ -34,6 +35,14 @@ BEGIN
 	DECLARE @today SMALLDATETIME, @fdate SMALLDATETIME, @tdate SMALLDATETIME
 
 	SELECT  @today = CONVERT(VARCHAR(10), CURRENT_TIMESTAMP, 120)
+
+	DECLARE @GroupId INT, @DeductedPercentage DECIMAL(9,8)
+
+	SELECT @GroupId = GroupId FROM dbo.AffInfo WITH(NOLOCK) WHERE AffId = @AffId
+	SELECT @DeductedPercentage = DeductedPercentage FROM dbo.DeductionSetting WITH(NOLOCK) WHERE GroupId = @GroupId AND DeductionID = 9
+	
+	IF @DeductedPercentage IS NULL
+		SELECT @DeductedPercentage = 0
 
 	IF @MonthDate IS NOT NULL
 	BEGIN
@@ -84,6 +93,7 @@ BEGIN
 			AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 		GROUP BY b.custid
 
@@ -165,6 +175,7 @@ BEGIN
 			,m.username
 			,m.RegisteredDate
 			,isnull(sum(CASE 
+						WHEN bettype = 911 THEN 0
 						WHEN @SportType = 0
 							AND (bettype < 999 OR ( b.bettype BETWEEN 1301 AND 1399)) THEN (CASE 
 								WHEN Bettype IN (33, 43)
@@ -192,6 +203,11 @@ BEGIN
 							AND ruben = 1
 							AND bettype IN (31, 32, 33, 41, 42, 43) THEN (winlost - actual_stake + playercomm) * e.ActualRate2
 						ELSE 0
+						END
+						*
+						CASE
+						WHEN bettype = 911 THEN @DeductedPercentage
+						ELSE 1
 						END), 0) AS WinLost
 			,isnull(sum(CASE 
 						WHEN @SportType < 2
@@ -244,6 +260,7 @@ BEGIN
 			AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
 					--and bettype not in (31,32,33,41,42,43)   
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 		--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  

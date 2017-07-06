@@ -1,7 +1,7 @@
 ﻿USE [Affiliate_12BET]
 GO
 
-ALTER PROCEDURE [dbo].[Aff_AffiliateReportDetail] 
+ALTER PROCEDURE [dbo].[Aff_AffiliateReportDetail]
 	@AffUsername 	VARCHAR(50)
 	,@AffId 		INT = 0 OUTPUT
 	,@Fromdate 		DATE
@@ -18,6 +18,7 @@ AS
 	- 20140403@Bobby:  exclude Keno product & other sports
 	- 20141113@Bobby: Change report time range from datetime to date only
 	- 20141218@Bobby: Update SS's bettype
+	- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 */
 BEGIN
 	SET NOCOUNT ON
@@ -85,6 +86,14 @@ BEGIN
 				END
 	END
 
+	DECLARE @COWLShare DECIMAL(9,8)
+	SELECT  @COWLShare = ds.DeductedPercentage
+	FROM dbo.DeductionSetting ds WITH(NOLOCK)
+		INNER JOIN dbo.AffInfo ai WITH(NOLOCK) ON ds.GroupID = ai.GroupID AND ds.DeductionID = 9
+	WHERE ai.AffID = @AffId
+
+	SELECT  @COWLShare = ISNULL(@COWLShare, 0)
+
 	SELECT WinlostDate
 		,AffExRate
 		,e.Currency
@@ -147,6 +156,7 @@ BEGIN
 					END), 0) AS Withdrawal
 			,ISNULL(SUM(
 				CASE
+					WHEN bettype = 911 THEN 0
 					WHEN @SportId IS NULL AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 						THEN CASE WHEN Bettype IN (33, 43) AND liveawayscore = 0 THEN ABS(stake) / 2 ELSE ABS(stake) END
 					WHEN @SportId = @SportsBookID AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399)) AND bettype NOT IN (31, 32, 33, 41, 42, 43)
@@ -165,6 +175,11 @@ BEGIN
 					WHEN @SportId = @HorseRacingID
 						THEN CASE WHEN bettype IN (31, 32, 33, 41, 42, 43) AND ruben = 1 THEN (winlost - abs(actual_stake)) ELSE 0 END
 					ELSE 0
+					END
+				*
+				CASE
+					WHEN bettype = 911 THEN @COWLShare
+					ELSE 1
 					END), 0) AS Winlost
 			,ISNULL(SUM(
 				CASE 
@@ -211,6 +226,7 @@ BEGIN
 			AND bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 			AND bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 			AND bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+			AND bettype NOT IN (912, 913, 914) -- Cash Out (keep 911)
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
 			--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
 			AND b.custid > 0
@@ -258,7 +274,7 @@ BEGIN
 END
 GO
 
-GRANT EXECUTE ON [dbo].[Aff_AffiliateReportDetail] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[Aff_AffiliateReportDetail_xtest] TO [bodbAdminNet]
 GO
 
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateReportDetail] TO [VNTeam]
+GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateReportDetail_xtest] TO [VNTeam]

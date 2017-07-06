@@ -31,6 +31,7 @@ AS
 	 20141125@Bobby:  Add 2 more columns OpeningBalance & ClosingBalance
 	 20141217@Bobby:  Include Sporting Solution's tickets
 	 20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval 
+	 20170525@Percy: Apply Cash Out Win Loss Share [RedmineID: #74874]
 	 
   
  Param's Explanation:  
@@ -114,6 +115,7 @@ BEGIN
 		CustID INT
 		,AffID INT
 		,Currency INT
+		,CO_WL_Share DECIMAL(9,8)
 		)
 
 	INSERT INTO #Member (
@@ -135,6 +137,33 @@ BEGIN
 				AND DATEDIFF(MM, RemovedDate, @Winlostdate) < 0
 			)
 		)
+
+	DECLARE @LastDayOfMonth DATETIME
+
+	IF DATEADD(MONTH, DATEDIFF(MONTH, 0, @winlostdate), 0) = DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0) -- current setting
+	BEGIN
+		UPDATE m
+		SET m.CO_WL_Share = ISNULL(c.DeductedPercentage, 0)
+		FROM #Member m
+			LEFT JOIN (
+				SELECT ai.AffId, ds.DeductedPercentage
+				FROM dbo.DeductionSetting ds WITH(NOLOCK)
+					INNER JOIN dbo.AffInfo ai WITH(NOLOCK) ON ds.GroupID = ai.GroupID AND ds.DeductionID = 9
+			) AS c ON m.AffID = c.AffID
+	END
+	ELSE
+	BEGIN
+		SELECT @LastDayOfMonth = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @winlostdate)+1, 0))
+
+		UPDATE m
+		SET m.CO_WL_Share = ISNULL(c.DeductedPercentage, 0)
+		FROM #Member m
+			LEFT JOIN (
+				SELECT ai.AffId, ds.DeductedPercentage
+				FROM dbo.DeductionSettingHistory ds WITH(NOLOCK)
+					INNER JOIN dbo.AffInfo ai WITH(NOLOCK) ON ds.GroupID = ai.GroupID AND ds.DeductionID = 9 AND ds.MonthDate = @LastDayOfMonth
+			) AS c ON m.AffID = c.AffID
+	END
 
 	CREATE TABLE #Data (
 		IBCCustID INT PRIMARY KEY
@@ -193,12 +222,14 @@ BEGIN
 						ELSE 0
 						END), 0) AS Adjustment
 			,isnull(sum(CASE 
+						WHEN bettype = 911 THEN 0
 						WHEN (bettype <= 999 
 								OR ( bettype BETWEEN 1301 AND 1399)
 							) THEN isnull(abs(stake), 0)
 						ELSE 0
 						END), 0) AS Turnover
 			,isnull(sum(CASE 
+						WHEN bettype = 911 THEN 0
 						WHEN (bettype <= 999 
 								OR ( bettype BETWEEN 1301 AND 1399)
 							)
@@ -206,6 +237,7 @@ BEGIN
 						ELSE 0
 						END), 0) AS DrawGame
 			,isnull(sum(CASE 
+						WHEN bettype = 911 THEN 0
 						WHEN (bettype <= 999 
 								OR ( bettype BETWEEN 1301 AND 1399)
 							)
@@ -218,6 +250,11 @@ BEGIN
 							)
 							AND ruben = 1 THEN isnull(winlost, 0) - isnull(abs(actual_stake), 0) + isnull(playercomm, 0)
 						ELSE 0
+						END
+						*
+						CASE
+						WHEN bettype = 911 THEN m.CO_WL_Share
+						ELSE 1
 						END), 0) AS Winlost
 			,b.currency
 			,e.ActualRate2
@@ -241,6 +278,7 @@ BEGIN
 			AND bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 			AND bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 			AND bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+			AND bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911)
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
 			
 		GROUP BY b.custid

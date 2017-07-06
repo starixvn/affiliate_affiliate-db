@@ -47,6 +47,7 @@ AS
 		- 20141218@Bobby: Update SS's bettype
 		- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
 		- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
+		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 
 	Param's Explanation:
 		• @AffID : Affiliate custid
@@ -69,6 +70,14 @@ BEGIN
 
 	SELECT @ToNextMonth = DATEADD(month, 1, @FromBeginMonth)
 
+	DECLARE @GroupId INT, @DeductedPercentage DECIMAL(9,8)
+
+	SELECT @GroupId = GroupId FROM dbo.AffInfo WITH(NOLOCK) WHERE AffId = @AffId
+	SELECT @DeductedPercentage = DeductedPercentage FROM dbo.DeductionSetting WITH(NOLOCK) WHERE GroupId = @GroupId AND DeductionID = 9
+	
+	IF @DeductedPercentage IS NULL
+		SELECT @DeductedPercentage = 0
+	
 	DECLARE @MaxTransDate SMALLDATETIME
 		,@FromDate SMALLDATETIME
 		,@CurrentDate SMALLDATETIME
@@ -181,6 +190,7 @@ BEGIN
 			END
 		,0
 		,isnull(sum(CASE 
+					WHEN bettype = 911 THEN 0
 					WHEN (bettype <= 999 OR ( b.bettype BETWEEN 1301 AND 1399)) THEN (CASE 
 							WHEN Bettype IN (33, 43)
 								AND liveawayscore = 0 THEN isnull(stake, 0) / 2 * e.Actualrate2
@@ -200,6 +210,11 @@ BEGIN
 							)
 						AND ruben = 1 THEN (b.Winlost - b.Actual_Stake) * e.actualrate2
 					ELSE 0
+					END
+					*
+					CASE
+					WHEN bettype = 911 THEN @DeductedPercentage
+					ELSE 1
 					END), 0) AS Winlost
 		,convert(VARCHAR(10), current_timestamp, 120)
 	FROM MemberInfo ci WITH (NOLOCK)
@@ -220,6 +235,7 @@ BEGIN
 		AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 		AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 		AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+		AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
 				--and bettype not in (31,32,33,41,42,43)   
 		AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 	--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  

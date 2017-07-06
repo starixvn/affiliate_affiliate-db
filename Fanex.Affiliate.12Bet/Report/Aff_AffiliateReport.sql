@@ -34,6 +34,7 @@ AS
 		- 20170214@Percy: Fix FDM/Signup Issue [RedmineID: #70507]
 		- 20170411@Percy: Support search by Affiliate name [RedmineID: #74588]
 		- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
+		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 
 	Param's Explanation:
 		• @Fromdate Time search From
@@ -55,11 +56,14 @@ BEGIN
 	
 	DECLARE @AffList	TABLE (AffId INT
 		, UserName		VARCHAR(30)
+		, GroupId		TINYINT
 		, RowIDX		INT IDENTITY(1,1))
 	
 	CREATE TABLE #AffPaging(
-		AffId		INT
-		, RowIDX	INT
+		AffId				INT
+		,GroupId			TINYINT
+		,DeductedPercentage	DECIMAL (9,8) DEFAULT (0)
+		,RowIDX			INT
 	)
 	
 	SELECT @SportsBookID = dbo.Aff_GetSportID('SportsBook')
@@ -142,9 +146,10 @@ BEGIN
 		,AffBF			MONEY
 	)
 
-	INSERT INTO @AffList(AffId, UserName)
+	INSERT INTO @AffList(AffId, UserName, GroupId)
 	SELECT ai.AffId
 		,ai.Username
+		,ai.GroupId
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN AffType at WITH (NOLOCK)
 		ON ai.AffType = at.TypeId
@@ -171,12 +176,18 @@ BEGIN
 						ELSE @PageIndex 
 					END
 	
-	INSERT INTO	#AffPaging
+	INSERT INTO	#AffPaging (AffId, GroupId, RowIDX)
 	SELECT m.AffId
+		,m.GroupId
 		,m.RowIDX
 	FROM @AffList m
 	WHERE m.RowIDX BETWEEN (((@PageIndex - 1) * @PageSize) + 1) AND (@PageSize * @PageIndex)
 	ORDER BY m.RowIDX
+
+	UPDATE a
+	SET a.DeductedPercentage = ds.DeductedPercentage
+	FROM #AffPaging a
+		INNER JOIN dbo.DeductionSetting ds ON a.GroupId = ds.GroupId AND ds.DeductionID = 9
 	
 	IF(@ToDate >= @CurrDate)
 	BEGIN
@@ -216,6 +227,7 @@ BEGIN
 						ELSE 0
 						END), 0) AS Withdrawal
 			,ISNULL(SUM(CASE 
+						WHEN bettype = 911 THEN 0
 						WHEN @SportId IS NULL
 							AND (bettype <= 999 OR ( b.bettype BETWEEN 1301 AND 1399)) THEN
 								CASE
@@ -256,6 +268,11 @@ BEGIN
 								ELSE 0
 								END
 						ELSE 0
+						END
+						*
+						CASE
+						WHEN Bettype = 911 THEN ISNULL(ml.DeductedPercentage, 0)
+						ELSE 1
 						END), 0) AS Winlost
 			,ISNULL(SUM(CASE 
 						WHEN (
@@ -294,6 +311,7 @@ BEGIN
 			AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
 					--and bettype not in (31,32,33,41,42,43)   
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 			AND b.custid > 0

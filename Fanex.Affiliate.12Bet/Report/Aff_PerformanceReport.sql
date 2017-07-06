@@ -28,6 +28,7 @@ AS
 			+ Remove @TotalPages
 		- 20141218@Bobby: Enhance performance & update SS's bettype
 		- 20150105@Bobby: Update checking uncalculated month
+		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 
 	Param's Explanation:
 		• @UserName Search by username
@@ -60,6 +61,7 @@ BEGIN
 		, UserName	VARCHAR(30)
 		, IsClosed	BIT
 		, Currency 	INT
+		, DeductedPercentage DECIMAL(9,8)
 	)
 
 	CREATE TABLE #AffReport (
@@ -131,14 +133,15 @@ BEGIN
 	
 
 	--Get list aff sastify search condition
-	INSERT INTO #AffList( AffId, UserName, IsClosed, Currency )
+	INSERT INTO #AffList( AffId, UserName, IsClosed, Currency, DeductedPercentage )
 	SELECT ai.AffId
 		,ai.UserName
 		,ai.IsClosed
 		,ai.Currency
+		,ISNULL(ds.DeductedPercentage, 0)
 	FROM dbo.AffInfo ai WITH (NOLOCK)
-		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) 
-		ON ai.AffId = ad.AffId
+		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+		LEFT JOIN dbo.DeductionSetting ds WITH(NOLOCK) ON ai.GroupID = ds.GroupID AND ds.DeductionID = 9
 		
 	WHERE ad.Username LIKE @UserName
 		AND ad.PreferredLanguage LIKE @Language

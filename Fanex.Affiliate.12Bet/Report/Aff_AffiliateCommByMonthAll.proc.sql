@@ -1,11 +1,6 @@
 ﻿USE [Affiliate_12bet]
 GO
-/****** Object:  StoredProcedure [dbo].[Aff_AffiliateCommByMonthAll]    Script Date: 02/27/2015 05:51:55 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Aff_AffiliateCommByMonthAll    Script Date: 1/7/2015 1:02:16 PM ******/
+
 ALTER PROCEDURE [dbo].[Aff_AffiliateCommByMonthAll] 
 	@Month					TINYINT			
 	,@Year					INT
@@ -22,6 +17,7 @@ Revisions:
 	- 20150105@Bobby.Nguyen: Update fomular commission (check member WL between Sportsbook and Casino)
 	- 20150227@DanNguyen: fix bug - wrong last date in case view current month
 	- 20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval 
+	- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 */  
 BEGIN
 	SET NOCOUNT ON
@@ -162,6 +158,7 @@ BEGIN
 						ELSE 0
 						END), 0) AS Adjustment
 			,isnull(sum(CASE 
+						WHEN bettype = 911 THEN 0
 						WHEN (bettype <= 999 
 								OR ( bettype BETWEEN 1301 AND 1399)
 							) THEN isnull(abs(stake), 0)
@@ -173,6 +170,10 @@ BEGIN
 							)
 							AND ruben = 1 THEN isnull(winlost, 0) - isnull(abs(actual_stake), 0) + isnull(playercomm, 0)
 						ELSE 0
+						END
+						*
+						CASE WHEN bettype = 911 THEN a.DeductedPercentage
+						ELSE 1
 						END), 0) AS Winlost
 			,0 AS PSP
 			,0 AS Marketing
@@ -200,6 +201,7 @@ BEGIN
 			AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 			AND b.custid > 0
 		GROUP BY ci.IBCCustID

@@ -30,6 +30,7 @@ AS
 		- 20140403@Bobby:  exclude Keno product & other sports
 		- 20141218@Bobby: Update SS's bettype & fix Casiso time range
 		- 20150106@Bobby: Update WL fake
+		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 
 	Param's Explanation:  
 		• @custid: affliate Id  
@@ -45,6 +46,8 @@ BEGIN
 		,@SportsBookID INT
 		,@HorseRacingID INT
 		,@CasinoId INT --,@MarketingPercent float,@OddsFeePercent float
+		,@GroupId INT
+		,@DeductedPercentage DECIMAL(9,8)
 		
 	CREATE TABLE #AffDailyWL(
 		WinlostDate 	SMALLDATETIME
@@ -79,6 +82,12 @@ BEGIN
 	SELECT @PLayTechFeePercent = isnull(dbo.[Aff_GetDeductionPercent](@AffId, @CasinoId, 'PlayTech Royalties', @monthdate), 0)
 
 	SELECT @CasinoMarketingPercent = isnull(dbo.[Aff_GetDeductionPercent](@AffId, @CasinoId, 'Marketing', @monthdate), 0)
+
+	SELECT @GroupId = GroupId FROM dbo.AffInfo WITH(NOLOCK) WHERE AffId = @AffId
+	SELECT @DeductedPercentage = DeductedPercentage FROM dbo.DeductionSetting WITH(NOLOCK) WHERE GroupId = @GroupId AND DeductionID = 9
+	
+	IF @DeductedPercentage IS NULL
+		SELECT @DeductedPercentage = 0
 
 	SELECT @fromdate = DATEADD(mm, DATEDIFF(m, 0, @monthdate), 0)
 
@@ -188,6 +197,11 @@ BEGIN
 									AND (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 									AND bettype IN (31, 32, 33, 41, 42, 43) THEN (winlost - abs(actual_stake) + playercomm) * e.ActualRate2
 								ELSE 0
+								END
+								*
+								CASE
+								WHEN bettype = 911 THEN @DeductedPercentage
+								ELSE 1
 								END), 0) AS MemberWinLost
 					,isnull(sum(CASE 
 								WHEN (
@@ -242,6 +256,7 @@ BEGIN
 					AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 					AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 					AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+					AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
 							--and bettype not in (31,32,33,41,42,43)   
 					AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 					AND b.custid > 0
