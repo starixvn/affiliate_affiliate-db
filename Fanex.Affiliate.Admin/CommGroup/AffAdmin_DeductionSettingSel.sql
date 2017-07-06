@@ -9,7 +9,7 @@ AS
 /*
 	Created: 20130909@Joseph
 	Task: Get all deduction settings
-	DB: DBAFF
+	DB: DBAFF.Affiliate_Athena000
 	Original:
 
 	Revisions:
@@ -35,6 +35,7 @@ BEGIN
 			ds.DeductionID
 			,ds.GroupID
 			,ds.DeductedPercentage
+			,ds.NextDeductedPercentage
 			,d.ProductID
 			,d.DTypeName
 		FROM dbo.DeductionSetting ds WITH (NOLOCK)
@@ -48,6 +49,7 @@ BEGIN
 			ds.DeductionID
 			,ds.GroupID
 			,ds.DeductedPercentage
+			,ds.DeductedPercentage AS NextDeductedPercentage
 			,d.ProductID
 			,d.DTypeName
 		FROM dbo.DeductionSettingHistory ds(NOLOCK)

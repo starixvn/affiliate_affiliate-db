@@ -10,8 +10,8 @@ AS
 
 /*  
 	Created: 20130111@Peter  
-	Task :   
-	DB: DB052/DB054.bodb02  
+	Task:   
+	DB: DBEXT.bodb02  
   
 	Revisions:  
 		- 20131028@Peter : Add more DB columns https://redmine.nexcel.vn/issues/5280
@@ -23,7 +23,7 @@ AS
 		- 20151022@Bobby: Get member data by Product list
 		- 20160119@Bobby: #51099 - Get member data by sporttype after movebetday
 		- 20161022@Jim:move table to bodb_licenseereport [RedmineID :#60449]
-	
+		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
   
 	Param's Explanation:  
 		- @Xml: List member's username is under affiliate user
@@ -47,6 +47,7 @@ BEGIN
 		,srecommend 	INT
 		,mrecommend 	INT
 		,recommend 		INT
+		,CO_WL_Share	DECIMAL(9,8)
 	)
 	
 	CREATE TABLE #ProductBettype   (ProductId INT, Bettype SMALLINT)
@@ -63,6 +64,13 @@ BEGIN
 	FROM dbo.SportBettypeMatrix bt WITH(NOLOCK)
 		INNER JOIN @ProductFilter p ON bt.ProductId = p.ProductId
 	WHERE bt.IsTest = 0 AND bt.Enabled 	= 1
+
+	-- insert bettype 911 due to productId on SportBettypeMatrix of this bettype = 25
+	IF EXISTS (SELECT TOP 1 1 FROM @ProductFilter WHERE ProductId = 1)
+	BEGIN
+		INSERT INTO #ProductBettype (ProductId, Bettype)
+		VALUES (1, 911)
+	END
 	
 	-- insert product & Sporttype mapping
 	INSERT INTO #ProductSporttype (ProductId, Sporttype)
@@ -95,13 +103,21 @@ BEGIN
 	)
 
 	CREATE TABLE #TempTrans(UserName VARCHAR(50))
-
 	INSERT INTO #TempTrans (UserName) --Convert xml to table
-	SELECT [Table].[Column].value('./@username', 'varchar(50)') AS UserName
-	FROM @Xml.nodes('//root/trans') AS [Table]([Column])
+	SELECT t.c.value('@username', 'varchar(50)')
+	FROM @Xml.nodes('root/trans') t(c)
 
 	INSERT INTO #LicenseeCust
-	SELECT c.CustID
+	(
+		CustID
+		,Currency
+		,UserName
+		,srecommend
+		,mrecommend
+		,recommend
+	)
+	SELECT
+		c.CustID
 		,c.Currency
 		,t.UserName
 		,c.srecommend
@@ -110,6 +126,44 @@ BEGIN
 	FROM bodb02.dbo.customer c WITH (NOLOCK)
 		INNER JOIN #TempTrans AS t ON @Prefix + t.username = c.username2
 	WHERE c.roleid = 1
+
+	CREATE TABLE #CashOutMember (Username VARCHAR(50), DeductedPercentage DECIMAL (9,8))
+	
+	DECLARE @SQL NVARCHAR(MAX), @LastDayOfMonth DATETIME, @Database_Affiliate VARCHAR(50)
+
+	SELECT  @Database_Affiliate = 'Affiliate_' + LEFT(@Prefix, LEN(@Prefix)-1)
+
+	IF DATEADD(MONTH, DATEDIFF(MONTH, 0, @Date), 0) = DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0) -- current setting
+	BEGIN
+		SELECT @SQL =
+		'SELECT UserName, DeductedPercentage
+		FROM OPENQUERY(DBAFF,''SELECT mi.UserName, ds.DeductedPercentage
+							FROM ' + @Database_Affiliate + '.dbo.DeductionSetting ds WITH(NOLOCK)
+								INNER JOIN ' + @Database_Affiliate + '.dbo.AffInfo ai WITH(NOLOCK) ON ds.GroupID = ai.GroupID
+								INNER JOIN ' + @Database_Affiliate + '.dbo.MemberInfo mi WITH(NOLOCK) ON ai.AffID = mi.AffID
+							WHERE ds.DeductionID = 11'')'
+	END
+	ELSE
+	BEGIN
+		SELECT @LastDayOfMonth = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @Date)+1, 0))
+
+		SELECT @SQL =
+		'SELECT UserName, DeductedPercentage
+		FROM OPENQUERY(DBAFF,''
+		SELECT mi.UserName, ds.DeductedPercentage
+		FROM ' + @Database_Affiliate + '.dbo.DeductionSettingHistory ds WITH (NOLOCK)
+			INNER JOIN ' + @Database_Affiliate + '.dbo.AffInfo ai WITH(NOLOCK) ON ds.GroupID = ai.GroupID
+			INNER JOIN ' + @Database_Affiliate + '.dbo.MemberInfo mi WITH(NOLOCK) ON ai.AffID = mi.AffID
+		WHERE ds.DeductionID = 11
+			AND ds.MonthDate = ''''' + CONVERT(VARCHAR(10), @LastDayOfMonth, 120) + '''''' + ''')'
+	END
+	INSERT INTO #CashOutMember (Username, DeductedPercentage)
+	EXEC (@SQL)
+
+	UPDATE l
+	SET l.CO_WL_Share = ISNULL(c.DeductedPercentage, 0)
+	FROM #LicenseeCust l
+		LEFT JOIN #CashOutMember c ON l.username = c.Username
 	
 	IF @Date > @MaxDate
 	BEGIN
@@ -133,7 +187,10 @@ BEGIN
 			,c.username
 			,bt.ProductId
 			,-- undefined productid
-			SUM(b.stake) AS Turnover
+			SUM(CASE
+					WHEN b.bettype = 911 THEN 0
+					ELSE b.stake
+					END) AS Turnover
 			,--Turnover  
 			SUM(CASE 
 					WHEN ruben = 0 THEN actual_stake
@@ -143,10 +200,15 @@ BEGIN
 			SUM(CASE 
 					WHEN ruben = 1 THEN b.winlost - b.actual_stake
 					ELSE 0
+					END
+				*
+				CASE
+					WHEN b.bettype = 911 THEN c.CO_WL_Share
+					ELSE 1
 					END) AS WinLoss
 			,--Winloss      
 			SUM(CASE 
-					WHEN statusID = 111 THEN stake
+					WHEN statusID = 111 AND b.bettype <> 911 THEN stake
 					ELSE 0
 					END) AS DrawGame
 			,-- Draw game TO
@@ -158,7 +220,7 @@ BEGIN
 			COUNT(1) AS BetCount
 			,--betcount
 			SUM(stake * CASE 
-					WHEN statusID = 111 THEN 0
+					WHEN statusID = 111 OR b.bettype = 911 THEN 0
 					WHEN (
 							b.statusID = 112
 							OR b.statusID = 113
@@ -213,16 +275,25 @@ BEGIN
 			,b.CustID
 			,c.username
 			,bt.ProductId
-			,sum(b.turnover)
+			,sum(CASE
+					WHEN b.bettype = 911 THEN 0
+					ELSE b.turnover
+					END)
 			,0 AS Outstanding
-			,sum(b.winlost)
+			,sum(b.winlost
+				*
+				CASE
+					WHEN b.bettype = 911 THEN c.CO_WL_Share
+					ELSE 1
+					END)
 			,sum(CASE 
-					WHEN statusID = 111 THEN turnover
+					WHEN statusID = 111 AND b.bettype <> 911 THEN turnover
 					ELSE 0
 					END)
 			,sum(b.playercomm)
 			,sum(b.BetCount)
 			,SUM(CASE 
+					WHEN b.bettype = 911 THEN 0
 					WHEN (
 							b.statusID = 112
 							OR b.statusID = 113
@@ -244,10 +315,12 @@ BEGIN
 			AND b.BetCount > 0
 			AND b.roleid = 1
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
+			AND b.bettype NOT IN (912, 913, 914)
 		GROUP BY b.winlostdate, b.CustID, c.username, bt.ProductId
 	END
 	ELSE IF @Date < @CutDate
 	BEGIN
+		-- no need modify Cash Out on rptLicWinloss_old due to old winlostdate
 		INSERT INTO #tmpRpt (
 			Winlostdate
 			,CustID
@@ -472,6 +545,7 @@ BEGIN
 	DROP TABLE #ProductSporttype
 	DROP TABLE #tmpRpt
 	DROP TABLE #LicenseeCust
+	DROP TABLE #CashOutMember
 END
 GO 
 GRANT EXECUTE ON [dbo].[Aff_PlayersWinlostByProductSel] TO [vnteam]

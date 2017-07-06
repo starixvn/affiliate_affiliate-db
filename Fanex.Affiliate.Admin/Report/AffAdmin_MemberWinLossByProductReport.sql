@@ -36,6 +36,7 @@ AS
 		- 20140827@Bobby: Add Virtual Sport & PlayerComm - apply style-scope
 		- 20141112@Bobby: Add more PlayerCurrencyId and AffCurrencyId
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170607@Percy: Fixing total row [RedmineID: #77859]
                 
 	Param's Explanation: 
 		• @UserId: Admin user id
@@ -276,9 +277,11 @@ BEGIN
 	;WITH memberList AS (
 		SELECT PlayerUsername
 			,PlayerCurrency
+			,WinlostDate
 		FROM  #MemberList
 		GROUP BY PlayerUsername
 			,PlayerCurrency
+			,WinlostDate
 	)
 	SELECT mc.PlayerCurrency
 		,md.ProductID
@@ -339,6 +342,7 @@ BEGIN
 			END * md.SysExRate) 			AS NetGamingBase
 	FROM dbo.MemberDaily md WITH (NOLOCK)
 		INNER JOIN memberList mc ON md.UserName = mc.PlayerUsername
+			AND 1 = CASE WHEN @GroupBy = 0 AND mc.WinlostDate = md.WinlostDate THEN 1 WHEN @GroupBy = 1 THEN 1 ELSE 0 END
 		INNER JOIN @ProductFilter p ON md.ProductID = p.ProductID
 	WHERE md.WinlostDate BETWEEN @FromDate AND @ToDate
 	GROUP BY mc.PlayerCurrency
@@ -350,9 +354,9 @@ BEGIN
 	
 	----------------------SUMTOTAL By PRODUCT-----------------------------------
 	;WITH memberList AS (
-		SELECT PlayerUsername 
+		SELECT PlayerUsername, WinlostDate
 		FROM  #MemberList
-		GROUP BY PlayerUsername
+		GROUP BY PlayerUsername, WinlostDate
 	)
 	SELECT 
 		md.ProductID
@@ -380,6 +384,7 @@ BEGIN
 			END * md.SysExRate) 			AS NetGamingBase
 	FROM dbo.MemberDaily md WITH (NOLOCK)
 		INNER JOIN memberList m ON md.UserName = m.PlayerUsername
+			AND 1 = CASE WHEN @GroupBy = 0 AND m.WinlostDate = md.WinlostDate THEN 1 WHEN @GroupBy = 1 THEN 1 ELSE 0 END
 		INNER JOIN @ProductFilter p ON md.ProductID = p.ProductID
 	WHERE md.WinlostDate BETWEEN @FromDate AND @ToDate
 	GROUP BY md.ProductID

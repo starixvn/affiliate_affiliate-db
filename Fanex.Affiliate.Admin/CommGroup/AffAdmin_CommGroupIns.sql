@@ -9,8 +9,7 @@ ALTER PROCEDURE [dbo].[AffAdmin_CommGroupIns]
 	,@GroupName 				NVARCHAR(100)
 	,@Description 				NVARCHAR(100) 	= NULL
 	,@ProductIDList 			VARCHAR(300)
-	,@DeductionList 			VARCHAR(300) 	= NULL
-	,@DeductedPercentageList 	VARCHAR(300) 	= NULL
+	,@DeductionList 			XML 			= NULL
 	,@TierList 					VARCHAR(300)
 	,@MinAmountList 			VARCHAR(5000)
 	,@MaxAmountList 			VARCHAR(5000)
@@ -39,23 +38,24 @@ AS
 		- 20140820@Bobby: Add Deposit & Withdrawal percent and apply SQL stylescope
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170601@Percy: Add new column: isTest [RedmineID: #77521]
+		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 	
-	Parameters:  
-		.@UserID : Administrator user id  
+	Parameters:
+		.@UserID : Administrator user id
 		.@GroupID:
 			-1		: normal group
-			>1000	: Special Setting for Affiliate that has AffID = @GroupID  
-		.@GroupName The name of this Group  
-		.@Description : description for this group  
-		.@ProductIDList: list of ProductID separated by semi colon  
-		.@DeductionList: List of Deduction Setting for above Sport List.                     
-		.@DeductedPercentageList: List of Deducted Percentage  
-		.@TierList: List of number of Tiers for each sport type separated by a semi colon  
-		.@MinAmountList: List of MinAmount for each tier (all sports)  
-		.@MaxAmountList: List of MaxAmount for each tier (all sports)  
-		.@MinQMList: List of MinQM for each tier (all sports)  
-		.@MaxQMList: List of MaxQM for each tier (all sports)  
-		.@CommissionList: List of Commission for each tier (all sports)  
+			>1000	: Special Setting for Affiliate that has AffID = @GroupID
+		.@GroupName The name of this Group
+		.@Description : description for this group
+		.@ProductIDList: list of ProductID separated by semi colon
+		.@DeductionList: List of Deduction Setting for above Sport List
+		.@DeductedPercentageList: List of Deducted Percentage
+		.@TierList: List of number of Tiers for each sport type separated by a semi colon
+		.@MinAmountList: List of MinAmount for each tier (all sports)
+		.@MaxAmountList: List of MaxAmount for each tier (all sports)
+		.@MinQMList: List of MinQM for each tier (all sports)
+		.@MaxQMList: List of MaxQM for each tier (all sports)
+		.@CommissionList: List of Commission for each tier (all sports)
 */
 
 BEGIN
@@ -162,17 +162,22 @@ BEGIN
 		RETURN
 	END
 
-	--Insert Deduction Setting  
+	--Insert Deduction Setting
+	DECLARE @DeductionSetting TABLE (DeductionID TINYINT, DeductedPercentage DECIMAL(9,8))
+
 	IF (@DeductionList IS NOT NULL)
 	BEGIN
-		INSERT INTO DeductionSetting (GroupID, DeductionID, DeductedPercentage)
-		SELECT @GroupID, CAST(t.val AS TINYINT), CAST(p.val AS FLOAT)
-		FROM dbo.strsplit(@DeductionList, ',') t
-			INNER JOIN dbo.strsplit(@DeductedPercentageList, ',') p ON p.rank = t.rank
-			INNER JOIN DeductionType d WITH (NOLOCK) ON d.DTypeID = CAST(t.val AS TINYINT)
-		WHERE d.IsTest <= @isTest
+		INSERT INTO @DeductionSetting (DeductionID, DeductedPercentage)
+		SELECT t.c.value('@id', 'tinyint'), t.c.value('@percent', 'decimal(9,8)')
+		FROM @DeductionList.nodes('/root/row') AS t(c)
 
-		IF @@ERROR <> 0 OR @@ROWCOUNT <> (SELECT COUNT(1) FROM dbo.strsplit(@DeductionList, ','))
+		INSERT INTO DeductionSetting (GroupID, DeductionID, DeductedPercentage, NextDeductedPercentage)
+		SELECT @GroupID AS GroupID, ds.DeductionID, ds.DeductedPercentage, CASE WHEN ds.DeductionID = 11 THEN ds.DeductedPercentage ELSE NULL END
+		FROM @DeductionSetting ds
+			INNER JOIN DeductionType d WITH (NOLOCK) ON d.DTypeID = ds.DeductionID
+		WHERE d.IsTest <= @isTest
+	
+		IF @@ERROR <> 0 OR @@ROWCOUNT <> (SELECT COUNT(1) FROM @DeductionSetting)
 		BEGIN
 			ROLLBACK TRANSACTION
 
@@ -426,8 +431,7 @@ BEGIN
 					+ '\n QualifiedAmount='+ dbo.Aff_ToString(@QualifiedAmount)
 					+ '\n Description=' + dbo.Aff_ToString(@Description)
 					+ '\n ProductIDList=' + dbo.Aff_ToString(@ProductIDList)
-					+ '\n DeductionList=' + dbo.Aff_ToString(@DeductionList)
-					+ '\n DeductedPercentageList=' + dbo.Aff_ToString(@DeductedPercentageList)
+					+ '\n DeductionList=' + CONVERT(NVARCHAR(MAX), @DeductionList)
 					+ '\n TierList=' + dbo.Aff_ToString(@TierList)
 					+ '\n MinAmountList=' + dbo.Aff_ToString(@MinAmountList)
 					+ '\n MaxAmountList=' + dbo.Aff_ToString(@MaxAmountList)

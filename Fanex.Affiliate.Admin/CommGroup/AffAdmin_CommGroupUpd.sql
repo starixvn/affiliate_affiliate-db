@@ -10,8 +10,7 @@ ALTER PROCEDURE [dbo].[AffAdmin_CommGroupUpd]
 	,@GroupName					NVARCHAR(100)
 	,@Description				NVARCHAR(100)	= NULL
 	,@ProductIDList				VARCHAR(MAX)
-	,@DeductionList				VARCHAR(MAX)	= NULL
-	,@DeductedPercentageList	VARCHAR(MAX)	= NULL
+	,@DeductionList				XML				= NULL
 	,@TierList					VARCHAR(MAX)
 	,@MinAmountList				VARCHAR(MAX)
 	,@MaxAmountList				VARCHAR(MAX)
@@ -40,6 +39,7 @@ AS
 		- 20141028@Bobby: hotfix#24904 - remove abs() function for Withdrawal value when calculating PSP fee
 		- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170601@Percy: Add new column: isTest [RedmineID: #77521]
+		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 
 	Parameters:
 		.@UserID : Administrator user id
@@ -50,7 +50,6 @@ AS
 		.@Description : description for this group
 		.@ProductIDList: list of ProductID separated by semi colon
 		.@DeductionList: List of Deduction Setting for above Sport List
-		.@DeductedPercentageList: List of Deducted Percentage
 		.@TierList: List of number of Tiers for each sport type separated by a semi colon
 		.@MinAmountList: List of MinAmount for each tier (all sports)
 		.@MaxAmountList: List of MaxAmount for each tier (all sports)
@@ -135,12 +134,6 @@ BEGIN
 		END
 	END
 
-	DECLARE @DeductionSetting TABLE
-	(
-		GroupID 			INT
-		,DeductionID 		TINYINT
-		,DeductedPercentage FLOAT
-	)
 	DECLARE @GroupSetting TABLE
 	(
 		GroupID 	INT
@@ -159,17 +152,16 @@ BEGIN
 	FROM dbo.Exchange ex WITH(NOLOCK)
 	WHERE ex.ExchangeId = @Currency
 		
-	--Insert Deduction Setting  
-	IF (LEN(@DeductionList) > 0)
-	BEGIN
-		INSERT INTO @DeductionSetting (GroupID, DeductionID, DeductedPercentage)
-		SELECT @GroupID, CAST(t.val AS TINYINT), CAST(p.val AS FLOAT)
-		FROM dbo.strsplit(@DeductionList, ',') t
-			INNER JOIN dbo.strsplit(@DeductedPercentageList, ',') p ON p.rank = t.rank
-			INNER JOIN DeductionType d WITH (NOLOCK) ON d.DTypeID = CAST(t.val AS TINYINT)
-		WHERE d.IsTest <= @isTest
+	--Insert Deduction Setting
+	DECLARE @DeductionSetting TABLE (DeductionID TINYINT, DeductedPercentage DECIMAL(9,8), NextDeductedPercentage DECIMAL(9,8))
 
-		IF @@ERROR <> 0 OR @@ROWCOUNT <> (SELECT COUNT(1) FROM dbo.strsplit(@DeductionList, ','))
+	IF (@DeductionList IS NOT NULL)
+	BEGIN
+		INSERT INTO @DeductionSetting (DeductionID, DeductedPercentage, NextDeductedPercentage)
+		SELECT t.c.value('@id', 'tinyint'), t.c.value('@percent', 'decimal(9,8)'), t.c.value('@nextpercent', 'decimal(9,8)')
+		FROM @DeductionList.nodes('/root/row') AS t(c)
+
+		IF @@ERROR <> 0
 		BEGIN
 			SELECT @ErrCode = 37 --Error! Invalid Deduction Setting!
 
@@ -409,19 +401,33 @@ BEGIN
 	--BEGIN TRANSACTION AFTER CHECKING VALID INPUT DATA  
 	BEGIN TRANSACTION
 
-	UPDATE cg
-	SET cg.GroupName 			= @GroupName
-		,cg.Description 		= @Description
-		,cg.Currency 			= @Currency
-		,cg.QualifiedAmount 	= @QualifiedAmount
-		,cg.DepositPercent 		= @DepositPercent
-		,cg.WithdrawalPercent	= @WithdrawalPercent
-	FROM dbo.CommGroup cg WITH (ROWLOCK, UPDLOCK)
-		INNER JOIN dbo.Exchange ex WITH(NOLOCK) ON cg.Currency = ex.ExchangeID
-	WHERE cg.GroupID = @GroupID
-	
+	IF @Currency = 0 -- NoCommission Group
+	BEGIN
+		UPDATE cg
+		SET cg.GroupName 			= @GroupName
+			,cg.Description 		= @Description
+			,cg.Currency 			= @Currency
+			,cg.QualifiedAmount 	= @QualifiedAmount
+			,cg.DepositPercent 		= @DepositPercent
+			,cg.WithdrawalPercent	= @WithdrawalPercent
+		FROM dbo.CommGroup cg WITH (ROWLOCK, UPDLOCK)
+		WHERE cg.GroupID = @GroupID
+	END
+	ELSE
+	BEGIN
+		UPDATE cg
+		SET cg.GroupName 			= @GroupName
+			,cg.Description 		= @Description
+			,cg.Currency 			= @Currency
+			,cg.QualifiedAmount 	= @QualifiedAmount
+			,cg.DepositPercent 		= @DepositPercent
+			,cg.WithdrawalPercent	= @WithdrawalPercent
+		FROM dbo.CommGroup cg WITH (ROWLOCK, UPDLOCK)
+			INNER JOIN dbo.Exchange ex WITH(NOLOCK) ON cg.Currency = ex.ExchangeID
+		WHERE cg.GroupID = @GroupID
+	END
 
-	IF (@@ERROR <> 0)
+	IF (@@ERROR <> 0 OR @@ROWCOUNT = 0)
 	BEGIN
 		ROLLBACK TRANSACTION
 
@@ -442,11 +448,13 @@ BEGIN
 		RETURN
 	END
 
-	INSERT INTO dbo.DeductionSetting (GroupID, DeductionID, DeductedPercentage)
-	SELECT GroupID, DeductionID, DeductedPercentage
-	FROM @DeductionSetting
+	INSERT INTO dbo.DeductionSetting (GroupID, DeductionID, DeductedPercentage, NextDeductedPercentage)
+	SELECT @GroupID AS GroupID, ds.DeductionID, ds.DeductedPercentage, ds.NextDeductedPercentage
+	FROM @DeductionSetting ds
+		INNER JOIN DeductionType d WITH (NOLOCK) ON d.DTypeID = ds.DeductionID
+	WHERE d.IsTest <= @isTest
 
-	IF (@@ERROR <> 0)
+	IF (@@ERROR <> 0 OR @@ROWCOUNT <> (SELECT COUNT(1) FROM @DeductionSetting))
 	BEGIN
 		ROLLBACK TRANSACTION
 
@@ -613,8 +621,7 @@ BEGIN
 					+ '\n QualifiedAmount=' + dbo.Aff_ToString(@QualifiedAmount)
 					+ '\n Description=' + @Description
 					+ '\n ProductIDList=' + @ProductIDList
-					+ '\n DeductionList=' + @DeductionList
-					+ '\n DeductedPercentageList=' + @DeductedPercentageList
+					+ '\n DeductionList=' + CONVERT(NVARCHAR(MAX), @DeductionList)
 					+ '\n TierList=' + @TierList
 					+ '\n MinAmountList=' + @MinAmountList
 					+ '\n MaxAmountList=' + @MaxAmountList
