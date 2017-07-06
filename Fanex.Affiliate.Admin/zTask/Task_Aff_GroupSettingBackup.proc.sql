@@ -1,3 +1,6 @@
+USE [Affiliate_Athena000]
+GO
+
 ALTER PROCEDURE [dbo].[Task_Aff_GroupSettingBackup] 
 	@Month INT
 	,@Year INT
@@ -8,7 +11,8 @@ Task : Backup all group settings monthly on last day of selected month
 DB: DB052.Affiliate_MYM
 Original:
 
-Revisions:                     
+Revisions:
+	- 20170525@Percy: Apply Cash Out Win Loss Share [RedmineID: #74874]
 
 Param's Explanation:
 • @Month: The month to transfer
@@ -142,6 +146,13 @@ BEGIN
 	WHERE GroupID IS NOT NULL
 		AND GroupID > 0
 
+	DELETE dbo.DeductionSetting WITH(ROWLOCK, UPDLOCK)
+	WHERE DeductionID = 11 AND NextDeductedPercentage IS NULL
+
+	UPDATE dbo.DeductionSetting WITH(ROWLOCK, UPDLOCK)
+	SET DeductedPercentage = NextDeductedPercentage
+	WHERE DeductionID = 11
+
 	DECLARE @TaskID INT
 		,@LogID INT
 		,@RunDate DATETIME
@@ -160,5 +171,3 @@ BEGIN
 		,@LogID OUTPUT
 END
 GO
-
-

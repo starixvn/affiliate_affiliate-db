@@ -137,19 +137,15 @@ BEGIN
 				OR @MonthlyTransferType IN (
 					SELECT *
 					FROM @TransTypeTable
-					)
 				)
-			AND (DateDiff(m, (
-					SELECT isnull(max(winlostdate), Current_timestamp)
-					FROM AffCommission(NOLOCK)
-					WHERE AffID = @AffID
-					), Current_timestamp) = 2
-				OR NOT EXISTS(SELECT TOP 1 1 FROM AffCommission ac(NOLOCK) WHERE ac.AffID = @AffID)	
-				)
+			)
+			AND (
+				NOT EXISTS(SELECT TOP 1 1 FROM AffCommission ac(NOLOCK) WHERE ac.AffID = @AffID AND DATEDIFF(MONTH, winlostdate, DATEADD(MONTH, -1, @CurrentDate)) = 0)	
+			)
 			AND (
 				@DateOption = 0
 				OR dateadd(m, - 1, @CurrentDate) BETWEEN @FromDate AND @ToDate
-				)
+			)
 			-- check data existing in MemberDaily
 			AND EXISTS (
 					SELECT TOP 1 1

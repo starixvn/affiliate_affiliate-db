@@ -1,25 +1,24 @@
-﻿
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
+﻿USE [bodb02]
 GO
  
-CREATE PROCEDURE [dbo].[Aff_CheckSum_WinlostByProduct] 
+ALTER PROCEDURE [dbo].[Aff_CheckSum_WinlostByProduct] 
 	@Xml 			XML
 	,@Prefix 		VARCHAR(100)
 	,@Date 			SMALLDATETIME
 	,@ProductIDs 	VARCHAR(100) 	= NULL
 	,@Separator		CHAR(1) 		= ','
 AS
+
 /*
 Created: 20140529@bobby
 Task : #1052 -  Create a daily checksum data service
 DB: DB054/DB052.bodb02
 Original : [Aff_PlayersWinlostByProductSel]  
 Revisions:  
-	-20140820@Bobby: Add filtering by ProductIDs
-	-20161022@Jim:move table to bodb_licenseereport [RedmineID :#60449]
-	-20161110@Bobby: #67071 - Correct productid for funding data
+	- 20140820@Bobby: Add filtering by ProductIDs
+	- 20161022@Jim:move table to bodb_licenseereport [RedmineID :#60449]
+	- 20161110@Bobby: #67071 - Correct productid for funding data
+	- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 	
 Param's Explanation:  
 	@Xml: 
@@ -42,6 +41,7 @@ Param's Explanation:
 		+ 12:	Gold Deluxe
 		+ 14:	Macau
 */
+
 BEGIN
 	SET NOCOUNT ON;
 
@@ -54,6 +54,7 @@ BEGIN
 		,srecommend INT
 		,mrecommend INT
 		,recommend INT
+		,CO_WL_Share	DECIMAL(9,8)
 		)
 	-- Do filtering product 
 	CREATE TABLE #ProductBettype (
@@ -76,6 +77,12 @@ BEGIN
 		ON bt.ProductId = p.ProductId
 	WHERE bt.IsTest 	= 0
 		AND bt.Enabled 	= 1
+
+	INSERT INTO #ProductBettype (
+		ProductId
+		, Bettype
+	)
+	VALUES (1, 911)
 		
 	DECLARE @CutDate_LIC DATETIME
 		,@MaxDate_LIC DATETIME
@@ -118,6 +125,13 @@ BEGIN
 	FROM @Xml.nodes('/root/trans') AS [Table]([Column])
 
 	INSERT INTO #LicenseeCust
+	(
+		CustID
+		,UserName
+		,srecommend
+		,mrecommend
+		,recommend
+	)
 	SELECT c.CustID
 		,t.UserName
 		,c.srecommend
@@ -127,6 +141,44 @@ BEGIN
 		INNER JOIN #TempTrans AS t
 		ON @Prefix + t.username = c.username2
 	WHERE c.roleid = 1
+
+	CREATE TABLE #CashOutMember (Username VARCHAR(50), DeductedPercentage DECIMAL (9,8))
+
+	DECLARE @SQL NVARCHAR(MAX), @LastDayOfMonth DATETIME, @Database_Affiliate VARCHAR(50)
+
+	SELECT  @Database_Affiliate = 'Affiliate_' + LEFT(@Prefix, LEN(@Prefix)-1)
+
+	IF DATEADD(MONTH, DATEDIFF(MONTH, 0, @Date), 0) = DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0) -- current setting
+	BEGIN
+		SELECT @SQL =
+		'SELECT UserName, DeductedPercentage
+		FROM OPENQUERY(DBAFF,''SELECT mi.UserName, ds.DeductedPercentage
+							FROM ' + @Database_Affiliate + '.dbo.DeductionSetting ds WITH(NOLOCK)
+								INNER JOIN ' + @Database_Affiliate + '.dbo.AffInfo ai WITH(NOLOCK) ON ds.GroupID = ai.GroupID
+								INNER JOIN ' + @Database_Affiliate + '.dbo.MemberInfo mi WITH(NOLOCK) ON ai.AffID = mi.AffID
+							WHERE ds.DeductionID = 11'')'
+	END
+	ELSE
+	BEGIN
+		SELECT @LastDayOfMonth = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @Date)+1, 0))
+
+		SELECT @SQL =
+		'SELECT UserName, DeductedPercentage
+		FROM OPENQUERY(DBAFF,''
+		SELECT mi.UserName, ds.DeductedPercentage
+		FROM ' + @Database_Affiliate + '.dbo.DeductionSettingHistory ds WITH (NOLOCK)
+			INNER JOIN ' + @Database_Affiliate + '.dbo.AffInfo ai WITH(NOLOCK) ON ds.GroupID = ai.GroupID
+			INNER JOIN ' + @Database_Affiliate + '.dbo.MemberInfo mi WITH(NOLOCK) ON ai.AffID = mi.AffID
+		WHERE ds.DeductionID = 11
+			AND ds.MonthDate = ''''' + CONVERT(VARCHAR(10), @LastDayOfMonth, 120) + '''''' + ''')'
+	END
+	INSERT INTO #CashOutMember (Username, DeductedPercentage)
+	EXEC (@SQL)
+
+	UPDATE l
+	SET l.CO_WL_Share = ISNULL(c.DeductedPercentage, 0)
+	FROM #LicenseeCust l
+		LEFT JOIN #CashOutMember c ON l.username = c.Username
 
 	-- import all products
 	IF @Date > @MaxDate_LIC
@@ -145,7 +197,10 @@ BEGIN
 			)
 		SELECT b.winlostdate
 			,bt.productid
-			,SUM(b.stake)
+			,SUM(CASE
+					WHEN b.bettype = 911 THEN 0
+					ELSE b.stake
+					END)
 			,--Turnover  
 			SUM(CASE 
 					WHEN ruben = 0 THEN actual_stake
@@ -155,6 +210,11 @@ BEGIN
 			SUM(CASE 
 					WHEN ruben = 1 THEN b.winlost - b.actual_stake
 					ELSE 0
+					END
+				*
+				CASE
+					WHEN b.bettype = 911 THEN c.CO_WL_Share
+					ELSE 1
 					END)
 			,--Winloss      
 			SUM(CASE 
@@ -165,7 +225,7 @@ BEGIN
 			COUNT(1)
 			,--betcount
 			SUM(stake * CASE 
-					WHEN statusID = 111 THEN 0
+					WHEN statusID = 111 OR b.bettype = 911 THEN 0
 					WHEN (
 							b.statusID = 112
 							OR b.statusID = 113
@@ -174,7 +234,10 @@ BEGIN
 						AND b.bettype IN (1, 3, 7, 8, 17, 18)
 						AND (
 							b.bettype < 31
-							OR (b.bettype BETWEEN 121 AND 999)
+							OR (
+								b.bettype BETWEEN 121
+									AND 999
+								)
 							) THEN 0.5 -- sportsbook rules
 					WHEN (
 							b.statusID = 112
@@ -265,12 +328,21 @@ BEGIN
 			)
 		SELECT b.winlostdate 
 			,bt.productid
-			,sum(b.turnover)
+			,sum(CASE
+					WHEN b.bettype = 911 THEN 0
+					ELSE b.turnover
+					END)
 			,0 AS Outstanding
-			,sum(b.winlost)
+			,sum(b.winlost
+				*
+				CASE
+					WHEN b.bettype = 911 THEN c.CO_WL_Share
+					ELSE 1
+					END)
 			,sum(b.playercomm)
 			,sum(b.BetCount)
 			,SUM(CASE 
+					WHEN b.bettype = 911 THEN 0
 					WHEN (
 							b.statusID = 112
 							OR b.statusID = 113
@@ -621,13 +693,5 @@ BEGIN
 	DROP TABLE #LicenseeCust
 END
 GO
-
-SET QUOTED_IDENTIFIER OFF 
+GRANT EXECUTE ON [dbo].[Aff_CheckSum_WinlostByProduct] TO [bodbAdminNet]
 GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
- GRANT EXECUTE ON [dbo].[Aff_CheckSum_WinlostByProduct] TO [bodbAdminNet]
-GO 
