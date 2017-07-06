@@ -1,51 +1,62 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_DomainControlDel]  
- @LicenseeID INT,
- @Id int,  
- @UserID int,   
- @IP nvarchar(15)='',  
- @ErrCode int = 0 OUTPUT
-AS  
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_DomainControlDel]  
+	@LicenseeID INT,
+	@Id int,
+	@UserID int,
+	@IP nvarchar(15) = '',  
+	@ErrCode int = 0 OUTPUT
+AS
+
 /*  
-Created: 20121115@Johnny.Trinh  
-Task : Add a new AffDomainControl  
-DB: DB052.Affiliate  
-Revisions: 
-	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
-*/  
-SET NOCOUNT ON  
---Check permission-----------------------------  
-EXEC [dbo].[Aff_Con_CheckPermission]  
- @LicenseeID = @LicenseeID,
- @custid=@UserID,@funcname='[Domain]',  
- @System = 'AFFILIATE',  
- @ErrCode=@ErrCode output
-   
-If @ErrCode <> 0  
- RETURN  
------------------------------------------------  
-declare @AffDomainID int, @MemberDomainID int, @CountryID nvarchar(10)  
+	Created: 20121115@Johnny.Trinh  
+	Task: Add a new AffDomainControl  
+	DB: DBAFF
+	
+	Revisions: 
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+*/
+
+BEGIN
+	SET NOCOUNT ON  
+
+	DECLARE @AffDomainID INT, @MemberDomainID INT, @CountryID NVARCHAR(10)  
   
-select @AffDomainID = AffDomainID, @MemberDomainID = [MemberDomainID], @CountryID = CountryID  
-from [AffDomainControl]  
-where Id = @Id  
+	SELECT @AffDomainID = AffDomainID, @MemberDomainID = [MemberDomainID], @CountryID = CountryID  
+	FROM dbo.AffDomainControl WITH(NOLOCK)
+	WHERE Id = @Id
+
+	IF @AffDomainID IS NULL
+	BEGIN
+		SELECT @ErrCode = 2020
+		RETURN
+	END
   
-delete [AffDomainControl]  
-where Id = @Id  
+	DELETE dbo.AffDomainControl WITH(ROWLOCK, UPDLOCK)
+	WHERE Id = @Id
+
+	IF @@ERROR <> 0
+	BEGIN
+		SELECT @ErrCode = 503
+		RETURN
+	END
   
---Write log  
-declare @SPName varchar(50), @Detail nvarchar(4000)   
-select @SPName = OBJECT_NAME(@@ProcID)  
-select @Detail = 'Delete AffDomainID:' + dbo.Aff_ToString(@AffDomainID)                       
-                    + ' MemberDomainID:' + dbo.Aff_ToString(@MemberDomainID)                      
-     + ' CountryID:' + dbo.Aff_ToString(@CountryID)                      
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000) 
+	
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'Delete AffDomainID:' + dbo.Aff_ToString(@AffDomainID)
+					+ ' MemberDomainID:' + dbo.Aff_ToString(@MemberDomainID)
+					+ ' CountryID:' + dbo.Aff_ToString(@CountryID)
   
-EXEC [dbo].[Aff_WriteLog]   
- @Creator = @UserID,  
- @Typename = 'AffDomainControl', -- refer to table LogType  
- @SPName = @SPName,  
- @Details = @Detail,  
- @IP = @IP
+	EXEC [dbo].[Aff_WriteLog]   
+		@Creator = @UserID,  
+		@Typename = 'AffDomainControl', -- refer to table LogType  
+		@SPName = @SPName,  
+		@Details = @Detail,  
+		@IP = @IP
+END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_DomainControlDel] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainControlDel] TO [vnteam] AS [dbo]

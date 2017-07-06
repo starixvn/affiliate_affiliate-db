@@ -1,54 +1,60 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_DomainMemDel]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_DomainMemDel]
 	@LicenseeID	INT,
 	@DomainID int OUTPUT,
 	@UserID int,	
 	@IP nvarchar(15)='',
 	@ErrCode int = 0 OUTPUT
 AS
+
 /*
-Created: 20121115@ThaiTran
-Task : Del a AffDomain
-DB: DB052.Affiliate_12BET
-Revisions:
-	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
-*/
-SET NOCOUNT ON
---Check permission-----------------------------
-EXEC [dbo].[Aff_Con_CheckPermission]
-	@LicenseeID = @LicenseeID,
-	@custid=@UserID,@funcname='[Domain]',
-	@System = 'AFFILIATE',
-	@ErrCode=@ErrCode output
+	Created: 20121115@ThaiTran
+	Task: Del a AffDomain
+	DB: DBAFF
 	
-If @ErrCode <> 0
-	RETURN
------------------------------------------------
-If Exists(select 1 from AffDomainControl nolock where MemberDomainID = @DomainID)
-Begin
-	select @ErrCode = 2003--This member domain has been used!
-	return
-End
+	Revisions:
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+*/
 
-Declare @DomainName nvarchar(50)
-Select @DomainName = DomainName from [MemberDomain] nolock where DomainID = @DomainID
+BEGIN
+	SET NOCOUNT ON
 
-delete [MemberDomain]
-where DomainID = @DomainID
-print 'test'
+	IF EXISTS (SELECT 1 FROM dbo.AffDomainControl WITH(NOLOCK) WHERE MemberDomainID = @DomainID)
+	BEGIN
+		SELECT @ErrCode = 2003 -- This member domain has been used!
+		RETURN
+	END
 
---Write log
-declare @SPName varchar(50), @Detail nvarchar(4000) 
-select @SPName = OBJECT_NAME(@@ProcID)
-select @Detail = 'Delete Member Domain DomainID:' + dbo.Aff_ToString(@DomainID)                     
-                    + ' DomainName:' + dbo.Aff_ToString(@DomainName)                    					
+	DECLARE @DomainName NVARCHAR(50)
+	SELECT  @DomainName = DomainName FROM dbo.MemberDomain WITH(NOLOCK) WHERE DomainID = @DomainID
 
-EXEC [dbo].[Aff_WriteLog] 
-	@Creator = @UserID,
-	@Typename = 'AffDomain', -- refer to table LogType
-	@SPName = @SPName,
-	@Details = @Detail,
-	@IP = @IP
+	DELETE dbo.MemberDomain WITH(ROWLOCK, UPDLOCK)
+	WHERE DomainID = @DomainID
+
+	IF @@ERROR <> 0
+	BEGIN
+		ROLLBACK TRANSACTION
+		
+		SELECT @ErrCode = 503
+		RETURN
+	END
+
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000) 
+	
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'Delete Member Domain DomainID:' + dbo.Aff_ToString(@DomainID)
+					+ ' DomainName:' + dbo.Aff_ToString(@DomainName)
+
+	EXEC [dbo].[Aff_WriteLog] 
+		@Creator = @UserID,
+		@Typename = 'AffDomain', -- refer to table LogType
+		@SPName = @SPName,
+		@Details = @Detail,
+		@IP = @IP
+END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_DomainMemDel] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainMemDel] TO [vnteam] AS [dbo]

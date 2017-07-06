@@ -1,4 +1,5 @@
-﻿USE [Affiliate_Athena000]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_CommGroupUpd] 
@@ -40,6 +41,7 @@ AS
 		- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170601@Percy: Add new column: isTest [RedmineID: #77521]
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 
 	Parameters:
 		.@UserID : Administrator user id
@@ -64,35 +66,7 @@ BEGIN
 	DECLARE @isTest BIT = 0
 
 	SELECT  @isTest = dbo.f_Aff_CheckSPVersion(@@PROCID)
-
-	--Check permission  
-	EXEC [dbo].[Aff_Con_CheckPermission]
-		@LicenseeID = @LicenseeID
-		,@custid = @UserID
-		,@funcname = '[CommissionGroup]'
-		,@System = 'AFFILIATE'
-		,@ErrCode = @ErrCode OUTPUT
-		,@ErrMsg = @ErrMsg OUTPUT
-
-	IF (@ErrCode <> 0) RETURN
-
-	--Check Currency Permission
-	IF (@Currency = 0)
-	BEGIN
-		IF (dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID) = 0)
-			RETURN
-	END
-	ELSE
-	BEGIN
-		EXEC [dbo].[AffAdmin_CheckPermissionCurrency] 
-			@LicenseeID = @LicenseeID
-			,@UserId = @UserID
-			,@CurrencyId = @Currency
-			,@ErrCode = @ErrCode OUTPUT
-
-		IF (@ErrCode <> 0) RETURN
-	END
-
+	
 	IF NOT EXISTS (
 		SELECT TOP 1 1 FROM dbo.CommGroup WITH(NOLOCK)
 		WHERE GroupID = @GroupID AND IsDeleted = 0
@@ -638,8 +612,4 @@ BEGIN
 		,@IP = @IP
 		,@Details = @LogData
 END
-GO
-GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupUpd] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupUpd] TO [vnteam] AS [dbo]
 GO

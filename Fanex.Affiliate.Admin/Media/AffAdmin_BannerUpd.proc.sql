@@ -1,4 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_BannerUpd]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_BannerUpd]
 	@LicenseeID INT,
 	@BannerID int ,
 	@Content nvarchar(4000)=null,
@@ -12,87 +16,88 @@
 	@IP nvarchar(15)='',
 	@ErrCode int = 0 OUTPUT
 AS
+
 /*
-Created: 20090331@DungTong
-Task :Update affiliate Banners
-DB: DB052.Affiliate_MYM
-Original:
+	Created: 20090331@DungTong
+	Task: Update affiliate Banners
+	DB: DBAFF
+	Original:
 
-Revisions:
-	- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site 
+	Revisions:
+		- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 
-Param's Explanation:
-
-• @UserID: user deleting msg will be logged
-• @ErrCode:
-= 0: Transaction recorded successfully.
-101: Invalid message ID.
-1001: Unsuccessful deleting msg.
-
-• @ErrMsg: Error description.
+	Param's Explanation:
+		• @UserID: user deleting msg will be logged
 */
-SET NOCOUNT ON
---Check permission-----------------------------
-EXEC [dbo].[AffAdmin_Con_CheckPermission] 
-	@LicenseeID = @LicenseeID,
-	@custid=@UserID,@funcname='[Media]',
-	@System = 'AFFILIATE',
-	@ErrCode=@ErrCode output
-	
-If @ErrCode <> 0
-	RETURN
------------------------------------------------
-if @Size = ''
-	set @Size = null
-if(@Size is not null and @BannerType in(1,2) and not exists(select 1 from BannerTypes (nolock) where Type='Size' and Value=@Size))
-Begin
-	    Insert into  BannerTypes (type,value,Displayorder) values('Size',@Size,1)	    
-end
 
-declare @SizeID smallint
-if(@BannerType in(1,2))
-begin
-  select @SizeID=TypeID from BannerTypes (nolock) where Type='Size' and Value=@Size  
-end
-
-
-UPDATE Banners with(rowlock,updlock)
-SET 	
-	LastUpdate = getdate(),
-	UpdatedBy=@UserID,
-	[Content]=coalesce(@Content,Content),
-	Category=coalesce(@Category,Category),
-	Language=coalesce(@Language,Language),
-	ImageType=coalesce(@ImageType,ImageType),
-	Size=coalesce(@SizeID,Size),
-	Currency=coalesce(@Currency,Currency),
-    Type=coalesce(@BannerType,Type)
-WHERE BannerID=@BannerID
-IF @@Error <> 0 
 BEGIN
-	Select @Errcode=502
-	return
-END 
-	Select @Errcode=0
+	SET NOCOUNT ON
 
-declare @SPName varchar(50), @Detail nvarchar(4000) 
-select @SPName = OBJECT_NAME(@@ProcID)
-select @Detail = 'Update bannerID:' + dbo.Aff_ToString(@BannerID) 
-                  +  ' Content:' + dbo.Aff_ToString(@Content)
-                  +  ' Category:' + dbo.Aff_ToString(@Category)
-                  +  ' Language:' + dbo.Aff_ToString(@Language)
-                  +  ' ImageType:' + dbo.Aff_ToString(@ImageType)
-                  +  ' Size:' + dbo.Aff_ToString(@Size)
-                  +  ' Currency:' + dbo.Aff_ToString(@Currency)
+	SELECT @ErrCode = 0
+	
+	DECLARE @SizeID SMALLINT
 
-EXEC [dbo].[Aff_WriteLog] 
-	@Creator = @UserID,
-	@Typename = 'Banner', -- refer to table LogType
-	@SPName = @SPName,
-	@Details = @Detail,
-	@IP = @IP
+	IF @Size = '' OR @Size IS NULL
+	BEGIN
+		SELECT @Size = NULL
+	END
+	ELSE IF @BannerType IN (1,2)
+	BEGIN
+		IF NOT EXISTS (SELECT 1 FROM dbo.BannerTypes WITH(NOLOCK) WHERE Type = 'Size' AND Value = @Size)
+		BEGIN
+			INSERT INTO BannerTypes (Type, Value, DisplayOrder)
+			VALUES ('Size', @Size, 1)
+		END
+	END
 
+	IF @BannerType IN (1,2)
+	BEGIN
+		SELECT @SizeID = TypeID FROM dbo.BannerTypes WITH(NOLOCK) WHERE Type = 'Size' AND Value = @Size
+	END
+
+	BEGIN TRANSACTION
+
+	UPDATE dbo.Banners WITH(ROWLOCK, UPDLOCK)
+	SET 	
+		LastUpdate = GETDATE(),
+		UpdatedBy = @UserID,
+		[Content] = COALESCE(@Content, Content),
+		Category = COALESCE(@Category, Category),
+		Language = COALESCE(@Language, Language),
+		ImageType = COALESCE(@ImageType, ImageType),
+		Size = COALESCE(@SizeID, Size),
+		Currency = COALESCE(@Currency, Currency),
+		Type = COALESCE(@BannerType, Type)
+	WHERE BannerID = @BannerID
+	
+	IF @@ERROR <> 0 
+	BEGIN
+		ROLLBACK TRANSACTION
+
+		SELECT @Errcode = 502
+		RETURN
+	END
+
+	COMMIT TRANSACTION
+
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000)
+
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'Update bannerID:' + dbo.Aff_ToString(@BannerID) 
+					+ ' Content:' + dbo.Aff_ToString(@Content)
+					+ ' Category:' + dbo.Aff_ToString(@Category)
+					+ ' Language:' + dbo.Aff_ToString(@Language)
+					+ ' ImageType:' + dbo.Aff_ToString(@ImageType)
+					+ ' Size:' + dbo.Aff_ToString(@Size)
+					+ ' Currency:' + dbo.Aff_ToString(@Currency)
+
+	EXEC [dbo].[Aff_WriteLog] 
+		@Creator = @UserID,
+		@Typename = 'Banner', -- refer to table LogType
+		@SPName = @SPName,
+		@Details = @Detail,
+		@IP = @IP
+END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_BannerUpd] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_BannerUpd] TO [vnteam]

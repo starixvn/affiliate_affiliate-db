@@ -1,4 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_SystemSettingsIns] 
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_SystemSettingsIns] 
 	@LicenseeID INT
 	,@Updatedby INT
 	,@Key VARCHAR(50)
@@ -13,112 +17,106 @@
 	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
 AS
 /*
-Created: 20090122@Peter
-Task : [description of SP]
-DB: DB052.Affiliate_ZZun
-Original:
+	Created: 20090122@Peter
+	Task:
+	DB: DBAFF
+	Original:
 
-Revisions:
-	- 20090122@[Reviewer]: [Description of revision] 
-	- 20140122@Bobby: add checking enviroment
-	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	Revisions:
+		- 20140122@Bobby: add checking enviroment
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 
-Param's Explanation:
-
-
-• @ErrCode:
-= 0: Transaction recorded successfully.
-> 0: Insert  unsuccessfully!
-
-• @ErrMsg: Error description.
+	Param's Explanation:
 */
 BEGIN
 	SET NOCOUNT ON
-
-				EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
-		,@custid = @Updatedby
-		,@funcname = '[SystemSettings]'
-		,@System = 'AFFILIATE'
-		,@ErrCode = @ErrCode OUTPUT
-		,@ErrMsg = @ErrMsg OUTPUT
-
-	IF @ErrCode <> 0 RETURN
-
-	IF (
-			EXISTS (
-				SELECT 1
-				FROM SystemSettings(NOLOCK)
-				WHERE SName = @key 
-					AND [Type] = @Type
-					AND (@Environment IS NULL OR Environment=@Environment)
-				)
-			)
+	
+	IF EXISTS (SELECT 1 FROM dbo.SystemSettings WITH(NOLOCK) WHERE SName = @key AND [Type] = @Type AND (@Environment IS NULL OR Environment=@Environment))
 	BEGIN
-		SELECT @ErrMsg = CASE @Language
-				WHEN 'en-US' THEN 'Error! This setting key is existed!'
-				WHEN 'zh-CN' THEN N'錯誤!這個設定金鑰已經存在!'
-				WHEN 'zh-TW' THEN N'错误！这个设置金者已经存在！'
-				ELSE N'Error! This setting key is existed!'
-				END
-			,@ErrCode = 1001
-
+		SELECT
+			@ErrCode = 1001,
+			@ErrMsg = CASE @Language
+						WHEN 'en-US' THEN 'Error! This setting key is existed!'
+						WHEN 'zh-CN' THEN N'錯誤!這個設定金鑰已經存在!'
+						WHEN 'zh-TW' THEN N'错误！这个设置金者已经存在！'
+						ELSE N'Error! This setting key is existed!'
+					END
 		RETURN
 	END
 
-	IF (@Type IN ('CustomerDomainList', 'AffiliateLinkDomainList', 'BannerDomainList'))
+	BEGIN TRANSACTION
+
+	IF @Type IN ('CustomerDomainList', 'AffiliateLinkDomainList', 'BannerDomainList')
 	BEGIN
-		INSERT INTO [dbo].[SystemSettings] (
+		INSERT INTO [dbo].[SystemSettings]
+		(
 			[SName]
 			,[SValue]
 			,[Type]
 			,[Description]
-			)
-		SELECT ResourceKey
+		)
+		SELECT
+			ResourceKey
 			,@Value
 			,@Type
 			,@Description
-		FROM (
-			SELECT DISTINCT ResourceKey
-			FROM RefResources(NOLOCK)
-			WHERE RefID = 'CountryCode'
-			) a
+		FROM
+		(
+			SELECT DISTINCT ResourceKey FROM RefResources WITH(NOLOCK) WHERE RefID = 'CountryCode'
+		) a
 
 		SELECT @ID = SCOPE_IDENTITY()
 	END
 	ELSE
 	BEGIN
-		INSERT INTO [dbo].[SystemSettings] (
+		INSERT INTO [dbo].[SystemSettings]
+		(
 			[SName]
 			,[SValue]
 			,[Type]
 			,[Description]
 			,[Environment]
-			)
-		VALUES (
+		)
+		VALUES
+		(
 			@Key
 			,@Value
 			,@Type
 			,@Description
 			,@Environment
-			)
+		)
 
 		SELECT @ID = SCOPE_IDENTITY()
 	END
 
-	DECLARE @SPName VARCHAR(50)
-		,@Detail NVARCHAR(4000)
+	IF @@ERROR <> 0
+	BEGIN
+		ROLLBACK TRANSACTION
+		
+		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
+		RETURN
+	END
 
-	SELECT @SPName = OBJECT_NAME(@@ProcID)
+	COMMIT TRANSACTION
 
-	SELECT @Detail = 'Add new Sytem Setting. ID=' + dbo.Aff_ToString(@ID) + '.Key=' + dbo.Aff_ToString(@Key) + '.Value=' + isnull(@Value, '') + '.Type=' + dbo.Aff_ToString(@Type) + '. Description=' + isnull(@Description, '') + '.Environment=' + isnull(@Environment, '')
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000)
 
-	EXEC [dbo].[Aff_WriteLog] @Creator = @Updatedby
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'Add new Sytem Setting. ID=' + dbo.Aff_ToString(@ID)
+					+ '.Key=' + dbo.Aff_ToString(@Key)
+					+ '.Value=' + ISNULL(@Value, '')
+					+ '.Type=' + dbo.Aff_ToString(@Type)
+					+ '. Description=' + ISNULL(@Description, '')
+					+ '.Environment=' + ISNULL(@Environment, '')
+
+	EXEC [dbo].[Aff_WriteLog]
+		@Creator = @Updatedby
 		,@AffID = @Updatedby
-		,@Typename = 'SystemSettings'
-		,-- refer to table LogType
-		@SPName = @SPName
+		,@Typename = 'SystemSettings' -- refer to table LogType
+		,@SPName = @SPName
 		,@Details = @Detail
 		,@IP = @IP
 END
-
-GRANT EXECUTE ON [dbo].[AffAdmin_DeductionTypeSel] TO [bodbAdminNet]
+GO

@@ -1,92 +1,89 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_HotNewsDel]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_HotNewsDel]
 	@LicenseeID INT,
 	@listmsgid varchar(4000)=null,
 	@UserID int,
 	@IP varchar(20),
 	@ErrCode int = 0 OUTPUT
 AS
+
 /*
-Created: 20090624@VinhTrinh
-Task : Delete affiliate hot news by message id
-DB: DB052.Affiliate_ZZun
-Original:
+	Created: 20090624@VinhTrinh
+	Task: Delete affiliate hot news by message id
+	DB: DBAFF
+	Original:
 
-Revisions:
-- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site 
+	Revisions:
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site 
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 
-Param's Explanation:
-• @listmsgid : list of message ids need to delete separated by a comma
-• @UserID: user deleting msg will be logged
-• @ErrCode:
-= 0: Transaction recorded successfully.
-101: Invalid message ID.
-1001: Unsuccessful deleting msg.
-
-• @ErrMsg: Error description.
+	Param's Explanation:
+		• @listmsgid : list of message ids need to delete separated by a comma
+		• @UserID: user deleting msg will be logged
 */
-SET NOCOUNT ON
---Check permission-----------------------------
-EXEC [dbo].[Aff_Con_CheckPermission]
-	@LicenseeID = @LicenseeID,
-	@custid=@UserID,@funcname='[HotNews]',
-	@System = 'AFFILIATE',
-	@ErrCode=@ErrCode output
-	
-If @ErrCode <> 0
-	RETURN
------------------------------------------------
---Check list of messageid
-if(@listmsgid is null)
-begin
-	Select @ErrCode = 202
-	return
-end	
 
-declare @msgidTable table(msgid int)
- insert into  @msgidTable
-         select distinct val from dbo.strsplit(@listmsgid,',')
- declare @count int,@countDB int
-  select @count=count(1) from @msgidTable
-    select @countDB=count(1)
-          from News a  (nolock)
-               inner join @msgidTable t on a.msgid=t.msgid
-    
-    if (@count <> @countDB)
-		BEGIN
-			 Select @ErrCode = 204
-	        return      
-        END    
---Check UserID is valid
-if(not exists(select 1 from dbo.AffAdmin_f_AdminUserInfo_Select(@UserID, @LicenseeID)))
-begin
-	 Select @ErrCode = 205
-	        return
-end
-
-Delete News with(rowlock)
-WHERE msgid in (select msgid from @msgidTable)
-
-IF @@ERROR <> 0
 BEGIN
+	SET NOCOUNT ON
+
+	IF @listmsgid IS NULL
+	BEGIN
+		SELECT @ErrCode = 202
+		RETURN
+	END
+
+	--Check UserID is valid
+	IF NOT EXISTS (SELECT 1 FROM dbo.AffAdmin_f_AdminUserInfo_Select(@UserID, @LicenseeID))
+	BEGIN
+		SELECT @ErrCode = 205
+		RETURN
+	END
+
+	DECLARE @msgidTable TABLE (MsgID INT)
+	INSERT INTO @msgidTable (MsgID)
+	SELECT DISTINCT CONVERT(INT, val) FROM dbo.strsplit(@listmsgid, ',')
 	
-	Select @ErrCode = 206
-	return
+	DECLARE @count INT, @countDB INT
+
+	SELECT  @count = COUNT(1) FROM @msgidTable
+	SELECT  @countDB = COUNT(1)
+	FROM dbo.News n WITH(NOLOCK)
+		INNER JOIN @msgidTable t ON n.MsgID = t.MsgID
+    
+	IF (@count <> @countDB)
+	BEGIN
+		SELECT @ErrCode = 204
+		RETURN
+	END
+
+	BEGIN TRANSACTION
+
+	DELETE dbo.News WITH(ROWLOCK, UPDLOCK)
+	WHERE MsgID IN (SELECT MsgID FROM @msgidTable)
+
+	IF @@ERROR <> 0
+	BEGIN
+		ROLLBACK TRANSACTION
+
+		SELECT @ErrCode = 206
+		RETURN
+	END
+
+	COMMIT TRANSACTION
+
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000)
+
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'Delete News MsgIDList:' + dbo.Aff_ToString(@listmsgid)
+
+	EXEC [dbo].[Aff_WriteLog]
+		@Creator = @UserId,	
+		@TypeName = 'Message',	
+		@SPName = @SPName,
+		@IP = @IP,
+		@Details = @Detail
 END
-
- --Write the log 
-DECLARE @LogData nvarchar(4000)
-SELECT @LogData = 'Delete News MsgIDList:' + dbo.Aff_ToString(@listmsgid)
-
-declare @SPName varchar(50)
-select @SPName = OBJECT_NAME(@@ProcID)
-
-EXEC [dbo].[Aff_WriteLog]
-	@Creator=@UserId,	
-	@TypeName= 'Message',	
-	@SPName=@SPName,
-	@IP =@IP,
-	@Details=@LogData
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_HotNewsDel] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_HotNewsDel] TO [vnteam] AS [dbo]

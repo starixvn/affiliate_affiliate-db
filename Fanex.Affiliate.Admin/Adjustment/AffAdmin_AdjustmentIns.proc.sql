@@ -1,4 +1,5 @@
-﻿USE [Affiliate_Athena000]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_AdjustmentIns]  
@@ -16,24 +17,15 @@ AS
 	Creator: Vinh  
 	Date: 2009-07-30  
 	Task: Approve a payment request.
-	DB: DBAFF.Affiliate_Athena000
+	DB: DBAFF
 
 	Revisions: 
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 */
 
 BEGIN
-	SET NOCOUNT ON  
-  
-	EXEC [dbo].[Aff_Con_CheckPermission]  
-		@LicenseeID = @LicenseeID,
-		@custid=@AdminID,  
-		@funcname='[Payment]',--User the same with payment  
-		@System = 'AFFILIATE',  
-		@ErrCode=@ErrCode OUTPUT
-  
-	If @ErrCode <> 0  
-		RETURN  
+	SET NOCOUNT ON
   
 	IF @Amount = 0  
 	BEGIN  
@@ -138,6 +130,3 @@ BEGIN
 		@IP = @IP
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateSel] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateSel] TO [vnteam]

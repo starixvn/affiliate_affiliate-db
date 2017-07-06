@@ -1,4 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_Con_GroupPolicyUpd]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_Con_GroupPolicyUpd]
 	@LicenseeID INT,
 	@GroupPolicys NVARCHAR(4000),
 	@UserID int, 
@@ -6,70 +10,71 @@
 	@ErrCode int = 0 OUTPUT,
 	@IP varchar(15) = ''
 AS
-/*DB03.BODB02 --> DB052.Affiliate_ZZun*/
--- Update Acc_GroupPolicy
--- Format of @GroupPolicys: @GroupID,@FuncID,@Policy;@GroupID,@FuncID,@Policy; ...;
--- 20101214@Peter : Move this SP to DB DB052.Affiliate_ZZun
--- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
-SET NOCOUNT ON
-	
---Check permission for account site: @phuc20080213
-EXEC [dbo].[AffAdmin_Con_CheckPermission] @LicenseeID = @LicenseeID, @custid=@UserID,@funcname='[UserControl]',@System='AFFILIATE',@ErrCode=@ErrCode output
-If @ErrCode <> 0
-	RETURN
---end
-	
+
+/*
+	DB: DBAFF
+
+	Revisions:
+		- 20101214@Peter : Move this SP to DB DB052.Affiliate_ZZun
+		- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+*/
+
+BEGIN
+	SET NOCOUNT ON
 	
 	DECLARE @GroupPolicy nvarchar(4000)
 	DECLARE @GroupID INT
 	DECLARE @FuncID INT
 	DECLARE @Policy int
 	DECLARE @GroupPolicyCount int 
-	DECLARE GroupPolicysCur CURSOR FOR 
-		SELECT val as row_index 
-		  FROM dbo.strSplit(@GroupPolicys, ';')
-		 ORDER BY row_index
+	
+	DECLARE GroupPolicysCur CURSOR
+		FOR SELECT val AS row_index FROM dbo.strSplit(@GroupPolicys, ';') ORDER BY row_index
 	
 	SELECT * INTO #GroupPolicy FROM dbo.AffAdmin_f_GroupPolicy_Select('', '')
 
 	OPEN GroupPolicysCur
+	
 	FETCH NEXT FROM GroupPolicysCur INTO @GroupPolicy
 	WHILE @@FETCH_STATUS = 0
 	BEGIN
-
 		SET @GroupID = dbo.Aff_SplitIndex(@GroupPolicy, ',', 1)
 		SET @FuncID = dbo.Aff_SplitIndex(@GroupPolicy, ',', 2)
 		SET	@Policy = dbo.Aff_SplitIndex(@GroupPolicy, ',', 3)
 		SET @GroupPolicyCount = (SELECT COUNT(1) FROM #GroupPolicy WHERE GroupID = @GroupID AND functionid = @FuncID)
 
 		IF(@GroupPolicyCount = 0)
-			BEGIN
-																EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupPolicy_Insert @GroupID = @GroupID, @FunctionIDs = @Funcid, @Policy = @Policy, @Creator = @UserID
-			END
+		BEGIN
+			EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupPolicy_Insert @GroupID = @GroupID, @FunctionIDs = @Funcid, @Policy = @Policy, @Creator = @UserID
+		END
 		ELSE
-			BEGIN
-																EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupPolicy_Update @GroupID = @GroupID, @FunctionID = @FuncID, @Policy = @Policy
-			END
+		BEGIN
+			EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupPolicy_Update @GroupID = @GroupID, @FunctionID = @FuncID, @Policy = @Policy
+		END
 		
-		DECLARE @SPName varchar(50), @LogData nvarchar(200)
-		select @SPName = OBJECT_NAME(@@ProcID)
-
-		SELECT @LogData = '[AFFILIATE] UPDATE (multiple) Policy = ' + dbo.Aff_ToString(@Policy) + ' of Function ' + dbo.Aff_ToString(@Funcid) +  ' for Group ' + dbo.Aff_ToString(@GroupID)
-		
-
+		-- Write log  
+		DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000) 
+	
+		SELECT	@SPName = OBJECT_NAME(@@PROCID),
+				@Detail = '[AFFILIATE] UPDATE (multiple) Policy = ' + dbo.Aff_ToString(@Policy)
+						+ ' of Function ' + dbo.Aff_ToString(@Funcid)
+						+ ' for Group ' + dbo.Aff_ToString(@GroupID)
 
 		EXEC [dbo].[Aff_WriteLog]
-				@Creator=@UserID,	
-				@AffID=0,
-				@Typename= 'UserControl',	
-				@SPName=@SPName ,		
-				@IP =@IP,
-				@Details=@LogData	
+			@Creator = @UserID,	
+			@AffID = 0,
+			@Typename = 'UserControl',	
+			@SPName = @SPName ,		
+			@IP = @IP,
+			@Details = @Detail	
 
 		FETCH NEXT FROM GroupPolicysCur INTO @GroupPolicy
-	END 
+	END
+
 	CLOSE GroupPolicysCur
 	DEALLOCATE GroupPolicysCur
 	
-	
 	DROP TABLE #GroupPolicy
+END
+GO

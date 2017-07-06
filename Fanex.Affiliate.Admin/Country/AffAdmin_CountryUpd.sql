@@ -1,3 +1,7 @@
+/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
 ALTER PROCEDURE [dbo].[AffAdmin_CountryUpd]
     @Updatedby int ,
     @CountryID nvarchar(6),
@@ -9,68 +13,57 @@ ALTER PROCEDURE [dbo].[AffAdmin_CountryUpd]
     @IP nvarchar(15)='',    
     @ErrCode int = 0 OUTPUT,
     @ErrMsg nvarchar(4000) = '' OUTPUT
-as
-begin 
+AS
+ 
 /*
-Created: 20130122@Joseph
-Task : Update Country
-DB: DB052.Affiliate_MYM
-Original:
+	Created: 20130122@Joseph
+	Task: Update Country
+	DB: DBAFF
+	Original:
 
-Revisions:
--20151221@Francis: Suppot SSO
+	Revisions:
+		- 20151221@Francis: Suppot SSO
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 
-Param's Explanation:
-
-
-• @ErrCode:
-= 0: Transaction recorded successfully.
-> 0: Insert  unsuccessfully!
-
-• @ErrMsg: Error description.
+	Param's Explanation:
 */
-SET NOCOUNT ON
 
-DECLARE @LicenseeID INT
-SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
-
-EXEC [dbo].[Aff_Con_CheckPermission]
-	 @LicenseeID = @LicenseeID,
-        @custid=@Updatedby,@funcname='[SystemSettings]',
-        @System = 'AFFILIATE',
-        @ErrCode=@ErrCode output,
-        @ErrMsg=@ErrMsg output    
-    
-If @ErrCode <> 0
-    RETURN
-    
-If(Not Exists (Select 1 from Country (nolock) where CountryID=@CountryID ))
 BEGIN
-Select @ErrMsg = N'Error! This country does not exist!', @ErrCode = 1001
-    return
-END
-update Country with (rowlock,updlock)
-Set CountryName=@CountryName, [Description]=@Description,
-Icon=coalesce(@Icon,Icon), 
-DisplayOrder=coalesce(@DisplayOrder,DisplayOrder),
-IsEnabled =  @IsEnabled
-where CountryID=@CountryID
+	SET NOCOUNT ON
+  
+	IF NOT EXISTS (SELECT 1 FROM dbo.Country WITH(NOLOCK) WHERE CountryID = @CountryID)
+	BEGIN
+		SELECT @ErrCode = 1001, @ErrMsg = N'Error! This country does not exist!'
+		RETURN
+	END
+	
+	UPDATE dbo.Country WITH(ROWLOCK, UPDLOCK)
+	SET
+		CountryName = @CountryName,
+		[Description] = @Description,
+		Icon = COALESCE(@Icon, Icon), 
+		DisplayOrder = COALESCE(@DisplayOrder, DisplayOrder),
+		IsEnabled = @IsEnabled
+	WHERE CountryID = @CountryID
 
+	IF @@ERROR <> 0
+	BEGIN
+		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
+		RETURN
+	END
 
-declare @SPName varchar(50), @Detail nvarchar(4000) 
-select @SPName = OBJECT_NAME(@@ProcID)
-select @Detail = 'Update Country. ID= ' + dbo.Aff_ToString(@CountryID) +
-     '. Description=' + isnull(@Description,'')
+	-- Write log
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000) 
+	
+	SELECT @SPName = OBJECT_NAME(@@PROCID), @Detail = 'Update Country. ID= ' + dbo.Aff_ToString(@CountryID) + '. Description=' + ISNULL(@Description, '')
 
-EXEC [dbo].[Aff_WriteLog] 
-    @Creator = @Updatedby,
-    @AffID = @Updatedby,
-    @Typename = 'Country', -- refer to table LogType
-    @SPName = @SPName,
-    @Details = @Detail,
-    @IP = @IP
+	EXEC [dbo].[Aff_WriteLog] 
+		@Creator = @Updatedby,
+		@AffID = @Updatedby,
+		@Typename = 'Country', -- refer to table LogType
+		@SPName = @SPName,
+		@Details = @Detail,
+		@IP = @IP
     
-end
+END
 GO
-
-

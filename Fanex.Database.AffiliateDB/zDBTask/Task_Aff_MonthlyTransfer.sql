@@ -1,92 +1,39 @@
-﻿ALTER PROCEDURE [dbo].[Task_Aff_MonthlyTransfer] 
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[Task_Aff_MonthlyTransfer] 
     @UserId INT
     ,@Month INT
     ,@Year INT
     ,@ErrCode INT = 0 OUTPUT
 AS
+
 /*  
-Created: 20090812@DungTong  
-Task : Monthly transfer for all Affiliate  
-DB: Affiliate_Licensee  
-Original:  
+	Created: 20090812@DungTong  
+	Task: Monthly transfer for all Affiliate  
+	DB: DBAFF
+	Original:  
   
-Revisions:      
-    - 200900217@Dung:   
-            + Use Tier Commission to calculate monthly earning for each Affiliate based on Aff's member winlosts.  
-               To get commission value on what tier we do 3 phases:  
-                 .Calculate Number Of Qualified members on this month (member that have the turn over for this month is greater than or equal to 100$)  
-                 .Calculate winlost for each member on this month.  
-                 .Calculate Deductions (based on deduction setting from affiliate's Group)  
-                 .we have NetWinlost=WinLost-Deduction, TotalQMs  
-                 .For each Affiliate we get commission value by this way:  
-                      When TotalWinlost>0  
-                           Commission=Commission by Net Winlost  
-                      When TotalWinlost<=0                              
-                        Commission=Min(Commission got by |NetWinlost| between MiAmount and MaxAmount, Commission got by TotalQMs between MinQM and MaxQMs)    
-                 . Aff's Earning=NetWinlost * Commission  
-            + We have only one place to get Winlost and Other Data from MemberDaily. and the day excute this task must greater than the last day of selected month                  
-            + Qualifying member: Get Setting AFF_QMTurnOver from SystemSettings. Each member has  TurnOver>AFF_QMTurnOver --> qualified member  
-            + All the transactions have the status=completed  
-     - 20091203@Peter: Add Auto deduct transactions for Marketing fee  
-                        Deduction=Affiliate Net Earning * 20%  
-     - 20100115@Peter : Remove Auto deduct transactions for Marketing fee  
-                        http://ccs.sunplus.vn/viewtopic.php?f=4&t=2890&sid=58e8c31d51dac7ddbef907a7a258c6cf&p=14064#p14064  
-                          
-     -20100211@Peter: #381 IRP - AffSite - Revise the calculations of the tier commission and PSP charge fee    
-                      http://ccs.sunplus.vn/viewtopic.php?f=4&t=2890        
-                        
-                     CNW=sum[(your total member's lost- your total member's won- bonus  - adjustment -  Marketing Fee)  * ExRate2].              
-                     AComm= Min(commission get by |CNW|, commission get by TQM)  
-                     MF= |Total Member's Lost-Total Member's Won| *  5%  
-                     AE = CNW * Acomm  
-                     AFE = AE -  PSP * 50%  
-                       
-                     Reupdate table AffDaily.   
-                       
-     -20100709@Peter:  
-                    http://ccs.sunplus.vn/viewtopic.php?f=4&t=2890&st=0&sk=t&sd=a&start=10  
-                    Change the way to calculation:  
+	Revisions:      
+		- 20131029@Peter: [RedmineID: #5280]
+			1. Add more columns to DB
+			2. Calculate Affiliate BF in AffInfo table  
+		- 20140212@Bobby: Update amount of AffTrans based on aff currency         
+		- 20140418@Bobby: Validate amount of NoCommission group
+		- 20140429@Bobby: Update calculating amount of NoCommission group
+		- 20140520@Bobby: Update calculating TotalQM by comparing MemberTurnover_Aff value
+		- 20140610@Bobby: Add PShare & PWin columns
+		- 20140702@Bobby: Force to update Commission when Company Net Win is negative
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
   
-                    if CNW <0 then we must also use the condition of Qualifying Members ( old way does not have)  
-                     and the minimum commission in this case is 10%  if the qualifying members <5.  
-      -20100927@Peter:  
-                 http://ccs.sunplus.vn/viewtopic.php?f=4&t=3845&p=19236#p19236    
-                 Change the way to calculation:  
-                   PSP=deposit * depositpercent + withdrawal * withdrawalpercent  
-                      For European Currencies: EURO,AUD,GBP, US$  
-                          + depositpercent=0.06  
-                          + withdrawalpercent=0.03  
-                      For Asian Currencies:  
-                          + depositpercent=0.02  
-                          + withdrawalpercent=0.02  
-                   PSP now follow tier commission  
-                   New Fee:  Odds Management Fee = 17 % MemberWinlost  
-                   CNW= MemberWinlost - Odds Management Fee - Marketing Fee - PSP Fee  
-                   From CNW => AComm  
-                   Affiliate Earning=(CNW - Bonus - Adjustement)* AComm         
-         
-    - 20131029@Peter : Add more columns to DB https://redmine.nexcel.vn/issues/5280  
-                    - Calculate Affiliate BF in AffInfo table  
-    - 20140212@Bobby.Nguyen: Update amount of AffTrans based on aff currency         
-    - 20140418@Bobby.Nguyen: Validate amount of NoCommission group
-    - 20140429@Bobby.Nguyen: Update calculating amount of NoCommission group
-    - 20140520@Bobby.Nguyen: Update calculating TotalQM by comparing MemberTurnover_Aff value
-    - 20140610@Bobby: Add PShare & PWin columns
-    - 20140702@Bobby.Nguyen: Force to update Commission when Company Net Win is negative
-  
-Param's Explanation:  
-• @Month: The month to transfer  
-• @Year :  The year to transfer       
+	Param's Explanation:  
+		• @Month: The month to transfer
+		• @Year: The year to transfer
 */
+
 BEGIN
-    SET NOCOUNT ON;
-
-    EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserId
-			,@funcname = '[MonthlyTransfer]'
-        ,@System = 'AFFILIATE'
-        ,@ErrCode = @ErrCode OUTPUT
-
-    IF (@ErrCode <> 0) RETURN
+    SET NOCOUNT ON
 
     DECLARE @FirstDay SMALLDATETIME
         ,@LastDay SMALLDATETIME
@@ -105,12 +52,11 @@ BEGIN
     SELECT @LastDay = DATEADD(d, - 1, DATEADD(mm, DATEDIFF(m, 0, @FirstDay) + 1, 0))
         ,@TransType = 201
 
-    IF @LastDay > Current_TimeStamp
+    IF @LastDay > CURRENT_TIMESTAMP
     BEGIN
-        SELECT 'The month is not completed yet. So you cannot transfer!' Result
+        SELECT 'The month is not completed yet. So you cannot transfer!' AS Result
 
-        SELECT @FirstDay AS FirstDay
-            ,@LastDay AS LastDay
+        SELECT @FirstDay AS FirstDay, @LastDay AS LastDay
 
         RETURN
     END
@@ -158,23 +104,10 @@ BEGIN
     END
 
     --Get all Affiliates that is approved and IsClosed=false  
-    DECLARE @Status VARCHAR(30)
+    DECLARE @Status VARCHAR(30) = 'Approved'
 
-    SELECT @Status = 'Approved'
-
-    --Check the currency is matched  
-    /*if(exists(select 1  
-           from AffInfo ai with (nolock)  
-                inner join AffGroupHistory gh(nolock) on gh.AffID=ai.AffID and MonthDate=@LastDay  
-                inner join CommGroupHistory ch(nolock) on ch.groupid=gh.groupid  
-           where ai.currency <> ch.currency and ai.status=@Status ) )   
-begin  
-    SELECT 'The currency of Affiliate and his group does not match. Please check!' Result      
-    SELECT @FirstDay as FirstDay,@LastDay as LastDay  
-    RETURN  
-end*/
-    --Create temp table to get summary data for each affiliate  
-    CREATE TABLE #MemberSummary (
+    CREATE TABLE #MemberSummary
+	(
         UserName VARCHAR(100)
         ,AffID INT
         ,ProductID INT
@@ -202,9 +135,10 @@ end*/
         ,PWin MONEY
         ,PShare_aff MONEY
         ,PWin_aff MONEY
-        )
+    )
 
-    INSERT INTO #MemberSummary (
+    INSERT INTO #MemberSummary
+	(
         UserName
         ,AffID
         ,ProductID
@@ -270,17 +204,15 @@ end*/
     BEGIN
         SELECT 'There was no data for selected month to transfer!' AS Result
 
-        SELECT @FirstDay AS FirstDay
-            ,@LastDay AS LastDay
+        SELECT @FirstDay AS FirstDay, @LastDay AS LastDay
 
         DROP TABLE #MemberSummary
 
         RETURN
     END
 
-    --Create temp table to get summary data for each affiliate  
-    CREATE TABLE #AffSummary (
-        /* [No] int IDENTITY(1,1),*/
+    CREATE TABLE #AffSummary
+	(
         AffID INT
         ,Currency SMALLINT
         ,GroupID INT
@@ -329,9 +261,10 @@ end*/
         ,PWin MONEY
         ,PShare_aff MONEY
         ,PWin_aff MONEY
-        )
+    )
 
-    INSERT INTO #AffSummary (
+    INSERT INTO #AffSummary
+	(
         AffID
         ,Currency
         ,GroupID
@@ -372,7 +305,7 @@ end*/
         ,PWin
         ,PShare_aff
         ,PWin_aff
-        )
+    )
     SELECT ai.AffID AS AffID
         ,ai.Currency AS Currency
         ,gh.GroupID AS GroupID
@@ -417,14 +350,9 @@ end*/
         ,SUM(ISNULL(PShare_aff, 0)) PShare_aff
         ,SUM(ISNULL(PWin_aff, 0)) PWin_aff
     FROM AffInfo ai WITH (NOLOCK)
-        INNER JOIN AffGroupHistory gh(NOLOCK)
-        ON gh.AffID = ai.AffID
-            AND gh.MonthDate = @LastDay
-        INNER JOIN CommGroupHistory ch(NOLOCK)
-        ON ch.groupid = gh.groupid
-            AND ch.MonthDate = @LastDay
-        INNER JOIN #MemberSummary r
-        ON r.AffID = ai.AffID
+        INNER JOIN AffGroupHistory gh(NOLOCK) ON gh.AffID = ai.AffID AND gh.MonthDate = @LastDay
+        INNER JOIN CommGroupHistory ch(NOLOCK) ON ch.groupid = gh.groupid AND ch.MonthDate = @LastDay
+        INNER JOIN #MemberSummary r ON r.AffID = ai.AffID
     WHERE ai.STATUS = @Status
     GROUP BY ai.AffID
         ,ai.Currency
@@ -767,6 +695,3 @@ end*/
     DROP TABLE #MemberSummary
 END
 GO
-GRANT EXECUTE ON [dbo].[Task_Aff_MonthlyTransfer] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Task_Aff_MonthlyTransfer] TO [vnteam]

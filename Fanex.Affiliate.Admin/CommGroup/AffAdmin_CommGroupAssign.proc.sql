@@ -1,4 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupAssign] 
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_CommGroupAssign] 
 	@LicenseeID INT
 	,@UserId INT
 	,@GroupId INT
@@ -8,72 +12,39 @@
 	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
 	,@RefNo BIGINT = NULL OUTPUT
 AS
-/*  
-ALTERd: 20090719@DungTong  
-Task : Assign a commission group (GroupID<1000) for multiple Affilites   
-DB: DB052.Affiliate_AoncashUAT
-Original:  
-  
-Revisions:  
-	- 20141028@Bobby: hotfix#24904 - remove abs() function for Withdrawal value when calculating PSP fee
-	- 20151123@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
-Parameters:  
-.@UserID : Administrator user id  
-.@GroupID : <1000  
-.@AfIDList: list of AffID separated by comma.Maximum of 200 AffIDs are assiged each time                  
-.@IP : IP of admin user               
-.@ErrCode:    
-              0 : no error raised  
-              >0 : there was an error  
-.@ErrMsg :     
-              empty: no error raised  
-              others : the error message detail                            
-                            
+/*  
+	Created by: 20090719@DungTong  
+	Task: Assign a commission group (GroupID<1000) for multiple Affilites   
+	DB: DBAFF
+	Original:  
+  
+	Revisions:  
+		- 20141028@Bobby: hotfix#24904 - remove abs() function for Withdrawal value when calculating PSP fee
+		- 20151123@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+
+	Parameters:  
+		.@UserID : Administrator user id  
+		.@GroupID : <1000  
+		.@AfIDList: list of AffID separated by comma.Maximum of 200 AffIDs are assiged each time                  
+		.@IP : IP of admin user               
 */
+
 BEGIN
 	SET NOCOUNT ON
 
-	--Check permission  
-	/*EXEC [dbo].[Aff_Con_CheckPermission]  
-     @custid=@UserID,@funcname='Affiliate',  
-     @System = 'AFFILIATE',  
-     @ErrCode=@ErrCode output,  
-     @ErrMsg=@ErrMsg output  
-
-If @ErrCode <> 0
-    RETURN 
-*/
 	DECLARE @AffId INT
-	DECLARE @AffCurrency TABLE (
-		AffID INT
-		,Currency INT
-		);
+	DECLARE @AffCurrency TABLE (AffID INT, Currency INT);
 
 	--currency checking
-	INSERT INTO @AffCurrency (
-		AffID
-		,Currency
-		)
-	SELECT DISTINCT AffID
-		,Currency
+	INSERT INTO @AffCurrency (AffID, Currency)
+	SELECT DISTINCT AffID, Currency
 	FROM dbo.AffInfo WITH (NOLOCK)
-	WHERE AffID IN (
-			SELECT cast(val AS INT) AS AffID
-			FROM dbo.strsplit(@AffIDList, ',')
-			)
+	WHERE AffID IN (SELECT cast(val AS INT) AS AffID FROM dbo.strsplit(@AffIDList, ','))
 
 	SELECT @AffId = AffID
 	FROM @AffCurrency
-
-				EXEC dbo.Aff_CheckPermissionOnAff 
-		--@LicenseeID = @LicenseeID
-		@custid = @UserID
-		,@AffId = @AffId
-		,@ErrCode = @ErrCode OUTPUT
-		,@ErrMsg = @ErrMsg OUTPUT
-
-	IF (@ErrMsg <> '') RETURN
 
 	IF (
 			NOT EXISTS (
@@ -97,11 +68,8 @@ If @ErrCode <> 0
 	END
 
 	--Check AffIDList  
-	/*    
-    Input params is valid with the correct format. Use Try..Catch to eval the input value  
-*/
-	DECLARE @NoAff INT
-		,@CountCurrency INT
+    -- Input params is valid with the correct format. Use Try..Catch to eval the input value  
+	DECLARE @NoAff INT, @CountCurrency INT
 
 	BEGIN TRY
 		SELECT @NoAff = sum(1)
@@ -391,4 +359,3 @@ ALTER TABLE #MemberDailySum (AffID int, MemCurrency int,Winlostdate smalldatetin
 		,@Details = @LogData
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupAssign] TO [bodbAdminNet] AS [dbo]

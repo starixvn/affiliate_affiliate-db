@@ -1,4 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_BannerDel]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_BannerDel]
 	@LicenseeID INT, 
 	@ListBannerID varchar(4000),
 	@UserID int,	
@@ -6,90 +10,85 @@
 	@Language varchar(5)= 'en-US',
 	@ErrCode int = 0 OUTPUT
 AS
+
 /*
-Created: 20090331@DungTong
-Task : Delete affiliate Banners by list of ids
-DB: DB052.Affiliate_ZZun
-Original:
+	Created: 20090331@DungTong
+	Task: Delete affiliate Banners by list of ids
+	DB: DBAFF
+	Original:
 
-Revisions:
-- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	Revisions:
+		- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 
-Param's Explanation:
-• @ListBannerID : list of banner ids need to delete separated by a comma
-• @UserID: user deleting msg will be logged
-• @ErrCode:
-= 0: Transaction recorded successfully.
-101: Invalid message ID.
-1001: Unsuccessful deleting msg.
-
-• @ErrMsg: Error description.
+	Param's Explanation:
+		• @ListBannerID : list of banner ids need to delete separated by a comma
+		• @UserID: user deleting msg will be logged
 */
-SET NOCOUNT ON
---Check permission-----------------------------
-EXEC [dbo].[AffAdmin_Con_CheckPermission]
-	@LicenseeID = @LicenseeID,
-	@custid=@UserID,@funcname='[Media]',
-	@System = 'AFFILIATE',
-	@ErrCode=@ErrCode output
-	
-If @ErrCode <> 0
-	RETURN
-	
------------------------------------------------
---Check list of bannerID
-if(@ListBannerID is null)
-begin
-	Select @ErrCode = 300	
-	return
-end	
 
-declare @bannerIDTable table(bannerid int)
-
-insert into @bannerIDTable
-select distinct val from dbo.strsplit(@ListBannerID,',')
-inner join banners b with (nolock) on b.bannerid = val and COALESCE(b.totalrequest,0) = 0 
-
-declare @count int,@countDB int
-select @count=count(1) from  @bannerIDTable
-select @countDB=count(1)
-from Banners a (nolock)
-	inner join  @bannerIDTable t on a.BannerID=t.bannerid
-    
-    if (@count <> @countDB)
-		BEGIN
-			 Select @ErrCode = 301
-	        return      
-        END    
---Check UserID is valid
-if(not exists(select 1 from dbo.AffAdmin_f_AdminUserInfo_Select(@UserID, @LicenseeID)))
-begin
-	 Select @ErrCode = 302
-	        return
-end
-
-Delete Banners with(rowlock)
-WHERE BannerID in (select bannerid from  @bannerIDTable)
-
-IF @@ERROR <> 0
 BEGIN
+	SET NOCOUNT ON
+
+	-- Check list of bannerID
+	IF @ListBannerID IS NULL
+	BEGIN
+		SELECT @ErrCode = 300
+		RETURN
+	END
+
+	-- Check UserID is valid
+	IF NOT EXISTS (SELECT 1 FROM dbo.AffAdmin_f_AdminUserInfo_Select(@UserID, @LicenseeID))
+	BEGIN
+		SELECT @ErrCode = 302
+		RETURN
+	END
+
+	DECLARE @bannerIDTable TABLE(BannerID INT)
+
+	INSERT INTO @bannerIDTable (BannerID)
+	SELECT DISTINCT val FROM dbo.strsplit(@ListBannerID, ',')
+		INNER JOIN dbo.Banners b WITH(NOLOCK) ON b.BannerID = val AND COALESCE(b.totalrequest, 0) = 0
+
+	DECLARE @count INT, @countDB INT
 	
-	Select @ErrCode = 303
-	return
+	SELECT  @count = COUNT(1) FROM @bannerIDTable
+	
+	SELECT  @countDB = COUNT(1)
+	FROM dbo.Banners b WITH(NOLOCK)
+		INNER JOIN @bannerIDTable t ON b.BannerID = t.BannerID
+    
+	IF (@count <> @countDB)
+	BEGIN
+		SELECT @ErrCode = 301
+		RETURN
+	END
+
+	BEGIN TRANSACTION
+
+	DELETE dbo.Banners WITH(ROWLOCK, UPDLOCK)
+	WHERE BannerID IN (SELECT BannerID FROM @bannerIDTable)
+
+	IF @@ERROR <> 0
+	BEGIN
+		ROLLBACK TRANSACTION
+
+		SELECT @ErrCode = 303
+		RETURN
+	END
+
+	COMMIT TRANSACTION
+
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000)
+
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'Delete Banners BannerIDList:' + dbo.Aff_ToString(@ListBannerID)
+
+	EXEC [dbo].[Aff_WriteLog] 
+		@Creator = @UserID,
+		@Typename = 'Banner', -- refer to table LogType
+		@SPName = @SPName,
+		@Details = @Detail,
+		@IP = @IP
 END
-
---Write log
-declare @SPName varchar(50), @Detail nvarchar(4000) 
-select @SPName = OBJECT_NAME(@@ProcID)
-select @Detail = 'Delete Banners BannerIDList:' + dbo.Aff_ToString(@ListBannerID)
-
-EXEC [dbo].[Aff_WriteLog] 
-	@Creator = @UserID,
-	@Typename = 'Banner', -- refer to table LogType
-	@SPName = @SPName,
-	@Details = @Detail,
-	@IP = @IP
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_BannerDel] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_BannerDel] TO [vnteam] AS [dbo]

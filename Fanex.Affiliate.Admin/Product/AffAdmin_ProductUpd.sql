@@ -1,3 +1,7 @@
+/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
 ALTER PROCEDURE [dbo].[AffAdmin_ProductUpd]
     @Updatedby int ,
     @ProductID tinyint,
@@ -8,65 +12,62 @@ ALTER PROCEDURE [dbo].[AffAdmin_ProductUpd]
     @IP nvarchar(15)='',    
     @ErrCode int = 0 OUTPUT,
     @ErrMsg nvarchar(4000) = '' OUTPUT
-as
-begin 
+AS
+
 /*
-Created: 20130122@Joseph
-Task : Update Product
-DB: DB052.Affiliate_MYM
-Original:
+	Created: 20130122@Joseph
+	Task: Update Product
+	DB: DBAFF
+	Original:
 
-Revisions:
--20151221@Francis: Support SSO
+	Revisions:
+		- 20151221@Francis: Support SSO
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 
-Param's Explanation:
-
-
-• @ErrCode:
-= 0: Transaction recorded successfully.
-> 0: Insert  unsuccessfully!
-
-• @ErrMsg: Error description.
+	Param's Explanation:
 */
-SET NOCOUNT ON
 
-DECLARE @LicenseeID INT
-SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
-
-EXEC [dbo].[Aff_Con_CheckPermission]
-	 @LicenseeID = @LicenseeID,
-        @custid=@Updatedby,@funcname='[SystemSettings]',
-        @System = 'AFFILIATE',
-        @ErrCode=@ErrCode output,
-        @ErrMsg=@ErrMsg output    
-    
-If @ErrCode <> 0
-    RETURN
-    
-If(Not Exists (Select 1 from Product (nolock) where ProductID=@ProductID ))
 BEGIN
-Select @ErrMsg = N'Error! This Product does not exist!', @ErrCode = 1001
-    return
+	SET NOCOUNT ON
+   
+	IF NOT EXISTS (SELECT 1 FROM dbo.Product WITH(NOLOCK) WHERE ProductID = @ProductID)
+	BEGIN
+		SELECT @ErrCode = 1001, @ErrMsg = N'Error! This Product does not exist!'
+		RETURN
+	END
+	
+	BEGIN TRANSACTION
+	
+	UPDATE dbo.Product WITH (ROWLOCK, UPDLOCK)
+	SET
+		ProductName = @ProductName,
+		[Description] = @Description,
+		BettypeList = @BettypeList,
+		API_ProductID = ISNULL(@API_ProductID, NULL)
+	WHERE ProductID = @ProductID
+
+	IF @@ERROR <> 0
+	BEGIN
+		ROLLBACK TRANSACTION
+		
+		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
+		RETURN
+	END
+
+	COMMIT TRANSACTION
+
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000)
+
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'Update Product. ID= ' + dbo.Aff_ToString(@ProductID) + '.BettypeList=' + @BettypeList
+
+	EXEC [dbo].[Aff_WriteLog] 
+		@Creator = @Updatedby,
+		@AffID = @Updatedby,
+		@Typename = 'Product', -- refer to table LogType
+		@SPName = @SPName,
+		@Details = @Detail,
+		@IP = @IP
 END
-update Product with (rowlock,updlock)
-Set ProductName=@ProductName, 
-[Description]=@Description,
-BettypeList =  @BettypeList,
-API_ProductID = ISNULL(@API_ProductID, NULL)
-where ProductID=@ProductID
-
-
-declare @SPName varchar(50), @Detail nvarchar(4000) 
-select @SPName = OBJECT_NAME(@@ProcID)
-select @Detail = 'Update Product. ID= ' + dbo.Aff_ToString(@ProductID) +     
-     '.BettypeList=' + @BettypeList
-
-EXEC [dbo].[Aff_WriteLog] 
-    @Creator = @Updatedby,
-    @AffID = @Updatedby,
-    @Typename = 'Product', -- refer to table LogType
-    @SPName = @SPName,
-    @Details = @Detail,
-    @IP = @IP
-    
-end
+GO

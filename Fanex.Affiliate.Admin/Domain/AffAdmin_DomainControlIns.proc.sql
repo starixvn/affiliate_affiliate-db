@@ -1,4 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_DomainControlIns]  
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_DomainControlIns]  
 	@LicenseeID INT,
 	@AffDomainID int,  
 	@MemberDomainID int,  
@@ -7,78 +11,76 @@
 	@UserID int,   
 	@IP nvarchar(15)='',  
 	@ErrCode int = 0 OUTPUT
-AS  
+AS
+
 /*  
-Created: 20121115@Johnny.Trinh  
-Task : Add a new AffDomainControl  
-DB: DB052.Affiliate_12BET  
-Revisions:
-	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
-*/  
-SET NOCOUNT ON  
---Check permission-----------------------------  
-EXEC [dbo].[Aff_Con_CheckPermission]  
- @LicenseeID = @LicenseeID,
- @custid=@UserID,@funcname='[Domain]',  
- @System = 'AFFILIATE',  
- @ErrCode=@ErrCode output 
-   
-If @ErrCode <> 0  
- RETURN  
------------------------------------------------  
-If Exists(select 1 from AffDomainControl nolock where AffDomainID = @AffDomainID and [MemberDomainID] = @MemberDomainID and CountryID = @CountryID)  
-Begin  
-	select @ErrCode = 2020
-	return  
-End  
+	Created: 20121115@Johnny.Trinh  
+	Task: Add a new AffDomainControl  
+	DB: DBAFF
+	
+	Revisions:
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+*/
+
+BEGIN
+	SET NOCOUNT ON  
+
+	IF EXISTS (SELECT 1 FROM dbo.AffDomainControl WITH(NOLOCK) WHERE AffDomainID = @AffDomainID AND MemberDomainID = @MemberDomainID AND CountryID = @CountryID)
+	BEGIN
+		SELECT @ErrCode = 2020
+		RETURN
+	END
   
-declare @CreatedDate datetime  
-select @CreatedDate=Current_Timestamp  
+	DECLARE @CreatedDate DATETIME
+	SELECT  @CreatedDate = CURRENT_TIMESTAMP
   
-BEGIN TRANSACTION  
-INSERT INTO [AffDomainControl]  
-(   
-	[AffDomainID]  
-	,[MemberDomainID]  
-	,[CountryID]  
-	,[CreateDate]  
-	,[ModifyDate]  
-	,[Creator]  
-	,[Status]  
- )  
- VALUES  
- (           
-	@AffDomainID,  
-	@MemberDomainID,  
-	@CountryID,  
-	@CreatedDate,  
-	@CreatedDate,  
-	@UserID,  
-	@Status  
- )  
-IF @@ERROR <> 0  
-BEGIN  
-	ROLLBACK TRANSACTION  
-	Select @ErrCode = 501  
-	return  
-END  
+	BEGIN TRANSACTION  
+	
+	INSERT INTO [AffDomainControl]  
+	(   
+		[AffDomainID]  
+		,[MemberDomainID]  
+		,[CountryID]  
+		,[CreateDate]  
+		,[ModifyDate]  
+		,[Creator]  
+		,[Status]  
+	 )  
+	 VALUES  
+	 (           
+		@AffDomainID,  
+		@MemberDomainID,  
+		@CountryID,  
+		@CreatedDate,  
+		@CreatedDate,  
+		@UserID,  
+		@Status  
+	 )  
+	
+	IF @@ERROR <> 0  
+	BEGIN  
+		ROLLBACK TRANSACTION  
+		
+		SELECT @ErrCode = 501  
+		RETURN  
+	END  
   
-COMMIT TRANSACTION  
+	COMMIT TRANSACTION  
   
---Write log  
-declare @SPName varchar(50), @Detail nvarchar(4000)   
-select @SPName = OBJECT_NAME(@@ProcID)  
-select @Detail = 'Create AffDomainID:' + dbo.Aff_ToString(@AffDomainID)                       
-                    + ' MemberDomainID:' + dbo.Aff_ToString(@MemberDomainID)                      
-     + ' CountryID:' + dbo.Aff_ToString(@CountryID)                      
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000) 
+	
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'Create AffDomainID:' + dbo.Aff_ToString(@AffDomainID)
+					+ ' MemberDomainID:' + dbo.Aff_ToString(@MemberDomainID)
+					+ ' CountryID:' + dbo.Aff_ToString(@CountryID)
   
-EXEC [dbo].[Aff_WriteLog]   
- @Creator = @UserID,  
- @Typename = 'AffDomainControl', -- refer to table LogType  
- @SPName = @SPName,  
- @Details = @Detail,  
- @IP = @IP
+	EXEC [dbo].[Aff_WriteLog]   
+		@Creator = @UserID,  
+		@Typename = 'AffDomainControl', -- refer to table LogType  
+		@SPName = @SPName,  
+		@Details = @Detail,  
+		@IP = @IP
+END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_DomainControlIns] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainControlIns] TO [vnteam] AS [dbo]
