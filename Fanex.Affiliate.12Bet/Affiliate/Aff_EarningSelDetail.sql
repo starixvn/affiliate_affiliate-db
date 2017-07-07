@@ -24,9 +24,17 @@ BEGIN
 	DECLARE @CurrDate SMALLDATETIME
 		,@SportsBookID INT
 		,@HorseRacingID INT
+		,@GroupId INT
+		,@DeductedPercentage DECIMAL(9,8)
 
 	SELECT @SportsBookID = dbo.Aff_GetSportID('SportsBook')
 		,@HorseRacingID = dbo.Aff_GetSportID('Horse Racing')
+
+	SELECT @GroupId = GroupId FROM dbo.AffInfo WITH(NOLOCK) WHERE AffId = @AffId
+	SELECT @DeductedPercentage = DeductedPercentage FROM dbo.DeductionSetting WITH(NOLOCK) WHERE GroupId = @GroupId AND DeductionID = 9
+	
+	IF @DeductedPercentage IS NULL
+		SELECT @DeductedPercentage = 0
 
 	SET @CurrDate = convert(VARCHAR(10), CURRENT_TIMESTAMP, 120)
 
@@ -69,8 +77,14 @@ BEGIN
 							AND (bettype < 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 							AND bettype IN (31, 32, 33, 41, 42, 43) THEN (winlost - abs(actual_stake) + playercomm) * e.ActualRate2
 						ELSE 0
+						END
+						*
+						CASE
+						WHEN bettype = 911 THEN @DeductedPercentage
+						ELSE 1
 						END), 0) AS WinLost
 			,isnull(sum(CASE 
+						WHEN bettype = 911 THEN 0
 						WHEN (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))  THEN isnull(abs(stake) * e.ActualRate2, 0)
 						ELSE 0
 						END), 0) AS Turnover
@@ -132,6 +146,7 @@ BEGIN
 			AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911)  
 					--and bettype not in (31,32,33,41,42,43)   
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 			AND b.custid > 0
@@ -184,15 +199,10 @@ BEGIN
 	END
 END
 GO
-
-
 GRANT EXECUTE ON [dbo].[Aff_EarningSelDetail] TO [bodbDownlineNetView]
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_EarningSelDetail] TO [bodbDownlineNet]
 GO
-
 GRANT EXECUTE ON [dbo].[Aff_EarningSelDetail] TO [bodbAdminNet]
 GO
-
 GRANT VIEW DEFINITION ON [dbo].[Aff_EarningSelDetail] TO [vnteam]
