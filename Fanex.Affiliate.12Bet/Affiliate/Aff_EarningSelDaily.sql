@@ -146,7 +146,8 @@ BEGIN
 			FROM AffDailySummary d WITH (NOLOCK)
 			WHERE AffID = @AffID
 				AND d.winlostdate BETWEEN @fromdate AND @todate
-				AND (SportId = @SportsBookID)
+				--AND (SportId = @SportsBookID)
+				AND (@SportType = 0 OR SportId = @SportType)
 				AND (
 					isnull(MemTurnOver, 0) <> 0
 					OR isnull(MemWinlost, 0) <> 0
