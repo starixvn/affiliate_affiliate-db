@@ -36,14 +36,14 @@ BEGIN
 	from GroupSetting g (nolock)     
 	where g.GroupID=@GroupID 
 
-	Select DeductionID, DeductedPercentage
+	Select DeductionID, DeductedPercentage, NextDeductedPercentage
 	from DeductionSetting (nolock)
 	where GroupID=@GroupID
 
 	Select SportID,SportName, QMTurnOver
 	from SportType (nolock)
 	
-	Select DTypeID, SportID, DTypeName, DTypeDesc, DeductedPercentage 
+	Select DTypeID, SportID, DTypeName, DTypeDesc, DeductedPercentage
 	from DeductionType (nolock)
 	where IsTest <= @isTest
 END	

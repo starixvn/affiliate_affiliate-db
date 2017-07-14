@@ -1,4 +1,7 @@
-﻿ALTER FUNCTION [dbo].[Aff_CommissionForCurrentMonth] (@AffID INT)
+﻿USE [Affiliate_12BET]
+GO
+
+ALTER FUNCTION [dbo].[Aff_CommissionForCurrentMonth] (@AffID INT)
 RETURNS @AffComm TABLE (
 	SportID INT
 	,TotalQM INT
@@ -22,6 +25,7 @@ AS
 		- 20140403@Bobby:  exclude Keno product & other sports
 		- 20141218@Bobby: Update SS's bettype
 		- 20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval 
+		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 */
 BEGIN
 	DECLARE @Today SMALLDATETIME
@@ -32,6 +36,14 @@ BEGIN
 		,@CasinoID INT
 		,@MinimumNegativeCommission FLOAT
 		,@MinimumNegativeCasinoCommission FLOAT
+		,@GroupId INT
+		,@DeductedPercentage DECIMAL(9,8)
+
+	SELECT @GroupId = GroupId FROM dbo.AffInfo WITH(NOLOCK) WHERE AffId = @AffId
+	SELECT @DeductedPercentage = DeductedPercentage FROM dbo.DeductionSetting WITH(NOLOCK) WHERE GroupId = @GroupId AND DeductionID = 9
+	
+	IF @DeductedPercentage IS NULL
+		SELECT @DeductedPercentage = 0
 
 	SELECT @MinimumNegativeCommission = 0.1
 		,@MinimumNegativeCasinoCommission = 0.05
@@ -67,11 +79,6 @@ BEGIN
 		,PlayTechRoyaltiesPercent FLOAT
 		,IsPSPIncluded INT -- flag to check PSP Fee is included or not for this product   
 		)
-	DECLARE @GroupID INT
-
-	SELECT @GroupID = GroupID
-	FROM AffInfo(NOLOCK)
-	WHERE AffID = @AffID
 
 	--No need to get PSP from Deposit DB  
 	/*Select @TodayPSP=Sum(PSP * AffExRate)  
@@ -193,6 +200,11 @@ BEGIN
 							WHEN (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 								AND ruben = 1 THEN (b.Winlost - abs(b.actual_stake))
 							ELSE 0
+							END
+							*
+							CASE
+							WHEN bettype = 911 THEN @DeductedPercentage
+							ELSE 1
 							END), 0) AS Winlost
 				,isnull(sum(CASE bettype
 							WHEN 22004 THEN isnull(winlost, 0) - isnull(abs(actual_stake), 0)
@@ -211,6 +223,7 @@ BEGIN
 								END), 0) * e.WithdrawalPercent) AS PSP
 				,0 AS Marketing
 				,isnull(sum(CASE 
+						WHEN bettype = 911 THEN 0
 						WHEN (bettype <= 999 
 								OR ( bettype BETWEEN 1301 AND 1399)
 							) THEN isnull(abs(stake), 0)
@@ -236,6 +249,7 @@ BEGIN
 				AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 				AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 				AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+				AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
 						--and bettype not in (31,32,33,41,42,43)   
 				AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 			--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'   

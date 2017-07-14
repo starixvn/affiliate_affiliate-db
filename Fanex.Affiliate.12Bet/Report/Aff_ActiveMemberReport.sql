@@ -27,6 +27,7 @@ Revisions:
 		+ Remove @TotalPages
 	- 20170214@Percy: Fix FDM/Signup Issue [RedmineID: #70507]
 	- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
+	- 20170711@Percy: Fix duplicate data [RedmineID: #79822]
 		
 Param's Explanation:
 	• @Fromdate Time search From
@@ -130,7 +131,10 @@ BEGIN
 					) AS RowIDX
 			,r.NRows
 		FROM @AffList m
-			INNER JOIN MemberStats ms ON m.AffId = ms.AffId
+			INNER JOIN (
+				SELECT AffId, SUM(Signup) AS Signup, SUM(FDM) AS FDM FROM MemberStats
+				GROUP BY AffId
+			) ms ON m.AffId = ms.AffId
 			CROSS APPLY (
 				SELECT COUNT(1) AS NRows 
 				FROM MemberStats

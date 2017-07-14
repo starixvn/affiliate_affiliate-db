@@ -13,7 +13,8 @@ Task : Backup all group settings monthly on last day of selected month
 DB: DB052.Affiliate_12BET
 Original:
 
-Revisions:		             
+Revisions:		           
+	- 20170525@Percy: Apply Cash Out Win Loss Share [RedmineID: #74874]  
 
 Param's Explanation:
 • @Month: The month to transfer
@@ -67,6 +68,12 @@ select AffID,@LastDay,GroupID
 from AffInfo (nolock)
 where GroupID is not null and GroupID>0
 
+DELETE dbo.DeductionSetting WITH(ROWLOCK, UPDLOCK)
+WHERE DeductionID = 9 AND NextDeductedPercentage IS NULL
+
+UPDATE dbo.DeductionSetting WITH(ROWLOCK, UPDLOCK)
+SET DeductedPercentage = NextDeductedPercentage
+WHERE DeductionID = 9
 
 GO
 GRANT VIEW DEFINITION ON [dbo].[Task_Aff_GroupSettingBackup] TO [vnteam]

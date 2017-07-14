@@ -26,6 +26,7 @@ AS
 			+ Add sorting [@SortBy] value
 			+ Remove @TotalPages
 		- 20141218@Bobby: Enhance performance & update SS's bettype
+		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 		
 	Param's Explanation:
 		• @Fromdate Time search From
@@ -53,6 +54,7 @@ BEGIN
 		, UserName	VARCHAR(30)
 		, IsClosed	BIT
 		, Currency 	INT
+		, DeductedPercentage DECIMAL(9,8)
 	)
 	CREATE TABLE #AffCommTmp (
 		AffId INT
@@ -86,13 +88,15 @@ BEGIN
 		,@CasinoId 		= dbo.Aff_GetSportID('Casino')
 
 	--count nrows
-	INSERT INTO #AffList( AffId, UserName, IsClosed, Currency )
+	INSERT INTO #AffList( AffId, UserName, IsClosed, Currency, DeductedPercentage )
 	SELECT ai.AffId
 		,ai.UserName
 		,ai.IsClosed
 		,ai.Currency
+		,ISNULL(ds.DeductedPercentage, 0)
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK)  ON ai.AffId = ad.AffId
+		LEFT JOIN dbo.DeductionSetting ds WITH(NOLOCK) ON ai.GroupID = ds.GroupID AND ds.DeductionID = 9
 	WHERE ai.STATUS = 'Approved'
 		AND ai.Username LIKE @UserName
 		AND (@PreferredLanguage IS NULL OR ad.PreferredLanguage = @PreferredLanguage)

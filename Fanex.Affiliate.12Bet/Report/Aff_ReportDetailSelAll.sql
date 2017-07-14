@@ -18,6 +18,7 @@ AS
 		- 20140403@Bobby: exclude Keno product & other sports
 		- 20141218@Bobby: Update SS's bettype
 		- 20150923@Bobby: Change refering currency from bodb02.bettrans to memberinfo
+		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 
 	Param's Explanation:
 		• @Fromdate Month search from
@@ -86,6 +87,7 @@ BEGIN
 			,sum(CASE 
 					WHEN (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399)) THEN (CASE 
 							WHEN Bettype IN (33, 43) AND liveawayscore = 0 THEN isnull(abs(stake), 0) / 2
+							WHEN Bettype = 911 THEN 0
 							ELSE isnull(abs(stake), 0) END
 							)
 					ELSE 0
@@ -98,6 +100,11 @@ BEGIN
 						WHEN (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 							AND ruben = 1 THEN winlost - abs(actual_stake) + playercomm
 						ELSE 0
+						END
+						*
+						CASE
+						WHEN Bettype = 911 THEN ISNULL(D.DeductedPercentage, 0)
+						ELSE 1
 						END), 0) AS MemberWinLost
 			,NULL AS AffiliateWinLost
 			,NULL AS HouseWinLost
@@ -106,6 +113,11 @@ BEGIN
 		FROM bodb02.dbo.bettrans b WITH (NOLOCK)
 			INNER JOIN MemberInfo m WITH (NOLOCK) ON b.CustId = m.IBCCustId AND m.IsRemoved = 0
 			INNER JOIN Exchange_Current e WITH (NOLOCK) ON e.exchangeid = m.currency
+			LEFT JOIN (
+				SELECT ai.AffId, ds.DeductedPercentage
+				FROM dbo.AffInfo ai WITH (NOLOCK)
+					LEFT JOIN dbo.DeductionSetting ds WITH (NOLOCK) ON ai.GroupId = ds.GroupId AND ds.DeductionID = 9
+			) AS D ON m.AffId = D.AffId
 		WHERE @ToDate >= @CurrDate
 			AND b.Winlostdate = @CurrDate
 			AND (
@@ -118,6 +130,7 @@ BEGIN
 			AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
 					--and bettype not in (31,32,33,41,42,43)   
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 		--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  

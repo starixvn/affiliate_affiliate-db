@@ -29,6 +29,7 @@ AS
 		- 20141218@Bobby: Enhance performance & update SS's bettype
 		- 20141223@Bobby: Hotfix#28059 - Filtering by PreferredLanguage
 		- 20150923@Bobby: Update formular of QM calculation change ">" to  ">="
+		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 
 	Param's Explanation:
 		• @SortBy:
@@ -42,8 +43,8 @@ BEGIN
 
 	DECLARE @AffList TABLE
 	(
-		AffId		INT
-		,UserName	VARCHAR(30)
+		AffId				INT
+		,UserName			VARCHAR(30)
 	)
 	
 	DECLARE @FirstDay 	SMALLDATETIME
@@ -192,7 +193,10 @@ BEGIN
 						UNION ALL
 						SELECT m.AffId 
 							, m.IbcCustId
-							,SUM(ISNULL(abs(b.stake), 0) * ISNULL(m.ActualRate2, 0)) AS TurnOver
+							,ISNULL(SUM(CASE
+										WHEN b.bettype = 911 THEN 0
+										ELSE ABS(b.stake) * m.ActualRate2
+										END), 0) AS TurnOver
 						FROM bodb02.dbo.Bettrans b WITH (NOLOCK)
 							INNER JOIN @MemList m ON b.CustId = m.IBCCustId
 						WHERE datediff(m, @LastDay, @CurrDate) = 0
@@ -207,6 +211,7 @@ BEGIN
 							AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 							AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 							AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+							AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
 									--and bettype not in (31,32,33,41,42,43)   
 							AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 						--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  

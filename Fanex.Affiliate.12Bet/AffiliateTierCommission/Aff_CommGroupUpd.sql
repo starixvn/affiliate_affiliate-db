@@ -7,8 +7,7 @@ ALTER PROCEDURE [Aff_CommGroupUpd]
 	@GroupName nvarchar(100),
 	@Description nvarchar(100),
 	@SportIDList varchar(300),
-	@DeductionList varchar(300),
-	@DeductedPercentageList varchar(300),
+	@DeductionList xml,
 	@TierList varchar(300),
 	@MinAmountList varchar(500),
 	@MaxAmountList varchar(500),
@@ -33,6 +32,7 @@ AS
 				. do not update CasinoJoinedDate in AffInfo 
 				. if there is affiliate in group has casino, do not allow update this group
 		- 20170601@Percy: Add new column: isTest [RedmineID: #77521]
+		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 
 	Parameters:
 		.@UserID: Administrator user id
@@ -43,7 +43,6 @@ AS
 		.@Description : description for this group
 		.@SportIDList: list of sportID separated by semi colon
 		.@DeductionList: List of Deduction Setting for above Sport List.                   
-		.@DeductedPercentageList: List of Deducted Percentage
 		.@TierList: List of number of Tiers for each sport type separated by a semi colon
 		.@MinAmountList: List of MinAmount for each tier (all sports)
 		.@MaxAmountList: List of MaxAmount for each tier (all sports)
@@ -89,20 +88,17 @@ BEGIN
 		return
 	end
 
-	declare @DeductionSetting table(GroupID int,DeductionID tinyint,DeductedPercentage float)
+	declare @DeductionSetting table(GroupID int,DeductionID tinyint,DeductedPercentage decimal(9,8),NextDeductedPercentage decimal(9,8))
 	declare @GroupSetting table(GroupID int,SportType tinyint,TierID tinyint,MinAmount money,MaxAmount money,MinQM int,MaxQM int,Commission decimal(9,8))
 	
 	--Insert Deduction Setting
-	if(len(@DeductionList)>0)
+	IF (@DeductionList IS NOT NULL)
 	begin
-		Insert into @DeductionSetting(GroupID,DeductionID,DeductedPercentage)
-		select @GroupID,cast(t.val as tinyint),cast(p.val as float)
-		from dbo.strsplit(@DeductionList, ',') t
-			 inner join dbo.strsplit(@DeductedPercentageList, ',') p on p.rank=t.rank    
-			 inner join DeductionType d with (nolock) on d.DTypeID=cast(t.val as tinyint)	
-		where d.IsTest <= @isTest
+		INSERT INTO @DeductionSetting (GroupID, DeductionID, DeductedPercentage, NextDeductedPercentage)
+		SELECT @GroupId, t.c.value('@id', 'tinyint'), t.c.value('@percent', 'decimal(9,8)'), t.c.value('@nextpercent', 'decimal(9,8)')
+		FROM @DeductionList.nodes('/root/row') AS t(c)
 
-		IF @@Rowcount<>(select count(1) from dbo.strsplit(@DeductionList, ',')) or @@ERROR <> 0
+		IF @@ERROR <> 0
 		BEGIN
 		
 			Select @ErrMsg = N'Error! Invalid Deduction Setting!', @ErrCode = 10032
@@ -279,10 +275,13 @@ BEGIN
 		return	
 	end
 		
-	insert into DeductionSetting(GroupID,DeductionID,DeductedPercentage)
-	select GroupID,DeductionID,DeductedPercentage from @DeductionSetting
+	insert into DeductionSetting(GroupID,DeductionID,DeductedPercentage,NextDeductedPercentage)
+	select ds.GroupID, ds.DeductionID, ds.DeductedPercentage, ds.NextDeductedPercentage
+	FROM @DeductionSetting ds
+		INNER JOIN DeductionType d WITH (NOLOCK) ON d.DTypeID = ds.DeductionID
+	WHERE d.IsTest <= @isTest
 
-	if(@@ERROR <> 0)
+	if(@@ERROR <> 0 OR @@ROWCOUNT <> (SELECT COUNT(1) FROM @DeductionSetting))
 	begin
 		ROLLBACK TRANSACTION
 		Select @ErrMsg = N'There was an error when updating data.Please try again!', @ErrCode = 10042
@@ -331,8 +330,7 @@ BEGIN
 					  + '\n GroupName=' + dbo.Aff_ToString(@GroupName)
 					  + '\n Description=' + dbo.Aff_ToString(@Description)
 					  + '\n SportIDList=' + dbo.Aff_ToString(@SportIDList)
-					  + '\n DeductionList=' + dbo.Aff_ToString(@DeductionList)
-					  + '\n DeductedPercentageList=' + dbo.Aff_ToString(@DeductedPercentageList)
+					  + '\n DeductionList=' + CONVERT(NVARCHAR(MAX), @DeductionList)
 					  + '\n TierList=' + dbo.Aff_ToString(@TierList)
 					  + '\n MinAmountList=' + dbo.Aff_ToString(@MinAmountList)
 					  + '\n MaxAmountList=' + dbo.Aff_ToString(@MaxAmountList)

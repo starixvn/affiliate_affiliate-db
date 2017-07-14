@@ -28,6 +28,7 @@ AS
 		- 20140228@Bobby : Apply AffType
 		- 20140403@Bobby:  exclude Keno product & other sports
 		- 20141218@Bobby: Update SS's bettype
+		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 
 	Param's Explanation:
 
@@ -76,7 +77,7 @@ BEGIN
 		INNER JOIN dbo.AffType at WITH (NOLOCK) ON ai.AffType = at.TypeId
 	WHERE ai.AffID > 0
 		AND SportID > 0
-		AND winlostdate < @MaxWinLostDateAffComm
+		AND winlostdate <= @MaxWinLostDateAffComm
 	
 	UNION ALL
 	SELECT sum(isnull(MemDeposit, 0) * ExRate2) AS deposit
@@ -99,6 +100,11 @@ BEGIN
 		,sum(CASE 
 				WHEN (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))  THEN (isnull(winlost, 0) - isnull(abs(actual_stake), 0) + isnull(playercomm, 0)) * m.ActualRate2
 				ELSE 0
+				END
+			*
+			CASE
+				WHEN bettype = 911 THEN DeductedPercentage
+				ELSE 1
 				END) AS Winlost
 		,sum(CASE 
 				WHEN bettype = 22004 THEN (isnull(winlost, 0) - isnull(abs(actual_stake), 0)) * m.ActualRate2
@@ -123,10 +129,12 @@ BEGIN
 				,ActualRate2
 				,e.DepositPercent
 				,e.WithdrawalPercent
+				,ISNULL(ds.DeductedPercentage, 0) AS DeductedPercentage
 			FROM MemberInfo m WITH (NOLOCK)
 				INNER JOIN Exchange_Current e WITH (NOLOCK) ON e.ExchangeID = m.Currency
 				INNER JOIN AffInfo ai WITH (NOLOCK) ON m.AffId = ai.AffId
 				INNER JOIN dbo.AffType at WITH (NOLOCK) ON ai.AffType = at.TypeId
+				LEFT JOIN dbo.DeductionSetting ds WITH(NOLOCK) ON ai.GroupID = ds.GroupID AND ds.DeductionID = 9
 			WHERE m.IsRemoved = 0
 		) m ON b.CustId = m.IBCCustID
 	WHERE b.winlostdate = @CurrentDate
@@ -141,6 +149,7 @@ BEGIN
 		AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 		AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 		AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+		AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
 				--and bettype not in (31,32,33,41,42,43)   
 		AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 		--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  

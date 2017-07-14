@@ -17,6 +17,7 @@ AS
 		- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
 		- 20140403@Bobby:  exclude Keno product & other sports
 		- 20141218@Bobby: Update SS's bettype
+	- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 
 	Param's Explanation:
 		• @Fromdate Month search from
@@ -50,6 +51,14 @@ BEGIN
 
 	IF (@Todate >= @CurrDate)
 		SELECT @TmpToDate = dateadd(d, - 1, @CurrDate)
+
+	DECLARE @COWLShare DECIMAL(9,8)
+	SELECT  @COWLShare = ds.DeductedPercentage
+	FROM dbo.DeductionSetting ds WITH(NOLOCK)
+		INNER JOIN dbo.AffInfo ai WITH(NOLOCK) ON ds.GroupID = ai.GroupID AND ds.DeductionID = 9
+	WHERE ai.AffID = @AffId
+
+	SELECT  @COWLShare = ISNULL(@COWLShare, 0)
 
 	SELECT t.*
 	FROM (
@@ -88,6 +97,7 @@ BEGIN
 							ELSE 0
 							END), 0) AS Deposit
 				,ISNULL(SUM(CASE 
+						WHEN bettype = 911 THEN 0
 						WHEN (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399)) THEN (CASE 
 								WHEN Bettype IN (33, 43)
 									AND liveawayscore = 0 THEN isnull(abs(stake), 0) / 2
@@ -103,6 +113,11 @@ BEGIN
 							WHEN (BetType <= 999 OR ( b.bettype BETWEEN 1301 AND 1399))
 								AND ruben = 1 THEN winlost - abs(actual_stake) + playercomm
 							ELSE 0
+							END
+							*
+							CASE
+							WHEN bettype = 911 THEN @COWLShare
+							ELSE 1
 							END), 0) AS MemberWinLost
 				,NULL AS AffiliateWinLost
 				,NULL AS HouseWinLost
@@ -127,6 +142,7 @@ BEGIN
 				AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 				AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 				AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+				AND bettype NOT IN (912, 913, 914) -- Cash Out (keep 911)
 						--and bettype not in (31,32,33,41,42,43)   
 				AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 			--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  

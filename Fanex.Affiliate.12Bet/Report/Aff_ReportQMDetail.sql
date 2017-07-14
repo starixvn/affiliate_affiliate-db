@@ -23,6 +23,7 @@ AS
 		- 20120606@Peter : Exclude waiting tickets
 		- 20140403@Bobby:  exclude Keno product & other sports
 		- 20141218@Bobby: Update SS's bettype
+		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 
 	Param's Explanation:
 	
@@ -113,7 +114,10 @@ BEGIN
 		UNION ALL
 		SELECT m.IBCCustID
 			,--Bettrans
-			sum(abs(b.Stake) * m.AffExRate) AS SPTurnOver
+			sum(CASE
+				WHEN bettype = 911 THEN 0
+				ELSE abs(b.Stake) * m.AffExRate
+				END) AS SPTurnOver
 			,0 AS HRTurnOver
 			,0 AS CATurnOver
 			,0 AS CADeposit
@@ -131,6 +135,7 @@ BEGIN
 			AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
 					--and bettype not in (31,32,33,41,42,43)   
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 		--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  	
@@ -156,6 +161,7 @@ BEGIN
 			,Sum(CASE 
 					WHEN bettype IN (33, 43)
 						AND liveawayscore = 0 THEN isnull(abs(stake), 0) / 2
+					WHEN bettype = 911 THEN 0
 					ELSE isnull(abs(stake), 0)
 					END * isnull(m.AffExRate, 0)) AS HrTurnOver
 			,0 AS CATurnOver
@@ -174,6 +180,7 @@ BEGIN
 			AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
 			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
 					--and bettype not in (31,32,33,41,42,43)   
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 		--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  	
