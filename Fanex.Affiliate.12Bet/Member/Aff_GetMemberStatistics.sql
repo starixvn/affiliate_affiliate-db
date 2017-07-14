@@ -77,7 +77,7 @@ BEGIN
 		INNER JOIN dbo.AffType at WITH (NOLOCK) ON ai.AffType = at.TypeId
 	WHERE ai.AffID > 0
 		AND SportID > 0
-		AND winlostdate < @MaxWinLostDateAffComm
+		AND winlostdate <= @MaxWinLostDateAffComm
 	
 	UNION ALL
 	SELECT sum(isnull(MemDeposit, 0) * ExRate2) AS deposit

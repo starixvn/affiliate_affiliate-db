@@ -56,12 +56,12 @@ BEGIN
 	
 	DECLARE @AffList	TABLE (AffId INT
 		, UserName		VARCHAR(30)
-		, GroupId		TINYINT
+		, GroupId		INT
 		, RowIDX		INT IDENTITY(1,1))
 	
 	CREATE TABLE #AffPaging(
 		AffId				INT
-		,GroupId			TINYINT
+		,GroupId			INT
 		,DeductedPercentage	DECIMAL (9,8) DEFAULT (0)
 		,RowIDX			INT
 	)

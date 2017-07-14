@@ -274,7 +274,7 @@ BEGIN
 END
 GO
 
-GRANT EXECUTE ON [dbo].[Aff_AffiliateReportDetail_xtest] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[Aff_AffiliateReportDetail] TO [bodbAdminNet]
 GO
 
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateReportDetail_xtest] TO [VNTeam]
+GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateReportDetail] TO [VNTeam]
