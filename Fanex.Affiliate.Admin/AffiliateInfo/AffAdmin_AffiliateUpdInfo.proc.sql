@@ -1,4 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateUpdInfo] 
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_AffiliateUpdInfo] 
 	@LicenseeID INT
 	,@AffId INT
 	,@userid INT
@@ -49,37 +53,31 @@
 	,@IP VARCHAR(20)
 	,@ErrCode INT = 0 OUTPUT
 AS
-/*	Updated: 20090324@VinhTrinh  
-	Task : Update affiliate infor.  
-	DB: DB052.Affiliate_ZZun  
+
+/*
+	Created by: 20090324@VinhTrinh  
+	Task: Update affiliate infor.  
+	DB: DBAFF
 	Original : [Aff_AffiliateUpdInfo]  
+	
 	Revisions:  
-		Peter@20100209 : Check If Admin update Player_UserName, we must make sure there is no pending payment request.  
-		Johnny@20110228 : Do not allow affiliate update player_user if they have already  
-		Johnny@20130319 : Do not allow update currency  
-		Long@20130911: do not check email existance in case of Kiosk
-		20140514@Bobby: check/remove unique email (remove check afftype [Kiosk, ...])
+		- 20100209@Peter: Check If Admin update Player_UserName, we must make sure there is no pending payment request.  
+		- 20110228@Johnny: Do not allow affiliate update player_user if they have already  
+		- 20130319@Johnny: Do not allow update currency  
+		- 20130911@Long: do not check email existance in case of Kiosk
+		- 20140514@Bobby: check/remove unique email (remove check afftype [Kiosk, ...])
 		- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 
 	Param's Explanation:  
-		• @AffId : Affiliate custid  
-		• @userid : user update.  
-		• @firstname : update firstname.  
+		• @AffId: Affiliate custid  
+		• @userid: user update.  
+		• @firstname: update firstname.  
 */
+
 BEGIN
 	SET NOCOUNT ON
-
-	--Check permission(If AffId = userid => Affiliate update info else Admin Update Aff info)-----------------------------  
-	IF @AffId <> @userid
-	BEGIN
-								EXEC [dbo].[AffAdmin_Con_CheckPermission] @LicenseeID = @LicenseeID, @custid = @UserID
-			,@funcname = '[Affiliate]'
-			,@System = 'AFFILIATE'
-			,@ErrCode = @ErrCode OUTPUT
-
-		IF @ErrCode <> 0 RETURN
-	END
-
+	
 	--Check If we change player_username  
 	IF (
 			@Player_Username IS NOT NULL
@@ -213,8 +211,7 @@ BEGIN
 		Player_Username=' + dbo.Aff_ToString(@Player_Username) + ',  
 		Player_Currency=' + @playerCurrency + ',  
 		Neteller_AccountID=' + dbo.Aff_ToString(@Neteller_AccountID) + ',  
-		Moneybookers_Email=' + dbo.Aff_ToString(
-					@Moneybookers_Email) + ',  
+		Moneybookers_Email=' + dbo.Aff_ToString(@Moneybookers_Email) + ',  
 		Wire_BankName=' + dbo.Aff_ToString(@Wire_BankName) + ',  
 		Wire_BankAddress=' + dbo.Aff_ToString(@Wire_BankAddress) + ',  
 		Wire_SwiftCode=' + dbo.Aff_ToString(@Wire_SwiftCode) + ',  
@@ -237,5 +234,5 @@ BEGIN
 		,@SPName = @SPName
 		,@IP = @IP
 		,@Details = @Detail
-
 END
+GO

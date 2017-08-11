@@ -1,4 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_NoteUpd]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_NoteUpd]
 	@LicenseeID INT,
 	@Noteid int ,
 	@Content nvarchar(1000) ,
@@ -7,66 +11,59 @@
 	@IP nvarchar(15)='',
 	@Language varchar(5)= 'en-US', 
 	@ErrCode int = 0 OUTPUT
-as
-begin 
+AS
+
 /*
-ALTERd: 20090122@TrangLe
-Task : [description of SP]
-DB: DB052.Affiliate_ZZun
-Original:
+	Created by: 20090122@TrangLe
+	Task:
+	DB: DBAFF
+	Original:
 
-Revisions:
-- 20100904@Johnny: Check permission (media affiliate, normal affiliate on this function)
-- 20151123@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	Revisions:
+		- 20100904@Johnny: Check permission (media affiliate, normal affiliate on this function)
+		- 20151123@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 
-Param's Explanation:
-. @Noteid : autonumber output
-. @Content: content of the note
-. @AffId Affiliate ID
-. @Updatedby: User cust id
-
-• @ErrCode:
-= 0: Transaction recorded successfully.
-> 0: Update note unsuccessfully!
-
-• @ErrMsg: Error description.
+	Param's Explanation:
+		. @Noteid: autonumber output
+		. @Content: content of the note
+		. @AffId Affiliate ID
+		. @Updatedby: User cust id
 */
-SET NOCOUNT ON
 
-EXEC dbo.Aff_CheckPermissionOnAff 
-	--@LicenseeID = @LicenseeID,
-	@custid=@Updatedby,
-	@AffId=@AffId,
-	@ErrCode=@ErrCode output
-	
-If @ErrCode <> 0
-	RETURN
-UPDATE AdminNotes with(rowlock,updlock)
-SET 	
-	Updateddate = getdate(),
-	Note=@Content,
-	Updatedby=@Updatedby
-WHERE Noteid=@Noteid
-
-IF @@ERROR <> 0
 BEGIN
-	
-	Select @ErrCode = 51
-	return
+	SET NOCOUNT ON
+
+	BEGIN TRANSACTION
+
+	UPDATE dbo.AdminNotes WITH(ROWLOCK, UPDLOCK)
+	SET 	
+		Updateddate = GETDATE(),
+		Note = @Content,
+		Updatedby = @Updatedby
+	WHERE Noteid = @Noteid
+
+	IF @@ERROR <> 0
+	BEGIN
+		ROLLBACK TRANSACTION
+
+		SELECT @ErrCode = 51
+		RETURN
+	END
+
+	COMMIT TRANSACTION
+
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000)
+
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'Update Note ID:' + dbo.Aff_ToString(@Noteid)
+
+	EXEC [dbo].[Aff_WriteLog] 
+		@Creator = @AffId,
+		@Typename = 'UserNote', -- refer to table LogType
+		@SPName = @SPName,
+		@Details = @Detail,
+		@IP = @IP
 END
-
-
-DECLARE @LogData nvarchar(200)
-SELECT @LogData = 'Update Note ID:' + dbo.Aff_ToString(@Noteid)
-
-declare @SPName varchar(50)
-select @SPName = OBJECT_NAME(@@ProcID) 
-
-EXEC [dbo].[Aff_WriteLog] 
-@Creator = @AffId,
-@Typename = 'UserNote', -- refer to table LogType
-@SPName = @SPName,
-@Details = @LogData,
-@IP=@IP
-
-end
+GO

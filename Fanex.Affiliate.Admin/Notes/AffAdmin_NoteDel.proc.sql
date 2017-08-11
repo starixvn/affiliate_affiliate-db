@@ -1,4 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_NoteDel]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_NoteDel]
 	@LicenseeID INT,
 	@AffId int,
 	@listnode varchar(500),
@@ -7,65 +11,53 @@
 	@Language varchar(5)= 'en-US', 
 	@ErrCode int = 0 OUTPUT,
 	@ErrMsg nvarchar(4000) = '' OUTPUT
-as
-begin 
+AS
+
 /*
-ALTERd: 20090122@TrangLe
-Task : [description of SP]
-DB: DB052.Affiliate_ZZun
-Original:
+	Created by: 20090122@TrangLe
+	Task:
+	DB: DBAFF
+	Original:
 
-Revisions:
-	- 20151123@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	Revisions:
+		- 20151123@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 
-Param's Explanation:
-.@Noteid: Note needs to be deleted.
-.@UserID: User to be logged
-
-• @ErrCode:
-= 0: Transaction recorded successfully.
-> 0: Delete note unsuccessfully!
-
-• @ErrMsg: Error description.
+	Param's Explanation:
+		. @Noteid: Note needs to be deleted.
+		. @UserID: User to be logged
 */
-SET NOCOUNT ON
-/*EXEC [dbo].[Aff_Con_CheckPermission] 
-	@custid=@UserID,
-	@funcname='[Affiliate]',
-	@System = 'AFFILIATE',
-	@ErrCode=@ErrCode output,
-	@ErrMsg=@ErrMsg output*/
-	
-EXEC dbo.Aff_CheckPermissionOnAff 
-	--@LicenseeID = @LicenseeID,
-	@custid=@UserID,
-	@AffId=@AffId,
-	@ErrCode=@ErrCode output,
-	@ErrMsg=@ErrMsg output
-	
-If @ErrCode <> 0
-	RETURN
-Delete AdminNotes with(rowlock)
-WHERE Noteid in (select Val from strSplit(@listnode, ';'))
 
-IF @@ERROR <> 0
 BEGIN
-	
-	Select @ErrCode = 52
-	return
+	SET NOCOUNT ON
+
+	BEGIN TRANSACTION
+
+	DELETE dbo.AdminNotes WITH(ROWLOCK, UPDLOCK)
+	WHERE Noteid IN (SELECT val FROM strSplit(@listnode, ';'))
+
+	IF @@ERROR <> 0
+	BEGIN
+		ROLLBACK TRANSACTION
+
+		SELECT @ErrCode = 52
+		RETURN
+	END
+
+	COMMIT TRANSACTION
+
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000)
+
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'Delete Notes:' + dbo.Aff_ToString(@listnode)
+
+	EXEC [dbo].[Aff_WriteLog] 
+		@Creator = @UserID,
+		@AffID = @AffID,
+		@Typename = 'UserNote', -- refer to table LogType
+		@SPName = @SPName,
+		@IP = @IP,
+		@Details = @Detail
 END
-
-DECLARE @LogData nvarchar(200)
-SELECT @LogData = 'Delete Notes:' + dbo.Aff_ToString(@listnode)
-
-declare @SPName varchar(50)
-select @SPName = OBJECT_NAME(@@ProcID) 
-
-EXEC [dbo].[Aff_WriteLog] 
-@Creator = @UserID,
-@AffID = @AffID,
-@Typename = 'UserNote', -- refer to table LogType
-@SPName = @SPName,
-@IP=@IP,
-@Details = @LogData
-end
+GO

@@ -1,3 +1,7 @@
+/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
 ALTER PROCEDURE [dbo].[AffAdmin_ProductIns]
     @Updatedby int ,
     @ProductName nvarchar(50),    
@@ -7,73 +11,73 @@ ALTER PROCEDURE [dbo].[AffAdmin_ProductIns]
     @IP nvarchar(15)='',    
     @ErrCode int = 0 OUTPUT,
     @ErrMsg nvarchar(4000) = '' OUTPUT
-as
-begin 
+AS
+
 /*
-Created: 20130123@Joseph
-Task : Insert Product
-DB: DB052.Affiliate_MYM
-Original:
+	Created: 20130123@Joseph
+	Task: Insert Product
+	DB: DBAFF
+	Original:
 
-Revisions:
--20151221@Francis: Support SSO
+	Revisions:
+		- 20151221@Francis: Support SSO
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 
-Param's Explanation:
-
-
-• @ErrCode:
-= 0: Transaction recorded successfully.
-> 0: Insert  unsuccessfully!
-
-• @ErrMsg: Error description.
+	Param's Explanation:
 */
-SET NOCOUNT ON
 
-DECLARE @LicenseeID INT
-SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
+BEGIN
+	SET NOCOUNT ON
 
-EXEC [dbo].[Aff_Con_CheckPermission]
-	 @LicenseeID = @LicenseeID,
-        @custid=@Updatedby,@funcname='[SystemSettings]',
-        @System = 'AFFILIATE',
-        @ErrCode=@ErrCode output,
-        @ErrMsg=@ErrMsg output    
-    
-If @ErrCode <> 0
-    RETURN
+	DECLARE @ProductID INT
 
-INSERT INTO [Product]
-           (
-           [ProductName]
-           ,[Description]
-           ,[Creator]
-           ,[CreatedDate]
-           ,[BettypeList]
-           ,[API_ProductID]
-           )
-     VALUES
-           (
-           @ProductName
-           ,@Description
-           ,@Updatedby
-           ,CURRENT_TIMESTAMP
-           ,@BettypeList
-           ,@API_ProductID
-           )
+	BEGIN TRANSACTION
 
+	INSERT INTO [Product]
+	(
+		[ProductName]
+		,[Description]
+		,[Creator]
+		,[CreatedDate]
+		,[BettypeList]
+		,[API_ProductID]
+	)
+	VALUES
+	(
+		@ProductName
+		,@Description
+		,@Updatedby
+		,CURRENT_TIMESTAMP
+		,@BettypeList
+		,@API_ProductID
+	)
 
-declare @SPName varchar(50), @Detail nvarchar(4000) 
-select @SPName = OBJECT_NAME(@@ProcID)
-select @Detail = 'Add New Product. ID= ' + dbo.Aff_ToString(SCOPE_IDENTITY()) +    
-     '.BettypeList=' + @BettypeList +
-     '.API_ProductID=' + dbo.Aff_ToString(@API_ProductID)
+	IF @@ERROR <> 0
+	BEGIN
+		ROLLBACK TRANSACTION
+		
+		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
+		RETURN
+	END
 
-EXEC [dbo].[Aff_WriteLog] 
-    @Creator = @Updatedby,
-    @AffID = @Updatedby,
-    @Typename = 'Product', -- refer to table LogType
-    @SPName = @SPName,
-    @Details = @Detail,
-    @IP = @IP
-    
-end
+	COMMIT TRANSACTION
+
+	SELECT @ProductID = SCOPE_IDENTITY()
+
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000)
+
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'Add New Product. ID= ' + dbo.Aff_ToString(@ProductID)
+					+ '.BettypeList=' + @BettypeList
+					+ '.API_ProductID=' + dbo.Aff_ToString(@API_ProductID)
+
+	EXEC [dbo].[Aff_WriteLog] 
+		@Creator = @Updatedby,
+		@AffID = @Updatedby,
+		@Typename = 'Product', -- refer to table LogType
+		@SPName = @SPName,
+		@Details = @Detail,
+		@IP = @IP
+END
+GO

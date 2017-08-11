@@ -1,4 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_HotNewsUpd]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_HotNewsUpd]
 	@LicenseeID INT,
 	@ID int,
 	@important bit,
@@ -7,100 +11,85 @@
 	@UserID int,
 	@ErrCode int = 0 OUTPUT
 AS
+
 /*
-Created: 20090310@TrangLe
-Task : Update affiliate hot news by message id
-DB: DB052.Affiliate_ZZun
-Original:
+	Created: 20090310@TrangLe
+	Task: Update affiliate hot news by message id
+	DB: DBAFF
+	Original:
 
-Revisions:
-- 20090122@[Reviewer]: [Description of revision] 
-- 20090819@DungTong : Add new Spanish language
-- 20090920@DungTong : Add new Vietnamese and Indonesia Language
-- 20140225@Joseph : Use xml data to update
-- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
-Param's Explanation:
-• @ID : message id input
-• @xml: xml data
-• @important: message important or not
-• @UserID: user updating msg, will be logged
-• @ErrCode:
-= 0: Transaction recorded successfully.
-101: Invalid message ID.
-1001: Update unsuccessful.
-
-• @ErrMsg: Error description.
-*/
-SET NOCOUNT ON
---Check permission-----------------------------
-EXEC [dbo].[Aff_Con_CheckPermission]
-	@LicenseeID = @LicenseeID,
-	@custid=@UserID,@funcname='[HotNews]',
-	@System = 'AFFILIATE',
-	@ErrCode=@ErrCode output
+	Revisions:
+		- 20090819@DungTong: Add new Spanish language
+		- 20090920@DungTong: Add new Vietnamese and Indonesia Language
+		- 20140225@Joseph: Use xml data to update
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 	
-If @ErrCode <> 0
-	RETURN
------------------------------------------------
-if not exists (select 1 from [dbo].[News]  with (nolock) where  msgid=@ID)
-BEGIN
-	Select @ErrCode = 202	
-	return
-END
-/*
-UPDATE [News] with(rowlock,updlock)
-   SET [message_en] = Coalesce(@MsgEN,[message_en])
-      ,[message_cn] = Coalesce(@MsgCN,[message_cn])
-      ,[message_tw] = Coalesce(@MsgTW,[message_tw])
-      ,[message_es] = Coalesce(@MsgES,[message_es])
-      ,[message_th] = Coalesce(@MsgTH,[message_th])
-      ,[message_vi] = Coalesce(@MsgVI,[message_vi])
-      ,[message_id] = Coalesce(@MsgID,[message_id])
-      ,[important] = Coalesce(@important,[important])
-      ,[updatedby]=Coalesce(@UserID,[updatedby])
-      ,updateddate=current_timestamp
-WHERE msgid=@ID
+	Param's Explanation:
+		• @ID : message id input
+		• @xml: xml data
+		• @important: message important or not
+		• @UserID: user updating msg, will be logged
 */
-UPDATE [News] with(rowlock,updlock)
-   SET Message_En =  Coalesce(@xml.value('(/root/item[code="en-US"]/value)[1]','nvarchar(4000)'),Message_En)
-		,[important] = Coalesce(@important,[important])
-      ,[updatedby]=Coalesce(@UserID,[updatedby])
-      ,updateddate=current_timestamp
-WHERE msgid=@ID
 
-update RefResources with(rowlock,updlock)
-set ResourceValue = temp.Value
-FROM RefResources r
-INNER JOIN (
- select Tab.item.value('code[1]','varchar(100)') as Code		
-		,Tab.item.value('value[1]','nvarchar(4000)') as Value
- from @xml.nodes('/root/item') Tab(item)
- ) temp ON r.LanguageCode = temp.Code
-WHERE r.RefID = 'News' AND r.ResourceKey = cast(@ID as varchar(10))
- 
- 
-IF @@ERROR <> 0
 BEGIN
-	
-	Select @ErrCode = 203
-	return
+	SET NOCOUNT ON
+
+	IF NOT EXISTS (SELECT 1 FROM [dbo].[News] WITH(NOLOCK) WHERE msgid = @ID)
+	BEGIN
+		SELECT @ErrCode = 202
+		RETURN
+	END
+
+	BEGIN TRANSACTION
+
+	UPDATE [News] WITH(ROWLOCK, UPDLOCK)
+	SET
+		Message_En = COALESCE(@xml.value('(/root/item[code="en-US"]/value)[1]','nvarchar(4000)'), Message_En)
+		,[important] = COALESCE(@important, [important])
+		,[updatedby] = COALESCE(@UserID, [updatedby])
+		,updateddate = CURRENT_TIMESTAMP
+	WHERE msgid = @ID
+
+	IF @@ERROR <> 0
+	BEGIN
+		ROLLBACK TRANSACTION
+
+		SELECT @ErrCode = 203
+		RETURN
+	END
+
+	UPDATE r WITH(ROWLOCK, UPDLOCK)
+	SET ResourceValue = temp.Value
+	FROM RefResources r
+		INNER JOIN (
+			SELECT	Tab.item.value('code[1]','varchar(100)') AS Code
+					,Tab.item.value('value[1]','nvarchar(4000)') AS Value
+			FROM @xml.nodes('/root/item') Tab(item)
+		) AS temp ON r.LanguageCode = temp.Code
+	WHERE r.RefID = 'News' AND r.ResourceKey = CAST(@ID AS VARCHAR(10))
+
+	IF @@ERROR <> 0
+	BEGIN
+		ROLLBACK TRANSACTION
+
+		SELECT @ErrCode = 204
+		RETURN
+	END
+
+	COMMIT TRANSACTION
+
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000)
+
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'Update Affiliate_News MsgID:' + dbo.Aff_ToString(@ID)                         
+
+	EXEC [dbo].[Aff_WriteLog]
+		@Creator = @UserId,	
+		@TypeName = 'Message',	
+		@SPName = @SPName,
+		@IP = @IP,
+		@Details = @Detail
 END
-
-
- --Write the log 
-DECLARE @LogData nvarchar(4000)
-SELECT @LogData = 'Update Affiliate_News MsgID:' + dbo.Aff_ToString(@ID)                         
-
-declare @SPName varchar(50)
-select @SPName = OBJECT_NAME(@@ProcID) 
-
-EXEC [dbo].[Aff_WriteLog]
-	@Creator = @UserId,	
-	@TypeName = 'Message',	
-	@SPName = @SPName,
-	@IP = @IP,
-	@Details = @LogData
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_HotNewsUpd] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_HotNewsUpd] TO [vnteam] AS [dbo]

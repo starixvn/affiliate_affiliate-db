@@ -1,4 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_AffiliateUpdStatus] 
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet,bodbDownlineNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_AffiliateUpdStatus] 
 	@LicenseeID INT
 	,@AffID INT
 	,@UserID INT
@@ -9,40 +13,33 @@
 	,@Language VARCHAR(5) = 'en-US'
 	,@ErrCode INT = 0 OUTPUT
 AS
-/*Created: 20090825@Peter  
-Task : Update affiliate status from disapproved->pending , disapproved-> approved,pending-->disapproved,pending-->approved  
-DB: DB052.Affiliate_ZZun  
-Original : [Aff_CustomerUpdStatus]  
-Revisions:  
-  -Long@20130911: do not check email existance in case of Kiosk
-  -20140127@Bobby: inogre currency checking when assign NoCommission group
-  -20140325@Bobby: check/remove unique email
-  -20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
-Param's Explanation:  
-• @AffID : Affiliate ID  
-• @userid : User update  
-• @Status : Update status  
-• @Password: Make a password for affiliate when approving  
-• @GroupID: when approving user need to assign a new grooup  
-            groupid<1000 : a common group  
-            groupid>1000: a private group for this affiliate must be created before. This sp will be called from sp Aff_CommGroupIns  
-                 
-• @ErrCode  
-• @ErrMsg  
+/*
+	Created: 20090825@Peter  
+	Task: Update affiliate status from disapproved->pending , disapproved-> approved,pending-->disapproved,pending-->approved  
+	DB: DBAFF
+	Original : [Aff_CustomerUpdStatus]  
+	
+	Revisions:  
+	  - 20130911@Long: do not check email existance in case of Kiosk
+	  - 20140127@Bobby: inogre currency checking when assign NoCommission group
+	  - 20140325@Bobby: check/remove unique email
+	  - 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	  - 20170627@Percy: Remove check permission [RedmineID: #73925]
+
+	Param's Explanation:  
+		• @AffID : Affiliate ID  
+		• @userid : User update  
+		• @Status : Update status  
+		• @Password: Make a password for affiliate when approving  
+		• @GroupID: when approving user need to assign a new grooup  
+					groupid<1000 : a common group  
+					groupid>1000: a private group for this affiliate must be created before. This sp will be called from sp Aff_CommGroupIns  
 */
+
 BEGIN
 	SET NOCOUNT ON;
-
-	--Check permission-----------------------------  
-				EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
-		,@custid = @UserID
-		,@funcname = '[Affiliate]'
-		,@System = 'AFFILIATE'
-		,@ErrCode = @ErrCode OUTPUT
-
-	IF @ErrCode <> 0 RETURN
-
+	
 	DECLARE @Email NVARCHAR(50)
 		,@AffUserName NVARCHAR(50)
 
@@ -167,8 +164,3 @@ BEGIN
 		,@Details = @LogData
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateUpdStatus] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateUpdStatus] TO [bodbDownlineNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateUpdStatus] TO [vnteam] AS [dbo]

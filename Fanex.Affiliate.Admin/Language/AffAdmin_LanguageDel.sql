@@ -1,60 +1,58 @@
+/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
 ALTER PROCEDURE [dbo].[AffAdmin_LanguageDel]
     @Updatedby int ,
     @IDList varchar(max),
     @IP nvarchar(15)='',    
     @ErrCode int = 0 OUTPUT,
     @ErrMsg nvarchar(4000) = '' OUTPUT
-as
-begin 
+AS
+ 
 /*
-Created: 20130123@Joseph
-Task : [description of SP]
-DB: DB052.Affiliate_MYM
-Original:
+	Created: 20130123@Joseph
+	Task:
+	DB: DBAFF
+	Original:
 
-Revisions:
--20151221@Francis: Support SSO
+	Revisions:
+		- 20151221@Francis: Support SSO
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 
-
-Param's Explanation:
-
-
-• @ErrCode:
-= 0: Transaction recorded successfully.
-> 0: Delete unsuccessfully!
-
-• @ErrMsg: Error description.
+	Param's Explanation:
 */
-SET NOCOUNT ON
 
-DECLARE @LicenseeID INT
-SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
+BEGIN
+	SET NOCOUNT ON
 
-EXEC [dbo].[Aff_Con_CheckPermission]
-	 @LicenseeID = @LicenseeID,
-        @custid=@Updatedby,@funcname='[SystemSettings]',
-        @System = 'AFFILIATE',
-        @ErrCode=@ErrCode output,
-        @ErrMsg=@ErrMsg output    
-    
-If @ErrCode <> 0
-    RETURN
-    
+	BEGIN TRANSACTION
 
-delete [dbo].[Language]
-where LanguageID in (select val from dbo.strsplit(@IDList, ',') )
+	DELETE [dbo].[Language] WITH(ROWLOCK, UPDLOCK)
+	WHERE LanguageID IN (SELECT val FROM dbo.strsplit(@IDList, ','))
 
-declare @SPName varchar(50), @Detail nvarchar(4000) 
-select @SPName = OBJECT_NAME(@@ProcID)
-select @Detail = 'Delete Language. IDList=' + isnull(@IDList,0)
+	IF @@ERROR <> 0
+	BEGIN
+		ROLLBACK TRANSACTION
 
+		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
+		RETURN
+	END
 
-EXEC [dbo].[Aff_WriteLog] 
-    @Creator = @Updatedby,
-    @AffID = @Updatedby,
-    @Typename = 'Language', -- refer to table LogType
-    @SPName = @SPName,
-    @Details = @Detail,
-    @IP = @IP
-    
-end
+	COMMIT TRANSACTION
+
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000) 
+	
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'Delete Language. IDList=' + ISNULL(@IDList, 0)
+
+	EXEC [dbo].[Aff_WriteLog] 
+		@Creator = @Updatedby,
+		@AffID = @Updatedby,
+		@Typename = 'Language', -- refer to table LogType
+		@SPName = @SPName,
+		@Details = @Detail,
+		@IP = @IP
+END
+GO

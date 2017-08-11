@@ -1,9 +1,7 @@
+/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_Athena000]
 GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
+
 ALTER PROCEDURE [dbo].[AffAdmin_ExchangeAutoRefreshUpd]
     @UserId int,
     @ExchangeId int,    
@@ -11,41 +9,42 @@ ALTER PROCEDURE [dbo].[AffAdmin_ExchangeAutoRefreshUpd]
     @ErrCode int = 0 OUTPUT,
     @ErrMsg nvarchar(200) = '' OUTPUT
 AS
+
 /*
     Created: 20110223@Viet
-    Task : Enable/disable auto refresh rate (daily)
-    DB: DB052.Affiliate_MYM
+    Task: Enable/disable auto refresh rate (daily)
+    DB: DBAFF
+
     Revisions:
         - 20110223@Viet: initialize SP
         - 20151031@Victor: Implement SSO for Internal Admin
-        
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 */
-SET NOCOUNT ON
---Check permission-----------------------------
-DECLARE @LicenseeID INT
-SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
 
-EXEC [dbo].[Aff_Con_CheckPermission]
-	@LicenseeID = @LicenseeID,
-    @CustId=@UserId,
-    @FuncName='[AffEx.Rate]',
-    @System = 'AFFILIATE',
-    @ErrCode=@ErrCode output,
-    @ErrMsg=@ErrMsg output
-    
-If @ErrCode <> 0    RETURN    
+BEGIN
+	SET NOCOUNT ON
 
-UPDATE exchange with(rowlock, updlock)
-SET isautorefresh = ~isnull(isautorefresh,0)
-WHERE ExchangeId = @ExchangeId
+	UPDATE dbo.Exchange WITH(ROWLOCK, UPDLOCK)
+	SET isautorefresh = ~ ISNULL(isautorefresh, 0)
+	WHERE ExchangeId = @ExchangeId
+
+	IF @@ERROR <> 0
+	BEGIN
+		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
+		RETURN
+	END
+
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000) 
+	
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'Enable/disable auto refresh rate (daily). ExchangeId:' + dbo.Aff_ToString(@ExchangeId)
         
-DECLARE @LogData nvarchar(200), @SPName varchar(50)
-SELECT @LogData = 'Enable/disable auto refresh rate (daily). ExchangeId:' + dbo.Aff_ToString(@ExchangeId)
-       ,@SPName = OBJECT_NAME(@@ProcID) 
-
-EXEC [dbo].[Aff_WriteLog]
-    @Creator=@UserId,        
-    @TypeName= 'ExchangeRate',    
-    @SPName=@SPName,
-    @IP =@IP,
-    @Details=@LogData
+	EXEC [dbo].[Aff_WriteLog]
+		@Creator = @UserId,        
+		@TypeName = 'ExchangeRate',    
+		@SPName = @SPName,
+		@IP = @IP,
+		@Details = @Detail
+END
+GO

@@ -1,4 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_CopyRateFromMarket] 
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_CopyRateFromMarket] 
 	@LicenseeID INT
 	,@UserId INT
 	,@ExchangeIdList VARCHAR(max) = ''
@@ -6,40 +10,32 @@
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(200) = '' OUTPUT
 AS
+
 /*
 	Created: 20110223@Viet
-	Task : Copy rates from market
-	DB: DB052.Affiliate_ZZun
+	Task: Copy rates from market
+	DB: DBAFF
+	
 	Revisions:
 		- 20110223@Viet: initialize SP
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
-		
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 */
+
 BEGIN
 	SET NOCOUNT ON
-
-	--Check permission-----------------------------
-				EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
-		,@custid = @UserId
-		,@funcname = '[AffEx.Rate]'
-		,@System = 'AFFILIATE'
-		,@ErrCode = @ErrCode OUTPUT
-		,@ErrMsg = @ErrMsg OUTPUT
-
-	IF @ErrCode <> 0 RETURN
-
+	
 	DECLARE @Date SMALLDATETIME
-
-	SELECT @Date = Max([Date])
-	FROM ExchangeDaily WITH (NOLOCK)
+	SELECT  @Date = MAX([Date]) FROM dbo.ExchangeDaily WITH(NOLOCK)
 
 	DECLARE @TmpExchange TABLE (exchangeid INT)
 
-	INSERT INTO @TmpExchange
-	SELECT val
-	FROM dbo.strsplit(@ExchangeIdList, ',')
+	INSERT INTO @TmpExchange (exchangeid)
+	SELECT CONVERT(INT, val) FROM dbo.strsplit(@ExchangeIdList, ',')
 
-	UPDATE ExchangeDaily WITH (ROWLOCK, UPDLOCK)
+	BEGIN TRANSACTION
+
+	UPDATE ExchangeDaily WITH(ROWLOCK, UPDLOCK)
 	SET USD = USD_market
 		,EUR = EUR_market
 		,CNY = CNY_market
@@ -54,13 +50,18 @@ BEGIN
 		,VND = VND_Market
 		,KRW = KRW_Market
 		,JPY = JPY_Market
-	WHERE exchangeID IN (
-			SELECT exchangeid
-			FROM @TmpExchange
-			)
+	WHERE exchangeID IN (SELECT exchangeid FROM @TmpExchange)
 		AND [Date] = @Date
 
-	UPDATE Exchange WITH (ROWLOCK, UPDLOCK)
+	IF @@ERROR <> 0
+	BEGIN
+		ROLLBACK TRANSACTION
+
+		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
+		RETURN
+	END
+
+	UPDATE Exchange WITH(ROWLOCK, UPDLOCK)
 	SET USD = USD_market
 		,EUR = EUR_market
 		,CNY = CNY_market
@@ -75,20 +76,28 @@ BEGIN
 		,VND = VND_Market
 		,KRW = KRW_Market
 		,JPY = JPY_Market
-	WHERE exchangeID IN (
-			SELECT exchangeid
-			FROM @TmpExchange
-			)
+	WHERE exchangeID IN (SELECT exchangeid FROM @TmpExchange)
 
-	DECLARE @LogData NVARCHAR(200)
-		,@SPName VARCHAR(50)
+	IF @@ERROR <> 0
+	BEGIN
+		ROLLBACK TRANSACTION
 
-	SELECT @LogData = 'Copy Rates from Market. ExchangeId:' + isnull(@ExchangeIdList, '')
-		,@SPName = OBJECT_NAME(@@ProcID)
+		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
+		RETURN
+	END
+
+	COMMIT TRANSACTION
+
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000) 
+	
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'Copy Rates from Market. ExchangeId:' + ISNULL(@ExchangeIdList, '')
 
 	EXEC [dbo].[Aff_WriteLog] @Creator = @UserId
 		,@TypeName = 'ExchangeRate'
 		,@SPName = @SPName
 		,@IP = @IP
-		,@Details = @LogData
+		,@Details = @Detail
 END
+GO

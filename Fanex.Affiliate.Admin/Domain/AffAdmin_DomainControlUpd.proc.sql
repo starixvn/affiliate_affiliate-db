@@ -1,73 +1,74 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_DomainControlUpd]  
- @LicenseeID INT,
- @ID int,  
- @AffDomainID int,  
- @MemberDomainID int,  
- @CountryID nvarchar(10),  
- @Status bit = 1,   
- @UserID int,   
- @IP nvarchar(15)='',  
- @Language varchar(5)= 'en-US',   
- @ErrCode int = 0 OUTPUT
-AS  
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_DomainControlUpd]  
+	@LicenseeID INT,
+	@ID int,  
+	@AffDomainID int,  
+	@MemberDomainID int,  
+	@CountryID nvarchar(10),  
+	@Status bit = 1,   
+	@UserID int,   
+	@IP nvarchar(15)='',  
+	@Language varchar(5)= 'en-US',   
+	@ErrCode int = 0 OUTPUT
+AS
+
 /*  
-Created: 20121115@Johnny.Trinh  
-Task : Update Domain control info  
-DB: DB052.Affiliate_12BET  
-Revisions:
-	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
-*/  
-SET NOCOUNT ON  
---Check permission-----------------------------  
-EXEC [dbo].[Aff_Con_CheckPermission]  
- @LicenseeID = @LicenseeID,
- @custid=@UserID,@funcname='[Domain]',  
- @System = 'AFFILIATE',  
- @ErrCode=@ErrCode output
-   
-If @ErrCode <> 0  
- RETURN  
------------------------------------------------  
-If Exists(select 1 from AffDomainControl nolock where ID <> @ID and AffDomainID = @AffDomainID and [MemberDomainID] = @MemberDomainID and CountryID = @CountryID)  
-Begin  
-	select @ErrCode = 2020
-	return  
-End  
+	Created: 20121115@Johnny.Trinh  
+	Task: Update Domain control info  
+	DB: DBAFF
+	
+	Revisions:
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+*/
+
+BEGIN
+	SET NOCOUNT ON  
+
+	IF EXISTS (SELECT 1 FROM dbo.AffDomainControl WITH(NOLOCK) WHERE ID <> @ID AND AffDomainID = @AffDomainID AND MemberDomainID = @MemberDomainID AND CountryID = @CountryID)
+	BEGIN
+		SELECT @ErrCode = 2020
+		RETURN
+	END 
   
-BEGIN TRANSACTION  
-Update [AffDomainControl] with (rowlock, updlock)  
-set  
-    [AffDomainID] = @AffDomainID  
- ,[MemberDomainID]= @MemberDomainID  
-    ,[CountryID]  = @CountryID  
-    ,[ModifyDate] = current_timestamp  
-    ,[Status]  = @Status  
- ,[Creator]  = @UserID  
-where ID = @ID  
+	BEGIN TRANSACTION  
+	
+	UPDATE dbo.AffDomainControl WITH(ROWLOCK, UPDLOCK)
+	SET  
+		[AffDomainID] = @AffDomainID  
+		,[MemberDomainID] = @MemberDomainID  
+		,[CountryID] = @CountryID  
+		,[ModifyDate] = CURRENT_TIMESTAMP  
+		,[Status] = @Status  
+		,[Creator] = @UserID  
+	WHERE ID = @ID  
   
-IF @@ERROR <> 0  
-BEGIN  
-	ROLLBACK TRANSACTION  
-	Select @ErrCode = 502  
-	return  
-END  
+	IF @@ERROR <> 0  
+	BEGIN  
+		ROLLBACK TRANSACTION
+		
+		SELECT @ErrCode = 502
+		RETURN
+	END  
   
-COMMIT TRANSACTION  
+	COMMIT TRANSACTION  
   
---Write log  
-declare @SPName varchar(50), @Detail nvarchar(4000)   
-select @SPName = OBJECT_NAME(@@ProcID)  
-select @Detail = 'Update AffDomainID:' + dbo.Aff_ToString(@AffDomainID)                       
-                    + ' MemberDomainID:' + dbo.Aff_ToString(@MemberDomainID)                      
-     + ' CountryID:' + dbo.Aff_ToString(@CountryID)                      
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000) 
+	
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'Update AffDomainID:' + dbo.Aff_ToString(@AffDomainID)
+					+ ' MemberDomainID:' + dbo.Aff_ToString(@MemberDomainID)
+					+ ' CountryID:' + dbo.Aff_ToString(@CountryID)
   
-EXEC [dbo].[Aff_WriteLog]   
- @Creator = @UserID,  
- @Typename = 'AffDomainControl', -- refer to table LogType  
- @SPName = @SPName,  
- @Details = @Detail,  
- @IP = @IP
+	EXEC [dbo].[Aff_WriteLog]   
+		@Creator = @UserID,  
+		@Typename = 'AffDomainControl', -- refer to table LogType  
+		@SPName = @SPName,  
+		@Details = @Detail,  
+		@IP = @IP
+END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_DomainControlUpd] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_DomainControlUpd] TO [vnteam] AS [dbo]

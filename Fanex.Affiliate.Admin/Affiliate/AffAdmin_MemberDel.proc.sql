@@ -1,4 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_MemberDel] 
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_MemberDel] 
 	@LicenseeID	INT
 	,@Username VARCHAR(30)
 	,@UserID INT
@@ -7,55 +11,41 @@
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg VARCHAR(100) = '' OUTPUT
 AS
+
 /*  
-Created: 20090910@Peter  
-Task : Remove a member from Affiliate  
-DB: Affiliate DB  
-Original: Affiliate_Athena000
+	Created: 20090910@Peter  
+	Task : Remove a member from Affiliate  
+	DB: DBAFF
+	Original: Affiliate_Athena000
   
-Revisions:  
-	- 20100413@Peter: Remove the calling to sp [DB02].[bodb02].[dbo].[Aff_MemberUpdAffID]  
-					coz AffiliateID in custinfo will be removed.    
-	- 20100512@Johnny: Re-calculate AffDaily if member is removed.  
-	- 20100927@Peter : Add OddsFee column for AffDetail  
-	- 20140110@Bobby.Nguyen: revise logical code
-	- 20140429@Bobby.Nguyen: Re-arrange try..catch code to specify error code
-	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	Revisions:  
+		- 20100413@Peter: Remove the calling to sp [DB02].[bodb02].[dbo].[Aff_MemberUpdAffID]  
+						coz AffiliateID in custinfo will be removed.    
+		- 20100512@Johnny: Re-calculate AffDaily if member is removed.  
+		- 20100927@Peter : Add OddsFee column for AffDetail  
+		- 20140110@Bobby.Nguyen: revise logical code
+		- 20140429@Bobby.Nguyen: Re-arrange try..catch code to specify error code
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 	
-Param's Explanation:  
-	.@IP: ip of computer sent,  
-	• @ErrCode:  
-	= 0: Transaction recorded successfully.  
-	> 0: Insert unsuccessful.  
-	• @ErrMsg: Error description.  
+	Param's Explanation:  
+		.@IP: ip of computer sent,  
+		• @ErrCode:  
+		= 0: Transaction recorded successfully.  
+		> 0: Insert unsuccessful.  
+		• @ErrMsg: Error description.  
 */
+
 BEGIN
 	SET NOCOUNT ON;
-
-	--Check permission-----------------------------  
-				EXEC [dbo].[Aff_Con_CheckPermission] @LicenseeID = @LicenseeID
-		,@custid = @UserID
-		,@funcname = '[Affiliate]'
-		,@System = 'AFFILIATE'
-		,@ErrCode = @ErrCode OUTPUT;
-
-	IF (@ErrCode <> 0)
-	BEGIN
-		SELECT @ErrCode = 101
-			,@ErrMsg = 'You dont have permission.';
-
-		RETURN;
-	END
 
 	--Check IBCCustID -----------------------------
 	DECLARE @AffID INT
 
 	SELECT @AffId = ai.AffId
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
-		INNER JOIN dbo.AffInfo ai WITH (NOLOCK)
-		ON mi.AffID = ai.AffID
-	WHERE mi.UserName = @UserName
-		AND mi.IsRemoved = 0
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffID = ai.AffID
+	WHERE mi.UserName = @UserName AND mi.IsRemoved = 0
 
 	IF (@AffID IS NULL)
 	BEGIN
@@ -65,11 +55,10 @@ BEGIN
 		RETURN;
 	END
 
-	DECLARE @FirstDayOfTheMonth DATETIME
-		,@FirstDayOfPreviuosMonth DATETIME;
+	DECLARE @FirstDayOfTheMonth DATETIME, @FirstDayOfPreviousMonth DATETIME;
 
 	SELECT @FirstDayOfTheMonth = dbo.Aff_GetFirstDayOfMonth(GETDATE())
-		,@FirstDayOfPreviuosMonth = DATEADD(M, 1, @FirstDayOfTheMonth);
+		,@FirstDayOfPreviousMonth = DATEADD(M, 1, @FirstDayOfTheMonth);
 
 	BEGIN TRY
 		UPDATE dbo.MemberInfo WITH (ROWLOCK, UPDLOCK)
@@ -83,7 +72,7 @@ BEGIN
 					FROM dbo.MemberDaily
 					WHERE UserName = @UserName
 						AND winlostdate >= @FirstDayOfTheMonth
-						AND winlostdate < @FirstDayOfPreviuosMonth
+						AND winlostdate < @FirstDayOfPreviousMonth
 					)
 				)
 		BEGIN
@@ -129,13 +118,13 @@ BEGIN
 			WHERE UserName = @UserName
 				AND AffId = @AffId
 				AND winlostdate >= @FirstDayOfTheMonth
-				AND winlostdate < @FirstDayOfPreviuosMonth
+				AND winlostdate < @FirstDayOfPreviousMonth
 
 			--re-calculate AffDaily & AffDailySummary
 			BEGIN TRY
 				EXEC dbo.Task_Aff_ReCalculateAffSumData @AffID = @AffId
 					,@FromDate = @FirstDayOfTheMonth
-					,@ToDate = @FirstDayOfPreviuosMonth
+					,@ToDate = @FirstDayOfPreviousMonth
 			END TRY
 
 			BEGIN CATCH
@@ -196,6 +185,3 @@ BEGIN
 		,@Details = @LogData
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_MemberDel] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_MemberDel] TO [vnteam] AS [dbo]

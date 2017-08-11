@@ -1,4 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_Con_AccountUpd]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_Con_AccountUpd]
 	@CustID int,
 	@UserID int,
 	@GroupID int,
@@ -6,37 +10,38 @@
 	@Language varchar(5)= 'en-US',
 	@ErrCode int = 0 OUTPUT
 AS
+
+/*
+	Created by: 20080213@Phuc
+	Task: Check permission for account site
+	DB: DBAFF
+
+	Revisions:
+		- 20101214@Peter : Move this SP to DB DB052.Affiliate_ZZun
+		- 20151127@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+*/
+
 BEGIN
-
 	SET NOCOUNT ON
-
-	--Check permission for account site: @phuc20080213
-	--DB02.BODB02 -->  DB052.Affiliate_ZZun
-	-- 20101214@Peter : Move this SP to DB DB052.Affiliate_ZZun
-	-- 20151127@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
 	DECLARE @LicenseeID INT
 	SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
 
-				EXEC [dbo].[AffAdmin_Con_CheckPermission] @LicenseeID = @LicenseeID, @custid=@UserID,@funcname='[UserControl]',@System='AFFILIATE',@ErrCode=@ErrCode output
-	If @ErrCode <> 0
-		RETURN
-	--end
-				EXEC DBLIC.bodb_licensee.dbo.AffAdmin_AdminUser_UpdateGroup @UserID=@CustID, @LicenseeID = @LicenseeID, @GroupID=@GroupID, @ModifyBy = @UserID
+	EXEC DBLIC.bodb_licensee.dbo.AffAdmin_AdminUser_UpdateGroup @UserID = @CustID, @LicenseeID = @LicenseeID, @GroupID = @GroupID, @ModifyBy = @UserID
 
-	DECLARE @SPName varchar(50), @LogData nvarchar(200)
-	select @SPName = OBJECT_NAME(@@ProcID)
+	-- Write log  
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000)
 
-	SELECT @LogData = 'AFFILIATE UPDATE AccAdmin custid:' + dbo.Aff_ToString(@custid) + ' GroupID:' + dbo.Aff_ToString(@groupid)
-
+	SELECT	@SPName = OBJECT_NAME(@@PROCID),
+			@Detail = 'AFFILIATE UPDATE AccAdmin custid:' + dbo.Aff_ToString(@custid) + ' GroupID:' + dbo.Aff_ToString(@groupid)
 
 	EXEC [dbo].[Aff_WriteLog]
-			@Creator=@UserID,	
-			@AffID=@CustID,
-			@Typename= 'UserControl',	
-			@SPName=@SPName ,		
-			@IP =@IP,
-			@Details=@LogData	
-
-
+		@Creator = @UserID,	
+		@AffID = @CustID,
+		@Typename = 'UserControl',	
+		@SPName = @SPName ,		
+		@IP = @IP,
+		@Details = @Detail	
 END
+GO
