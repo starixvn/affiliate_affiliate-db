@@ -1,56 +1,41 @@
-﻿ALTER PROCEDURE [dbo].[Aff_WriteLog_UserLog_Login]
-    @UserID INT,  
-    @ServerID INT,   
-    @LoginIP VARCHAR(20)='', 
-    @DomainName NVARCHAR(253) = NULL,
-    @ActionID INT = 0,  
-    @Doing VARCHAR(300),
-    @BrowserName NVARCHAR(255) = NULL,
-    @Platform NVARCHAR(255) = NULL,
-    @CountryCode VARCHAR(64) = NULL,
-    @Duration INT = NULL		 
+﻿/*<info serverAlias="DBLIC-bodb_licensee" executers="bodbAdminNet,bodbLicenseeNet" viewers="" isFunction="0" isNested="1"></info>*/
+USE [bodb_licensee]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_WriteLog_UserLog_Login]
+    @UserID			INT,  
+    @ServerID		INT,   
+    @LoginIP		VARCHAR(20)		= '', 
+    @DomainName		NVARCHAR(253)	= NULL,
+    @ActionID		INT				= 0,  
+    @Doing			VARCHAR(4000),
+    @BrowserName	NVARCHAR(255)	= NULL,
+    @Platform		NVARCHAR(255)	= NULL,
+    @CountryCode	VARCHAR(64)		= NULL,
+    @Duration		INT				= NULL		 
 AS  
 /*  
-Creator: Victor
+	Creator: Victor
+	DB: DBLIC.bodb_Licensee
   
-DB: DBLIC/bodb_Licensee
+	Revisions:
+		- 20171002@Percy: Extend length of @Doing [RedmineID: #83692]
  
-  
-Revisions:  
- 
-Param's Explanation:  
-    • @UserID: main account login.  
-    • @ServerID: serverID.  
-    • @DomainName: Domain user login.  
-    • @LoginIP: IP user login.  
-    • @BrowserName: Browser user using.  
-    • @Platform: Platform user login. 
-    • @CountryCode: CountryCode user login.  
-    • @Duration: Time process login
-*/  
-  
-  
-SET NOCOUNT ON  
-	
-	INSERT INTO bodb_CustomerLog.dbo.UserLog_Login_Aff  (UserID,ServerID,IP,LogDate,ActionID,Doing,DomainName,BrowserName,Platform,CountryCode,Duration)
-	values
-	(
-	@UserID,  
-    @ServerID,   
-    @LoginIP, 
-    GETDATE(),
-    @ActionID,  
-    @Doing,
-    @DomainName,
-    @BrowserName,
-    @Platform,
-    @CountryCode,
-    @Duration
-	)
+	Param's Explanation:  
+		• @UserID: main account login.  
+		• @ServerID: serverID.  
+		• @DomainName: Domain user login.  
+		• @LoginIP: IP user login.  
+		• @BrowserName: Browser user using.  
+		• @Platform: Platform user login. 
+		• @CountryCode: CountryCode user login.  
+		• @Duration: Time process login
+*/
 
+BEGIN
+	SET NOCOUNT ON  
+	
+	INSERT INTO bodb_CustomerLog.dbo.UserLog_Login_Aff (UserID, ServerID, IP, LogDate, ActionID, Doing, DomainName, BrowserName, Platform, CountryCode, Duration)
+	VALUES (@UserID, @ServerID, @LoginIP, GETDATE(), @ActionID, @Doing, @DomainName, @BrowserName, @Platform, @CountryCode, @Duration)
+END
 GO
-GRANT EXECUTE ON [dbo].[Aff_WriteLog_UserLog_Login] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT EXECUTE ON [dbo].[Aff_WriteLog_UserLog_Login] TO [bodbLicenseeNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_WriteLog_UserLog_Login] TO [vnteam] AS [dbo]
