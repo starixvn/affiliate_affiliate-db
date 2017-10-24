@@ -85,36 +85,39 @@ BEGIN
 			OR ai.ApprovedDate <= @Todate
 		)
 	
-	IF (@@ROWCOUNT = 0) RETURN
+	SELECT @NRows = @@ROWCOUNT
 	
-	-- Check IsAll row
-	SELECT @PageSize = CASE 
-						WHEN @IsGetAll = 1 THEN @NRows 
-						ELSE @PageSize 
-					END
-		,@PageIndex = CASE 
-						WHEN @IsGetAll = 1 THEN 1 
-						ELSE @PageIndex 
-					END
+	IF (@NRows = 0) RETURN
 	
 	;WITH MemberStats (AffId, Signup, FDM) AS
 	(
 		SELECT mi.AffId, 0 AS Signup, COUNT(1) AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
-		WHERE mi.CreatedDate BETWEEN @FromDate AND @ToDate
+		WHERE
+			(
+				@isGetAll = 1
+				OR mi.CreatedDate BETWEEN @FromDate AND @ToDate
+			)
 			AND EXISTS (SELECT 1 FROM @AffList a WHERE mi.AffID = a.AffId)
-			AND NOT EXISTS (
-				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-				WHERE
-					mr.IBCCustID = mi.IBCCustID
-					AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
+			AND (
+				@isGetAll = 1
+				OR NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+					WHERE
+						mr.IBCCustID = mi.IBCCustID
+						AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
+				)
 			)
 		GROUP BY mi.AffID
 		
 		UNION ALL
 		SELECT AffiliateID, COUNT(1) AS Signup, 0 AS FDM
 		FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer md WITH (NOLOCK)
-		WHERE creatdate BETWEEN @FromDate AND @ToDate
+		WHERE
+			(
+				@isGetAll = 1
+				OR creatdate BETWEEN @FromDate AND @ToDate
+			)
 			AND EXISTS (SELECT 1 FROM @AffList a WHERE md.AffiliateID = a.AffId)
 		GROUP BY AffiliateID
 	)

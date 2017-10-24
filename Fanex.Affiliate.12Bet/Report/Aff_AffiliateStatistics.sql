@@ -87,19 +87,30 @@ BEGIN
 	INSERT INTO @TrackingCode (AffId, IBCCustID, TrackingDate, IsFDM)
 	SELECT mi.AffId, mi.IBCCustID, mi.CreatedDate, 1
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
-	WHERE mi.CreatedDate BETWEEN @FromDate AND @ToDate
+	WHERE
+		(
+			@isGetAll = 1
+			OR mi.CreatedDate BETWEEN @FromDate AND @ToDate
+		)
 		AND EXISTS (SELECT 1 FROM @AffList a WHERE mi.AffID = a.AffId)
-		AND NOT EXISTS (
-			SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-			WHERE
-				mr.IBCCustID = mi.IBCCustID
-				AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
+		AND (
+			@isGetAll = 1
+			OR NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE
+					mr.IBCCustID = mi.IBCCustID
+					AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
+			)
 		)
 
 	INSERT INTO @TrackingCode (AffId, IBCCustID, TrackingDate, IsFDM)
 	SELECT AffiliateID, IBCCustID, creatdate, 0
 	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer md WITH (NOLOCK)
-	WHERE creatdate BETWEEN @FromDate AND @ToDate
+	WHERE
+		(
+			@isGetAll = 1
+			OR creatdate BETWEEN @FromDate AND @ToDate
+		)
 		AND EXISTS (SELECT 1 FROM @AffList a WHERE md.AffiliateID = a.AffId)
 
 	IF @SortBy = 1 -- sort by Total Registered
