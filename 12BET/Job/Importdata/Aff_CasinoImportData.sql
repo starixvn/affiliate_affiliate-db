@@ -139,6 +139,11 @@ BEGIN
 				INNER JOIN @tmpWinlostdate w ON md.WinlostDate = w.winlostdate
 			WHERE md.SportType = @CasinoId
 
+			DELETE mdi WITH (ROWLOCK, UPDLOCK)
+			FROM dbo.MemberDaily_Invalid mdi
+				INNER JOIN @tmpWinlostdate w ON mdi.WinlostDate = w.winlostdate
+			WHERE mdi.SportType = @CasinoId
+
 			DELETE ad WITH (ROWLOCK, UPDLOCK)
 			FROM dbo.AffDaily ad
 				INNER JOIN @tmpWinlostdate w ON ad.WinlostDate = w.winlostdate

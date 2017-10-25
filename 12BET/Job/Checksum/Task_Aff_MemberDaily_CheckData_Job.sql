@@ -3,7 +3,7 @@ USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Task_Aff_MemberDaily_CheckData_Job]
-	@Winlostdate	SMALLDATETIME,
+	@Winlostdate	SMALLDATETIME = NULL,
 	@AllowCorrect	BIT = 1
 AS
 
@@ -53,7 +53,7 @@ BEGIN
 
 		EXEC dbo.Task_Aff_MemberDaily_CheckData @Winlostdate = @Winlostdate, @IsMatch = @IsMatch OUTPUT
 
-		IF @IsMatch <> 0
+		IF @IsMatch = 0
 		BEGIN
 			IF @AllowCorrect = 1
 			BEGIN
