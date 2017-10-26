@@ -139,7 +139,7 @@ BEGIN
 				GROUP BY AffId
 			) ms ON m.AffId = ms.AffId
 			CROSS APPLY (
-				SELECT COUNT(1) AS NRows 
+				SELECT COUNT(DISTINCT AffId) AS NRows 
 				FROM MemberStats
 			) r
 	) t
