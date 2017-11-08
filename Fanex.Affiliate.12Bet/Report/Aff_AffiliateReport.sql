@@ -166,16 +166,6 @@ BEGIN
 	
 	IF (ISNULL(@NRows, 0) = 0) RETURN
 	
-	-- Check IsAll row
-	SELECT @PageSize = CASE 
-						WHEN @IsGetAll = 1 THEN @NRows 
-						ELSE @PageSize 
-					END
-		,@PageIndex = CASE 
-						WHEN @IsGetAll = 1 THEN 1 
-						ELSE @PageIndex 
-					END
-	
 	INSERT INTO	#AffPaging (AffId, GroupId, RowIDX)
 	SELECT m.AffId
 		,m.GroupId
