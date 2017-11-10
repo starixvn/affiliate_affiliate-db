@@ -1,4 +1,5 @@
-﻿USE [Affiliate_12BET]
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_PlayersSelDetail] 
@@ -23,6 +24,7 @@ AS
 		- 20140403@Bobby:  exclude Keno product & other sports
 		- 20141218@Bobby: Update SS's bettype
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+		- 20171109@Percy: Correct the way get active player [RedmineID: #86353]
 
 	Param's Explanation:
 		• @AffID : Affiliate custid
@@ -38,8 +40,8 @@ BEGIN
 
 	DECLARE @GroupId INT, @DeductedPercentage DECIMAL(9,8)
 
-	SELECT @GroupId = GroupId FROM dbo.AffInfo WITH(NOLOCK) WHERE AffId = @AffId
-	SELECT @DeductedPercentage = DeductedPercentage FROM dbo.DeductionSetting WITH(NOLOCK) WHERE GroupId = @GroupId AND DeductionID = 9
+	SELECT  @GroupId = GroupId FROM dbo.AffInfo WITH(NOLOCK) WHERE AffId = @AffId
+	SELECT  @DeductedPercentage = DeductedPercentage FROM dbo.DeductionSetting WITH(NOLOCK) WHERE GroupId = @GroupId AND DeductionID = 9
 	
 	IF @DeductedPercentage IS NULL
 		SELECT @DeductedPercentage = 0
@@ -289,11 +291,6 @@ BEGIN
 			) = 1
 			AND CASE WHEN @sporttype = 0 THEN d.sporttype ELSE @sporttype END = d.sporttype
 			AND d.AffID = @AffID
-			AND (
-				turnover > 0
-				OR deposit > 0
-				OR withdrawal > 0
-			)
 		GROUP BY IBCUserName
 			,m.username
 			,m.RegisteredDate
@@ -303,8 +300,4 @@ BEGIN
 		,RegisteredDate
 	ORDER BY Username
 END
-GO
-GRANT EXECUTE ON [dbo].[Aff_PlayersSelDetail] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_PlayersSelDetail] TO [VNTeam]
 GO
