@@ -152,7 +152,7 @@ BEGIN
 		,Currency
 		,RegisteredDate
 	FROM (
-		SELECT TOP (@RowEnd) ROW_NUMBER() OVER (ORDER BY username) AS TheCount
+		SELECT ROW_NUMBER() OVER (ORDER BY username) AS TheCount
 			,IBCCustId
 			,IbcUsername
 			,username

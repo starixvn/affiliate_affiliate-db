@@ -1,4 +1,6 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
+GO
 
 ALTER PROCEDURE [dbo].[Aff_PlayerCasinoReport]
 (
@@ -22,6 +24,7 @@ Revisions:
 	- 20141119@Bobby.Nguyen: Initial SP
 	- 20150827@Bobby.Nguyen: Convert to base currency US$
 	- 20170411@Percy: Support search by Affiliate name [RedmineID: #74588]
+	- 20171109@Percy: Support sort member's username [RedmineID: #86353]
 */   
 BEGIN
 	SET NOCOUNT ON
@@ -35,7 +38,7 @@ BEGIN
 	CREATE TABLE #MemberList
 	(
 		MemberId	INT
-		,RowIDX		INT IDENTITY(1,1)
+		,RowIDX		INT
 	)
 	
 	DECLARE @MemberPaging 
@@ -59,28 +62,23 @@ BEGIN
 		, @ToDate 		= CASE WHEN @IsGetAll = 1 THEN @CurDate ELSE @ToDate END
 		
 	
-	INSERT INTO #MemberList
-	SELECT md.IBCCustId
-		FROM dbo.MemberDaily md WITH (NOLOCK)
-	
-		INNER JOIN dbo.MemberInfo mi WITH(NOLOCK)
-		ON md.IBCCustID = mi.IBCCustID
-		
-		INNER JOIN dbo.AffInfo ai WITH (NOLOCK)
-		ON mi.AffId = ai.AffId
-		
-		INNER JOIN dbo.AffDetail ad WITH (NOLOCK)
-		ON ai.AffId = ad.AffId
-		
-	WHERE (md.WinlostDate BETWEEN @FromDate AND @ToDate)
+	INSERT INTO #MemberList (MemberId, RowIDX)
+	SELECT mi.IBCCustId, ROW_NUMBER() OVER(ORDER BY mi.UserName)
+	FROM dbo.MemberInfo mi WITH(NOLOCK)
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
+		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+	WHERE
+		EXISTS (
+			SELECT 1
+			FROM dbo.MemberDaily md WITH (NOLOCK)
+			WHERE md.IBCCustID = mi.IBCCustID
+			AND (md.WinlostDate BETWEEN @FromDate AND @ToDate)
+			AND md.SportType = @SportType
+			AND md.AffId > 0
+		)
 		AND (@PreferedLanguage IS NULL OR ad.PreferredLanguage = @PreferedLanguage)
-		AND md.SportType = @SportType
-		AND md.AffId > 0
 		AND ai.STATUS	= 'Approved'
 		AND ai.UserName LIKE '%' + ISNULL(@Username, '') + '%'
-	GROUP BY md.IBCCustId
-		,mi.UserName
-	ORDER BY mi.UserName
 	
 	SET @NRows = @@ROWCOUNT
 	
@@ -139,16 +137,5 @@ BEGIN
 		,ai.UserName
 		
 	ORDER BY p.RowIDX
-		
-	RETURN
-	
 END
 GO
-
-GRANT EXECUTE ON [dbo].[Aff_PlayerCasinoReport] TO [bodbAdminNet]
-GO
-/*
-exec [dbo].[Aff_PlayerCasinoReport]
-	@FromDate	= '20140101'
-	,@ToDate	= '20150101'
-*/
