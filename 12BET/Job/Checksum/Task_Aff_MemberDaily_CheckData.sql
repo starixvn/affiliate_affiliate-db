@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="" isFunction="0" isNested="1"></info>*/
 USE [Affiliate_12BET]
 GO
 
@@ -55,10 +55,10 @@ BEGIN
 			mi.IsRemoved = 0
 			OR (
 				mi.IsRemoved = 1
-				AND NOT EXISTS (
+				AND EXISTS (
 					SELECT mr.IBCCustID
 					FROM dbo.MemberRemoval mr WITH (NOLOCK)
-					WHERE mi.IBCCustID = mr.IBCCustID AND mr.RemovedDate < DATEADD(DAY, 1, @Winlostdate)
+					WHERE mi.IBCCustID = mr.IBCCustID AND DATEDIFF(MM, mr.RemovedDate, @Winlostdate) < 0
 				)
 			)
 		)

@@ -1,44 +1,52 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_PaymentRequestSelList]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_PaymentRequestSelList]
 	@LicenseeID			INT,
     @Username			NVARCHAR(30) = NULL,
-	@AffType			varchar(20),
+	@AffType			VARCHAR(20),
     @Status				VARCHAR(100) = NULL,   
-	@PreferredLanguage	varchar(100) = NULL,
-    @Currency			varchar (100),
+	@PreferredLanguage	VARCHAR(100) = NULL,
+    @Currency			VARCHAR(100),
 	@DateOption			tinyint = 0,
-    @Fromdate			DATETIME  = NULL,
-    @Todate				DATETIME  = NULL,
+    @Fromdate			DATETIME = NULL,
+    @Todate				DATETIME = NULL,
 	@BaseCurrency		INT = 0,
-	@IsITAdmin			bit = 0,
-	@ExcludeTest		bit = 0
+	@IsITAdmin			BIT = 0,
+	@ExcludeTest		BIT = 0
 AS
-/*
- Task : Get All Affiliate for a specific page
-DB: 
-Original: [Aff_BettransSelRequestPaymentList]
-Revisions:   
-	- 20140102@Bobby: fixing bug - no need to convert to system currency when @BaseCurrency=0
-	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 
-Param's Explanation:
-• @Username: Affiliate username need to search
-• @AffType: List Affiliate Type
-• @Status : pending,Approved,disapproved
-• @PreferredLanguage: Preferred language
-• @Currencies: List currency Id
-• @DateOption : 0 for all, 1 for requested date, 2 for completed date
-• @Fromdate :  default value=null :search all
-• @Todate :  default value=null :search all
-• @BaseCurrency: Convert affiliate money to system money or not
-• @SortBy: Affiliate name or amount
-• @ExcludedTestAcc: Exclude test acount or not
-• @PageSize : Number of rows should be returned per each page
-• @PageIndex : Current page 
-• @TotalPages OUTPUT : total of pages for this search
-• @NRows OUTPUT,--total of rows
- */
+/*
+	Task: Get All Affiliate for a specific page
+	DB: DBAFF
+	Original: [Aff_BettransSelRequestPaymentList]
+	
+	Revisions:   
+		- 20140102@Bobby: fixing bug - no need to convert to system currency when @BaseCurrency=0
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+
+	Param's Explanation:
+		• @Username: Affiliate username need to search
+		• @AffType: List Affiliate Type
+		• @Status : pending,Approved,disapproved
+		• @PreferredLanguage: Preferred language
+		• @Currencies: List currency Id
+		• @DateOption : 0 for all, 1 for requested date, 2 for completed date
+		• @Fromdate :  default value=null :search all
+		• @Todate :  default value=null :search all
+		• @BaseCurrency: Convert affiliate money to system money or not
+		• @SortBy: Affiliate name or amount
+		• @ExcludedTestAcc: Exclude test acount or not
+		• @PageSize : Number of rows should be returned per each page
+		• @PageIndex : Current page 
+		• @TotalPages OUTPUT : total of pages for this search
+		• @NRows OUTPUT,--total of rows
+*/
+
 BEGIN
 	SET NOCOUNT ON
+
 	DECLARE @RowStart int, @TransType int, @ToCurrency int, @ToCurrencyCode varchar(10), @SystemCurrency int
 	select @TransType = 202 --payment request
 	select @Username= '%' + Coalesce(@Username, '') + '%'
@@ -75,8 +83,8 @@ BEGIN
 	Select a.TransID,
 			b.UserName,
 			c.PreferredLanguage,
-			d.Name as AffType,
-			(case when a.Status = 'Pending' THEN 'Processing' ELSE a.Status END) as Status,
+			d.Name AS AffType,
+			CASE WHEN a.Status IN ('Pending') THEN 'Processing' ELSE a.Status END AS Status,
 			b.UserName,
 			a.TransDate,
 			a.CompletedDate,
@@ -111,14 +119,11 @@ BEGIN
 				OR (@ExcludeTest = 0 AND @IsITAdmin = 1) 
 				OR (@ExcludeTest = 0 AND @IsITAdmin = 0 AND b.TestLevel IN (0,1))
 			)
-	order by CASE a.status  
-			   WHEN 'Pending' THEN 1  
+	ORDER BY CASE a.status  
+			   WHEN 'Pending' THEN 1
 			   WHEN 'Approved' THEN 2  
 			   WHEN 'Rejected' THEN 3  
 			   ELSE 4  
 			END, transid desc
-	END
+END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_PaymentRequestSelList] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_PaymentRequestSelList] TO [vnteam] AS [dbo]

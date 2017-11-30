@@ -1,4 +1,5 @@
-﻿USE [Affiliate_12BET]
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" viewers="" isFunction="1" isNested="1"></info>*/
+USE [Affiliate_12BET]
 GO
 
 ALTER FUNCTION [dbo].[Aff_CommissionForCurrentMonth] (@AffID INT)
@@ -13,6 +14,7 @@ RETURNS @AffComm TABLE (
 	,NetWinlost MONEY
 	)
 AS
+
 /*
 	Revisions:
 		- 20120514@Peter : Apply new formula according to Joycee's request
@@ -27,6 +29,7 @@ AS
 		- 20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval 
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 */
+
 BEGIN
 	DECLARE @Today SMALLDATETIME
 		,@FirstDay SMALLDATETIME
@@ -78,12 +81,8 @@ BEGIN
 		,OddsFeePercent FLOAT
 		,PlayTechRoyaltiesPercent FLOAT
 		,IsPSPIncluded INT -- flag to check PSP Fee is included or not for this product   
-		)
+	)
 
-	--No need to get PSP from Deposit DB  
-	/*Select @TodayPSP=Sum(PSP * AffExRate)  
-   from MemberDaily (nolock)  
-  where AffID=@AffID and WinlostDate=@Today*/
 	;WITH CTE_MemberRemoval AS
 	(
 		SELECT mi.IBCCustID
@@ -188,10 +187,7 @@ BEGIN
 			
 			UNION ALL
 			SELECT ci.IBCCustID
-				,CASE 
-					WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN @HorseRacingID
-					ELSE @SportsBookID
-					END AS SportType
+				,@SportsBookID AS SportType
 				,isnull(sum(CASE bettype
 							WHEN 22001 THEN isnull(winlost, 0) - isnull(abs(actual_stake), 0)
 							ELSE 0
@@ -245,19 +241,10 @@ BEGIN
 					OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 					) --get SB only
 				AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
-				AND b.bettype NOT IN (1000) --games
-				AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
-				AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
-				AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
 				AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
-						--and bettype not in (31,32,33,41,42,43)   
 				AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 			--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'   
 			GROUP BY ci.IBCCustID
-				,CASE 
-					WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN @HorseRacingID
-					ELSE @SportsBookID
-					END
 				,e.Actualrate2
 				,e.exchangeid
 				,e.DepositPercent
@@ -366,5 +353,3 @@ BEGIN
 	RETURN
 END
 GO
-
-GRANT VIEW DEFINITION ON [dbo].[Aff_CommissionForCurrentMonth] TO [vnteam] AS [dbo]

@@ -1,4 +1,5 @@
-﻿USE [Affiliate_12BET]
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_ReportDetailSelByAff] 
@@ -17,7 +18,7 @@ AS
 		- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
 		- 20140403@Bobby:  exclude Keno product & other sports
 		- 20141218@Bobby: Update SS's bettype
-	- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 
 	Param's Explanation:
 		• @Fromdate Month search from

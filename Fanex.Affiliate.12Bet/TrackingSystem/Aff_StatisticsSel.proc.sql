@@ -1,5 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNetView" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" viewers="" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_12BET]
 GO
 
@@ -171,7 +170,7 @@ BEGIN
 		,0
 		,sum(isnull(TurnOver, 0) * isnull(AffExRate, 1)) AS Turnover
 		,sum(isnull(Deposit, 0) * isnull(AffExRate, 1)) AS Deposit
-		,sum((isnull(Winlost, 0)) * isnull(AffExRate, 1)) AS Winlost
+		,sum(isnull(Winlost, 0) * isnull(AffExRate, 1)) AS Winlost
 		,dateadd(mm, DATEDIFF(m, 0, b.WinlostDate), 0)
 	FROM MemberDaily b WITH (NOLOCK)
 		INNER JOIN MemberInfo ci WITH (NOLOCK)
@@ -184,10 +183,7 @@ BEGIN
 	
 	UNION ALL
 	SELECT ci.IBCCustID
-		,CASE 
-			WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN @HorseRacingID
-			ELSE @SportsBookID
-			END
+		,@SportsBookID
 		,0
 		,isnull(sum(CASE 
 					WHEN bettype = 911 THEN 0
@@ -230,20 +226,10 @@ BEGIN
 			OR ( b.bettype BETWEEN 1301 AND 1399)
 			OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 			) --get SB only
-		AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
-		AND b.bettype NOT IN (1000) --games
-		AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
-		AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
-		AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+		AND b.bettype NOT BETWEEN 31 AND 120 -- Not include Casino and Number Game and finance
 		AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
-				--and bettype not in (31,32,33,41,42,43)   
 		AND b.StatusID NOT IN (101, 102, 103, 121, 1)
-	--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
 	GROUP BY ci.IBCCustID
-		,CASE 
-			WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN @HorseRacingID
-			ELSE @SportsBookID
-			END
 
 	--Calculate total up to now
 	SELECT @TotalWinlostUp = Sum(Winlost)

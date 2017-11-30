@@ -1,4 +1,5 @@
-﻿USE [Affiliate_12BET]
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="" isFunction="0" isNested="1"></info>*/
+USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_GetMemberStatistics] 
@@ -19,14 +20,14 @@ AS
 
 /*
 	Created:
-	Task : Get member statistic
+	Task: Get member statistic
 	DB: DBAFF12BET.Affiliate_12BET
 
 	Revisions:
 		- 20101228@Henry: change bettype to new range
-		- 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])
-		- 20140228@Bobby : Apply AffType
-		- 20140403@Bobby:  exclude Keno product & other sports
+		- 20111031@Peter: Exclude Number Game from Sportsbook commission (bettype from [81-120])
+		- 20140228@Bobby: Apply AffType
+		- 20140403@Bobby: Exclude Keno product & other sports
 		- 20141218@Bobby: Update SS's bettype
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 
@@ -67,7 +68,7 @@ BEGIN
 		,winlostdate
 		)
 	SELECT sum(isnull(MemberDeposit, 0)) AS deposit
-		,sum((isnull(MemberWinlost, 0))) AS winlost
+		,sum(isnull(MemberWinlost, 0)) AS winlost
 		,sum(isnull(MemberBonus, 0)) AS bonus
 		,sum(isnull(MemberPSP, 0)) AS psp
 		,sum(isnull(MemberAdjustment, 0)) AS Adjustment
@@ -81,7 +82,7 @@ BEGIN
 	
 	UNION ALL
 	SELECT sum(isnull(MemDeposit, 0) * ExRate2) AS deposit
-		,sum((isnull(MemWinlost, 0)) * ExRate2) AS winlost
+		,sum(isnull(MemWinlost, 0) * ExRate2) AS winlost
 		,sum(isnull(MemBonus, 0) * ExRate2) AS bonus
 		,sum(isnull(MemPSP, 0) * ExRate2) AS psp
 		,sum(isnull(MemAdjustment, 0) * ExRate2) AS Adjustment
@@ -144,15 +145,9 @@ BEGIN
 			OR ( b.bettype BETWEEN 1301 AND 1399)
 			OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 			) --get SB only
-		AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
-		AND b.bettype NOT IN (1000) --games
-		AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
-		AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
-		AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
+		AND b.bettype NOT BETWEEN 31 AND 120 -- Not include Casino and Number Game and finance
 		AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
-				--and bettype not in (31,32,33,41,42,43)   
 		AND b.StatusID NOT IN (101, 102, 103, 121, 1)
-		--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
 	GROUP BY m.DepositPercent
 		,m.WithdrawalPercent
 
@@ -186,8 +181,4 @@ BEGIN
 	SELECT @NetWinlostAll = isnull(@WinlostAll, 0) + isnull(@BonusAll, 0) + isnull(@AdjustmentAll, 0)
 		,@NetWinlostMonth = isnull(@WinlostMonth, 0) + isnull(@BonusMonth, 0) + isnull(@AdjustmentMonth, 0)
 END
-GO
-GRANT EXECUTE ON [dbo].[Aff_GetMemberStatistics] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_GetMemberStatistics] TO [vnteam]
 GO

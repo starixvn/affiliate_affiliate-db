@@ -1,4 +1,5 @@
-﻿USE [Affiliate_12BET]
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_StatementHistorySel] 
@@ -18,7 +19,8 @@ AS
 	DB: DBAFF12BET.Affiliate_12BET  
 	Original: [Aff_CustomerSelStatementHistory]    
 
-	Revisions:     
+	Revisions:
+		- 20090914@Peter: Inital SP
 
 	Param's Explanation:    
 		• @AffID : Affiliate custid    
@@ -173,12 +175,4 @@ BEGIN
 	) m
 	WHERE m.TheCount BETWEEN @RowStart AND @RowEnd
 END
-GO
-GRANT EXECUTE ON [dbo].[Aff_StatementHistorySel] TO [bodbDownlineNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_StatementHistorySel] TO [bodbDownlineNetView]
-GO
-GRANT EXECUTE ON [dbo].[Aff_StatementHistorySel] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_StatementHistorySel] TO [VNTeam]
 GO
