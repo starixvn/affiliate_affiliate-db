@@ -2,7 +2,7 @@
 USE [Affiliate_12BET]
 GO
 
-ALTER PROCEDURE [dbo].[Aff_CasinoImportData]	
+ALTER PROCEDURE [dbo].[Aff_CasinoImportData]
 	@AdminID		INT,
 	@ImportDate		SMALLDATETIME,
 	@XmlData		XML,
@@ -23,6 +23,7 @@ AS
 		- 20121211@Johnny: only import casino data for affiliate has been approved Casino before the date import data
 		- 20150907@Bobby.Nguyen:  Hotfix#42274 - Add/check data constraINT of removal members
 		- 20171010@Percy: Upgrade service job [RedmineID: #84602]
+		- 20171129@Percy: Add PShare, PWin [RedmineID: #87342]
 */
 
 BEGIN
@@ -30,13 +31,16 @@ BEGIN
 
 	DECLARE @tmpData TABLE
 	(
-		winlostdate	SMALLDATETIME,
-		UserName	NVARCHAR(30),
-		Currency	NVARCHAR(50),
-		Turnover	MONEY,
-		Winlost		MONEY,
-		Deposit		MONEY,
-		Bonus		MONEY
+		winlostdate		SMALLDATETIME,
+		UserName		NVARCHAR(30),
+		Currency		NVARCHAR(50),
+		Turnover		MONEY,
+		Winlost			MONEY,
+		Deposit			MONEY,
+		Bonus			MONEY,
+		PShare			MONEY,
+		PWin			MONEY,
+		WinlostPShare	MONEY
 	)
 
 	BEGIN TRY
@@ -46,18 +50,23 @@ BEGIN
 			Username,
 			Currency,
 			Turnover,
-			Winlost,
+			WinlostPShare -  PShare AS Winlost,
 			Deposit,
-			Bonus
+			Bonus,
+			PShare,
+			PWin,
+			WinlostPShare
 		FROM
 			(SELECT
 				[Table].[Column].value('./@date', 'SMALLDATETIME') AS [winlostdate],
 				[Table].[Column].value('./@username', 'VARCHAR(200)') AS [Username],
 				[Table].[Column].value('./@currency', 'NVARCHAR(50)') AS [Currency],
 				[Table].[Column].value('./@turnover', 'FLOAT') AS [Turnover],
-				[Table].[Column].value('./@winlostaff', 'FLOAT') AS [Winlost],
+				[Table].[Column].value('./@winlostaff', 'FLOAT') AS [WinlostPShare],
 				[Table].[Column].value('./@deposit', 'FLOAT') AS [Deposit],
-				[Table].[Column].value('./@bonus', 'FLOAT') AS [Bonus]
+				[Table].[Column].value('./@bonus', 'FLOAT') AS [Bonus],
+				[Table].[Column].value('./@progressiveshare', 'FLOAT') AS [PShare],
+				[Table].[Column].value('./@progressivewin', 'FLOAT') AS [PWin]
 			FROM @XmlData.nodes('/root/trans') AS [Table]([Column])
 			) AS tmp
 	END TRY
@@ -128,7 +137,21 @@ BEGIN
 			GROUP BY w.winlostdate, e.ExchangeID
 		) ex1 ON ex.ExchangeId = ex1.ExchangeId AND ex.UpdatedTime = ex1.UpdatedTime
 
-	DECLARE @SuccessTrans TABLE(winlostdate SMALLDATETIME, IBCCustID INT, UserName NVARCHAR(30), ExchangeId INT, Currency NVARCHAR(50), Turnover MONEY, Winlost MONEY, Deposit MONEY, Bonus MONEY)--List trans insert successfully
+	--List trans insert successfully
+	DECLARE @SuccessTrans TABLE
+	(
+		winlostdate		SMALLDATETIME,
+		IBCCustID		INT,
+		UserName		NVARCHAR(30),
+		ExchangeId		INT,
+		Currency		NVARCHAR(50),
+		Turnover		MONEY,
+		WinlostPShare	MONEY,
+		Deposit			MONEY,
+		Bonus			MONEY,
+		PShare			MONEY,
+		PWin			MONEY
+	)
 
 	BEGIN TRANSACTION 
 
@@ -191,24 +214,31 @@ BEGIN
 			,[MemOddsFee]
 			,[MemWinlostFake]
 			,[MemPLayTechFee]
+			,[PShare]
+			,[PWin]
+			,[WinlostPShare]
 		)
 		OUTPUT
 			INSERTED.WinlostDate,
 			INSERTED.IBCCustID,
 			INSERTED.Currency,
 			INSERTED.Turnover,
-			INSERTED.Winlost,
+			INSERTED.WinlostPShare,
 			INSERTED.Deposit,
-			INSERTED.Bonus
+			INSERTED.Bonus,
+			INSERTED.PShare,
+			INSERTED.PWin
 		INTO @SuccessTrans
 		(
 			winlostdate,
 			IBCCustID,
 			ExchangeId,
 			Turnover,
-			Winlost,
+			WinlostPShare,
 			Deposit,
-			Bonus
+			Bonus,
+			PShare,
+			PWin
 		)
 		SELECT
 			t.winlostdate, 
@@ -221,7 +251,7 @@ BEGIN
 			0 AS Adjustment,
 			Turnover,
 			0 AS Outstanding,
-			-Winlost,
+			-Winlost AS Winlost,
 			0 AS AWinlost,
 			0 AS ABonus,		
 			ex.AffExRate,--Get AffRate here
@@ -231,12 +261,15 @@ BEGIN
 			abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID,@CasinoId,'Marketing',t.winlostdate),0) AS Marketing,
 			AffId,
 			0 AS MemOddsFee,
-			-(-Winlost
+			-(-(Winlost)
 				- (abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID,@CasinoId,'PlayTech Royalties',t.winlostdate),0))
 				-  (abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID,@CasinoId,'Marketing',t.winlostdate),0))
 			) AS MemWinlostFake,
 
-			abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID,@CasinoId,'PlayTech Royalties',t.winlostdate),0) AS MemPLayTechFee
+			abs(Winlost) * isnull(dbo.Aff_GetDeductionPercent(m.AffID,@CasinoId,'PlayTech Royalties',t.winlostdate),0) AS MemPLayTechFee,
+			t.PShare,
+			t.PWin,
+			t.WinlostPShare
 		FROM @tmpData t
 			INNER JOIN (
 				SELECT m.IBCCustID, m.UserName, m.Currency, m.AffID, a.CasinoJoinedDate
@@ -279,6 +312,8 @@ BEGIN
 			,[MemWinlostFake]
 			,[MemOddsFee]
 			,[MemPLayTechFee]
+			,[MemPShare]
+			,[MemPWin]
 		)
 		SELECT
 			d.AffID AS AffID,      
@@ -300,7 +335,9 @@ BEGIN
 			0 AS HouseNetWinLost,	
 			0 AS MemWinlostFake,      
 			0 AS MemOddsFee,
-			0 AS MemPLayTechFee
+			0 AS MemPLayTechFee,
+			SUM(ISNULL(PShare, 0)),
+			SUM(ISNULL(PWin, 0))
 		FROM dbo.MemberDaily d WITH (NOLOCK)
 		WHERE SportType = @CasinoId AND winlostdate IN (SELECT winlostdate FROM @tmpWinlostdate)
 		GROUP BY d.AffID,d.Winlostdate, d.Currency, d.SportType,d.AffExRate   
@@ -342,7 +379,9 @@ BEGIN
 			,[HouseNetWinlost]
 			,[MemOddsFee]
 			,[MemWinlostFake]
-			,[MemPLayTechFee]	   
+			,[MemPLayTechFee]
+			,[MemPShare]
+			,[MemPWin]
 		)
 		SELECT
 			[AffID]
@@ -363,6 +402,8 @@ BEGIN
 			,0 AS MemOddsFee
 			,0 AS MemWinlostFake
 			,0 AS MemPLayTechFee
+			,SUM(ISNULL([MemPShare], 0) * ExRate2) AS MemPShare
+			,SUM(ISNULL([MemPWin], 0) * ExRate2) AS MemPWin
 		FROM dbo.AffDaily WITH (NOLOCK)
 		WHERE winlostdate IN (SELECT winlostdate FROM @tmpWinlostdate) AND SportID = @CasinoId
 		GROUP BY AffID, Winlostdate, SportID
@@ -477,7 +518,7 @@ BEGIN
 		INNER JOIN dbo.Exchange_Current ex WITH (NOLOCK) ON st.ExchangeId = ex.ExchangeID
 
 	-- Return list success transaction
-	SELECT winlostdate AS DateImport, Username, Currency, Turnover, Winlost, Deposit, Bonus
+	SELECT winlostdate AS DateImport, Username, Currency, Turnover, WinlostPShare, Deposit, Bonus, PShare, PWin
 	FROM @SuccessTrans 
 	ORDER BY winlostdate
 
@@ -508,7 +549,10 @@ BEGIN
 		MemPLayTechFee,
 		OpeningBalance,
 		ClosingBalance,
-		Reason
+		Reason,
+		PShare,
+		PWin,
+		WinlostPShare
 	)
 	SELECT
 		t.WinlostDate,
@@ -541,7 +585,10 @@ BEGIN
 			WHEN mi.CreatedDate IS NULL THEN 'Invalid Member''s CreatedDate'
 			WHEN ai.CasinoJoinedDate IS NULL THEN 'Invalid Aff''s CasinoJoinDate'
 			WHEN t.winlostdate < ai.CasinoJoinedDate THEN 'Member''s Winlostdate less than Aff''s CasinoJoinDate'
-		END AS Reason
+		END AS Reason,
+		t.PShare,
+		t.PWin,
+		t.WinlostPShare
 	FROM @tmpData t
 		LEFT JOIN @SuccessTrans st ON t.UserName = st.UserName AND t.winlostdate = st.winlostdate
 		LEFT JOIN dbo.MemberInfo mi WITH (NOLOCK) ON '12Bet$' + t.UserName = mi.UserName
@@ -563,9 +610,11 @@ BEGIN
 				else t.Currency end
 		) AS Currency, 
 		t.Turnover, 
-		t.Winlost,
+		t.WinlostPShare,
 		t.Deposit,
-		t.Bonus
+		t.Bonus,
+		t.PShare,
+		t.PWin
 	FROM @tmpData t
 		LEFT JOIN @SuccessTrans st ON t.UserName = st.UserName AND t.winlostdate = st.winlostdate
 	WHERE st.UserName IS NULL
