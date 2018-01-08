@@ -1,3 +1,7 @@
+/*<info serverAlias="DBLIC-bodb_licensee" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [bodb_licensee]
+GO
+
 ALTER PROCEDURE [dbo].[AffAdmin_AdminUser_UpdateGroup]
 (
 	@UserID		INT,
@@ -11,7 +15,8 @@ ALTER PROCEDURE [dbo].[AffAdmin_AdminUser_UpdateGroup]
 	DB: DBLIC/bodb_licensee
 	Remark: Update Admin user group
 	Revision:
-	-20160118@Francis: Add full currency permission for user that is changed to Administrator Group
+		- 20160118@Francis: Add full currency permission for user that is changed to Administrator Group
+		- 20180108@Percy: Fix issue duplicate currency [RedmineID: #89325]
 */
 AS
 BEGIN
@@ -55,13 +60,12 @@ BEGIN
 		INSERT INTO @Currency (CurrencyID)
 			EXEC (@cmd)	
 		
+		DELETE dbo.CurrencyUser WITH (ROWLOCK, UPDLOCK)
+		WHERE usrID = @UserID AND LicenseeID = @LicenseeID AND SystemID = @System
+
 		INSERT INTO dbo.CurrencyUser (UsrID, LicenseeID, CurrencyID, SystemID, IsActive)
 			SELECT @UserID, @LicenseeID, CurrencyID, @System, 1
 			FROM @currency
 	END
-	
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_AdminUser_UpdateGroup] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AdminUser_UpdateGroup] TO [vnteam] AS [dbo]
