@@ -1,9 +1,9 @@
-﻿USE [Affiliate_Athena000]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_CompanyWinLossByProductReport] 
-	@LicenseeID			INT
-	,@UserId 			INT 			= 0
+	@UserCurrencies 	VARCHAR(MAX)	= ''
 	,@AffName 			NVARCHAR(100) 	= NULL
 	,@AffTypes 			VARCHAR(100) 	= NULL
 	,@CommGroups 		VARCHAR(1000) 	= NULL
@@ -36,6 +36,7 @@ AS
 		- 20140612@Bobby: Add PShare & PWin columns    
 		- 20140827@Bobby: Add Virtual Sport & PlayerComm - apply style-scope
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
                 
 	Param's Explanation: 
 		• @UserId: Admin user id
@@ -129,7 +130,7 @@ BEGIN
 		,MonthDate
 		,GroupId
 		,GroupName
-	FROM [dbo].[AffAdmin_AffiliateListForReport](@LicenseeID, @UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, 'All', @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
+	FROM [dbo].[AffAdmin_AffiliateListForReport](@UserCurrencies, @AffName, @AffTypes, @CommGroups, @PreferLanguages, 'All', @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
 
 	IF( NOT EXISTS(SELECT TOP 1 1 FROM @AffUserRpt))
 	BEGIN
@@ -401,8 +402,4 @@ BEGIN
 	SELECT @endRun = GETDATE()
 		,@Duration = DATEDIFF(millisecond, @startRun, @endRun)
 END
-GO
-GRANT EXECUTE ON [dbo].[AffAdmin_CompanyWinLossByProductReport] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CompanyWinLossByProductReport] TO [vnteam] AS [dbo]
 GO

@@ -1,12 +1,14 @@
-﻿USE [Affiliate_Athena000]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_AffiliateSel] 
 	@LicenseeID			INT
-	,@UserId				INT				= 0
+	,@UserId			INT				= 0
 	,@AffName			NVARCHAR(100)	= NULL
 	,@AffTypes			VARCHAR(100)	= NULL
 	,@Currencies		VARCHAR(100)	= NULL
+	,@UserCurrencies	VARCHAR(MAX)	= NULL
 	,@CommGroups		VARCHAR(1000)	= NULL
 	,@DateOption		TINYINT			= 0
 	,@FromDate			SMALLDATETIME	= NULL
@@ -36,6 +38,7 @@ AS
 	 - 20130912@Victor: add search criteria, restructure the code
 	 - 20140924@Bobby: Add Email Info & refactor code
 	 - 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	 - 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
  
 	Param's Explanation: 
 		• @UserID: Admin UserID
@@ -78,8 +81,8 @@ BEGIN
 		,ExRate FLOAT
 	)
 
-	SELECT CAST(val AS INT) AS CurrencyID
-	INTO #TblCurrency
+	INSERT INTO @tmpCurrency (CurrencyID, ExRate)
+	SELECT val, 0
 	FROM [dbo].[strSplit](@Currencies, ',')
 
 	--Insert Currency default of NonCommission (=0)
@@ -88,13 +91,6 @@ BEGIN
 		INSERT INTO @tmpCurrency (CurrencyID, ExRate)
 		VALUES (0 ,0)
 	END
-
-	INSERT INTO @tmpCurrency (CurrencyID, ExRate)
-	SELECT r.AffCurrencyID, 0 AS ExRate
-	FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID) r
-		INNER JOIN #TblCurrency s ON s.CurrencyID = r.AffCurrencyID
-
-	DROP TABLE #TblCurrency
 
 	-- AffType
 	DECLARE @AffTypeList TABLE (AffTypeID INT)
@@ -348,8 +344,4 @@ BEGIN
 
 	DROP TABLE #tmpAffList
 END
-GO
-GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateSel] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateSel] TO [vnteam] AS [dbo]
 GO

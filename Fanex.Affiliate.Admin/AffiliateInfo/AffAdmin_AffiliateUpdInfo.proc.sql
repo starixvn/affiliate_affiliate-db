@@ -3,8 +3,7 @@ USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_AffiliateUpdInfo] 
-	@LicenseeID INT
-	,@AffId INT
+	@AffId INT
 	,@userid INT
 	,@firstname NVARCHAR(50) = NULL
 	,@lastname NVARCHAR(50) = NULL
@@ -68,6 +67,7 @@ AS
 		- 20140514@Bobby: check/remove unique email (remove check afftype [Kiosk, ...])
 		- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		- 20180205@Percy: Remove redundant param: @LicenseeId [RedmineID: #90545]
 
 	Param's Explanation:  
 		• @AffId: Affiliate custid  

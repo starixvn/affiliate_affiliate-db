@@ -1,25 +1,30 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_MemberStatisticsReport] 
-	@LicenseeID INT
-	,@UserId INT = 0
-	,@AffName NVARCHAR(100) = NULL
-	,@AffTypes VARCHAR(100) = NULL
-	,@PreferLanguages VARCHAR(1000) = NULL
-	,@Currencies VARCHAR(100) = NULL
-	,@GroupBy TINYINT = 0
-	,@FromDate SMALLDATETIME = NULL
-	,@ToDate SMALLDATETIME = NULL
-	,@SortBy TINYINT = 0
-	,@ExcludeTest BIT = 1
-	,@IsITAdmin BIT = 0
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_MemberStatisticsReport] 
+	@UserCurrencies 	VARCHAR(MAX)	= ''
+	,@AffName			NVARCHAR(100) = NULL
+	,@AffTypes			VARCHAR(100) = NULL
+	,@PreferLanguages	VARCHAR(1000) = NULL
+	,@Currencies		VARCHAR(100) = NULL
+	,@GroupBy			TINYINT = 0
+	,@FromDate			SMALLDATETIME = NULL
+	,@ToDate			SMALLDATETIME = NULL
+	,@SortBy			TINYINT = 0
+	,@ExcludeTest		BIT = 1
+	,@IsITAdmin			BIT = 0
 AS
+
 /*      
 	Task : Player Winloss Report       
 	DB:      
 	Original:[[AffAdmin_MemberStatisticsReport]]  
 	Revisions:             
-		-20140509:Bobby: update UniqueClick by date
-		-20140509:Bobby: update ActiveMember by date
-		-20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20140509:Bobby: update UniqueClick by date
+		- 20140509:Bobby: update ActiveMember by date
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
 
 	Param's Explanation:   
 	• @UserId: Admin user id  
@@ -68,7 +73,7 @@ BEGIN
 		,LANGUAGE
 		,Currency
 		,STATUS
-	FROM [dbo].[AffAdmin_AffiliateListForReport](@LicenseeID, @UserId, @AffName, @AffTypes, NULL, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate)
+	FROM [dbo].[AffAdmin_AffiliateListForReport](@UserCurrencies, @AffName, @AffTypes, NULL, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate)
 
 	DECLARE @clickStats AS TABLE (
 		AffId INT
@@ -427,10 +432,5 @@ BEGIN
 	END
 
 	DROP TABLE #memStatsInfo
-
-	RETURN 0
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_MemberStatisticsReport] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_MemberStatisticsReport] TO [vnteam] AS [dbo]

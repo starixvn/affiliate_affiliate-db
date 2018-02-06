@@ -3,8 +3,7 @@ USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_MemberDel] 
-	@LicenseeID	INT
-	,@Username VARCHAR(30)
+	@Username VARCHAR(30)
 	,@UserID INT
 	,@IP VARCHAR(20)
 	,@RefNo BIGINT = 0 OUTPUT
@@ -27,6 +26,7 @@ AS
 		- 20140429@Bobby.Nguyen: Re-arrange try..catch code to specify error code
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		- 20180205@Percy: Remove redundant param: @LicenseeId [RedmineID: #90545]
 	
 	Param's Explanation:  
 		.@IP: ip of computer sent,  

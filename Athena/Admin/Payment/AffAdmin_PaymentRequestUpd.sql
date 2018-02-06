@@ -3,7 +3,6 @@ USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_PaymentRequestUpd] 
-	@LicenseeID			INT,
 	@TransID			BIGINT,
 	@Status				NVARCHAR(50),
 	@AdminDesc			NVARCHAR(300) = NULL,
@@ -28,6 +27,7 @@ AS
 		- Johnny@20131126: Update field BF in table AffInfo
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		- 20180205@Percy: Remove redundant param: @LicenseeId [RedmineID: #90545]
 	
 	Param's Explanation:
 		1) @AffId (For Double check)

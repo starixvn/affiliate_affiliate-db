@@ -1,6 +1,9 @@
-﻿ALTER FUNCTION [dbo].[AffAdmin_AffiliateListForReport] (
-	@LicenseeID			INT
-	,@UserId 			INT 			= 0
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" selecters="bodbAdminNet" viewers="" isFunction="1" isNested="1"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER FUNCTION [dbo].[AffAdmin_AffiliateListForReport] (
+	@UserCurrencies 	VARCHAR(MAX)	= ''
 	,@AffName 			NVARCHAR(100) 	= NULL
 	,@AffTypes 			VARCHAR(100) 	= NULL
 	,@CommGroups 		VARCHAR(1000) 	= NULL
@@ -35,6 +38,7 @@ AS
 		- 20140513@Bobby: Add GroupId & GroupName
 		- 20140713@Bobby: Checking filer commgroup: include CommGroupHistory
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
 
 	Param's Explanation: 
 */
@@ -55,9 +59,9 @@ BEGIN
 	IF (@Currencies <> 'All')
 	BEGIN
 		INSERT INTO @tmpCurrency
-		SELECT r.AffCurrencyID
-		FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID) r
-			INNER JOIN [dbo].[strSplit](@Currencies, ',') s ON s.val = r.AffCurrencyID
+		SELECT uc.val
+		FROM [dbo].[strSplit](@UserCurrencies, ',') uc
+			INNER JOIN [dbo].[strSplit](@Currencies, ',') c ON uc.val = c.val
 	END
 
 	--SysCurrency
@@ -296,3 +300,4 @@ BEGIN
 
 	RETURN
 END
+GO

@@ -1,7 +1,10 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_MemberListSel]    
-	@LicenseeID INT,
-    @UserId int,  
-    @AffUsername nvarchar(50) = null,    
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_MemberListSel]    
+    @UserCurrencies	VARCHAR(MAX) = '',
+	@AffUsername nvarchar(50) = null,    
     @Username nvarchar(30) = null,      
     @AffType varchar(30) = null,
     @CurrencyList varchar(100) = NULL,
@@ -22,13 +25,14 @@ AS
  DB: DB05.Affiliate_ZZun    
     
  Revisions:      
-        -20100112@Peter :  Shorting the page by CreatedDate . Request from Fan     
-        -20130808@Jim: restrict user permission by currency      
-        -20131003@Joseph: add more parameters
-        -20131227@Bobby: add removed member sorting
-		-20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+        - 20100112@Peter :  Shorting the page by CreatedDate . Request from Fan     
+        - 20130808@Jim: restrict user permission by currency      
+        - 20131003@Joseph: add more parameters
+        - 20131227@Bobby: add removed member sorting
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
+
  Param's Explanation: 
-• @UserId: Admin UserID
 • @AffUserName: Affiliate name to search 
 • @UserName: Member name
 • @AffType: Affiliate type (1,2...)
@@ -51,9 +55,9 @@ BEGIN
     SET NOCOUNT ON    
     declare @AffID int, @CurrDate smalldatetime    
 
-    select  AffCurrencyID as CurrencyID 
-    INTO #AffCurrency    
-    from dbo.AffAdmin_f_UserCurrency_Select(@UserId,@LicenseeID)   
+    select convert(int, val) as CurrencyID 
+    into #AffCurrency
+    from dbo.strSplit(@UserCurrencies, ',')   
 
     
     -- declare #TblAffType table (id int primary key, rank int, val nvarchar( 6) )
@@ -155,6 +159,3 @@ BEGIN
     ---------------------- 
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_MemberListSel] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_MemberListSel] TO [vnteam] AS [dbo]
