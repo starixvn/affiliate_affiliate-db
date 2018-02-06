@@ -23,9 +23,6 @@ Revisions:
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT AffCurrencyID AS CurrencyID INTO #tmpCurrency 
-	FROM dbo.AffAdmin_f_UserCurrency_Select(@UserID, @LicenseeID)
-
 	DECLARE @IsITAdmin BIT
 	SELECT @IsITAdmin = dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID)
 
