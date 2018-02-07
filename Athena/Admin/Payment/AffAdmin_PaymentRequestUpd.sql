@@ -51,7 +51,7 @@ BEGIN
 
 	SELECT @AffID = AffID, @RefID = RefID
 	FROM dbo.AffTrans WITH (NOLOCK)
-	WHERE TransID = @TransID AND TransType = 202 AND Status = 'Pending' AND IsProcessing = 1
+	WHERE TransID = @TransID AND TransType = 202 AND Status = 'Pending'
 
 	IF (@AffID IS NULL OR @RefID IS NULL)
 	BEGIN
