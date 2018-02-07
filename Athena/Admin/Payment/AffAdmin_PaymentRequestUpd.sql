@@ -27,7 +27,7 @@ AS
 		- Johnny@20131126: Update field BF in table AffInfo
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
-		- 20180205@Percy: Remove redundant param: @LicenseeId [RedmineID: #90545]
+		- 20180205@Percy: Remove check status and redundant param: @LicenseeId [RedmineID: #90545]
 	
 	Param's Explanation:
 		1) @AffId (For Double check)
@@ -58,26 +58,6 @@ BEGIN
 		SELECT @ErrCode = 1
 
 		RETURN
-	END
-
-	/* Check Condition */
-	-- From Affiliate Site: @UserID = @AffID --> @Status = 'Cancelled'
-	-- From AffAdmin Site: @UserID <> @AffID --> @Status IN ('Approved','Rejected')
-
-	IF @UserID = @AffID
-	BEGIN
-		IF @Status <> 'Cancelled'
-		BEGIN
-			SELECT @ErrCode = 2
-			RETURN
-		END
-	END
-	BEGIN
-		IF (@Status NOT IN ('Approved', 'Rejected'))
-		BEGIN
-			SELECT @ErrCode = 2
-			RETURN
-		END
 	END
 
 	DECLARE @CompletedDate DATETIME
