@@ -29,7 +29,6 @@ AS
 	Revisions:
 		- 20151120@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
-		- 20180205@Percy: Remove check status [RedmineID: #90545]
 
 	Param's Explanation:
 		1) @AffId (For Double check)
@@ -55,6 +54,27 @@ BEGIN
 		SELECT @ErrCode = 140
 		RETURN
 	END  
+
+	/* Check Condition */
+	-- From Affiliate Site : @UserID = @AffID and @Status = 'Cancelled'
+	-- From AffAdmin Site: @UserID <> @AffID and Status in ('Approved','Rejected')   
+	
+	IF @UserID = @AffID
+	BEGIN
+		IF @Status <> 'Cancelled'
+		BEGIN
+			SELECT @ErrCode = 139
+			RETURN
+		END
+	END
+	ELSE
+	BEGIN
+		IF @Status NOT IN ('Approved', 'Rejected')
+		BEGIN
+			SELECT @ErrCode = 139
+			RETURN
+		END
+	END
 
 	DECLARE @CompletedDate DATETIME
 	SELECT  @CompletedDate = CURRENT_TIMESTAMP  
