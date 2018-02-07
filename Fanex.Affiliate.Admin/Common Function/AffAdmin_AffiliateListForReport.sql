@@ -56,7 +56,13 @@ BEGIN
 	SET @AffName = '%' + ISNULL(@AffName, '') + '%'
 	
 	-- Currencies
-	IF (@Currencies <> 'All')
+	IF @Currencies = 'All'
+	BEGIN
+		INSERT INTO @tmpCurrency
+		SELECT uc.val
+		FROM [dbo].[strSplit](@UserCurrencies, ',') uc
+	END
+	ELSE
 	BEGIN
 		INSERT INTO @tmpCurrency
 		SELECT uc.val
@@ -97,8 +103,7 @@ BEGIN
 				,cg.Currency
 		) AS CG 
 		ON CG.GroupID = CAST(tmp.val AS INT)
-	WHERE @Currencies = 'All'
-			OR CG.GroupName IN ('NoCommission')
+	WHERE CG.GroupName IN ('NoCommission')
 			OR CG.Currency IN (
 				SELECT CurrencyID
 				FROM @tmpCurrency
@@ -165,12 +170,9 @@ BEGIN
 					FROM @AffTypeList
 					)
 				)
-			AND (
-				@Currencies = 'All'
-				OR AI.Currency IN (
-					SELECT CurrencyID
-					FROM @tmpCurrency
-					)
+			AND AI.Currency IN (
+				SELECT CurrencyID
+				FROM @tmpCurrency
 				)
 			AND (
 				@CommGroups IS NULL
@@ -267,12 +269,9 @@ BEGIN
 					FROM @AffTypeList
 					)
 				)
-			AND (
-				@Currencies = 'All'
-				OR AI.Currency IN (
-					SELECT CurrencyID
-					FROM @tmpCurrency
-					)
+			AND AI.Currency IN (
+				SELECT CurrencyID
+				FROM @tmpCurrency
 				)
 			AND (
 				@PreferLanguages IS NULL
