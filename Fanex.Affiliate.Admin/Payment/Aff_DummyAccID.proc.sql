@@ -1,19 +1,24 @@
-﻿CREATE PROCEDURE [dbo].[Aff_DummyAccID]
-	@Username varchar(50),
-	@CustId int output
+﻿/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet,bodbDownlineNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [bodb02]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_DummyAccID]
+	@Username VARCHAR(50) = '',
+	@CustId INT = 0 OUTPUT
 AS
 
 /*
-Created: 20130315@Peter    
-Task : Get Player CustId by Player Username 
-DB: DB052.bodb02
-Original:     
-	- Johnny@2013Mar26: For Testing in UUS Account
-Param's Explanation:    
-.@Username: Player Username    
-.@CustId : Output Player CustId    
+	Created: 20130315@Peter
+	Task: Get Player CustId by Player Username
+	DB: DBEXT.bodb02
+
+	Revisions:
+		- 20180207@Percy: Add default value [RedmineID: #90545]
 */
 
-Select @CustId = CustId
-From CustInfo with (nolock)
-where Username = @Username
+BEGIN
+	SELECT @CustId = CustId
+	FROM dbo.custInfo WITH (NOLOCK)
+	WHERE username = @Username
+END
+GO
