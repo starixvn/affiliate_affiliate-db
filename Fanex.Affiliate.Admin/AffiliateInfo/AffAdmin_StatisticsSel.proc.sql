@@ -32,6 +32,7 @@ AS
 		- 20100511@Johnny: correct output params "@TotalPlayerDepUp" and "@NewSignUpDep"  
 		- 20140520@Bobby: add filtering product by commgroup
 		- 20140819@Bobby: Apply SQL style scope
+		- 20180507@Percy: Enhance Performance
 
 	Param's Explanation:  
 		• @AffID : Affiliate custid  
@@ -47,7 +48,31 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @ProductFilter AS TABLE (ProductId INT)
+	DECLARE @ProductFilter TABLE (ProductId INT)
+
+	IF DATEDIFF(MONTH, @MonthDate, CURRENT_TIMESTAMP) = 0
+	BEGIN
+		INSERT INTO @ProductFilter (ProductId)
+		SELECT p.ProductID
+		FROM dbo.Product p WITH (NOLOCK)
+		WHERE EXISTS (
+			SELECT 1 FROM dbo.AffInfo ai WITH (NOLOCK)
+				INNER JOIN dbo.GroupSetting gs WITH (NOLOCK) ON ai.GroupID = gs.GroupID
+			WHERE ai.AffID = @AffId AND gs.ProductID = p.ProductID
+		)
+	END
+	ELSE
+	BEGIN
+		INSERT INTO @ProductFilter (ProductId)
+		SELECT p.ProductID
+		FROM dbo.Product p WITH (NOLOCK)
+		WHERE EXISTS (
+			SELECT 1 FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+				INNER JOIN dbo.GroupSettingHistory gsh WITH (NOLOCK) ON agh.GroupID = gsh.GroupID
+			WHERE agh.AffID = @AffId AND gsh.ProductID = p.ProductID AND gsh.MonthDate = CONVERT(DATE, dbo.Aff_GetLastDayOfMonth(@MonthDate))
+		)
+	END
+
 	INSERT INTO @ProductFilter
 	SELECT p.ProductID
 	FROM dbo.Product p WITH (NOLOCK)

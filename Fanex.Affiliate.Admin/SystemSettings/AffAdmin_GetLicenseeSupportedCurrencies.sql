@@ -3,7 +3,6 @@ USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_GetLicenseeSupportedCurrencies]   
-	@LicenseeID INT
 AS  
 /*
 Created:20161129@Joseph
@@ -12,6 +11,7 @@ DB: DBAFF - Affiliate database
 
 Revisions:
 	- 20170717@Percy: Get Original Currency [RedmineID: #80074]
+	- 20180205@Percy: Remove redundant param: @LicenseeID [RedmineID: #90545]
 Param's Explanation:
 
 */
