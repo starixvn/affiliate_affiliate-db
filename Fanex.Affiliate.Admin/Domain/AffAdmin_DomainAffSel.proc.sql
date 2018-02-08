@@ -1,4 +1,5 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_DomainAffSel]  
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[AffAdmin_DomainAffSel]  
 /*
 Revisions:
 	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site

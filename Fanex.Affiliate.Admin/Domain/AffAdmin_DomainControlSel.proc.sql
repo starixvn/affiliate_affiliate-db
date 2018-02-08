@@ -1,4 +1,5 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_DomainControlSel]  
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[AffAdmin_DomainControlSel]  
 	@CountryID nvarchar(10) = null  
 AS  
 /*  
