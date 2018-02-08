@@ -45,7 +45,7 @@ BEGIN
 		,[ModifyDate] = CURRENT_TIMESTAMP  
 		,[Status] = @Status  
 		,[Creator] = @UserID
-		,[CreaName]=@AdminUserName
+		,[CreatorName]=@AdminUserName
 	WHERE ID = @ID  
   
 	IF @@ERROR <> 0  
