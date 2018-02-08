@@ -44,7 +44,7 @@ BEGIN
 		,[CountryID] = @CountryID  
 		,[ModifyDate] = CURRENT_TIMESTAMP  
 		,[Status] = @Status  
-		,[Creator] = @UserID,
+		,[Creator] = @UserID
 		,[CreaName]=@AdminUserName
 	WHERE ID = @ID  
   
