@@ -3,7 +3,6 @@ USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_DomainAffIns]  
-	@LicenseeID int,
 	@DomainID int OUTPUT,  
 	@DomainName nvarchar(50),    
 	@UserID int,    
