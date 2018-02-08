@@ -1,5 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_HotNewsSel]
-	@LicenseeID INT,
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_HotNewsSel]
     @fromdate smalldatetime=null,
     @todate smalldatetime=null,
 	@Important bit=null,
@@ -19,6 +22,7 @@ Revisions:
 - 20090819@DungTong : Add new Spanish language
 - 20090920@DungTong : Add new Vietnamese and Indonesia Language
 - 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
 
 Param's Explanation:
 • @fromdate : <> null: from postdate
@@ -53,8 +57,6 @@ where important=coalesce(@Important,important)
 SELECT @TotalPages=@NRows/@PageSize + case when @NRows%@PageSize>0 then 1 else 0 end,
        @PageIndex = @PageIndex - 1, @RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1   
 
-SELECT * INTO #AdminUser FROM dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID)
-  
 if(@language is null)--select all column
 begin
    
@@ -72,13 +74,11 @@ begin
 		  ,[posteddate]
 		  ,[msgid]
 		  ,[important]
-		  ,C.username as creatorname
-		  ,u.username as updatename
+		  ,n.CreatorName as creatorname
+		  ,n.UpdatedByName as updatename
 		  ,[updateddate]
           ,ROW_NUMBER() OVER(ORDER BY msgid desc) AS TheCount
 	  FROM News n with (nolock)
-			LEFT JOIN #AdminUser C ON C.UserID=n.[creator]
-			LEFT JOIN #AdminUser u ON u.UserID=n.[updatedby]
 	  WHERE important=coalesce(@Important,important)
            and (case when @fromdate is null or @todate is null then 1
                     when posteddate between @fromdate and @todate then 1
@@ -113,9 +113,4 @@ else --select for specific language
      ) x
      where x.TheCount between @RowStart and @RowEnd
  end
-
- DROP TABLE #AdminUser
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_HotNewsSel] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_HotNewsSel] TO [vnteam] AS [dbo]

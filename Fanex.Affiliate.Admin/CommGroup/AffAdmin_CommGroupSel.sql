@@ -27,7 +27,7 @@ AS
 		- 20131121@Joseph: filter by TestLevel
 		- 20140820@Bobby: Add Deposit & Withdrawal percent - apply SQL stylescope
 		- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
-		- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
+		- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
 
 	Params Explaination:
 */
@@ -130,7 +130,7 @@ BEGIN
 			,tmp.MonthDate
 			,ISNULL(cg.GroupName, ch.GroupName) 				AS GroupName
 			,ISNULL(cg.[Description], ch.[Description]) 		AS [Description]
-			,ISNULL(cg.Creator, ch.Creator) 					AS Creator
+			,ISNULL(cg.CreatorName, ch.CreatorName) 			AS Creator
 			,ISNULL(cg.CreatedDate, ch.CreatedDate) 			AS CreatedDate
 			,ISNULL(cg.Currency, ch.Currency) 					AS CurrencyID
 			,ISNULL(cg.QualifiedAmount, ch.QualifiedAmount)    	AS QualifiedAmount
@@ -156,7 +156,7 @@ BEGIN
 		,g.MonthDate
 		,g.GroupName
 		,g.Description
-		,ISNULL(au.username, 'System') AS Creator
+		,g.Creator
 		,g.CreatedDate
 		,g.CurrencyID
 		,ISNULL(g.Currency, 'All') AS Currency
@@ -166,7 +166,6 @@ BEGIN
 		,ai.NoOfAffiliate
 		,@HasCashback AS HasCashback
 	FROM CommPaging g
-		LEFT JOIN dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) au ON au.userid = g.Creator
 		CROSS APPLY (
 			SELECT COUNT(1) AS NoOfAffiliate
 			FROM dbo.AffInfo ai WITH (NOLOCK)

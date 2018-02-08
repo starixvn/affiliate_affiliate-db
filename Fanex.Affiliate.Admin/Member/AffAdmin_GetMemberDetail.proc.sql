@@ -1,5 +1,8 @@
+/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
 ALTER PROCEDURE [dbo].[AffAdmin_GetMemberDetail]
-	@LicenseeID INT,
 	@UserName VARCHAR(30)
 AS
 /*  Author:20140827@Bobby.Nguyen
@@ -8,7 +11,9 @@ AS
 	Revisions:           
 		- 20140909@Bobby: Create SP
 		- 20141711@Bobby: Update to get country info
-		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site                
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
+		               
 	Param's Explanation: 
 */
 BEGIN
@@ -46,12 +51,10 @@ BEGIN
 		ON m.Currency = ex.ExchangeID
 		CROSS APPLY (
 			SELECT MAX(r.RemovedDate) AS RemovedDate
-					, ad.UserName AS RemovedBy
+					, r.RemovedByName AS RemovedBy
 				FROM dbo.MemberRemoval r WITH(NOLOCK)
-					INNER JOIN dbo.AffAdmin_f_AdminUserInfo_Select('',@LicenseeID) ad
-					ON r.RemovedBy = ad.UserID
 				WHERE r.UserName = m.UserName
-				GROUP BY ad.UserName
+				GROUP BY r.RemovedByName
 				
 				UNION
 				SELECT RemovedDate
@@ -67,4 +70,3 @@ BEGIN
 	WHERE m.UserName = @UserName
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_GetMemberDetail] TO [bodbAdminNet] AS [dbo]

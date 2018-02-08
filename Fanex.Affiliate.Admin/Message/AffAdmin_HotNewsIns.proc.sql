@@ -3,11 +3,11 @@ USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_HotNewsIns]
-		@LicenseeID INT,
 		@important bit,
 		@xml xml,
 		@IP varchar(20),
 		@UserID int,
+		@AdminUserName VARCHAR(50),
 		@ErrCode int = 0 OUTPUT
 AS
 
@@ -23,6 +23,7 @@ AS
 		- 20130225@Joseph: Insert data into RefResources table
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
 	
 	Param's Explanation:
 		• @important: message important or not
@@ -43,6 +44,7 @@ BEGIN
 		,[creator]
 		,[posteddate]
 		,[important]
+		,CreatorName
 	)
 	VALUES
 	(
@@ -50,6 +52,7 @@ BEGIN
 		,@UserID
 		,getdate()
 		,@important
+		,@AdminUserName
 	)
            
 	IF @@ERROR <> 0

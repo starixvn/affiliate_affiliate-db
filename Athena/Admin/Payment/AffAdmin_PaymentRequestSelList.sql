@@ -25,6 +25,7 @@ AS
 	Revisions:   
 		- 20140102@Bobby: fixing bug - no need to convert to system currency when @BaseCurrency=0
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
 
 	Param's Explanation:
 		• @Username: Affiliate username need to search

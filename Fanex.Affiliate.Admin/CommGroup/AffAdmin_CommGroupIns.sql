@@ -3,8 +3,8 @@ USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_CommGroupIns] 
-	@LicenseeID					INT
-	,@UserId 					INT
+	@UserId 					INT
+	,@AdminUserName				VARCHAR(50)
 	,@Currency 					INT
 	,@QualifiedAmount 			MONEY
 	,@GroupName 				NVARCHAR(100)
@@ -41,6 +41,7 @@ AS
 		- 20170601@Percy: Add new column: isTest [RedmineID: #77521]
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
 	
 	Parameters:
 		.@UserID : Administrator user id
@@ -121,6 +122,7 @@ BEGIN
 		,Currency
 		,DepositPercent
 		,WithdrawalPercent
+		,CreatorName
 		)
 	VALUES (
 		@GroupID
@@ -133,6 +135,7 @@ BEGIN
 		,@Currency
 		,@DepositPercent
 		,@WithdrawalPercent
+		,@AdminUserName
 		)
 
 	IF @@ERROR <> 0
