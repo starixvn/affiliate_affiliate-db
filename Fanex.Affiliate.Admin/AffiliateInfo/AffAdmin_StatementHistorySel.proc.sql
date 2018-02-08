@@ -197,12 +197,16 @@ BEGIN
 			WHEN a.STATUS = 'Completed' THEN 'Approved'
 			ELSE a.STATUS END
 			) AS STATUS
-		,isnull(a.AdminUserName, 'System') AS Creator
+		,CASE
+			WHEN a.Status IN ('Pending', 'Cancelled') AND a.TransType = 202 THEN ai.UserName
+			WHEN a.TransType = 201 THEN 'System'
+			ELSE a.AdminUserName END AS Creator
 		,(CASE 
 			WHEN transtype = @PaymentType THEN ap.AdminDesc
 			ELSE a.Description END
 			)
 	FROM AffTrans a(NOLOCK)
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON a.AffID = ai.AffID
 		LEFT JOIN AffPayout ap(NOLOCK) ON ap.RefID = a.RefID
 		
 	WHERE a.AffID = @AffID
@@ -248,6 +252,3 @@ BEGIN
 		,transID ASC
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_StatementHistorySel] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_StatementHistorySel] TO [vnteam] AS [dbo]
