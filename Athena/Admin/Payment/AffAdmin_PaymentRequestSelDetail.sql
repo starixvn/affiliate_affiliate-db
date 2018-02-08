@@ -56,7 +56,7 @@ BEGIN
 		case
 			when b.Status IN ('Pending','Cancelled') and b.TransType=202 then ai.UserName  
 			when b.TransType=201  then 'System'        
-			else b.AdminUserName,  
+			else b.AdminUserName end AS adminname,  
 		p.MemberCurrency as PlayerCurrency,   
 		@SystemName as SystemName,  
 		p.MemberCurrency as Currency,  
