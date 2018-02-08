@@ -1,3 +1,4 @@
+/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="" viewers="" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_Athena000]
 GO
 
@@ -13,6 +14,7 @@ Original:
 
 Revisions:
 	- 20170525@Percy: Apply Cash Out Win Loss Share [RedmineID: #74874]
+	- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
 
 Param's Explanation:
 • @Month: The month to transfer
@@ -80,6 +82,7 @@ BEGIN
 		,[GroupName]
 		,[CreatedDate]
 		,[Creator]
+		,[CreatorName]
 		,[IsDeleted]
 		,[Description]
 		,[QualifiedAmount]
@@ -92,6 +95,7 @@ BEGIN
 		,[GroupName]
 		,[CreatedDate]
 		,[Creator]
+		,[CreatorName]
 		,[IsDeleted]
 		,[Description]
 		,[QualifiedAmount]
