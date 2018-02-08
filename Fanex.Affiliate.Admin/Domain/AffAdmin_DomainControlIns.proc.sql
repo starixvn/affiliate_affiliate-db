@@ -58,7 +58,7 @@ BEGIN
 		@CreatedDate,  
 		@UserID,  
 		@Status,
-		AdminUserName
+		@AdminUserName
 	 )  
 	
 	IF @@ERROR <> 0  
