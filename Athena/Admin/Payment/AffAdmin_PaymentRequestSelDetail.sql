@@ -15,6 +15,7 @@ AS
 	Revisions:     
 	 - Get Username2 from customer table.  
 	 - 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	 - 20180208@Alex  : Support Liecnsee admin portal #90545
 	
 	Param's Explanation:  
 		• @TransID: Payment Request's Transaction.  
@@ -55,7 +56,7 @@ BEGIN
 		case
 			when b.Status IN ('Pending','Cancelled') and b.TransType=202 then ai.UserName  
 			when b.TransType=201  then 'System'        
-			else admin.username end AS adminname,  
+			else b.AdminUserName,  
 		p.MemberCurrency as PlayerCurrency,   
 		@SystemName as SystemName,  
 		p.MemberCurrency as Currency,  
@@ -70,7 +71,7 @@ BEGIN
 		inner join AffDetail af with (nolock) on ai.AffID = af.AffID            
 		inner join Exchange e with (nolock) on b.AffCurrency = e.ExchangeID  
 		left join Exchange e1 with (nolock) on p.MemberCurrency = e1.ExchangeID  
-		left join dbo.AffAdmin_f_AdminUserInfo_Select('',@LicenseeID) admin on admin.UserID=b.creator    
+		
 	WHERE   
 		b.Transtype = 202 and b.transid = @transid
 END

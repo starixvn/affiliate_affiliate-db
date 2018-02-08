@@ -2,8 +2,7 @@
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_StatementHistorySel] 
-	@LicenseeID INT
-	,@AffId INT
+	@AffId INT
 	,@TransType VARCHAR(100) = NULL
 	,@Status VARCHAR(100) = NULL
 	,@DateOption TINYINT = 0
@@ -23,6 +22,7 @@ AS
 		- 20140520@Bobby: check data existing in MemberDaily for previous month
 		- 20140703@Bobby: check data existing in AffCommission
 		- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20180208@Alex  : Support Liecnsee admin portal #90545
 
 	Param's Explanation:    
 		• @AffID: Affiliate custid    
@@ -196,14 +196,14 @@ BEGIN
 			WHEN a.STATUS = 'Completed' THEN 'Approved'
 			ELSE a.STATUS END
 			) AS STATUS
-		,isnull(i.username, 'System') AS Creator
+		,isnull(a.AdminUserName, 'System') AS Creator
 		,(CASE 
 			WHEN transtype = @PaymentType THEN ap.AdminDesc
 			ELSE a.Description END
 			)
 	FROM AffTrans a(NOLOCK)
 		LEFT JOIN AffPayout ap(NOLOCK) ON ap.RefID = a.RefID
-		LEFT JOIN dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) i ON i.userID = a.Creator
+		
 	WHERE a.AffID = @AffID
 	ORDER BY (CASE 
 			WHEN a.STATUS = 'pending'

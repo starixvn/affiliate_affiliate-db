@@ -10,6 +10,7 @@ ALTER PROCEDURE [dbo].[AffAdmin_PaymentRequestUpd]
 	@PreferredLanguage	VARCHAR(20) = 'en-US' OUTPUT,
 	@MailOption			BIT = 0 OUTPUT,
 	@UserID				INT,
+	@AdminUserName		VARCHAR(50),
 	@IP					VARCHAR(15) = '',
 	@RefNo				BIGINT = 0,
 	@IbcRefNo			BIGINT = 0,
@@ -28,6 +29,8 @@ AS
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 		- 20180205@Percy: Remove check status and redundant param: @LicenseeId [RedmineID: #90545]
+		- 20180208@Alex  : Support Liecnsee admin portal #90545
+	
 	
 	Param's Explanation:
 		1) @AffId (For Double check)
@@ -93,6 +96,7 @@ BEGIN
 		[Status] = @Status
 		,CompletedDate = @CompletedDate
 		,Creator = @UserID
+		,AdminUserName=@AdminUserName
 	WHERE TransID = @TransID AND AffID = @AffID
 
 	IF @@ERROR <> 0
