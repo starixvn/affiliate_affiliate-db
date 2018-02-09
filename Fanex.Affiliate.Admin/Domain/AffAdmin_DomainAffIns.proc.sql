@@ -3,12 +3,12 @@ USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_DomainAffIns]  
-	@LicenseeID int,
 	@DomainID int OUTPUT,  
 	@DomainName nvarchar(50),    
 	@UserID int,    
 	@IP nvarchar(15) = '',
-	@ErrCode int = 0 OUTPUT
+	@ErrCode int = 0 OUTPUT,
+	@AdminUserName VARCHAR(50)
 AS
 
 /*  
@@ -19,6 +19,8 @@ AS
 	Revisions:
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		- 20180208@Alex  : Support Liecnsee admin portal #90545
+
 */
 
 BEGIN 
@@ -41,13 +43,15 @@ BEGIN
 		,[CreateDate]
 		,[ModifyDate]
 		,[Creator]    
+		,[CreatorName]
 	)  
 	VALUES  
 	(
 		@DomainName,
 		@CreatedDate,
 		@CreatedDate,
-		@UserID
+		@UserID,
+		@AdminUserName
 	)  
 	
 	IF @@ERROR <> 0  

@@ -1,9 +1,9 @@
-﻿USE [Affiliate_Athena000]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_AffiliateCommissionReport] 
-	@LicenseeID			INT
-	,@UserId 			INT 			= 0
+	@UserCurrencies 	VARCHAR(MAX)	= ''
 	,@AffName 			NVARCHAR(100) 	= NULL
 	,@AffTypes 			VARCHAR(100) 	= NULL
 	,@CommGroups 		VARCHAR(1000) 	= NULL
@@ -35,6 +35,7 @@ AS
 	Revisions:
 		- 20140825@Bobby: Add Virtual Sport & PlayerComm - apply SQL stylecope
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
 	
 	Param's Explanation: 
 		-@TransferStatus: 	0 - ALL, 1 - Is Processing, 2 - Transferred
@@ -111,7 +112,7 @@ BEGIN
 		,MonthDate
 		,GroupId
 		,GroupName
-	FROM [dbo].[AffAdmin_AffiliateListForReport](@LicenseeID, @UserId, @AffName, @AffTypes, @CommGroups, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
+	FROM [dbo].[AffAdmin_AffiliateListForReport](@UserCurrencies, @AffName, @AffTypes, @CommGroups, @PreferLanguages, @Currencies, @ExcludeTest, @IsITAdmin, @FromDate, @ToDate) AS t
 	
 	IF(NOT EXISTS(SELECT TOP 1 1 FROM @AffUserRpt))
 	BEGIN
@@ -524,8 +525,4 @@ BEGIN
 	DROP TABLE #AffCommPaging
 	DROP TABLE #AffCommissionRpt
 END
-GO
-GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateCommissionReport] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateCommissionReport] TO [vnteam] AS [dbo]
 GO

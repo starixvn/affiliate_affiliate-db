@@ -25,6 +25,7 @@ AS
 	Revisions:   
 		- 20140102@Bobby: fixing bug - no need to convert to system currency when @BaseCurrency=0
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
 
 	Param's Explanation:
 		• @Username: Affiliate username need to search
@@ -97,14 +98,14 @@ BEGIN
 			dbo.Aff_GetExchangeRate(b.Currency, @SystemCurrency, null) as ExchangeRate, 
 			ex.Code as Currency,
 			case when a.Status in ('Pending','Cancelled') and a.TransType=202 then b.UserName  
-					else admin.username  
+					else a.AdminUserName
 			end  as Creator  
 	from AffTrans a with (NOLOCK)
 		INNER JOIN AffInfo b WITH (nolock) ON a.AffId = b.AffId
 		INNER JOIN AffDetail c WITH (nolock) ON b.AffId = c.AffId
 		INNER JOIN Exchange ex WITH (nolock) ON b.Currency = ex.ExchangeID
 		INNER JOIN AffType d  WITH (nolock) ON b.AffType = d.TypeID
-		LEFT Join dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) admin on a.creator = admin.UserID  
+		
 	where TransType = @TransType
 		and b.Username like @Username
 		AND b.AffType in (SELECT AffType from @AffTypeTable)

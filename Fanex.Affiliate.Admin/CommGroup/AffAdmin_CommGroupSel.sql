@@ -1,17 +1,19 @@
-﻿USE [Affiliate_Athena000]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_CommGroupSel] 
-	@LicenseeID		INT
-	,@GroupName		NVARCHAR(100)	= ''
-	,@Currencies	VARCHAR(1000)	= ''
-	,@Date			DATETIME
-	,@UserId		INT
-	,@GroupID		INT				= 0
-	,@PageSize		INT				= 50
-	,@PageIndex		INT				= 1
-	,@GroupIDList	VARCHAR(1000)	= ''	OUTPUT
-	,@NRows			INT				= 0		OUTPUT
+	@LicenseeID			INT
+	,@GroupName			NVARCHAR(100)	= ''
+	,@Currencies		VARCHAR(1000)	= ''
+	,@UserCurrencies	VARCHAR(MAX)	= ''
+	,@Date				DATETIME
+	,@UserId			INT
+	,@GroupID			INT				= 0
+	,@PageSize			INT				= 50
+	,@PageIndex			INT				= 1
+	,@GroupIDList		VARCHAR(1000)	= ''	OUTPUT
+	,@NRows				INT				= 0		OUTPUT
 AS
 
 /*
@@ -25,6 +27,7 @@ AS
 		- 20131121@Joseph: filter by TestLevel
 		- 20140820@Bobby: Add Deposit & Withdrawal percent - apply SQL stylescope
 		- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
 
 	Params Explaination:
 */
@@ -47,17 +50,13 @@ BEGIN
 	
 	SELECT @IsITAdmin 	= dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID)
 
-	SELECT AffCurrencyID AS CurrencyID
-	INTO #tmpCurrency
-	FROM dbo.AffAdmin_f_UserCurrency_Select(@UserId,@LicenseeID)
-
 	-- Insert statements for procedure here  
 	IF @Currencies != 'All'
 	BEGIN
 		INSERT INTO @TblCurrency
 		SELECT c.val
 		FROM [dbo].[strSplit](@Currencies, ',') c
-			INNER JOIN #tmpCurrency t ON c.val = t.CurrencyID
+			INNER JOIN [dbo].[strSplit](@UserCurrencies, ',') uc ON c.val = uc.val
 
 		-- NoCommission group
 		IF @@ROWCOUNT > 0
@@ -131,7 +130,7 @@ BEGIN
 			,tmp.MonthDate
 			,ISNULL(cg.GroupName, ch.GroupName) 				AS GroupName
 			,ISNULL(cg.[Description], ch.[Description]) 		AS [Description]
-			,ISNULL(cg.Creator, ch.Creator) 					AS Creator
+			,ISNULL(cg.CreatorName, ch.CreatorName) 			AS Creator
 			,ISNULL(cg.CreatedDate, ch.CreatedDate) 			AS CreatedDate
 			,ISNULL(cg.Currency, ch.Currency) 					AS CurrencyID
 			,ISNULL(cg.QualifiedAmount, ch.QualifiedAmount)    	AS QualifiedAmount
@@ -157,7 +156,7 @@ BEGIN
 		,g.MonthDate
 		,g.GroupName
 		,g.Description
-		,ISNULL(au.username, 'System') AS Creator
+		,g.Creator
 		,g.CreatedDate
 		,g.CurrencyID
 		,ISNULL(g.Currency, 'All') AS Currency
@@ -167,7 +166,6 @@ BEGIN
 		,ai.NoOfAffiliate
 		,@HasCashback AS HasCashback
 	FROM CommPaging g
-		LEFT JOIN dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) au ON au.userid = g.Creator
 		CROSS APPLY (
 			SELECT COUNT(1) AS NoOfAffiliate
 			FROM dbo.AffInfo ai WITH (NOLOCK)
@@ -177,11 +175,5 @@ BEGIN
 	ORDER BY g.RowIDX ASC
 	
 	SELECT @GroupIDList = SUBSTRING(@GroupIDList, 2, LEN(@GroupIDList) - 1)
-	
-	DROP TABLE #tmpCurrency
 END
-GO
-GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupSel] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupSel] TO [vnteam] AS [dbo]
 GO

@@ -3,7 +3,6 @@ USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_HotNewsDel]
-	@LicenseeID INT,
 	@listmsgid varchar(4000)=null,
 	@UserID int,
 	@IP varchar(20),
@@ -19,6 +18,7 @@ AS
 	Revisions:
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site 
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		- 20180205@Percy: Remove check UserId [RedmineID: #90545]
 
 	Param's Explanation:
 		• @listmsgid : list of message ids need to delete separated by a comma
@@ -31,13 +31,6 @@ BEGIN
 	IF @listmsgid IS NULL
 	BEGIN
 		SELECT @ErrCode = 202
-		RETURN
-	END
-
-	--Check UserID is valid
-	IF NOT EXISTS (SELECT 1 FROM dbo.AffAdmin_f_AdminUserInfo_Select(@UserID, @LicenseeID))
-	BEGIN
-		SELECT @ErrCode = 205
 		RETURN
 	END
 

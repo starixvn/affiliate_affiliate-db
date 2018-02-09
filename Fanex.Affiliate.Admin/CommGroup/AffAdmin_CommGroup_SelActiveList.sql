@@ -1,17 +1,12 @@
+/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_Athena000]
 GO
-/****** Object:  StoredProcedure [dbo].[AffAdmin_CommGroup_SelActiveList]    Script Date: 01/04/2016 17:15:50 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.AffAdmin_CommGroup_SelActiveList    Script Date: 12/22/2015 4:36:17 AM ******/
 
 ALTER PROCEDURE [dbo].[AffAdmin_CommGroup_SelActiveList] 
-	@LicenseeID INT
-	,@UserID		INT				= NULL
-	,@Currency	VARCHAR(255)	= NULL
+	@UserCurrencies	VARCHAR(MAX) = '',
+	@Currencies		VARCHAR(255) = ''
 AS
+
 /*
 Created: 20140818@Bobby
 Task : Get all active Commission Group List 
@@ -22,27 +17,27 @@ Params Explaination:
    
 Revisions:	
 	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
-	
+	- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
 */
+
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @TblCurrency TABLE (CurrencyID INT)
 
-	SET @Currency = ISNULL(@Currency, '')
+	SET @Currencies = ISNULL(@Currencies, '')
 
 	INSERT INTO @TblCurrency (CurrencyID)
-	SELECT AffCurrencyID AS CurrencyID
-	FROM dbo.AffAdmin_f_UserCurrency_Select(@UserID, @LicenseeID)
-	GROUP BY AffCurrencyID
+	SELECT val
+	FROM dbo.strSplit(@UserCurrencies, ',')
 
-	IF (@Currency <> 'All')
+	IF (@Currencies <> 'All')
 	BEGIN
 		DELETE d
 		FROM @TblCurrency d
 		WHERE CurrencyID NOT IN (
 				SELECT val
-				FROM [dbo].[strSplit](@Currency, ',')
+				FROM [dbo].[strSplit](@Currencies, ',')
 				)
 	END
 
@@ -67,6 +62,3 @@ BEGIN
 	ORDER BY GroupId
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_CommGroup_SelActiveList] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroup_SelActiveList] TO [vnteam] AS [dbo]

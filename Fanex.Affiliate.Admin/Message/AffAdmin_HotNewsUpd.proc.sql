@@ -3,12 +3,12 @@ USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_HotNewsUpd]
-	@LicenseeID INT,
 	@ID int,
 	@important bit,
 	@xml xml,	
 	@IP varchar(20),
 	@UserID int,
+	@AdminUserName VARCHAR(50),
 	@ErrCode int = 0 OUTPUT
 AS
 
@@ -24,6 +24,7 @@ AS
 		- 20140225@Joseph: Use xml data to update
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
 	
 	Param's Explanation:
 		• @ID : message id input
@@ -49,6 +50,7 @@ BEGIN
 		,[important] = COALESCE(@important, [important])
 		,[updatedby] = COALESCE(@UserID, [updatedby])
 		,updateddate = CURRENT_TIMESTAMP
+		,UpdatedByName = @AdminUserName
 	WHERE msgid = @ID
 
 	IF @@ERROR <> 0

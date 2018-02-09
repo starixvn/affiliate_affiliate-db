@@ -3,7 +3,8 @@ USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_ProductIns]
-    @Updatedby int ,
+    @Updatedby int,
+	@AdminUsername varchar(50),
     @ProductName nvarchar(50),    
     @Description nvarchar(100)=NULL,    
     @BettypeList nvarchar(255)=NULL,    
@@ -22,6 +23,7 @@ AS
 	Revisions:
 		- 20151221@Francis: Support SSO
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
 
 	Param's Explanation:
 */
@@ -41,6 +43,7 @@ BEGIN
 		,[CreatedDate]
 		,[BettypeList]
 		,[API_ProductID]
+		,[CreatorName]
 	)
 	VALUES
 	(
@@ -50,6 +53,7 @@ BEGIN
 		,CURRENT_TIMESTAMP
 		,@BettypeList
 		,@API_ProductID
+		,@AdminUsername
 	)
 
 	IF @@ERROR <> 0

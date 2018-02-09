@@ -1,12 +1,11 @@
-﻿USE [Affiliate_Athena000]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_AffiliateSelGeneralInfo]
-	@LicenseeID		INT 
-	,@Username		NVARCHAR(30)
-	,@UserId		INT				= 0
-	,@Currencies	VARCHAR(100)	= NULL
-	,@IsITAdmin		BIT				= 0
+	@Username		NVARCHAR(30),
+	@UserCurrencies	VARCHAR(MAX)	= '',
+	@IsITAdmin		BIT				= 0
 AS
 
 /*  
@@ -20,6 +19,7 @@ AS
 							Get PreferredPayment to check approve   
 		- 20140819@Bobby: Apply SQL style scope
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get of currencies [RedmineID: #90545]
 	
 	Param's Explanation:  
 		• @Username : Affiliate username  
@@ -42,37 +42,6 @@ BEGIN
 
 		IF @affID IS NULL RETURN
 	END
-
-	DECLARE @tmpCurrency TABLE
-	(
-		CurrencyID INT
-		,ExRate FLOAT
-	)
-
-	SELECT CAST(val AS INT) AS CurrencyID
-	INTO #TblCurrency
-	FROM [dbo].[strSplit](@Currencies, ',')
-
-	IF (
-			@Currencies IS NULL
-			OR @Currencies LIKE ''
-			) -- All Currency selected
-	BEGIN
-		INSERT INTO @tmpCurrency
-		SELECT AffCurrencyID
-			,0 AS ExRate
-		FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID)
-	END
-	ELSE
-	BEGIN
-		INSERT INTO @tmpCurrency
-		SELECT AffCurrencyID
-			,0 AS ExRate
-		FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID) r
-			INNER JOIN #TblCurrency s ON s.CurrencyID = r.AffCurrencyID
-	END
-
-	DROP TABLE #TblCurrency
 
 	SELECT --Get affiliate info  
 		IsClosed AS closed
@@ -108,10 +77,10 @@ BEGIN
 		LEFT JOIN dbo.CommGroup c(NOLOCK) ON c.groupid = a.groupid
 	WHERE a.AffID = @AffID
 		AND (
-			@Currencies IS NULL
+			@UserCurrencies IS NULL
 			OR a.Currency IN (
-				SELECT CurrencyID
-				FROM @tmpCurrency
+				SELECT CAST(val AS INT)
+				FROM [dbo].[strSplit](@UserCurrencies, ',')
 				)
 			)
 		AND (
@@ -127,8 +96,4 @@ BEGIN
 	WHERE custid = @AffID
 	ORDER BY on_userid
 END
-GO
-GRANT EXECUTE ON [dbo].[AffAdmin_AffiliateSelGeneralInfo] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_AffiliateSelGeneralInfo] TO [vnteam] AS [dbo]
 GO

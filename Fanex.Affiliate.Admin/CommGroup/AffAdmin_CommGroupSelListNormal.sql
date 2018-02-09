@@ -1,8 +1,12 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_CommGroupSelListNormal] 
-	@LicenseeID	INT
-	,@UserID 	INT 			= NULL
-	,@Currency 	VARCHAR(255) 	= NULL
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_CommGroupSelListNormal] 
+	@UserCurrencies VARCHAR(MAX) = '',
+	@Currencies		VARCHAR(255) 	= NULL
 AS
+
 /*
 Created: 20130903@Joseph
 Task : Get Commission Group List (groupid<1000) for dropdown list
@@ -17,26 +21,27 @@ Revisions:
 	- 20140704@Bobby: Include commgroup from CommGroupHistory
 	- 20140818@Bobby: Standalize SP coding
 	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
 */
+
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @TblCurrency TABLE (CurrencyID INT)
 
-	SET @Currency = ISNULL(@Currency, '')
+	SET @Currencies = ISNULL(@Currencies, '')
 
 	INSERT INTO @TblCurrency (CurrencyID)
-	SELECT AffCurrencyID AS CurrencyID
-	FROM dbo.AffAdmin_f_UserCurrency_Select(@UserID, @LicenseeID)
-	GROUP BY AffCurrencyID
+	SELECT val
+	FROM dbo.strSplit(@UserCurrencies, ',')
 
-	IF (@Currency <> 'All')
+	IF (@Currencies <> 'All')
 	BEGIN
 		DELETE d
 		FROM @TblCurrency d
 		WHERE CurrencyID NOT IN (
 				SELECT val
-				FROM [dbo].[strSplit](@Currency, ',')
+				FROM [dbo].[strSplit](@Currencies, ',')
 				)
 	END
 
@@ -61,6 +66,3 @@ BEGIN
 		,cg.GroupName
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_CommGroupSelListNormal] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CommGroupSelListNormal] TO [vnteam] AS [dbo]

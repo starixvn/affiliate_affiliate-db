@@ -1,5 +1,8 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_HotNewsDetail]
-	@LicenseeID INT,
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_HotNewsDetail]
 	@MsgID int=null
 AS
 /*
@@ -13,6 +16,8 @@ Revisions:
 - 20090819@DungTong : Add new Spanish language
 - 20090920@DungTong : Add new Vietnamese and Indonesia Language
 - 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
+
 Param's Explanation:
 • @MsgID : >0 message id selected
            null: select the latest message
@@ -42,10 +47,9 @@ select n.[creator]
 	  ,[posteddate]
 	  ,[msgid]
 	  ,[important]
-	  ,c.username as creatorname
+	  ,n.creatorname
 	  ,temp.*
 	  FROM News n with (nolock)
-	  LEFT JOIN dbo.AffAdmin_f_AdminUserInfo_Select('''',' + Cast(@LicenseeID AS VARCHAR(10)) + ') c ON c.userid=n.[creator]
 	  LEFT JOIN (
 			select * from (select ResourceKey,ResourceValue,LanguageCode from RefResources r (nolock) 
 			WHERE r.ResourceKey = ''' + @ID +''') a
@@ -56,6 +60,3 @@ select n.[creator]
 
 exec (@Query)
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_HotNewsDetail] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_HotNewsDetail] TO [vnteam] AS [dbo]

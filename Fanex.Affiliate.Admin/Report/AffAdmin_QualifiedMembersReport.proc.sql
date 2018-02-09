@@ -1,9 +1,9 @@
-﻿USE [Affiliate_Athena000]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_QualifiedMembersReport] 
-	@LicenseeID		INT
-	,@UserId			INT
+	@UserCurrencies	VARCHAR(MAX) = ''
 	,@AffId			INT
 	,@MonthDate		DATETIME
 	,@BaseCurrency	TINYINT 		= 2
@@ -22,6 +22,7 @@ AS
 		- 20140523@Bobby: Add Virtual Sport & apply style-scope
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20151119@Bobby: Do update for listing product dynamically
+		- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
 
 	Param's Explanation: 
 		• @UserId: Admin user id
@@ -32,8 +33,14 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @HasPermission BIT
-	SELECT  @HasPermission = [dbo].[AffAdmin_PermissionOnAffiliate] (@LicenseeID, @UserId, @AffId)
+	DECLARE @HasPermission BIT = 0
+
+	IF EXISTS (
+		SELECT 1 FROM dbo.AffInfo ai WITH (NOLOCK)
+			INNER JOIN dbo.strSplit(@UserCurrencies, ',') c ON ai.Currency = CONVERT(INT, c.val)
+		WHERE ai.AffID = @AffId
+	)
+		SELECT @HasPermission = 1
 
 	IF (@HasPermission = 0) RETURN
 	
@@ -104,8 +111,4 @@ BEGIN
 		, m.ProductId
 		, p.ProductName
 END
-GO
-GRANT EXECUTE ON [dbo].[AffAdmin_QualifiedMembersReport] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_QualifiedMembersReport] TO [vnteam] AS [dbo]
 GO

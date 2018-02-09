@@ -3,10 +3,10 @@ USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_NoteIns]  
-	@LicenseeID INT,
 	@Content NVARCHAR(1000),  
 	@AffId INT,  
-	@Updatedby INT,  
+	@Updatedby INT,
+	@AdminUserName VARCHAR(50),
 	@IP NVARCHAR(15) = '',  
 	@Language VARCHAR(5) = 'en-US', 
 	@ErrCode INT = 0 OUTPUT
@@ -21,6 +21,7 @@ AS
 	Revisions:  
 		- 20151123@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
 
 	Param's Explanation:
 		. @Noteid: autonumber output
@@ -41,14 +42,16 @@ BEGIN
 		[Note],
 		[Updateddate],
 		[AffID],
-		[Updatedby]
+		[Updatedby],
+		[UpdatedByName]
 	)
 	VALUES
 	(
 		@Content,
 		GETDATE(),
 		@AffId,
-		@Updatedby
+		@Updatedby,
+		@AdminUserName
 	)
 
 	IF @@ERROR <> 0

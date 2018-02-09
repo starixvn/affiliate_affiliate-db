@@ -1,9 +1,9 @@
-﻿USE [Affiliate_Athena000]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_HomeGeneralInfo] 
-	@LicenseeID INT,
-	@UserId INT = 0
+	@UserCurrencies VARCHAR(MAX) = ''
 AS
 
 /*
@@ -21,6 +21,7 @@ AS
 		- 20140819@Bobby: Apply SQL style scope
 		- 20150107@Bobby: Update counting bannset stats info
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
 
 	Param's Explanation:    
 
@@ -90,10 +91,8 @@ BEGIN
 		,@TransType = 202 -- payment request    
 
 	INSERT INTO @tmpCurrency
-	SELECT AffCurrencyID
-		,0 AS ExRate
-	FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID)
-
+	SELECT val, 0 FROM dbo.strSplit (@UserCurrencies, ',')
+	
 	SELECT @PaymentReqNum = SUM(1)
 	FROM dbo.AffTrans af WITH (NOLOCK)
 		INNER JOIN dbo.AffInfo ai WITH(NOLOCK) ON af.AffId = ai.AffId 
@@ -202,8 +201,7 @@ BEGIN
 
 	--Get statistics of normal affiliate    
 	EXEC [AffAdmin_GetMemberStatistics] 
-		@LicenseeID			= @LicenseeID
-		,@UserId 			= @UserId
+		@UserCurrencies		= @UserCurrencies
 		,@DepositAll 		= @DepositAll 		OUTPUT
 		,@DepositMonth 		= @DepositMonth 	OUTPUT
 		,@PSPFeeAll 		= @PSPFeeAll 		OUTPUT
@@ -287,6 +285,3 @@ BEGIN
 		,ISNULL(@NonDepositMemMonthNum, 0) AS NonDepositMemMonthNum
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_HomeGeneralInfo] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_HomeGeneralInfo] TO [vnteam] AS [dbo]

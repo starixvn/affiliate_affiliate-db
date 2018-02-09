@@ -1,5 +1,9 @@
+/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_Athena000]
+GO
+
 ALTER PROCEDURE [dbo].[Aff_BetList_CheckBelonging]    
-	@AdminName 			VARCHAR(30) = NULL
+	@UserCurrencies 	VARCHAR(MAX) = ''
 	,@AffId 			INT = 0
 	,@MemberName 		VARCHAR(30)
 	,@SysName			VARCHAR(30) = 'Athena'
@@ -16,6 +20,7 @@ Revisions:
 	- 20150312@Bobby.Nguyen: Initial SP
 	- 20150327@Bobby.Nguyen: Ignore currency checking when an affiliate belongs to NoCommission group
 	- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	- 20180205@Percy: Change @AdminName (Username) to @UserCurrencies to get list of currencies [RedmineID: #90545]
 */     
 BEGIN    
 	SET NOCOUNT ON;
@@ -24,11 +29,6 @@ BEGIN
 	SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
 	
 	DECLARE @IsNoComm	BIT
-	
-	DECLARE @tblAdmin TABLE(
-		AdminName	VARCHAR(30)
-		,Currency	SMALLINT
-	);
 	
 	DECLARE @tblAff TABLE(
 		AffName		VARCHAR(30)
@@ -43,16 +43,6 @@ BEGIN
 	-- reset value 
 	SELECT @BelongLevel1 	= 0
 		, @BelongLevel2 	= 0
-	
-	-- gather admin info
-	DECLARE @AdminID INT
-	SELECT TOP 1 @AdminID = UserID FROM AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) WHERE Username LIKE @AdminName
-
-	INSERT INTO @tblAdmin(AdminName, Currency)
-	SELECT @AdminName
-		, p.AffCurrencyID
-	FROM dbo.AffAdmin_f_UserCurrency_Select(@AdminID,@LicenseeID) p
-
 	
 	-- gather affiliate info
 	INSERT INTO @tblAff(AffName, Currency)
@@ -75,9 +65,8 @@ BEGIN
 		AND a.AffId = @AffId
 	
 	IF EXISTS(SELECT TOP 1 1
-			FROM @tblAdmin a
-				INNER JOIN @tblAff f
-				ON a.Currency = f.Currency
+			FROM dbo.strSplit(@UserCurrencies, ',') a
+				INNER JOIN @tblAff f ON CONVERT(INT, a.val) = f.Currency
 	)
 	BEGIN 
 		SET @BelongLevel1 = 1
@@ -87,10 +76,5 @@ BEGIN
 	BEGIN 
 		SET @BelongLevel2 = 1
 	END
-	
-	RETURN;
 END
 GO
-GRANT EXECUTE ON [dbo].[Aff_BetList_CheckBelonging] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT EXECUTE ON [dbo].[Aff_BetList_CheckBelonging] TO [bodbDownlineNet] AS [dbo]

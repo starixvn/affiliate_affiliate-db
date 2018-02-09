@@ -3,7 +3,6 @@ USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_BannerDel]
-	@LicenseeID INT, 
 	@ListBannerID varchar(4000),
 	@UserID int,	
 	@IP nvarchar(15)='',
@@ -20,6 +19,7 @@ AS
 	Revisions:
 		- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		- 20180205@Percy: Remove check UserId [RedmineID: #90545]
 
 	Param's Explanation:
 		• @ListBannerID : list of banner ids need to delete separated by a comma
@@ -33,13 +33,6 @@ BEGIN
 	IF @ListBannerID IS NULL
 	BEGIN
 		SELECT @ErrCode = 300
-		RETURN
-	END
-
-	-- Check UserID is valid
-	IF NOT EXISTS (SELECT 1 FROM dbo.AffAdmin_f_AdminUserInfo_Select(@UserID, @LicenseeID))
-	BEGIN
-		SELECT @ErrCode = 302
 		RETURN
 	END
 

@@ -7,6 +7,7 @@ ALTER PROCEDURE [dbo].[AffAdmin_AdjustmentIns]
 	@Amount	MONEY,
 	@AffID	INT,
 	@AdminID INT,
+	@AdminUserName VARCHAR(50),
 	@Description NVARCHAR(300) = '',
 	@ip	NVARCHAR(15) = '',
 	@Language VARCHAR(5) = 'en-US',
@@ -22,6 +23,7 @@ AS
 	Revisions: 
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		- 20180208@Alex  : Support Liecnsee admin portal #90545
 */
 
 BEGIN
@@ -82,12 +84,13 @@ BEGIN
 		,[Amount]  
 		,[Status]  
 		,[Description]  
-		,[Creator]  
+		,[Creator] 
 		,[AffCurrency]  
 		,[SysCurrency]  
 		,[SysExRate]   
 		,[TransType]   
 		,[RefID]
+		,[AdminUserName]
 	)  
 	values
 	(  
@@ -102,7 +105,8 @@ BEGIN
 		@SysCurrency,  
 		@SysExRate,  
 		203,--Adjustment TransType  
-		0
+		0,
+		@AdminUserName
 	)
 	
 	if @@ERROR <> 0  

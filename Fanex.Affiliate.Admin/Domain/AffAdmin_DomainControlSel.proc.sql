@@ -1,5 +1,5 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_DomainControlSel]  
-	@LicenseeID INT,
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[AffAdmin_DomainControlSel]  
 	@CountryID nvarchar(10) = null  
 AS  
 /*  
@@ -8,6 +8,7 @@ Task : Select Domain Control
 DB: DB052.Affiliate_12BET  
 Revision:
 	- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	- 20180208@Alex  : Support Liecnsee admin portal #90545
 */  
   
 select a.ID,  
@@ -18,13 +19,13 @@ select a.ID,
 	c.DomainId as MemberDomainId,  
 	c.DomainName as MemberDomain,  
 	a.CreateDate,  
-	e.Username as Creator,  
+	a.CreatorName as Creator,  
 	a.[Status]  
 from AffDomainControl a with (nolock)  
 	inner join AffDomain b with (nolock) on a.AffDomainId = b.DomainId  
 	inner join MemberDomain c with (nolock) on a.MemberDomainID = c.DomainID  
 	inner join Country d with (nolock) on a.CountryID = d.CountryID  
-	inner join dbo.AffAdmin_f_AdminUserInfo_Select('',@LicenseeID) e on a.Creator = e.UserID  
+	
 where ISNULL(@CountryID, a.CountryID) = a.CountryID  
 order by a.[Status] desc, b.DomainName
 GO

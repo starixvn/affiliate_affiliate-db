@@ -3,7 +3,6 @@ USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_EmailHistoryDel]  
-	@licenseeID int,
 	@listmid varchar(4000)=null,  
 	@UserID int,  
 	@IP varchar(20),  
@@ -20,6 +19,8 @@ AS
 	Revisions:  
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		- 20180205@Percy: Remove check UserId [RedmineID: #90545]
+
 	Param's Explanation:  
 		• @listmid : list of mail id separated by a comma
 		• @UserID: user deleting mid will be logged
@@ -32,13 +33,6 @@ BEGIN
 	IF (@listmid IS NULL)
 	BEGIN  
 		SELECT @ErrCode = 6 -- Invalid mail ID
-		RETURN
-	END
-
-	-- Check UserID is Valid  
-	IF NOT EXISTS (SELECT 1 FROM dbo.AffAdmin_f_AdminUserInfo_Select(@UserID, @LicenseeID))
-	BEGIN  
-		SELECT @ErrCode = 8 -- Admin id is invalid
 		RETURN
 	END
 

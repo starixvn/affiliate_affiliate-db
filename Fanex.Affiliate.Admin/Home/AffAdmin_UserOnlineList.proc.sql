@@ -1,12 +1,17 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_UserOnlineList]
- @LicenseeID INT,
- @UserID INT,       
- @PageSize int=50,        
- @PageIndex int=1,      
- @IsIt bit = 0,      
- @TotalPages int=0 OUTPUT,      
- @NRows int=0 OUTPUT     
-AS      
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="1"></info>*/
+USE [Affiliate_Athena000]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_UserOnlineList]
+	@LicenseeID		INT,
+	@UserCurrencies	VARCHAR(MAX) = '',
+	@PageSize		INT = 50,        
+	@PageIndex		INT = 1,      
+	@IsIt			BIT = 0,      
+	@TotalPages		INT = 0 OUTPUT,      
+	@NRows			INT = 0 OUTPUT
+AS
+
 /*Created: 20130807@Johnny      
 Task : Select all affs and admins currently logging on affliate system      
 DB: DB052.Affiliate_MYM      
@@ -16,12 +21,15 @@ Revisions:
 	- 20131225@Bobby: update sorting result
 	- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
     - 20151207@Francis: Revise sp to return only affiliate under user's currency permissions
+	- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
+
 Param's Explanation:      
  - PageSize: the selected page size on webpage      
  - PageIndex: the index of selected page in paging structure      
  - TotalPages: the number of pages with the pagesize returned from DB      
  - @IsIt: Show It account or not  
-*/      
+*/
+   
 BEGIN        
 	SET NOCOUNT ON      
 	declare @startNum int, @endNum int, @GroupIT int    
@@ -53,10 +61,8 @@ BEGIN
 		from ON_USER o with(nolock)      
 		inner join dbo.affdetail aff with(nolock) on aff.affid = o.custid and o.iskickedout = 0 
 		inner join dbo.AffInfo ai with (nolock) on aff.AffID = ai.AffID
-		where ai.Currency in (select AffCurrencyID from AffAdmin_f_UserCurrency_Select(@UserID, @LicenseeID))
+		where ai.Currency in (select convert(int, val) from dbo.strSplit(@UserCurrencies, ','))
 	end
-	
-	
 	
 	select @NRows=@@ROWCOUNT      
 	select @startNum = (@PageIndex-1)*@PageSize;  
@@ -72,9 +78,5 @@ BEGIN
 	where RowNo between @startNum and @endNum 
 
 	SELECT @TotalPages=@NRows/@PageSize + case when @NRows%@PageSize>0 then 1 else 0 end      
-        
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_UserOnlineList] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_UserOnlineList] TO [vnteam] AS [dbo]

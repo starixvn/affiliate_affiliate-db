@@ -1,9 +1,9 @@
-﻿USE [Affiliate_Athena000]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="1"></info>*/
+USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_GetMemberStatistics] 
-	@LicenseeID			INT
-	,@UserId 			INT 	= 0
+	@UserCurrencies		VARCHAR(MAX) = ''
 	,@AffType 			TINYINT = 0
 	,@DepositAll 		MONEY 	= 0 OUTPUT
 	,@DepositMonth 		MONEY 	= 0 OUTPUT
@@ -34,6 +34,7 @@ AS
 		- 20131007@Johnny: Get turnover and withdrawal instead of PSP fee
 		- 20140819@Bobby: Apply SQL style scope
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
 	
 	Param's Explanation:  
 		- @TestLevel: 0: real acc; 1: csd test; 2: QC Test
@@ -56,8 +57,8 @@ BEGIN
 	FROM dbo.AffCommission WITH (NOLOCK)
 
 	INSERT INTO @tmpCurrency (CurrencyID, ExRate)
-	SELECT AffCurrencyID, 0 AS ExRate
-	FROM dbo.AffAdmin_f_UserCurrency_Select(@userID, @LicenseeID)
+	SELECT val, 0
+	FROM dbo.strSplit (@UserCurrencies, ',')
 
 	IF @MaxWinLostDateAffComm IS NULL
 	BEGIN
@@ -179,8 +180,4 @@ BEGIN
 	SELECT @NetWinlostAll = ISNULL(@WinlostAll, 0) + ISNULL(@BonusAll, 0) + ISNULL(@AdjustmentAll, 0)
 		,@NetWinlostMonth = ISNULL(@WinlostMonth, 0) + ISNULL(@BonusMonth, 0) + ISNULL(@AdjustmentMonth, 0)
 END
-GO
-GRANT EXECUTE ON [dbo].[AffAdmin_GetMemberStatistics] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_GetMemberStatistics] TO [vnteam] AS [dbo]
 GO

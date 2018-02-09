@@ -3,10 +3,10 @@ USE [Affiliate_Athena000]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_DomainMemUpd]
-	@LicenseeID INT,
 	@DomainID int,
 	@DomainName nvarchar(50), 	
-	@UserID int,	
+	@UserID int,
+	@AdminUserName varchar(50),
 	@IP nvarchar(15)='',
 	@ErrCode int = 0 OUTPUT
 AS
@@ -19,6 +19,7 @@ AS
 	Revisions:
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
 */
 
 BEGIN
@@ -36,7 +37,8 @@ BEGIN
 	SET
 		[ModifyDate] = GETDATE(),
 		[DomainName] = @DomainName,
-		[Creator] = @UserID
+		[Creator] = @UserID,
+		[CreatorName] = @AdminUserName
 	WHERE DomainID = @DomainID
 
 	IF @@ERROR <> 0 
