@@ -143,7 +143,3 @@ BEGIN
 		,t.Currency
 END
 GO
-GRANT EXECUTE ON [dbo].[Aff_ReportDetailSelAll] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_ReportDetailSelAll] TO [VNTeam]
-GO

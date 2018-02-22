@@ -1,4 +1,5 @@
-﻿USE [Affiliate_12BET]
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_EarningSelDaily] 
@@ -27,7 +28,7 @@ AS
 		- 20101228@Henry: change bettype to new range
 		- 20111031@Peter: Exclude Number Game from Sportsbook commission (bettype from [81-120])
 		- 20120606@Peter: Exclude waiting tickets
-		- 20140403@Bobby:  exclude Keno product & other sports
+		- 20140403@Bobby: Exclude Keno product & other sports
 		- 20141218@Bobby: Update SS's bettype & fix Casiso time range
 		- 20150106@Bobby: Update WL fake
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]

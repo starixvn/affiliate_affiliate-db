@@ -1,13 +1,7 @@
-﻿USE [Affiliate_12BET]
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" viewers="" isFunction="1" isNested="1"></info>*/
+USE [Affiliate_12BET]
 GO
-/****** Object:  UserDefinedFunction [dbo].[Aff_CommissionForMonth]    Script Date: 09/10/2013 05:39:34 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  User Defined Function dbo.Aff_CommissionForMonth    Script Date: 5/22/2013 8:34:10 AM ******/
-  
-  
+
 ALTER FUNCTION [dbo].[Aff_CommissionForMonth]  
 (  
  @AffID int,  

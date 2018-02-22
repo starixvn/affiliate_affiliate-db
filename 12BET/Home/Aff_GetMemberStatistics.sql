@@ -3,19 +3,19 @@ USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_GetMemberStatistics] 
-	@AffType TINYINT = 0
-	,@DepositAll MONEY = 0 OUTPUT
-	,@DepositMonth MONEY = 0 OUTPUT
-	,@PSPFeeAll MONEY = 0 OUTPUT
-	,@PSPFeeMonth MONEY = 0 OUTPUT
-	,@WinlostAll MONEY = 0 OUTPUT
-	,@WinlostMonth MONEY = 0 OUTPUT
-	,@BonusAll MONEY = 0 OUTPUT
-	,@BonusMonth MONEY = 0 OUTPUT
-	,@AdjustmentAll MONEY = 0 OUTPUT
-	,@AdjustmentMonth MONEY = 0 OUTPUT
-	,@NetWinlostAll MONEY = 0 OUTPUT
-	,@NetWinlostMonth MONEY = 0 OUTPUT
+	@AffType			TINYINT = 0
+	,@DepositAll		MONEY = 0 OUTPUT
+	,@DepositMonth		MONEY = 0 OUTPUT
+	,@PSPFeeAll			MONEY = 0 OUTPUT
+	,@PSPFeeMonth		MONEY = 0 OUTPUT
+	,@WinlostAll		MONEY = 0 OUTPUT
+	,@WinlostMonth		MONEY = 0 OUTPUT
+	,@BonusAll			MONEY = 0 OUTPUT
+	,@BonusMonth		MONEY = 0 OUTPUT
+	,@AdjustmentAll		MONEY = 0 OUTPUT
+	,@AdjustmentMonth	MONEY = 0 OUTPUT
+	,@NetWinlostAll		MONEY = 0 OUTPUT
+	,@NetWinlostMonth	MONEY = 0 OUTPUT
 AS
 
 /*
@@ -38,60 +38,63 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @MaxWinLostDateAffComm SMALLDATETIME
-		,@NextMaxWinlostDate SMALLDATETIME
-	DECLARE @CurrentDate SMALLDATETIME
-		,@PreviousDate SMALLDATETIME
+	DECLARE @MaxWinLostDateAffComm SMALLDATETIME, @NextMaxWinlostDate SMALLDATETIME
+	DECLARE @CurrentDate SMALLDATETIME, @PreviousDate SMALLDATETIME
 
-	SELECT @MaxWinLostDateAffComm = max(winlostdate)
-	FROM AffCommission WITH (NOLOCK)
+	SELECT @MaxWinLostDateAffComm = MAX(winlostdate)
+	FROM dbo.AffCommission WITH (NOLOCK)
 
-	SELECT @NextMaxWinlostDate = dateadd(d, 1, @MaxWinLostDateAffComm)
-		,@CurrentDate = convert(VARCHAR(10), current_timestamp, 120)
-		,@PreviousDate = dateadd(d, - 1, @CurrentDate)
+	SELECT
+		@NextMaxWinlostDate = DATEADD(DAY, 1, @MaxWinLostDateAffComm)
+		,@CurrentDate = CONVERT(VARCHAR(10), CURRENT_TIMESTAMP, 120)
+		,@PreviousDate = DATEADD(DAY, - 1, @CurrentDate)
 
-	DECLARE @TblStatistics AS TABLE (
+	DECLARE @TblStatistics TABLE
+	(
 		deposit MONEY
 		,winlost MONEY
 		,bonus MONEY
 		,psp MONEY
 		,Adjustment MONEY
 		,WinlostDate SMALLDATETIME
-		)
+	)
 
-	INSERT INTO @TblStatistics (
+	INSERT INTO @TblStatistics
+	(
 		deposit
 		,winlost
 		,bonus
 		,psp
 		,Adjustment
 		,winlostdate
-		)
-	SELECT sum(isnull(MemberDeposit, 0)) AS deposit
-		,sum(isnull(MemberWinlost, 0)) AS winlost
-		,sum(isnull(MemberBonus, 0)) AS bonus
-		,sum(isnull(MemberPSP, 0)) AS psp
-		,sum(isnull(MemberAdjustment, 0)) AS Adjustment
+	)
+	SELECT
+		SUM(ISNULL(MemberDeposit, 0)) AS deposit
+		,SUM(ISNULL(MemberWinlost, 0)) AS winlost
+		,SUM(ISNULL(MemberBonus, 0)) AS bonus
+		,SUM(ISNULL(MemberPSP, 0)) AS psp
+		,SUM(ISNULL(MemberAdjustment, 0)) AS Adjustment
 		,@MaxWinLostDateAffComm AS winlostdate
-	FROM AffCommission ac WITH (NOLOCK)
-		INNER JOIN AffInfo ai WITH (NOLOCK) ON ac.AffId = ai.AffId
+	FROM dbo.AffCommission ac WITH (NOLOCK)
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON ac.AffId = ai.AffId
 		INNER JOIN dbo.AffType at WITH (NOLOCK) ON ai.AffType = at.TypeId
 	WHERE ai.AffID > 0
 		AND SportID > 0
 		AND winlostdate <= @MaxWinLostDateAffComm
 	
 	UNION ALL
-	SELECT sum(isnull(MemDeposit, 0) * ExRate2) AS deposit
-		,sum(isnull(MemWinlost, 0) * ExRate2) AS winlost
-		,sum(isnull(MemBonus, 0) * ExRate2) AS bonus
-		,sum(isnull(MemPSP, 0) * ExRate2) AS psp
-		,sum(isnull(MemAdjustment, 0) * ExRate2) AS Adjustment
-		,dateadd(mm, DATEDIFF(m, 0, md.Winlostdate), 0) AS winlostdate
-	FROM AffDaily md WITH (NOLOCK)
-		INNER JOIN AffInfo ai WITH (NOLOCK) ON md.AffId = ai.AffId
+	SELECT
+		SUM(ISNULL(MemDeposit, 0) * ExRate2) AS deposit
+		,SUM(ISNULL(MemWinlost, 0) * ExRate2) AS winlost
+		,SUM(ISNULL(MemBonus, 0) * ExRate2) AS bonus
+		,SUM(ISNULL(MemPSP, 0) * ExRate2) AS psp
+		,SUM(ISNULL(MemAdjustment, 0) * ExRate2) AS Adjustment
+		,DATEADD(mm, DATEDIFF(m, 0, md.Winlostdate), 0) AS winlostdate
+	FROM dbo.AffDaily md WITH (NOLOCK)
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON md.AffId = ai.AffId
 		INNER JOIN dbo.AffType at WITH (NOLOCK) ON ai.AffType = at.TypeId
 	WHERE Winlostdate BETWEEN @NextMaxWinlostDate AND @PreviousDate
-	GROUP BY dateadd(mm, DATEDIFF(m, 0, md.winlostdate), 0)
+	GROUP BY DATEADD(mm, DATEDIFF(m, 0, md.winlostdate), 0)
 	
 	UNION ALL
 	SELECT sum(CASE 
@@ -151,31 +154,16 @@ BEGIN
 	GROUP BY m.DepositPercent
 		,m.WithdrawalPercent
 
-	SELECT @DepositAll = SUM(isnull(Deposit, 0))
-		,@WinlostAll = SUM(isnull(Winlost, 0))
-		,@BonusAll = SUM(isnull(Bonus, 0))
-		,@PSPFeeAll = SUM(isnull(PSP, 0))
-		,@AdjustmentAll = SUM(isnull(Adjustment, 0))
-		,@DepositMonth = SUM(CASE 
-				WHEN datediff(mm, @CurrentDate, winlostdate) = 0 THEN isnull(Deposit, 0)
-				ELSE 0
-				END)
-		,@WinlostMonth = SUM(CASE 
-				WHEN datediff(mm, @CurrentDate, winlostdate) = 0 THEN isnull(Winlost, 0)
-				ELSE 0
-				END)
-		,@BonusMonth = SUM(CASE 
-				WHEN datediff(mm, @CurrentDate, winlostdate) = 0 THEN isnull(Bonus, 0)
-				ELSE 0
-				END)
-		,@PSPFeeMonth = SUM(CASE 
-				WHEN datediff(mm, @CurrentDate, winlostdate) = 0 THEN isnull(PSP, 0)
-				ELSE 0
-				END)
-		,@AdjustmentMonth = SUM(CASE 
-				WHEN datediff(mm, @CurrentDate, winlostdate) = 0 THEN isnull(Adjustment, 0)
-				ELSE 0
-				END)
+	SELECT @DepositAll = SUM(ISNULL(Deposit, 0))
+		,@WinlostAll = SUM(ISNULL(Winlost, 0))
+		,@BonusAll = SUM(ISNULL(Bonus, 0))
+		,@PSPFeeAll = SUM(ISNULL(PSP, 0))
+		,@AdjustmentAll = SUM(ISNULL(Adjustment, 0))
+		,@DepositMonth = SUM(CASE WHEN datediff(mm, @CurrentDate, winlostdate) = 0 THEN isnull(Deposit, 0) ELSE 0 END)
+		,@WinlostMonth = SUM(CASE WHEN datediff(mm, @CurrentDate, winlostdate) = 0 THEN isnull(Winlost, 0) ELSE 0 END)
+		,@BonusMonth = SUM(CASE WHEN datediff(mm, @CurrentDate, winlostdate) = 0 THEN isnull(Bonus, 0) ELSE 0 END)
+		,@PSPFeeMonth = SUM(CASE WHEN datediff(mm, @CurrentDate, winlostdate) = 0 THEN isnull(PSP, 0) ELSE 0 END)
+		,@AdjustmentMonth = SUM(CASE WHEN datediff(mm, @CurrentDate, winlostdate) = 0 THEN isnull(Adjustment, 0) ELSE 0 END)
 	FROM @TblStatistics
 
 	SELECT @NetWinlostAll = isnull(@WinlostAll, 0) + isnull(@BonusAll, 0) + isnull(@AdjustmentAll, 0)

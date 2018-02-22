@@ -7,7 +7,7 @@ AS
 
 /*
 	Created: 20090828@Bryan
-	Task : Gather overview statistic information of aff-admin site
+	Task: Gather overview statistic information of aff-admin site
 	DB: DBAFF12BET.Affiliate_12BET
 
 	Revisions:
@@ -24,7 +24,8 @@ BEGIN
 	SET NOCOUNT ON
 
 	--Variables for Normal Affiliate
-	DECLARE @PaymentReqNum INT
+	DECLARE
+		@PaymentReqNum INT
 		,@AffInProAllNum INT
 		,@PendingAllNum INT
 		,@ApprovedAllNum INT
@@ -54,107 +55,39 @@ BEGIN
 		,@AdjustmentMonth MONEY
 		,@NetWinlostMonth MONEY
 
-	DECLARE @TransType INT
 	DECLARE @CurrentDate SMALLDATETIME
-		,@PreviousDate SMALLDATETIME
-	DECLARE @AffNormal TINYINT
-		,@AffMedia TINYINT
+	SELECT	@CurrentDate = CONVERT(VARCHAR(10), CURRENT_TIMESTAMP, 120)
 
-	SELECT @CurrentDate = convert(VARCHAR(10), current_timestamp, 120)
-		,@PreviousDate = dateadd(d, - 1, @CurrentDate)
+	SELECT  @PaymentReqNum = SUM(1)
+	FROM dbo.AffTrans af WITH (NOLOCK)
+	WHERE af.TransType = 202 AND af.Status = 'Pending'
 
-	SELECT @AffNormal = 2
-		,@AffMedia = 3
+	-- all affiliate statistics
+	SELECT
+		@PendingAllNum = SUM(CASE WHEN STATUS = 'Pending' THEN 1 ELSE 0 END)
+		,@ApprovedAllNum = SUM(CASE WHEN STATUS = 'Approved' AND IsClosed = 0 THEN 1 ELSE 0 END)
+		,@DisapprovedAllNum = SUM(CASE WHEN STATUS = 'Disapproved' THEN 1 ELSE 0 END)
+		,@ClosedAllNum = SUM(CASE WHEN STATUS = 'Approved' AND IsClosed = 1 THEN 1 ELSE 0 END)
+		,@AffInProAllNum = SUM(1)
+		,@AffInProMonthNum = SUM(CASE WHEN datediff(mm, RegisteredDate, @CurrentDate) = 0 THEN 1 ELSE 0 END)
+		,@PendingMonthNum = SUM(CASE WHEN STATUS = 'pending' AND datediff(mm, RegisteredDate, @CurrentDate) = 0 THEN 1 ELSE 0 END)
+		,@ApprovedMonthNum = SUM(CASE WHEN STATUS = 'Approved' AND IsClosed = 0 AND datediff(mm, RegisteredDate, @CurrentDate) = 0 THEN 1 ELSE 0 END)
+		,@DisapprovedMonthNum = SUM(CASE WHEN STATUS = 'Disapproved' AND datediff(mm, RegisteredDate, @CurrentDate) = 0 THEN 1 ELSE 0 END)
+		,@ClosedMonthNum = SUM(CASE WHEN STATUS = 'Approved' AND IsClosed = 1 AND datediff(mm, RegisteredDate, @CurrentDate) = 0 THEN 1 ELSE 0 END)
+	FROM dbo.AffInfo WITH (NOLOCK)
+	WHERE AffType IN (SELECT TypeId	FROM dbo.AffType WITH (NOLOCK))
 
-	SELECT @TransType = 202 -- payment request
-
-	SELECT @PaymentReqNum = sum(1)
-	FROM AffTrans af WITH (NOLOCK)
-	WHERE af.TransType = @TransType
-		AND af.STATUS = 'Pending'
-
-	-- all affiliate statc		
-	SELECT @PendingAllNum = sum(CASE 
-				WHEN STATUS = 'Pending' THEN 1
-				ELSE 0
-				END)
-		,@ApprovedAllNum = sum(CASE 
-				WHEN STATUS = 'Approved'
-					AND IsClosed = 0 THEN 1
-				ELSE 0
-				END)
-		,@DisapprovedAllNum = sum(CASE 
-				WHEN STATUS = 'Disapproved' THEN 1
-				ELSE 0
-				END)
-		,@ClosedAllNum = sum(CASE 
-				WHEN STATUS = 'Approved'
-					AND IsClosed = 1 THEN 1
-				ELSE 0
-				END)
-		,@AffInProAllNum = sum(1)
-		,@AffInProMonthNum = sum(CASE 
-				WHEN datediff(mm, RegisteredDate, @CurrentDate) = 0 THEN 1
-				ELSE 0
-				END)
-		,@PendingMonthNum = sum(CASE 
-				WHEN STATUS = 'pending'
-					AND datediff(mm, RegisteredDate, @CurrentDate) = 0 THEN 1
-				ELSE 0
-				END)
-		,@ApprovedMonthNum = sum(CASE 
-				WHEN STATUS = 'Approved'
-					AND IsClosed = 0
-					AND datediff(mm, RegisteredDate, @CurrentDate) = 0 THEN 1
-				ELSE 0
-				END)
-		,@DisapprovedMonthNum = sum(CASE 
-				WHEN STATUS = 'Disapproved'
-					AND datediff(mm, RegisteredDate, @CurrentDate) = 0 THEN 1
-				ELSE 0
-				END)
-		,@ClosedMonthNum = sum(CASE 
-				WHEN STATUS = 'Approved'
-					AND IsClosed = 1
-					AND datediff(mm, RegisteredDate, @CurrentDate) = 0 THEN 1
-				ELSE 0
-				END)
-	FROM AffInfo WITH (NOLOCK)
-	WHERE AffType IN (
-			SELECT TypeId
-			FROM dbo.AffType WITH (NOLOCK)
-			)
-
-	-- //all banner statc
-	SELECT @BannerNum = sum(CASE 
-				WHEN ImageType = 'Image' OR ImageType = 'Flash' THEN 1
-				ELSE 0
-				END)
-		,@ImageBannerNum = sum(CASE 
-				WHEN ImageType = 'Image' THEN 1
-				ELSE 0
-				END)
-		,@FlashBannerNum = sum(CASE 
-				WHEN ImageType = 'Flash' THEN 1
-				ELSE 0
-				END)
-		,@TextBannerNum = sum(CASE 
-				WHEN ImageType = 'Text' THEN 1
-				ELSE 0
-				END)
-	FROM Banners_1 WITH (NOLOCK)
-
-	DECLARE @MaxWinLostDateAffComm SMALLDATETIME
-		,@NextMaxWinlostDate SMALLDATETIME
-
-	SELECT @MaxWinLostDateAffComm = max(winlostdate)
-	FROM AffCommission WITH (NOLOCK)
-
-	SELECT @NextMaxWinlostDate = dateadd(d, 1, @MaxWinLostDateAffComm)
+	-- all banner statistics
+	SELECT
+		@BannerNum = SUM(CASE WHEN ImageType = 'Image' OR ImageType = 'Flash' THEN 1 ELSE 0 END)
+		,@ImageBannerNum = SUM(CASE WHEN ImageType = 'Image' THEN 1 ELSE 0 END)
+		,@FlashBannerNum = SUM(CASE WHEN ImageType = 'Flash' THEN 1 ELSE 0 END)
+		,@TextBannerNum = SUM(CASE WHEN ImageType = 'Text' THEN 1 ELSE 0 END)
+	FROM dbo.Banners_1 WITH (NOLOCK)
 
 	--Get statistics of normal affiliate
-	EXEC Aff_GetMemberStatistics
-		@AffType = @AffNormal
+	EXEC dbo.Aff_GetMemberStatistics
+		@AffType = 2 -- normal
 		,@DepositAll = @DepositAll OUTPUT
 		,@DepositMonth = @DepositMonth OUTPUT
 		,@PSPFeeAll = @PSPFeeAll OUTPUT
@@ -168,16 +101,15 @@ BEGIN
 		,@NetWinlostAll = @NetWinlostAll OUTPUT
 		,@NetWinlostMonth = @NetWinlostMonth OUTPUT
 
-	SELECT @DepositMemAllNum = sum(1)
-		,@DepositMemMonthNum = sum(CASE 
-				WHEN datediff(mm, CreatedDate, @CurrentDate) = 0 THEN 1
-				ELSE 0
-				END)
+	SELECT
+		@DepositMemAllNum = SUM(1)
+		,@DepositMemMonthNum = SUM(CASE WHEN datediff(mm, CreatedDate, @CurrentDate) = 0 THEN 1 ELSE 0 END)
 	FROM MemberInfo m WITH (NOLOCK)
 	WHERE m.IsRemoved = 0
 
 	--final result here
-	SELECT isnull(@PaymentReqNum, 0) AS PaymentReqNum
+	SELECT
+		isnull(@PaymentReqNum, 0) AS PaymentReqNum
 		,isnull(@AffInProAllNum, 0) AS AffInProAllNum
 		,isnull(@PendingAllNum, 0) AS PendingAllNum
 		,isnull(@ApprovedAllNum, 0) AS ApprovedAllNum

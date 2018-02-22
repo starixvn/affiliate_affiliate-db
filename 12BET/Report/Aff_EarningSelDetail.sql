@@ -1,23 +1,30 @@
-﻿ALTER PROCEDURE [dbo].[Aff_EarningSelDetail] 
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_EarningSelDetail] 
 	@AffId INT = 0
 	,@SportType TINYINT = 0
 	,@MonthDate SMALLDATETIME
 AS
+
 /*
 	Created: 200900911@VinhTrinh
 	Task : [description of SP]  
-	DB: DB052.Affiliate_12BET
+	DB: DBAFF12BET.Affiliate_12BET
 	Revisions:  		
 	       - 20101228@Henry: change bettype to new range
-		   - 20111031@Peter : Exclude Number Game from Sportsbook commission (bettype from [81-120])	
-		   - 20120606@Peter : Exclude waiting tickets	
-		   - 20140403@Bobby:  exclude Keno product & other sports
+		   - 20111031@Peter: Exclude Number Game from Sportsbook commission (bettype from [81-120])	
+		   - 20120606@Peter: Exclude waiting tickets	
+		   - 20140403@Bobby: Exclude Keno product & other sports
 		   - 20141218@Bobby: Update SS's bettype
+		   - 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 
 	Param's Explanation:  
 	• @AffId affliate Id  
 	• @MonthDate Month date need to view.  
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -120,7 +127,6 @@ BEGIN
 							ELSE 0
 							END), 0)) * e.WithdrawalPercent AS PSP
 			,e.ActualRate2 AS AffExRate
-		--sum(isnull(dbo.Aff_GetMemberPSP(m.IBCCustID,@CurrDate, @SportsBookID) * e.ActualRate2,0)) as PSP
 		FROM bodb02.dbo.bettrans b WITH (NOLOCK)
 			INNER JOIN (
 			SELECT IBCCustID
@@ -147,10 +153,8 @@ BEGIN
 			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
 			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
 			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911)  
-					--and bettype not in (31,32,33,41,42,43)   
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 			AND b.custid > 0
-		--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting' 
 		GROUP BY b.CustID
 			,m.UserName
 			,m.IBCUserName
@@ -199,10 +203,3 @@ BEGIN
 	END
 END
 GO
-GRANT EXECUTE ON [dbo].[Aff_EarningSelDetail] TO [bodbDownlineNetView]
-GO
-GRANT EXECUTE ON [dbo].[Aff_EarningSelDetail] TO [bodbDownlineNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_EarningSelDetail] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_EarningSelDetail] TO [vnteam]

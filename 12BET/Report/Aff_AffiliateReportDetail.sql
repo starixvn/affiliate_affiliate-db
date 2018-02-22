@@ -1,4 +1,5 @@
-﻿USE [Affiliate_12BET]
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_AffiliateReportDetail]
@@ -273,8 +274,3 @@ BEGIN
 	ORDER BY WinlostDate
 END
 GO
-
-GRANT EXECUTE ON [dbo].[Aff_AffiliateReportDetail] TO [bodbAdminNet]
-GO
-
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateReportDetail] TO [VNTeam]
