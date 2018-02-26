@@ -92,7 +92,7 @@ BEGIN
 		
 		UNION ALL
 		(
-			SELECT @CurrDate AS Winlostdate
+			SELECT b.Winlostdate
 				,b.Currency AS exchangeID
 				,e.Currency
 				,e.ActualRate2 AS Actualrate
@@ -150,7 +150,8 @@ BEGIN
 						--and bettype not in (31,32,33,41,42,43)   
 				AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 			--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
-			GROUP BY b.Currency
+			GROUP BY b.Winlostdate
+				,b.Currency
 				,e.Currency
 				,e.ActualRate2
 			)
