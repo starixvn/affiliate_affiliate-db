@@ -25,6 +25,7 @@ AS
 		- 20141218@Bobby: Update SS's bettype
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 		- 20171109@Percy: Correct the way get active player [RedmineID: #86353]
+		- 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 
 	Param's Explanation:
 		• @AffID : Affiliate custid
@@ -34,9 +35,10 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @today SMALLDATETIME, @fdate SMALLDATETIME, @tdate SMALLDATETIME
+	DECLARE @today SMALLDATETIME, @yesterday SMALLDATETIME, @fdate SMALLDATETIME, @tdate SMALLDATETIME
 
 	SELECT  @today = CONVERT(VARCHAR(10), CURRENT_TIMESTAMP, 120)
+	SELECT  @yesterday = DATEADD(DAY, -1, @today)
 
 	DECLARE @GroupId INT, @DeductedPercentage DECIMAL(9,8)
 
@@ -84,7 +86,7 @@ BEGIN
 				@MonthDate IS NULL
 				OR DATEDIFF(m, @tdate, @today) = 0
 			)
-			AND b.winlostdate = @today
+			AND b.winlostdate BETWEEN @yesterday AND @today
 			AND (
 				b.bettype <= 999
 				OR ( b.bettype BETWEEN 1301 AND 1399)
@@ -100,7 +102,7 @@ BEGIN
 		FROM MemberDaily d WITH (NOLOCK)
 		WHERE (CASE 
 				WHEN @MonthDate IS NULL THEN --for searching all month
-					CASE WHEN d.winlostdate < @Today THEN 1 ELSE 0 END
+					CASE WHEN d.winlostdate < @yesterday THEN 1 ELSE 0 END
 				ELSE --for searching 1 month only
 					CASE WHEN d.winlostdate BETWEEN @fdate AND @tdate THEN 1 ELSE 0 END
 				END
@@ -247,7 +249,7 @@ BEGIN
 				@MonthDate IS NULL
 				OR DATEDIFF(m, @tdate, @today) = 0
 			)
-			AND b.winlostdate = @Today
+			AND b.winlostdate BETWEEN @yesterday AND @Today
 			AND (
 				b.bettype <= 999
 				OR ( b.bettype BETWEEN 1301 AND 1399)
@@ -274,7 +276,7 @@ BEGIN
 		FROM MemberDaily d WITH (NOLOCK)
 			INNER JOIN #ListCustId m WITH (NOLOCK) ON m.IbcCustid = d.IbcCustid
 		WHERE (CASE WHEN @MonthDate IS NULL THEN --for searching all month  
-					CASE WHEN d.winlostdate < @Today THEN 1 ELSE 0 END
+					CASE WHEN d.winlostdate < @yesterday THEN 1 ELSE 0 END
 				ELSE --for searching 1 month only  
 					CASE WHEN d.winlostdate BETWEEN @fdate AND @tdate THEN 1 ELSE 0 END
 				END

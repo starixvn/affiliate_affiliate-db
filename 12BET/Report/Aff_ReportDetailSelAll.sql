@@ -20,6 +20,7 @@ AS
 		- 20141218@Bobby: Update SS's bettype
 		- 20150923@Bobby: Change refering currency from bodb02.bettrans to memberinfo
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+		- 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 
 	Param's Explanation:
 		• @Fromdate Month search from
@@ -33,6 +34,7 @@ BEGIN
 		RETURN
 
 	DECLARE @CurrDate SMALLDATETIME
+		,@BeforeCurrDate SMALLDATETIME
 		,@MaxTransDate SMALLDATETIME
 		,@OldReportDate SMALLDATETIME
 		,@TmpToDate SMALLDATETIME
@@ -46,13 +48,14 @@ BEGIN
 
 	SELECT
 		@CurrDate = CONVERT(DATE, GETDATE()),
+		@BeforeCurrDate = DATEADD(DAY, -1, @CurrDate),
 		@Fromdate = CONVERT(DATE, @Fromdate),
 		@Todate	  = CONVERT(DATE, @Todate)
 
 	SELECT @TmpToDate = @ToDate
 
-	IF (@Todate >= @CurrDate)
-		SELECT @TmpToDate = DATEADD(DAY, - 1, @CurrDate)
+	IF (@Todate >= @BeforeCurrDate)
+		SELECT @TmpToDate = DATEADD(DAY, - 1, @BeforeCurrDate)
 
 	SELECT t.* FROM
 	(
@@ -119,8 +122,8 @@ BEGIN
 				FROM dbo.AffInfo ai WITH (NOLOCK)
 					LEFT JOIN dbo.DeductionSetting ds WITH (NOLOCK) ON ai.GroupId = ds.GroupId AND ds.DeductionID = 9
 			) AS D ON m.AffId = D.AffId
-		WHERE @ToDate >= @CurrDate
-			AND b.Winlostdate = @CurrDate
+		WHERE @ToDate >= @BeforeCurrDate
+			AND b.Winlostdate BETWEEN @BeforeCurrDate AND @CurrDate
 			AND (
 				b.bettype <= 999
 				OR ( b.bettype BETWEEN 1301 AND 1399)

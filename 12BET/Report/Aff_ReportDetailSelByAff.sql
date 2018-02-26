@@ -19,6 +19,7 @@ AS
 		- 20140403@Bobby:  exclude Keno product & other sports
 		- 20141218@Bobby: Update SS's bettype
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+		- 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 
 	Param's Explanation:
 		• @Fromdate Month search from
@@ -33,6 +34,7 @@ BEGIN
 			) RETURN
 
 	DECLARE @CurrDate SMALLDATETIME
+		,@BeforeCurrDate SMALLDATETIME
 		,@MaxTransDate SMALLDATETIME
 		,@OldReportDate SMALLDATETIME
 		,@TmpToDate SMALLDATETIME
@@ -45,13 +47,14 @@ BEGIN
 		SELECT @OldReportDate = '31 Oct 2009'
 
 	SELECT @CurrDate = convert(VARCHAR(10), current_timestamp, 120)
+		,@BeforeCurrDate = DATEADD(DAY, -1, @CurrDate)
 		,@Fromdate = convert(VARCHAR(10), @Fromdate, 120)
 		,@Todate = convert(VARCHAR(10), @Todate, 120)
 
 	SELECT @TmpToDate = @ToDate
 
-	IF (@Todate >= @CurrDate)
-		SELECT @TmpToDate = dateadd(d, - 1, @CurrDate)
+	IF (@Todate >= @BeforeCurrDate)
+		SELECT @TmpToDate = dateadd(d, - 1, @BeforeCurrDate)
 
 	DECLARE @COWLShare DECIMAL(9,8)
 	SELECT  @COWLShare = ds.DeductedPercentage
@@ -131,8 +134,8 @@ BEGIN
 					AND m.AffID = @AffID
 				INNER JOIN Exchange_Current e WITH (NOLOCK)
 				ON e.exchangeid = b.currency
-			WHERE @ToDate >= @CurrDate
-				AND b.Winlostdate = @CurrDate
+			WHERE @ToDate >= @BeforeCurrDate
+				AND b.Winlostdate BETWEEN @BeforeCurrDate AND @CurrDate
 				AND (
 					b.bettype <= 999
 					OR ( b.bettype BETWEEN 1301 AND 1399)

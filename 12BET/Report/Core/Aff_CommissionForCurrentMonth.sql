@@ -28,12 +28,14 @@ AS
 		- 20141218@Bobby: Update SS's bettype
 		- 20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval 
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+		- 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 */
 
 BEGIN
 	DECLARE @Today SMALLDATETIME
 		,@FirstDay SMALLDATETIME
 		,@LastDay SMALLDATETIME
+		,@BeforeLastDay SMALLDATETIME
 		,@SportsBookID INT
 		,@HorseRacingID INT
 		,@CasinoID INT
@@ -61,6 +63,7 @@ BEGIN
 	SELECT @Today = convert(VARCHAR(12), current_timestamp)
 
 	SELECT @LastDay = dateadd(d, - 1, @Today)
+	SELECT @BeforeLastDay = DATEADD(DAY, -1, @LastDay)
 
 	DECLARE @AffSummary TABLE (
 		SportID INT
@@ -157,7 +160,7 @@ BEGIN
 				,Currency
 			FROM MemberDaily md(NOLOCK)
 			WHERE AffID = @AffID
-				AND WinlostDate BETWEEN @FirstDay AND @LastDay
+				AND WinlostDate BETWEEN @FirstDay AND @BeforeLastDay
 				AND md.IBCCustID NOT IN (
 						SELECT IBCCustID
 						FROM CTE_MemberRemoval
@@ -178,7 +181,7 @@ BEGIN
 				,Currency
 			FROM MemberDaily md(NOLOCK)
 			WHERE AffID = @AffID
-				AND WinlostDate = @Today
+				AND WinlostDate BETWEEN @LastDay AND @Today
 				AND SportType = @CasinoID
 				AND md.IBCCustID NOT IN (
 						SELECT IBCCustID
@@ -232,7 +235,7 @@ BEGIN
 				ON b.custid = ci.IBCCustID
 				INNER JOIN Exchange_Current e WITH (NOLOCK)
 				ON e.exchangeid = ci.currency
-			WHERE b.winlostdate = @Today
+			WHERE b.winlostdate BETWEEN @LastDay AND @Today
 				AND ci.AffID = @AffID
 				AND ci.IsRemoved = 0
 				AND (

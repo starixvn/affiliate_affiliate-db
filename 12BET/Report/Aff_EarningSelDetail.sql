@@ -19,6 +19,7 @@ AS
 		   - 20140403@Bobby: Exclude Keno product & other sports
 		   - 20141218@Bobby: Update SS's bettype
 		   - 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+		   - 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 
 	Param's Explanation:  
 	• @AffId affliate Id  
@@ -29,6 +30,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @CurrDate SMALLDATETIME
+		,@PrevCurrDate SMALLDATETIME
 		,@SportsBookID INT
 		,@HorseRacingID INT
 		,@GroupId INT
@@ -44,12 +46,13 @@ BEGIN
 		SELECT @DeductedPercentage = 0
 
 	SET @CurrDate = convert(VARCHAR(10), CURRENT_TIMESTAMP, 120)
+	SET @PrevCurrDate = DATEADD(DAY, -1, @CurrDate)
 
 	SELECT @MonthDate = dateadd(d, datediff(d, 0, @MonthDate), 0)
 
 	IF (
 			@SportType <> 3
-			AND @CurrDate = @MonthDate
+			AND @CurrDate >= @PrevCurrDate
 			)
 	BEGIN --Get current date data for sp and hr in bettrans table
 		SELECT b.CustID AS CustID

@@ -20,6 +20,7 @@ AS
 	- 20141113@Bobby: Change report time range from datetime to date only
 	- 20141218@Bobby: Update SS's bettype
 	- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+	- 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 */
 BEGIN
 	SET NOCOUNT ON
@@ -43,11 +44,13 @@ BEGIN
 		,@TmpOldWayDate DATE
 		,@SportsBookID 	INT
 		,@HorseRacingID INT
+		,@PrevCurrDate	DATE
 
 	SELECT @SportsBookID = dbo.Aff_GetSportID('SportsBook')
 		,@HorseRacingID = dbo.Aff_GetSportID('Horse Racing')
 
 	SELECT @CurrDate 	= CURRENT_TIMESTAMP
+	SELECT @PrevCurrDate = DATEADD(DAY, -1, @CurrDate)
 
 	SELECT @OldReportDate = SValue
 	FROM SystemSettings WITH (NOLOCK)
@@ -65,7 +68,7 @@ BEGIN
 
 		SELECT @TmpFromDate = dateadd(d, 1, @OldReportDate) --From date for new way calculate winlost
 
-		SELECT @TmpToDate = dateadd(d, - 1, @CurrDate) --To date for new way calculate winlost
+		SELECT @TmpToDate = dateadd(d, - 1, @PrevCurrDate) --To date for new way calculate winlost
 
 		SELECT @TmpOldWayDate = @OldReportDate
 	END
@@ -77,7 +80,7 @@ BEGIN
 				END
 
 		SELECT @TmpToDate = CASE 
-				WHEN @ToDate >= @CurrDate THEN dateadd(d, - 1, @CurrDate)
+				WHEN @ToDate >= @PrevCurrDate THEN dateadd(d, - 1, @PrevCurrDate)
 				ELSE @ToDate
 				END
 
@@ -215,8 +218,8 @@ BEGIN
 				AND m.IsRemoved = 0
 			INNER JOIN Exchange_Current e WITH (NOLOCK)
 			ON m.Currency = e.ExchangeId
-		WHERE @ToDate >= @CurrDate
-			AND b.WinlostDate = @CurrDate
+		WHERE @ToDate >= @PrevCurrDate
+			AND b.WinlostDate BETWEEN @PrevCurrDate AND @CurrDate
 			AND (
 				Bettype <= 999
 				OR ( b.bettype BETWEEN 1301 AND 1399)

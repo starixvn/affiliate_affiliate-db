@@ -34,6 +34,7 @@ AS
 		- 20170411@Percy: Support search by Affiliate name [RedmineID: #74588]
 		- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+		- 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 
 	Param's Explanation:
 		• @Fromdate Time search From
@@ -94,7 +95,7 @@ BEGIN
 
 		SELECT @TmpFromDate = DATEADD(d, 1, @OldReportDate) --From date for new way calculate winlost
 
-		SELECT @TmpToDate = DATEADD(d, - 1, @CurrDate) --To date for new way calculate winlost
+		SELECT @TmpToDate = DATEADD(d, - 1, @PrevCurrDate) --To date for new way calculate winlost
 
 		SELECT @TmpOldWayDate = @OldReportDate
 	END
@@ -106,7 +107,7 @@ BEGIN
 				END
 
 		SELECT @TmpToDate = CASE 
-				WHEN @ToDate >= @CurrDate THEN DATEADD(d, - 1, @CurrDate)
+				WHEN @ToDate >= @PrevCurrDate THEN DATEADD(d, - 1, @PrevCurrDate)
 				ELSE @ToDate
 				END
 
@@ -178,7 +179,7 @@ BEGIN
 	FROM #AffPaging a
 		INNER JOIN dbo.DeductionSetting ds ON a.GroupId = ds.GroupId AND ds.DeductionID = 9
 	
-	IF(@ToDate >= @CurrDate)
+	IF(@ToDate >= @PrevCurrDate)
 	BEGIN
 		INSERT INTO #MemberBettrans(
 			IBCCustId
@@ -288,7 +289,7 @@ BEGIN
 			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON b.CustId = m.IBCCustID	
 			INNER JOIN #AffPaging ml ON m.AffId = ml.AffId
 			INNER JOIN dbo.Exchange_Current e WITH (NOLOCK) ON m.Currency = e.ExchangeId
-		WHERE b.WinlostDate = @CurrDate
+		WHERE b.WinlostDate BETWEEN @PrevCurrDate AND @CurrDate
 			AND m.IsRemoved = 0
 			AND (
 					b.bettype <= 999
@@ -346,7 +347,7 @@ BEGIN
 	GROUP BY ad.AffID
 
 	--Get winlost member in Bettrans table
-	IF(@ToDate >= @CurrDate)
+	IF(@ToDate >= @PrevCurrDate)
 	BEGIN
 		INSERT INTO #AffReport(
 			AffId

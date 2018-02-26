@@ -25,6 +25,7 @@ AS
 		- 20140403@Bobby:  exclude Keno product & other sports
 		- 20141218@Bobby: Update SS's bettype
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+		- 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 
 	Param's Explanation:
 	
@@ -57,6 +58,7 @@ BEGIN
 	DECLARE @FirstDay SMALLDATETIME
 		,@LastDay SMALLDATETIME
 		,@CurrDate SMALLDATETIME
+		,@PrevCurrDate SMALLDATETIME
 		,@SportsBookID INT
 		,@HorseRacingID INT
 		,@CasinoID INT
@@ -84,11 +86,12 @@ BEGIN
 
 	--Get First date and last date and current date in order to calculate turnover
 	SELECT @CurrDate = convert(VARCHAR(10), current_timestamp, 120)
+		,@PrevCurrDate = DATEADD(DAY, -1, @CurrDate)
 		,@FirstDay = cast(cast(@Year AS VARCHAR(5)) + '-' + cast(@Month AS VARCHAR(5)) + '-' + '1' AS SMALLDATETIME)
 		,@LastDay = DATEADD(d, - 1, DATEADD(mm, DATEDIFF(m, 0, @FirstDay) + 1, 0))
 
 	SELECT @LastDay = (CASE 
-			WHEN @LastDay >= @CurrDate THEN dateadd(d, - 1, @CurrDate)
+			WHEN @LastDay >= @PrevCurrDate THEN dateadd(d, - 1, @PrevCurrDate)
 			ELSE @LastDay END
 			)
 
@@ -124,8 +127,8 @@ BEGIN
 			,0 AS CADeposit
 		FROM bodb02.dbo.Bettrans b WITH (NOLOCK)
 			INNER JOIN @MemList m ON b.CustId = m.IBCCustId
-		WHERE datediff(m, @FirstDay, @CurrDate) = 0
-			AND Winlostdate = @CurrDate
+		WHERE @LastDay >= @PrevCurrDate
+			AND Winlostdate BETWEEN @PrevCurrDate AND @CurrDate
 			AND (
 				b.bettype <= 999
 				OR ( b.bettype BETWEEN 1301 AND 1399)
@@ -169,8 +172,8 @@ BEGIN
 			,0 AS CADeposit
 		FROM bodb02.dbo.Bettrans b WITH (NOLOCK)
 			INNER JOIN @MemList m ON b.CustId = m.IBCCustId
-		WHERE datediff(m, @FirstDay, @CurrDate) = 0
-			AND Winlostdate = @CurrDate
+		WHERE @LastDay >= @PrevCurrDate
+			AND Winlostdate BETWEEN @PrevCurrDate AND @CurrDate
 			AND (
 				b.bettype <= 999
 				OR ( b.bettype BETWEEN 1301 AND 1399)

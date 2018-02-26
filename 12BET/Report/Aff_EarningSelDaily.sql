@@ -32,6 +32,7 @@ AS
 		- 20141218@Bobby: Update SS's bettype & fix Casiso time range
 		- 20150106@Bobby: Update WL fake
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+		- 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 
 	Param's Explanation:  
 		• @custid: affliate Id  
@@ -42,6 +43,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @CurrDate SMALLDATETIME
+		,@PrevCurrDate SMALLDATETIME
 		,@fromdate SMALLDATETIME
 		,@todate SMALLDATETIME
 		,@SportsBookID INT
@@ -71,6 +73,7 @@ BEGIN
 		,@CasinoId = dbo.Aff_GetSportID('Casino')
 
 	SET @CurrDate = convert(VARCHAR(10), CURRENT_TIMESTAMP, 120)
+	SET @PrevCurrDate = DATEADD(DAY, -1, @CurrDate)
 
 	SELECT @monthdate = dateadd(d, datediff(d, 0, @monthdate), 0)
 
@@ -93,11 +96,11 @@ BEGIN
 	SELECT @fromdate = DATEADD(mm, DATEDIFF(m, 0, @monthdate), 0)
 
 	SELECT @todate = CASE 
-			WHEN @monthdate >= @CurrDate THEN dateadd(d, - 1, @CurrDate)
+			WHEN @monthdate >= @PrevCurrDate THEN dateadd(d, - 1, @PrevCurrDate)
 			ELSE @monthdate
 			END
 
-	IF @monthdate >= @CurrDate
+	IF @monthdate >= @PrevCurrDate
 	BEGIN
 		-- query Casino
 		IF(@SportType IN(0, @CasinoId))
@@ -246,7 +249,7 @@ BEGIN
 					) m ON m.IBCCustID = b.CustId
 					INNER JOIN Exchange_current e WITH (NOLOCK) ON e.Exchangeid = m.Currency
 				WHERE @SportType <> @CasinoId
-					AND b.Winlostdate = @CurrDate
+					AND b.Winlostdate BETWEEN @PrevCurrDate AND @CurrDate
 					AND b.ruben = 1
 					AND (
 						b.bettype <= 999

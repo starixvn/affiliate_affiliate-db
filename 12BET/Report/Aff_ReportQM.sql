@@ -31,6 +31,7 @@ AS
 		- 20141223@Bobby: Hotfix#28059 - Filtering by PreferredLanguage
 		- 20150923@Bobby: Update formular of QM calculation change ">" to  ">="
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+		- 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 
 	Param's Explanation:
 		• @SortBy:
@@ -152,9 +153,10 @@ BEGIN
 			,@QmTurnOverCS 		MONEY
 			,@QmDepositCS 		MONEY
 			,@CurrDate 			SMALLDATETIME
+			,@PrevCurrDate		SMALLDATETIME
 
 		SELECT @CurrDate 		= CONVERT(VARCHAR(10), CURRENT_TIMESTAMP, 120)
-				,@LastDay 		= CASE WHEN @LastDay >= @CurrDate THEN DATEADD(d, - 1, @CurrDate) ELSE @LastDay END
+				,@LastDay 		= CASE WHEN @LastDay >= @PrevCurrDate THEN DATEADD(d, - 1, @PrevCurrDate) ELSE @LastDay END
 
 		SELECT @QmTurnOverSP 	= CASE WHEN s.SportID = @SportsBookID 	THEN s.QMTurnOver 	ELSE @QmTurnOverSP 	END
 			, @QmTurnOverHR 	= CASE WHEN s.SportID = @HorseRacingID 	THEN s.QMTurnOver 	ELSE @QmTurnOverHR 	END
@@ -200,8 +202,8 @@ BEGIN
 										END), 0) AS TurnOver
 						FROM bodb02.dbo.Bettrans b WITH (NOLOCK)
 							INNER JOIN @MemList m ON b.CustId = m.IBCCustId
-						WHERE datediff(m, @LastDay, @CurrDate) = 0
-							AND b.WinlostDate = @CurrDate
+						WHERE @LastDay >= @PrevCurrDate
+							AND b.WinlostDate BETWEEN @PrevCurrDate AND @CurrDate
 							AND (
 								b.bettype <= 999
 								OR ( b.bettype BETWEEN 1301 AND 1399) -- SS tickets
@@ -318,8 +320,8 @@ BEGIN
 						FROM @MemList m
 							INNER JOIN #AffTotal a ON m.AffId = a.AffId
 							INNER JOIN bodb02.dbo.Bettrans b WITH (NOLOCK) ON m.IBCCustId = b.CustId
-						WHERE DATEDIFF(m, @LastDay, @CurrDate) = 0
-							AND b.WinlostDate = @CurrDate
+						WHERE @LastDay >= @PrevCurrDate
+							AND b.WinlostDate BETWEEN @PrevCurrDate AND @CurrDate
 							AND b.bettype IN (33, 43) --get HR only
 							AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 						GROUP BY m.IbcCustId

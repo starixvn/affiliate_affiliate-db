@@ -1,4 +1,5 @@
-﻿USE [Affiliate_12bet]
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_AffiliateCommByMonthAll] 
@@ -18,6 +19,7 @@ Revisions:
 	- 20150227@DanNguyen: fix bug - wrong last date in case view current month
 	- 20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval 
 	- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+	- 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 */  
 BEGIN
 	SET NOCOUNT ON
@@ -27,6 +29,7 @@ BEGIN
 	DECLARE @FirstDay 						SMALLDATETIME
 		,@LastDay 							SMALLDATETIME
 		,@CurrentDay 						SMALLDATETIME
+		,@PrevCurrentDay 					SMALLDATETIME
 		,@MinimumNegativeCommission 		FLOAT
 		,@HorseRacingID 					INT
 		,@SportsBookID 						INT
@@ -44,6 +47,7 @@ BEGIN
 	SELECT @FirstDay 	= CAST(CAST(@Year AS VARCHAR(5)) + '-' + CAST(@Month AS VARCHAR(5)) + '-' + '1' AS SMALLDATETIME)
 		,@LastDay 		= DATEADD(d, - 1, DATEADD(mm, DATEDIFF(m, 0, @FirstDay) + 1, 0))
 		,@CurrentDay	= CAST(GETDATE() AS DATE)
+		,@PrevCurrentDay = DATEADD(DAY, -1, @CurrentDay)
 
 	IF (
 			EXISTS (
@@ -116,7 +120,7 @@ BEGIN
 		,PlayTechRoyaltiesPercent FLOAT
 		,IsPSPIncluded INT -- flag to check PSP Fee is included or not for this product  
 	)
-	IF(DATEDIFF(MM, @LastDay, @CurrentDay) = 0)
+	IF(DATEDIFF(MM, @LastDay, @PrevCurrentDay) = 0)
 	BEGIN
 		INSERT INTO #MemberRealtime (
 			IBCCustID
@@ -140,7 +144,7 @@ BEGIN
 				ELSE @SportsBookID
 				END AS SportType
 			,ci.AffId
-			,@CurrentDay AS WinlostDate
+			,b.WinlostDate
 			,isnull(sum(CASE bettype
 						WHEN 22001 THEN isnull(winlost, 0) - isnull(abs(actual_stake), 0)
 						ELSE 0
@@ -189,7 +193,7 @@ BEGIN
 			INNER JOIN dbo.Exchange_Current e WITH (NOLOCK)
 			ON e.exchangeid = ci.currency
 		
-		WHERE b.winlostdate = @CurrentDay
+		WHERE b.winlostdate BETWEEN @PrevCurrentDay AND @CurrentDay
 			AND ci.IsRemoved = 0
 			AND (
 				b.bettype <= 999
@@ -212,11 +216,12 @@ BEGIN
 			,ci.AffId
 			,e.Actualrate2
 			,ci.Currency
+			,b.winlostdate
 			
 		-- update PSP & Marketing fees
 		UPDATE d
 		SET PSP 		= (abs(d.Deposit) * e.DepositPercent + abs(d.Withdrawal) * e.WithdrawalPercent)
-			,Marketing  = abs(d.Winlost) * isnull(dbo.Aff_GetDeductionPercent(d.AffID, @SportsBookID, 'Marketing', @CurrentDay), 0)
+			,Marketing  = abs(d.Winlost) * isnull(dbo.Aff_GetDeductionPercent(d.AffID, @SportsBookID, 'Marketing', d.WinlostDate), 0)
 		FROM #MemberRealtime d
 			INNER JOIN dbo.Exchange_Current e WITH (NOLOCK)
 			ON d.Currency = e.exchangeid
@@ -258,7 +263,7 @@ BEGIN
 			ON md.IBCCustID = mi.IBCCustID
 			INNER JOIN #AffList a 
 			ON md.AffID = a.AffId
-		WHERE WinlostDate = @CurrentDay
+		WHERE WinlostDate BETWEEN @PrevCurrentDay AND @CurrentDay
 			AND SportType = @CasinoID
 			AND mi.IsRemoved = 0
 	END
@@ -368,7 +373,7 @@ BEGIN
 				FROM dbo.MemberDaily md WITH(NOLOCK)
 				INNER JOIN #AffList a ON md.AffID = a.AffId
 				WHERE (WinlostDate BETWEEN @FirstDay
-						AND (CASE WHEN DATEDIFF(MM, @LastDay, @CurrentDay) = 0 THEN DATEADD(DD, -1, @CurrentDay) ELSE @LastDay END))
+						AND (CASE WHEN DATEDIFF(MM, @LastDay, @PrevCurrentDay) = 0 THEN DATEADD(DD, -1, @PrevCurrentDay) ELSE @LastDay END))
 					AND md.IBCCustID NOT IN (
 						SELECT mi.IBCCustID
 						FROM dbo.MemberInfo mi WITH (NOLOCK)
@@ -563,4 +568,3 @@ BEGIN
 	RETURN;
 END
 GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateCommByMonthAll] TO [bodbAdminNet] AS [dbo]
