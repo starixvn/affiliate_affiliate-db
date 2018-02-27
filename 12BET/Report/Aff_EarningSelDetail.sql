@@ -52,7 +52,7 @@ BEGIN
 
 	IF (
 			@SportType <> 3
-			AND @CurrDate >= @PrevCurrDate
+			AND @MonthDate >= @PrevCurrDate
 			)
 	BEGIN --Get current date data for sp and hr in bettrans table
 		SELECT b.CustID AS CustID
