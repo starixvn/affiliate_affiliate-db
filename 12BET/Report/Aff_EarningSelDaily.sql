@@ -175,7 +175,7 @@ BEGIN
 				,sum(Adjustment) AS Adjustment
 				,sum(PSP) AS PSP
 			FROM (
-				SELECT @CurrDate AS winlostdate
+				SELECT b.winlostdate
 					,isnull(sum(CASE 
 								WHEN (
 										@SportType = 0
@@ -266,7 +266,8 @@ BEGIN
 					AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 					AND b.custid > 0
 					--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
-				GROUP BY e.DepositPercent
+				GROUP BY b.winlostdate
+					,e.DepositPercent
 					,e.WithdrawalPercent
 				) t
 			GROUP BY t.winlostdate
