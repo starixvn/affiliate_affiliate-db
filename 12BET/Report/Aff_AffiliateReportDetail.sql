@@ -136,7 +136,7 @@ BEGIN
 			,ExRate2
 		
 		UNION ALL
-		SELECT @CurrDate AS WinlostDate
+		SELECT b.WinlostDate
 			,--Get winlost member in Bettrans table
 			m.Currency
 			,e.ActualRate2 AS AffExRate
@@ -234,7 +234,8 @@ BEGIN
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
 			--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
 			AND b.custid > 0
-		GROUP BY m.Currency
+		GROUP BY b.WinlostDate
+			,m.Currency
 			,e.ActualRate2
 		
 		UNION ALL
