@@ -179,7 +179,11 @@ BEGIN
 		INNER JOIN MemberInfo ci WITH (NOLOCK)
 		ON ci.IBCCustID = b.IBCCustID
 	WHERE b.AffID = @AffID
-		AND b.winlostdate BETWEEN @FromDate AND @BeforePreviousDate --this condition use up index on winlostdate	
+		AND b.winlostdate >= @FromDate
+		AND (
+			(b.SportType = 1 AND b.winlostdate <= @BeforePreviousDate)
+			OR b.SportType <> 1
+		)
 	GROUP BY b.IBCCustID
 		,SportType
 		,dateadd(mm, DATEDIFF(m, 0, b.winlostdate), 0)

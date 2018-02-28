@@ -151,10 +151,6 @@ BEGIN
 				OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 			) --get SB only
 			AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
-			AND b.bettype NOT IN (1000) --games
-			AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
-			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
-			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
 			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911)  
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 			AND b.custid > 0

@@ -160,29 +160,11 @@ BEGIN
 				,Currency
 			FROM MemberDaily md(NOLOCK)
 			WHERE AffID = @AffID
-				AND WinlostDate BETWEEN @FirstDay AND @BeforeLastDay
-				AND md.IBCCustID NOT IN (
-						SELECT IBCCustID
-						FROM CTE_MemberRemoval
-					)
-			-- addd casino data for current day  
-			
-			UNION ALL
-			SELECT IBCCustID
-				,SportType
-				,Deposit
-				,Winlost
-				,Bonus
-				,Adjustment
-				,PSP
-				,Marketing
-				,TurnOver
-				,AffExRate
-				,Currency
-			FROM MemberDaily md(NOLOCK)
-			WHERE AffID = @AffID
-				AND WinlostDate BETWEEN @LastDay AND @Today
-				AND SportType = @CasinoID
+				AND WinlostDate >= @FirstDay
+				AND (
+					(md.SportType = 1 AND md.WinlostDate <= @BeforeLastDay)
+					OR md.SportType <> 1
+				)
 				AND md.IBCCustID NOT IN (
 						SELECT IBCCustID
 						FROM CTE_MemberRemoval
@@ -236,6 +218,7 @@ BEGIN
 				INNER JOIN Exchange_Current e WITH (NOLOCK)
 				ON e.exchangeid = ci.currency
 			WHERE b.winlostdate BETWEEN @LastDay AND @Today
+				AND b.winlostdate >= @FirstDay
 				AND ci.AffID = @AffID
 				AND ci.IsRemoved = 0
 				AND (
@@ -246,7 +229,6 @@ BEGIN
 				AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
 				AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
 				AND b.StatusID NOT IN (101, 102, 103, 121, 1)
-			--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'   
 			GROUP BY ci.IBCCustID
 				,e.Actualrate2
 				,e.exchangeid

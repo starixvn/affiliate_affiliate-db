@@ -95,21 +95,12 @@ BEGIN
 	FROM dbo.AffDaily md WITH (NOLOCK)
 		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON md.AffId = ai.AffId
 		INNER JOIN dbo.AffType at WITH (NOLOCK) ON ai.AffType = at.TypeId
-	WHERE Winlostdate BETWEEN @NextMaxWinlostDate AND @BeforePreviousDate
-	GROUP BY DATEADD(mm, DATEDIFF(m, 0, md.winlostdate), 0)
-
-	UNION ALL
-	SELECT
-		SUM(ISNULL(MemDeposit, 0) * ExRate2) AS deposit
-		,SUM(ISNULL(MemWinlost, 0) * ExRate2) AS winlost
-		,SUM(ISNULL(MemBonus, 0) * ExRate2) AS bonus
-		,SUM(ISNULL(MemPSP, 0) * ExRate2) AS psp
-		,SUM(ISNULL(MemAdjustment, 0) * ExRate2) AS Adjustment
-		,DATEADD(mm, DATEDIFF(m, 0, md.Winlostdate), 0) AS winlostdate
-	FROM dbo.AffDaily md WITH (NOLOCK)
-		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON md.AffId = ai.AffId
-		INNER JOIN dbo.AffType at WITH (NOLOCK) ON ai.AffType = at.TypeId
-	WHERE Winlostdate = @PreviousDate AND md.SportID <> 1
+	WHERE
+		Winlostdate >= @NextMaxWinlostDate
+		AND (
+			(md.SportID = 1 AND md.Winlostdate <= @BeforePreviousDate)
+			OR md.SportID <> 1
+		)
 	GROUP BY DATEADD(mm, DATEDIFF(m, 0, md.winlostdate), 0)
 	
 	UNION ALL
@@ -141,7 +132,7 @@ BEGIN
 				WHEN bettype IN (21001, 21002, 21003, 21004, 21005, 22005) THEN (isnull(winlost, 0) - isnull(abs(actual_stake), 0)) * m.ActualRate2
 				ELSE 0
 				END) AS Adjustment
-		,@CurrentDate AS winlostdate
+		,b.winlostdate
 	FROM bodb02.dbo.bettrans b WITH (NOLOCK)
 		INNER JOIN (
 			SELECT m.IBCCustID
@@ -169,6 +160,7 @@ BEGIN
 		AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 	GROUP BY m.DepositPercent
 		,m.WithdrawalPercent
+		,b.winlostdate
 
 	SELECT @DepositAll = SUM(ISNULL(Deposit, 0))
 		,@WinlostAll = SUM(ISNULL(Winlost, 0))

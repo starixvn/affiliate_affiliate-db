@@ -120,7 +120,7 @@ BEGIN
 		,PlayTechRoyaltiesPercent FLOAT
 		,IsPSPIncluded INT -- flag to check PSP Fee is included or not for this product  
 	)
-	IF(DATEDIFF(MM, @LastDay, @PrevCurrentDay) = 0)
+	IF(DATEDIFF(MM, @LastDay, @CurrentDay) = 0)
 	BEGIN
 		INSERT INTO #MemberRealtime (
 			IBCCustID
@@ -139,10 +139,7 @@ BEGIN
 			,Currency
 		)
 		SELECT ci.IBCCustID
-			,CASE 
-				WHEN bettype IN (31, 32, 33, 41, 42, 43) THEN @HorseRacingID
-				ELSE @SportsBookID
-				END AS SportType
+			,@SportsBookID AS SportType
 			,ci.AffId
 			,b.WinlostDate
 			,isnull(sum(CASE bettype
@@ -194,6 +191,7 @@ BEGIN
 			ON e.exchangeid = ci.currency
 		
 		WHERE b.winlostdate BETWEEN @PrevCurrentDay AND @CurrentDay
+			AND b.winlostdate >= @FirstDay
 			AND ci.IsRemoved = 0
 			AND (
 				b.bettype <= 999
@@ -201,18 +199,10 @@ BEGIN
 				OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 			) --get SB only
 			AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
-			AND b.bettype NOT IN (1000) --games
-			AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
-			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
-			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
 			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 			AND b.custid > 0
 		GROUP BY ci.IBCCustID
-			,CASE 
-				WHEN b.bettype IN (31, 32, 33, 41, 42, 43) THEN @HorseRacingID
-				ELSE @SportsBookID
-				END
 			,ci.AffId
 			,e.Actualrate2
 			,ci.Currency
@@ -225,50 +215,9 @@ BEGIN
 		FROM #MemberRealtime d
 			INNER JOIN dbo.Exchange_Current e WITH (NOLOCK)
 			ON d.Currency = e.exchangeid
-			
-		-- Insert for Casino
-		INSERT INTO #MemberRealtime (
-			IBCCustID
-			,SportType
-			,AffID
-			,WinlostDate
-			,Deposit
-			,Withdrawal
-			,Bonus
-			,Adjustment
-			,TurnOver
-			,Winlost
-			,PSP
-			,Marketing
-			,AffExRate
-			,Currency
-		)
-		SELECT 
-			md.IBCCustID
-			,SportType
-			,md.AffID
-			,WinlostDate
-			,Deposit
-			,Withdrawal
-			,Bonus
-			,Adjustment
-			,TurnOver
-			,Winlost
-			,PSP
-			,Marketing
-			,AffExRate
-			,mi.Currency
-		FROM dbo.MemberDaily md WITH(NOLOCK)
-			INNER JOIN dbo.MemberInfo mi WITH(NOLOCK)
-			ON md.IBCCustID = mi.IBCCustID
-			INNER JOIN #AffList a 
-			ON md.AffID = a.AffId
-		WHERE WinlostDate BETWEEN @PrevCurrentDay AND @CurrentDay
-			AND SportType = @CasinoID
-			AND mi.IsRemoved = 0
 	END
 	
-	;WITH AffGroupInfo 
+	;WITH tmpAffGroupInfo 
 	AS (
 		SELECT a.AffId
 			,gh.GroupID
@@ -345,7 +294,7 @@ BEGIN
 		,dbo.Aff_GetDeductionPercent(t.AffID, r.SportType, 'Odds Fee', @LastDay) AS OddsFeePercent
 		,dbo.Aff_GetDeductionPercent(t.AffID, r.SportType, 'PlayTech Royalties', @LastDay) AS PlayTechRoyaltiesPercent
 		,0 AS IsPSPIncluded
-	FROM AffGroupInfo t
+	FROM tmpAffGroupInfo t
 		INNER JOIN (
 			SELECT IBCCustID
 				,SportType
@@ -372,8 +321,10 @@ BEGIN
 					,sum(isnull(Deposit, 0) * isnull(AffExRate, 1)) AS Deposit
 				FROM dbo.MemberDaily md WITH(NOLOCK)
 				INNER JOIN #AffList a ON md.AffID = a.AffId
-				WHERE (WinlostDate BETWEEN @FirstDay
-						AND (CASE WHEN DATEDIFF(MM, @LastDay, @PrevCurrentDay) = 0 THEN DATEADD(DD, -1, @PrevCurrentDay) ELSE @LastDay END))
+				WHERE
+					md.WinlostDate BETWEEN @FirstDay
+						AND CASE WHEN md.SportType = 1 AND DATEDIFF(MM, @LastDay, @PrevCurrentDay) = 0 THEN DATEADD(DD, -1, @PrevCurrentDay)
+							ELSE @LastDay END
 					AND md.IBCCustID NOT IN (
 						SELECT mi.IBCCustID
 						FROM dbo.MemberInfo mi WITH (NOLOCK)

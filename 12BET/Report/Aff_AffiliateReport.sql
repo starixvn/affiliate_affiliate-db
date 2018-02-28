@@ -290,6 +290,7 @@ BEGIN
 			INNER JOIN #AffPaging ml ON m.AffId = ml.AffId
 			INNER JOIN dbo.Exchange_Current e WITH (NOLOCK) ON m.Currency = e.ExchangeId
 		WHERE b.WinlostDate BETWEEN @PrevCurrDate AND @CurrDate
+			AND b.WinlostDate >= @TmpFromDate
 			AND m.IsRemoved = 0
 			AND (
 					b.bettype <= 999
@@ -297,12 +298,7 @@ BEGIN
 					OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 				) --get SB only
 			AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
-			AND b.bettype NOT IN (1000) --games
-			AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
-			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
-			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
 			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
-					--and bettype not in (31,32,33,41,42,43)   
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 			AND b.custid > 0
 			
@@ -342,8 +338,12 @@ BEGIN
 		,SUM(AffNetWinlost * ExRate2) AS AffBF
 	FROM dbo.AffDaily ad WITH (NOLOCK)
 		INNER JOIN #AffPaging m ON ad.AffID = m.AffId
-	WHERE (@IsGetAll = 1 OR ad.WinlostDate BETWEEN @FromDate AND @TmpToDate)
-		AND ISNULL(@SportId, SPortId) = SPortId
+	WHERE (@IsGetAll = 1 OR ad.WinlostDate BETWEEN @FromDate AND @ToDate)
+		AND ISNULL(@SportId, SportId) = SportId
+		AND (
+			(SportId = 1 AND ad.WinlostDate <= @TmpToDate)
+			OR SportId <> 1
+		)
 	GROUP BY ad.AffID
 
 	--Get winlost member in Bettrans table

@@ -59,6 +59,7 @@ BEGIN
 		,@LastDay SMALLDATETIME
 		,@CurrDate SMALLDATETIME
 		,@PrevCurrDate SMALLDATETIME
+		,@tmpToDate SMALLDATETIME
 		,@SportsBookID INT
 		,@HorseRacingID INT
 		,@CasinoID INT
@@ -90,7 +91,7 @@ BEGIN
 		,@FirstDay = cast(cast(@Year AS VARCHAR(5)) + '-' + cast(@Month AS VARCHAR(5)) + '-' + '1' AS SMALLDATETIME)
 		,@LastDay = DATEADD(d, - 1, DATEADD(mm, DATEDIFF(m, 0, @FirstDay) + 1, 0))
 
-	SELECT @LastDay = (CASE 
+	SELECT @tmpToDate = (CASE 
 			WHEN @LastDay >= @PrevCurrDate THEN dateadd(d, - 1, @PrevCurrDate)
 			ELSE @LastDay END
 			)
@@ -111,7 +112,7 @@ BEGIN
 			,0 AS CADeposit
 		FROM MemberDaily WITH (NOLOCK)
 		WHERE SportType = @SportsBookID
-			AND Winlostdate BETWEEN @FirstDay AND @LastDay
+			AND Winlostdate BETWEEN @FirstDay AND @tmpToDate
 			AND AffID = @AffID
 		GROUP BY IBCCustID
 		
@@ -129,20 +130,15 @@ BEGIN
 			INNER JOIN @MemList m ON b.CustId = m.IBCCustId
 		WHERE @LastDay >= @PrevCurrDate
 			AND Winlostdate BETWEEN @PrevCurrDate AND @CurrDate
+			AND b.winlostdate >= @FirstDay
 			AND (
 				b.bettype <= 999
 				OR ( b.bettype BETWEEN 1301 AND 1399)
 				OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 				) --get SB only
 			AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
-			AND b.bettype NOT IN (1000) --games
-			AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
-			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
-			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
 			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
-					--and bettype not in (31,32,33,41,42,43)   
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
-		--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  	
 		GROUP BY IBCCustID
 		
 		UNION ALL
@@ -154,7 +150,7 @@ BEGIN
 			,0 AS CADeposit
 		FROM MemberDaily WITH (NOLOCK)
 		WHERE SportType = @HorseRacingID
-			AND Winlostdate BETWEEN @FirstDay AND @LastDay
+			AND Winlostdate BETWEEN @FirstDay AND @tmpToDate
 			AND AffID = @AffID
 		GROUP BY IBCCustID
 		
@@ -174,20 +170,9 @@ BEGIN
 			INNER JOIN @MemList m ON b.CustId = m.IBCCustId
 		WHERE @LastDay >= @PrevCurrDate
 			AND Winlostdate BETWEEN @PrevCurrDate AND @CurrDate
-			AND (
-				b.bettype <= 999
-				OR ( b.bettype BETWEEN 1301 AND 1399)
-				OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
-				) --get SB only
-			AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
-			AND b.bettype NOT IN (1000) --games
-			AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
-			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
-			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
-			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
-					--and bettype not in (31,32,33,41,42,43)   
+			AND Winlostdate >= @FirstDay
+			AND b.bettype IN (33, 43)
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
-		--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  	
 		GROUP BY IBCCustID
 		
 		UNION ALL

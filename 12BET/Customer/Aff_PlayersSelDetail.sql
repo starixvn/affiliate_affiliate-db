@@ -84,7 +84,7 @@ BEGIN
 		WHERE m.AffID = @AffID AND m.IsRemoved = 0
 			AND (
 				@MonthDate IS NULL
-				OR DATEDIFF(m, @tdate, @today) = 0
+				OR (DATEDIFF(m, @tdate, @today) = 0 AND b.winlostdate >= @fdate)
 			)
 			AND b.winlostdate BETWEEN @yesterday AND @today
 			AND (
@@ -100,14 +100,13 @@ BEGIN
 		UNION ALL
 		SELECT d.IBCCustID
 		FROM MemberDaily d WITH (NOLOCK)
-		WHERE (CASE 
-				WHEN @MonthDate IS NULL THEN --for searching all month
-					CASE WHEN d.winlostdate < @yesterday THEN 1 ELSE 0 END
-				ELSE --for searching 1 month only
-					CASE WHEN d.winlostdate BETWEEN @fdate AND @tdate THEN 1 ELSE 0 END
-				END
-			) = 1
-			AND CASE WHEN @sporttype = 0 THEN d.sporttype ELSE @sporttype END = d.sporttype
+		WHERE 
+			(@MonthDate IS NULL OR d.winlostdate BETWEEN @fdate AND @tdate)
+			AND (@sporttype = 0 OR d.sporttype = @sporttype)
+			AND (
+				(d.sporttype = 1 AND d.winlostdate < @yesterday)
+				OR d.sporttype <> 1
+			)
 			AND d.AffID = @AffID
 			AND (
 				turnover > 0
@@ -247,7 +246,7 @@ BEGIN
 			INNER JOIN Exchange_Current e WITH (NOLOCK) ON m.Currency = e.Exchangeid
 		WHERE (
 				@MonthDate IS NULL
-				OR DATEDIFF(m, @tdate, @today) = 0
+				OR (DATEDIFF(m, @tdate, @today) = 0 AND b.winlostdate >= @fdate)
 			)
 			AND b.winlostdate BETWEEN @yesterday AND @Today
 			AND (
@@ -275,13 +274,13 @@ BEGIN
 			,isnull(sum(d.PSP * d.AffExRate), 0) AS PSP
 		FROM MemberDaily d WITH (NOLOCK)
 			INNER JOIN #ListCustId m WITH (NOLOCK) ON m.IbcCustid = d.IbcCustid
-		WHERE (CASE WHEN @MonthDate IS NULL THEN --for searching all month  
-					CASE WHEN d.winlostdate < @yesterday THEN 1 ELSE 0 END
-				ELSE --for searching 1 month only  
-					CASE WHEN d.winlostdate BETWEEN @fdate AND @tdate THEN 1 ELSE 0 END
-				END
-			) = 1
-			AND CASE WHEN @sporttype = 0 THEN d.sporttype ELSE @sporttype END = d.sporttype
+		WHERE
+			(@MonthDate IS NULL OR d.winlostdate BETWEEN @fdate AND @tdate)
+			AND (@sporttype = 0 OR d.sporttype = @sporttype)
+			AND (
+				(d.sporttype = 1 AND d.winlostdate < @yesterday)
+				OR d.sporttype <> 1
+			)
 			AND d.AffID = @AffID
 		GROUP BY IBCUserName
 			,m.username

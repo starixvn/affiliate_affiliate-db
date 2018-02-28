@@ -128,9 +128,13 @@ BEGIN
 			,0 AS AffWithdrawal
 			,sum(AffNetWinlost) AS AffBF
 		FROM AffDaily WITH (NOLOCK)
-		WHERE WinlostDate BETWEEN @FromDate AND @TmpToDate
+		WHERE WinlostDate BETWEEN @FromDate AND @ToDate
 			AND AffId = @AffId
-			AND isnull(@SportId, SPortId) = SPortId
+			AND isnull(@SportId, SportId) = SportId
+			AND (
+				(SportId = 1 AND WinlostDate <= @TmpToDate)
+				OR SportId <> 1
+			)
 		GROUP BY WinlostDate
 			,Currency
 			,ExRate2
@@ -220,19 +224,15 @@ BEGIN
 			ON m.Currency = e.ExchangeId
 		WHERE @ToDate >= @PrevCurrDate
 			AND b.WinlostDate BETWEEN @PrevCurrDate AND @CurrDate
+			AND b.WinlostDate >= @TmpFromDate
 			AND (
 				Bettype <= 999
 				OR ( b.bettype BETWEEN 1301 AND 1399)
 				OR Bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 				)
 			AND bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game
-			AND bettype NOT IN (1000) --games
-			AND bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
-			AND bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
-			AND bettype NOT BETWEEN 1501 AND 1599 -- Keno  
 			AND bettype NOT IN (912, 913, 914) -- Cash Out (keep 911)
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
-			--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
 			AND b.custid > 0
 		GROUP BY b.WinlostDate
 			,m.Currency

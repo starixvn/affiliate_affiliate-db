@@ -134,7 +134,6 @@ BEGIN
 		
 		-- query sportsbook & HorseRacing
 		IF(@SportType IN(0, @SportsBookID, @HorseRacingID))
-		--IF(@SportType = 100)
 		BEGIN
 			
 			INSERT INTO #AffDailyWL
@@ -150,8 +149,7 @@ BEGIN
 			FROM AffDailySummary d WITH (NOLOCK)
 			WHERE AffID = @AffID
 				AND d.winlostdate BETWEEN @fromdate AND @todate
-				--AND (SportId = @SportsBookID)
-				AND (@SportType = 0 OR SportId = @SportType)
+				AND (SportId = @SportsBookID)
 				AND (
 					isnull(MemTurnOver, 0) <> 0
 					OR isnull(MemWinlost, 0) <> 0
@@ -250,6 +248,7 @@ BEGIN
 					INNER JOIN Exchange_current e WITH (NOLOCK) ON e.Exchangeid = m.Currency
 				WHERE @SportType <> @CasinoId
 					AND b.Winlostdate BETWEEN @PrevCurrDate AND @CurrDate
+					AND b.winlostdate >= @fromdate
 					AND b.ruben = 1
 					AND (
 						b.bettype <= 999
@@ -257,15 +256,9 @@ BEGIN
 						OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 						) --get SB only
 					AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
-					AND b.bettype NOT IN (1000) --games
-					AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
-					AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
-					AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
 					AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
-							--and bettype not in (31,32,33,41,42,43)   
 					AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 					AND b.custid > 0
-					--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
 				GROUP BY b.winlostdate
 					,e.DepositPercent
 					,e.WithdrawalPercent
@@ -273,6 +266,7 @@ BEGIN
 			GROUP BY t.winlostdate
 			ORDER BY winlostdate
 		END
+		
 		INSERT INTO #AffComm (
 			SportID
 			,NetWinlost
