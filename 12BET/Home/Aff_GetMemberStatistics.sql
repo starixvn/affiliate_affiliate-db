@@ -97,6 +97,20 @@ BEGIN
 		INNER JOIN dbo.AffType at WITH (NOLOCK) ON ai.AffType = at.TypeId
 	WHERE Winlostdate BETWEEN @NextMaxWinlostDate AND @BeforePreviousDate
 	GROUP BY DATEADD(mm, DATEDIFF(m, 0, md.winlostdate), 0)
+
+	UNION ALL
+	SELECT
+		SUM(ISNULL(MemDeposit, 0) * ExRate2) AS deposit
+		,SUM(ISNULL(MemWinlost, 0) * ExRate2) AS winlost
+		,SUM(ISNULL(MemBonus, 0) * ExRate2) AS bonus
+		,SUM(ISNULL(MemPSP, 0) * ExRate2) AS psp
+		,SUM(ISNULL(MemAdjustment, 0) * ExRate2) AS Adjustment
+		,DATEADD(mm, DATEDIFF(m, 0, md.Winlostdate), 0) AS winlostdate
+	FROM dbo.AffDaily md WITH (NOLOCK)
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON md.AffId = ai.AffId
+		INNER JOIN dbo.AffType at WITH (NOLOCK) ON ai.AffType = at.TypeId
+	WHERE Winlostdate = @PreviousDate AND md.SportID <> 1
+	GROUP BY DATEADD(mm, DATEDIFF(m, 0, md.winlostdate), 0)
 	
 	UNION ALL
 	SELECT sum(CASE 
