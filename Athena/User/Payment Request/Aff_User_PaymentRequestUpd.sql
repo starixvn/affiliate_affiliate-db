@@ -29,6 +29,7 @@ AS
 	Revisions:
 		- 20151120@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		- 20171130@Percy: Add more log [RedmineID: #87322]
 
 	Param's Explanation:
 		1) @AffId (For Double check)
@@ -102,7 +103,8 @@ BEGIN
 		SET
 			[Status] = @Status,  
 			CompletedDate = @CompletedDate,  
-			Creator = @UserID  
+			Creator = @UserID,
+			IsProcessing = 0
 		WHERE TransID = @TransID AND AffID = @AffID       
 	END TRY  
 	BEGIN CATCH  
