@@ -106,7 +106,7 @@ BEGIN
 	BEGIN
 		SELECT
 			@BT_Deposit		= ISNULL(SUM(CASE WHEN b.bettype = 22001 THEN b.winlost-b.actual_stake ELSE 0 END), 0),
-			@BT_Withdrawal	= ISNULL(SUM(CASE WHEN b.bettype IN (22002, 22003) THEN b.winlost-b.actual_stake ELSE 0 END), 0),
+			@BT_Withdrawal	= -ISNULL(SUM(CASE WHEN b.bettype IN (22002, 22003) THEN b.winlost-b.actual_stake ELSE 0 END), 0),
 			@BT_Bonus		= ISNULL(SUM(CASE WHEN b.bettype = 22004 THEN b.winlost-b.actual_stake ELSE 0 END), 0),
 			@BT_Adjustment	= ISNULL(SUM(CASE WHEN b.bettype IN (21001, 21002, 21003, 21004, 21005, 22005) THEN b.winlost-b.actual_stake ELSE 0 END), 0),
 			@BT_Turnover	= ISNULL(SUM(CASE WHEN b.bettype < 19999 AND b.bettype <> 911 THEN b.stake ELSE 0 END), 0),

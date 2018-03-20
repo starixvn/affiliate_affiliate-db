@@ -15,6 +15,7 @@ AS
 
 	Revisions:
 		- 20171020@Percy: Add new SP [RedmineID: #84602]
+		- 20180320@Percy: Add more condition to check [RedmineID: #90861]
 */
 
 BEGIN
@@ -26,7 +27,7 @@ BEGIN
 		SELECT @Date = DATEADD(DAY, -2, CONVERT(DATE, GETDATE()))
 	END
 
-	IF EXISTS (SELECT TOP 1 SportType FROM dbo.MemberDaily_Invalid WITH (NOLOCK) WHERE WinlostDate >= @Date)
+	IF EXISTS (SELECT TOP 1 SportType FROM dbo.MemberDaily_Invalid WITH (NOLOCK) WHERE WinlostDate >= @Date AND Reason = 'Invalid CreateDate')
 	BEGIN
 		SELECT @IsMatch = 0
 		

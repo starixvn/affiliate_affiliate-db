@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20171020@Percy: Add new SP [RedmineID: #84602]
+		- 20180320@Percy: Fix issue withdrawal [RedmineID: #90861]
 */
 
 BEGIN
@@ -149,7 +150,7 @@ BEGIN
 			m.AffID,
 			b.currency,
 			SUM(CASE WHEN b.bettype = 22001 THEN b.winlost-b.actual_stake ELSE 0 END) AS Deposit,
-			SUM(CASE WHEN b.bettype IN (22002, 22003) THEN b.winlost-b.actual_stake ELSE 0 END) AS Withdrawal,
+			-SUM(CASE WHEN b.bettype IN (22002, 22003) THEN b.winlost-b.actual_stake ELSE 0 END) AS Withdrawal,
 			SUM(CASE WHEN b.bettype = 22004 THEN b.winlost-b.actual_stake ELSE 0 END) AS Bonus,
 			SUM(CASE WHEN b.bettype IN (21001, 21002, 21003, 21004, 21005, 22005) THEN b.winlost-b.actual_stake ELSE 0 END) AS Adjustment,
 			SUM(CASE WHEN b.bettype < 19999 AND b.bettype <> 911 THEN b.stake ELSE 0 END) AS Turnover,
