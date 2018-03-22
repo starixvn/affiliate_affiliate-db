@@ -257,6 +257,7 @@ BEGIN
 			AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
 			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
+			AND (@sporttype = 0 OR @sporttype = @SportsBookID)
 		GROUP BY IBCUserName
 			,m.username
 			,m.RegisteredDate

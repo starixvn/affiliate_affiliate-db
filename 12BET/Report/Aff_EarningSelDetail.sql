@@ -154,6 +154,7 @@ BEGIN
 			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911)  
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 			AND b.custid > 0
+			AND (@sporttype = 0 OR @sporttype = @SportsBookID)
 		GROUP BY b.CustID
 			,m.UserName
 			,m.IBCUserName
