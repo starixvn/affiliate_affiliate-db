@@ -47,6 +47,7 @@ AS
 		- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
 		- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+		- 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 
 	Param's Explanation:
 		• @AffID : Affiliate custid
@@ -81,6 +82,7 @@ BEGIN
 		,@FromDate SMALLDATETIME
 		,@CurrentDate SMALLDATETIME
 		,@PreviousDate SMALLDATETIME
+		,@BeforePreviousDate SMALLDATETIME
 		,@SportsBookID INT
 		,@HorseRacingID INT
 		,@CasinoID INT
@@ -108,6 +110,7 @@ BEGIN
 
 	SELECT @CurrentDate = convert(VARCHAR(10), current_timestamp, 120)
 		,@PreviousDate = dateadd(d, - 1, @CurrentDate)
+		,@BeforePreviousDate = DATEADD(DAY, -1, @PreviousDate)
 
 	SELECT @MaxTransDate = max(WinlostDate)
 	FROM AffCommission WITH (NOLOCK)
@@ -176,7 +179,11 @@ BEGIN
 		INNER JOIN MemberInfo ci WITH (NOLOCK)
 		ON ci.IBCCustID = b.IBCCustID
 	WHERE b.AffID = @AffID
-		AND b.winlostdate BETWEEN @FromDate AND @PreviousDate --this condition use up index on winlostdate	
+		AND b.winlostdate >= @FromDate
+		AND (
+			(b.SportType = 1 AND b.winlostdate <= @BeforePreviousDate)
+			OR b.SportType <> 1
+		)
 	GROUP BY b.IBCCustID
 		,SportType
 		,dateadd(mm, DATEDIFF(m, 0, b.winlostdate), 0)
@@ -218,7 +225,7 @@ BEGIN
 		ON b.custid = ci.IBCCustID
 		INNER JOIN Exchange_Current e WITH (NOLOCK)
 		ON ci.currency = e.exchangeid
-	WHERE b.winlostdate = @CurrentDate
+	WHERE b.winlostdate BETWEEN @PreviousDate AND @CurrentDate
 		AND ci.AffID = @AffID
 		AND ci.IsRemoved = 0
 		AND (

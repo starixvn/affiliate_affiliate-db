@@ -20,6 +20,7 @@ AS
 	- 20141113@Bobby: Change report time range from datetime to date only
 	- 20141218@Bobby: Update SS's bettype
 	- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+	- 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 */
 BEGIN
 	SET NOCOUNT ON
@@ -43,11 +44,13 @@ BEGIN
 		,@TmpOldWayDate DATE
 		,@SportsBookID 	INT
 		,@HorseRacingID INT
+		,@PrevCurrDate	DATE
 
 	SELECT @SportsBookID = dbo.Aff_GetSportID('SportsBook')
 		,@HorseRacingID = dbo.Aff_GetSportID('Horse Racing')
 
 	SELECT @CurrDate 	= CURRENT_TIMESTAMP
+	SELECT @PrevCurrDate = DATEADD(DAY, -1, @CurrDate)
 
 	SELECT @OldReportDate = SValue
 	FROM SystemSettings WITH (NOLOCK)
@@ -65,7 +68,7 @@ BEGIN
 
 		SELECT @TmpFromDate = dateadd(d, 1, @OldReportDate) --From date for new way calculate winlost
 
-		SELECT @TmpToDate = dateadd(d, - 1, @CurrDate) --To date for new way calculate winlost
+		SELECT @TmpToDate = dateadd(d, - 1, @PrevCurrDate) --To date for new way calculate winlost
 
 		SELECT @TmpOldWayDate = @OldReportDate
 	END
@@ -77,7 +80,7 @@ BEGIN
 				END
 
 		SELECT @TmpToDate = CASE 
-				WHEN @ToDate >= @CurrDate THEN dateadd(d, - 1, @CurrDate)
+				WHEN @ToDate >= @PrevCurrDate THEN dateadd(d, - 1, @PrevCurrDate)
 				ELSE @ToDate
 				END
 
@@ -125,15 +128,19 @@ BEGIN
 			,0 AS AffWithdrawal
 			,sum(AffNetWinlost) AS AffBF
 		FROM AffDaily WITH (NOLOCK)
-		WHERE WinlostDate BETWEEN @FromDate AND @TmpToDate
+		WHERE WinlostDate BETWEEN @FromDate AND @ToDate
 			AND AffId = @AffId
-			AND isnull(@SportId, SPortId) = SPortId
+			AND isnull(@SportId, SportId) = SportId
+			AND (
+				(SportId = 1 AND WinlostDate <= @TmpToDate)
+				OR SportId <> 1
+			)
 		GROUP BY WinlostDate
 			,Currency
 			,ExRate2
 		
 		UNION ALL
-		SELECT @CurrDate AS WinlostDate
+		SELECT b.WinlostDate
 			,--Get winlost member in Bettrans table
 			m.Currency
 			,e.ActualRate2 AS AffExRate
@@ -215,23 +222,20 @@ BEGIN
 				AND m.IsRemoved = 0
 			INNER JOIN Exchange_Current e WITH (NOLOCK)
 			ON m.Currency = e.ExchangeId
-		WHERE @ToDate >= @CurrDate
-			AND b.WinlostDate = @CurrDate
+		WHERE @ToDate >= @PrevCurrDate
+			AND b.WinlostDate BETWEEN @PrevCurrDate AND @CurrDate
+			AND b.WinlostDate >= @TmpFromDate
 			AND (
 				Bettype <= 999
 				OR ( b.bettype BETWEEN 1301 AND 1399)
 				OR Bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 				)
 			AND bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game
-			AND bettype NOT IN (1000) --games
-			AND bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
-			AND bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
-			AND bettype NOT BETWEEN 1501 AND 1599 -- Keno  
 			AND bettype NOT IN (912, 913, 914) -- Cash Out (keep 911)
 			AND StatusID NOT IN (101, 102, 103, 121, 1)
-			--and status not in ('VOID', 'REJECT', 'REFUND','DONE') and 'waiting'  
 			AND b.custid > 0
-		GROUP BY m.Currency
+		GROUP BY b.WinlostDate
+			,m.Currency
 			,e.ActualRate2
 		
 		UNION ALL

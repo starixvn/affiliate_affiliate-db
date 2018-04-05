@@ -25,6 +25,7 @@ AS
 		- 20141218@Bobby: Update SS's bettype
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 		- 20171109@Percy: Correct the way get active player [RedmineID: #86353]
+		- 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 
 	Param's Explanation:
 		• @AffID : Affiliate custid
@@ -34,9 +35,10 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @today SMALLDATETIME, @fdate SMALLDATETIME, @tdate SMALLDATETIME
+	DECLARE @today SMALLDATETIME, @yesterday SMALLDATETIME, @fdate SMALLDATETIME, @tdate SMALLDATETIME
 
 	SELECT  @today = CONVERT(VARCHAR(10), CURRENT_TIMESTAMP, 120)
+	SELECT  @yesterday = DATEADD(DAY, -1, @today)
 
 	DECLARE @GroupId INT, @DeductedPercentage DECIMAL(9,8)
 
@@ -82,9 +84,9 @@ BEGIN
 		WHERE m.AffID = @AffID AND m.IsRemoved = 0
 			AND (
 				@MonthDate IS NULL
-				OR DATEDIFF(m, @tdate, @today) = 0
+				OR (DATEDIFF(m, @tdate, @today) = 0 AND b.winlostdate >= @fdate)
 			)
-			AND b.winlostdate = @today
+			AND b.winlostdate BETWEEN @yesterday AND @today
 			AND (
 				b.bettype <= 999
 				OR ( b.bettype BETWEEN 1301 AND 1399)
@@ -98,14 +100,13 @@ BEGIN
 		UNION ALL
 		SELECT d.IBCCustID
 		FROM MemberDaily d WITH (NOLOCK)
-		WHERE (CASE 
-				WHEN @MonthDate IS NULL THEN --for searching all month
-					CASE WHEN d.winlostdate < @Today THEN 1 ELSE 0 END
-				ELSE --for searching 1 month only
-					CASE WHEN d.winlostdate BETWEEN @fdate AND @tdate THEN 1 ELSE 0 END
-				END
-			) = 1
-			AND CASE WHEN @sporttype = 0 THEN d.sporttype ELSE @sporttype END = d.sporttype
+		WHERE 
+			(@MonthDate IS NULL OR d.winlostdate BETWEEN @fdate AND @tdate)
+			AND (@sporttype = 0 OR d.sporttype = @sporttype)
+			AND (
+				(d.sporttype = 1 AND d.winlostdate < @yesterday)
+				OR d.sporttype <> 1
+			)
 			AND d.AffID = @AffID
 			AND (
 				turnover > 0
@@ -245,9 +246,9 @@ BEGIN
 			INNER JOIN Exchange_Current e WITH (NOLOCK) ON m.Currency = e.Exchangeid
 		WHERE (
 				@MonthDate IS NULL
-				OR DATEDIFF(m, @tdate, @today) = 0
+				OR (DATEDIFF(m, @tdate, @today) = 0 AND b.winlostdate >= @fdate)
 			)
-			AND b.winlostdate = @Today
+			AND b.winlostdate BETWEEN @yesterday AND @Today
 			AND (
 				b.bettype <= 999
 				OR ( b.bettype BETWEEN 1301 AND 1399)
@@ -256,6 +257,7 @@ BEGIN
 			AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
 			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911 only)
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
+			AND (@sporttype = 0 OR @sporttype = @SportsBookID)
 		GROUP BY IBCUserName
 			,m.username
 			,m.RegisteredDate
@@ -273,13 +275,13 @@ BEGIN
 			,isnull(sum(d.PSP * d.AffExRate), 0) AS PSP
 		FROM MemberDaily d WITH (NOLOCK)
 			INNER JOIN #ListCustId m WITH (NOLOCK) ON m.IbcCustid = d.IbcCustid
-		WHERE (CASE WHEN @MonthDate IS NULL THEN --for searching all month  
-					CASE WHEN d.winlostdate < @Today THEN 1 ELSE 0 END
-				ELSE --for searching 1 month only  
-					CASE WHEN d.winlostdate BETWEEN @fdate AND @tdate THEN 1 ELSE 0 END
-				END
-			) = 1
-			AND CASE WHEN @sporttype = 0 THEN d.sporttype ELSE @sporttype END = d.sporttype
+		WHERE
+			(@MonthDate IS NULL OR d.winlostdate BETWEEN @fdate AND @tdate)
+			AND (@sporttype = 0 OR d.sporttype = @sporttype)
+			AND (
+				(d.sporttype = 1 AND d.winlostdate < @yesterday)
+				OR d.sporttype <> 1
+			)
 			AND d.AffID = @AffID
 		GROUP BY IBCUserName
 			,m.username

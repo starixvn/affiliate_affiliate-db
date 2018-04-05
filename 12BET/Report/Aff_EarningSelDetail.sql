@@ -19,6 +19,7 @@ AS
 		   - 20140403@Bobby: Exclude Keno product & other sports
 		   - 20141218@Bobby: Update SS's bettype
 		   - 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+		   - 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 
 	Param's Explanation:  
 	• @AffId affliate Id  
@@ -29,6 +30,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @CurrDate SMALLDATETIME
+		,@PrevCurrDate SMALLDATETIME
 		,@SportsBookID INT
 		,@HorseRacingID INT
 		,@GroupId INT
@@ -44,12 +46,13 @@ BEGIN
 		SELECT @DeductedPercentage = 0
 
 	SET @CurrDate = convert(VARCHAR(10), CURRENT_TIMESTAMP, 120)
+	SET @PrevCurrDate = DATEADD(DAY, -1, @CurrDate)
 
 	SELECT @MonthDate = dateadd(d, datediff(d, 0, @MonthDate), 0)
 
 	IF (
 			@SportType <> 3
-			AND @CurrDate = @MonthDate
+			AND @MonthDate >= @PrevCurrDate
 			)
 	BEGIN --Get current date data for sp and hr in bettrans table
 		SELECT b.CustID AS CustID
@@ -148,13 +151,10 @@ BEGIN
 				OR b.bettype IN (21001, 21002, 21003, 21004, 21005, 22001, 22002, 22003, 22004, 22005)
 			) --get SB only
 			AND b.bettype NOT BETWEEN 31 AND 120 --Not include Casino and Number Game and finance
-			AND b.bettype NOT IN (1000) --games
-			AND b.bettype NOT BETWEEN 1101 AND 1199 -- Live Casino
-			AND b.bettype NOT BETWEEN 1201 AND 1299 --Virtual Sport	
-			AND b.bettype NOT BETWEEN 1501 AND 1599 -- Keno  
 			AND b.bettype NOT BETWEEN 912 AND 914 -- Cash Out (keep 911)  
 			AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 			AND b.custid > 0
+			AND (@sporttype = 0 OR @sporttype = @SportsBookID)
 		GROUP BY b.CustID
 			,m.UserName
 			,m.IBCUserName

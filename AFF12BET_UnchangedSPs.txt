@@ -1,0 +1,5 @@
+12BET/Home/Aff_HomeGeneralInfo.sql
+12BET/Customer/Aff_StatementHistorySel.sql
+12BET/Report/Aff_AffiliateCommReport.sql
+12BET/Report/Aff_PerformanceReport.sql
+12BET/Report/Aff_PerformanceReportByAff.sql

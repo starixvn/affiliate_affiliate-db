@@ -22,7 +22,8 @@ AS
 				   CNW in sportspook=Member Winlost In SB - Marketing Fee- Odds Fee
 				   Net Winlost for Casino = Member Winlost In Casino - Marketing Casino - Playtech Royalty Fee - PSP Fee
 
-  - 20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval 
+  - 20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval
+  - 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 */  
 BEGIN  
   

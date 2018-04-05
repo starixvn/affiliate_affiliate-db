@@ -30,6 +30,7 @@ AS
 		- 20140403@Bobby: Exclude Keno product & other sports
 		- 20141218@Bobby: Update SS's bettype
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+		- 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 
 	Param's Explanation:
 
@@ -39,7 +40,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @MaxWinLostDateAffComm SMALLDATETIME, @NextMaxWinlostDate SMALLDATETIME
-	DECLARE @CurrentDate SMALLDATETIME, @PreviousDate SMALLDATETIME
+	DECLARE @CurrentDate SMALLDATETIME, @PreviousDate SMALLDATETIME, @BeforePreviousDate SMALLDATETIME
 
 	SELECT @MaxWinLostDateAffComm = MAX(winlostdate)
 	FROM dbo.AffCommission WITH (NOLOCK)
@@ -48,6 +49,7 @@ BEGIN
 		@NextMaxWinlostDate = DATEADD(DAY, 1, @MaxWinLostDateAffComm)
 		,@CurrentDate = CONVERT(VARCHAR(10), CURRENT_TIMESTAMP, 120)
 		,@PreviousDate = DATEADD(DAY, - 1, @CurrentDate)
+		,@BeforePreviousDate = DATEADD(DAY, -1, @PreviousDate)
 
 	DECLARE @TblStatistics TABLE
 	(
@@ -93,7 +95,12 @@ BEGIN
 	FROM dbo.AffDaily md WITH (NOLOCK)
 		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON md.AffId = ai.AffId
 		INNER JOIN dbo.AffType at WITH (NOLOCK) ON ai.AffType = at.TypeId
-	WHERE Winlostdate BETWEEN @NextMaxWinlostDate AND @PreviousDate
+	WHERE
+		Winlostdate >= @NextMaxWinlostDate
+		AND (
+			(md.SportID = 1 AND md.Winlostdate <= @BeforePreviousDate)
+			OR md.SportID <> 1
+		)
 	GROUP BY DATEADD(mm, DATEDIFF(m, 0, md.winlostdate), 0)
 	
 	UNION ALL
@@ -125,7 +132,7 @@ BEGIN
 				WHEN bettype IN (21001, 21002, 21003, 21004, 21005, 22005) THEN (isnull(winlost, 0) - isnull(abs(actual_stake), 0)) * m.ActualRate2
 				ELSE 0
 				END) AS Adjustment
-		,@CurrentDate AS winlostdate
+		,b.winlostdate
 	FROM bodb02.dbo.bettrans b WITH (NOLOCK)
 		INNER JOIN (
 			SELECT m.IBCCustID
@@ -141,7 +148,7 @@ BEGIN
 				LEFT JOIN dbo.DeductionSetting ds WITH(NOLOCK) ON ai.GroupID = ds.GroupID AND ds.DeductionID = 9
 			WHERE m.IsRemoved = 0
 		) m ON b.CustId = m.IBCCustID
-	WHERE b.winlostdate = @CurrentDate
+	WHERE b.winlostdate BETWEEN @PreviousDate AND @CurrentDate
 		AND ruben = 1
 		AND (
 			b.bettype <= 999
@@ -153,6 +160,7 @@ BEGIN
 		AND b.StatusID NOT IN (101, 102, 103, 121, 1)
 	GROUP BY m.DepositPercent
 		,m.WithdrawalPercent
+		,b.winlostdate
 
 	SELECT @DepositAll = SUM(ISNULL(Deposit, 0))
 		,@WinlostAll = SUM(ISNULL(Winlost, 0))
