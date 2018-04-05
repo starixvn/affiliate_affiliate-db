@@ -25,6 +25,7 @@ AS
 
 	Revisions:
 		- 20130314@Johnny: Create new SP
+		- 20171130@Percy: Add more log [RedmineID: #87322]
 
 	Param's Explanation:
 */

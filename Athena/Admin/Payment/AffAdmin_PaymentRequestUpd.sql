@@ -28,8 +28,8 @@ AS
 		- Johnny@20131126: Update field BF in table AffInfo
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
-		- 20180205@Percy: Remove check status and redundant param: @LicenseeId [RedmineID: #90545]
-		- 20180208@Alex  : Support Liecnsee admin portal #90545
+		- 20171130@Percy: Add IsProcessing, log [RedmineID: #87322]
+		- 20180208@Alex: Support Liecnsee admin portal #90545
 	
 	
 	Param's Explanation:
@@ -97,6 +97,7 @@ BEGIN
 		,CompletedDate = @CompletedDate
 		,Creator = @UserID
 		,AdminUserName=@AdminUserName
+		,IsProcessing = 0
 	WHERE TransID = @TransID AND AffID = @AffID
 
 	IF @@ERROR <> 0
