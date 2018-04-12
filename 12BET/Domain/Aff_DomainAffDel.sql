@@ -1,3 +1,7 @@
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
+GO
+
 ALTER PROCEDURE [dbo].[Aff_DomainAffDel] 
 	@DomainID INT OUTPUT
 	,@DomainName NVARCHAR(50)
@@ -6,19 +10,22 @@ ALTER PROCEDURE [dbo].[Aff_DomainAffDel]
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
 AS
-/*
-Created: 20121115@ThaiTran
-Task : Del a AffDomain
-DB: DB052.Affiliate_12BET
 
-Revisions:  
-	- 20140708@Bobby : Apply IsDeleted info
+/*
+	Created: 20121115@ThaiTran
+	Task: Del a AffDomain
+	DB: DBAFF12BET.Affiliate_12BET
+
+	Revisions:  
+		- 20140708@Bobby : Apply IsDeleted info
 */
+
 BEGIN
 	SET NOCOUNT ON
 
-	--Check permission-----------------------------
-	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserID
+	-- Check permission
+	EXEC [dbo].[Aff_Con_CheckPermission]
+		@custid = @UserID
 		,@funcname = '[Domain]'
 		,@System = 'AFFILIATE'
 		,@ErrCode = @ErrCode OUTPUT
@@ -53,19 +60,11 @@ BEGIN
 
 	SELECT @Detail = 'Delete DomainID:' + dbo.Aff_ToString(@DomainID) + ' DomainName:' + dbo.Aff_ToString(@DomainName)
 
-	EXEC [dbo].[Aff_WriteLog] @Creator = @UserID
+	EXEC [dbo].[Aff_WriteLog]
+		@Creator = @UserID
 		,@Typename = 'AffDomain'
-		,-- refer to table LogType
-		@SPName = @SPName
+		,@SPName = @SPName
 		,@Details = @Detail
 		,@IP = @IP
 END
 GO
-
-GRANT EXECUTE ON [dbo].[Aff_DomainAffDel] TO [bodbAdminNet]
-GO
-
-GRANT VIEW DEFINITION ON [dbo].[Aff_DomainAffDel] TO [vnteam]
-GO
-
-

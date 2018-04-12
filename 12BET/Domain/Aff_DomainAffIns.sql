@@ -1,4 +1,8 @@
-ALTER PROC [dbo].[Aff_DomainAffIns] 
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_DomainAffIns] 
 	@DomainName NVARCHAR(50)
 	,@UserID INT
 	,@IP NVARCHAR(15) = ''
@@ -6,33 +10,37 @@ ALTER PROC [dbo].[Aff_DomainAffIns]
 	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
 	,@DomainID INT OUTPUT
 AS
+
 /*
-Created: 20121115@ThaiTran
-Task : Add a new AffDomain
-DB: DB052.Affiliate_12BET
-Revisions:
-	- 20140613@Bobby: check validation of @DomainName
-	- 20140713@Bobby: add checking IsDeleted
+	Created: 20121115@ThaiTran
+	Task: Add a new AffDomain
+	DB: DBAFF12BET.Affiliate_12BET
+	
+	Revisions:
+		- 20140613@Bobby: check validation of @DomainName
+		- 20140713@Bobby: add checking IsDeleted
 */
+
 BEGIN
 	SET NOCOUNT ON
 
-	--Check permission-----------------------------
-	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserID
+	-- Check permission
+	EXEC [dbo].[Aff_Con_CheckPermission]
+		@custid = @UserID
 		,@funcname = '[Domain]'
 		,@System = 'AFFILIATE'
 		,@ErrCode = @ErrCode OUTPUT
 		,@ErrMsg = @ErrMsg OUTPUT
 
-	IF @ErrCode <> 0
-		OR LEN(@DomainName) = 0 RETURN
+	IF @ErrCode <> 0 OR LEN(@DomainName) = 0
+		RETURN
 
 	-----------------------------------------------
 	SET @DomainName = RTRIM(LTRIM(@DomainName))
 
 	IF EXISTS (
 			SELECT 1
-			FROM [AffDomain] NOLOCK
+			FROM [AffDomain] WITH (NOLOCK)
 			WHERE DomainName = @DomainName
 				AND IsDeleted = 0
 			)
@@ -44,12 +52,12 @@ BEGIN
 	END
 
 	DECLARE @CreatedDate DATETIME
-
-	SELECT @CreatedDate = Current_Timestamp
+	SELECT  @CreatedDate = GETDATE()
 
 	BEGIN TRANSACTION
 
-	INSERT INTO [AffDomain] (
+	INSERT INTO [AffDomain]
+	(
 		[DomainName]
 		,[CreateDate]
 		,[ModifyDate]
@@ -76,24 +84,19 @@ BEGIN
 
 	COMMIT TRANSACTION
 
-	--Write log
-	DECLARE @SPName VARCHAR(50)
-		,@Detail NVARCHAR(4000)
+	-- Write log
+	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000)
 
-	SELECT @SPName = OBJECT_NAME(@@ProcID)
+	SELECT  @SPName = OBJECT_NAME(@@ProcID)
 
-	SELECT @Detail = 'Create DomainID:' + dbo.Aff_ToString(@DomainID) + ' DomainName:' + dbo.Aff_ToString(@DomainName)
+	SELECT  @Detail = 'Create DomainID:' + dbo.Aff_ToString(@DomainID)
+					+ ' DomainName:' + dbo.Aff_ToString(@DomainName)
 
-	EXEC [dbo].[Aff_WriteLog] @Creator = @UserID
+	EXEC [dbo].[Aff_WriteLog]
+		@Creator = @UserID
 		,@Typename = 'AffDomain'
-		,-- refer to table LogType
-		@SPName = @SPName
+		,@SPName = @SPName
 		,@Details = @Detail
 		,@IP = @IP
 END
 GO
-
-GRANT EXECUTE ON [dbo].[Aff_DomainAffIns] TO [bodbAdminNet]
-GO
-
-GRANT VIEW DEFINITION ON [dbo].[Aff_DomainAffIns] TO [vnteam]
