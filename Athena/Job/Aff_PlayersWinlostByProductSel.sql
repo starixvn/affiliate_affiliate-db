@@ -1,3 +1,4 @@
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 USE [bodb02]
 GO
  
@@ -547,10 +548,4 @@ BEGIN
 	DROP TABLE #LicenseeCust
 	DROP TABLE #CashOutMember
 END
-GO 
-GRANT EXECUTE ON [dbo].[Aff_PlayersWinlostByProductSel] TO [vnteam]
-GO 
-GRANT VIEW DEFINITION ON [dbo].[Aff_PlayersWinlostByProductSel] TO [vnteam]
-GO 
-GRANT EXECUTE ON [dbo].[Aff_PlayersWinlostByProductSel] TO [bodbAdminNet]
-GO 
+GO
