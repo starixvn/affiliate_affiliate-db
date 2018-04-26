@@ -1,3 +1,7 @@
+/*<info serverAlias="DBAGE-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
+GO
+
 ALTER PROCEDURE [dbo].[Aff_DomainControlUpd] 
 	@ID INT
 	,@AffDomainID INT
@@ -9,16 +13,19 @@ ALTER PROCEDURE [dbo].[Aff_DomainControlUpd]
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
 AS
+
 /*
-Created: 20121115@Johnny.Trinh
-Task : Update Domain control info
-DB: DB052.Affiliate_12BET
+	Created: 20121115@Johnny.Trinh
+	Task: Update Domain control info
+	DB: DBAFF12BET.Affiliate_12BET
 */
+
 BEGIN
 	SET NOCOUNT ON
 
 	--Check permission-----------------------------
-	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserID
+	EXEC [dbo].[Aff_Con_CheckPermission]
+		@custid = @UserID
 		,@funcname = '[Domain]'
 		,@System = 'AFFILIATE'
 		,@ErrCode = @ErrCode OUTPUT
@@ -81,18 +88,15 @@ BEGIN
 
 	SELECT @SPName = OBJECT_NAME(@@ProcID)
 
-	SELECT @Detail = 'Update AffDomainID:' + dbo.Aff_ToString(@AffDomainID) + ' 12BetDomainID:' + dbo.Aff_ToString(@12BetDomainID) + ' MarketID:' + dbo.Aff_ToString(@MarketID)
+	SELECT @Detail = 'Update AffDomainID:' + dbo.Aff_ToString(@AffDomainID)
+					+ ' 12BetDomainID:' + dbo.Aff_ToString(@12BetDomainID)
+					+ ' MarketID:' + dbo.Aff_ToString(@MarketID)
 
-	EXEC [dbo].[Aff_WriteLog] @Creator = @UserID
-		,@Typename = 'AffDomainControl'
-		,-- refer to table LogType
-		@SPName = @SPName
+	EXEC [dbo].[Aff_WriteLog]
+		@Creator = @UserID
+		,@Typename = 'AffDomainControl' -- refer to table LogType
+		,@SPName = @SPName
 		,@Details = @Detail
 		,@IP = @IP
 END
 GO
-
-GRANT EXECUTE ON [dbo].[Aff_DomainControlUpd] TO [bodbAdminNet]
-GO
-
-GRANT VIEW DEFINITION ON [dbo].[Aff_DomainControlUpd] TO [vnteam]
