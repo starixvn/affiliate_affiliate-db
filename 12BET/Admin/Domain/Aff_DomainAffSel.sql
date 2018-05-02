@@ -12,7 +12,8 @@ AS
 	DB: DBAFF12BET.Affiliate_12BET
 
 	Revisions:  
-		- 20140708@Bobby : Apply Device type info
+		- 20140708@Bobby: Apply Device type info
+		- 20180412@Percy: Add IsSSL [RedmineID: #92544]
 */
 
 BEGIN
@@ -22,8 +23,9 @@ BEGIN
 		,a.DomainName
 		,b.Username AS Creator
 		,a.CreateDate
-	FROM AffDomain a WITH (NOLOCK)
-		INNER JOIN Affiliate_User b WITH (NOLOCK) ON a.Creator = b.CustId
+		,CONVERT(BIT, ISNULL(a.IsSSL, 0)) AS IsSSL
+	FROM dbo.AffDomain a WITH (NOLOCK)
+		INNER JOIN dbo.Affiliate_User b WITH (NOLOCK) ON a.Creator = b.CustId
 	WHERE IsDeleted = @IsDeleted
 	ORDER BY a.DomainName
 END

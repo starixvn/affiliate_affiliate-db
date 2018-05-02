@@ -1,4 +1,6 @@
-﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbDownlineNet,bodbDownlineNetView" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbDownlineNet,bodbDownlineNetView" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
+GO
 
 ALTER PROCEDURE [dbo].[Aff_AffiliateInsClickStatistics_New] 
 	@AffiliateID INT
@@ -38,6 +40,7 @@ Revisions:
 	- 20150728@Bobby : Update new formation of mobile link
 	- 20160624@Bobby : #59652 - Update new formation of mobile link
 	- 20161215@Bobby : #68815 - Update new link formation for promotion page
+	- 20180420@Percy : Change indiancricket to cricket when insert data [RedmineID: #92544]
 	 
 Param's Explanation:   
 	- @DeviceType: 0-PC & 1-Mobile
@@ -282,7 +285,7 @@ BEGIN
 			WHEN @LanguageCode = 'vi' THEN 'vn'
 			ELSE @LanguageCode END
 			) --Only store vn for vietnamese
-		,@PageCode
+		,CASE WHEN @PageCode = 'indiancricket' THEN 'cricket' ELSE @PageCode END
 		,@RedirectPage --if not Casino aff => redirect to main domain
 		,0
 		,@DomainDeviceType

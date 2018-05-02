@@ -6,6 +6,7 @@ ALTER PROCEDURE [dbo].[Aff_DomainAffUpd]
 	@DomainID int,
 	@DomainName nvarchar(50), 	
 	@UserID int,
+	@IsSSL BIT = 0,
 	@IP nvarchar(15)='',
 	@ErrCode int = 0 OUTPUT,
 	@ErrMsg nvarchar(4000) = '' OUTPUT
@@ -15,6 +16,9 @@ AS
 	Created: 20121115@ThaiTran
 	Task: Update a AffDomain
 	DB: DBAFF12BET.Affiliate_12BET
+
+	Revisions:
+		- 20180412@Percy: Add IsSSL [RedmineID: #92544]
 */
 
 BEGIN
@@ -33,6 +37,8 @@ BEGIN
 
 	--------------------------------------------
 	SET @DomainName = RTRIM(LTRIM(@DomainName))
+	SET @IsSSL = ISNULL(@IsSSL, 0)
+
 	IF EXISTS (
 				SELECT 1
 				FROM [AffDomain] NOLOCK
@@ -54,7 +60,8 @@ BEGIN
 	SET
 		[ModifyDate] = getdate(),
 		[DomainName] = @DomainName,              
-		[Creator] = @UserID
+		[Creator] = @UserID,
+		[IsSSL] = ISNULL(@IsSSL, 0)
 	WHERE DomainID = @DomainID
 
 	IF @@Error <> 0 
@@ -73,6 +80,7 @@ BEGIN
 	
 	select @Detail = 'Update DomainID:' + dbo.Aff_ToString(@DomainID)                     
 						+ ' DomainName:' + dbo.Aff_ToString(@DomainName)         
+						+ ' IsSSL:' + dbo.Aff_ToString(@IsSSL)           
 
 	EXEC [dbo].[Aff_WriteLog] 
 		@Creator = @UserID,

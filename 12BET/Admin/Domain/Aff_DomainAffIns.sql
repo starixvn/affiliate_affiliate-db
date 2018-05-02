@@ -6,6 +6,7 @@ ALTER PROCEDURE [dbo].[Aff_DomainAffIns]
 	@DomainName NVARCHAR(50)
 	,@UserID INT
 	,@IP NVARCHAR(15) = ''
+	,@IsSSL BIT = 0
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
 	,@DomainID INT OUTPUT
@@ -19,6 +20,7 @@ AS
 	Revisions:
 		- 20140613@Bobby: check validation of @DomainName
 		- 20140713@Bobby: add checking IsDeleted
+		- 20180412@Percy: Add IsSSL [RedmineID: #92544]
 */
 
 BEGIN
@@ -37,6 +39,7 @@ BEGIN
 
 	-----------------------------------------------
 	SET @DomainName = RTRIM(LTRIM(@DomainName))
+	SET @IsSSL = ISNULL(@IsSSL, 0)
 
 	IF EXISTS (
 			SELECT 1
@@ -62,12 +65,14 @@ BEGIN
 		,[CreateDate]
 		,[ModifyDate]
 		,[Creator]
+		,[IsSSL]
 		)
 	VALUES (
 		@DomainName
 		,@CreatedDate
 		,@CreatedDate
 		,@UserID
+		,@IsSSL
 		)
 
 	IF @@ERROR <> 0
@@ -91,6 +96,7 @@ BEGIN
 
 	SELECT  @Detail = 'Create DomainID:' + dbo.Aff_ToString(@DomainID)
 					+ ' DomainName:' + dbo.Aff_ToString(@DomainName)
+					+ ' IsSSL:' + dbo.Aff_ToString(@IsSSL)
 
 	EXEC [dbo].[Aff_WriteLog]
 		@Creator = @UserID
