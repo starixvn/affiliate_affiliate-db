@@ -1,4 +1,4 @@
-﻿/****** Object:  Stored Procedure dbo.Aff_AffiliateUpdInfo_xpre    Script Date: 1/3/2012 4:16:35 AM ******/  
+/****** Object:  Stored Procedure dbo.Aff_AffiliateUpdInfo_xpre    Script Date: 1/3/2012 4:16:35 AM ******/  
 /****** Object:  Stored Procedure dbo.Aff_AffiliateUpdInfo    Script Date: 12/27/2011 9:55:30 AM ******/  
 Alter PROC [dbo].[Aff_AffiliateUpdInfo]  
  @AffId int ,  
@@ -9,10 +9,10 @@ Alter PROC [dbo].[Aff_AffiliateUpdInfo]
  @country nvarchar(50) = NULL,  
  @email nvarchar(50)=NULL,  
  @password varchar(40)=NULL,  
- @phone nvarchar(50)=NULL,  
- @mobilephone nvarchar(50)=NULL,  
- @address nvarchar(80)=NULL,  
- @city nvarchar(50)=NULL,   
+ @phone varchar(50)=NULL,  
+ @mobilephone varchar(50)=NULL,  
+ @address nvarchar(250)=NULL,  
+ @city nvarchar(250)=NULL,   
  @state nvarchar(50)=NULL,  
  @postal nvarchar(50)=NULL,  
  @emailformat bit = null,  
@@ -23,17 +23,17 @@ Alter PROC [dbo].[Aff_AffiliateUpdInfo]
  -- Parameter for Affiliate info(use for update/insert data to DB03)  
  @SiteURL varchar(100)=NULL,  
  @MoreSiteURLs varchar(1000) = NULL,  
- @NoSiteDesc varchar(1000) = NULL,  
+ @NoSiteDesc nvarchar(1000) = NULL,  
  @PreferredLanguage varchar(11)=NULL,  
  @PreferredPayment varchar(20)='Player', --Player, Neteller, Moneybookers, Wire, Cheque  
- @Player_Username varchar(30)=NULL,  
+ @Player_Username varchar(100)=NULL,  
  @Neteller_AccountID varchar(50)=NULL,  
- @Moneybookers_Email varchar(50)=NULL,  
+ @Moneybookers_Email nvarchar(50)=NULL,  
  @Wire_BankName  nvarchar(100)=NULL,  
  @Wire_BankAddress nvarchar(200)=NULL,  
- @Wire_SwiftCode  nvarchar(20)=NULL,  
+ @Wire_SwiftCode  nvarchar(50)=NULL,  
  @Wire_AccountName nvarchar(100)=NULL,   
- @Wire_AccountNo  varchar(50)=NULL,  
+ @Wire_AccountNo  varchar(100)=NULL,  
  @Cheque_FullName nvarchar(200)=NULL,  
  @Cheque_Address  nvarchar(200)=NULL,  
  @Cheque_City  nvarchar(50)=NULL,  
