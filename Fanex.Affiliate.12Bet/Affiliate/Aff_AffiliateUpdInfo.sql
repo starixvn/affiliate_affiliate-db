@@ -1,6 +1,8 @@
-﻿/****** Object:  Stored Procedure dbo.Aff_AffiliateUpdInfo_xpre    Script Date: 1/3/2012 4:16:35 AM ******/  
-/****** Object:  Stored Procedure dbo.Aff_AffiliateUpdInfo    Script Date: 12/27/2011 9:55:30 AM ******/  
-Alter PROC [dbo].[Aff_AffiliateUpdInfo]  
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_AffiliateUpdInfo]
  @AffId int ,  
  @userid int,  
  @firstname nvarchar(50) = NULL,  
@@ -9,10 +11,10 @@ Alter PROC [dbo].[Aff_AffiliateUpdInfo]
  @country nvarchar(50) = NULL,  
  @email nvarchar(50)=NULL,  
  @password varchar(40)=NULL,  
- @phone nvarchar(50)=NULL,  
- @mobilephone nvarchar(50)=NULL,  
- @address nvarchar(80)=NULL,  
- @city nvarchar(50)=NULL,   
+ @phone varchar(50)=NULL,  
+ @mobilephone varchar(50)=NULL,  
+ @address nvarchar(250)=NULL,  
+ @city nvarchar(250)=NULL,   
  @state nvarchar(50)=NULL,  
  @postal nvarchar(50)=NULL,  
  @emailformat bit = null,  
@@ -23,17 +25,17 @@ Alter PROC [dbo].[Aff_AffiliateUpdInfo]
  -- Parameter for Affiliate info(use for update/insert data to DB03)  
  @SiteURL varchar(100)=NULL,  
  @MoreSiteURLs varchar(1000) = NULL,  
- @NoSiteDesc varchar(1000) = NULL,  
+ @NoSiteDesc nvarchar(1000) = NULL,  
  @PreferredLanguage varchar(11)=NULL,  
  @PreferredPayment varchar(20)='Player', --Player, Neteller, Moneybookers, Wire, Cheque  
- @Player_Username varchar(30)=NULL,  
+ @Player_Username varchar(100)=NULL,  
  @Neteller_AccountID varchar(50)=NULL,  
- @Moneybookers_Email varchar(50)=NULL,  
+ @Moneybookers_Email nvarchar(50)=NULL,  
  @Wire_BankName  nvarchar(100)=NULL,  
  @Wire_BankAddress nvarchar(200)=NULL,  
- @Wire_SwiftCode  nvarchar(20)=NULL,  
+ @Wire_SwiftCode  nvarchar(50)=NULL,  
  @Wire_AccountName nvarchar(100)=NULL,   
- @Wire_AccountNo  varchar(50)=NULL,  
+ @Wire_AccountNo  varchar(100)=NULL,  
  @Cheque_FullName nvarchar(200)=NULL,  
  @Cheque_Address  nvarchar(200)=NULL,  
  @Cheque_City  nvarchar(50)=NULL,  
@@ -46,19 +48,22 @@ Alter PROC [dbo].[Aff_AffiliateUpdInfo]
  @ErrCode int = 0 OUTPUT,  
  @ErrMsg nvarchar(200) = '' OUTPUT  
 AS  
-/*Updated: 20090324@VinhTrinh  
-Task : Update affiliate infor.  
-DB: DB052.Affiliate_12BET  
-Original : [Aff_AffiliateUpdInfo]  
-Revisions:  
- Peter@20100209 : Check If Admin update Player_UserName, we must make sure there is no pending payment request.  
+
+/*
+	Created: 20090324@VinhTrinh  
+	Task: Update affiliate infor.  
+	DB: DBAFF.Affiliate_12BET  
+	Original : [Aff_AffiliateUpdInfo]  
+	
+	Revisions:  
+		- 20100209@Peter: Check If Admin update Player_UserName, we must make sure there is no pending payment request.
+		- 20180503@Walter: Fix data type [RedmineID: #94522]
    
-Param's Explanation:  
-• @AffId : Affiliate custid  
-• @userid : user update.  
-• @firstname : update firstname.  
-....  
-*/  
+	Param's Explanation:  
+		• @AffId : Affiliate custid  
+		• @userid : user update.  
+		• @firstname : update firstname.  
+*/ 
   
 SET NOCOUNT ON  
   
@@ -252,10 +257,4 @@ EXEC [dbo].[Aff_WriteLog]
  @SPName=@SPName ,  
  @IP =@IP,  
  @Details=@Detail
-
 GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateUpdInfo] TO [bodbDownlineNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateUpdInfo] TO bodbAdminNet
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateUpdInfo] TO [VNTeam] 
