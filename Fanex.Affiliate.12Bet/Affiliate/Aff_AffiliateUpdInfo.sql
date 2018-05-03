@@ -48,19 +48,21 @@ ALTER PROCEDURE [dbo].[Aff_AffiliateUpdInfo]
  @ErrCode int = 0 OUTPUT,  
  @ErrMsg nvarchar(200) = '' OUTPUT  
 AS  
-/*Updated: 20090324@VinhTrinh  
-Task : Update affiliate infor.  
-DB: DB052.Affiliate_12BET  
-Original : [Aff_AffiliateUpdInfo]  
-Revisions:  
- Peter@20100209 : Check If Admin update Player_UserName, we must make sure there is no pending payment request.  
+
+/*
+	Created: 20090324@VinhTrinh  
+	Task: Update affiliate infor.  
+	DB: DBAFF.Affiliate_12BET  
+	Original : [Aff_AffiliateUpdInfo]  
+	
+	Revisions:  
+		- 20100209@Peter: Check If Admin update Player_UserName, we must make sure there is no pending payment request.  
    
-Param's Explanation:  
-• @AffId : Affiliate custid  
-• @userid : user update.  
-• @firstname : update firstname.  
-....  
-*/  
+	Param's Explanation:  
+		• @AffId : Affiliate custid  
+		• @userid : user update.  
+		• @firstname : update firstname.  
+*/ 
   
 SET NOCOUNT ON  
   
