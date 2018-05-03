@@ -1,6 +1,8 @@
-/****** Object:  Stored Procedure dbo.Aff_AffiliateUpdInfo_xpre    Script Date: 1/3/2012 4:16:35 AM ******/  
-/****** Object:  Stored Procedure dbo.Aff_AffiliateUpdInfo    Script Date: 12/27/2011 9:55:30 AM ******/  
-Alter PROC [dbo].[Aff_AffiliateUpdInfo]  
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_AffiliateUpdInfo]
  @AffId int ,  
  @userid int,  
  @firstname nvarchar(50) = NULL,  
@@ -252,10 +254,4 @@ EXEC [dbo].[Aff_WriteLog]
  @SPName=@SPName ,  
  @IP =@IP,  
  @Details=@Detail
-
 GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateUpdInfo] TO [bodbDownlineNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateUpdInfo] TO bodbAdminNet
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateUpdInfo] TO [VNTeam] 
