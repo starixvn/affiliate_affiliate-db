@@ -1,4 +1,8 @@
-ALTER PROCEDURE [dbo].[Aff_DomainControlIns] 
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_DomainControlIns]
 	@AffDomainID INT
 	,@12BetDomainID INT
 	,@MarketID NVARCHAR(10)
@@ -9,18 +13,22 @@ ALTER PROCEDURE [dbo].[Aff_DomainControlIns]
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
 AS
+
 /*
-Created: 20121115@Johnny.Trinh
-Task : Add a new AffDomainControl
-DB: DB052.Affiliate_12BET
+	Created: 20121115@Johnny.Trinh
+	Task: Add a new AffDomainControl
+	DB: DBAFF12BET.Affiliate_12BET
+	
 	Revisions:
-	- 20140707@Bobby: Include DeviceType info
+		- 20140707@Bobby: Include DeviceType info
 */
+
 BEGIN
 	SET NOCOUNT ON
 
 	--Check permission-----------------------------
-	EXEC [dbo].[Aff_Con_CheckPermission] @custid = @UserID
+	EXEC [dbo].[Aff_Con_CheckPermission]
+		@custid = @UserID
 		,@funcname = '[Domain]'
 		,@System = 'AFFILIATE'
 		,@ErrCode = @ErrCode OUTPUT
@@ -59,7 +67,8 @@ BEGIN
 
 	BEGIN TRANSACTION
 
-	INSERT INTO [AffDomainControl] (
+	INSERT INTO [AffDomainControl]
+	(
 		[AffDomainID]
 		,[12BetDomainID]
 		,[MarketID]
@@ -68,8 +77,9 @@ BEGIN
 		,[Creator]
 		,[Status]
 		,[DeviceType]
-		)
-	VALUES (
+	)
+	VALUES
+	(
 		@AffDomainID
 		,@12BetDomainID
 		,@MarketID
@@ -78,7 +88,7 @@ BEGIN
 		,@Creator
 		,@Status
 		,@DeviceType
-		)
+	)
 
 	IF @@ERROR <> 0
 	BEGIN
@@ -101,15 +111,9 @@ BEGIN
 	SELECT @Detail = 'Create AffDomainID:' + dbo.Aff_ToString(@AffDomainID) + ' 12BetDomainID:' + dbo.Aff_ToString(@12BetDomainID) + ' MarketID:' + dbo.Aff_ToString(@MarketID)
 
 	EXEC [dbo].[Aff_WriteLog] @Creator = @UserID
-		,@Typename = 'AffDomainControl'
-		,-- refer to table LogType
-		@SPName = @SPName
+		,@Typename = 'AffDomainControl' -- refer to table LogType
+		,@SPName = @SPName
 		,@Details = @Detail
 		,@IP = @IP
 END
 GO
-
-GRANT EXECUTE ON [dbo].[Aff_DomainControlIns] TO [bodbAdminNet]
-GO
-
-GRANT VIEW DEFINITION ON [dbo].[Aff_DomainControlIns] TO [vnteam]

@@ -1,15 +1,22 @@
-﻿ALTER PROCEDURE [dbo].[Aff_DomainControlSel] 
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_DomainControlSel]
 	@MarketId NVARCHAR(10) = NULL
 	,@DeviceType TINYINT = 0
 	,@IsDeleted BIT = 0
 AS
+
 /*
-Created: 20121115@Johnny.Trinh
-Task : Select Domain Control
-DB: DB052.Affiliate_12BET
-Revisions:
-	- 20140707@Bobby: Include DeviceType info
+	Created: 20121115@Johnny.Trinh
+	Task: Select Domain Control
+	DB: DBAFF12BET.Affiliate_12BET
+	
+	Revisions:
+		- 20140707@Bobby: Include DeviceType info
 */
+
 BEGIN
 	SET NOCOUNT ON;
 
@@ -37,7 +44,4 @@ BEGIN
 		,c.DeviceType
 		,b.DomainName
 END
-GO
-
-GRANT EXECUTE ON [dbo].[Aff_DomainControlSel] TO [bodbAdminNet]
 GO
