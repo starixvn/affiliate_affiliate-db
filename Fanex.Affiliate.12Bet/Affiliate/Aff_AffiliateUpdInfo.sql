@@ -56,7 +56,8 @@ AS
 	Original : [Aff_AffiliateUpdInfo]  
 	
 	Revisions:  
-		- 20100209@Peter: Check If Admin update Player_UserName, we must make sure there is no pending payment request.  
+		- 20100209@Peter: Check If Admin update Player_UserName, we must make sure there is no pending payment request.
+		- 20180503@Walter: Fix data type [RedmineID: #94522]
    
 	Param's Explanation:  
 		• @AffId : Affiliate custid  
