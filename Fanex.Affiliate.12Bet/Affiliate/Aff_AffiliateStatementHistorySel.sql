@@ -36,7 +36,7 @@ BEGIN
 		,Amount MONEY
 		,STATUS VARCHAR(20)
 		,Creator NVARCHAR(50)
-		,Description VARCHAR(200)
+		,Description NVARCHAR(300)
 		)
 	DECLARE @Month INT
 		,@Year INT
