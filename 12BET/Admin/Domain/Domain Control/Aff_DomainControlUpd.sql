@@ -43,7 +43,8 @@ BEGIN
 			WHERE ac.AffDomainID 		= @AffDomainID
 				AND ac.MarketID 		= @MarketID
 				AND ac.[12BetDomainID] 	= @12BetDomainID
-				AND ac.IsDeleted 		= 0			
+				AND ac.IsDeleted 		= 0
+				AND ac.ID <> @ID
 			)
 		)
 	BEGIN
