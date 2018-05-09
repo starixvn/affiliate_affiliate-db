@@ -2,7 +2,7 @@
 USE [Affiliate_12BET]
 GO
 
-ALTER PROCEDURE [Aff_AffiliateStatementHistorySel] 
+ALTER PROCEDURE [dbo].[Aff_AffiliateStatementHistorySel]
 	@AffId INT
 	,@PageSize INT = 50
 	,@PageIndex INT = 1
@@ -16,7 +16,8 @@ AS
 	DB: DBAFF12BET.Affiliate_12BET  
 	Original: [Aff_AffiliateStatementHistorySel]    
 	
-	Revisions:  
+	Revisions:
+		- 20180508@Walter: Change datatype of params [RedmineID: #94324]
 	   
 	Param's Explanation:    
 		• @AffID : Affiliate custid    

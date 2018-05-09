@@ -21,6 +21,7 @@ AS
 
 	Revisions:
 		- 20090914@Peter: Inital SP
+		- 20180508@Walter: Change datatype of params [RedmineID: #94324]
 
 	Param's Explanation:    
 		• @AffID : Affiliate custid    
