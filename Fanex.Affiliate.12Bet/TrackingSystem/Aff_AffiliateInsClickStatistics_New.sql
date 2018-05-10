@@ -41,6 +41,7 @@ Revisions:
 	- 20160624@Bobby : #59652 - Update new formation of mobile link
 	- 20161215@Bobby : #68815 - Update new link formation for promotion page
 	- 20180420@Percy : Change indiancricket to cricket when insert data [RedmineID: #92544]
+	- 20180504@Walter: Exclude query by DeviceType [#94324]
 	 
 Param's Explanation:   
 	- @DeviceType: 0-PC & 1-Mobile
@@ -115,41 +116,21 @@ BEGIN
 			AND IsDeleted = 0
 
 		SELECT TOP 1 @DomainName = b.DomainName
-			,@DomainDeviceType = a.DeviceType
 			,@W3Http = CASE WHEN ISNULL(b.IsSSL, 0) = 1 THEN 'https' ELSE 'http' END
 		FROM AffDomainControl a WITH (NOLOCK)
 			INNER JOIN [12BetDomain] b WITH (NOLOCK) 
-			ON a.[12BetDomainID] = b.DomainID AND a.DeviceType = b.DeviceType
+			ON a.[12BetDomainID] = b.DomainID
 		WHERE a.MarketId = @PreferredLanguage
 			AND a.AffDomainId = @AffDomainId
 			AND a.[status] = 1
 			AND a.IsDeleted = 0
 			AND b.IsDeleted = 0
-			AND a.DeviceType = @DeviceType
 
 		--Replace Aff Domain by 12bet domain to redirect to 12bet site
-		IF(@DeviceType = 0)
-		BEGIN
-			SET @RedirectPage = CASE 
+		SET @RedirectPage = CASE 
 				WHEN @DomainName IS NOT NULL THEN @W3Http + '://' + @DomainName + '/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
 				ELSE @Default12Betdomain
 				END
-		END
-		ELSE IF (@DeviceType = 1)-- Mobile link
-		BEGIN
-			/**
-			http://membersitedomain/index.aspx?pid=[PageCode] & afid=[AffiliateID] & lng= [LanguageCode]& type=[typeid] & clickid=[clickid]  
-			[PageCode] will have the below values : home, signup, sportsbook, numbergame, promotion
-			[typeid] : Affiliate Type ID which is got from DB Table "AffType"
-			**/
-			SET @RedirectPage = CASE 
-					WHEN @DomainName IS NOT NULL THEN @W3Http + '://' + @DomainName + '/index.aspx?pid=' + @PageCode 
-						+ '&afid=' + CAST(@AffiliateID AS VARCHAR(15)) 
-						+ '&lng=' + @LanguageCode 
-						+ '&type={typeid}&clickid={clickid}'
-					ELSE @Default12Betdomain
-				END
-		END
 	END
 	ELSE
 	BEGIN --This aff is special aff and pagecode = '12betcasino'
@@ -178,25 +159,19 @@ BEGIN
 	END
 	ELSE
 	BEGIN
-		DECLARE @EUDomain 		VARCHAR(100)
-			,@EUMobileDomain 	VARCHAR(100)
-		
+		DECLARE @EUDomain 		VARCHAR(100)		
 		SELECT @EUDomain 		= 'eu.12bet.com'
-			,@EUMobileDomain 	= 'smart.bolakipas7789.com'
 		
-		--final check for EU member (PC or Mobile) site
+		--final check for EU member site
 		IF(@LanguageCode IN ('eneuro', 'es'))
 		BEGIN
 			-- Reset language code
 			SELECT @RedirectPage = REPLACE(@RedirectPage, 'eneuro', 'en')
 			SELECT @RedirectPage = REPLACE(@RedirectPage, 'es', 'en')
 			-- Reset mobile link
-			IF(@DomainName <> @EUDomain OR @DomainName <> @EUMobileDomain)
+			IF(@DomainName <> @EUDomain)
 			BEGIN
-				SET @RedirectPage = CASE 
-									WHEN @DeviceType = 1 THEN REPLACE(@RedirectPage, @DomainName, @EUMobileDomain)
-									ELSE REPLACE(@RedirectPage, @DomainName, @EUDomain)
-								END
+				SET @RedirectPage = REPLACE(@RedirectPage, @DomainName, @EUDomain)
 			END
 		END
 		IF(@PageCode IN ('promotion') AND @LanguageCode IN ('hien'))
@@ -288,7 +263,7 @@ BEGIN
 		,CASE WHEN @PageCode = 'indiancricket' THEN 'cricket' ELSE @PageCode END
 		,@RedirectPage --if not Casino aff => redirect to main domain
 		,0
-		,@DomainDeviceType
+		,@DeviceType
 		)
 
 	SELECT @ClickID = SCOPE_IDENTITY()

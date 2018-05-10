@@ -21,6 +21,7 @@ AS
 	
 	Revisions:
 		- 20140707@Bobby: Include DeviceType info
+	- 20180502@Walter: Remove DeviceType [#94324]
 */
 
 BEGIN
@@ -36,31 +37,23 @@ BEGIN
 
 	IF @ErrCode <> 0 RETURN
 
-	-----------------------------------------------
-	DECLARE @DeviceType TINYINT;
-	
-	SELECT @DeviceType = DeviceType
-	FROM [12BetDomain] d WITH(NOLOCK) 
-	WHERE d.[DomainID] = @12BetDomainID
-	
-	IF (@DeviceType IS NULL 
-		OR EXISTS (
+	-----------------------------------------------	
+	IF (EXISTS (
 			SELECT TOP 1 1
 			FROM AffDomainControl ac WITH(NOLOCK)
-			WHERE ac.AffDomainID 	= @AffDomainID
-				AND ac.MarketID 	= @MarketID
-				AND ac.DeviceType 	= @DeviceType
-				AND ac.IsDeleted 	= 0
-				
+			WHERE ac.AffDomainID 		= @AffDomainID
+				AND ac.MarketID 		= @MarketID
+				AND ac.[12BetDomainID] 	= @12BetDomainID
+				AND ac.IsDeleted 		= 0			
 			)
 		)
 	BEGIN
 		SELECT @ErrCode = 1001
-			,@ErrMsg = 'This domain setting has been existed or invalid!'
+			,@ErrMsg = 'This domain setting has been existed'
 
 		RETURN
 	END
-
+	
 	DECLARE @CreatedDate DATETIME
 
 	SELECT @CreatedDate = Current_Timestamp
@@ -76,7 +69,6 @@ BEGIN
 		,[ModifyDate]
 		,[Creator]
 		,[Status]
-		,[DeviceType]
 	)
 	VALUES
 	(
@@ -87,7 +79,6 @@ BEGIN
 		,@CreatedDate
 		,@Creator
 		,@Status
-		,@DeviceType
 	)
 
 	IF @@ERROR <> 0

@@ -3,9 +3,7 @@ USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_DomainAffClientSel] 
-	@AffID		INT,
-	@DeviceType TINYINT = 0,
-	@IsDeleted	BIT = 0
+	@AffID		INT
 AS
 
 /*  
@@ -17,6 +15,7 @@ AS
 	Revisions:
 		- 20140708@Bobby: Apply Device type info
 		- 20180412@Percy: Add IsSSL [RedmineID: #92544]
+		- 20180504@Walter: Remove DeviceType param [#94324]
 */
 
 BEGIN
@@ -27,14 +26,13 @@ BEGIN
 		INNER JOIN dbo.AffDomainControl b WITH (NOLOCK) 
 			ON a.DomainID = b.AffDomainID
 		INNER JOIN dbo.[12BetDomain] ld WITH (NOLOCK) 
-			ON b.[12BetDomainID] = ld.DomainID AND b.DeviceType = ld.DeviceType
+			ON b.[12BetDomainID] = ld.DomainID
 		INNER JOIN dbo.AffDetail d WITH (NOLOCK) ON b.MarketID = d.PreferredLanguage
 	WHERE b.STATUS = 1
 		AND d.AffID 	= @AffID
-		AND b.DeviceType = @DeviceType
-		AND a.IsDeleted =  @IsDeleted
-		AND b.IsDeleted = @IsDeleted
-		AND ld.IsDeleted = @IsDeleted
+		AND a.IsDeleted =  0
+		AND b.IsDeleted = 0
+		AND ld.IsDeleted = 0
 	GROUP BY a.DomainID, a.DomainName, CONVERT(BIT, ISNULL(a.IsSSL, 0))
 	ORDER BY a.DomainName
 END

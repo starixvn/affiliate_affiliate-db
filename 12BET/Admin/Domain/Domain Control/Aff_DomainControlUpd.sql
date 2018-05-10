@@ -18,6 +18,9 @@ AS
 	Created: 20121115@Johnny.Trinh
 	Task: Update Domain control info
 	DB: DBAFF12BET.Affiliate_12BET
+	
+	Revisions:
+	- 20180502@Walter: Remove DeviceType [#94324]
 */
 
 BEGIN
@@ -34,26 +37,19 @@ BEGIN
 	IF @ErrCode <> 0 RETURN
 
 	-----------------------------------------------
-	DECLARE @DeviceType TINYINT;
-	
-	SELECT @DeviceType = DeviceType
-	FROM [12BetDomain] d WITH(NOLOCK) 
-	WHERE d.[DomainID] = @12BetDomainID
-	
-	IF ( @DeviceType IS NULL 
-		OR EXISTS (
+	IF (EXISTS (
 			SELECT TOP 1 1
 			FROM AffDomainControl ac WITH(NOLOCK)
-			WHERE ac.ID <> @ID
-				AND ac.AffDomainID 	= @AffDomainID
-				AND ac.MarketID 	= @MarketID
-				AND ac.DeviceType 	= @DeviceType
-				AND ac.IsDeleted 	= 0
+			WHERE ac.AffDomainID 		= @AffDomainID
+				AND ac.MarketID 		= @MarketID
+				AND ac.[12BetDomainID] 	= @12BetDomainID
+				AND ac.IsDeleted 		= 0
+				AND ac.ID <> @ID
 			)
 		)
 	BEGIN
 		SELECT @ErrCode = 1001
-			,@ErrMsg = 'Your domain setting is duplicate with other setting or invalid. Please check!'
+			,@ErrMsg = 'This domain setting has been existed'
 
 		RETURN
 	END
@@ -67,7 +63,6 @@ BEGIN
 		,[ModifyDate] = current_timestamp
 		,[Status] = @Status
 		,[Creator] = @UserID
-		,[DeviceType]= @DeviceType
 	WHERE ID = @ID
 
 	IF @@ERROR <> 0

@@ -3,8 +3,6 @@ USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_Domain12BetSel]
-	@DeviceType TINYINT = 0
-	,@IsDeleted BIT = 0
 AS
 
 /*
@@ -14,6 +12,7 @@ AS
 
 	Revisions:
 		- 20140707@Bobby: Include DeviceType info
+		- 20180504@Walter: Remove DeviceType param [#94324]
 	
 */
 
@@ -24,12 +23,11 @@ BEGIN
 		,a.DomainName
 		,b.Username AS Creator
 		,a.CreateDate
-		,[dbo].[Aff_GetDeviceType](DeviceType) DeviceType
 		,ISNULL(a.IsSSL, 0) AS IsSSL
 	FROM [12BetDomain] a WITH (NOLOCK)
-		INNER JOIN Affiliate_User b WITH (NOLOCK) ON a.Creator = b.CustId
-	WHERE DeviceType = @DeviceType
-		AND IsDeleted = @IsDeleted
+		INNER JOIN Affiliate_User b WITH (NOLOCK) 
+		ON a.Creator = b.CustId
+	WHERE IsDeleted = 0
 	ORDER BY a.DomainName
 END
 GO

@@ -21,6 +21,7 @@ AS
 
 	Revisions:
 		- 20090914@Peter: Inital SP
+		- 20180508@Walter: Change datatype of params [RedmineID: #94324]
 
 	Param's Explanation:    
 		• @AffID : Affiliate custid    
@@ -63,7 +64,7 @@ BEGIN
 		,Amount MONEY
 		,STATUS VARCHAR(20)
 		,Creator NVARCHAR(50)
-		,Description VARCHAR(200)
+		,Description NVARCHAR(300)
 		)
 	DECLARE @Month INT
 		,@Year INT
