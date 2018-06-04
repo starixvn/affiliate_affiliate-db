@@ -7,6 +7,7 @@ ALTER PROCEDURE [dbo].[Aff_CasinoImportData]
 	@ImportDate		SMALLDATETIME,
 	@XmlData		XML,
 	@IsReplaceData	BIT = 0,
+	@IsForceUpdate	BIT = 0,
 	@ErrCode		INT = 0 OUTPUT,
 	@ErrMsg			NVARCHAR(500) = '' OUTPUT
 AS
@@ -24,6 +25,8 @@ AS
 		- 20150907@Bobby.Nguyen:  Hotfix#42274 - Add/check data constraINT of removal members
 		- 20171010@Percy: Upgrade service job [RedmineID: #84602]
 		- 20171129@Percy: Add PShare, PWin [RedmineID: #87342]
+		- 20180529@Percy: Remove temporarily monthy checking to support re-import data [RedmineID: #94792]
+		- 20180601@Percy: Add flag for manually force update data [RedmineID: #94792]
 */
 
 BEGIN
@@ -89,14 +92,17 @@ BEGIN
 	SELECT  @CasinoId = dbo.Aff_GetSportID('Casino')
 	
 	-- Check Monthly transfer or not
-	IF EXISTS (SELECT 1 FROM dbo.AffTrans WITH (NOLOCK) WHERE TransType = 201 AND DATEDIFF(MONTH, TransDate, @minWinlostdate) = 0)
+	IF @IsForceUpdate = 0
 	BEGIN
-		SELECT
-			@ErrCode = 10101,
-			@ErrMsg = 'You cannot import Casino transaction because monthly transfers for the month '
-						+ CONVERT(VARCHAR(3), @minWinlostdate) + ' '
-						+ CONVERT(VARCHAR(4), YEAR(@minWinlostdate)) +  ' has been completed!'
-		RETURN
+		IF EXISTS (SELECT 1 FROM dbo.AffTrans WITH (NOLOCK) WHERE TransType = 201 AND DATEDIFF(MONTH, TransDate, @minWinlostdate) = 0)
+		BEGIN
+			SELECT
+				@ErrCode = 10101,
+				@ErrMsg = 'You cannot import Casino transaction because monthly transfers for the month '
+							+ CONVERT(VARCHAR(3), @minWinlostdate) + ' '
+							+ CONVERT(VARCHAR(4), YEAR(@minWinlostdate)) +  ' has been completed!'
+			RETURN
+		END
 	END
 
 	-- Check Data whether Casino data import or not.
@@ -523,6 +529,7 @@ BEGIN
 	ORDER BY winlostdate
 
 	-- List Failed Transaction
+	/*
 	INSERT INTO dbo.MemberDaily_Invalid
 	(
 		WinlostDate,
@@ -596,6 +603,7 @@ BEGIN
 		LEFT JOIN dbo.MemberRemoval mr WITH (NOLOCK) ON mi.IBCCustID = mr.IBCCustID
 		LEFT JOIN dbo.Exchange_Current ex WITH (NOLOCK) ON t.Currency = ex.Currency
 	WHERE st.UserName IS NULL
+	*/
 
 	SELECT 
 		t.winlostdate AS DateImport,

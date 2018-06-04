@@ -1,17 +1,13 @@
-﻿USE [Affiliate_12BET]
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET"></info>*/
+USE [Affiliate_12BET]
 GO
-/****** Object:  StoredProcedure [dbo].[Task_Aff_MonthlyTransfer]    Script Date: 05/21/2014 02:24:59 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Task_Aff_MonthlyTransfer    Script Date: 5/22/2013 8:34:10 AM ******/
   
 ALTER PROCEDURE [dbo].[Task_Aff_MonthlyTransfer]  
- @Month int,   
- @Year int   
-   
-AS  
+	@Month	INT,
+	@Year	INT,
+	@IsForceUpdate	BIT = 0
+AS
+
 /*  
 Created: 20090812@DungTong  
 Task : Monthly transfer for all Affiliate  
@@ -92,11 +88,12 @@ Revisions:
 				   CNW in sportspook=Member Winlost In SB - Marketing Fee- Odds Fee
 				   Net Winlost for Casino = Member Winlost In Casino - Marketing Casino - Playtech Royalty Fee - PSP Fee
 	20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval 
+	- 20180601@Percy: Add flag for manually force update data [RedmineID: #94792]
 	
 Param's Explanation:  
 • @Month: The month to transfer  
 • @Year :  The year to transfer       
-*/  
+*/
 SET NOCOUNT ON  
   
   
@@ -130,13 +127,16 @@ if(not exists(select top(1) 1 from CommGroupHistory (nolock) where monthdate=@La
  RETURN  
  END  
 
-IF EXISTS (select top(1) 1 from AffCommission with(nolock)  
-   where WinlostDate=@LastDay)  
-BEGIN  
- SELECT 'Please check the data. Transfers have been done for this month!' Result   
- SELECT @FirstDay as FirstDay,@LastDay as LastDay  
- RETURN  
-END  
+IF @IsForceUpdate = 0
+BEGIN
+	IF EXISTS (select top(1) 1 from AffCommission with(nolock)  
+	   where WinlostDate=@LastDay)
+	BEGIN  
+	 SELECT 'Please check the data. Transfers have been done for this month!' Result   
+	 SELECT @FirstDay as FirstDay,@LastDay as LastDay  
+	 RETURN  
+	END
+END
 
 --Get all Affiliates that is approved and IsClosed=false  
 declare /*@AFF_QMTurnOver money,*/@Status varchar(30)  
@@ -357,6 +357,17 @@ select @WinlostDate=current_timestamp
 begin transaction  
   
 BEGIN TRY  
+ IF @IsForceUpdate = 1
+ BEGIN
+	DELETE dbo.AffCommission WITH (ROWLOCK, UPDLOCK)
+	WHERE WinlostDate = @LastDay
+
+	DELETE dbo.AffTrans WITH (ROWLOCK, UPDLOCK)
+	WHERE TransDate = @LastDay
+		AND TransType = @TransType
+		AND Description = 'Monthly Earning'
+ END
+
  declare @Temp table(RefID int, AffID int, SportID tinyint)   
  Insert into AffCommission(AffID,GroupID,SportID,WinlostDate,QualifiedMember,Commission,AffWinlost  
 	   ,Status,MemberWinlost,MemberBonus,MemberAdjustment,MemberPSP,MemberSum  
@@ -467,6 +478,3 @@ commit transaction
 
 
 GO
-GRANT VIEW DEFINITION ON [dbo].[Task_Aff_MonthlyTransfer] TO [vnAffiliate] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Task_Aff_MonthlyTransfer] TO [vnteam] AS [dbo]
