@@ -1,4 +1,5 @@
-﻿USE [bodb02]
+﻿/*<info serverAlias="DBAGE-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [bodb02]
 GO
  
 ALTER PROCEDURE [dbo].[Aff_CheckSum_WinlostByProduct] 
@@ -19,6 +20,7 @@ Revisions:
 	- 20161022@Jim:move table to bodb_licenseereport [RedmineID :#60449]
 	- 20161110@Bobby: #67071 - Correct productid for funding data
 	- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+	- 20180629@Percy: Get member data by sporttype after movebetday [RedmineID: #97592]
 	
 Param's Explanation:  
 	@Xml: 
@@ -61,6 +63,11 @@ BEGIN
 		ProductId 		TINYINT
 		, Bettype		SMALLINT
 	)
+	CREATE TABLE #ProductSporttype (
+		ProductId INT
+	   ,Sporttype SMALLINT
+	)
+
 	DECLARE @ProductFilter TABLE (ProductId TINYINT)
 	INSERT INTO @ProductFilter ( ProductId )
 	SELECT CAST(val AS TINYINT) AS ProductId 
@@ -83,6 +90,13 @@ BEGIN
 		, Bettype
 	)
 	VALUES (1, 911)
+
+	-- insert product & Sporttype mapping
+	INSERT INTO #ProductSporttype (ProductId, Sporttype)
+	SELECT DISTINCT bt.ProductId, CASE WHEN bt.ProductId = 1 THEN 0 ELSE bt.Sporttype END
+	FROM dbo.SportBettypeMatrix bt WITH(NOLOCK)
+		INNER JOIN @ProductFilter p ON bt.ProductId = p.ProductId
+	WHERE bt.IsTest = 0 AND bt.Enabled 	= 1
 		
 	DECLARE @CutDate_LIC DATETIME
 		,@MaxDate_LIC DATETIME
@@ -362,8 +376,8 @@ BEGIN
 			ON b.custid = c.custid
 				AND b.recommend = c.recommend
 				AND b.srecommend = c.srecommend
-			INNER JOIN #ProductBettype bt
-			ON b.bettype = bt.bettype
+			INNER JOIN #ProductSporttype bt
+			ON b.sporttype = bt.sporttype
 		WHERE b.winlostdate = @Date
 			AND b.BetCount > 0
 			AND b.roleid = 1
@@ -691,7 +705,7 @@ BEGIN
 	DROP TABLE #tmpFunding
 
 	DROP TABLE #LicenseeCust
+
+	DROP TABLE #ProductSporttype
 END
-GO
-GRANT EXECUTE ON [dbo].[Aff_CheckSum_WinlostByProduct] TO [bodbAdminNet]
 GO
