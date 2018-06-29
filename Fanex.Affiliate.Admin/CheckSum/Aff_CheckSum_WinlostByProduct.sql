@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBAGE-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 USE [bodb02]
 GO
  
@@ -318,8 +318,8 @@ BEGIN
 			ON b.custid = c.custid
 				AND b.recommend = c.recommend
 				AND b.srecommend = c.srecommend
-			INNER JOIN #ProductBettype bt
-			ON b.bettype = bt.bettype
+			INNER JOIN #ProductSporttype bt
+			ON b.sporttype = bt.sporttype
 		WHERE b.winlostdate = @Date
 			AND b.BetCount > 0
 			AND b.roleid = 1
