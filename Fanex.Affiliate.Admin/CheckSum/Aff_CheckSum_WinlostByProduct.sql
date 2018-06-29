@@ -707,5 +707,7 @@ BEGIN
 	DROP TABLE #LicenseeCust
 
 	DROP TABLE #ProductSporttype
+
+	DROP TABLE #CashOutMember
 END
 GO
