@@ -1,0 +1,28 @@
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
+GO
+
+ALTER PROCEDURE [dbo].[Aff_ProductList_Sel]
+AS
+
+/*
+	Created: 20180601@Percy
+	DB: DBAFF12BET-Affiliate_12BET
+	Task: Core function - Get product list
+
+	Revisions:
+		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+*/
+
+BEGIN
+	SET NOCOUNT ON
+
+	SELECT
+		ProductId,
+		ProductName
+	FROM dbo.Products WITH (NOLOCK)
+	WHERE TransferType = 0
+	ORDER BY
+		ProductId
+END
+GO
