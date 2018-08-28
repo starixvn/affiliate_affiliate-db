@@ -47,7 +47,9 @@ BEGIN
 	FROM dbo.AffInfo WITH (NOLOCK)
 	WHERE username LIKE @PrefixName + '%'
 
-	SELECT @New_SubfixName = CASE WHEN @New_SubfixName < @Old_SubfixName THEN @Old_SubfixName ELSE @New_SubfixName END
+	SELECT  @Old_SubfixName = @Old_SubfixName + 1
+
+	SELECT  @New_SubfixName = CASE WHEN @New_SubfixName < @Old_SubfixName THEN @Old_SubfixName ELSE @New_SubfixName END
 
 	UPDATE dbo.Username_AutoIncrement WITH (ROWLOCK, UPDLOCK)
 	SET SubfixName = @New_SubfixName
