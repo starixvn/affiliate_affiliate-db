@@ -36,6 +36,7 @@ BEGIN
 		IBCCustId	INT,
 		Deposit		MONEY,
 		Withdrawal	MONEY,
+		Turnover	MONEY,
 		Winloss		MONEY,
 		Bonus		MONEY
 	)
@@ -48,6 +49,7 @@ BEGIN
 			IBCCustId,
 			Deposit,
 			Withdrawal,
+			Turnover,
 			Winloss,
 			Bonus
 		)
@@ -55,6 +57,9 @@ BEGIN
 			md.IBCCustId,
 			SUM(ISNULL(md.Deposit, 0)	* ISNULL(md.AffExRate, 0))	AS Deposit,
 			SUM(ISNULL(md.Withdrawal, 0)* ISNULL(md.AffExRate, 0))	AS Withdrawal,
+			SUM(CASE WHEN @ProductId = 0 OR md.SportType = @ProductId THEN
+				ISNULL(md.Turnover, 0)	* ISNULL(md.AffExRate, 0)
+					ELSE 0 END)										AS Turnover,
 			SUM(CASE WHEN @ProductId = 0 OR md.SportType = @ProductId THEN
 				ISNULL(md.Winlost, 0)	* ISNULL(md.AffExRate, 0)
 					ELSE 0 END)										AS Winloss,
@@ -87,6 +92,7 @@ BEGIN
 				IBCCustId,
 				Deposit,
 				Withdrawal,
+				Turnover,
 				Winloss,
 				Bonus
 			)
@@ -94,6 +100,7 @@ BEGIN
 				md.IBCCustId,
 				SUM(ISNULL(Deposit, 0)		* ISNULL(md.AffExRate, 0)) AS Deposit,
 				SUM(ISNULL(Withdrawal, 0)	* ISNULL(md.AffExRate, 0)) AS Withdrawal,
+				SUM(ISNULL(Turnover, 0)		* ISNULL(md.AffExRate, 0)) AS Turnover,
 				SUM(ISNULL(Winloss, 0)		* ISNULL(md.AffExRate, 0)) AS Winloss,
 				SUM(ISNULL(Bonus, 0)		* ISNULL(md.AffExRate, 0)) AS Bonus
 			FROM dbo.rptMemberDaily md WITH (NOLOCK)
@@ -126,6 +133,7 @@ BEGIN
 			IBCCustId,
 			Deposit,
 			Withdrawal,
+			Turnover,
 			Winloss,
 			Bonus
 		)
@@ -133,6 +141,7 @@ BEGIN
 			md.IBCCustId,
 			SUM(ISNULL(md.Deposit, 0)	* ISNULL(e.ActualRate2, 0)),
 			SUM(ISNULL(md.Withdrawal, 0)* ISNULL(e.ActualRate2, 0)),
+			SUM(ISNULL(md.Turnover, 0)	* ISNULL(e.ActualRate2, 0)),
 			SUM(ISNULL(md.Winloss, 0)	* ISNULL(e.ActualRate2, 0)),
 			SUM(ISNULL(md.Bonus, 0)		* ISNULL(e.ActualRate2, 0))
 		FROM OPENQUERY(DBEXT, 'SELECT WinlostDate,IBCCustId,currency,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss
@@ -158,6 +167,7 @@ BEGIN
 			mi.UserName,
 			SUM(ISNULL(dt.Deposit, 0)) AS Deposit,
 			SUM(ISNULL(dt.Withdrawal, 0)) AS Withdrawal,
+			SUM(ISNULL(dt.Turnover, 0)) AS Turnover,
 			SUM(ISNULL(dt.Winloss, 0)) AS Winlost,
 			SUM(ISNULL(dt.Bonus, 0)) AS Bonus
 		FROM #Data dt
