@@ -20,9 +20,6 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @isTest BIT
-	SELECT  @isTest = dbo.f_Aff_CheckSPVersion(@@PROCID)
-
 	DECLARE @BeginOfFromMonthDate SMALLDATETIME, @EndOfToMonthDate SMALLDATETIME
 
 	SELECT  @BeginOfFromMonthDate	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate), 0) -- First day of @FromMonthDate
@@ -53,11 +50,11 @@ BEGIN
 		AffId			INT,
 		GroupId			INT,
 		ProductId		INT,
-		Deposit			MONEY,
-		Withdrawal		MONEY,
-		Bonus			MONEY,
-		Turnover		MONEY,
-		Winloss			MONEY,
+		Deposit			MONEY DEFAULT (0),
+		Withdrawal		MONEY DEFAULT (0),
+		Bonus			MONEY DEFAULT (0),
+		Turnover		MONEY DEFAULT (0),
+		Winloss			MONEY DEFAULT (0),
 		-- Fees
 		PlatFormFee		MONEY DEFAULT (0),
 		OperationalFee	MONEY DEFAULT (0),
@@ -330,59 +327,33 @@ BEGIN
 					dsh.ProductId
 			) AS ds
 		OPTION (MAXRECURSION 0)
-
-		UPDATE s
-		SET s.OperationalFee	= s1.OperationalFee,
-			s.BankingFee		= s1.BankingFee
-		FROM @Setting s
-			INNER JOIN @Setting s1 ON s.MonthDate = s1.MonthDate AND s.GroupId = s1.GroupId
-		WHERE s.ProductId <> 0 AND s1.ProductId = 0
-
-		UPDATE @Setting
-		SET ProductId = -1
-		WHERE ProductId = 0
 	END
 
 	-- Calculate commission
 	BEGIN
-		-- Fees
+		-- Group by Product
 		INSERT INTO #Commission
 		(
 			MonthDate,
 			AffId,
-			GroupId,
 			ProductId,
-			Deposit,
-			Withdrawal,
-			Bonus,
 			Turnover,
-			Winloss,
-			PlatFormFee,
-			OperationalFee,
-			BankingFee
+			Winloss
 		)
 		SELECT
-			dt.MonthDate,
-			dt.AffId,
-			s.GroupId,
-			dt.ProductId,
-			SUM(dt.Deposit) AS Deposit,
-			SUM(dt.Withdrawal) AS Withdrawal,
-			SUM(dt.Bonus) AS Bonus,
-			SUM(dt.Turnover) AS Turnover,
-			SUM(dt.Winloss) AS Winloss,
-			SUM(ABS(dt.Winloss) * ISNULL(s.PlatFormFee, 0)) AS PlatFormFee,
-			SUM(ABS(dt.Winloss) * ISNULL(s.OperationalFee, 0)) AS OperationalFee,
-			SUM((dt.Deposit + dt.Withdrawal) * ISNULL(s.BankingFee, 0)) AS BankingFee
-		FROM #Data dt
-			LEFT JOIN @Setting s ON dt.AffId = s.AffId AND dt.MonthDate = s.MonthDate AND dt.ProductId = s.ProductId
+			MonthDate,
+			AffId,
+			ProductId,
+			SUM(Turnover) AS Turnover,
+			SUM(Winloss) AS Winloss
+		FROM #Data
+		WHERE ProductId > 0
 		GROUP BY
-			dt.MonthDate,
-			dt.AffId,
-			s.GroupId,
-			dt.ProductId
+			MonthDate,
+			AffId,
+			ProductId
 
-		-- Active Player, Qualified Member
+		-- Total
 		;WITH CTE_SumMember AS
 		(
 			SELECT
@@ -401,17 +372,12 @@ BEGIN
 		(
 			MonthDate,
 			AffId,
-			GroupId,
 			ProductId,
 			Deposit,
 			Withdrawal,
 			Bonus,
 			Turnover,
 			Winloss,
-			PlatFormFee,
-			OperationalFee,
-			BankingFee,
-			NetWinloss,
 			ActivePlayer,
 			QualifiedMember,
 			QMTurnover
@@ -419,34 +385,25 @@ BEGIN
 		SELECT
 			MonthDate,
 			AffId,
-			GroupId,
 			0 AS ProductId,
-			SUM(Deposit) AS Deposit,
-			SUM(Withdrawal) AS Withdrawal,
-			SUM(Bonus) AS Bonus,
-			SUM(Turnover) AS Turnover,
-			SUM(Winloss) AS Winloss,
-			SUM(PlatFormFee) AS PlatFormFee,
-			SUM(OperationalFee) AS OperationalFee,
-			SUM(BankingFee) AS BankingFee,
-			SUM(-Winloss - PlatFormFee - OperationalFee - BankingFee) AS NetWinloss,
-			SUM(ActivePlayer) AS ActivePlayer,
-			SUM(QualifiedMember) AS QualifiedMember,
-			SUM(QMTurnover) AS QMTurnover
+			SUM(Deposit)			AS Deposit,
+			SUM(Withdrawal)			AS Withdrawal,
+			SUM(Bonus)				AS Bonus,
+			SUM(Turnover)			AS Turnover,
+			SUM(Winloss)			AS Winloss,
+			SUM(ActivePlayer)		AS ActivePlayer,
+			SUM(QualifiedMember)	AS QualifiedMember,
+			SUM(QMTurnover)			AS QMTurnover
 		FROM
 		(
 			SELECT
 				dt.MonthDate,
 				dt.AffId,
-				agh.GroupId,
 				0 AS Deposit,
 				0 AS Withdrawal,
 				0 AS Bonus,
 				0 AS Turnover,
 				0 AS Winloss,
-				0 AS PlatFormFee,
-				0 AS OperationalFee,
-				0 AS BankingFee,
 				SUM(CASE WHEN dt.Turnover > 0 OR dt.Deposit > 0 THEN 1 ELSE 0 END) AS ActivePlayer,
 				SUM(CASE WHEN dt.Turnover >= ISNULL(cgh.QMTurnOver, 0) THEN 1 ELSE 0 END) AS QualifiedMember,
 				ISNULL(cgh.QMTurnover, 0) AS QMTurnover
@@ -456,38 +413,54 @@ BEGIN
 			GROUP BY
 				dt.MonthDate,
 				dt.AffId,
-				agh.GroupId,
 				ISNULL(cgh.QMTurnover, 0)
 
 			UNION ALL
 			SELECT
-				c.MonthDate,
-				c.AffId,
-				c.GroupId,
-				SUM(c.Deposit) AS Deposit,
-				SUM(c.Withdrawal) AS Withdrawal,
-				SUM(c.Bonus) AS Bonus,
-				SUM(c.Turnover) AS Turnover,
-				SUM(c.Winloss) AS Winloss,
-				SUM(c.PlatFormFee) AS PlatFormFee,
-				SUM(c.OperationalFee) AS OperationalFee,
-				SUM(c.BankingFee) AS BankingFee,
+				MonthDate,
+				AffId,
+				SUM(Deposit) AS Deposit,
+				SUM(Withdrawal) AS Withdrawal,
+				SUM(Bonus) AS Bonus,
+				SUM(Turnover) AS Turnover,
+				SUM(Winloss) AS Winloss,
 				0 AS ActivePlayer,
 				0 AS QualifiedMember,
 				0 AS QMTurnover
-			FROM #Commission c
+			FROM #Data
 			GROUP BY
-				c.MonthDate,
-				c.AffId,
-				c.GroupId
-		) AS s
+				MonthDate,
+				AffId
+		) AS A
 		GROUP BY
 			MonthDate,
-			AffId,
-			GroupId
+			AffId
 
-		-- Remove data not include in specific product
-		DELETE #Commission WHERE ProductId < 0
+		-- Calculate fees
+		UPDATE c
+		SET c.GroupId			= s.GroupId,
+			c.PlatFormFee		= ABS(c.Winloss) * s.PlatFormFee,
+			c.OperationalFee	= ABS(c.Winloss) * s.OperationalFee,
+			c.BankingFee		= (c.Deposit + c.Withdrawal) * s.BankingFee
+		FROM #Commission c
+			INNER JOIN @Setting s ON c.AffId = s.AffId AND c.MonthDate = s.MonthDate AND c.ProductId = s.ProductId
+
+		UPDATE c
+		SET c.PlatFormFee	= pf.PlatFormFee
+		FROM #Commission c
+			CROSS APPLY (
+				SELECT SUM(c1.PlatFormFee) AS PlatFormFee
+				FROM #Commission c1
+				WHERE c.MonthDate = c1.MonthDate AND c.AffId = c1.AffId
+					AND c1.ProductId > 0
+			) AS pf
+		WHERE c.ProductId = 0
+
+		-- Net Winloss
+		UPDATE #Commission
+		SET NetWinloss = -Winloss - (PlatFormFee + OperationalFee + BankingFee)
+		FROM #Commission
+		WHERE ProductId = 0
 	
 		-- Commission
 		UPDATE c

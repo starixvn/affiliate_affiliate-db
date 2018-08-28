@@ -55,11 +55,7 @@ BEGIN
 		BankingFee		MONEY,
 		Bonus			MONEY,
 		Turnover		MONEY,
-		Winloss			MONEY,
-		AffCommission	MONEY,
-		AffWithdrawal	MONEY,
-		AffAdjustment	MONEY,
-		BFF				MONEY
+		Winloss			MONEY
 	)
 
 	-- Get data
@@ -293,17 +289,114 @@ BEGIN
 					cgh.ProductId
 			) cg
 		WHERE agh.AffId = @AffId
+	END
 
-		UPDATE s
-		SET s.OperationalFee	= s1.OperationalFee,
-			s.BankingFee		= s1.BankingFee
-		FROM #Setting s
-			INNER JOIN #Setting s1 ON s.MonthDate = s1.MonthDate
-		WHERE s.ProductId <> 0 AND s1.ProductId = 0
+	-- Calculate data
+	BEGIN
+		CREATE TABLE #Result
+		(
+			WinlostDate		SMALLDATETIME,
+			MonthDate		SMALLDATETIME,
+			ProductId		INT,
+			Currency		INT,
+			AffExRate		FLOAT,
+			Deposit			MONEY,
+			Withdrawal		MONEY,
+			Bonus			MONEY,
+			Turnover		MONEY,
+			Winloss			MONEY,
+			PlatFormFee		MONEY,
+			OperationalFee	MONEY,
+			BankingFee		MONEY,
+			NetWinloss		MONEY
+		)
 
-		UPDATE #Setting
-		SET ProductId = -1
+		-- By Product
+		INSERT INTO #Result
+		(
+			WinlostDate,
+			MonthDate,
+			ProductId,
+			Currency,
+			AffExRate,
+			Turnover,
+			Winloss
+		)
+		SELECT
+			WinlostDate,
+			MonthDate,
+			ProductId,
+			Currency,
+			AffExRate,
+			SUM(ISNULL(Turnover, 0)) AS Turnover,
+			SUM(ISNULL(Winloss, 0)) AS Winloss
+		FROM #AffData
+		WHERE ProductId > 0
+		GROUP BY
+			WinlostDate,
+			MonthDate,
+			ProductId,
+			Currency,
+			AffExRate
+
+		-- Total
+		INSERT INTO #Result
+		(
+			WinlostDate,
+			MonthDate,
+			ProductId,
+			Currency,
+			AffExRate,
+			Deposit,
+			Withdrawal,
+			Bonus,
+			Turnover,
+			Winloss
+		)
+		SELECT
+			WinlostDate,
+			MonthDate,
+			0 AS ProductId,
+			Currency,
+			AffExRate,
+			SUM(ISNULL(Deposit, 0))		AS Deposit,
+			SUM(ISNULL(Withdrawal, 0))	AS Withdrawal,
+			SUM(ISNULL(Bonus, 0))		AS Bonus,
+			SUM(ISNULL(Turnover, 0))	AS Turnover,
+			SUM(ISNULL(Winloss, 0))		AS Winloss
+		FROM #AffData
+		GROUP BY
+			WinlostDate,
+			MonthDate,
+			Currency,
+			AffExRate
+
+		DROP TABLE #AffData
+
+		-- Calculate Fees
+		UPDATE r
+		SET r.PlatFormFee		= ABS(ISNULL(r.Winloss, 0)) * s.PlatFormFee,
+			r.OperationalFee	= ABS(ISNULL(r.Winloss, 0)) * s.OperationalFee,
+			r.BankingFee		= (ISNULL(r.Deposit, 0) + ISNULL(r.Withdrawal, 0)) * s.BankingFee
+		FROM #Result r
+			INNER JOIN #Setting s ON r.MonthDate = s.MonthDate AND r.ProductId = s.ProductId
+
+		UPDATE r
+		SET r.PlatFormFee = pf.PlatFormFee
+		FROM #Result r
+			CROSS APPLY (
+				SELECT SUM(r1.PlatFormFee) AS PlatFormFee
+				FROM #Result r1
+				WHERE r.WinlostDate = r1.WinlostDate AND r.Currency = r1.Currency AND r1.ProductId > 0
+			) AS pf
+		WHERE r.ProductId = 0
+
+		-- Net Winloss
+		UPDATE #Result
+		SET NetWinloss = - Winloss - (PlatFormFee + OperationalFee + BankingFee)
 		WHERE ProductId = 0
+
+		DROP TABLE #Setting
 	END
 
 	-- Commission Rate
@@ -326,97 +419,153 @@ BEGIN
 			INNER JOIN dbo.rptAffCommission ac WITH (NOLOCK) ON md.MonthDate = ac.MonthDate
 		WHERE ac.ProductId = 0
 			AND ac.AffId = @AffId
+
+		-- Uncalculated Months
+		DECLARE @MaxCommDate SMALLDATETIME
+		SELECT  @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
+
+		DECLARE @AffIds VARCHAR(MAX)
+		DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
+		
+		IF @ToDate > @MaxCommDate
+		BEGIN
+			SELECT	@tempFromDate	= CASE WHEN @FromDate <= @MaxCommDate THEN DATEADD(DAY, 1, @MaxCommDate) ELSE @FromDate END,
+					@tempToDate		= @ToDate
+
+			SELECT  @AffIds = CONVERT(VARCHAR(20), @AffId)
+
+			CREATE TABLE #TempCommission
+			(
+				MonthDate		SMALLDATETIME,
+				AffId			INT,
+				GroupId			INT,
+				ProductId		INT,
+				Deposit			MONEY,
+				Withdrawal		MONEY,
+				Bonus			MONEY,
+				Turnover		MONEY,
+				Winloss			MONEY,
+				-- Fees
+				PlatFormFee		MONEY,
+				OperationalFee	MONEY,
+				BankingFee		MONEY,
+				-- Calculation
+				NetWinloss		MONEY,
+				ActivePlayer	INT,
+				QualifiedMember INT,
+				QMTurnover		MONEY,
+				CommissionRate	DECIMAL(9,8),
+				Commission		MONEY
+			)
+		
+			INSERT INTO #TempCommission
+			(
+				MonthDate,
+				AffId,
+				GroupId,
+				ProductId,
+				Deposit,
+				Withdrawal,
+				Bonus,
+				Turnover,
+				Winloss,
+				PlatFormFee,
+				OperationalFee,
+				BankingFee,
+				NetWinloss,
+				ActivePlayer,
+				QualifiedMember,
+				QMTurnOver,
+				CommissionRate,
+				Commission
+			)
+			EXEC dbo.Aff_Commission_UnCalc @AffIds = @AffIds, @FromMonthDate = @tempFromDate, @ToMonthDate = @tempToDate
+
+			INSERT INTO #CommRate
+			(
+				MonthDate,
+				CommRate
+			)
+			SELECT
+				MonthDate,
+				CommissionRate AS CommRate
+			FROM #TempCommission
+			WHERE ProductId = 0
+
+			DROP TABLE #TempCommission
+		END
 	END
-
-	-- Aff Commission, Payment, Adjustment, BFF
-	INSERT INTO #AffData
-	(
-		WinlostDate,
-		MonthDate,
-		Currency,
-		AffExRate,
-		AffCommission,
-		BFF
-	)
-	SELECT
-		CONVERT(DATE, at.TransDate) AS WinlostDate,
-		DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, at.TransDate) + 1, 0)) AS MonthDate,
-		at.Currency,
-		1 AS AffExRate,
-		SUM(at.Amount) AS Commission,
-		SUM(at.Amount) AS BFF
-	FROM dbo.AffTrans at WITH (NOLOCK)
-		CROSS APPLY @MonthDate md
-	WHERE at.AffId = @AffId AND at.TransDate = md.MonthDate
-		AND at.TransType = 201
-	GROUP BY
-		CONVERT(DATE, at.TransDate),
-		DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, at.TransDate) + 1, 0)),
-		at.Currency
-
-	INSERT INTO #AffData
-	(
-		WinlostDate,
-		MonthDate,
-		Currency,
-		AffExRate,
-		AffWithdrawal,
-		AffAdjustment,
-		BFF
-	)
-	SELECT
-		CONVERT(DATE, at.TransDate) AS WinlostDate,
-		DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, at.TransDate) + 1, 0)) AS MonthDate,
-		at.Currency,
-		1 AS AffExRate,
-		SUM(CASE WHEN at.TransType = 202 THEN -at.Amount ELSE 0 END) AS Payment,
-		SUM(CASE WHEN at.TransType = 203 THEN at.Amount ELSE 0 END) AS Adjustment,
-		SUM(at.Amount) AS BFF
-	FROM dbo.AffTrans at WITH (NOLOCK)
-		CROSS APPLY @MonthDate md
-	WHERE at.AffId = @AffId
-		AND at.TransDate >= @FromDate AND at.TransDate < DATEADD(DAY, 1, @ToDate)
-		AND at.TransType IN (202, 203)
-		AND at.Status IN ('Pending', 'Approved', 'Completed')
-	GROUP BY
-		CONVERT(DATE, at.TransDate),
-		DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, at.TransDate) + 1, 0)),
-		at.Currency
 	
 	-- Return data
 	SELECT
-		ad.Winlostdate,
-		ad.AffExRate,
+		Winlostdate,
+		AffExRate,
 		e.Currency,
-		SUM(ISNULL(ad.Deposit, 0)) AS Deposit,
-		SUM(ISNULL(ad.Withdrawal, 0)) AS Withdrawal,
-		SUM(ISNULL(ad.Turnover, 0)) AS Turnover,
-		SUM(ISNULL(ad.Winloss, 0)) AS Winlost,
-		SUM(ISNULL(ad.Bonus, 0)) AS Bonus,
-		SUM((ISNULL(ad.Deposit, 0) + ISNULL(ad.Withdrawal, 0)) * s.BankingFee) AS PSP, -- BankingFee
-		0 AS Adjustment, -- will remove later
-		SUM(ISNULL(ad.AffAdjustment, 0)) AS AffAdjustment,
-		SUM(ISNULL(ad.AffWithdrawal, 0)) AS AffWithdrawal,
-		SUM(ISNULL(ad.BFF, 0)
-			+
-			(ISNULL(-ad.Winloss, 0)
-			- ABS(ISNULL(ad.Winloss, 0) * s.PlatFormFee)
-			- ABS(ISNULL(ad.Winloss, 0) * s.OperationalFee)
-			- (ISNULL(ad.Deposit, 0) + ISNULL(ad.Withdrawal, 0)) * s.BankingFee
-			) * ISNULL(c.CommRate, 0)) AS AffBF
-	FROM #AffData ad
-		INNER JOIN #Setting s ON ad.MonthDate = s.MonthDate AND ad.ProductId = s.ProductId
-		LEFT JOIN #CommRate c ON ad.MonthDate = c.MonthDate
-		INNER JOIN dbo.Exchange_Current e WITH (NOLOCK) ON ad.Currency = e.ExchangeId
-	GROUP BY
-		ad.Winlostdate,
-		ad.AffExRate,
-		e.Currency
-	ORDER BY
-		ad.WinlostDate
+		SUM(ISNULL(Deposit, 0))			AS Deposit,
+		SUM(ISNULL(Withdrawal, 0))		AS Withdrawal,
+		SUM(ISNULL(Turnover, 0))		AS Turnover,
+		SUM(ISNULL(Winloss, 0))			AS Winlost,
+		SUM(ISNULL(Bonus, 0))			AS Bonus,
+		SUM(ISNULL(BankingFee, 0))		AS PSP, -- BankingFee
+		0								AS Adjustment, -- will remove later
+		SUM(ISNULL(AffAdjustment, 0))	AS AffAdjustment,
+		SUM(ISNULL(AffWithdrawal, 0))	AS AffWithdrawal,
+		SUM(ISNULL(AffBF, 0))			AS AffBF
+	FROM
+	(
+		SELECT
+			r.Winlostdate,
+			r.AffExRate,
+			r.Currency,
+			SUM(ISNULL(r.Deposit, 0))		AS Deposit,
+			SUM(ISNULL(r.Withdrawal, 0))	AS Withdrawal,
+			SUM(ISNULL(r.Turnover, 0))		AS Turnover,
+			SUM(ISNULL(r.Winloss, 0))		AS Winloss,
+			SUM(ISNULL(r.Bonus, 0))			AS Bonus,
+			SUM(ISNULL(r.BankingFee, 0))	AS BankingFee,
+			0								AS AffAdjustment,
+			0								AS AffWithdrawal,
+			SUM((ISNULL(r.NetWinloss, 0) - ISNULL(r.Bonus, 0)) * ISNULL(c.CommRate, 0)) AS AffBF
+		FROM #Result r
+			LEFT JOIN #CommRate c ON r.MonthDate = c.MonthDate
+		GROUP BY
+			r.Winlostdate,
+			r.AffExRate,
+			r.Currency
 
-	DROP TABLE #AffData
+		-- Aff Payment, Adjustment
+		UNION ALL
+		SELECT
+			CONVERT(DATE, at.TransDate) AS WinlostDate,
+			1 AS AffExRate,
+			at.Currency,
+			0 AS Deposit,
+			0 AS Withdrawal,
+			0 AS Turnover,
+			0 AS Winloss,
+			0 AS Bonus,
+			0 AS BankingFee,
+			SUM(CASE WHEN at.TransType = 203 THEN at.Amount ELSE 0 END) AS AffAdjustment,
+			SUM(CASE WHEN at.TransType = 202 THEN -at.Amount ELSE 0 END) AS AffWithdrawal,
+			SUM(at.Amount) AS AffBF
+		FROM dbo.AffTrans at WITH (NOLOCK)
+			CROSS APPLY @MonthDate md
+		WHERE at.AffId = @AffId
+			AND at.TransDate >= @FromDate AND at.TransDate < DATEADD(DAY, 1, @ToDate)
+			AND at.TransType IN (202, 203)
+			AND at.Status IN ('Pending', 'Approved', 'Completed')
+		GROUP BY
+			CONVERT(DATE, at.TransDate),
+			at.Currency
+	) AS A
+		INNER JOIN dbo.Exchange_Current e WITH (NOLOCK) ON A.Currency = e.ExchangeId
+	GROUP BY
+		Winlostdate,
+		AffExRate,
+		e.Currency
+	ORDER BY WinlostDate
+
 	DROP TABLE #CommRate
-	DROP TABLE #Setting
+	DROP TABLE #Result
 END
 GO

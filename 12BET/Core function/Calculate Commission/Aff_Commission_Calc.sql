@@ -322,7 +322,7 @@ BEGIN
 	END
 	ELSE
 	BEGIN
-		-- Per Product
+		-- By Product
 		INSERT INTO #Commission
 		(
 			MonthDate,

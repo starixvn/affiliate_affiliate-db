@@ -55,7 +55,7 @@ BEGIN
 			AffId			INT,
 			ProductId		INT,
 			Currency		INT,
-			ActualRate		FLOAT,
+			AffExRate		FLOAT,
 			Deposit			MONEY,
 			Withdrawal		MONEY,
 			Bonus			MONEY,
@@ -80,7 +80,7 @@ BEGIN
 					AffId,
 					ProductId,
 					Currency,
-					ActualRate,
+					AffExRate,
 					Deposit,
 					Withdrawal,
 					Bonus,
@@ -121,7 +121,7 @@ BEGIN
 					AffId,
 					ProductId,
 					Currency,
-					ActualRate,
+					AffExRate,
 					Deposit,
 					Withdrawal,
 					Bonus,
@@ -169,7 +169,7 @@ BEGIN
 					AffId,
 					ProductId,
 					Currency,
-					ActualRate,
+					AffExRate,
 					Deposit,
 					Withdrawal,
 					Bonus,
@@ -217,7 +217,7 @@ BEGIN
 					AffId,
 					ProductId,
 					Currency,
-					ActualRate,
+					AffExRate,
 					Deposit,
 					Withdrawal,
 					Bonus,
@@ -272,7 +272,7 @@ BEGIN
 					AffId,
 					ProductId,
 					Currency,
-					ActualRate,
+					AffExRate,
 					Deposit,
 					Withdrawal,
 					Bonus,
@@ -313,7 +313,7 @@ BEGIN
 					AffId,
 					ProductId,
 					Currency,
-					ActualRate,
+					AffExRate,
 					Deposit,
 					Withdrawal,
 					Bonus,
@@ -361,7 +361,7 @@ BEGIN
 					AffId,
 					ProductId,
 					Currency,
-					ActualRate,
+					AffExRate,
 					Deposit,
 					Withdrawal,
 					Bonus,
@@ -409,7 +409,7 @@ BEGIN
 					AffId,
 					ProductId,
 					Currency,
-					ActualRate,
+					AffExRate,
 					Deposit,
 					Withdrawal,
 					Bonus,
@@ -528,17 +528,121 @@ BEGIN
 				) cg
 			WHERE agh.AffId = @AffId
 		END
+	END
 
-		UPDATE s
-		SET s.OperationalFee	= s1.OperationalFee,
-			s.BankingFee		= s1.BankingFee
-		FROM #Setting s
-			INNER JOIN #Setting s1 ON s.MonthDate = s1.MonthDate AND s.AffId = s1.AffId
-		WHERE s.ProductId <> 0 AND s1.ProductId = 0
+	-- Calculate data
+	BEGIN
+		CREATE TABLE #Result
+		(
+			WinlostDate		SMALLDATETIME,
+			MonthDate		SMALLDATETIME,
+			AffId			INT,
+			ProductId		INT,
+			Currency		INT,
+			AffExRate		FLOAT,
+			Deposit			MONEY,
+			Withdrawal		MONEY,
+			Bonus			MONEY,
+			Turnover		MONEY,
+			Winloss			MONEY,
+			PlatFormFee		MONEY,
+			OperationalFee	MONEY,
+			BankingFee		MONEY,
+			NetWinloss		MONEY
+		)
 
-		UPDATE #Setting
-		SET ProductId = -1
+		-- By Product
+		INSERT INTO #Result
+		(
+			WinlostDate,
+			MonthDate,
+			AffId,
+			ProductId,
+			Currency,
+			AffExRate,
+			Turnover,
+			Winloss
+		)
+		SELECT
+			WinlostDate,
+			MonthDate,
+			AffId,
+			ProductId,
+			Currency,
+			AffExRate,
+			SUM(ISNULL(Turnover, 0)) AS Turnover,
+			SUM(ISNULL(Winloss, 0)) AS Winloss
+		FROM #Data
+		WHERE ProductId > 0
+		GROUP BY
+			WinlostDate,
+			MonthDate,
+			AffId,
+			ProductId,
+			Currency,
+			AffExRate
+
+		-- Total
+		INSERT INTO #Result
+		(
+			WinlostDate,
+			MonthDate,
+			AffId,
+			ProductId,
+			Currency,
+			AffExRate,
+			Deposit,
+			Withdrawal,
+			Bonus,
+			Turnover,
+			Winloss
+		)
+		SELECT
+			WinlostDate,
+			MonthDate,
+			AffId,
+			0 AS ProductId,
+			Currency,
+			AffExRate,
+			SUM(ISNULL(Deposit, 0))		AS Deposit,
+			SUM(ISNULL(Withdrawal, 0))	AS Withdrawal,
+			SUM(ISNULL(Bonus, 0))		AS Bonus,
+			SUM(ISNULL(Turnover, 0))	AS Turnover,
+			SUM(ISNULL(Winloss, 0))		AS Winloss
+		FROM #Data
+		GROUP BY
+			WinlostDate,
+			MonthDate,
+			AffId,
+			Currency,
+			AffExRate
+
+		DROP TABLE #Data
+
+		-- Calculate Fees
+		UPDATE r
+		SET r.PlatFormFee		= ABS(ISNULL(r.Winloss, 0)) * s.PlatFormFee,
+			r.OperationalFee	= ABS(ISNULL(r.Winloss, 0)) * s.OperationalFee,
+			r.BankingFee		= (ISNULL(r.Deposit, 0) + ISNULL(r.Withdrawal, 0)) * s.BankingFee
+		FROM #Result r
+			INNER JOIN #Setting s ON r.MonthDate = s.MonthDate AND r.AffId = s.AffId AND r.ProductId = s.ProductId
+
+		UPDATE r
+		SET r.PlatFormFee = pf.PlatFormFee
+		FROM #Result r
+			CROSS APPLY (
+				SELECT SUM(r1.PlatFormFee) AS PlatFormFee
+				FROM #Result r1
+				WHERE r.WinlostDate = r1.WinlostDate AND r.AffId = r1.AffId AND r.Currency = r1.Currency AND r1.ProductId > 0
+			) AS pf
+		WHERE r.ProductId = 0
+
+		-- Net Winloss
+		UPDATE #Result
+		SET NetWinloss = - Winloss - (PlatFormFee + OperationalFee + BankingFee)
 		WHERE ProductId = 0
+
+		DROP TABLE #Setting
 	END
 
 	-- Commission Rate
@@ -592,12 +696,12 @@ BEGIN
 		DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
 		
 		-- Uncalculated Months
-		IF DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate) + 1, 0)) > @MaxCommDate
+		IF @ToDate > @MaxCommDate
 		BEGIN
-			SELECT	@tempFromDate	= DATEADD(DAY, 1, @MaxCommDate),
+			SELECT	@tempFromDate	= CASE WHEN @FromDate <= @MaxCommDate THEN DATEADD(DAY, 1, @MaxCommDate) ELSE @FromDate END,
 					@tempToDate		= @ToDate
 
-			SELECT @AffIds = CASE WHEN @AffId = 0 THEN 'all' ELSE CONVERT(VARCHAR(20), @AffId) END
+			SELECT  @AffIds = CASE WHEN @AffId = 0 THEN 'all' ELSE CONVERT(VARCHAR(20), @AffId) END
 
 			CREATE TABLE #TempCommission
 			(
@@ -665,38 +769,28 @@ BEGIN
 	
 	-- Return data
 	SELECT
-		dt.WinlostDate,
+		r.WinlostDate,
 		ec.Currency,
-		dt.ActualRate,
-		SUM(dt.Deposit)		AS Deposit,
-		SUM(dt.Bonus)		AS Bonus,
-		SUM(dt.Turnover)	AS Turnover,
-		SUM(dt.Winloss)		AS MemberWinLost,
-		SUM(-dt.Winloss * ISNULL(c.CommRate, 0))		AS AffiliateWinLost,
-		SUM(-dt.Winloss * (1 - ISNULL(c.CommRate, 0)))	AS HouseWinLost,
-		SUM((-dt.Winloss
-			- ABS(dt.Winloss * s.PlatFormFee)
-			- ABS(dt.Winloss * s.OperationalFee)
-			- (dt.Deposit + dt.Withdrawal) * s.BankingFee
-			) * ISNULL(c.CommRate, 0)) AS AffiliateNetWinLost,
-		SUM((-dt.Winloss
-			- ABS(dt.Winloss * s.PlatFormFee)
-			- ABS(dt.Winloss * s.OperationalFee)
-			- (dt.Deposit + dt.Withdrawal) * s.BankingFee
-			) * (1 - ISNULL(c.CommRate, 0))) AS HouseNetWinLost
-	FROM #Data dt
-		INNER JOIN #Setting s ON dt.MonthDate = s.MonthDate AND dt.AffId = s.AffId AND dt.ProductId = s.ProductId
-		LEFT JOIN #CommRate c ON dt.MonthDate = c.MonthDate AND dt.AffId = c.AffId
-		LEFT JOIN dbo.Exchange_Current ec WITH (NOLOCK) ON dt.Currency = ec.ExchangeId
+		r.AffExRate			AS ActualRate,
+		SUM(r.Deposit)		AS Deposit,
+		SUM(r.Bonus)		AS Bonus,
+		SUM(r.Turnover)		AS Turnover,
+		SUM(r.Winloss)		AS MemberWinLost,
+		SUM(-r.Winloss * ISNULL(c.CommRate, 0))						AS AffiliateWinLost,
+		SUM(-r.Winloss * (1 - ISNULL(c.CommRate, 0)))				AS HouseWinLost,
+		SUM((r.NetWinloss - r.Bonus) * ISNULL(c.CommRate, 0))		AS AffiliateNetWinLost,
+		SUM((r.NetWinloss - r.Bonus) * (1 - ISNULL(c.CommRate, 0))) AS HouseNetWinLost
+	FROM #Result r
+		LEFT JOIN #CommRate c ON r.MonthDate = c.MonthDate AND r.AffId = c.AffId
+		INNER JOIN dbo.Exchange_Current ec WITH (NOLOCK) ON r.Currency = ec.ExchangeId
 	GROUP BY
-		dt.WinlostDate,
+		r.WinlostDate,
 		ec.Currency,
-		dt.ActualRate
+		r.AffExRate
 	ORDER BY
-		dt.WinlostDate
+		r.WinlostDate
 
-	DROP TABLE #Data
-	DROP TABLE #Setting
+	DROP TABLE #Result
 	DROP TABLE #CommRate
 END
 GO
