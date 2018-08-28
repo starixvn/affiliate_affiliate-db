@@ -40,7 +40,10 @@ RETURN
 											FROM Affiliate_12BET.dbo.Products WITH (NOLOCK)
 											WHERE TransferType = 0 AND IsIBC = 1')
 			) AS aff ON p.ProductPrefix = aff.ProductPrefix
-		WHERE bt.bettype NOT IN (912, 913, 914) -- Exclude CashOut (keep 911)
+		WHERE bt.bettype NOT IN (911, 912, 913, 914) -- Exclude CashOut (keep 911)
+
+		UNION ALL
+		SELECT 1, 911
 
 		UNION ALL -- transfer
 		SELECT bt.ProductId, bt.Bettype

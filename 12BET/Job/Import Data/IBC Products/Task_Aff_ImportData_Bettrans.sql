@@ -70,6 +70,14 @@ BEGIN
 											 WHERE IsIBC = 1')
 			) AS p ON s.ProductPrefix = p.ProductPrefix
 		WHERE s.ProductPrefix IS NOT NULL
+
+		-- For CashOut
+		UPDATE #SportBettypeMatrix
+		SET ProductId = 1
+		WHERE Bettype = 911
+
+		DELETE #SportBettypeMatrix
+		WHERE ProductId IS NULL
 	END
 
 	-- Get Data from bettrans
