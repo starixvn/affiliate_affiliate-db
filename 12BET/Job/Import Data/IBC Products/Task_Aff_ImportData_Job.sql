@@ -23,7 +23,7 @@ BEGIN
 
 	DECLARE @MBBUDate TABLE (BalanceUpDay SMALLDATETIME, MoveBetsDay SMALLDATETIME)
 	INSERT INTO @MBBUDate (BalanceUpDay, MoveBetsDay)
-	EXEC DBAGE.bodb02.dbo.Age_SelBalanceUpDay
+	EXEC DBEXT.bodb02.dbo.Lrf_SelBalanceUpDay
 
 	SELECT @MoveBetsDay = MoveBetsDay FROM @MBBUDate
 	SELECT @WinlostDate = DATEADD(DAY, 1, @MoveBetsDay)
