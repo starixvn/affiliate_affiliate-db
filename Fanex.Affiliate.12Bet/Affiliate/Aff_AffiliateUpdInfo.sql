@@ -85,13 +85,23 @@ BEGIN
 	SELECT @ErrCode = 0
   
 	-- Check If we change player_username  
-	IF EXISTS (SELECT 1 FROM dbo.AffDetail WITH (NOLOCK) WHERE AffId = @AffId AND @Player_Username <> Player_UserName)
-		AND EXISTS (SELECT 1 FROM dbo.AffPayOut WITH (NOLOCK) WHERE AffId = @AffId AND Status = 'pending')
+	IF EXISTS (SELECT 1 FROM dbo.AffDetail WITH (NOLOCK) WHERE AffId = @AffId AND Player_Username <> @Player_UserName)
 	BEGIN
-		-- Oops, this account is having 1 pending pay out request, please update this transaction first!
-		SELECT @ErrCode = 1001, @ErrMsg = dbo.Aff_f_GetMessageById(301, @Language)
+		IF EXISTS (SELECT 1 FROM dbo.AffPayOut WITH (NOLOCK) WHERE AffId = @AffId AND Status = 'pending')
+		BEGIN
+			-- Oops, this account is having 1 pending pay out request, please update this transaction first!
+			SELECT @ErrCode = 1001, @ErrMsg = dbo.Aff_f_GetMessageById(301, @Language)
 
-		RETURN
+			RETURN
+		END
+
+		IF EXISTS (SELECT 1 FROM dbo.AffDetail WITH (NOLOCK) WHERE AffId <> @AffId AND Player_Username = @Player_UserName)
+		BEGIN
+			-- Player Username has been used. Please choose another one!
+			SELECT @ErrCode = 1003, @ErrMsg = dbo.Aff_f_GetMessageById(3, @Language)
+
+			RETURN
+		END
 	END
   
 	-- Check duplicate Email   
@@ -277,7 +287,7 @@ BEGIN
 		WHERE AffId = @AffId
 
 		-- Update process is unsuccessful. Please try again!
-		SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
+		SELECT @ErrCode = 1004, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
 
 		RETURN
 	END CATCH

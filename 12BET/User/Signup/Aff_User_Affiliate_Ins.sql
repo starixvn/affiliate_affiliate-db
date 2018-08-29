@@ -61,11 +61,20 @@ BEGIN
 		RETURN
 	END
 
-	-- Generate username
-	EXEC dbo.Aff_GenerateUsername @PrefixName = '12BETAFF', @Username = @Username OUTPUT
+	-- Check exists player_username
+	IF EXISTS (SELECT 1 FROM dbo.AffDetail WITH (NOLOCK) WHERE Player_Username = @Player_UserName)
+	BEGIN
+		-- Player Username has been used. Please choose another one!
+		SELECT @ErrCode = 102, @ErrMsg = dbo.Aff_f_GetMessageById(3, @Language)
+
+		RETURN
+	END
 
 	-- Get Player_IBCCustId from Player_Username
 	SELECT @Player_IBCCustId = CustId FROM DBEXT.bodb02.dbo.Customer WITH (NOLOCK) WHERE Username2 = '12BET$' + @Player_UserName
+
+	-- Generate username
+	EXEC dbo.Aff_GenerateUsername @PrefixName = '12BETAFF', @Username = @Username OUTPUT
 
 	-- Insert data
 		-- AffInfo
@@ -77,7 +86,7 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		-- Create customer failed. Please try again.
-		SELECT @ErrCode = 102, @ErrMsg = dbo.Aff_f_GetMessageById(2, @Language)
+		SELECT @ErrCode = 103, @ErrMsg = dbo.Aff_f_GetMessageById(2, @Language)
 
 		RETURN
 	END CATCH
@@ -118,7 +127,7 @@ BEGIN
 		DELETE dbo.AffInfo WITH (ROWLOCK, UPDLOCK) WHERE AffId = @AffId
 
 		-- Create customer failed. Please try again.
-		SELECT @ErrCode = 102, @ErrMsg = dbo.Aff_f_GetMessageById(2, @Language)
+		SELECT @ErrCode = 103, @ErrMsg = dbo.Aff_f_GetMessageById(2, @Language)
 
 		RETURN
 	END CATCH
