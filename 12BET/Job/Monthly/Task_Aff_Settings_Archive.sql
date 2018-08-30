@@ -63,7 +63,7 @@ BEGIN
 			WHERE DeductionID = 9 AND NextDeductedPercentage IS NULL
 
 			UPDATE dbo.DeductionSetting WITH(ROWLOCK, UPDLOCK)
-			SET DeductedPercentage = NextDeductedPercentage
+			SET DeductedPercentage = NextDeductedPercentage, GroupProductId = NextGroupProductId
 			WHERE DeductionID IN (9, 10, 11, 12)
 
 			UPDATE dbo.CommGroup WITH (ROWLOCK, UPDLOCK)

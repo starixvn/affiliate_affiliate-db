@@ -51,6 +51,7 @@ BEGIN
 		MonthDate		SMALLDATETIME,
 		AffId			INT,
 		GroupId			INT,
+		GroupProductId	TINYINT,
 		ProductId		INT,
 		Deposit			MONEY,
 		Withdrawal		MONEY,
@@ -78,6 +79,7 @@ BEGIN
 		MonthDate		SMALLDATETIME,
 		AffId			INT,
 		GroupId			INT,
+		GroupProductId	TINYINT,
 		ProductId		INT,
 		PlatFormFee		DECIMAL(9,8) DEFAULT (0),
 		OperationalFee	DECIMAL(9,8) DEFAULT (0),
@@ -91,6 +93,7 @@ BEGIN
 			MonthDate,
 			GroupId,
 			ProductId,
+			GroupProductId,
 			PlatFormFee,
 			OperationalFee,
 			BankingFee
@@ -99,6 +102,7 @@ BEGIN
 			dsh.MonthDate,
 			dsh.GroupId,
 			dsh.ProductId,
+			dsh.GroupProductId,
 			SUM(CASE WHEN dsh.DeductionId = 10 THEN dsh.DeductedPercentage ELSE 0 END) AS PlatFormFee,
 			SUM(CASE WHEN dsh.DeductionId = 11 THEN dsh.DeductedPercentage ELSE 0 END) AS OperationalFee,
 			SUM(CASE WHEN dsh.DeductionId = 12 THEN dsh.DeductedPercentage ELSE 0 END) AS BankingFee
@@ -107,7 +111,8 @@ BEGIN
 		GROUP BY
 			dsh.MonthDate,
 			dsh.GroupId,
-			dsh.ProductId
+			dsh.ProductId,
+			dsh.GroupProductId
 	END
 	ELSE
 	BEGIN
@@ -117,6 +122,7 @@ BEGIN
 			AffId,
 			GroupId,
 			ProductId,
+			GroupProductId,
 			PlatFormFee,
 			OperationalFee,
 			BankingFee
@@ -126,6 +132,7 @@ BEGIN
 			agh.AffId,
 			dsh.GroupId,
 			dsh.ProductId,
+			dsh.GroupProductId,
 			SUM(CASE WHEN dsh.DeductionId = 10 THEN dsh.DeductedPercentage ELSE 0 END) AS PlatFormFee,
 			SUM(CASE WHEN dsh.DeductionId = 11 THEN dsh.DeductedPercentage ELSE 0 END) AS OperationalFee,
 			SUM(CASE WHEN dsh.DeductionId = 12 THEN dsh.DeductedPercentage ELSE 0 END) AS BankingFee
@@ -137,7 +144,8 @@ BEGIN
 			dsh.MonthDate,
 			agh.AffId,
 			dsh.GroupId,
-			dsh.ProductId
+			dsh.ProductId,
+			dsh.GroupProductId
 		OPTION (MAXRECURSION 0)
 	END
 
@@ -150,6 +158,7 @@ BEGIN
 			AffId,
 			GroupId,
 			ProductId,
+			GroupProductId,
 			Turnover,
 			Winloss,
 			PlatFormFee
@@ -159,9 +168,10 @@ BEGIN
 			ac.AffId,
 			ac.GroupId,
 			ac.ProductId,
+			s.GroupProductId,
 			ac.Turnover,
 			ac.Winloss,
-			ABS(ac.Winloss) * ISNULL(s.PlatFormFee, 0) AS PlatFormFee
+			ac.Winloss * ISNULL(s.PlatFormFee, 0) AS PlatFormFee
 		FROM dbo.rptAffCommission ac WITH (NOLOCK)
 			INNER JOIN @Setting s ON ac.GroupId = s.GroupId AND ac.MonthDate = s.MonthDate AND ac.ProductId = s.ProductId
 		WHERE ac.ProductId > 0
@@ -208,6 +218,36 @@ BEGIN
 		FROM dbo.rptAffCommission ac WITH (NOLOCK)
 			INNER JOIN @Setting s ON ac.GroupId = s.GroupId AND ac.MonthDate = s.MonthDate AND ac.ProductId = s.ProductId
 		WHERE ac.ProductId = 0
+
+		;WITH CTE_PlatFormFee AS
+		(
+			SELECT
+				MonthDate,
+				AffId,
+				SUM(ABS(PlatFormFee)) AS PlatFormFee
+			FROM
+			(
+				SELECT
+					MonthDate,
+					AffId,
+					GroupProductId,
+					SUM(PlatFormFee) AS PlatFormFee
+				FROM #Commission
+				WHERE ProductId > 0
+				GROUP BY
+					MonthDate,
+					AffId,
+					GroupProductId
+			) AS pf
+			GROUP BY
+				MonthDate,
+				AffId
+		)
+		UPDATE c
+		SET c.PlatFormFee	= pf.PlatFormFee
+		FROM #Commission c
+			INNER JOIN CTE_PlatFormFee pf ON c.MonthDate = pf.MonthDate AND c.AffId = pf.AffId
+		WHERE c.ProductId = 0
 
 		-- Get old data
 		IF @IsOldData = 1

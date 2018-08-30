@@ -29,9 +29,10 @@ AS
 			<>0: Private Group
 		- @DeductionList:
 			<root>
-				<row id="1" productids = "1,2,3" percent="0.17" />
-				<row id="1" productids = "4,5" percent="0.15" />
-				<row id="2" productids = "0" percent="0.07" />
+				<row id="10" productids = "1,2,3" percent="0.17" />
+				<row id="10" productids = "4,5" percent="0.15" />
+				<row id="11" productids = "0" percent="0.07" />
+				<row id="12" productids = "0" percent="0.02" />
 			</root>
 		- @TierList:
 			<root>
@@ -115,18 +116,19 @@ BEGIN
 	END
 
 	-- Deductions
-	DECLARE @DeductionSetting TABLE (DTypeID TINYINT, ProductId INT, DeductedPercentage DECIMAL(9,8))
+	DECLARE @DeductionSetting TABLE (GroupProductId TINYINT, DeductionId TINYINT, ProductId INT, DeductedPercentage DECIMAL(9,8))
 	
 	;WITH CTE_DeductionSetting AS
 	(
 		SELECT
-			t.c.value('@id', 'TINYINT') AS DTypeID,
+			ROW_NUMBER() OVER(PARTITION BY t.c.value('@id', 'TINYINT') ORDER BY (SELECT NULL)) AS GroupProductId,
+			t.c.value('@id', 'TINYINT') AS DeductionId,
 			t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
 			t.c.value('@percent', 'DECIMAL(9,8)') AS DeductedPercentage
 		FROM @DeductionList.nodes('/root/row') AS t(c)
 	)
-	INSERT INTO @DeductionSetting (DTypeID, ProductId, DeductedPercentage)
-	SELECT ds.DTypeID, f.val, ds.DeductedPercentage
+	INSERT INTO @DeductionSetting (GroupProductId, DeductionId, ProductId, DeductedPercentage)
+	SELECT GroupProductId, ds.DeductionId, f.val, ds.DeductedPercentage
 	FROM CTE_DeductionSetting ds
 		CROSS APPLY dbo.Aff_f_StringSplit(ds.ProductIds, ',') f
 	OPTION (OPTIMIZE FOR (@DeductionList = NULL), MAXRECURSION 0)
@@ -308,6 +310,8 @@ BEGIN
 		INSERT INTO dbo.DeductionSetting
 		(
 			GroupId,
+			GroupProductId,
+			NextGroupProductId,
 			DeductionId,
 			ProductId,
 			DeductedPercentage,
@@ -315,7 +319,9 @@ BEGIN
 		)
 		SELECT
 			@GroupId,
-			DTypeId,
+			GroupProductId,
+			GroupProductId, -- default of next = current
+			DeductionId,
 			ProductId,
 			DeductedPercentage,
 			DeductedPercentage -- default of next = current
@@ -325,6 +331,7 @@ BEGIN
 		(
 			GroupId,
 			MonthDate,
+			GroupProductId,
 			DeductionId,
 			ProductId,
 			DeductedPercentage
@@ -332,7 +339,8 @@ BEGIN
 		SELECT
 			@GroupId,
 			@MonthDate,
-			DTypeId,
+			GroupProductId,
+			DeductionId,
 			ProductId,
 			DeductedPercentage
 		FROM @DeductionSetting

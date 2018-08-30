@@ -26,9 +26,10 @@ AS
 	Parameter's Explanation:
 		- @DeductionList:
 			<root>
-				<row id="1" productids = "1,2,3" nextpercent="0.17" />
-				<row id="1" productids = "4,5" nextpercent="0.15" />
-				<row id="2" productids = "0" nextpercent="0.07" />
+				<row id="10" productids = "1,2,3" percent="0.17" />
+				<row id="10" productids = "4,5" percent="0.15" />
+				<row id="11" productids = "0" percent="0.07" />
+				<row id="12" productids = "0" percent="0.02" />
 			</root>
 		- @TierList:
 			<root>
@@ -88,18 +89,19 @@ BEGIN
 	SELECT  @NextQMTurnover = @QMTurnover -- update next only
 
 	-- Deductions
-	DECLARE @DeductionSetting TABLE (DeductionId TINYINT, ProductId INT, NextDeductedPercentage DECIMAL(9,8))
+	DECLARE @DeductionSetting TABLE (NextGroupProductId TINYINT, DeductionId TINYINT, ProductId INT, NextDeductedPercentage DECIMAL(9,8))
 	
 	;WITH CTE_DeductionSetting AS
 	(
 		SELECT
+			ROW_NUMBER() OVER(PARTITION BY t.c.value('@id', 'TINYINT') ORDER BY (SELECT NULL)) AS NextGroupProductId,
 			t.c.value('@id', 'TINYINT') AS DeductionId,
 			t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
 			t.c.value('@percent', 'DECIMAL(9,8)') AS NextDeductedPercentage
 		FROM @DeductionList.nodes('/root/row') AS t(c)
 	)
-	INSERT INTO @DeductionSetting (DeductionId, ProductId, NextDeductedPercentage)
-	SELECT ds.DeductionId, f.val, ds.NextDeductedPercentage
+	INSERT INTO @DeductionSetting (NextGroupProductId, DeductionId, ProductId, NextDeductedPercentage)
+	SELECT ds.NextGroupProductId, ds.DeductionId, f.val, ds.NextDeductedPercentage
 	FROM CTE_DeductionSetting ds
 		CROSS APPLY dbo.Aff_f_StringSplit(ds.ProductIds, ',') f
 	OPTION (OPTIMIZE FOR (@DeductionList = NULL), MAXRECURSION 0)
@@ -166,6 +168,7 @@ BEGIN
 		MaxQM					INT,
 		Commission				DECIMAL(9,8),
 		-- Deduction List
+		NextGroupProductId	TINYINT,
 		DeductionId				TINYINT,
 		ProductId				INT,
 		NextDeductedPercentage	DECIMAL(9,8)
@@ -271,27 +274,31 @@ BEGIN
 
 	-- Deduction List
 	BEGIN TRY
+		DELETE dbo.DeductionSetting WITH (ROWLOCK, UPDLOCK)
+		WHERE GroupId = @GroupId
+		
 		MERGE dbo.DeductionSetting AS TARGET
 		USING @DeductionSetting AS SOURCE
-			ON		TARGET.GroupId		= @GroupId
-				AND TARGET.DeductionId	= SOURCE.DeductionId
-				AND TARGET.ProductId	= SOURCE.ProductId
+			ON		TARGET.GroupId			= @GroupId
+				AND TARGET.DeductionId		= SOURCE.DeductionId
+				AND TARGET.ProductId		= SOURCE.ProductId
 		WHEN MATCHED THEN
 			UPDATE SET
-				TARGET.NextDeductedPercentage	= SOURCE.NextDeductedPercentage
+				TARGET.NextDeductedPercentage	= SOURCE.NextDeductedPercentage,
+				TARGET.NextGroupProductId		= SOURCE.NextGroupProductId
 		WHEN NOT MATCHED BY TARGET THEN
 			INSERT
 			(
-				GroupId,DeductionId,ProductId,NextDeductedPercentage
+				GroupId,DeductionId,ProductId,NextDeductedPercentage,NextGroupProductId
 			)
 			VALUES
 			(
-				@GroupId,SOURCE.DeductionId,SOURCE.ProductId,SOURCE.NextDeductedPercentage
+				@GroupId,SOURCE.DeductionId,SOURCE.ProductId,SOURCE.NextDeductedPercentage,SOURCE.NextGroupProductId
 			)
 		WHEN NOT MATCHED BY SOURCE AND TARGET.GroupId = @GroupId THEN
 			DELETE
-		OUTPUT DELETED.DeductionId,DELETED.ProductId,DELETED.NextDeductedPercentage,3
-		INTO @updateData (DeductionId,ProductId,NextDeductedPercentage,TypeId);
+		OUTPUT DELETED.DeductionId,DELETED.ProductId,DELETED.NextDeductedPercentage,DELETED.NextGroupProductId,3
+		INTO @updateData (DeductionId,ProductId,NextDeductedPercentage,NextGroupProductId,TypeId);
 	END TRY
 	BEGIN CATCH
 		-- Rollback manually
@@ -368,7 +375,9 @@ BEGIN
 					STUFF(
 						(SELECT	',' + CONVERT(VARCHAR(10), up.ProductId)
 							FROM @updateData up
-							WHERE up.DeductionId = ud.DeductionId AND up.NextDeductedPercentage = ud.NextDeductedPercentage
+							WHERE up.DeductionId = ud.DeductionId
+								AND up.NextDeductedPercentage = ud.NextDeductedPercentage
+								AND up.NextGroupProductId = ud.NextGroupProductId
 							FOR XML PATH (''))
 							, 1, 1, '') AS ProductIds
 				FROM @updateData ud

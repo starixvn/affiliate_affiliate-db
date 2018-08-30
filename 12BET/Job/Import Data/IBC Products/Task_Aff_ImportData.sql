@@ -52,6 +52,8 @@ BEGIN
 
 	-- Prepare data
 	BEGIN
+		DECLARE @Products TABLE (ProductId INT PRIMARY KEY)
+
 		CREATE TABLE #rptMemberDaily
 		(
 			IBCCustId		INT,
@@ -102,6 +104,9 @@ BEGIN
 		WHERE
 			(mi.IsRemoved = 0 OR DATEDIFF(MONTH, mr.RemovedDate, @WinlostDate) < 0)
 			AND DATEDIFF(DAY, mi.CreatedDate, @WinlostDate) >= 0
+
+		INSERT INTO @Products (ProductId)
+		SELECT DISTINCT ProductId FROM #rptMemberDaily
 	END
 	
 	-- Insert data into MemberDaily
@@ -136,7 +141,7 @@ BEGIN
 				SOURCE.Deposit,SOURCE.Withdrawal,SOURCE.Bonus,SOURCE.Adjustment,
 				SOURCE.Turnover,SOURCE.Winloss,SOURCE.AffExRate,SOURCE.ExRate
 			)
-		WHEN NOT MATCHED BY SOURCE AND TARGET.WinlostDate = @WinlostDate THEN
+		WHEN NOT MATCHED BY SOURCE AND TARGET.WinlostDate = @WinlostDate AND TARGET.ProductId IN (SELECT ProductId FROM @Products) THEN
 			DELETE;
 	END
 

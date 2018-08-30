@@ -50,6 +50,7 @@ BEGIN
 		AffId			INT,
 		GroupId			INT,
 		ProductId		INT,
+		GroupProductId	TINYINT,
 		Deposit			MONEY DEFAULT (0),
 		Withdrawal		MONEY DEFAULT (0),
 		Bonus			MONEY DEFAULT (0),
@@ -284,6 +285,7 @@ BEGIN
 			AffId			INT,
 			GroupId			INT,
 			ProductId		INT,
+			GroupProductId	TINYINT,
 			PlatFormFee		DECIMAL(9,8) DEFAULT (0),
 			OperationalFee	DECIMAL(9,8) DEFAULT (0),
 			BankingFee		DECIMAL(9,8) DEFAULT (0)
@@ -301,6 +303,7 @@ BEGIN
 			AffId,
 			GroupId,
 			ProductId,
+			GroupProductId,
 			PlatFormFee,
 			OperationalFee,
 			BankingFee
@@ -310,6 +313,7 @@ BEGIN
 			md.AffId,
 			agh.GroupId,
 			ds.ProductId,
+			ds.GroupProductId,
 			ds.PlatFormFee,
 			ds.OperationalFee,
 			ds.BankingFee
@@ -318,13 +322,15 @@ BEGIN
 			CROSS APPLY (
 				SELECT
 					dsh.ProductId,
+					dsh.GroupProductId,
 					SUM(CASE WHEN dsh.DeductionId = 10 THEN dsh.DeductedPercentage ELSE 0 END) AS PlatFormFee,
 					SUM(CASE WHEN dsh.DeductionId = 11 THEN dsh.DeductedPercentage ELSE 0 END) AS OperationalFee,
 					SUM(CASE WHEN dsh.DeductionId = 12 THEN dsh.DeductedPercentage ELSE 0 END) AS BankingFee
 				FROM dbo.DeductionSettingHistory dsh WITH (NOLOCK)
 				WHERE agh.MonthDate = dsh.MonthDate AND agh.GroupId = dsh.GroupId
 				GROUP BY
-					dsh.ProductId
+					dsh.ProductId,
+					dsh.GroupProductId
 			) AS ds
 		OPTION (MAXRECURSION 0)
 	END
@@ -439,21 +445,41 @@ BEGIN
 		-- Calculate fees
 		UPDATE c
 		SET c.GroupId			= s.GroupId,
-			c.PlatFormFee		= ABS(c.Winloss) * s.PlatFormFee,
+			c.GroupProductId	= s.GroupProductId,
+			c.PlatFormFee		= c.Winloss * s.PlatFormFee,
 			c.OperationalFee	= ABS(c.Winloss) * s.OperationalFee,
 			c.BankingFee		= (c.Deposit + c.Withdrawal) * s.BankingFee
 		FROM #Commission c
 			INNER JOIN @Setting s ON c.AffId = s.AffId AND c.MonthDate = s.MonthDate AND c.ProductId = s.ProductId
 
+		;WITH CTE_PlatFormFee AS
+		(
+			SELECT
+				MonthDate,
+				AffId,
+				SUM(ABS(PlatFormFee)) AS PlatFormFee
+			FROM
+			(
+				SELECT
+					MonthDate,
+					AffId,
+					GroupProductId,
+					SUM(PlatFormFee) AS PlatFormFee
+				FROM #Commission
+				WHERE ProductId > 0
+				GROUP BY
+					MonthDate,
+					AffId,
+					GroupProductId
+			) AS pf
+			GROUP BY
+				MonthDate,
+				AffId
+		)
 		UPDATE c
 		SET c.PlatFormFee	= pf.PlatFormFee
 		FROM #Commission c
-			CROSS APPLY (
-				SELECT SUM(c1.PlatFormFee) AS PlatFormFee
-				FROM #Commission c1
-				WHERE c.MonthDate = c1.MonthDate AND c.AffId = c1.AffId
-					AND c1.ProductId > 0
-			) AS pf
+			INNER JOIN CTE_PlatFormFee pf ON c.MonthDate = pf.MonthDate AND c.AffId = pf.AffId
 		WHERE c.ProductId = 0
 
 		-- Net Winloss

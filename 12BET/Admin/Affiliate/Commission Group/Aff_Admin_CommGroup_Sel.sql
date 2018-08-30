@@ -100,8 +100,12 @@ BEGIN
 		STUFF(
 			(SELECT	',' + CONVERT(VARCHAR(10), d.ProductId)
 				FROM dbo.DeductionSetting d WITH (NOLOCK)
-				WHERE ds.GroupId = d.GroupId AND ds.DeductionId = d.DeductionId
-					AND ds.DeductedPercentage = d.DeductedPercentage AND ds.NextDeductedPercentage = d.NextDeductedPercentage
+				WHERE ds.GroupId					= d.GroupId
+					AND ds.DeductionId				= d.DeductionId
+					AND ds.GroupProductId			= d.GroupProductId
+					AND ds.NextGroupProductId		= d.NextGroupProductId
+					AND ds.DeductedPercentage		= d.DeductedPercentage
+					AND ds.NextDeductedPercentage	= d.NextDeductedPercentage
 				FOR XML PATH (''))
 				, 1, 1, '') AS ProductIds,
 		ds.DeductedPercentage,
@@ -114,6 +118,8 @@ BEGIN
 		ds.GroupId,
 		ds.DeductionId,
 		dt.DeductionName,
+		ds.GroupProductId,
+		ds.NextGroupProductId,
 		ds.DeductedPercentage,
 		ds.NextDeductedPercentage
 END
