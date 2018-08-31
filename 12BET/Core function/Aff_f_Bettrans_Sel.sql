@@ -38,7 +38,7 @@ RETURN
 				SELECT ProductId, ProductPrefix
 				FROM OPENQUERY(DBAFF12BET, 'SELECT ProductId, ProductPrefix
 											FROM Affiliate_12BET.dbo.Products WITH (NOLOCK)
-											WHERE TransferType = 0 AND IsIBC = 1')
+											WHERE IsIBC = 1')
 			) AS aff ON p.ProductPrefix = aff.ProductPrefix
 		WHERE bt.bettype NOT IN (911, 912, 913, 914) -- Exclude CashOut (keep 911)
 

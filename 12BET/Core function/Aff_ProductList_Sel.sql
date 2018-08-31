@@ -19,9 +19,9 @@ BEGIN
 
 	SELECT
 		ProductId,
-		ProductName
+		ProductName,
+		EndOfSupportDate
 	FROM dbo.Products WITH (NOLOCK)
-	WHERE TransferType = 0
 	ORDER BY
 		ProductId
 END

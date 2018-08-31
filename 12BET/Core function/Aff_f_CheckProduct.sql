@@ -22,6 +22,10 @@ AS
 */
 
 RETURN
+	SELECT @ProductId AS ProductId, '' AS ProductName, '' AS ProductPrefix
+	WHERE @ProductId < 0
+	
+	UNION
 	SELECT ProductId, ProductName, ProductPrefix
 	FROM dbo.Products WITH (NOLOCK)
 	WHERE ProductId = @ProductId
