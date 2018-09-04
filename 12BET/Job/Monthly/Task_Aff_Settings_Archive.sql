@@ -53,8 +53,8 @@ BEGIN
 		FROM dbo.AffInfo WITH (NOLOCK)
 		WHERE ISNULL(GroupID, 0) > 0
 
-		INSERT INTO dbo.DeductionSettingHistory (GroupID,MonthDate,DeductionID,DeductedPercentage,ProductId)
-		SELECT GroupID,@LastDayOfMonth,DeductionID,DeductedPercentage,ProductId
+		INSERT INTO dbo.DeductionSettingHistory (GroupID,MonthDate,DeductionID,DeductedPercentage,ProductId,GroupProductId)
+		SELECT GroupID,@LastDayOfMonth,DeductionID,DeductedPercentage,ProductId,GroupProductId
 		FROM dbo.DeductionSetting ds WITH (NOLOCK)
 
 		-- Apply next value
