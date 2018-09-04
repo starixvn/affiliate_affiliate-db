@@ -53,30 +53,32 @@ BEGIN
 	SELECT  @RowStart = (@PageIndex - 1) * @PageSize + 1,
 			@RowEnd = @RowStart + @PageSize - 1
 
-	CREATE TABLE #AffInfo (RowIdx INT, AffId INT PRIMARY KEY, Username VARCHAR(50))
+	CREATE TABLE #AffInfo (RowIdx INT, AffId INT PRIMARY KEY, Username VARCHAR(50), NRows INT)
 	
 	IF @SortType = 1 -- Affiliate username
 	BEGIN
-		INSERT INTO #AffInfo (RowIdx, AffId, Username)
-		SELECT RowIdx, AffId, Username
+		INSERT INTO #AffInfo (RowIdx, AffId, Username, NRows)
+		SELECT RowIdx, AffId, Username, NRows
 		FROM
 		(
 			SELECT ai.AffId, ai.Username,
 				ROW_NUMBER() OVER(ORDER BY
 									CASE WHEN @SortDirectionType = 0 THEN ai.Username END ASC,
-									CASE WHEN @SortDirectionType = 1 THEN ai.Username END DESC) AS RowIdx
+									CASE WHEN @SortDirectionType = 1 THEN ai.Username END DESC) AS RowIdx,
+				COUNT(1) OVER() AS NRows
 			FROM dbo.AffInfo ai WITH (NOLOCK)
 				LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 			WHERE ai.Username LIKE '%' + ISNULL(@Username, '') + '%'
 				AND ai.Status = 'Approved'
-				AND (@AffType IS NULL OR ai.AffType = @AffType)
 				AND (@PreferredLanguage IS NULL OR ad.PreferredLanguage = @PreferredLanguage)
 		) AS aff
 		WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 
+		-- No data
 		IF @@ROWCOUNT = 0
-			-- No data
 			RETURN
+
+		SELECT TOP 1 @NRows = NRows FROM #AffInfo
 	END
 
 	/*
@@ -253,8 +255,8 @@ BEGIN
 
 	IF @SortType <> 1
 	BEGIN
-		INSERT INTO #AffInfo (RowIdx, AffId, Username)
-		SELECT RowIdx, AffId, Username
+		INSERT INTO #AffInfo (RowIdx, AffId, Username, NRows)
+		SELECT RowIdx, AffId, Username, NRows
 		FROM
 		(
 			SELECT ai.AffId, ai.Username,
@@ -262,7 +264,8 @@ BEGIN
 									CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN ISNULL(adt.Turnover, 0) END ASC,
 									CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN ISNULL(adt.Turnover, 0) END DESC,
 									CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN ISNULL(adt.Winloss, 0) END ASC,
-									CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ISNULL(adt.Winloss, 0) END DESC) AS RowIdx
+									CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ISNULL(adt.Winloss, 0) END DESC) AS RowIdx,
+				COUNT(1) OVER() AS NRows
 			FROM dbo.AffInfo ai WITH (NOLOCK)
 				LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 				LEFT JOIN (
@@ -272,14 +275,15 @@ BEGIN
 				) AS adt ON ai.AffId = adt.AffId
 			WHERE ai.Username LIKE '%' + ISNULL(@Username, '') + '%'
 				AND ai.Status = 'Approved'
-				AND (@AffType IS NULL OR ai.AffType = @AffType)
 				AND (@PreferredLanguage IS NULL OR ad.PreferredLanguage = @PreferredLanguage)
 		) AS aff
 		WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 
+		-- No data
 		IF @@ROWCOUNT = 0
-			-- No data
 			RETURN
+
+		SELECT TOP 1 @NRows = NRows FROM #AffInfo
 	END
 
 	/*
