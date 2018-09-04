@@ -3,7 +3,6 @@ USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
-	@AffType			SMALLINT = NULL,
 	@Username			NVARCHAR(50) = NULL,
 	@FromDate			SMALLDATETIME,
 	@ToDate				SMALLDATETIME,
