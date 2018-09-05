@@ -8,7 +8,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	@ToDate				SMALLDATETIME,
 	@IsGetAll			BIT = 0,
 	@PreferredLanguage	VARCHAR(11) = NULL,
-	@ProductIds			VARCHAR(MAX) = 'all',
+	@ProductIds			VARCHAR(MAX) = '0',
 	@SortType			TINYINT = 1,
 	@SortDirectionType	BIT = 0,
 	@PageIndex			INT = 1,
@@ -87,7 +87,6 @@ BEGIN
 	BEGIN
 		CREATE TABLE #AffData
 		(
-			RowIDX			INT,
 			AffId			INT,
 			ActivePlayer	INT,
 			QualifiedMember	INT,
@@ -108,9 +107,9 @@ BEGIN
 		DECLARE @AffIds NVARCHAR(MAX)
 
 		IF @SortType = 1
-			SELECT @AffIds = 'all'
-		ELSE
 			SELECT @AffIds = COALESCE(@AffIds + ',', '') + CONVERT(VARCHAR(20), AffId) FROM #AffInfo
+		ELSE
+			SELECT @AffIds = 'all'
 
 		DECLARE @MaxCommDate SMALLDATETIME
 		SELECT  @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
@@ -236,7 +235,7 @@ BEGIN
 		GROUP BY
 			AffId
 
-		IF @ProductIds <> 'all'
+		IF @ProductIds <> '0'
 		BEGIN
 			UPDATE ad
 			SET ad.Turnover = ISNULL(t.Turnover, 0),
@@ -248,6 +247,7 @@ BEGIN
 					WHERE ProductId IN (SELECT val FROM dbo.Aff_f_StringSplit(@ProductIds, ','))
 					GROUP BY AffId
 				) t ON ad.AffId = t.AffId
+			OPTION (MAXRECURSION 0)
 		END
 
 		DROP TABLE #TempCommission
@@ -264,12 +264,14 @@ BEGIN
 									CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN ISNULL(adt.Turnover, 0) END ASC,
 									CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN ISNULL(adt.Turnover, 0) END DESC,
 									CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN ISNULL(adt.Winloss, 0) END ASC,
-									CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ISNULL(adt.Winloss, 0) END DESC) AS RowIdx,
+									CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ISNULL(adt.Winloss, 0) END DESC,
+									CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN ISNULL(adt.Commission, 0) END ASC,
+									CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ISNULL(adt.Commission, 0) END DESC) AS RowIdx,
 				COUNT(1) OVER() AS NRows
 			FROM dbo.AffInfo ai WITH (NOLOCK)
 				LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 				LEFT JOIN (
-					SELECT AffId, SUM(Turnover) AS Turnover, SUM(Winloss) AS Winloss
+					SELECT AffId, SUM(Turnover) AS Turnover, SUM(Winloss) AS Winloss, SUM(Commission) AS Commission
 					FROM #AffData
 					GROUP BY AffId
 				) AS adt ON ai.AffId = adt.AffId
@@ -450,5 +452,6 @@ BEGIN
 	DROP TABLE #Statistics
 	DROP TABLE #AffStatistics
 	DROP TABLE #AffData
+	DROP TABLE #AffInfo
 END
 GO

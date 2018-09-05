@@ -274,9 +274,6 @@ BEGIN
 
 	-- Deduction List
 	BEGIN TRY
-		DELETE dbo.DeductionSetting WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId
-		
 		MERGE dbo.DeductionSetting AS TARGET
 		USING @DeductionSetting AS SOURCE
 			ON		TARGET.GroupId			= @GroupId
