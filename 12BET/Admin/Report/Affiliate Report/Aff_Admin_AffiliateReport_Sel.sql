@@ -407,7 +407,7 @@ BEGIN
 		=============== Return data ===============
 	*/
 	
-	
+	-- Detail
 	SELECT
 		ai.AffId,
 		ai.Username,
@@ -436,6 +436,46 @@ BEGIN
 		ISNULL(AffWithdrawal, 0)	AS AffWithdrawal,
 		ISNULL(AffAdjustment, 0)	AS AffAdjustment,
 		ISNULL(BFF, 0)				AS BFF
+	FROM #AffInfo ai WITH (NOLOCK)
+		LEFT JOIN #AffData ad ON ai.AffId = ad.AffId
+		LEFT JOIN (
+			SELECT AffId, SUM(AffWithdrawal) AS AffWithdrawal, SUM(AffAdjustment) AS AffAdjustment, SUM(BFF) AS BFF
+			FROM #AffStatistics
+			GROUP BY AffId
+		) ast ON ai.AffId = ast.AffId
+		LEFT JOIN (
+			SELECT AffId, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick, SUM(Signup) AS Signup, SUM(FDM) AS FDM
+			FROM #Statistics
+			GROUP BY AffId
+		) s ON ai.AffId = s.AffId
+
+	-- Total
+	SELECT
+		SUM(ISNULL(TotalClick, 0))		AS TotalClick,
+		SUM(ISNULL(UniqueClick, 0))		AS UniqueClick,
+		SUM(ISNULL(Signup, 0))			AS Signup,
+		SUM(ISNULL(FDM, 0))				AS FDM,
+		SUM(ISNULL(ActivePlayer, 0))	AS ActiveMember,
+		SUM(ISNULL(QualifiedMember, 0))	AS QualifiedMember,
+		SUM(ISNULL(Deposit, 0))			AS Deposit,
+		SUM(ISNULL(Withdrawal, 0))		AS Withdrawal,
+		SUM(ISNULL(Turnover, 0))		AS Turnover,
+		SUM(ISNULL(Winloss, 0))			AS Winlost,
+		SUM(ISNULL(Bonus, 0))			AS Bonus,
+		SUM(ISNULL(PlatFormFee, 0))		AS PlatFormFee,
+		SUM(ISNULL(OperationalFee, 0))	AS OperationalFee,
+		SUM(ISNULL(BankingFee, 0))		AS BankingFee,
+		SUM(ISNULL(PlatFormFee, 0)
+		 + ISNULL(OperationalFee, 0)
+		 + ISNULL(BankingFee, 0))		AS TotalFee,
+		CASE WHEN
+			SUM(ISNULL(NetWinloss - Bonus, 0)) = 0 THEN 0
+			ELSE SUM(ISNULL(Commission/(NetWinloss - Bonus), 0)) END
+										AS CommissionRate,
+		SUM(ISNULL(Commission, 0))		AS Earning,
+		SUM(ISNULL(AffWithdrawal, 0))	AS AffWithdrawal,
+		SUM(ISNULL(AffAdjustment, 0))	AS AffAdjustment,
+		SUM(ISNULL(BFF, 0))				AS BFF
 	FROM #AffInfo ai WITH (NOLOCK)
 		LEFT JOIN #AffData ad ON ai.AffId = ad.AffId
 		LEFT JOIN (
