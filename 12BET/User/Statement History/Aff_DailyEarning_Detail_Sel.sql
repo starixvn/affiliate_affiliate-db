@@ -159,17 +159,29 @@ BEGIN
 		GROUP BY
 			md.IBCCustId
 	END
+
+	-- Get Banking Fee
+	DECLARE @LastDayOfMonth SMALLDATETIME
+	SELECT  @LastDayOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate) + 1, 0))
+
+	DECLARE @BankingFee DECIMAL(9,8)
+	SELECT  @BankingFee = dsh.DeductedPercentage
+	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+		INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.MonthDate = dsh.MonthDate AND agh.GroupId = dsh.GroupId
+	WHERE agh.AffId = @AffId AND agh.MonthDate = @LastDayOfMonth
+		AND dsh.DeductionID = 12 -- Banking Fee
 	
 	-- Return data
 	BEGIN
 		SELECT
 			mi.IBCCustId AS CustId,
 			mi.UserName,
-			SUM(ISNULL(dt.Deposit, 0)) AS Deposit,
-			SUM(ISNULL(dt.Withdrawal, 0)) AS Withdrawal,
-			SUM(ISNULL(dt.Turnover, 0)) AS Turnover,
-			SUM(ISNULL(dt.Winloss, 0)) AS Winlost,
-			SUM(ISNULL(dt.Bonus, 0)) AS Bonus
+			SUM(ISNULL(dt.Deposit, 0))		AS Deposit,
+			SUM(ISNULL(dt.Withdrawal, 0))	AS Withdrawal,
+			SUM(ISNULL(dt.Turnover, 0))		AS Turnover,
+			SUM(ISNULL(dt.Winloss, 0))		AS Winlost,
+			SUM(ISNULL(dt.Bonus, 0))		AS Bonus,
+			SUM((ISNULL(dt.Deposit, 0) + ISNULL(dt.Withdrawal, 0)) * @BankingFee) AS BankingFee
 		FROM #Data dt
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON dt.IBCCustId = mi.IBCCustId
 		GROUP BY

@@ -163,17 +163,26 @@ BEGIN
 		GROUP BY
 			md.WinlostDate
 	END
+
+	-- Get Banking Fee
+	DECLARE @BankingFee DECIMAL(9,8)
+	SELECT  @BankingFee = dsh.DeductedPercentage
+	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+		INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.MonthDate = dsh.MonthDate AND agh.GroupId = dsh.GroupId
+	WHERE agh.AffId = @AffId AND agh.MonthDate = @ToEndMonth
+		AND dsh.DeductionID = 12 -- Banking Fee
 	
 	-- Return data
 	BEGIN
 		-- Detail
 		SELECT
 			WinlostDate,
-			SUM(ISNULL(Deposit, 0)) AS Deposit,
-			SUM(ISNULL(Withdrawal, 0)) AS Withdrawal,
-			SUM(ISNULL(Winloss, 0)) AS MemberWinlost,
-			SUM(ISNULL(Winloss, 0)) AS MemberWinlostFake,
-			SUM(ISNULL(Bonus, 0)) AS Bonus
+			SUM(ISNULL(Deposit, 0))		AS Deposit,
+			SUM(ISNULL(Withdrawal, 0))	AS Withdrawal,
+			SUM(ISNULL(Winloss, 0))		AS MemberWinlost,
+			SUM(ISNULL(Winloss, 0))		AS MemberWinlostFake,
+			SUM(ISNULL(Bonus, 0))		AS Bonus,
+			SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * @BankingFee) AS BankingFee
 		FROM #Data
 		GROUP BY
 			WinlostDate
@@ -181,11 +190,12 @@ BEGIN
 
 		-- Sum
 		SELECT
-			SUM(ISNULL(Deposit, 0)) AS Deposit,
-			SUM(ISNULL(Withdrawal, 0)) AS Withdrawal,
-			SUM(ISNULL(Winloss, 0)) AS MemberWinlost,
-			SUM(ISNULL(Winloss, 0)) AS MemberWinlostFake,
-			SUM(ISNULL(Bonus, 0)) AS Bonus
+			SUM(ISNULL(Deposit, 0))		AS Deposit,
+			SUM(ISNULL(Withdrawal, 0))	AS Withdrawal,
+			SUM(ISNULL(Winloss, 0))		AS MemberWinlost,
+			SUM(ISNULL(Winloss, 0))		AS MemberWinlostFake,
+			SUM(ISNULL(Bonus, 0))		AS Bonus,
+			SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * @BankingFee) AS BankingFee
 		FROM #Data
 		HAVING SUM(ISNULL(Deposit, 0)) IS NOT NULL
 	END
