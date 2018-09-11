@@ -111,7 +111,7 @@ BEGIN
 				CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 0, md.Winlostdate, @MoveBetsDay) f
 			WHERE AffId = @AffId
 				AND WinlostDate BETWEEN @tmpFromDate AND @tmpToDate
-				AND (@ProductId = 0 OR md.ProductId = @ProductId)
+				AND (@ProductId = 0 OR md.ProductId < 0 OR md.ProductId = @ProductId)
 				AND NOT EXISTS (
 					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 					WHERE mr.IBCCustId = md.IBCCustId
@@ -155,6 +155,7 @@ BEGIN
 			CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 1, md.WinlostDate, @MoveBetsDay) f
 		WHERE md.WinlostDate BETWEEN @tmpDate AND @ToEndMonth
 			AND mi.AffId = @AffId
+			AND (@ProductId = 0 OR md.ProductId < 0 OR md.ProductId = @ProductId)
 			AND NOT EXISTS (
 				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 				WHERE mr.IBCCustId = mi.IBCCustId
@@ -182,7 +183,7 @@ BEGIN
 			SUM(ISNULL(Winloss, 0))		AS MemberWinlost,
 			SUM(ISNULL(Winloss, 0))		AS MemberWinlostFake,
 			SUM(ISNULL(Bonus, 0))		AS Bonus,
-			SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * @BankingFee) AS BankingFee
+			SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * ISNULL(@BankingFee, 0)) AS BankingFee
 		FROM #Data
 		GROUP BY
 			WinlostDate
@@ -195,7 +196,7 @@ BEGIN
 			SUM(ISNULL(Winloss, 0))		AS MemberWinlost,
 			SUM(ISNULL(Winloss, 0))		AS MemberWinlostFake,
 			SUM(ISNULL(Bonus, 0))		AS Bonus,
-			SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * @BankingFee) AS BankingFee
+			SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * ISNULL(@BankingFee, 0)) AS BankingFee
 		FROM #Data
 		HAVING SUM(ISNULL(Deposit, 0)) IS NOT NULL
 	END

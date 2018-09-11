@@ -107,7 +107,7 @@ BEGIN
 				CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 0, md.Winlostdate, @MoveBetsDay) f
 			WHERE AffId = @AffId
 				AND md.WinlostDate = @WinlostDate
-				AND (@ProductId = 0 OR md.ProductId = @ProductId)
+				AND (@ProductId = 0 OR md.ProductId < 0 OR md.ProductId = @ProductId)
 				AND NOT EXISTS (
 					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 					WHERE mr.IBCCustId = md.IBCCustId
@@ -151,6 +151,7 @@ BEGIN
 			CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 1, md.WinlostDate, @MoveBetsDay) f
 		WHERE md.WinlostDate = @WinlostDate
 			AND mi.AffId = @AffId
+			AND (@ProductId = 0 OR md.ProductId < 0 OR md.ProductId = @ProductId)
 			AND NOT EXISTS (
 				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 				WHERE mr.IBCCustId = mi.IBCCustId
@@ -181,7 +182,7 @@ BEGIN
 			SUM(ISNULL(dt.Turnover, 0))		AS Turnover,
 			SUM(ISNULL(dt.Winloss, 0))		AS Winlost,
 			SUM(ISNULL(dt.Bonus, 0))		AS Bonus,
-			SUM((ISNULL(dt.Deposit, 0) + ISNULL(dt.Withdrawal, 0)) * @BankingFee) AS BankingFee
+			SUM((ISNULL(dt.Deposit, 0) + ISNULL(dt.Withdrawal, 0)) * ISNULL(@BankingFee, 0)) AS BankingFee
 		FROM #Data dt
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON dt.IBCCustId = mi.IBCCustId
 		GROUP BY
