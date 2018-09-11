@@ -46,7 +46,7 @@ BEGIN
 	-- Check job run already
 	IF @IsForceUpdate = 0
 	BEGIN
-		IF EXISTS (SELECT 1 FROM dbo.rptAffCommission WITH (NOLOCK) WHERE WinlostDate = @LastDayOfMonth)
+		IF EXISTS (SELECT 1 FROM dbo.rptAffCommission WITH (NOLOCK) WHERE MonthDate = @LastDayOfMonth)
 		BEGIN
 			SELECT 'Data is already done for this month!'
 
