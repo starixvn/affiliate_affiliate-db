@@ -25,19 +25,15 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	IF (@FDate IS NOT NULL AND @TDate IS NOT NULL AND @FDate > @TDate) 
+	IF @FDate IS NULL OR @TDate IS NULL
+		SELECT @FDate = dbo.Aff_f_GetMinReportDate(@AffId), @TDate = CONVERT(DATE, GETDATE())
+	ELSE
+		SELECT @FDate = CONVERT(DATE, @FDate), @TDate = CONVERT(DATE, @TDate)
+
+	IF @FDate > @TDate
 		RETURN
 
-	IF @TDate > CURRENT_TIMESTAMP
-		SELECT @TDate = CURRENT_TIMESTAMP
-
-	IF @FDate IS NOT NULL
-		SET @FDate = dbo.Aff_GetStartDate(@FDate)
-
-	IF @TDate IS NOT NULL
-		SET @TDate = dbo.Aff_GetEndDate(@TDate)
-
-	CREATE TABLE #Commision
+	CREATE TABLE #Commission
 	(
 		TransId		BIGINT,
 		MonthDate	SMALLDATETIME,
@@ -48,47 +44,75 @@ BEGIN
 		Description	NVARCHAR(2000)
 	)
 
-	CREATE NONCLUSTERED INDEX IX_MonthDate ON #Commision (MonthDate)
-
-	/*
-		TransType:
-			201: Monthly Commission
-			202: Payout (Payment Request)
-			203: Adjustment
-			204: Marketing fee (shut down, still old data)
-	*/
-
-	INSERT INTO #Commision
-	(
-		TransId,
-		MonthDate,
-		TransType,
-		Amount,
-		Status,
-		Creator,
-		Description
-	)
-	SELECT
-		at.TransId,
-		at.TransDate,
-		at.TransType,
-		CASE WHEN at.TransType = 202 THEN ABS(at.Amount) ELSE at.Amount END AS Amount,
-		CASE WHEN at.TransType = 202 THEN at.Status ELSE 'B/F' END AS Status,
-		ISNULL(au.Username, 'System') AS Creator,
-		CASE WHEN at.TransType = 202 THEN ap.AdminDesc ELSE at.Description END AS Description
-	FROM dbo.AffTrans at WITH (NOLOCK)
-		LEFT JOIN dbo.AffPayout ap WITH (NOLOCK) ON at.RefID = ap.RefID AND at.TransType = 202
-		LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON at.Creator = au.custid
-	WHERE at.AffId = @AffId
-		AND at.TransDate BETWEEN @FDate AND @TDate
-
-	-- Commission for months which are not calculated yet
+	-- Payment, Adjustment info (TransType = 202, 203)
 	BEGIN
-		DECLARE @AffIds VARCHAR(MAX)
-		SELECT  @AffIds = CONVERT(VARCHAR(20), @AffId)
+		INSERT INTO #Commission
+		(
+			TransId,
+			MonthDate,
+			TransType,
+			Amount,
+			Status,
+			Creator,
+			Description
+		)
+		SELECT
+			at.TransId,
+			at.TransDate,
+			at.TransType,
+			CASE WHEN at.TransType = 202 THEN ABS(at.Amount) ELSE at.Amount END AS Amount,
+			CASE WHEN at.TransType = 202 THEN at.Status ELSE 'B/F' END AS Status,
+			ISNULL(au.Username, 'System') AS Creator,
+			CASE WHEN at.TransType = 202 THEN ap.AdminDesc ELSE at.Description END AS Description
+		FROM dbo.AffTrans at WITH (NOLOCK)
+			LEFT JOIN dbo.AffPayout ap WITH (NOLOCK) ON at.RefID = ap.RefID AND at.TransType = 202
+			LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON at.Creator = au.custid
+		WHERE at.AffId = @AffId
+			AND at.TransType IN (202, 203)
+			AND at.TransDate BETWEEN @FDate AND @TDate
+	END
 
+	-- Commission info
+	BEGIN
 		DECLARE @MaxCommDate SMALLDATETIME
 		SELECT  @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
+
+		-- Calculated months
+		IF @FDate < @MaxCommDate
+		BEGIN
+			WITH CTE_MonthDate AS
+			(
+				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FDate) + 1, 0)) AS MonthDate
+				UNION ALL
+				SELECT DATEADD(DAY, -1, DATEADD(MONTH, 1, DATEADD(DAY, 1, MonthDate)))
+				FROM CTE_MonthDate
+				WHERE MonthDate < @MaxCommDate
+			)
+			INSERT INTO #Commission
+			(
+				TransId,
+				MonthDate,
+				TransType,
+				Amount,
+				Status,
+				Creator,
+				Description
+			)
+			SELECT
+				ISNULL(at.TransId, 0),
+				md.MonthDate,
+				201 AS TransType,
+				ISNULL(at.Amount, 0),
+				'B/F' AS Status,
+				'System' AS Creator,
+				'Monthly Earning' AS Description
+			FROM CTE_MonthDate md
+				LEFT JOIN dbo.AffTrans at WITH (NOLOCK) ON md.MonthDate = at.TransDate AND at.AffId = @AffId AND at.TransType = 101
+		END
+
+		-- Uncalculated months
+		DECLARE @AffIds VARCHAR(MAX)
+		SELECT  @AffIds = CONVERT(VARCHAR(20), @AffId)
 
 		DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
 
@@ -100,8 +124,8 @@ BEGIN
 			CREATE TABLE #TempCommission
 			(
 				MonthDate		SMALLDATETIME,
-				GroupId			INT,
 				AffId			INT,
+				GroupId			INT,
 				ProductId		INT,
 				Deposit			MONEY,
 				Withdrawal		MONEY,
@@ -118,16 +142,14 @@ BEGIN
 				QualifiedMember INT,
 				QMTurnover		MONEY,
 				CommissionRate	DECIMAL(9,8),
-				Commission		MONEY,
-				-- for monthdate -- 0: temporary, 1: uncalculated, 2: calculated
-				CalculatedType	TINYINT DEFAULT ((2))
+				Commission		MONEY
 			)
 
 			INSERT INTO #TempCommission
 			(
 				MonthDate,
-				GroupId,
 				AffId,
+				GroupId,
 				ProductId,
 				Deposit,
 				Withdrawal,
@@ -146,7 +168,7 @@ BEGIN
 			)
 			EXEC dbo.Aff_Commission_UnCalc @AffIds = @AffIds, @FromMonthDate = @tempFromDate, @ToMonthDate = @tempToDate
 		
-			INSERT INTO #Commision
+			INSERT INTO #Commission
 			(
 				TransId,
 				MonthDate,
@@ -166,11 +188,13 @@ BEGIN
 				CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current Month Statistics' ELSE 'UnCalculated Month' END AS Description
 			FROM #TempCommission
 			WHERE ProductId = 0
+
+			DROP TABLE #TempCommission
 		END
 	END
 
 	-- Return data
-	SELECT @NRows = COUNT(1) FROM #Commision
+	SELECT @NRows = COUNT(1) FROM #Commission
 
 	SELECT @TotalPages = @NRows/@PageSize + CASE WHEN @NRows % @PageSize > 0 THEN 1 ELSE 0 END
 
@@ -198,11 +222,10 @@ BEGIN
 			Creator,
 			Description,
 			ROW_NUMBER() OVER(ORDER BY MonthDate DESC) AS Rownum
-		FROM #Commision
+		FROM #Commission
 	) AS result
 	WHERE Rownum BETWEEN @RowStart AND @RowEnd
 
-	DROP TABLE #Commision
-	DROP TABLE #TempCommission
+	DROP TABLE #Commission
 END
 GO

@@ -91,8 +91,7 @@ BEGIN
 	)
 
 	-- Calculated months
-	SELECT @tempFromDate = DATEADD(DAY, 1, CONVERT(DATE, SValue)) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_OldReportDate'
-	SELECT @tempToDate = @MaxCommDate
+	SELECT @tempFromDate = dbo.Aff_f_GetMinReportDate(@AffId), @tempToDate = @MaxCommDate
 
 	INSERT INTO #TempCommission
 	(
@@ -118,8 +117,7 @@ BEGIN
 	EXEC dbo.Aff_Commission_Calc @AffIds = @AffIds, @FromMonthDate = @tempFromDate, @ToMonthDate = @tempToDate
 
 	-- Uncalculated months
-	SELECT  @tempFromDate = DATEADD(DAY, 1, @MaxCommDate),
-			@tempToDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
+	SELECT @tempFromDate = DATEADD(DAY, 1, @MaxCommDate), @tempToDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
 	
 	INSERT INTO #TempCommission
 	(

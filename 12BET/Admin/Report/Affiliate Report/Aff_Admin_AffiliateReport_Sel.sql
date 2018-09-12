@@ -38,11 +38,7 @@ BEGIN
 
 	IF @IsGetAll = 1
 	BEGIN
-		SELECT @FromDate = DATEADD(DAY, 1, CONVERT(DATE, SValue))
-		FROM dbo.SystemSettings WITH (NOLOCK)
-		WHERE SName = 'AFF_OldReportDate'
-
-		SELECT @ToDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
+		SELECT @FromDate = dbo.Aff_f_GetMinReportDate(0), @ToDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
 	END
 
 	CREATE TABLE #AffInfo (AffId INT PRIMARY KEY, Username VARCHAR(50))
