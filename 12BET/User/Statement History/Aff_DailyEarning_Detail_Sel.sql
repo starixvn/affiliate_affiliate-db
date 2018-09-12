@@ -177,6 +177,7 @@ BEGIN
 		SELECT
 			mi.IBCCustId AS CustId,
 			mi.UserName,
+			mi.IBCUsername,
 			SUM(ISNULL(dt.Deposit, 0))		AS Deposit,
 			SUM(ISNULL(dt.Withdrawal, 0))	AS Withdrawal,
 			SUM(ISNULL(dt.Turnover, 0))		AS Turnover,
@@ -187,7 +188,8 @@ BEGIN
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON dt.IBCCustId = mi.IBCCustId
 		GROUP BY
 			mi.IBCCustId,
-			mi.UserName
+			mi.UserName,
+			mi.IBCUsername
 	END
 
 	DROP TABLE #Data
