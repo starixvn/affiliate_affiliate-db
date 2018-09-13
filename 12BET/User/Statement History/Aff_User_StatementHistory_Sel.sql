@@ -64,31 +64,35 @@ BEGIN
 
 		-- Calculated months
 		SELECT	@tempFromDate = dbo.Aff_f_GetMinReportDate(@AffId), @tempToDate = @MaxCommDate
-		;WITH CTE_MonthDate AS
-		(
-			SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempFromDate) + 1, 0)) AS MonthDate
-			UNION ALL
-			SELECT DATEADD(DAY, -1, DATEADD(MONTH, 1, DATEADD(DAY, 1, MonthDate)))
-			FROM CTE_MonthDate
-			WHERE MonthDate < @tempToDate
-		)
-		INSERT INTO #tempData
-		(
-			MonthDate,
-			TransType,
-			Amount,
-			Status,
-			Description
-		)
-		SELECT
-			md.MonthDate,
-			201 AS TransType,
-			ISNULL(at.Amount, 0),
-			'B/F' AS Status,
-			'Monthly Earning' AS Description
-		FROM CTE_MonthDate md
-			LEFT JOIN dbo.AffTrans at WITH (NOLOCK) ON md.MonthDate = at.TransDate AND at.AffId = @AffId AND at.TransType = 201
-		OPTION (MAXRECURSION 0)
+
+		IF @tempFromDate <= @tempToDate
+		BEGIN
+			WITH CTE_MonthDate AS
+			(
+				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempFromDate) + 1, 0)) AS MonthDate
+				UNION ALL
+				SELECT DATEADD(DAY, -1, DATEADD(MONTH, 1, DATEADD(DAY, 1, MonthDate)))
+				FROM CTE_MonthDate
+				WHERE MonthDate < @tempToDate
+			)
+			INSERT INTO #tempData
+			(
+				MonthDate,
+				TransType,
+				Amount,
+				Status,
+				Description
+			)
+			SELECT
+				md.MonthDate,
+				201 AS TransType,
+				ISNULL(at.Amount, 0),
+				'B/F' AS Status,
+				'Monthly Earning' AS Description
+			FROM CTE_MonthDate md
+				LEFT JOIN dbo.AffTrans at WITH (NOLOCK) ON md.MonthDate = at.TransDate AND at.AffId = @AffId AND at.TransType = 201
+			OPTION (MAXRECURSION 0)
+		END
 
 		-- Uncalculated months
 		DECLARE @AffIds VARCHAR(MAX)

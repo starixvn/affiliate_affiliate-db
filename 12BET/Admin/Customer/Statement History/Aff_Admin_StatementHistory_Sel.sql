@@ -25,10 +25,18 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
+	DECLARE @MinReportDate SMALLDATETIME
+	SELECT  @MinReportDate = dbo.Aff_f_GetMinReportDate(@AffId)
+
 	IF @FDate IS NULL OR @TDate IS NULL
-		SELECT @FDate = dbo.Aff_f_GetMinReportDate(@AffId), @TDate = CONVERT(DATE, GETDATE())
+		SELECT @FDate = @MinReportDate, @TDate = CONVERT(DATE, GETDATE())
 	ELSE
+	BEGIN
 		SELECT @FDate = CONVERT(DATE, @FDate), @TDate = CONVERT(DATE, @TDate)
+		
+		IF @FDate < @MinReportDate
+			SELECT @FDate = @MinReportDate
+	END
 
 	IF @FDate > @TDate
 		RETURN
