@@ -33,7 +33,7 @@ BEGIN
 	IF @FDate > @TDate
 		RETURN
 
-	CREATE TABLE #Commission
+	CREATE TABLE #tempData
 	(
 		TransId		BIGINT,
 		MonthDate	SMALLDATETIME,
@@ -46,7 +46,7 @@ BEGIN
 
 	-- Payment, Adjustment info (TransType = 202, 203)
 	BEGIN
-		INSERT INTO #Commission
+		INSERT INTO #tempData
 		(
 			TransId,
 			MonthDate,
@@ -88,7 +88,7 @@ BEGIN
 				FROM CTE_MonthDate
 				WHERE MonthDate < @MaxCommDate
 			)
-			INSERT INTO #Commission
+			INSERT INTO #tempData
 			(
 				TransId,
 				MonthDate,
@@ -107,7 +107,7 @@ BEGIN
 				'System' AS Creator,
 				'Monthly Earning' AS Description
 			FROM CTE_MonthDate md
-				LEFT JOIN dbo.AffTrans at WITH (NOLOCK) ON md.MonthDate = at.TransDate AND at.AffId = @AffId AND at.TransType = 101
+				LEFT JOIN dbo.AffTrans at WITH (NOLOCK) ON md.MonthDate = at.TransDate AND at.AffId = @AffId AND at.TransType = 201
 			OPTION (MAXRECURSION 0)
 		END
 
@@ -169,7 +169,7 @@ BEGIN
 			)
 			EXEC dbo.Aff_Commission_UnCalc @AffIds = @AffIds, @FromMonthDate = @tempFromDate, @ToMonthDate = @tempToDate
 		
-			INSERT INTO #Commission
+			INSERT INTO #tempData
 			(
 				TransId,
 				MonthDate,
@@ -195,7 +195,7 @@ BEGIN
 	END
 
 	-- Return data
-	SELECT @NRows = COUNT(1) FROM #Commission
+	SELECT @NRows = COUNT(1) FROM #tempData
 
 	SELECT @TotalPages = @NRows/@PageSize + CASE WHEN @NRows % @PageSize > 0 THEN 1 ELSE 0 END
 
@@ -223,10 +223,10 @@ BEGIN
 			Creator,
 			Description,
 			ROW_NUMBER() OVER(ORDER BY MonthDate DESC) AS Rownum
-		FROM #Commission
+		FROM #tempData
 	) AS result
 	WHERE Rownum BETWEEN @RowStart AND @RowEnd
 
-	DROP TABLE #Commission
+	DROP TABLE #tempData
 END
 GO
