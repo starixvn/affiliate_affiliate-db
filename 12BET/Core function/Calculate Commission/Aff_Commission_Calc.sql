@@ -138,7 +138,7 @@ BEGIN
 			SUM(CASE WHEN dsh.DeductionId = 12 THEN dsh.DeductedPercentage ELSE 0 END) AS BankingFee
 		FROM dbo.DeductionSettingHistory dsh WITH (NOLOCK)
 			INNER JOIN @MonthDate md ON dsh.MonthDate = md.MonthDate
-			INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON md.MonthDate = agh.MonthDate
+			INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON dsh.MonthDate = agh.MonthDate AND dsh.GroupId = agh.GroupId
 			INNER JOIN dbo.Aff_f_StringSplit(@AffIds, ',') a ON a.val = agh.AffId
 		GROUP BY
 			dsh.MonthDate,

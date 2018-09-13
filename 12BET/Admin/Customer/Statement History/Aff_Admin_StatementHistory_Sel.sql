@@ -108,6 +108,7 @@ BEGIN
 				'Monthly Earning' AS Description
 			FROM CTE_MonthDate md
 				LEFT JOIN dbo.AffTrans at WITH (NOLOCK) ON md.MonthDate = at.TransDate AND at.AffId = @AffId AND at.TransType = 101
+			OPTION (MAXRECURSION 0)
 		END
 
 		-- Uncalculated months
