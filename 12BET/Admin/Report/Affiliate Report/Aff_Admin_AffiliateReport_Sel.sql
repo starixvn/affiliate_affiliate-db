@@ -6,7 +6,6 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	@Username			NVARCHAR(50) = NULL,
 	@FromDate			SMALLDATETIME,
 	@ToDate				SMALLDATETIME,
-	@IsGetAll			BIT = 0,
 	@PreferredLanguage	VARCHAR(11) = NULL,
 	@ProductIds			VARCHAR(MAX) = '0',
 	@SortType			TINYINT = 1,
@@ -33,13 +32,11 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
+	IF @FromDate IS NULL OR @ToDate IS NULL
+		RETURN
+
 	SELECT	@FromDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0), -- Begin Month of @FromDate
 			@ToDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0)) -- End Month of @ToDate
-
-	IF @IsGetAll = 1
-	BEGIN
-		SELECT @FromDate = dbo.Aff_f_GetMinReportDate(0), @ToDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
-	END
 
 	CREATE TABLE #AffInfo (AffId INT PRIMARY KEY, Username VARCHAR(50))
 	
@@ -265,7 +262,12 @@ BEGIN
 				t.AffId
 		END
 
-		IF @ProductIds <> '0'
+		IF ISNULL(@ProductIds, '') = '' -- uncheck all products
+		BEGIN
+			UPDATE #AffData
+			SET Turnover = 0, Winloss = 0
+		END
+		ELSE IF @ProductIds <> '0' -- check some products
 		BEGIN
 			UPDATE ad
 			SET ad.Turnover = ISNULL(t.Turnover, 0),
