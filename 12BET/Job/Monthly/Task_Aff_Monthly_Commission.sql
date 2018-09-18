@@ -117,6 +117,9 @@ BEGIN
 	BEGIN
 		DELETE dbo.rptAffCommission WITH (ROWLOCK, UPDLOCK)
 		WHERE MonthDate = @LastDayOfMonth
+
+		DELETE dbo.rptAffDeduction WITH (ROWLOCK, UPDLOCK)
+		WHERE MonthDate = @LastDayOfMonth
 	END
 
 	INSERT INTO dbo.rptAffCommission
@@ -154,6 +157,27 @@ BEGIN
 		QualifiedMember,
 		CommissionRate
 	FROM #TempCommission
+
+	INSERT INTO dbo.rptAffDeduction
+	(
+		MonthDate,
+		AffId,
+		GroupId,
+		ProductId,
+		GroupProductId,
+		DeductionId,
+		Amount
+	)
+	SELECT
+		tc.MonthDate,
+		tc.AffId,
+		tc.GroupId,
+		tc.ProductId,
+		dsh.GroupProductId,
+		dsh.DeductionId,
+		CASE dsh.DeductionId WHEN 10 THEN tc.PlatFormFee WHEN 11 THEN tc.OperationalFee WHEN 12 THEN tc.BankingFee END AS Amount
+	FROM #TempCommission tc
+		INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON tc.MonthDate = dsh.MonthDate AND tc.GroupId = dsh.GroupId AND tc.ProductId = dsh.ProductId
 
 	/*
 	MERGE dbo.AffTrans AS TARGET
