@@ -75,7 +75,7 @@ BEGIN
 		-- Uncalculated Months
 		IF @ToDate > @MaxCommDate
 		BEGIN
-			SELECT	@tempFromDate	= DATEADD(DAY, 1, @MaxCommDate),
+			SELECT	@tempFromDate	= CASE WHEN @FromDate <= @MaxCommDate THEN DATEADD(DAY, 1, @MaxCommDate) ELSE @FromDate END,
 					@tempToDate		= @ToDate
 
 			INSERT INTO #TempCommission
@@ -109,7 +109,7 @@ BEGIN
 		IF @FromDate <= @MaxCommDate
 		BEGIN
 			SELECT	@tempFromDate	= @FromDate,
-					@tempToDate		= @MaxCommDate
+					@tempToDate		= CASE WHEN @ToDate > @MaxCommDate THEN @MaxCommDate ELSE @ToDate END
 
 			INSERT INTO #TempCommission
 			(
