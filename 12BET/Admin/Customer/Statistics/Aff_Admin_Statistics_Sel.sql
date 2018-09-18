@@ -85,7 +85,7 @@ BEGIN
 
 		-- Calculated Months
 		BEGIN
-			SELECT	@tempFromDate	= '1970-01-01',
+			SELECT	@tempFromDate	= dbo.Aff_f_GetMinReportDate(@AffId),
 					@tempToDate		= @MaxCommDate
 
 			INSERT INTO #TempCommission

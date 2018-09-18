@@ -129,7 +129,7 @@ BEGIN
 		-- Uncalculated Months
 		IF @ToDate > @MaxCommDate
 		BEGIN
-			SELECT	@tempFromDate	= DATEADD(DAY, 1, @MaxCommDate),
+			SELECT	@tempFromDate	= CASE WHEN @FromDate <= @MaxCommDate THEN DATEADD(DAY, 1, @MaxCommDate) ELSE @FromDate END,
 					@tempToDate		= @ToDate
 
 			INSERT INTO #TempCommission
@@ -160,7 +160,7 @@ BEGIN
 		IF @FromDate <= @MaxCommDate
 		BEGIN
 			SELECT	@tempFromDate	= @FromDate,
-					@tempToDate		= @MaxCommDate
+					@tempToDate		= CASE WHEN @ToDate > @MaxCommDate THEN @MaxCommDate ELSE @ToDate END
 
 			INSERT INTO #TempCommission
 			(
@@ -322,7 +322,7 @@ BEGIN
 		BEGIN
 			SELECT @tempFromDate = @FromDate
 			SELECT @tempToDate	= CASE WHEN @ToDate > @ArchiveDate THEN @ArchiveDate ELSE @ToDate END
-
+			/*
 			INSERT INTO #Statistics (AffId, TotalClick, UniqueClick)
 			SELECT AffId, SUM(TotalClick), SUM(UniqueClick)
 			FROM
@@ -339,6 +339,7 @@ BEGIN
 					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0))
 			) AS A
 			GROUP BY AffId
+			*/
 		END
 
 		-- Signup, FDM (first deposit)
@@ -495,11 +496,8 @@ BEGIN
 			SUM(ISNULL(BankingFee, 0))		AS BankingFee,
 			SUM(ISNULL(PlatFormFee, 0)
 				+ ISNULL(OperationalFee, 0)
-				+ ISNULL(BankingFee, 0))		AS TotalFee,
-			CASE WHEN
-				SUM(ISNULL(NetWinloss - Bonus, 0)) = 0 THEN 0
-				ELSE SUM(ISNULL(Commission/(NetWinloss - Bonus), 0)) END
-											AS CommissionRate,
+				+ ISNULL(BankingFee, 0))	AS TotalFee,
+			0								AS CommissionRate,
 			SUM(ISNULL(Commission, 0))		AS Earning,
 			SUM(ISNULL(AffWithdrawal, 0))	AS AffWithdrawal,
 			SUM(ISNULL(AffAdjustment, 0))	AS AffAdjustment,
@@ -616,11 +614,8 @@ BEGIN
 			SUM(ISNULL(BankingFee, 0))		AS BankingFee,
 			SUM(ISNULL(PlatFormFee, 0)
 				+ ISNULL(OperationalFee, 0)
-				+ ISNULL(BankingFee, 0))		AS TotalFee,
-			CASE WHEN
-				SUM(ISNULL(NetWinloss - Bonus, 0)) = 0 THEN 0
-				ELSE SUM(ISNULL(Commission/(NetWinloss - Bonus), 0)) END
-											AS CommissionRate,
+				+ ISNULL(BankingFee, 0))	AS TotalFee,
+			0								AS CommissionRate,
 			SUM(ISNULL(Commission, 0))		AS Earning,
 			SUM(ISNULL(AffWithdrawal, 0))	AS AffWithdrawal,
 			SUM(ISNULL(AffAdjustment, 0))	AS AffAdjustment,

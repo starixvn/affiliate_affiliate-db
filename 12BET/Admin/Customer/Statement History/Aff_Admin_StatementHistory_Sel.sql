@@ -85,16 +85,21 @@ BEGIN
 		DECLARE @MaxCommDate SMALLDATETIME
 		SELECT  @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
+		DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
+
 		-- Calculated months
 		IF @FDate < @MaxCommDate
 		BEGIN
-			WITH CTE_MonthDate AS
+			SELECT @tempFromDate	= @FDate
+			SELECT @tempToDate		= CASE WHEN @TDate > @MaxCommDate THEN @MaxCommDate ELSE @TDate END
+			
+			;WITH CTE_MonthDate AS
 			(
-				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FDate) + 1, 0)) AS MonthDate
+				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempFromDate) + 1, 0)) AS MonthDate
 				UNION ALL
 				SELECT DATEADD(DAY, -1, DATEADD(MONTH, 1, DATEADD(DAY, 1, MonthDate)))
 				FROM CTE_MonthDate
-				WHERE MonthDate < @MaxCommDate
+				WHERE MonthDate < @tempToDate
 			)
 			INSERT INTO #tempData
 			(
@@ -123,11 +128,9 @@ BEGIN
 		DECLARE @AffIds VARCHAR(MAX)
 		SELECT  @AffIds = CONVERT(VARCHAR(20), @AffId)
 
-		DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
-
 		IF @TDate > @MaxCommDate
 		BEGIN
-			SELECT	@tempFromDate	= DATEADD(DAY, 1, @MaxCommDate),
+			SELECT	@tempFromDate	= CASE WHEN @FDate <= @MaxCommDate THEN DATEADD(DAY, 1, @MaxCommDate) ELSE @FDate END,
 					@tempToDate		= @TDate
 
 			CREATE TABLE #TempCommission
