@@ -48,7 +48,7 @@ BEGIN
 	IF @ToDate > @EndOfCurrentMonth
 		SELECT @ToDate = @EndOfCurrentMonth
 
-	SELECT @NoOfMonth = DATEDIFF(MONTH, @FromDate, @ToDate)
+	SELECT @NoOfMonth = DATEDIFF(MONTH, @FromDate, @ToDate) + 1
 	IF @NoOfMonth <= 0
 		RETURN
 
