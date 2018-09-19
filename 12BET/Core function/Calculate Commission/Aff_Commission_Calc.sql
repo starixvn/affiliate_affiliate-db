@@ -21,8 +21,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @CutOffDate SMALLDATETIME, @n INT = 2147483647 -- max int
-	SELECT  @CutOffDate = CONVERT(SMALLDATETIME, SValue)
-	FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CutOffReportDate'
+	SELECT  @CutOffDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CutOffReportDate'
 
 	DECLARE @tempFromMonth SMALLDATETIME, @tempToMonth SMALLDATETIME
 	SELECT  @tempFromMonth	= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate) + 1, 0))
@@ -53,7 +52,7 @@ BEGIN
 
 	IF @tempToMonth > @CutOffDate
 	BEGIN
-		SELECT @tempFrom = CASE WHEN @tempFromMonth <= @CutOffDate THEN DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @CutOffDate) + 2, 0)) ELSE @tempFromMonth END
+		SELECT @tempFrom = CASE WHEN @tempFromMonth <= @CutOffDate THEN DATEADD(DAY, 1, @CutOffDate) ELSE @tempFromMonth END
 		SELECT @tempTo = @tempToMonth
 
 		IF @AffIds = 'all'
@@ -205,7 +204,7 @@ BEGIN
 			INSERT INTO @tempData
 			(
 				MonthDate,AffId,GroupId,ProductId,Deposit,Bonus,Turnover,Winloss,
-				QualifiedMember,Commission
+				QualifiedMember,NetWinloss,CommissionRate,Commission
 			)
 			SELECT
 				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Bonus,dt.Turnover,dt.Winloss,

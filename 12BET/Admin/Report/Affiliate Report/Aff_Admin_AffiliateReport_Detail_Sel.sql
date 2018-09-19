@@ -78,10 +78,10 @@ BEGIN
 	OPTION (MAXRECURSION 0)
 
 	-- MemberDaily
-	IF @FromDate < @CutOffDate
+	IF @FromDate <= @CutOffDate
 	BEGIN
 		SELECT @tmpFromDate = @FromDate
-		SELECT @tmpToDate = CASE WHEN @ToDate >= @CutOffDate THEN @CutOffDate ELSE @ToDate END
+		SELECT @tmpToDate = CASE WHEN @ToDate > @CutOffDate THEN @CutOffDate ELSE @ToDate END
 
 		-- Deposit, Withdrawal, Bonus
 		INSERT INTO #AffData
@@ -158,9 +158,9 @@ BEGIN
 	END
 	
 	-- rptMemberDaily
-	IF @ToDate >= @CutOffDate
+	IF @ToDate > @CutOffDate
 	BEGIN
-		SELECT @tmpFromDate = CASE WHEN @FromDate < @CutOffDate THEN @CutOffDate ELSE @FromDate END
+		SELECT @tmpFromDate = CASE WHEN @FromDate <= @CutOffDate THEN DATEADD(DAY, 1, @CutOffDate) ELSE @FromDate END
 		SELECT @tmpToDate = @ToDate
 	
 		INSERT INTO #AffData

@@ -45,10 +45,10 @@ BEGIN
 		Bonus		MONEY
 	)
 
-	IF @FromBeginMonth < @CutOffDate
+	IF @FromBeginMonth <= @CutOffDate
 	BEGIN
 		SELECT @tmpFromDate = @FromBeginMonth
-		SELECT @tmpToDate = CASE WHEN @ToEndMonth >= @CutOffDate THEN @CutOffDate ELSE @ToEndMonth END
+		SELECT @tmpToDate = CASE WHEN @ToEndMonth > @CutOffDate THEN @CutOffDate ELSE @ToEndMonth END
 
 		INSERT INTO #Data
 		(
@@ -79,9 +79,9 @@ BEGIN
 	END
 
 	-- rptMemberDaily
-	IF @ToEndMonth >= @CutOffDate
+	IF @ToEndMonth > @CutOffDate
 	BEGIN
-		SELECT @tmpFromDate = CASE WHEN @FromBeginMonth < @CutOffDate THEN @CutOffDate ELSE @FromBeginMonth END
+		SELECT @tmpFromDate = CASE WHEN @FromBeginMonth <= @CutOffDate THEN DATEADD(DAY, 1, @CutOffDate) ELSE @FromBeginMonth END
 		SELECT @tmpToDate = @ToEndMonth
 	
 		IF (

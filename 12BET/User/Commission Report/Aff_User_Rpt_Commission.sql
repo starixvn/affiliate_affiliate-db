@@ -33,11 +33,16 @@ BEGIN
 	IF @ToDate > @CurrentDate
 		SELECT @ToDate = @CurrentDate
 
+	DECLARE @MinReportDate SMALLDATETIME, @CutOffDate SMALLDATETIME
+	SELECT  @MinReportDate	= dbo.Aff_f_GetMinReportDate(@AffId)
+	SELECT  @CutOffDate		= CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CutOffReportDate'
+	SELECT  @FromDate		= MAX(FromDate) FROM (VALUES (@FromDate), (@MinReportDate), (DATEADD(DAY, 1, @CutOffDate))) AS f (FromDate)
+
 	IF @FromDate > @ToDate
 		RETURN
 
 	DECLARE @MaxCommDate SMALLDATETIME
-	SELECT  @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
+	SELECT  @MaxCommDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
 	DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
 

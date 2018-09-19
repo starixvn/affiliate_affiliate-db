@@ -42,7 +42,7 @@ BEGIN
 	)
 
 	-- MemberDaily
-	IF @WinlostDate < @CutOffDate
+	IF @WinlostDate <= @CutOffDate
 	BEGIN
 		INSERT INTO #Data
 		(
