@@ -322,24 +322,21 @@ BEGIN
 		BEGIN
 			SELECT @tempFromDate = @FromDate
 			SELECT @tempToDate	= CASE WHEN @ToDate > @ArchiveDate THEN @ArchiveDate ELSE @ToDate END
-			/*
-			INSERT INTO #Statistics (AffId, TotalClick, UniqueClick)
-			SELECT AffId, SUM(TotalClick), SUM(UniqueClick)
-			FROM
+			
+			;WITH CTE_Statistics AS
 			(
-				SELECT
-					c.AffId,
-					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0)) AS MonthDate,
-					COUNT(1) AS TotalClick,
-					COUNT(DISTINCT IP) AS UniqueClick
-				FROM dbo.ClickStatistics1_bk c WITH (NOLOCK)
+				SELECT AffId, IP, DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0)) AS MonthDate, COUNT(1) AS TotalClick
+				FROM dbo.ClickStatistics1_bk WITH (NOLOCK)
 				WHERE Date BETWEEN @tempFromDate AND @tempToDate
 				GROUP BY
-					c.AffId,
+					AffId,
+					IP,
 					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0))
-			) AS A
+			)
+			INSERT INTO #Statistics (AffId, TotalClick, UniqueClick)
+			SELECT AffId, SUM(TotalClick) AS TotalClick, COUNT(1) AS UniqueClick
+			FROM CTE_Statistics
 			GROUP BY AffId
-			*/
 		END
 
 		-- Signup, FDM (first deposit)
@@ -471,7 +468,8 @@ BEGIN
 					GROUP BY AffId
 				) ast ON ai.AffId = ast.AffId
 				LEFT JOIN (
-					SELECT AffId, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick, SUM(Signup) AS Signup, SUM(FDM) AS FDM
+					SELECT AffId, SUM(ISNULL(TotalClick, 0)) AS TotalClick, SUM(ISNULL(UniqueClick, 0)) AS UniqueClick,
+						SUM(ISNULL(Signup, 0)) AS Signup, SUM(ISNULL(FDM, 0)) AS FDM
 					FROM #Statistics
 					GROUP BY AffId
 				) s ON ai.AffId = s.AffId
@@ -510,7 +508,8 @@ BEGIN
 				GROUP BY AffId
 			) ast ON ai.AffId = ast.AffId
 			LEFT JOIN (
-				SELECT AffId, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick, SUM(Signup) AS Signup, SUM(FDM) AS FDM
+				SELECT AffId, SUM(ISNULL(TotalClick, 0)) AS TotalClick, SUM(ISNULL(UniqueClick, 0)) AS UniqueClick,
+					SUM(ISNULL(Signup, 0)) AS Signup, SUM(ISNULL(FDM, 0)) AS FDM
 				FROM #Statistics
 				GROUP BY AffId
 			) s ON ai.AffId = s.AffId
@@ -588,7 +587,8 @@ BEGIN
 					GROUP BY AffId
 				) ast ON ai.AffId = ast.AffId
 				LEFT JOIN (
-					SELECT AffId, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick, SUM(Signup) AS Signup, SUM(FDM) AS FDM
+					SELECT AffId, SUM(ISNULL(TotalClick, 0)) AS TotalClick, SUM(ISNULL(UniqueClick, 0)) AS UniqueClick,
+						SUM(ISNULL(Signup, 0)) AS Signup, SUM(ISNULL(FDM, 0)) AS FDM
 					FROM #Statistics
 					GROUP BY AffId
 				) s ON ai.AffId = s.AffId
@@ -628,7 +628,8 @@ BEGIN
 				GROUP BY AffId
 			) ast ON ai.AffId = ast.AffId
 			LEFT JOIN (
-				SELECT AffId, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick, SUM(Signup) AS Signup, SUM(FDM) AS FDM
+				SELECT AffId, SUM(ISNULL(TotalClick, 0)) AS TotalClick, SUM(ISNULL(UniqueClick, 0)) AS UniqueClick,
+					SUM(ISNULL(Signup, 0)) AS Signup, SUM(ISNULL(FDM, 0)) AS FDM
 				FROM #Statistics
 				GROUP BY AffId
 			) s ON ai.AffId = s.AffId

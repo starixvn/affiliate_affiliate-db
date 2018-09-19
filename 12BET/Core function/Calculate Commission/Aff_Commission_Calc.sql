@@ -238,7 +238,7 @@ BEGIN
 				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0)) AS MonthDate,AffId,IBCCustId,SUM(Turnover) AS Turnover,SUM(Deposit) AS Deposit
 				FROM dbo.MemberDaily md WITH (NOLOCK)
 				WHERE WinlostDate BETWEEN DATEADD(MONTH, -1, DATEADD(DAY, 1, @tempFromMonth)) AND @tempToMonth
-					AND ',' + CONVERT(VARCHAR(20), AffId) + ',' LIKE '%,' + @AffIds + ',%'
+					AND ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), AffId) + ',%'
 				GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0)),AffId,IBCCustId
 			) AS dt
 			WHERE Turnover > 0 OR Deposit > 0
@@ -282,6 +282,7 @@ BEGIN
 				FROM @tempData td
 				WHERE td.ProductId = 0 AND ac.MonthDate = td.MonthDate AND ac.AffId = td.AffId
 			) AS t
+		WHERE ac.ProductId = 0
 	END
 
 	-- Return data
