@@ -133,7 +133,7 @@ BEGIN
 		DECLARE @tempData TABLE
 		(
 			MonthDate SMALLDATETIME, AffId INT, GroupId INT, ProductId INT, Deposit MONEY, Withdrawal MONEY, Bonus MONEY, Turnover MONEY, Winloss MONEY,
-			NetWinloss MONEY, ActivePlayer INT, QualifiedMember INT, CommissionRate DECIMAL(9,8), Commission MONEY
+			ActivePlayer INT, QualifiedMember INT, NetWinloss MONEY, CommissionRate DECIMAL(9,8), Commission MONEY
 		)
 
 		IF @AffIds = 'all'
@@ -153,16 +153,16 @@ BEGIN
 			INSERT INTO @tempData
 			(
 				MonthDate,AffId,GroupId,ProductId,Deposit,Bonus,Turnover,Winloss,
-				NetWinloss,QualifiedMember,CommissionRate,Commission
+				QualifiedMember,NetWinloss,CommissionRate,Commission
 			)
 			SELECT
 				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Bonus,dt.Turnover,dt.Winloss,
-				dt.NetWinloss,dt.QualifiedMember,dt.CommissionRate,dt.Commission
+				dt.QualifiedMember,dt.NetWinloss,dt.CommissionRate,dt.Commission
 			FROM @MonthDate md
 				CROSS APPLY (
 					SELECT TOP (@n)
 						MonthDate,AffId,GroupId,SportId AS ProductId,MemberDeposit AS Deposit,MemberBonus AS Bonus,MemberTurnover AS Turnover,MemberWinlost AS Winloss,
-						(AffWinlost+MemberBonus) AS NetWinloss,QualifiedMember,Commission AS CommissionRate,AffWinlost*Commission AS Commission
+						QualifiedMember,-MemberSum AS NetWinloss,Commission AS CommissionRate,AffWinlost AS Commission
 					FROM dbo.AffCommission ac WITH (NOLOCK)
 					WHERE ac.WinlostDate = md.MonthDate
 						AND (ac.MemberDeposit > 0 OR ac.MemberTurnover > 0)
@@ -205,16 +205,16 @@ BEGIN
 			INSERT INTO @tempData
 			(
 				MonthDate,AffId,GroupId,ProductId,Deposit,Bonus,Turnover,Winloss,
-				NetWinloss,QualifiedMember,CommissionRate,Commission
+				QualifiedMember,Commission
 			)
 			SELECT
 				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Bonus,dt.Turnover,dt.Winloss,
-				dt.NetWinloss,dt.QualifiedMember,dt.CommissionRate,dt.Commission
+				dt.QualifiedMember,dt.NetWinloss,dt.CommissionRate,dt.Commission
 			FROM @MonthDate md
 				CROSS APPLY (
 					SELECT TOP (@n)
 						MonthDate,AffId,GroupId,SportId AS ProductId,MemberDeposit AS Deposit,MemberBonus AS Bonus,MemberTurnover AS Turnover,MemberWinlost AS Winloss,
-						(AffWinlost+MemberBonus) AS NetWinloss,QualifiedMember,Commission AS CommissionRate,AffWinlost*Commission AS Commission
+						QualifiedMember,-MemberSum AS NetWinloss,Commission AS CommissionRate,AffWinlost AS Commission
 					FROM dbo.AffCommission ac WITH (NOLOCK)
 					WHERE ac.WinlostDate = md.MonthDate
 						AND ac.AffId = md.AffId
@@ -268,7 +268,7 @@ BEGIN
 		)
 		SELECT
 			MonthDate,AffId,MAX(GroupId) AS GroupId,0 AS ProductId,SUM(ISNULL(Deposit, 0)),SUM(ISNULL(Bonus, 0)),SUM(ISNULL(Turnover, 0)),SUM(ISNULL(Winloss, 0)),
-			SUM(ISNULL(NetWinloss, 0)),SUM(ISNULL(QualifiedMember, 0)),100 AS QMTurnover,SUM(ISNULL(CommissionRate, 0)),SUM(ISNULL(Commission, 0))
+			SUM(ISNULL(NetWinloss, 0)),SUM(ISNULL(QualifiedMember, 0)),100 AS QMTurnover,AVG(ISNULL(CommissionRate, 0)),SUM(ISNULL(Commission, 0))
 		FROM @tempData
 		WHERE ProductId > 0
 		GROUP BY

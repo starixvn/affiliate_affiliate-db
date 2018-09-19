@@ -38,6 +38,20 @@ BEGIN
 	SELECT	@FromDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0), -- Begin Month of @FromDate
 			@ToDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0)) -- End Month of @ToDate
 
+	DECLARE @MinReportDate SMALLDATETIME, @EndOfCurrentMonth SMALLDATETIME, @NoOfMonth INT
+	SELECT  @MinReportDate = dbo.Aff_f_GetMinReportDate(0)
+	SELECT  @EndOfCurrentMonth = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
+
+	IF @FromDate < @MinReportDate
+		SELECT @FromDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MinReportDate), 0)
+
+	IF @ToDate > @EndOfCurrentMonth
+		SELECT @ToDate = @EndOfCurrentMonth
+
+	SELECT @NoOfMonth = DATEDIFF(MONTH, @FromDate, @ToDate)
+	IF @NoOfMonth <= 0
+		RETURN
+
 	CREATE TABLE #AffInfo (AffId INT PRIMARY KEY, Username VARCHAR(50))
 	
 	-- Filter
@@ -83,6 +97,7 @@ BEGIN
 			OperationalFee	MONEY,
 			BankingFee		MONEY,
 			NetWinloss		MONEY,
+			CommissionRate	DECIMAL(9,8),
 			Commission		MONEY
 		)
 
@@ -202,22 +217,24 @@ BEGIN
 				OperationalFee,
 				BankingFee,
 				NetWinloss,
+				CommissionRate,
 				Commission
 			)
 			SELECT
 				AffId,
-				SUM(ActivePlayer)		AS ActivePlayer,
-				SUM(QualifiedMember)	AS QualifiedMember,
-				SUM(Deposit)			AS Deposit,
-				SUM(Withdrawal)			AS Withdrawal,
-				SUM(Turnover)			AS Turnover,
-				SUM(Winloss)			AS Winloss,
-				SUM(Bonus)				AS Bonus,
-				SUM(PlatFormFee)		AS PlatFormFee,
-				SUM(OperationalFee)		AS OperationalFee,
-				SUM(BankingFee)			AS BankingFee,
-				SUM(NetWinloss)			AS NetWinloss,
-				SUM(Commission)			AS Commission
+				SUM(ActivePlayer)				AS ActivePlayer,
+				SUM(QualifiedMember)			AS QualifiedMember,
+				SUM(Deposit)					AS Deposit,
+				SUM(Withdrawal)					AS Withdrawal,
+				SUM(Turnover)					AS Turnover,
+				SUM(Winloss)					AS Winloss,
+				SUM(Bonus)						AS Bonus,
+				SUM(PlatFormFee)				AS PlatFormFee,
+				SUM(OperationalFee)				AS OperationalFee,
+				SUM(BankingFee)					AS BankingFee,
+				SUM(NetWinloss)					AS NetWinloss,
+				SUM(CommissionRate/@NoOfMonth)	AS CommissionRate,
+				SUM(Commission)					AS Commission
 			FROM #TempCommission
 			WHERE ProductId = 0
 			GROUP BY
@@ -239,22 +256,24 @@ BEGIN
 				OperationalFee,
 				BankingFee,
 				NetWinloss,
+				CommissionRate,
 				Commission
 			)
 			SELECT
 				t.AffId,
-				SUM(ActivePlayer)		AS ActivePlayer,
-				SUM(QualifiedMember)	AS QualifiedMember,
-				SUM(Deposit)			AS Deposit,
-				SUM(Withdrawal)			AS Withdrawal,
-				SUM(Turnover)			AS Turnover,
-				SUM(Winloss)			AS Winloss,
-				SUM(Bonus)				AS Bonus,
-				SUM(PlatFormFee)		AS PlatFormFee,
-				SUM(OperationalFee)		AS OperationalFee,
-				SUM(BankingFee)			AS BankingFee,
-				SUM(NetWinloss)			AS NetWinloss,
-				SUM(Commission)			AS Commission
+				SUM(ActivePlayer)				AS ActivePlayer,
+				SUM(QualifiedMember)			AS QualifiedMember,
+				SUM(Deposit)					AS Deposit,
+				SUM(Withdrawal)					AS Withdrawal,
+				SUM(Turnover)					AS Turnover,
+				SUM(Winloss)					AS Winloss,
+				SUM(Bonus)						AS Bonus,
+				SUM(PlatFormFee)				AS PlatFormFee,
+				SUM(OperationalFee)				AS OperationalFee,
+				SUM(BankingFee)					AS BankingFee,
+				SUM(NetWinloss)					AS NetWinloss,
+				SUM(CommissionRate/@NoOfMonth)	AS CommissionRate,
+				SUM(Commission)					AS Commission
 			FROM #TempCommission t
 				INNER JOIN #AffInfo ai ON t.AffId = ai.AffId
 			WHERE ProductId = 0
@@ -443,10 +462,7 @@ BEGIN
 				ISNULL(PlatFormFee, 0)
 					+ ISNULL(OperationalFee, 0)
 					+ ISNULL(BankingFee, 0)	AS TotalFee,
-				ISNULL(
-					CASE WHEN NetWinloss - Bonus = 0 THEN 0
-						ELSE Commission/(NetWinloss - Bonus) END
-					, 0)					AS CommissionRate,
+				ISNULL(CommissionRate, 0)	AS CommissionRate,
 				ISNULL(Commission, 0)		AS Earning,
 				ISNULL(AffWithdrawal, 0)	AS AffWithdrawal,
 				ISNULL(AffAdjustment, 0)	AS AffAdjustment,
@@ -562,10 +578,7 @@ BEGIN
 				ISNULL(PlatFormFee, 0)
 					+ ISNULL(OperationalFee, 0)
 					+ ISNULL(BankingFee, 0)	AS TotalFee,
-				ISNULL(
-					CASE WHEN NetWinloss - Bonus = 0 THEN 0
-						ELSE Commission/(NetWinloss - Bonus) END
-					, 0)					AS CommissionRate,
+				ISNULL(CommissionRate, 0)	AS CommissionRate,
 				ISNULL(Commission, 0)		AS Earning,
 				ISNULL(AffWithdrawal, 0)	AS AffWithdrawal,
 				ISNULL(AffAdjustment, 0)	AS AffAdjustment,
