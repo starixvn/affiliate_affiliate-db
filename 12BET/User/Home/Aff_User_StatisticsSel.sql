@@ -157,6 +157,7 @@ BEGIN
 		SUM(ISNULL(Turnover, 0)),
 		SUM(ISNULL(Deposit, 0))
 	FROM #TempCommission
+	WHERE ProductId = 0
 	GROUP BY
 		MonthDate
 
