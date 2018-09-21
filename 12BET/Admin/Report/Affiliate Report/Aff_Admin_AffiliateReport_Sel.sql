@@ -468,6 +468,7 @@ BEGIN
 				AND Status IN ('Pending', 'Approved', 'Completed')
 			GROUP BY AffId
 		) at ON a.AffId = at.AffId
+	ORDER BY a.RowIdx
 
 	-- Return total
 	SELECT
