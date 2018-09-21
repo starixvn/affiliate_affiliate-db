@@ -23,8 +23,14 @@ BEGIN
 	FROM dbo.AffInfo WITH (NOLOCK)
 	WHERE AffID = @AffId
 
-	SELECT TierID, MinAmount, MaxAmount, MinQM, MaxQM, Commission
-	FROM dbo.GroupSetting WITH (NOLOCK)
-	WHERE GroupID = @GroupId
+	IF EXISTS (SELECT 1 FROM dbo.TierSetting WITH (NOLOCK) WHERE GroupID = @GroupId)
+		SELECT TierID, MinAmount, MaxAmount, MinQM, MaxQM, Commission
+		FROM dbo.TierSetting WITH (NOLOCK)
+		WHERE GroupID = @GroupId
+	ELSE
+		SELECT DISTINCT TierID, MinAmount, MaxAmount, MinQM, MaxQM, Commission
+		FROM dbo.GroupSetting WITH (NOLOCK)
+		WHERE GroupID = @GroupId
+		ORDER BY TierID, MinAmount
 END
 GO
