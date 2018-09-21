@@ -347,12 +347,12 @@ BEGIN
 				ROW_NUMBER() OVER(ORDER BY
 					CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN ai.Username END ASC,
 					CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN ai.Username END DESC,
-					CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN ai.Turnover END ASC,
-					CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN ai.Turnover END DESC,
-					CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN ai.Winloss END ASC,
-					CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ai.Winloss END DESC,
-					CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN ai.Commission END ASC,
-					CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ai.Commission END DESC)
+					CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN ISNULL(d.Turnover, 0) END ASC,
+					CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN ISNULL(d.Turnover, 0) END DESC,
+					CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN ISNULL(d.Winloss, 0) END ASC,
+					CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ISNULL(d.Winloss, 0) END DESC,
+					CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN ISNULL(d.Commission, 0) END ASC,
+					CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ISNULL(d.Commission, 0) END DESC)
 												AS RowIdx
 			FROM dbo.AffInfo ai WITH (NOLOCK)
 				LEFT JOIN #AffData d ON ai.AffId = d.AffId
