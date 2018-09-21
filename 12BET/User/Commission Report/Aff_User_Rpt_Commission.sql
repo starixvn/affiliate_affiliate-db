@@ -71,7 +71,7 @@ BEGIN
 			ActivePlayer	INT,
 			QualifiedMember INT,
 			QMTurnover		MONEY,
-			CommissionRate	DECIMAL(9,8),
+			CommissionRate	FLOAT,
 			Commission		MONEY,
 			-- for monthdate -- 0: temporary, 1: uncalculated, 2: calculated
 			CalculatedType	TINYINT DEFAULT ((2))
@@ -104,7 +104,13 @@ BEGIN
 				CommissionRate,
 				Commission
 			)
-			EXEC dbo.Aff_Commission_UnCalc @AffIds = @AffIds, @FromMonthDate = @tempFromDate, @ToMonthDate = @tempToDate
+			EXEC dbo.Aff_Commission_UnCalc
+				@AffIds				= @AffIds,
+				@FromMonthDate		= @tempFromDate,
+				@ToMonthDate		= @tempToDate,
+				@ProductIds			= '0',
+				@IsSumAll			= 0,
+				@GetRowTotalOnly	= 0
 
 			UPDATE #TempCommission
 			SET CalculatedType = CASE WHEN DATEDIFF(MONTH, @CurrentDate, MonthDate) = 0 THEN 0 ELSE 1 END
@@ -137,7 +143,13 @@ BEGIN
 				CommissionRate,
 				Commission
 			)
-			EXEC dbo.Aff_Commission_Calc @AffIds = @AffIds, @FromMonthDate = @tempFromDate, @ToMonthDate = @tempToDate
+			EXEC dbo.Aff_Commission_Calc
+				@AffIds				= @AffIds,
+				@FromMonthDate		= @tempFromDate,
+				@ToMonthDate		= @tempToDate,
+				@ProductIds			= '0',
+				@IsSumAll			= 0,
+				@GetRowTotalOnly	= 0
 		END
 	END
 

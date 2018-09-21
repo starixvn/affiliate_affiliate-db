@@ -77,7 +77,7 @@ BEGIN
 			ActivePlayer	INT,
 			QualifiedMember INT,
 			QMTurnover		MONEY,
-			CommissionRate	DECIMAL(9,8),
+			CommissionRate	FLOAT,
 			Commission		MONEY
 		)
 
@@ -103,7 +103,13 @@ BEGIN
 			CommissionRate,
 			Commission
 		)
-		EXEC dbo.Aff_Commission_UnCalc @AffIds = 'all', @FromMonthDate = @MonthDate, @ToMonthDate = @MonthDate
+		EXEC dbo.Aff_Commission_UnCalc
+			@AffIds				= 'all',
+			@FromMonthDate		= @FirstDayOfMonth,
+			@ToMonthDate		= @LastDayOfMonth,
+			@ProductIds			= '0',
+			@IsSumAll			= 0,
+			@GetRowTotalOnly	= 0
 	END
 
 		-- Remove invalid data

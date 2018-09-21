@@ -153,7 +153,7 @@ BEGIN
 				ActivePlayer	INT,
 				QualifiedMember INT,
 				QMTurnover		MONEY,
-				CommissionRate	DECIMAL(9,8),
+				CommissionRate	FLOAT,
 				Commission		MONEY
 			)
 
@@ -178,7 +178,13 @@ BEGIN
 				CommissionRate,
 				Commission
 			)
-			EXEC dbo.Aff_Commission_UnCalc @AffIds = @AffIds, @FromMonthDate = @tempFromDate, @ToMonthDate = @tempToDate
+			EXEC dbo.Aff_Commission_UnCalc
+				@AffIds				= @AffIds,
+				@FromMonthDate		= @tempFromDate,
+				@ToMonthDate		= @tempToDate,
+				@ProductIds			= '0',
+				@IsSumAll			= 0,
+				@GetRowTotalOnly	= 1
 		
 			INSERT INTO #tempData
 			(
@@ -199,7 +205,6 @@ BEGIN
 				'' AS Creator,
 				CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current Month Statistics' ELSE 'UnCalculated Month' END AS Description
 			FROM #TempCommission
-			WHERE ProductId = 0
 
 			DROP TABLE #TempCommission
 		END

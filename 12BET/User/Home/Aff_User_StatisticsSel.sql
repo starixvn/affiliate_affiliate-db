@@ -52,6 +52,8 @@ BEGIN
 	SELECT  @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
 	DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
+
+	DECLARE @IsSumAll BIT
 	
 	DECLARE @AffIds VARCHAR(MAX)
 	SELECT  @AffIds = CONVERT(VARCHAR(20), @AffId)
@@ -86,12 +88,14 @@ BEGIN
 		ActivePlayer	INT,
 		QualifiedMember INT,
 		QMTurnover		MONEY,
-		CommissionRate	DECIMAL(9,8),
+		CommissionRate	FLOAT,
 		Commission		MONEY
 	)
 
 	-- Calculated months
 	SELECT @tempFromDate = dbo.Aff_f_GetMinReportDate(@AffId), @tempToDate = @MaxCommDate
+
+	SELECT @IsSumAll = CASE WHEN @MonthDate <= @MaxCommDate THEN 0 ELSE 1 END
 
 	INSERT INTO #TempCommission
 	(
@@ -114,10 +118,18 @@ BEGIN
 		CommissionRate,
 		Commission
 	)
-	EXEC dbo.Aff_Commission_Calc @AffIds = @AffIds, @FromMonthDate = @tempFromDate, @ToMonthDate = @tempToDate
+	EXEC dbo.Aff_Commission_Calc
+		@AffIds				= @AffIds,
+		@FromMonthDate		= @tempFromDate,
+		@ToMonthDate		= @tempToDate,
+		@ProductIds			= '0',
+		@IsSumAll			= @IsSumAll,
+		@GetRowTotalOnly	= 1
 
 	-- Uncalculated months
 	SELECT @tempFromDate = DATEADD(DAY, 1, @MaxCommDate), @tempToDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
+
+	SELECT @IsSumAll = CASE WHEN @MonthDate > @MaxCommDate THEN 0 ELSE 1 END
 	
 	INSERT INTO #TempCommission
 	(
@@ -140,7 +152,13 @@ BEGIN
 		CommissionRate,
 		Commission
 	)
-	EXEC dbo.Aff_Commission_UnCalc @AffIds = @AffIds, @FromMonthDate = @tempFromDate, @ToMonthDate = @tempToDate
+	EXEC dbo.Aff_Commission_UnCalc
+		@AffIds				= @AffIds,
+		@FromMonthDate		= @tempFromDate,
+		@ToMonthDate		= @tempToDate,
+		@ProductIds			= '0',
+		@IsSumAll			= @IsSumAll,
+		@GetRowTotalOnly	= 1
 
 	INSERT INTO #TotalStatistics
 	(
@@ -157,7 +175,6 @@ BEGIN
 		SUM(ISNULL(Turnover, 0)),
 		SUM(ISNULL(Deposit, 0))
 	FROM #TempCommission
-	WHERE ProductId = 0
 	GROUP BY
 		MonthDate
 
@@ -167,16 +184,12 @@ BEGIN
 			@Turnover MONEY, @TurnoverUp MONEY
 	
 	SELECT
-		@ActivePlayers		= SUM(ISNULL(ActivePlayer, 0)),
-		@QualifiedMembers	= SUM(ISNULL(QualifiedMember, 0)),
-		@Deposit			= SUM(ISNULL(Deposit, 0)),
-		@Turnover			= SUM(ISNULL(Turnover, 0))
-	FROM #TotalStatistics
-	WHERE MonthDate = @EndOfMonth
-
-	SELECT
 		@DepositUp	= SUM(ISNULL(Deposit, 0)),
-		@TurnoverUp = SUM(ISNULL(Turnover, 0))
+		@TurnoverUp = SUM(ISNULL(Turnover, 0)),
+		@ActivePlayers		= SUM(CASE WHEN MonthDate = @EndOfMonth THEN ISNULL(ActivePlayer, 0) ELSE 0 END),
+		@QualifiedMembers	= SUM(CASE WHEN MonthDate = @EndOfMonth THEN ISNULL(QualifiedMember, 0) ELSE 0 END),
+		@Deposit			= SUM(CASE WHEN MonthDate = @EndOfMonth THEN ISNULL(Deposit, 0) ELSE 0 END),
+		@Turnover			= SUM(CASE WHEN MonthDate = @EndOfMonth THEN ISNULL(Turnover, 0) ELSE 0 END)
 	FROM #TotalStatistics
 
 	SELECT

@@ -48,7 +48,7 @@ BEGIN
 			ActivePlayer	INT,
 			QualifiedMember INT,
 			QMTurnover		MONEY,
-			CommissionRate	DECIMAL(9,8),
+			CommissionRate	FLOAT,
 			Commission		MONEY
 		)
 
@@ -78,7 +78,13 @@ BEGIN
 				CommissionRate,
 				Commission
 			)
-			EXEC dbo.Aff_Commission_UnCalc @AffIds = 'all', @FromMonthDate = @tempFromDate, @ToMonthDate = @tempToDate
+			EXEC dbo.Aff_Commission_UnCalc
+				@AffIds				= 'all',
+				@FromMonthDate		= @tempFromDate,
+				@ToMonthDate		= @tempToDate,
+				@ProductIds			= '0',
+				@IsSumAll			= 1,
+				@GetRowTotalOnly	= 1
 		END
 
 		-- Calculated Months
@@ -107,7 +113,13 @@ BEGIN
 				CommissionRate,
 				Commission
 			)
-			EXEC dbo.Aff_Commission_Calc @AffIds = 'all', @FromMonthDate = @tempFromDate, @ToMonthDate = @tempToDate
+			EXEC dbo.Aff_Commission_Calc
+				@AffIds				= 'all',
+				@FromMonthDate		= @tempFromDate,
+				@ToMonthDate		= @tempToDate,
+				@ProductIds			= '0',
+				@IsSumAll			= 1,
+				@GetRowTotalOnly	= 1
 		END
 	END
 
@@ -161,9 +173,8 @@ BEGIN
 			0 AS AdjustmentMonth,
 			SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(NetWinloss, 0) ELSE 0 END)	AS NetWinlostMonth
 		FROM #TempCommission
-		WHERE ProductId = 0
 	) AS memberStatistics
-		
+
 		-- banner statistics
 		CROSS JOIN 
 		(
@@ -223,5 +234,7 @@ BEGIN
 			FROM dbo.AffTrans WITH (NOLOCK)
 			WHERE TransType = 202 AND Status = 'Pending'
 		) AS paymentRequests
+
+	DROP TABLE #TempCommission
 END
 GO

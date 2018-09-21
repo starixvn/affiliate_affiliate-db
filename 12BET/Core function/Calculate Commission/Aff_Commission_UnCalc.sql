@@ -3,9 +3,12 @@ USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_Commission_UnCalc]
-	@AffIds			VARCHAR(MAX) = 'all',
-	@FromMonthDate	SMALLDATETIME,
-	@ToMonthDate	SMALLDATETIME
+	@AffIds				VARCHAR(MAX) = 'all',
+	@FromMonthDate		SMALLDATETIME,
+	@ToMonthDate		SMALLDATETIME,
+	@ProductIds			VARCHAR(MAX) = '0',
+	@IsSumAll			BIT = 0,
+	@GetRowTotalOnly	BIT = 0
 AS
 
 /*
@@ -507,29 +510,92 @@ BEGIN
 					AND gsh.TierId <= t.TierId
 			) AS s
 		WHERE c.ProductId = 0
+
+		-- Filter by Products
+		IF @ProductIds <> '0'
+		BEGIN
+			IF @ProductIds = ''
+			BEGIN
+				DELETE #Commission WHERE ProductId <> 0
+
+				UPDATE #Commission SET Turnover = 0, Winloss = 0
+			END
+			ELSE
+			BEGIN
+				UPDATE c1
+				SET c1.Turnover = ISNULL(c2.Turnover, 0), c1.Winloss = ISNULL(c2.Winloss, 0)
+				FROM #Commission c1
+					CROSS APPLY (
+						SELECT SUM(c2.Turnover) AS Turnover, SUM(c2.Winloss) AS Winloss
+						FROM #Commission c2
+						WHERE c1.MonthDate = c2.MonthDate AND c1.AffId = c2.AffId
+							AND ',' + @ProductIds + ',' LIKE '%' + CONVERT(VARCHAR(10), c2.ProductId) + '%'
+					) AS c2
+				WHERE c1.ProductId = 0
+
+				IF @GetRowTotalOnly = 0
+					DELETE #Commission WHERE ',' + @ProductIds + ',' NOT LIKE '%' + CONVERT(VARCHAR(10), ProductId) + '%'
+				ELSE
+					DELETE #Commission WHERE ProductId <> 0
+			END
+		END
+		ELSE IF @GetRowTotalOnly = 1
+		BEGIN
+			DELETE #Commission WHERE ProductId <> 0
+		END
 	END
 
 	-- Return data
-	SELECT
-		MonthDate,
-		AffId,
-		GroupId,
-		ProductId,
-		Deposit,
-		Withdrawal,
-		Bonus,
-		Turnover,
-		Winloss,
-		PlatFormFee,
-		OperationalFee,
-		BankingFee,
-		NetWinloss,
-		ActivePlayer,
-		QualifiedMember,
-		QMTurnOver,
-		CommissionRate,
-		Commission
-	FROM #Commission
+	IF @IsSumAll = 1
+	BEGIN
+		SELECT
+			DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate) + 1, 0)) AS MonthDate,
+			AffId,
+			GroupId,
+			ProductId,
+			SUM(Deposit) AS Deposit,
+			SUM(Withdrawal) AS Withdrawal,
+			SUM(Bonus) AS Bonus,
+			SUM(Turnover) AS Turnover,
+			SUM(Winloss) AS Winloss,
+			SUM(PlatFormFee) AS PlatFormFee,
+			SUM(OperationalFee) AS OperationalFee,
+			SUM(BankingFee) AS BankingFee,
+			SUM(NetWinloss),
+			SUM(ActivePlayer),
+			SUM(QualifiedMember),
+			SUM(QMTurnOver),
+			SUM(CommissionRate),
+			SUM(Commission)
+		FROM #Commission
+		GROUP BY
+			AffId,
+			GroupId,
+			ProductId
+	END
+	ELSE
+	BEGIN
+		SELECT
+			MonthDate,
+			AffId,
+			GroupId,
+			ProductId,
+			Deposit,
+			Withdrawal,
+			Bonus,
+			Turnover,
+			Winloss,
+			PlatFormFee,
+			OperationalFee,
+			BankingFee,
+			NetWinloss,
+			ActivePlayer,
+			QualifiedMember,
+			QMTurnOver,
+			CommissionRate,
+			Commission
+		FROM #Commission
+	END
 
 	DROP TABLE #Data
 	DROP TABLE #Commission

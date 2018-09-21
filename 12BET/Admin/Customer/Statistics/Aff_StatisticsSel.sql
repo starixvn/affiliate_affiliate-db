@@ -65,13 +65,17 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @FromBeginMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME
-	SELECT	@FromBeginMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)
+	SELECT	@FromBeginMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT	@ToNextMonth	= DATEADD(MONTH, 1, @FromBeginMonth)
+
+	SELECT  @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate) + 1, 0))
 
 	-- member statistics
 	BEGIN
 		DECLARE @MaxCommDate SMALLDATETIME
 		SELECT  @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
+
+		DECLARE @IsSumAll BIT
 
 		DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
 
@@ -95,7 +99,7 @@ BEGIN
 			ActivePlayer	INT,
 			QualifiedMember INT,
 			QMTurnover		MONEY,
-			CommissionRate	DECIMAL(9,8),
+			CommissionRate	FLOAT,
 			Commission		MONEY
 		)
 
@@ -104,6 +108,8 @@ BEGIN
 			SELECT	@tempFromDate	= DATEADD(DAY, 1, @MaxCommDate),
 					@tempToDate		= CONVERT(DATE, GETDATE())
 
+			SELECT  @IsSumAll = CASE WHEN @MonthDate >= @tempFromDate THEN 0 ELSE 1 END
+
 			INSERT INTO #TempCommission
 			(
 				MonthDate,
@@ -125,13 +131,21 @@ BEGIN
 				CommissionRate,
 				Commission
 			)
-			EXEC dbo.Aff_Commission_UnCalc @AffIds = 'all', @FromMonthDate = @tempFromDate, @ToMonthDate = @tempToDate
+			EXEC dbo.Aff_Commission_UnCalc
+				@AffIds				= 'all',
+				@FromMonthDate		= @tempFromDate,
+				@ToMonthDate		= @tempToDate,
+				@ProductIds			= '0',
+				@IsSumAll			= @IsSumAll,
+				@GetRowTotalOnly	= 1
 		END
 
 		-- Calculated Months
 		BEGIN
-			SELECT	@tempFromDate	= '1970-01-01',
+			SELECT	@tempFromDate	= dbo.Aff_f_GetMinReportDate(@AffId),
 					@tempToDate		= @MaxCommDate
+
+			SELECT  @IsSumAll = CASE WHEN @MonthDate <= @tempToDate THEN 0 ELSE 1 END
 
 			INSERT INTO #TempCommission
 			(
@@ -154,7 +168,13 @@ BEGIN
 				CommissionRate,
 				Commission
 			)
-			EXEC dbo.Aff_Commission_Calc @AffIds = 'all', @FromMonthDate = @tempFromDate, @ToMonthDate = @tempToDate
+			EXEC dbo.Aff_Commission_Calc
+				@AffIds				= 'all',
+				@FromMonthDate		= @tempFromDate,
+				@ToMonthDate		= @tempToDate,
+				@ProductIds			= '0',
+				@IsSumAll			= 1,
+				@GetRowTotalOnly	= 1
 		END
 	END
 
@@ -166,16 +186,13 @@ BEGIN
 		@TotalActivePlayer = SUM(ISNULL(ActivePlayer, 0)),
 		@TotalDepositUp = SUM(ISNULL(Deposit, 0)),
 		@TotalTurnoverUp = SUM(ISNULL(Turnover, 0)),
-		@TotalWinlostUp = SUM(ISNULL(Winloss, 0))
+		@TotalWinlostUp = SUM(ISNULL(Winloss, 0)),
+		@TotalDeposit = SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Deposit, 0) ELSE 0 END),
+		@TotalTurnover = SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Turnover, 0) ELSE 0 END),
+		@TotalWinlost = SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Winloss, 0) ELSE 0 END)
 	FROM #TempCommission
-	WHERE ProductId = 0
 
-	SELECT
-		@TotalDepositUp = SUM(ISNULL(Deposit, 0)),
-		@TotalTurnoverUp = SUM(ISNULL(Turnover, 0)),
-		@TotalWinlostUp = SUM(ISNULL(Winloss, 0))
-	FROM #TempCommission
-	WHERE ProductId = 0 AND MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate) + 1, 0))
+	DROP TABLE #TempCommission
 
 	SELECT
 		@TotalPlayer = COUNT(1),
@@ -251,7 +268,5 @@ BEGIN
 	FROM CTE_Device
 
 	SELECT @BalBroughtforward = ISNULL(dbo.Aff_GetAffBalance(@AffID), 0)
-
-	DROP TABLE #TempCommission
 END
 GO

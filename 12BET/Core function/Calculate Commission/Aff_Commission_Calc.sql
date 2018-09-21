@@ -3,9 +3,12 @@ USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_Commission_Calc]
-	@AffIds			VARCHAR(MAX) = 'all',
-	@FromMonthDate	SMALLDATETIME,
-	@ToMonthDate	SMALLDATETIME
+	@AffIds				VARCHAR(MAX) = 'all',
+	@FromMonthDate		SMALLDATETIME,
+	@ToMonthDate		SMALLDATETIME,
+	@ProductIds			VARCHAR(MAX) = '0',
+	@IsSumAll			BIT = 0,
+	@GetRowTotalOnly	BIT = 0
 AS
 
 /*
@@ -151,41 +154,22 @@ BEGIN
 
 			INSERT INTO @tempData
 			(
-				MonthDate,AffId,GroupId,ProductId,Deposit,Bonus,Turnover,Winloss,
-				QualifiedMember,NetWinloss,CommissionRate,Commission
+				MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,
+				ActivePlayer,QualifiedMember,NetWinloss,CommissionRate,Commission
 			)
 			SELECT
-				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Bonus,dt.Turnover,dt.Winloss,
-				dt.QualifiedMember,dt.NetWinloss,dt.CommissionRate,dt.Commission
+				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Turnover,dt.Winloss,
+				dt.ActivePlayer,dt.QualifiedMember,dt.NetWinloss,dt.CommissionRate,dt.Commission
 			FROM @MonthDate md
 				CROSS APPLY (
 					SELECT TOP (@n)
-						MonthDate,AffId,GroupId,SportId AS ProductId,MemberDeposit AS Deposit,MemberBonus AS Bonus,MemberTurnover AS Turnover,MemberWinlost AS Winloss,
-						QualifiedMember,-MemberSum AS NetWinloss,Commission AS CommissionRate,AffWinlost AS Commission
+						MonthDate,AffId,GroupId,SportId AS ProductId,MemberDeposit AS Deposit,MemberWithdrawal AS Withdrawal,MemberBonus AS Bonus,MemberTurnover AS Turnover,MemberWinlost AS Winloss,
+						ActivePlayer,QualifiedMember,-MemberSum AS NetWinloss,Commission AS CommissionRate,AffWinlost AS Commission
 					FROM dbo.AffCommission ac WITH (NOLOCK)
 					WHERE ac.WinlostDate = md.MonthDate
-						AND (ac.MemberDeposit > 0 OR ac.MemberTurnover > 0)
+						AND (ac.MemberDeposit > 0 OR MemberWithdrawal > 0 OR ac.MemberTurnover > 0)
 				) AS dt
 			OPTION (OPTIMIZE FOR (@n=1))
-
-			INSERT INTO @tempData (MonthDate,AffId,GroupId,ProductId,Withdrawal)
-			SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0)) AS MonthDate,AffId,0,0,SUM(MemWithdrawal) AS Withdrawal
-			FROM dbo.AffDailySummary WITH (NOLOCK)
-			WHERE WinlostDate BETWEEN DATEADD(MONTH, -1, DATEADD(DAY, 1, @tempFromMonth)) AND @tempToMonth
-			GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0)),AffId
-			HAVING SUM(MemWithdrawal) > 0
-
-			INSERT INTO @tempData (MonthDate,AffId,GroupId,ProductId,ActivePlayer)
-			SELECT MonthDate,AffId,0,0,COUNT(1) AS ActivePlayer
-			FROM
-			(
-				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0)) AS MonthDate,AffId,IBCCustId,SUM(Turnover) AS Turnover,SUM(Deposit) AS Deposit
-				FROM dbo.MemberDaily WITH (NOLOCK)
-				WHERE WinlostDate BETWEEN DATEADD(MONTH, -1, DATEADD(DAY, 1, @tempFromMonth)) AND @tempToMonth
-				GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0)),AffId,IBCCustId
-			) AS dt
-			WHERE Turnover > 0 OR Deposit > 0
-			GROUP BY MonthDate,AffId
 		END
 		ELSE
 		BEGIN
@@ -203,47 +187,23 @@ BEGIN
 
 			INSERT INTO @tempData
 			(
-				MonthDate,AffId,GroupId,ProductId,Deposit,Bonus,Turnover,Winloss,
-				QualifiedMember,NetWinloss,CommissionRate,Commission
+				MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,
+				ActivePlayer,QualifiedMember,NetWinloss,CommissionRate,Commission
 			)
 			SELECT
-				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Bonus,dt.Turnover,dt.Winloss,
-				dt.QualifiedMember,dt.NetWinloss,dt.CommissionRate,dt.Commission
+				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Turnover,dt.Winloss,
+				dt.ActivePlayer,dt.QualifiedMember,dt.NetWinloss,dt.CommissionRate,dt.Commission
 			FROM @MonthDate md
 				CROSS APPLY (
 					SELECT TOP (@n)
-						MonthDate,AffId,GroupId,SportId AS ProductId,MemberDeposit AS Deposit,MemberBonus AS Bonus,MemberTurnover AS Turnover,MemberWinlost AS Winloss,
-						QualifiedMember,-MemberSum AS NetWinloss,Commission AS CommissionRate,AffWinlost AS Commission
+						MonthDate,AffId,GroupId,SportId AS ProductId,MemberDeposit AS Deposit,MemberWithdrawal AS Withdrawal,MemberBonus AS Bonus,MemberTurnover AS Turnover,MemberWinlost AS Winloss,
+						ActivePlayer,QualifiedMember,-MemberSum AS NetWinloss,Commission AS CommissionRate,AffWinlost AS Commission
 					FROM dbo.AffCommission ac WITH (NOLOCK)
 					WHERE ac.WinlostDate = md.MonthDate
 						AND ac.AffId = md.AffId
 						AND (ac.MemberDeposit > 0 OR ac.MemberTurnover > 0)
 				) AS dt
 			OPTION (OPTIMIZE FOR (@n=1))
-
-			INSERT INTO @tempData (MonthDate,AffId,GroupId,ProductId,Withdrawal)
-			SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0)) AS MonthDate,AffId,0,0,SUM(MemWithdrawal) AS Withdrawal
-			FROM dbo.AffDailySummary ad WITH (NOLOCK)
-				INNER JOIN dbo.Aff_f_StringSplit(@AffIds, ',') f ON ad.AffId = f.val
-			WHERE WinlostDate BETWEEN DATEADD(MONTH, -1, DATEADD(DAY, 1, @tempFromMonth)) AND @tempToMonth
-			GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0)),AffId
-			HAVING SUM(MemWithdrawal) > 0
-			OPTION (MAXRECURSION 0)
-
-			INSERT INTO @tempData (MonthDate,AffId,GroupId,ProductId,ActivePlayer)
-			SELECT MonthDate,AffId,0,0,COUNT(1) AS ActivePlayer
-			FROM
-			(
-				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0)) AS MonthDate,AffId,IBCCustId,SUM(Turnover) AS Turnover,SUM(Deposit) AS Deposit
-				FROM dbo.MemberDaily md WITH (NOLOCK)
-				WHERE WinlostDate BETWEEN DATEADD(MONTH, -1, DATEADD(DAY, 1, @tempFromMonth)) AND @tempToMonth
-					AND ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), AffId) + ',%'
-				GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0)),AffId,IBCCustId
-			) AS dt
-			WHERE Turnover > 0 OR Deposit > 0
-			GROUP BY MonthDate,AffId
-			HAVING COUNT(1) > 0
-			OPTION (MAXRECURSION 0)
 		END
 
 		-- By Product
@@ -284,35 +244,106 @@ BEGIN
 		WHERE ac.ProductId = 0
 	END
 
+	-- Filter by Products
+	IF @ProductIds <> '0'
+	BEGIN
+		IF @ProductIds = ''
+		BEGIN
+			DELETE #AffCommission WHERE ProductId <> 0
+
+			UPDATE #AffCommission SET Turnover = 0, Winloss = 0
+		END
+		ELSE
+		BEGIN
+			UPDATE c1
+			SET c1.Turnover = ISNULL(c2.Turnover, 0), c1.Winloss = ISNULL(c2.Winloss, 0)
+			FROM #AffCommission c1
+				CROSS APPLY (
+					SELECT SUM(c2.Turnover) AS Turnover, SUM(c2.Winloss) AS Winloss
+					FROM #AffCommission c2
+					WHERE c1.MonthDate = c2.MonthDate AND c1.AffId = c2.AffId
+						AND ',' + @ProductIds + ',' LIKE '%' + CONVERT(VARCHAR(10), c2.ProductId) + '%'
+				) AS c2
+			WHERE c1.ProductId = 0
+
+			IF @GetRowTotalOnly = 0
+				DELETE #AffCommission WHERE ',' + @ProductIds + ',' NOT LIKE '%' + CONVERT(VARCHAR(10), ProductId) + '%'
+			ELSE
+				DELETE #AffCommission WHERE ProductId <> 0
+		END
+	END
+	ELSE IF @GetRowTotalOnly = 1
+	BEGIN
+		DELETE #AffCommission WHERE ProductId <> 0
+	END
+
 	-- Return data
-	SELECT
-		MonthDate,
-		AffId,
-		GroupId,
-		ProductId,
-		Deposit,
-		Withdrawal,
-		Bonus,
-		Turnover,
-		Winloss,
-		ISNULL(PlatFormFee, 0) AS PlatFormFee,
-		ISNULL(OperationalFee, 0) AS OperationalFee,
-		ISNULL(BankingFee, 0) AS BankingFee,
-		NetWinloss,
-		ActivePlayer,
-		QualifiedMember,
-		QMTurnOver,
-		CommissionRate,
-		Commission
-	FROM #AffCommission ac
-		CROSS APPLY (
-			SELECT
-				SUM(CASE WHEN ad.DeductionId = 10 THEN Amount ELSE 0 END) AS PlatFormFee,
-				SUM(CASE WHEN ad.DeductionId = 11 THEN Amount ELSE 0 END) AS OperationalFee,
-				SUM(CASE WHEN ad.DeductionId = 12 THEN Amount ELSE 0 END) AS BankingFee
-			FROM dbo.rptAffDeduction ad WITH (NOLOCK)
-			WHERE ac.MonthDate = ad.MonthDate AND ac.AffId = ad.AffId
-		) AS f
+	IF @IsSumAll = 1
+	BEGIN
+		SELECT
+			DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate) + 1, 0)) AS MonthDate,
+			AffId,
+			GroupId,
+			ProductId,
+			SUM(Deposit) AS Deposit,
+			SUM(Withdrawal) AS Withdrawal,
+			SUM(Bonus) AS Bonus,
+			SUM(Turnover) AS Turnover,
+			SUM(Winloss) AS Winloss,
+			SUM(ISNULL(PlatFormFee, 0)) AS PlatFormFee,
+			SUM(ISNULL(OperationalFee, 0)) AS OperationalFee,
+			SUM(ISNULL(BankingFee, 0)) AS BankingFee,
+			SUM(NetWinloss),
+			SUM(ActivePlayer),
+			SUM(QualifiedMember),
+			SUM(QMTurnOver),
+			SUM(CommissionRate),
+			SUM(Commission)
+		FROM #AffCommission ac
+			CROSS APPLY (
+				SELECT
+					SUM(CASE WHEN ad.DeductionId = 10 THEN Amount ELSE 0 END) AS PlatFormFee,
+					SUM(CASE WHEN ad.DeductionId = 11 THEN Amount ELSE 0 END) AS OperationalFee,
+					SUM(CASE WHEN ad.DeductionId = 12 THEN Amount ELSE 0 END) AS BankingFee
+				FROM dbo.rptAffDeduction ad WITH (NOLOCK)
+				WHERE ac.MonthDate = ad.MonthDate AND ac.AffId = ad.AffId
+			) AS f
+		GROUP BY
+			AffId,
+			GroupId,
+			ProductId
+	END
+	ELSE
+	BEGIN
+		SELECT
+			MonthDate,
+			AffId,
+			GroupId,
+			ProductId,
+			Deposit,
+			Withdrawal,
+			Bonus,
+			Turnover,
+			Winloss,
+			ISNULL(PlatFormFee, 0) AS PlatFormFee,
+			ISNULL(OperationalFee, 0) AS OperationalFee,
+			ISNULL(BankingFee, 0) AS BankingFee,
+			NetWinloss,
+			ActivePlayer,
+			QualifiedMember,
+			QMTurnOver,
+			CommissionRate,
+			Commission
+		FROM #AffCommission ac
+			CROSS APPLY (
+				SELECT
+					SUM(CASE WHEN ad.DeductionId = 10 THEN Amount ELSE 0 END) AS PlatFormFee,
+					SUM(CASE WHEN ad.DeductionId = 11 THEN Amount ELSE 0 END) AS OperationalFee,
+					SUM(CASE WHEN ad.DeductionId = 12 THEN Amount ELSE 0 END) AS BankingFee
+				FROM dbo.rptAffDeduction ad WITH (NOLOCK)
+				WHERE ac.MonthDate = ad.MonthDate AND ac.AffId = ad.AffId
+			) AS f
+	END
 
 	DROP TABLE #AffCommission
 END
