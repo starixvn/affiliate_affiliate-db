@@ -131,7 +131,7 @@ BEGIN
 						SUM(ISNULL(md.Bonus, 0)		* ISNULL(e.ActualRate2, 1)) AS Bonus,
 						SUM(ISNULL(md.Turnover, 0)	* ISNULL(e.ActualRate2, 1)) AS Turnover,
 						SUM(ISNULL(md.Winloss, 0)	* ISNULL(e.ActualRate2, 1)) AS Winloss
-					FROM bodb02.dbo.Aff_f_Bettrans_Sel('all', @tmpDate, @EndOfToMonthDate, @ProductIds) md
+					FROM dbo.Aff_f_Bettrans_Sel('all', @tmpDate, @EndOfToMonthDate, @ProductIds) md
 						CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(md.Currency, md.WinlostDate) e
 						CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 1, md.WinlostDate, @MoveBetsDay) f
 					WHERE NOT EXISTS (
@@ -229,7 +229,7 @@ BEGIN
 						SUM(ISNULL(md.Bonus, 0)		* ISNULL(e.ActualRate2, 1)) AS Bonus,
 						SUM(ISNULL(md.Turnover, 0)	* ISNULL(e.ActualRate2, 1)) AS Turnover,
 						SUM(ISNULL(md.Winloss, 0)	* ISNULL(e.ActualRate2, 1)) AS Winloss
-					FROM bodb02.dbo.Aff_f_Bettrans_Sel(@AffIds, @tmpDate, @EndOfToMonthDate, @ProductIds) md
+					FROM dbo.Aff_f_Bettrans_Sel(@AffIds, @tmpDate, @EndOfToMonthDate, @ProductIds) md
 						CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(md.Currency, md.WinlostDate) e
 						CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 1, md.WinlostDate, @MoveBetsDay) f
 					WHERE NOT EXISTS (
@@ -547,20 +547,20 @@ BEGIN
 			AffId,
 			GroupId,
 			ProductId,
-			SUM(Deposit) AS Deposit,
-			SUM(Withdrawal) AS Withdrawal,
-			SUM(Bonus) AS Bonus,
-			SUM(Turnover) AS Turnover,
-			SUM(Winloss) AS Winloss,
-			SUM(PlatFormFee) AS PlatFormFee,
-			SUM(OperationalFee) AS OperationalFee,
-			SUM(BankingFee) AS BankingFee,
-			SUM(NetWinloss),
-			SUM(ActivePlayer),
-			SUM(QualifiedMember),
-			SUM(QMTurnOver),
-			SUM(CommissionRate),
-			SUM(Commission)
+			SUM(Deposit)			AS Deposit,
+			SUM(Withdrawal)			AS Withdrawal,
+			SUM(Bonus)				AS Bonus,
+			SUM(Turnover)			AS Turnover,
+			SUM(Winloss)			AS Winloss,
+			SUM(PlatFormFee)		AS PlatFormFee,
+			SUM(OperationalFee)		AS OperationalFee,
+			SUM(BankingFee)			AS BankingFee,
+			SUM(NetWinloss)			AS NetWinloss,
+			SUM(ActivePlayer)		AS ActivePlayer,
+			SUM(QualifiedMember)	AS QualifiedMember,
+			SUM(QMTurnOver)			AS QMTurnOver,
+			SUM(CommissionRate)		AS CommissionRate,
+			SUM(Commission)			AS Commission
 		FROM #Commission
 		GROUP BY
 			AffId,

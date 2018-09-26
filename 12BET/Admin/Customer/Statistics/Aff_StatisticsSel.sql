@@ -75,7 +75,8 @@ BEGIN
 		DECLARE @MaxCommDate SMALLDATETIME
 		SELECT  @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
-		DECLARE @IsSumAll BIT
+		DECLARE @IsSumAll BIT, @AffIds VARCHAR(MAX)
+		SELECT  @AffIds = CONVERT(VARCHAR(MAX), @AffId)
 
 		DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
 
@@ -132,7 +133,7 @@ BEGIN
 				Commission
 			)
 			EXEC dbo.Aff_Commission_UnCalc
-				@AffIds				= 'all',
+				@AffIds				= @AffIds,
 				@FromMonthDate		= @tempFromDate,
 				@ToMonthDate		= @tempToDate,
 				@ProductIds			= '0',
@@ -169,11 +170,11 @@ BEGIN
 				Commission
 			)
 			EXEC dbo.Aff_Commission_Calc
-				@AffIds				= 'all',
+				@AffIds				= @AffIds,
 				@FromMonthDate		= @tempFromDate,
 				@ToMonthDate		= @tempToDate,
 				@ProductIds			= '0',
-				@IsSumAll			= 1,
+				@IsSumAll			= @IsSumAll,
 				@GetRowTotalOnly	= 1
 		END
 	END

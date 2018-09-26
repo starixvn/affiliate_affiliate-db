@@ -216,32 +216,19 @@ BEGIN
 			MonthDate,AffId,GroupId,ProductId,0 AS Deposit,0 AS Withdrawal,0 AS Bonus,SUM(Turnover),SUM(Winloss),
 			0 AS NetWinloss,0 AS ActivePlayer,0 AS QualifiedMember,0 AS QMTurnover,0 AS CommissionRate,0 AS Commission
 		FROM @tempData
-		WHERE ProductId > 0
 		GROUP BY MonthDate,AffId,GroupId,ProductId
 
 		-- Total
 		INSERT INTO #AffCommission
 		(
-			MonthDate,AffId,GroupId,ProductId,Deposit,Bonus,Turnover,Winloss,
-			NetWinloss,QualifiedMember,QMTurnover,CommissionRate,Commission
+			MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,
+			NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission
 		)
 		SELECT
-			MonthDate,AffId,MAX(GroupId) AS GroupId,0 AS ProductId,SUM(ISNULL(Deposit, 0)),SUM(ISNULL(Bonus, 0)),SUM(ISNULL(Turnover, 0)),SUM(ISNULL(Winloss, 0)),
-			SUM(ISNULL(NetWinloss, 0)),SUM(ISNULL(QualifiedMember, 0)),100 AS QMTurnover,AVG(ISNULL(CommissionRate, 0)),SUM(ISNULL(Commission, 0))
+			MonthDate,AffId,MAX(GroupId) AS GroupId,0 AS ProductId,SUM(ISNULL(Deposit, 0)),SUM(ISNULL(Withdrawal, 0)),SUM(ISNULL(Bonus, 0)),SUM(ISNULL(Turnover, 0)),SUM(ISNULL(Winloss, 0)),
+			SUM(ISNULL(NetWinloss, 0)),SUM(ISNULL(ActivePlayer, 0)),SUM(ISNULL(QualifiedMember, 0)),100 AS QMTurnover,AVG(ISNULL(CommissionRate, 0)),SUM(ISNULL(Commission, 0))
 		FROM @tempData
-		WHERE ProductId > 0
-		GROUP BY
-			MonthDate, AffId
-
-		UPDATE ac
-		SET ac.Withdrawal = ISNULL(t.Withdrawal, 0), ac.ActivePlayer = ISNULL(t.ActivePlayer, 0)
-		FROM #AffCommission ac
-			CROSS APPLY (
-				SELECT SUM(ISNULL(td.Withdrawal, 0)) AS Withdrawal, SUM(ISNULL(td.ActivePlayer, 0)) AS ActivePlayer
-				FROM @tempData td
-				WHERE td.ProductId = 0 AND ac.MonthDate = td.MonthDate AND ac.AffId = td.AffId
-			) AS t
-		WHERE ac.ProductId = 0
+		GROUP BY MonthDate, AffId
 	END
 
 	-- Filter by Products

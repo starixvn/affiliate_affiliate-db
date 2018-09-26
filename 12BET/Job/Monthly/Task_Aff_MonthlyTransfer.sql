@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET"></info>*/
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_12BET]
 GO
   
@@ -89,6 +89,7 @@ Revisions:
 				   Net Winlost for Casino = Member Winlost In Casino - Marketing Casino - Playtech Royalty Fee - PSP Fee
 	20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval 
 	- 20180601@Percy: Add flag for manually force update data [RedmineID: #94792]
+	- 20180801@Percy: Add Withdrawal and ActivePlayer [RedmineID: #87923]
 	
 Param's Explanation:  
 • @Month: The month to transfer  
@@ -162,9 +163,11 @@ CREATE TABLE #AffSummary
  MemPSP money,  
  Marketing money,  
  MemDeposit money,  
+ MemWithdrawal money,  
  MemTurnover money,  
  Commission decimal(9,8),  
  TotalQM int,    
+ ActivePlayer int,    
  NetWinlost money,   
  BonusPercent float,  
  MarketingPercent float,  
@@ -185,8 +188,8 @@ CREATE TABLE #AffSummary
 	 
 	 
 INSERT INTO #AffSummary(AffID,Currency,GroupID,SportID,MemWinlost,MemBonus,MemAdjustment,MemPSP,Marketing,
-MemDeposit,MemTurnover,
-TotalQM,BonusPercent,AdjustmentPercent,MarketingPercent,PSPPercent,OddsFeePercent,PlayTechRoyaltiesPercent,IsPSPIncluded)  
+MemDeposit,MemWithdrawal,MemTurnover,
+TotalQM,ActivePlayer,BonusPercent,AdjustmentPercent,MarketingPercent,PSPPercent,OddsFeePercent,PlayTechRoyaltiesPercent,IsPSPIncluded)  
   
 Select t.AffID as AffID  
 	,t.Currency as Currency  
@@ -198,8 +201,10 @@ Select t.AffID as AffID
 	,sum(isnull(r.PSP,0)) as MemPSP  
 	,sum(isnull(r.Marketing,0)) as Marketing  
 	,sum(isnull(r.Deposit,0)) as MemDeposit  
+	,sum(isnull(r.Withdrawal,0)) as MemWithdrawal  
 	,sum(isnull(r.Turnover,0)) as MemTurnover  
 	,sum(case when r.TurnOver>=s.QMTurnOver and r.Deposit>=s.QMDeposit then 1 else 0 end) as TotalQM         
+	,sum(case when r.TurnOver>0 or r.Deposit>0 then 1 else 0 end) as ActivePlayer         
 	,dbo.Aff_GetDeductionPercent(t.AffID,t.SportType,'Bonus',@LastDay) as BonusPercent  
 	,dbo.Aff_GetDeductionPercent(t.AffID,t.SportType,'Adjustment',@LastDay) as AdjustmentPercent  
 	,dbo.Aff_GetDeductionPercent(t.AffID,t.SportType,'Marketing',@LastDay) as MarketingPercent  
@@ -225,6 +230,7 @@ FROM
 		  ,sum(isnull(Marketing,0) * isnull(AffExRate,1)) as Marketing  
 		  ,sum(isnull(TurnOver,0) * isnull(AffExRate,1)) as TurnOver  
 		  ,sum(isnull(Deposit,0) * isnull(AffExRate,1)) as Deposit  
+		  ,sum(isnull(Withdrawal,0) * isnull(AffExRate,1)) as Withdrawal  
 	  from MemberDaily md  (nolock)   
 	  where WinlostDate between @FirstDay and @LastDay   
 		AND md.IBCCustID NOT IN (
@@ -369,12 +375,12 @@ BEGIN TRY
  END
 
  declare @Temp table(RefID int, AffID int, SportID tinyint)   
- Insert into AffCommission(AffID,GroupID,SportID,WinlostDate,QualifiedMember,Commission,AffWinlost  
+ Insert into AffCommission(AffID,GroupID,SportID,WinlostDate,QualifiedMember,ActivePlayer,Commission,AffWinlost  
 	   ,Status,MemberWinlost,MemberBonus,MemberAdjustment,MemberPSP,MemberSum  
-		,Marketing,HasBonus,HasAdjustment,HasMarketing,HasPSP,MemberDeposit,MemberTurnover  
+		,Marketing,HasBonus,HasAdjustment,HasMarketing,HasPSP,MemberDeposit,MemberWithdrawal,MemberTurnover  
 		,HasOddsFee,MemOddsFee,HasPlayTechFee,MemPlayTechFee)  
  output inserted.RefID,inserted.AffID,inserted.SportID into @Temp   
- select AffID,GroupID,SportID,@LastDay,TotalQM,Commission   
+ select AffID,GroupID,SportID,@LastDay,TotalQM,ActivePlayer,Commission   
 	,(NetWinlost- isnull(a.MemBonus,0)*isnull(a.BonusPercent,0))  * isnull(Commission,0)   
 	, @Status  
 	,MemWinlost  
@@ -388,6 +394,7 @@ BEGIN TRY
 	,(case when isnull(a.MarketingPercent,0)<>0 then 1 else 0 end)   
 	,(case when isnull(a.PSPPercent,0)<>0 then 1 else 0 end)    
 	,MemDeposit  
+	,MemWithdrawal
 	,MemTurnover  
 	,(case when isnull(a.OddsFeePercent,0)<>0 then 1 else 0 end)    
 	, abs(isnull(MemWinlost,0)) * isnull(OddsFeePercent,0)  

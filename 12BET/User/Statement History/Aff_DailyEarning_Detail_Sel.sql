@@ -79,14 +79,6 @@ BEGIN
 	ELSE
 	BEGIN
 		-- rptMemberDaily
-		IF (
-			@ProductId = 0
-			OR EXISTS (
-				SELECT 1 FROM dbo.Products WITH (NOLOCK)
-				WHERE ProductId = @ProductId
-					AND (IsIBC = 0 OR @WinlostDate <= @MoveBetsDay)
-			)
-		)
 		BEGIN
 			INSERT INTO #Data
 			(
@@ -119,14 +111,6 @@ BEGIN
 		END
 
 		-- bettrans
-		IF (
-			@ProductId = 0
-			OR EXISTS (
-				SELECT 1 FROM dbo.Products WITH (NOLOCK)
-				WHERE ProductId = @ProductId
-					AND (IsIBC = 1 AND @WinlostDate > @MoveBetsDay)
-			)
-		)
 		BEGIN
 			DECLARE @AffIds VARCHAR(MAX), @ProductIds VARCHAR(MAX)
 			SELECT  @AffIds = CONVERT(VARCHAR(20), @AffId), @ProductIds = CONVERT(VARCHAR(5), @ProductId)
@@ -147,10 +131,11 @@ BEGIN
 				SUM(ISNULL(md.Turnover, 0)	* ISNULL(e.ActualRate2, 0)),
 				SUM(ISNULL(md.Winloss, 0)	* ISNULL(e.ActualRate2, 0)),
 				SUM(ISNULL(md.Bonus, 0)		* ISNULL(e.ActualRate2, 0))
-			FROM bodb02.dbo.Aff_f_Bettrans_Sel(@AffIds, @WinlostDate, @WinlostDate, @ProductIds) md
+			FROM dbo.Aff_f_Bettrans_Sel(@AffIds, @WinlostDate, @WinlostDate, @ProductIds) md
 				CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(md.Currency, md.WinlostDate) e
 				CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 1, md.Winlostdate, @MoveBetsDay) f
-			WHERE NOT EXISTS (
+			WHERE (@ProductId = 0 OR md.ProductId < 0 OR md.ProductId = @ProductId)
+				AND NOT EXISTS (
 					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 					WHERE mr.IBCCustId = md.IBCCustId
 						AND mr.RemovedDate <= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))

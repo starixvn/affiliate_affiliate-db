@@ -159,7 +159,7 @@ BEGIN
 			SUM(ISNULL(md.Bonus, 0)			* ISNULL(e.ActualRate2, 0)) AS Bonus,
 			SUM(ISNULL(md.Turnover, 0)		* ISNULL(e.ActualRate2, 0)) AS Turnover,
 			SUM(ISNULL(md.Winloss, 0)		* ISNULL(e.ActualRate2, 0)) AS Winloss
-		FROM bodb02.dbo.Aff_f_Bettrans_Sel(@AffIds, @tmpDate, @ToDate, @ProductIds) md
+		FROM dbo.Aff_f_Bettrans_Sel(@AffIds, @tmpDate, @ToDate, @ProductIds) md
 			CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(md.Currency, md.WinlostDate) e
 			CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 1, md.WinlostDate, @MoveBetsDay) f
 			CROSS APPLY dbo.Aff_f_GetSettingAll(@AffId, 0, md.WinlostDate) s
