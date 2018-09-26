@@ -4,8 +4,8 @@ GO
 
 ALTER PROCEDURE [dbo].[Aff_Admin_PlayersDetail_Sel]
 	@AffId		INT,
-	@Sporttype	INT = 0,
-	@MonthDate	SMALLDATETIME = NULL,
+	@ProductId	INT = 0,
+	@MonthDate	SMALLDATETIME,
 	@PageIndex	INT = 1,
 	@PageSize	INT = 200,
 	@NRows		INT = 0 OUTPUT
@@ -27,18 +27,17 @@ BEGIN
 
 	DECLARE @FromDate SMALLDATETIME, @ToDate SMALLDATETIME
 
-	DECLARE @ProductId INT
-	SELECT  @ProductId = ISNULL(@Sporttype, 0)
+	SELECT	@FromDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0), -- Begin Month
+			@ToDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate) + 1, 0)) -- End Month
 
-	IF @MonthDate IS NULL
-	BEGIN
-		SELECT @FromDate = '2009-10-01', @ToDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
-	END
-	ELSE
-	BEGIN
-		SELECT	@FromDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0), -- Begin Month
-				@ToDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate) + 1, 0)) -- End Month
-	END
+	DECLARE @MinReportDate SMALLDATETIME
+	SELECT  @MinReportDate = dbo.Aff_f_GetMinReportDate(@AffId)
+
+	IF @FromDate < @MinReportDate
+		SELECT @FromDate = @MinReportDate
+
+	IF @ToDate < @FromDate
+		RETURN
 
 	DECLARE @MoveBetsDay SMALLDATETIME
 	SELECT  @MoveBetsDay = dbo.Aff_f_GetMoveBetsDay()
@@ -48,7 +47,7 @@ BEGIN
 
 	DECLARE @tmpFromDate SMALLDATETIME, @tmpToDate SMALLDATETIME
 
-	CREATE TABLE #AffData
+	CREATE TABLE #MemberData
 	(
 		IBCCustId	INT,
 		Deposit		MONEY,
@@ -59,15 +58,13 @@ BEGIN
 		Winloss		MONEY
 	)
 
-	CREATE CLUSTERED INDEX CIX_IBCCustId ON #AffData (IBCCustId)
-
 	-- MemberDaily
 	IF @FromDate <= @CutOffDate
 	BEGIN
 		SELECT @tmpFromDate = @FromDate
 		SELECT @tmpToDate = CASE WHEN @ToDate > @CutOffDate THEN @CutOffDate ELSE @ToDate END
 
-		INSERT INTO #AffData
+		INSERT INTO #MemberData
 		(
 			IBCCustId,
 			Deposit,
@@ -102,7 +99,7 @@ BEGIN
 		SELECT @tmpFromDate = CASE WHEN @FromDate <= @CutOffDate THEN DATEADD(DAY, 1, @CutOffDate) ELSE @ToDate END
 		SELECT @tmpToDate = @ToDate
 
-		INSERT INTO #AffData
+		INSERT INTO #MemberData
 		(
 			IBCCustId,
 			Deposit,
@@ -126,6 +123,11 @@ BEGIN
 		WHERE md.AffId = @AffId
 			AND md.WinlostDate BETWEEN @tmpFromDate AND @tmpToDate
 			AND (@ProductId = 0 OR md.ProductId = @ProductId OR md.ProductId < 0)
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE mr.RemovedDate < DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
+					AND mr.IBCCustId = md.IBCCustId
+			)
 		GROUP BY
 			md.IBCCustId
 	END
@@ -136,7 +138,10 @@ BEGIN
 		DECLARE @tmpDate SMALLDATETIME
 		SELECT  @tmpDate = CASE WHEN @FromDate <= @MoveBetsDay THEN DATEADD(DAY, 1, @MoveBetsDay) ELSE @FromDate END
 
-		INSERT INTO #AffData
+		DECLARE @AffIds VARCHAR(MAX), @ProductIds VARCHAR(MAX)
+		SELECT  @AffIds = CONVERT(VARCHAR(20), @AffId), @ProductIds = CONVERT(VARCHAR(5), @ProductId)
+
+		INSERT INTO #MemberData
 		(
 			IBCCustId,
 			Deposit,
@@ -154,17 +159,20 @@ BEGIN
 			SUM(ISNULL(md.Bonus, 0)			* ISNULL(e.ActualRate2, 0)) AS Bonus,
 			SUM(ISNULL(md.Turnover, 0)		* ISNULL(e.ActualRate2, 0)) AS Turnover,
 			SUM(ISNULL(md.Winloss, 0)		* ISNULL(e.ActualRate2, 0)) AS Winloss
-		FROM OPENQUERY(DBEXT, 'SELECT WinlostDate,IBCCustId,ProductId,Currency,Deposit,Withdrawal,Bonus,Turnover,Winloss
-										FROM bodb02.dbo.Aff_f_Bettrans_Sel()') md
+		FROM bodb02.dbo.Aff_f_Bettrans_Sel(@AffIds, @tmpDate, @ToDate, @ProductIds) md
 			CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(md.Currency, md.WinlostDate) e
 			CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 1, md.WinlostDate, @MoveBetsDay) f
 			CROSS APPLY dbo.Aff_f_GetSettingAll(@AffId, 0, md.WinlostDate) s
-			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON md.IBCCustId = mi.IBCCustId AND mi.AffId = @AffId
-		WHERE (@ProductId = 0 OR md.ProductId = @ProductId OR md.ProductId < 0)
-			AND md.WinlostDate BETWEEN @tmpDate AND @ToDate
+		WHERE NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE mr.RemovedDate < DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
+					AND mr.IBCCustId = md.IBCCustId
+			)
 		GROUP BY
 			md.IBCCustId
 	END
+
+	SELECT @NRows = COUNT(DISTINCT IBCCustId) FROM #MemberData
 
 	-- Return data
 	DECLARE @RowStart INT, @RowEnd INT
@@ -178,9 +186,8 @@ BEGIN
 		RegisteredDate,
 		Deposit,
 		Withdrawal,
-		PSP,
+		BankingFee,
 		Bonus,
-		Adjustment,
 		Turnover,
 		Winlost
 	FROM
@@ -192,13 +199,12 @@ BEGIN
 			DENSE_RANK() OVER (ORDER BY mi.UserName ASC) AS RowNum,
 			SUM(ISNULL(ad.Deposit, 0)) AS Deposit,
 			SUM(ISNULL(ad.Withdrawal, 0)) AS Withdrawal,
-			SUM(ISNULL(ad.BankingFee, 0)) AS PSP,
+			SUM(ISNULL(ad.BankingFee, 0)) AS BankingFee,
 			SUM(ISNULL(ad.Bonus, 0)) AS Bonus,
-			0 AS Adjustment, -- will remove later
 			SUM(ISNULL(ad.Turnover, 0)) AS Turnover,
 			SUM(ISNULL(ad.Winloss, 0)) AS Winlost
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
-			INNER JOIN #AffData ad WITH (NOLOCK) ON mi.IBCCustId = ad.IBCCustId
+			INNER JOIN #MemberData ad WITH (NOLOCK) ON mi.IBCCustId = ad.IBCCustId
 		WHERE mi.AffId = @AffId
 		GROUP BY
 			mi.IBCUserName,
@@ -207,6 +213,6 @@ BEGIN
 	) AS result
 	WHERE RowNum BETWEEN @RowStart AND @RowEnd
 
-	DROP TABLE #AffData
+	DROP TABLE #MemberData
 END
 GO

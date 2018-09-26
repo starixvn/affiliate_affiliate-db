@@ -123,7 +123,7 @@ BEGIN
 				(
 					SELECT
 						DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate, -- last day of month
-						mi.AffId,
+						md.AffId,
 						md.IBCCustId,
 						md.ProductId,
 						SUM(ISNULL(md.Deposit, 0)	* ISNULL(e.ActualRate2, 1)) AS Deposit,
@@ -131,20 +131,18 @@ BEGIN
 						SUM(ISNULL(md.Bonus, 0)		* ISNULL(e.ActualRate2, 1)) AS Bonus,
 						SUM(ISNULL(md.Turnover, 0)	* ISNULL(e.ActualRate2, 1)) AS Turnover,
 						SUM(ISNULL(md.Winloss, 0)	* ISNULL(e.ActualRate2, 1)) AS Winloss
-					FROM OPENQUERY(DBEXT, 'SELECT WinlostDate,IBCCustId,ProductId,Currency,Deposit,Withdrawal,Bonus,Turnover,Winloss
-											FROM bodb02.dbo.Aff_f_Bettrans_Sel()') md
+					FROM bodb02.dbo.Aff_f_Bettrans_Sel('all', @tmpDate, @EndOfToMonthDate, @ProductIds) md
 						CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(md.Currency, md.WinlostDate) e
 						CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 1, md.WinlostDate, @MoveBetsDay) f
-						INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON md.IBCCustId = mi.IBCCustId
 					WHERE NOT EXISTS (
 							SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 							WHERE mr.RemovedDate < DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
-								AND mr.IBCCustId = mi.IBCCustId
+								AND mr.IBCCustId = md.IBCCustId
 						)
 						AND md.WinlostDate BETWEEN @tmpDate AND @EndOfToMonthDate
 					GROUP BY
 						DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)),
-						mi.AffId,
+						md.AffId,
 						md.IBCCustId,
 						md.ProductId
 				) AS SOURCE
@@ -223,7 +221,7 @@ BEGIN
 				(
 					SELECT
 						DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate, -- last day of month
-						s.val AS AffId,
+						md.AffId,
 						md.IBCCustId,
 						md.ProductId,
 						SUM(ISNULL(md.Deposit, 0)	* ISNULL(e.ActualRate2, 1)) AS Deposit,
@@ -231,21 +229,18 @@ BEGIN
 						SUM(ISNULL(md.Bonus, 0)		* ISNULL(e.ActualRate2, 1)) AS Bonus,
 						SUM(ISNULL(md.Turnover, 0)	* ISNULL(e.ActualRate2, 1)) AS Turnover,
 						SUM(ISNULL(md.Winloss, 0)	* ISNULL(e.ActualRate2, 1)) AS Winloss
-					FROM OPENQUERY(DBEXT, 'SELECT WinlostDate,IBCCustId,ProductId,Currency,Deposit,Withdrawal,Bonus,Adjustment,Turnover,Winloss
-											FROM bodb02.dbo.Aff_f_Bettrans_Sel()') md
+					FROM bodb02.dbo.Aff_f_Bettrans_Sel(@AffIds, @tmpDate, @EndOfToMonthDate, @ProductIds) md
 						CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(md.Currency, md.WinlostDate) e
 						CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 1, md.WinlostDate, @MoveBetsDay) f
-						INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON md.IBCCustId = mi.IBCCustId
-						INNER JOIN dbo.Aff_f_StringSplit(@AffIds, ',') s ON mi.AffId = s.val
 					WHERE NOT EXISTS (
 							SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 							WHERE mr.RemovedDate < DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
-								AND mr.IBCCustId = mi.IBCCustId
+								AND mr.IBCCustId = md.IBCCustId
 						)
 						AND md.WinlostDate BETWEEN @tmpDate AND @EndOfToMonthDate
 					GROUP BY
 						DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)),
-						s.val,
+						md.AffId,
 						md.IBCCustId,
 						md.ProductId
 				) AS SOURCE
@@ -274,8 +269,7 @@ BEGIN
 					(
 						SOURCE.MonthDate,SOURCE.AffId,SOURCE.IBCCustId,SOURCE.ProductId,
 						SOURCE.Deposit,SOURCE.Withdrawal,SOURCE.Bonus,SOURCE.Turnover,SOURCE.Winloss
-					)
-				OPTION (MAXRECURSION 0);
+					);
 			END
 		END
 	END

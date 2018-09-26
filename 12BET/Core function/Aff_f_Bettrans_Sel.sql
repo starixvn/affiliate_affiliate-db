@@ -4,13 +4,17 @@ GO
 
 ALTER FUNCTION [dbo].[Aff_f_Bettrans_Sel]
 (
+	@AffIds		VARCHAR(MAX),
+	@FromDate	SMALLDATETIME,
+	@ToDate		SMALLDATETIME,
+	@ProductIds	VARCHAR(MAX)
 )
 RETURNS TABLE
 AS
 
 /*
 	Created: 20180601@Percy
-	DB: DBEXT.bodb02
+	DB: DBAFF12BET.Affiliate_12BET
 	Task: Get data of aff's member on bettrans
 
 	Revisions:
@@ -20,30 +24,21 @@ AS
 RETURN
 	WITH CTE_recommend AS
 	(
-		/*
-		SELECT recommend FROM OPENQUERY(DBAFF12BET, 'SELECT DISTINCT recommend FROM Affiliate_12BET.dbo.MemberInfo WITH (NOLOCK)')
-		*/
-		
-		SELECT DISTINCT recommend
-		FROM dbo.Aff_f_GetTestingCustId() c
-			INNER JOIN dbo.custInfo ci WITH (NOLOCK) ON c.custid = ci.custid
-		WHERE ci.roleId = 1
+		SELECT DISTINCT recommend FROM Affiliate_12BET.dbo.MemberInfo WITH (NOLOCK)
+		WHERE (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%' + CONVERT(VARCHAR(20), AffId) + '%')
 	)
 	,CTE_SportBettypeMatrix AS
 	(
 		SELECT DISTINCT aff.ProductId, bt.BetType
 		FROM dbo.SportBettypeMatrix bt WITH (NOLOCK)
 			INNER JOIN dbo.Products p WITH (NOLOCK) ON bt.ProductId = p.ProductId
-			INNER JOIN (
-				SELECT ProductId, ProductPrefix
-				FROM OPENQUERY(DBAFF12BET, 'SELECT ProductId, ProductPrefix
-											FROM Affiliate_12BET.dbo.Products WITH (NOLOCK)
-											WHERE IsIBC = 1')
-			) AS aff ON p.ProductPrefix = aff.ProductPrefix
+			INNER JOIN Affiliate_12BET.dbo.Products aff WITH (NOLOCK) ON p.ProductPrefix = aff.ProductPrefix
 		WHERE bt.bettype NOT IN (911, 912, 913, 914) -- Exclude CashOut (keep 911)
+			AND aff.IsIBC = 1
+			AND aff.Enabled = 1
 
 		UNION ALL
-		SELECT 1, 911
+		SELECT 1, 911 WHERE (@ProductIds = '0' OR ',' + @ProductIds + ',' LIKE '%1%')
 
 		UNION ALL -- transfer
 		SELECT bt.ProductId, bt.Bettype
@@ -61,16 +56,17 @@ RETURN
 		) AS bt (ProductId, Bettype)
 	)
 	SELECT
-		winlostdate,
-		IBCCustId,
-		currency,
-		ProductId,
-		Deposit,
-		Withdrawal,
-		Bonus,
-		Adjustment,
-		Turnover,
-		Winloss
+		a.winlostdate,
+		mi.AffId,
+		a.IBCCustId,
+		a.currency,
+		a.ProductId,
+		a.Deposit,
+		a.Withdrawal,
+		a.Bonus,
+		a.Adjustment,
+		a.Turnover,
+		a.Winloss
 	FROM
 	(
 		SELECT
@@ -95,6 +91,9 @@ RETURN
 			b.custid,
 			b.currency,
 			CASE WHEN bt.ProductId < 0 THEN -1 ELSE bt.ProductId END
-	) AS A
-		WHERE EXISTS (SELECT 1 FROM dbo.Aff_f_GetTestingCustId() c WHERE c.CustId = A.IBCCustId)
+	) AS a
+		INNER JOIN Affiliate_12BET.dbo.MemberInfo mi WITH (NOLOCK) ON mi.IBCCustId = a.IBCCustId
+	WHERE (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%' + CONVERT(VARCHAR(20), AffId) + '%')
+		AND a.winlostdate BETWEEN @FromDate AND @ToDate
+		AND (@ProductIds = '0' OR a.ProductId < 0 OR ',' + @ProductIds + ',' LIKE '%' + CONVERT(VARCHAR(20), a.ProductId) + '%')
 GO

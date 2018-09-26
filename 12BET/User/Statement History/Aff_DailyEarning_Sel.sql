@@ -34,8 +34,6 @@ BEGIN
 
 	DECLARE @tmpFromDate SMALLDATETIME, @tmpToDate SMALLDATETIME
 
-	DECLARE @tmpDate SMALLDATETIME
-
 	CREATE TABLE #Data
 	(
 		WinlostDate SMALLDATETIME,
@@ -45,6 +43,7 @@ BEGIN
 		Bonus		MONEY
 	)
 
+	-- Old data
 	IF @FromBeginMonth <= @CutOffDate
 	BEGIN
 		SELECT @tmpFromDate = @FromBeginMonth
@@ -77,13 +76,14 @@ BEGIN
 		GROUP BY
 			md.WinlostDate
 	END
-
-	-- rptMemberDaily
+	
+	-- New data
 	IF @ToEndMonth > @CutOffDate
 	BEGIN
 		SELECT @tmpFromDate = CASE WHEN @FromBeginMonth <= @CutOffDate THEN DATEADD(DAY, 1, @CutOffDate) ELSE @FromBeginMonth END
 		SELECT @tmpToDate = @ToEndMonth
-	
+		
+		-- rptMemberDaily
 		IF (
 			@ProductId = 0
 			OR EXISTS (
@@ -120,49 +120,49 @@ BEGIN
 			GROUP BY
 				md.WinlostDate
 		END
-	END
 
-	-- bettrans
-	IF (
-		@ProductId = 0
-		OR EXISTS (
-			SELECT 1 FROM dbo.Products WITH (NOLOCK)
-			WHERE ProductId = @ProductId
-				AND (IsIBC = 1 AND @ToEndMonth > @MoveBetsDay)
-		)
-	)
-	BEGIN
-		SELECT @tmpDate = CASE WHEN @FromBeginMonth <= @MoveBetsDay THEN DATEADD(DAY, 1, @MoveBetsDay) ELSE @FromBeginMonth END
-		 
-		INSERT INTO #Data
-		(
-			WinlostDate,
-			Deposit,
-			Withdrawal,
-			Winloss,
-			Bonus
-		)
-		SELECT
-			md.WinlostDate,
-			SUM(ISNULL(md.Deposit, 0)	* ISNULL(e.ActualRate2, 0)),
-			SUM(ISNULL(md.Withdrawal, 0)* ISNULL(e.ActualRate2, 0)),
-			SUM(ISNULL(md.Winloss, 0)	* ISNULL(e.ActualRate2, 0)),
-			SUM(ISNULL(md.Bonus, 0)		* ISNULL(e.ActualRate2, 0))
-		FROM OPENQUERY(DBEXT, 'SELECT WinlostDate,IBCCustId,currency,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss
-								FROM bodb02.dbo.Aff_f_Bettrans_Sel()') md
-			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON md.IBCCustId = mi.IBCCustId
-			CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(md.Currency, md.WinlostDate) e
-			CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 1, md.WinlostDate, @MoveBetsDay) f
-		WHERE md.WinlostDate BETWEEN @tmpDate AND @ToEndMonth
-			AND mi.AffId = @AffId
-			AND (@ProductId = 0 OR md.ProductId < 0 OR md.ProductId = @ProductId)
-			AND NOT EXISTS (
-				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-				WHERE mr.IBCCustId = mi.IBCCustId
-					AND mr.RemovedDate <= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
+		-- bettrans
+		IF (
+			@ProductId = 0
+			OR EXISTS (
+				SELECT 1 FROM dbo.Products WITH (NOLOCK)
+				WHERE ProductId = @ProductId
+					AND (IsIBC = 1 AND @ToEndMonth > @MoveBetsDay)
 			)
-		GROUP BY
-			md.WinlostDate
+		)
+		BEGIN
+			DECLARE @AffIds VARCHAR(MAX), @ProductIds VARCHAR(MAX)
+			SELECT  @AffIds = CONVERT(VARCHAR(20), @AffId), @ProductIds = CONVERT(VARCHAR(5), @ProductId)
+
+			SELECT @tmpFromDate = CASE WHEN @FromBeginMonth <= @MoveBetsDay THEN DATEADD(DAY, 1, @MoveBetsDay) ELSE @FromBeginMonth END
+			SELECT @tmpToDate = @ToEndMonth
+			
+			INSERT INTO #Data
+			(
+				WinlostDate,
+				Deposit,
+				Withdrawal,
+				Winloss,
+				Bonus
+			)
+			SELECT
+				md.WinlostDate,
+				SUM(ISNULL(md.Deposit, 0)	* ISNULL(e.ActualRate2, 0)),
+				SUM(ISNULL(md.Withdrawal, 0)* ISNULL(e.ActualRate2, 0)),
+				SUM(ISNULL(md.Winloss, 0)	* ISNULL(e.ActualRate2, 0)),
+				SUM(ISNULL(md.Bonus, 0)		* ISNULL(e.ActualRate2, 0))
+			FROM bodb02.dbo.Aff_f_Bettrans_Sel(@AffIds, @tmpFromDate, @tmpToDate, @ProductIds) md
+				INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON md.IBCCustId = mi.IBCCustId
+				CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(md.Currency, md.WinlostDate) e
+				CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 1, md.WinlostDate, @MoveBetsDay) f
+			WHERE NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+					WHERE mr.IBCCustId = mi.IBCCustId
+						AND mr.RemovedDate <= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
+				)
+			GROUP BY
+				md.WinlostDate
+		END
 	END
 
 	-- Get Banking Fee

@@ -301,10 +301,6 @@ BEGIN
 		INSERT INTO @tblWinlostdate (WinlostDate)
 		SELECT DISTINCT WinlostDate FROM @SuccessTrans
 
-		IF EXISTS (
-			SELECT 1 FROM @SuccessTrans s
-				INNER JOIN bodb02.dbo.Aff_f_GetTestingCustId() c ON s.IBCCustId = c.custId
-		)
 		BEGIN
 			MERGE dbo.rptMemberDaily AS TARGET
 			USING
@@ -321,7 +317,6 @@ BEGIN
 					SUM(md.Turnover) AS Turnover,
 					SUM(md.Winlost) AS Winloss
 				FROM dbo.MemberDaily md WITH (NOLOCK)
-					INNER JOIN bodb02.dbo.Aff_f_GetTestingCustId() c ON md.IBCCustId = c.custId
 					INNER JOIN @tblWinlostdate wld ON md.WinlostDate = wld.WinlostDate
 				WHERE md.Sporttype = @CasinoId
 				GROUP BY
@@ -345,7 +340,6 @@ BEGIN
 					0 AS Turnover,
 					0 AS Winloss
 				FROM dbo.MemberDaily md WITH (NOLOCK)
-					INNER JOIN bodb02.dbo.Aff_f_GetTestingCustId() c ON md.IBCCustId = c.custId
 					INNER JOIN @tblWinlostdate wld ON md.WinlostDate = wld.WinlostDate
 				WHERE md.Sporttype = @CasinoId
 				GROUP BY
@@ -387,7 +381,6 @@ BEGIN
 			WHEN NOT MATCHED BY SOURCE
 					AND TARGET.WinlostDate IN (SELECT WinlostDate FROM @tblWinlostdate)
 					AND TARGET.ProductId = @CasinoId
-					AND TARGET.IBCCustId IN (SELECT CustId FROM bodb02.dbo.Aff_f_GetTestingCustId())
 				THEN DELETE;
 		END
 		

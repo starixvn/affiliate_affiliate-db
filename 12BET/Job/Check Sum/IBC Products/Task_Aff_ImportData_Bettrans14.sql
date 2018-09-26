@@ -22,16 +22,8 @@ BEGIN
 	BEGIN
 		DECLARE @recommend TABLE (recommend INT)
 
-		/*
 		INSERT INTO @recommend (recommend)
-		SELECT recommend FROM OPENQUERY (DBAFF12BET, 'SELECT DISTINCT recommend FROM Affiliate_12BET.dbo.MemberInfo WITH (NOLOCK)')
-		*/
-
-		INSERT INTO @recommend (recommend)
-		SELECT DISTINCT ci.recommend
-		FROM dbo.Aff_f_GetTestingCustId() c
-			INNER JOIN dbo.custInfo ci WITH (NOLOCK) ON c.custid = ci.custid
-		WHERE ci.roleId = 1
+		SELECT DISTINCT recommend FROM Affiliate_12BET.dbo.MemberInfo WITH (NOLOCK)
 	END
 
 	-- Get SportBettypeMatrix Info
@@ -63,11 +55,9 @@ BEGIN
 		UPDATE s
 		SET s.ProductId = p.ProductId
 		FROM #SportBettypeMatrix s
-			INNER JOIN (
-				SELECT ProductId, ProductPrefix
-				FROM OPENQUERY (DBAFF12BET, 'SELECT ProductId, ProductPrefix FROM Affiliate_12BET.dbo.Products WITH (NOLOCK)')
-			) AS p ON s.ProductPrefix = p.ProductPrefix
+			INNER JOIN Affiliate_12BET.dbo.Products p WITH (NOLOCK)ON s.ProductPrefix = p.ProductPrefix
 		WHERE s.ProductPrefix IS NOT NULL
+			AND p.IsIBC = 1
 
 		-- For CashOut
 		UPDATE #SportBettypeMatrix
@@ -82,15 +72,15 @@ BEGIN
 	BEGIN
 		-- bet tickets
 		SELECT
-			custid,
-			currency,
-			ProductId,
-			Deposit,
-			Withdrawal,
-			Bonus,
-			Adjustment,
-			Turnover,
-			Winloss
+			a.custid,
+			a.currency,
+			a.ProductId,
+			a.Deposit,
+			a.Withdrawal,
+			a.Bonus,
+			a.Adjustment,
+			a.Turnover,
+			a.Winloss
 		FROM
 		(
 			SELECT
@@ -136,8 +126,8 @@ BEGIN
 			GROUP BY
 				b.custid,
 				b.currency
-		) AS A
-		WHERE EXISTS (SELECT 1 FROM dbo.Aff_f_GetTestingCustId() c WHERE c.CustId = A.CustId)
+		) AS a
+			INNER JOIN Affiliate_12BET.dbo.MemberInfo mi WITH (NOLOCK) ON mi.IBCCustId = A.custid
 	END
 
 	DROP TABLE #SportBettypeMatrix
