@@ -131,7 +131,7 @@ BEGIN
 						SUM(ISNULL(md.Bonus, 0)		* ISNULL(e.ActualRate2, 1)) AS Bonus,
 						SUM(ISNULL(md.Turnover, 0)	* ISNULL(e.ActualRate2, 1)) AS Turnover,
 						SUM(ISNULL(md.Winloss, 0)	* ISNULL(e.ActualRate2, 1)) AS Winloss
-					FROM dbo.Aff_f_Bettrans_Sel('all', @tmpDate, @EndOfToMonthDate, @ProductIds) md
+					FROM dbo.Aff_f_Bettrans_Sel('all', @tmpDate, @EndOfToMonthDate, '0') md
 						CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(md.Currency, md.WinlostDate) e
 						CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 1, md.WinlostDate, @MoveBetsDay) f
 					WHERE NOT EXISTS (
@@ -229,7 +229,7 @@ BEGIN
 						SUM(ISNULL(md.Bonus, 0)		* ISNULL(e.ActualRate2, 1)) AS Bonus,
 						SUM(ISNULL(md.Turnover, 0)	* ISNULL(e.ActualRate2, 1)) AS Turnover,
 						SUM(ISNULL(md.Winloss, 0)	* ISNULL(e.ActualRate2, 1)) AS Winloss
-					FROM dbo.Aff_f_Bettrans_Sel(@AffIds, @tmpDate, @EndOfToMonthDate, @ProductIds) md
+					FROM dbo.Aff_f_Bettrans_Sel(@AffIds, @tmpDate, @EndOfToMonthDate, '0') md
 						CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(md.Currency, md.WinlostDate) e
 						CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 1, md.WinlostDate, @MoveBetsDay) f
 					WHERE NOT EXISTS (
