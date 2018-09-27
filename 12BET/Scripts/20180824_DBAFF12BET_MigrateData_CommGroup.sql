@@ -9,7 +9,7 @@ GO
 
 -- I. Commission Group
 	-- Exclude testing group
-	DECLARE @MonthDate SMALLDATETIME = '2018-09-30'
+	DECLARE @MonthDate SMALLDATETIME = '2018-09-31'
 
 	DECLARE @TestGroup TABLE (GroupId INT)
 	INSERT INTO @TestGroup (GroupId)
