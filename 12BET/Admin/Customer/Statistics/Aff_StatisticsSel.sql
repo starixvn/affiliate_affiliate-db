@@ -222,7 +222,8 @@ BEGIN
 		SELECT s.Date, COUNT(DISTINCT s.IP) AS UniqueClick, COUNT(1) AS TotalClick
 		FROM ClickStatistics s(NOLOCK)
 			INNER JOIN TrackingCode a(NOLOCK) ON a.TrackingID = s.TrackingID
-		WHERE s.Date >= @MonthDate AND a.AffID = @AffID
+		WHERE a.AffID = @AffID
+			AND [date] >= @FromBeginMonth AND [date] < @ToNextMonth 
 		GROUP BY s.Date
 
 		UNION ALL

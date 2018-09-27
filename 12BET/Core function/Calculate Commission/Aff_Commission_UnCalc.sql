@@ -139,7 +139,6 @@ BEGIN
 							WHERE mr.RemovedDate < DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
 								AND mr.IBCCustId = md.IBCCustId
 						)
-						AND md.WinlostDate BETWEEN @tmpDate AND @EndOfToMonthDate
 					GROUP BY
 						DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)),
 						md.AffId,
@@ -237,7 +236,6 @@ BEGIN
 							WHERE mr.RemovedDate < DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
 								AND mr.IBCCustId = md.IBCCustId
 						)
-						AND md.WinlostDate BETWEEN @tmpDate AND @EndOfToMonthDate
 					GROUP BY
 						DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)),
 						md.AffId,
@@ -497,7 +495,7 @@ BEGIN
 					AND FLOOR(ABS(c.NetWinloss)) BETWEEN gsh.MinAmount AND gsh.MaxAmount
 			) AS t
 			CROSS APPLY (
-				SELECT MIN(gsh.Commission) AS Commission
+				SELECT MAX(gsh.Commission) AS Commission
 				FROM dbo.TierSettingHistory gsh WITH (NOLOCK)
 				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId
 					AND c.QualifiedMember BETWEEN gsh.MinQM AND gsh.MaxQM

@@ -180,7 +180,7 @@ BEGIN
 
 	DECLARE @RowStart INT, @RowEnd INT
 
-	SELECT  @RowStart = (@PageIndex - 1) * @PageSize + @PageIndex
+	SELECT  @RowStart = (@PageIndex - 1) * @PageSize + 1
 	SELECT  @RowEnd = @RowStart + @PageSize - 1
 
 	SELECT
