@@ -78,7 +78,7 @@ BEGIN
 			md.IBCCustId,
 			SUM(ISNULL(md.Deposit, 0)		* ISNULL(md.AffExRate, 0)) AS Deposit,
 			SUM(ISNULL(md.Withdrawal, 0)	* ISNULL(md.AffExRate, 0)) AS Withdrawal,
-			SUM(ISNULL(md.PSP, 0)			* ISNULL(md.AffExRate, 0)) AS BankingFee,
+			0															AS BankingFee,
 			SUM(ISNULL(md.Bonus, 0)			* ISNULL(md.AffExRate, 0)) AS Bonus,
 			SUM(CASE WHEN @ProductId = 0 OR md.SportType = @ProductId THEN
 				ISNULL(md.Turnover, 0)		* ISNULL(md.AffExRate, 0)
