@@ -183,14 +183,14 @@ BEGIN
 	SELECT @TotalQualifiedCasino = 0, @TotalQualifiedMembersHR = 0
 	
 	SELECT
-		@TotalQualifiedMembers = SUM(ISNULL(QualifiedMember, 0)),
-		@TotalActivePlayer = SUM(ISNULL(ActivePlayer, 0)),
-		@TotalDepositUp = SUM(ISNULL(Deposit, 0)),
-		@TotalTurnoverUp = SUM(ISNULL(Turnover, 0)),
-		@TotalWinlostUp = SUM(ISNULL(Winloss, 0)),
-		@TotalDeposit = SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Deposit, 0) ELSE 0 END),
-		@TotalTurnover = SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Turnover, 0) ELSE 0 END),
-		@TotalWinlost = SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Winloss, 0) ELSE 0 END)
+		@TotalQualifiedMembers	= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(QualifiedMember, 0) ELSE 0 END),
+		@TotalActivePlayer		= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(ActivePlayer, 0) ELSE 0 END),
+		@TotalDeposit			= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Deposit, 0) ELSE 0 END),
+		@TotalTurnover			= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Turnover, 0) ELSE 0 END),
+		@TotalWinlost			= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Winloss, 0) ELSE 0 END),
+		@TotalDepositUp			= SUM(ISNULL(Deposit, 0)),
+		@TotalTurnoverUp		= SUM(ISNULL(Turnover, 0)),
+		@TotalWinlostUp			= SUM(ISNULL(Winloss, 0))
 	FROM #TempCommission
 
 	DROP TABLE #TempCommission
@@ -214,28 +214,33 @@ BEGIN
 				AND mr.RemovedDate >= @FromBeginMonth AND mr.RemovedDate < @ToNextMonth
 		)
 
+	DECLARE @ArchiveDate SMALLDATETIME
+	SELECT  @ArchiveDate = MAX(Date) FROM dbo.ClickStatisticsSum WITH (NOLOCK) WHERE TrackingID = 0 AND IsForMonth = 1
+	
 	SELECT
 		@TotalUniqueClicks = SUM(UniqueClick),
 		@TotalClicks = SUM(TotalClick)
 	FROM
 	(
 		SELECT s.Date, COUNT(DISTINCT s.IP) AS UniqueClick, COUNT(1) AS TotalClick
-		FROM ClickStatistics s(NOLOCK)
-			INNER JOIN TrackingCode a(NOLOCK) ON a.TrackingID = s.TrackingID
+		FROM ClickStatistics s WITH (NOLOCK)
+			INNER JOIN TrackingCode a WITH (NOLOCK) ON a.TrackingID = s.TrackingID
 		WHERE a.AffID = @AffID
-			AND [date] >= @FromBeginMonth AND [date] < @ToNextMonth 
+			AND [date] >= @FromBeginMonth AND [date] < @ToNextMonth
+			AND [date] > @ArchiveDate
 		GROUP BY s.Date
 
 		UNION ALL
 		SELECT Date, UniqueClick, TotalClick
-		FROM ClickStatisticsSum(NOLOCK)
+		FROM ClickStatisticsSum WITH (NOLOCK)
 		WHERE AffID = @AffID
 			AND TrackingID = 0
 			AND IsForMonth = 1
-			AND [date] >= @FromBeginMonth
-			AND [date] < @ToNextMonth
+			AND [date] >= @FromBeginMonth AND [date] < @ToNextMonth
+			AND [date] <= @ArchiveDate
 	) AS A
 	
+	SELECT  @ArchiveDate = MAX(Date) FROM dbo.ClickStatistics1Sum WITH (NOLOCK)
 	;WITH CTE_Device AS (
 		SELECT DeviceType, SUM(TotalClick) AS TotalClicks, SUM(UniqueClick) AS UniqueClicks
 		FROM (
@@ -244,9 +249,9 @@ BEGIN
 				COUNT(1) AS TotalClick,
 				COUNT(DISTINCT c.IP) AS UniqueClick
 			FROM dbo.ClickStatistics1 c WITH (NOLOCK)
-			WHERE
-				c.Date >= @FromBeginMonth AND c.Date < @ToNextMonth
-				AND c.AffId = @AffId
+			WHERE c.AffId = @AffId
+				AND c.Date >= @FromBeginMonth AND c.Date < @ToNextMonth
+				AND c.Date > @ArchiveDate
 			GROUP BY ISNULL(c.DeviceType, 0), c.Date
 
 			UNION ALL
@@ -255,9 +260,9 @@ BEGIN
 				SUM(TotalClick) AS TotalClick,
 				SUM(UniqueClick) AS UniqueClick
 			FROM dbo.ClickStatistics1Sum c WITH (NOLOCK)
-			WHERE
-				c.Date >= @FromBeginMonth AND c.Date < @ToNextMonth
-				AND c.AffId = @AffId
+			WHERE c.AffId = @AffId
+				AND c.Date >= @FromBeginMonth AND c.Date < @ToNextMonth
+				AND c.Date <= @ArchiveDate
 			GROUP BY ISNULL(c.DeviceType, 0), c.Date
 		) AS A
 		GROUP BY DeviceType
