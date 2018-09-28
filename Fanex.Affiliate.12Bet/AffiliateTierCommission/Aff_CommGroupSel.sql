@@ -1,7 +1,8 @@
-﻿USE [Affiliate_12BET]
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
 GO
 
-ALTER PROCEDURE [Aff_CommGroupSel]
+ALTER PROCEDURE [dbo].[Aff_CommGroupSel]
 	@GroupName nvarchar(100) = '',
 	@FromDate datetime =null,
 	@Todate datetime=null,
@@ -20,6 +21,7 @@ AS
 
 	Revisions:
 		- 20170601@Percy: Add new column: isTest [RedmineID: #77521]
+		- 20180601@Percy: Flexible new setting [RemineID: #87923]
 */
 
 BEGIN
@@ -47,7 +49,7 @@ BEGIN
 	DECLARE @RowStart int, @RowEnd int,@AffiliateID int
 
 	select @Nrows=count(1)
-	from CommGroup with (nolock)
+	from CommGroup cg with (nolock)
 	where GroupID between 101 and 1000 and GroupName like @GroupName and IsDeleted = 0 
 		  and (
 			  case when @FromDate is null or @ToDate is null then 1
@@ -55,6 +57,7 @@ BEGIN
 					else 0
 			  end     
 		  )=1
+		  AND EXISTS (SELECT 1 FROM dbo.GroupSetting g WITH (NOLOCK) WHERE cg.GroupId = g.GroupId)
 	  
 	 if(isnull(@NRows,0)=0 or (@NRows>@PageSize and @PageSize>5000) or @PageIndex<0 or @PageSize<0)
 	   return	
@@ -71,7 +74,7 @@ BEGIN
 		 from (
 				 SELECT GroupID,GroupName,Description,Creator,CreatedDate		  
 					  ,ROW_NUMBER() OVER(ORDER BY GroupID) AS TheCount
-				  from CommGroup with (nolock)			       
+				  from CommGroup cg with (nolock)			       
 				   where GroupID between 101 and 1000 and  GroupName like @GroupName and IsDeleted = 0 
 				  and (
 					  case when @FromDate is null or @ToDate is null then 1
@@ -79,6 +82,7 @@ BEGIN
 							else 0
 					  end     
 					  )=1
+				AND EXISTS (SELECT 1 FROM dbo.GroupSetting g WITH (NOLOCK) WHERE cg.GroupId = g.GroupId)
 			 ) x
 		 where x.TheCount between @RowStart and @RowEnd 
 	Update t
@@ -96,7 +100,6 @@ BEGIN
 	select g.GroupID,g.GroupName,g.Description,isnull(i.username,'System') as Creator,g.CreatedDate,isnull(g.NoAff,0) as NoOfAffiliate/*,(case when Exists(select top(1) 1 from AffCommission(nolock) where GroupID=g.GroupID) then 0 else 1 end) as IsAllowedToDelete	*/
 	from @Group g 
 		left join Affiliate_User i with (nolock) on i.custid=g.Creator
- 
 
 	select 
 		g.GroupId,	
@@ -115,6 +118,3 @@ BEGIN
 	   )
 END
 GO
-GRANT EXECUTE ON [dbo].[Aff_CommGroupSel] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_CommGroupSel] TO [vnteam]

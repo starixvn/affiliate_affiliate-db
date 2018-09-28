@@ -1,9 +1,10 @@
-﻿USE [Affiliate_12BET]
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_AffiliateSelGeneralInfo]
-	@Username nvarchar(30),
-	@IsCasino bit = 0 OUTPUT
+	@Username NVARCHAR(50),
+	@IsCasino BIT = 0 OUTPUT
 AS
 
 /*
@@ -17,6 +18,7 @@ AS
 			2. Remove the theory of pending commission and CurrCommEarning
 			3. Get PreferredPayment to check approve
 		- 20090823@Peter : Move table on_user to Affiliate_12Bet DB
+		- 20180601@Percy: Add ContactApps [RedmineID: #87923]
 
 	Param's Explanation:
 		• @Username : Affiliate username
@@ -47,7 +49,7 @@ BEGIN
 		gender,
 		email,
 		phone,
-		mobilephone,
+		ContactApps,
 		siteurl,
 		lastLoginDate,
 		lastLoginIP AS lastloginip,	
@@ -65,23 +67,16 @@ BEGIN
 		LEFT JOIN CommGroup c WITH(NOLOCK) ON c.groupid = a.groupid
 	WHERE a.AffID=@AffID 	
 
-	SELECT *
-	FROM on_user WITH(NOLOCK)
-	WHERE custid = @AffID
-	ORDER BY on_userid
+	-- Online List (for left menu)
+	SELECT IP, reload_time
+	FROM dbo.On_User WITH (NOLOCK)
+	WHERE custid = @AffId
+	ORDER BY reload_time DESC
 
-	IF EXISTS (
-		SELECT TOP 1 1
-		FROM dbo.CommonSettings WITH(NOLOCK)
-		WHERE [Type]='12betcasino'
-			AND CName = @Username
-	)
-	BEGIN
+	-- Is Casino
+	IF EXISTS (SELECT 1 FROM dbo.CommonSettings WITH (NOLOCK) WHERE [Type] = '12betcasino' AND CName = @Username)
 		SELECT @IsCasino = 1
-	END
+	ELSE
+		SELECT @IsCasino = 0
 END
-GO
-GRANT EXECUTE ON [dbo].[Aff_AffiliateSelGeneralInfo] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffiliateSelGeneralInfo] TO [VNTeam]
 GO

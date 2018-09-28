@@ -27,6 +27,7 @@ AS
 		- 20171129@Percy: Add PShare, PWin [RedmineID: #87342]
 		- 20180529@Percy: Remove temporarily monthy checking to support re-import data [RedmineID: #94792]
 		- 20180601@Percy: Add flag for manually force update data [RedmineID: #94792]
+		- 20180801@Percy: Add new table rptMemberDaily [RedmineID: #87923]
 */
 
 BEGIN
@@ -295,6 +296,94 @@ BEGIN
 			) AS m ON '12bet$' + t.UserName = m.UserName AND t.winlostdate >= m.CasinoJoinedDate
 			INNER JOIN @Exchange ex ON m.Currency = ex.ExchangeID AND t.winlostdate = ex.ExchangeDate
 
+		-- Insert data on rptMemberDaily
+		DECLARE @tblWinlostdate TABLE (WinlostDate SMALLDATETIME PRIMARY KEY)
+		INSERT INTO @tblWinlostdate (WinlostDate)
+		SELECT DISTINCT WinlostDate FROM @SuccessTrans
+
+		BEGIN
+			MERGE dbo.rptMemberDaily AS TARGET
+			USING
+			(
+				SELECT
+					md.WinlostDate,
+					md.IBCCustID,
+					md.AffId,
+					@CasinoId AS ProductId,
+					md.Currency,
+					md.AffExRate,
+					md.MemberExRate AS ExRate,
+					0 AS Bonus,
+					SUM(md.Turnover) AS Turnover,
+					SUM(md.Winlost) AS Winloss
+				FROM dbo.MemberDaily md WITH (NOLOCK)
+					INNER JOIN @tblWinlostdate wld ON md.WinlostDate = wld.WinlostDate
+				WHERE md.Sporttype = @CasinoId
+				GROUP BY
+					md.WinlostDate,
+					md.IBCCustID,
+					md.AffId,
+					md.Currency,
+					md.AffExRate,
+					md.MemberExRate
+
+				UNION ALL
+				SELECT
+					md.WinlostDate,
+					md.IBCCustID,
+					md.AffId,
+					-3 AS ProductId,
+					md.Currency,
+					md.AffExRate,
+					md.MemberExRate AS ExRate,
+					SUM(md.Bonus) AS Bonus,
+					0 AS Turnover,
+					0 AS Winloss
+				FROM dbo.MemberDaily md WITH (NOLOCK)
+					INNER JOIN @tblWinlostdate wld ON md.WinlostDate = wld.WinlostDate
+				WHERE md.Sporttype = @CasinoId
+				GROUP BY
+					md.WinlostDate,
+					md.IBCCustID,
+					md.AffId,
+					md.Currency,
+					md.AffExRate,
+					md.MemberExRate
+			) AS SOURCE
+				ON		TARGET.WinlostDate	= SOURCE.WinlostDate
+					AND TARGET.IBCCustId	= SOURCE.IBCCustId
+					AND TARGET.ProductId	= SOURCE.ProductId
+			WHEN MATCHED THEN
+				UPDATE SET
+					TARGET.Currency		= SOURCE.Currency,
+					TARGET.AffId		= SOURCE.AffId,
+					TARGET.Deposit		= 0,
+					TARGET.Withdrawal	= 0,
+					TARGET.Bonus		= SOURCE.Bonus,
+					TARGET.Adjustment	= 0,
+					TARGET.Turnover		= SOURCE.Turnover,
+					TARGET.Winloss		= SOURCE.Winloss,
+					TARGET.AffExRate	= SOURCE.AffExRate,
+					TARGET.ExRate		= SOURCE.ExRate
+			WHEN NOT MATCHED BY TARGET THEN
+				INSERT
+				(
+					WinlostDate,IBCCustId,Currency,AffId,ProductId,
+					Deposit,Withdrawal,Bonus,Adjustment,
+					Turnover,Winloss,AffExRate,ExRate
+				)
+				VALUES
+				(
+					SOURCE.WinlostDate,SOURCE.IBCCustId,SOURCE.Currency,SOURCE.AffId,SOURCE.ProductId,
+					0,0,SOURCE.Bonus,0,
+					SOURCE.Turnover,SOURCE.Winloss,SOURCE.AffExRate,SOURCE.ExRate
+				)
+			WHEN NOT MATCHED BY SOURCE
+					AND TARGET.WinlostDate IN (SELECT WinlostDate FROM @tblWinlostdate)
+					AND TARGET.ProductId = @CasinoId
+				THEN DELETE;
+		END
+		
 		--Insert Data INTo Affiliate Daily
 		INSERT INTO AffDaily
 		(
