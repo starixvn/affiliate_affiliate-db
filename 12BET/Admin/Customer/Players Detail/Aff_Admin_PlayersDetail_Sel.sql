@@ -244,10 +244,6 @@ BEGIN
 			FROM dbo.MemberInfo mi WITH (NOLOCK)
 				INNER JOIN #Result r WITH (NOLOCK) ON mi.IBCCustId = r.IBCCustId
 			WHERE mi.AffId = @AffId
-			GROUP BY
-				mi.IBCUserName,
-				mi.UserName,
-				mi.RegisteredDate
 		) AS result
 		WHERE RowNum BETWEEN @RowStart AND @RowEnd
 
