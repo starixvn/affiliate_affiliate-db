@@ -18,6 +18,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20181001@Percy: Add CutOffDate [RedmineID: #102399]
 */
 
 BEGIN
@@ -33,6 +34,9 @@ BEGIN
 
 	DECLARE @MoveBetsDay SMALLDATETIME
 	SELECT  @MoveBetsDay = dbo.Aff_f_GetMoveBetsDay()
+
+	DECLARE @CutOffDate SMALLDATETIME
+	SELECT  @CutOffDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CutOffReportDate'
 
 	CREATE TABLE #Data
 	(
@@ -81,46 +85,94 @@ BEGIN
 
 		IF @AffIds = 'all'
 		BEGIN
-			-- rptMemberDaily
-			INSERT INTO #Data
-			(
-				MonthDate,
-				AffId,
-				IBCCustId,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Turnover,
-				Winloss
-			)
-			SELECT
-				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate, -- last day of month
-				md.AffId,
-				md.IBCCustId,
-				md.ProductId,
-				SUM(ISNULL(md.Deposit, 0)	* ISNULL(md.AffExRate, 1)) AS Deposit,
-				SUM(ISNULL(md.Withdrawal, 0)* ISNULL(md.AffExRate, 1)) AS Withdrawal,
-				SUM(ISNULL(md.Bonus, 0)		* ISNULL(md.AffExRate, 1)) AS Bonus,
-				SUM(ISNULL(md.Turnover, 0)	* ISNULL(md.AffExRate, 1)) AS Turnover,
-				SUM(ISNULL(md.Winloss, 0)	* ISNULL(md.AffExRate, 1)) AS Winloss
-			FROM dbo.rptMemberDaily md WITH (NOLOCK)
-				CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 0, md.WinlostDate, @MoveBetsDay) f
-			WHERE md.WinlostDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
-			GROUP BY
-				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)),
-				md.AffId,
-				md.IBCCustId,
-				md.ProductId
-
-			-- Bettrans
-			IF @EndOfToMonthDate > @MoveBetsDay
+			-- MemberDaily
+			IF @BeginOfFromMonthDate <= @CutOffDate
 			BEGIN
-				SELECT @tmpDate = CASE WHEN @BeginOfFromMonthDate <= @MoveBetsDay THEN DATEADD(DAY, 1, @MoveBetsDay) ELSE @BeginOfFromMonthDate END
+				SELECT @tmpDate = CASE WHEN @EndOfToMonthDate > @CutOffDate THEN @CutOffDate ELSE @EndOfToMonthDate END
 
-				MERGE #Data AS TARGET
-				USING
+				INSERT INTO #Data
 				(
+					MonthDate,
+					AffId,
+					IBCCustId,
+					ProductId,
+					Deposit,
+					Withdrawal,
+					Bonus,
+					Turnover,
+					Winloss
+				)
+				SELECT
+					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate, -- last day of month
+					md.AffId,
+					md.IBCCustId,
+					md.Sporttype AS ProductId,
+					SUM(ISNULL(md.Deposit, 0)	* ISNULL(md.AffExRate, 1)) AS Deposit,
+					SUM(ISNULL(md.Withdrawal, 0)* ISNULL(md.AffExRate, 1)) AS Withdrawal,
+					SUM(ISNULL(md.Bonus, 0)		* ISNULL(md.AffExRate, 1)) AS Bonus,
+					SUM(ISNULL(md.Turnover, 0)	* ISNULL(md.AffExRate, 1)) AS Turnover,
+					SUM(ISNULL(md.Winlost, 0)	* ISNULL(md.AffExRate, 1)) AS Winloss
+				FROM dbo.MemberDaily md WITH (NOLOCK)
+				WHERE md.WinlostDate BETWEEN @BeginOfFromMonthDate AND @tmpDate
+				GROUP BY
+					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)),
+					md.AffId,
+					md.IBCCustId,
+					md.Sporttype
+			END
+
+			-- rptMemberDaily + bettrans
+			IF @EndOfToMonthDate > @CutOffDate
+			BEGIN
+				SELECT @tmpDate = CASE WHEN @BeginOfFromMonthDate <= @CutOffDate THEN DATEADD(DAY, 1, @CutOffDate) ELSE @BeginOfFromMonthDate END
+				
+				INSERT INTO #Data
+				(
+					MonthDate,
+					AffId,
+					IBCCustId,
+					ProductId,
+					Deposit,
+					Withdrawal,
+					Bonus,
+					Turnover,
+					Winloss
+				)
+				SELECT
+					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate, -- last day of month
+					md.AffId,
+					md.IBCCustId,
+					md.ProductId,
+					SUM(ISNULL(md.Deposit, 0)	* ISNULL(md.AffExRate, 1)) AS Deposit,
+					SUM(ISNULL(md.Withdrawal, 0)* ISNULL(md.AffExRate, 1)) AS Withdrawal,
+					SUM(ISNULL(md.Bonus, 0)		* ISNULL(md.AffExRate, 1)) AS Bonus,
+					SUM(ISNULL(md.Turnover, 0)	* ISNULL(md.AffExRate, 1)) AS Turnover,
+					SUM(ISNULL(md.Winloss, 0)	* ISNULL(md.AffExRate, 1)) AS Winloss
+				FROM dbo.rptMemberDaily md WITH (NOLOCK)
+					CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 0, md.WinlostDate, @MoveBetsDay) f
+				WHERE md.WinlostDate BETWEEN @tmpDate AND @EndOfToMonthDate
+				GROUP BY
+					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)),
+					md.AffId,
+					md.IBCCustId,
+					md.ProductId
+
+				IF @EndOfToMonthDate > @MoveBetsDay
+				BEGIN
+					SELECT @tmpDate = CASE WHEN @BeginOfFromMonthDate <= @MoveBetsDay THEN DATEADD(DAY, 1, @MoveBetsDay) ELSE @BeginOfFromMonthDate END
+
+					INSERT INTO #Data
+					(
+						MonthDate,
+						AffId,
+						IBCCustId,
+						ProductId,
+						Deposit,
+						Withdrawal,
+						Bonus,
+						Turnover,
+						Winloss
+					)
 					SELECT
 						DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate, -- last day of month
 						md.AffId,
@@ -144,80 +196,103 @@ BEGIN
 						md.AffId,
 						md.IBCCustId,
 						md.ProductId
-				) AS SOURCE
-				(
-					MonthDate,AffId,IBCCustId,ProductId,
-					Deposit,Withdrawal,Bonus,Turnover,Winloss
-				)
-					ON		TARGET.MonthDate = SOURCE.MonthDate
-						AND TARGET.AffId	 = SOURCE.AffId
-						AND TARGET.IBCCustId = SOURCE.IBCCustId
-						AND TARGET.ProductId = SOURCE.ProductId
-				WHEN MATCHED THEN
-					UPDATE SET
-						TARGET.Deposit		= ISNULL(TARGET.Deposit, 0)	+ ISNULL(SOURCE.Deposit, 0),
-						TARGET.Withdrawal	= ISNULL(TARGET.Withdrawal, 0) + ISNULL(SOURCE.Withdrawal, 0),
-						TARGET.Bonus		= ISNULL(TARGET.Bonus, 0)		+ ISNULL(SOURCE.Bonus, 0),
-						TARGET.Turnover		= ISNULL(TARGET.Turnover, 0)	+ ISNULL(SOURCE.Turnover, 0),
-						TARGET.Winloss		= ISNULL(TARGET.Winloss, 0)	+ ISNULL(SOURCE.Winloss, 0)
-				WHEN NOT MATCHED BY TARGET THEN
-					INSERT
-					(
-						MonthDate,AffId,IBCCustId,ProductId,
-						Deposit,Withdrawal,Bonus,Turnover,Winloss
-					)
-					VALUES
-					(
-						SOURCE.MonthDate,SOURCE.AffId,SOURCE.IBCCustId,SOURCE.ProductId,
-						SOURCE.Deposit,SOURCE.Withdrawal,SOURCE.Bonus,SOURCE.Turnover,SOURCE.Winloss
-					)
-				OPTION (MAXRECURSION 0);
+				END
 			END
 		END
 		ELSE
 		BEGIN
-			-- rptMemberDaily
-			INSERT INTO #Data
-			(
-				MonthDate,
-				AffId,
-				IBCCustId,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Turnover,
-				Winloss
-			)
-			SELECT
-				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate, -- last day of month
-				md.AffId,
-				md.IBCCustId,
-				md.ProductId,
-				SUM(ISNULL(md.Deposit, 0)	* ISNULL(md.AffExRate, 1)) AS Deposit,
-				SUM(ISNULL(md.Withdrawal, 0)* ISNULL(md.AffExRate, 1)) AS Withdrawal,
-				SUM(ISNULL(md.Bonus, 0)		* ISNULL(md.AffExRate, 1)) AS Bonus,
-				SUM(ISNULL(md.Turnover, 0)	* ISNULL(md.AffExRate, 1)) AS Turnover,
-				SUM(ISNULL(md.Winloss, 0)	* ISNULL(md.AffExRate, 1)) AS Winloss
-			FROM dbo.rptMemberDaily md WITH (NOLOCK)
-				INNER JOIN dbo.Aff_f_StringSplit(@AffIds, ',') s ON md.AffId = s.val
-				CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 0, md.WinlostDate, @MoveBetsDay) f
-			WHERE md.WinlostDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
-			GROUP BY
-				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)),
-				md.AffId,
-				md.IBCCustId,
-				md.ProductId
-			OPTION (MAXRECURSION 0)
-
-			-- Bettrans
-			IF @EndOfToMonthDate > @MoveBetsDay
+			-- MemberDaily
+			IF @BeginOfFromMonthDate <= @CutOffDate
 			BEGIN
-				SELECT @tmpDate = CASE WHEN @BeginOfFromMonthDate <= @MoveBetsDay THEN DATEADD(DAY, 1, @MoveBetsDay) ELSE @BeginOfFromMonthDate END
+				SELECT @tmpDate = CASE WHEN @EndOfToMonthDate > @CutOffDate THEN @CutOffDate ELSE @EndOfToMonthDate END
 
-				MERGE #Data AS TARGET
-				USING
+				INSERT INTO #Data
 				(
+					MonthDate,
+					AffId,
+					IBCCustId,
+					ProductId,
+					Deposit,
+					Withdrawal,
+					Bonus,
+					Turnover,
+					Winloss
+				)
+				SELECT
+					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate, -- last day of month
+					md.AffId,
+					md.IBCCustId,
+					md.Sporttype AS ProductId,
+					SUM(ISNULL(md.Deposit, 0)	* ISNULL(md.AffExRate, 1)) AS Deposit,
+					SUM(ISNULL(md.Withdrawal, 0)* ISNULL(md.AffExRate, 1)) AS Withdrawal,
+					SUM(ISNULL(md.Bonus, 0)		* ISNULL(md.AffExRate, 1)) AS Bonus,
+					SUM(ISNULL(md.Turnover, 0)	* ISNULL(md.AffExRate, 1)) AS Turnover,
+					SUM(ISNULL(md.Winlost, 0)	* ISNULL(md.AffExRate, 1)) AS Winloss
+				FROM dbo.MemberDaily md WITH (NOLOCK)
+					INNER JOIN dbo.Aff_f_StringSplit(@AffIds, ',') s ON md.AffId = s.val
+				WHERE md.WinlostDate BETWEEN @BeginOfFromMonthDate AND @tmpDate
+				GROUP BY
+					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)),
+					md.AffId,
+					md.IBCCustId,
+					md.Sporttype
+				OPTION (MAXRECURSION 0)
+			END
+			
+			-- rptMemberDaily + bettrans
+			IF @EndOfToMonthDate > @CutOffDate
+			BEGIN
+				SELECT @tmpDate = CASE WHEN @BeginOfFromMonthDate <= @CutOffDate THEN DATEADD(DAY, 1, @CutOffDate) ELSE @BeginOfFromMonthDate END
+			
+				INSERT INTO #Data
+				(
+					MonthDate,
+					AffId,
+					IBCCustId,
+					ProductId,
+					Deposit,
+					Withdrawal,
+					Bonus,
+					Turnover,
+					Winloss
+				)
+				SELECT
+					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate, -- last day of month
+					md.AffId,
+					md.IBCCustId,
+					md.ProductId,
+					SUM(ISNULL(md.Deposit, 0)	* ISNULL(md.AffExRate, 1)) AS Deposit,
+					SUM(ISNULL(md.Withdrawal, 0)* ISNULL(md.AffExRate, 1)) AS Withdrawal,
+					SUM(ISNULL(md.Bonus, 0)		* ISNULL(md.AffExRate, 1)) AS Bonus,
+					SUM(ISNULL(md.Turnover, 0)	* ISNULL(md.AffExRate, 1)) AS Turnover,
+					SUM(ISNULL(md.Winloss, 0)	* ISNULL(md.AffExRate, 1)) AS Winloss
+				FROM dbo.rptMemberDaily md WITH (NOLOCK)
+					INNER JOIN dbo.Aff_f_StringSplit(@AffIds, ',') s ON md.AffId = s.val
+					CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 0, md.WinlostDate, @MoveBetsDay) f
+				WHERE md.WinlostDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
+				GROUP BY
+					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)),
+					md.AffId,
+					md.IBCCustId,
+					md.ProductId
+				OPTION (MAXRECURSION 0)
+
+				IF @EndOfToMonthDate > @MoveBetsDay
+				BEGIN
+					SELECT @tmpDate = CASE WHEN @BeginOfFromMonthDate <= @MoveBetsDay THEN DATEADD(DAY, 1, @MoveBetsDay) ELSE @BeginOfFromMonthDate END
+
+					INSERT INTO #Data
+					(
+						MonthDate,
+						AffId,
+						IBCCustId,
+						ProductId,
+						Deposit,
+						Withdrawal,
+						Bonus,
+						Turnover,
+						Winloss
+					)
 					SELECT
 						DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate, -- last day of month
 						md.AffId,
@@ -241,33 +316,7 @@ BEGIN
 						md.AffId,
 						md.IBCCustId,
 						md.ProductId
-				) AS SOURCE
-				(
-					MonthDate,AffId,IBCCustId,ProductId,
-					Deposit,Withdrawal,Bonus,Turnover,Winloss
-				)
-					ON		TARGET.MonthDate = SOURCE.MonthDate
-						AND TARGET.AffId	 = SOURCE.AffId
-						AND TARGET.IBCCustId = SOURCE.IBCCustId
-						AND TARGET.ProductId = SOURCE.ProductId
-				WHEN MATCHED THEN
-					UPDATE SET
-						TARGET.Deposit		= TARGET.Deposit	+ SOURCE.Deposit,
-						TARGET.Withdrawal	= TARGET.Withdrawal + SOURCE.Withdrawal,
-						TARGET.Bonus		= TARGET.Bonus		+ SOURCE.Bonus,
-						TARGET.Turnover		= TARGET.Turnover	+ SOURCE.Turnover,
-						TARGET.Winloss		= TARGET.Winloss	+ SOURCE.Winloss
-				WHEN NOT MATCHED BY TARGET THEN
-					INSERT
-					(
-						MonthDate,AffId,IBCCustId,ProductId,
-						Deposit,Withdrawal,Bonus,Turnover,Winloss
-					)
-					VALUES
-					(
-						SOURCE.MonthDate,SOURCE.AffId,SOURCE.IBCCustId,SOURCE.ProductId,
-						SOURCE.Deposit,SOURCE.Withdrawal,SOURCE.Bonus,SOURCE.Turnover,SOURCE.Winloss
-					);
+				END
 			END
 		END
 	END
