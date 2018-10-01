@@ -90,6 +90,7 @@ Revisions:
 	20150825@Bobby.Nguyen:  Hotfix#42274 - Member is removal but not existing in memberemoval 
 	- 20180601@Percy: Add flag for manually force update data [RedmineID: #94792]
 	- 20180801@Percy: Add Withdrawal and ActivePlayer [RedmineID: #87923]
+	- 20181001@Percy: Fix data get group setting [RedmineID: #102399]
 	
 Param's Explanation:  
 • @Month: The month to transfer  
@@ -216,7 +217,7 @@ FROM
   (select distinct ai.AffId,gh.GroupID,Currency, g.SportType as SportType  
 	 from AffInfo ai with (nolock)  
 	inner join AffGroupHistory gh(nolock) on gh.AffID=ai.AffID and gh.MonthDate=@LastDay  
-	inner join GroupSettingHistory g with (nolock) on ai.GroupId = g.GroupId and g.MonthDate=@LastDay  
+	inner join GroupSettingHistory g with (nolock) on gh.GroupId = g.GroupId and g.MonthDate=@LastDay  
 	 where ai.status=@Status-- and IsClosed=0  
 	
    ) t        
