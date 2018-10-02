@@ -408,7 +408,7 @@ BEGIN
 					c.IP,
 					COUNT(1) AS TotalClick
 				FROM #AffInfo a
-					INNER JOIN dbo.ClickStatistics1 c WITH (NOLOCK) ON a.AffId = c.AffId
+					INNER JOIN dbo.ClickStatistics1_bk c WITH (NOLOCK) ON a.AffId = c.AffId
 				WHERE Date BETWEEN @tempFromDate AND @tempToDate
 				GROUP BY
 					a.AffId,
