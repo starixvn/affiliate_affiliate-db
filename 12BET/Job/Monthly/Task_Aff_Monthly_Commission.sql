@@ -32,6 +32,17 @@ BEGIN
 		RETURN
 	END
 
+	-- Check cutoffdate
+	DECLARE @CutOffDate SMALLDATETIME
+	SELECT  @CutOffDate = CONVERT(DATE, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CutOffReportDate'
+
+	IF @LastDayOfMonth <= @CutOffDate
+	BEGIN
+		SELECT 'This month is still used old formula!'
+		
+		RETURN
+	END
+
 	-- Check settings are archived
 	IF NOT EXISTS (SELECT 1 FROM dbo.CommGroupHistory WITH (NOLOCK) WHERE MonthDate = @LastDayOfMonth)
 		OR NOT EXISTS (SELECT 1 FROM dbo.TierSettingHistory WITH (NOLOCK) WHERE MonthDate = @LastDayOfMonth)
@@ -126,6 +137,9 @@ BEGIN
 
 		DELETE dbo.rptAffDeduction WITH (ROWLOCK, UPDLOCK)
 		WHERE MonthDate = @LastDayOfMonth
+
+		DELETE dbo.AffTrans WITH (ROWLOCK, UPDLOCK)
+		WHERE TransDate = @LastDayOfMonth
 	END
 
 	INSERT INTO dbo.rptAffCommission
@@ -185,43 +199,28 @@ BEGIN
 	FROM #TempCommission tc
 		INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON tc.MonthDate = dsh.MonthDate AND tc.GroupId = dsh.GroupId AND tc.ProductId = dsh.ProductId
 
-	/*
-	MERGE dbo.AffTrans AS TARGET
-	USING
+	INSERT INTO dbo.AffTrans
 	(
-		SELECT
-			AffID,
-			MonthDate AS TransDate,
-			GETDATE() AS CompletedDate,
-			NetWinloss * CommissionRate AS Amount,
-			'Approved' AS Status,
-			'Monthly Earning' AS Description,
-			148 AS Creator,
-			201 AS TransType
-		FROM #TempCommission
-		WHERE ProductId = 0
-	) AS SOURCE
-		ON		TARGET.TransDate	= SOURCE.TransDate
-			AND TARGET.AffId		= SOURCE.AffId
-			AND TARGET.TransType	= SOURCE.TransType
-	WHEN MATCHED THEN UPDATE
-		SET TARGET.Amount			= SOURCE.Amount,
-			TARGET.CompletedDate	= SOURCE.CompletedDate,
-			TARGET.Status			= SOURCE.Status,
-			TARGET.Description		= SOURCE.Description,
-			TARGET.Creator			= SOURCE.Creator
-	WHEN NOT MATCHED BY TARGET THEN INSERT
-		(
-			AffID,TransDate,CompletedDate,Amount,
-			Status,Description,Creator,TransType
-		)
-		VALUES
-		(
-			SOURCE.AffID,SOURCE.TransDate,SOURCE.CompletedDate,SOURCE.Amount,
-			SOURCE.Status,SOURCE.Description,SOURCE.Creator,SOURCE.TransType
-		)
-	WHEN NOT MATCHED BY SOURCE AND TARGET.TransDate	= @LastDayOfMonth AND TARGET.TransType = 201 THEN DELETE;
-	*/
+		AffID,
+		TransDate,
+		CompletedDate,
+		Amount,
+		Status,
+		Description,
+		Creator,
+		TransType
+	)
+	SELECT
+		AffID,
+		MonthDate AS TransDate,
+		GETDATE() AS CompletedDate,
+		ISNULL(NetWinloss * CommissionRate, 0) AS Amount,
+		'Approved' AS Status,
+		'Monthly Earning' AS Description,
+		148 AS Creator,
+		201 AS TransType
+	FROM #TempCommission
+	WHERE ProductId = 0
 	
 	IF @IsForceUpdate = 0
 		UPDATE dbo.SystemSettings WITH (ROWLOCK, UPDLOCK)
