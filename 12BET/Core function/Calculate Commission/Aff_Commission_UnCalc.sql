@@ -591,51 +591,53 @@ BEGIN
 	BEGIN
 		SELECT
 			DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate) + 1, 0)) AS MonthDate,
-			AffId,
-			GroupId,
-			ProductId,
-			SUM(Deposit)			AS Deposit,
-			SUM(Withdrawal)			AS Withdrawal,
-			SUM(Bonus)				AS Bonus,
-			SUM(Turnover)			AS Turnover,
-			SUM(Winloss)			AS Winloss,
-			SUM(PlatFormFee)		AS PlatFormFee,
-			SUM(OperationalFee)		AS OperationalFee,
-			SUM(BankingFee)			AS BankingFee,
-			SUM(NetWinloss)			AS NetWinloss,
-			SUM(ActivePlayer)		AS ActivePlayer,
-			SUM(QualifiedMember)	AS QualifiedMember,
-			SUM(QMTurnOver)			AS QMTurnOver,
-			SUM(CommissionRate)		AS CommissionRate,
-			SUM(Commission)			AS Commission
-		FROM #Commission
+			c.AffId,
+			c.GroupId,
+			c.ProductId,
+			SUM(c.Deposit)			AS Deposit,
+			SUM(c.Withdrawal)		AS Withdrawal,
+			SUM(c.Bonus)			AS Bonus,
+			SUM(c.Turnover)			AS Turnover,
+			SUM(c.Winloss)			AS Winloss,
+			SUM(c.PlatFormFee)		AS PlatFormFee,
+			SUM(c.OperationalFee)	AS OperationalFee,
+			SUM(c.BankingFee)		AS BankingFee,
+			SUM(c.NetWinloss)		AS NetWinloss,
+			SUM(c.ActivePlayer)		AS ActivePlayer,
+			SUM(c.QualifiedMember)	AS QualifiedMember,
+			SUM(c.QMTurnOver)		AS QMTurnOver,
+			SUM(c.CommissionRate)	AS CommissionRate,
+			SUM(c.Commission)		AS Commission
+		FROM #Commission c
+			INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON c.AffId = ai.AffId
 		GROUP BY
-			AffId,
-			GroupId,
-			ProductId
+			c.AffId,
+			c.GroupId,
+			c.ProductId
 	END
 	ELSE
 	BEGIN
 		SELECT
-			MonthDate,
-			AffId,
-			GroupId,
-			ProductId,
-			Deposit,
-			Withdrawal,
-			Bonus,
-			Turnover,
-			Winloss,
-			PlatFormFee,
-			OperationalFee,
-			BankingFee,
-			NetWinloss,
-			ActivePlayer,
-			QualifiedMember,
-			QMTurnOver,
-			CommissionRate,
-			Commission
-		FROM #Commission
+			c.MonthDate,
+			c.AffId,
+			c.GroupId,
+			c.ProductId,
+			c.Deposit,
+			c.Withdrawal,
+			c.Bonus,
+			c.Turnover,
+			c.Winloss,
+			c.PlatFormFee,
+			c.OperationalFee,
+			c.BankingFee,
+			c.NetWinloss,
+			c.ActivePlayer,
+			c.QualifiedMember,
+			c.QMTurnOver,
+			c.CommissionRate,
+			c.Commission
+		FROM #Commission c
+			INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON c.AffId = ai.AffId
 	END
 
 	DROP TABLE #Data
