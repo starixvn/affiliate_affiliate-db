@@ -21,5 +21,6 @@ BEGIN
 	SELECT TOP (10) Username
 	FROM dbo.AffInfo WITH (NOLOCK)
 	WHERE Username LIKE '%' + ISNULL(LTRIM(LTRIM(@Username)), '') + '%'
+		AND status = 'Approved'
 END
 GO

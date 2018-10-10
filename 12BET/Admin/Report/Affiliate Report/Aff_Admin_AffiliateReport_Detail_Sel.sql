@@ -279,6 +279,28 @@ BEGIN
 			INNER JOIN CTE_RowNum rn ON md.MonthDate = rn.MonthDate
 	END
 
+	DECLARE @tblAffStatistics TABLE (MonthDate SMALLDATETIME, AffWithdrawal MONEY, AffAdjustment MONEY, BFF MONEY)
+	INSERT INTO @tblAffStatistics (MonthDate, AffWithdrawal, AffAdjustment, BFF)
+	SELECT md.MonthDate, ISNULL(at.AffWithdrawal, 0), ISNULL(at.AffAdjustment, 0), ISNULL(at.BFF, 0)
+	FROM @MonthDate md
+		LEFT JOIN (
+			SELECT
+				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, CASE WHEN TransDate < @FromDate THEN @FromDate ELSE TransDate END) + 1, 0)) AS MonthDate,
+				SUM(CASE WHEN TransType = 202 AND TransDate >= @FromDate THEN ABS(Amount) ELSE 0 END) AS AffWithdrawal,
+				SUM(CASE WHEN TransType = 203 AND TransDate >= @FromDate THEN Amount ELSE 0 END) AS AffAdjustment,
+				SUM(Amount) AS BFF
+			FROM dbo.AffTrans WITH (NOLOCK)
+			WHERE AffId = @AffId
+				AND TransDate < DATEADD(DAY, 1, @ToDate)
+				AND Status IN ('Pending', 'Approved', 'Completed')
+			GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, CASE WHEN TransDate < @FromDate THEN @FromDate ELSE TransDate END) + 1, 0))
+		) AS at ON md.MonthDate = at.MonthDate
+
+	UPDATE md1
+	SET md1.BFF = ISNULL(md.BFF, 0)
+	FROM @tblAffStatistics md1
+		CROSS APPLY (SELECT SUM(md2.BFF) AS BFF FROM @tblAffStatistics md2 WHERE md2.MonthDate <= md1.MonthDate) AS md
+
 	-- Return detail
 	SELECT
 		md.MonthDate,
@@ -323,17 +345,7 @@ BEGIN
 				)
 			GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, mi.CreatedDate) + 1, 0))
 		) mi ON md.MonthDate = mi.MonthDate
-		LEFT JOIN (
-			SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, TransDate) + 1, 0)) AS MonthDate,
-				SUM(CASE WHEN TransType = 202 AND TransDate >= @FromDate THEN ABS(Amount) ELSE 0 END) AS AffWithdrawal,
-				SUM(CASE WHEN TransType = 203 AND TransDate >= @FromDate THEN Amount ELSE 0 END) AS AffAdjustment,
-				SUM(Amount) AS BFF
-			FROM dbo.AffTrans WITH (NOLOCK)
-			WHERE AffId = @AffId
-				AND TransDate < DATEADD(DAY, 1, @ToDate)
-				AND Status IN ('Pending', 'Approved', 'Completed')
-			GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, TransDate) + 1, 0))
-		) at ON md.MonthDate = at.MonthDate
+		LEFT JOIN @tblAffStatistics at ON md.MonthDate = at.MonthDate
 	WHERE md.RowIdx BETWEEN @RowStart AND @RowEnd
 	ORDER BY md.RowIdx
 
@@ -358,7 +370,7 @@ BEGIN
 		SUM(ISNULL(tc.Commission, 0)) AS Earning,
 		SUM(ISNULL(at.AffWithdrawal, 0)) AS AffWithdrawal,
 		SUM(ISNULL(at.AffAdjustment, 0)) AS AffAdjustment,
-		SUM(ISNULL(at.BFF, 0)) AS BFF
+		SUM(ISNULL(CASE WHEN md.MonthDate = @ToDate THEN at.BFF ELSE 0 END, 0)) AS BFF -- the last month by running total
 	FROM @MonthDate md
 		LEFT JOIN #TempCommission tc ON md.MonthDate = tc.MonthDate
 		LEFT JOIN (
@@ -376,17 +388,7 @@ BEGIN
 				)
 			GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, mi.CreatedDate) + 1, 0))
 		) mi ON md.MonthDate = mi.MonthDate
-		LEFT JOIN (
-			SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, TransDate) + 1, 0)) AS MonthDate,
-				SUM(CASE WHEN TransType = 202 AND TransDate >= @FromDate THEN ABS(Amount) ELSE 0 END) AS AffWithdrawal,
-				SUM(CASE WHEN TransType = 203 AND TransDate >= @FromDate THEN Amount ELSE 0 END) AS AffAdjustment,
-				SUM(Amount) AS BFF
-			FROM dbo.AffTrans WITH (NOLOCK)
-			WHERE AffId = @AffId
-				AND TransDate < DATEADD(DAY, 1, @ToDate)
-				AND Status IN ('Pending', 'Approved', 'Completed')
-			GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, TransDate) + 1, 0))
-		) at ON md.MonthDate = at.MonthDate
+		LEFT JOIN @tblAffStatistics at ON md.MonthDate = at.MonthDate
 
 	DROP TABLE #TempCommission
 	DROP TABLE #Signup
