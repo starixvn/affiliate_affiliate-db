@@ -89,7 +89,7 @@ BEGIN
 		DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
 
 		-- Calculated months
-		IF @FDate < @MaxCommDate
+		IF @FDate <= @MaxCommDate
 		BEGIN
 			SELECT @tempFromDate	= @FDate
 			SELECT @tempToDate		= CASE WHEN @TDate > @MaxCommDate THEN @MaxCommDate ELSE @TDate END
