@@ -32,7 +32,6 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
-
 	
 	SELECT  @Username = ISNULL(LTRIM(RTRIM(@Username)), '')
 
@@ -151,7 +150,7 @@ BEGIN
 				@FromMonthDate		= @tempFromDate,
 				@ToMonthDate		= @tempToDate,
 				@ProductIds			= @ProductIds,
-				@IsSumAll			= 1,
+				@IsSumAll			= 0,
 				@GetRowTotalOnly	= 1
 		END
 
@@ -186,7 +185,7 @@ BEGIN
 				@FromMonthDate		= @tempFromDate,
 				@ToMonthDate		= @tempToDate,
 				@ProductIds			= @ProductIds,
-				@IsSumAll			= 1,
+				@IsSumAll			= 0,
 				@GetRowTotalOnly	= 1
 		END
 
