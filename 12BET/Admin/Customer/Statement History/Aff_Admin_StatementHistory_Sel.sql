@@ -20,6 +20,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20181012@Percy: Missing data today [RedmineID: #103143]
 */
 
 BEGIN
@@ -77,7 +78,7 @@ BEGIN
 			LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON at.Creator = au.custid
 		WHERE at.AffId = @AffId
 			AND at.TransType IN (202, 203)
-			AND at.TransDate BETWEEN @FDate AND @TDate
+			AND at.TransDate >= @FDate AND at.TransDate < DATEADD(DAY, 1, @TDate)
 	END
 
 	-- Commission info
@@ -88,7 +89,7 @@ BEGIN
 		DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
 
 		-- Calculated months
-		IF @FDate < @MaxCommDate
+		IF @FDate <= @MaxCommDate
 		BEGIN
 			SELECT @tempFromDate	= @FDate
 			SELECT @tempToDate		= CASE WHEN @TDate > @MaxCommDate THEN @MaxCommDate ELSE @TDate END
