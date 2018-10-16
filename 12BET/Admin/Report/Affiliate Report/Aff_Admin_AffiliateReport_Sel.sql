@@ -2,7 +2,7 @@
 USE [Affiliate_12BET]
 GO
 
-ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
+ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel_xtest]
 	@Username			NVARCHAR(50) = NULL,
 	@FromDate			SMALLDATETIME,
 	@ToDate				SMALLDATETIME,
@@ -10,6 +10,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	@ProductIds			VARCHAR(MAX) = '0',
 	@SortType			TINYINT = 1,
 	@SortDirectionType	BIT = 0,
+	@IsExportExcel		BIT = 0,
 	@PageIndex			INT = 1,
 	@PageSize			INT = 50,
 	@NRows				INT = 0 OUTPUT
@@ -267,8 +268,16 @@ BEGIN
 	BEGIN
 		DECLARE @RowStart INT, @RowEnd INT
 
-		SELECT  @RowStart = (@PageIndex - 1) * @PageSize + 1,
-				@RowEnd = @RowStart + @PageSize - 1
+		IF @IsExportExcel = 0
+		BEGIN
+			SELECT  @RowStart = (@PageIndex - 1) * @PageSize + 1,
+					@RowEnd = @RowStart + @PageSize - 1
+		END
+		ELSE
+		BEGIN
+			SELECT  @RowStart = 1,
+					@RowEnd = @NRows
+		END
 
 		CREATE TABLE #AffPaging
 		(

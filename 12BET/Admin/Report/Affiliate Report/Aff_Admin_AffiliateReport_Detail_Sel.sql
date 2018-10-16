@@ -2,7 +2,7 @@
 USE [Affiliate_12BET]
 GO
 
-ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Detail_Sel]
+ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Detail_Sel_xtest]
 	@Username			NVARCHAR(50),
 	@FromDate			SMALLDATETIME,
 	@ToDate				SMALLDATETIME,
@@ -10,6 +10,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Detail_Sel]
 	@ProductIds			VARCHAR(MAX) = '0',
 	@SortType			TINYINT = 1,
 	@SortDirectionType	BIT = 0,
+	@IsExportExcel		BIT = 0,
 	@PageIndex			INT = 1,
 	@PageSize			INT = 50,
 	@NRows				INT = 0 OUTPUT
@@ -256,8 +257,16 @@ BEGIN
 	BEGIN
 		DECLARE @RowStart INT, @RowEnd INT
 
-		SELECT  @RowStart = (@PageIndex - 1) * @PageSize + 1,
-				@RowEnd = @RowStart + @PageSize - 1
+		IF @IsExportExcel = 0
+		BEGIN
+			SELECT  @RowStart = (@PageIndex - 1) * @PageSize + 1,
+					@RowEnd = @RowStart + @PageSize - 1
+		END
+		ELSE
+		BEGIN
+			SELECT  @RowStart = 1,
+					@RowEnd = @NRows
+		END
 
 		;WITH CTE_RowNum AS
 		(
@@ -366,7 +375,7 @@ BEGIN
 		SUM(ISNULL(tc.OperationalFee, 0)) AS OperationalFee,
 		SUM(ISNULL(tc.BankingFee, 0)) AS BankingFee,
 		SUM(ISNULL(tc.PlatFormFee, 0) + ISNULL(tc.OperationalFee, 0) + ISNULL(tc.BankingFee, 0)) AS TotalFee,
-		0 AS CommissionRate,
+		AVG(ISNULL(tc.CommissionRate, 0)) AS CommissionRate,
 		SUM(ISNULL(tc.Commission, 0)) AS Earning,
 		SUM(ISNULL(at.AffWithdrawal, 0)) AS AffWithdrawal,
 		SUM(ISNULL(at.AffAdjustment, 0)) AS AffAdjustment,

@@ -2,13 +2,14 @@
 USE [Affiliate_12BET]
 GO
 
-ALTER PROCEDURE [dbo].[Aff_Admin_PlayersDetail_Sel]
-	@AffId		INT,
-	@ProductId	INT = 0,
-	@MonthDate	SMALLDATETIME,
-	@PageIndex	INT = 1,
-	@PageSize	INT = 200,
-	@NRows		INT = 0 OUTPUT
+ALTER PROCEDURE [dbo].[Aff_Admin_PlayersDetail_Sel_xtest]
+	@AffId			INT,
+	@ProductId		INT = 0,
+	@MonthDate		SMALLDATETIME,
+	@IsExportExcel	BIT = 0,
+	@PageIndex		INT = 1,
+	@PageSize		INT = 200,
+	@NRows			INT = 0 OUTPUT
 AS
 
 /*
@@ -215,8 +216,16 @@ BEGIN
 		-- paging
 		DECLARE @RowStart INT, @RowEnd INT
 
-		SELECT  @RowStart = (@PageIndex - 1) * @PageSize + 1,
-				@RowEnd = @RowStart + @PageSize - 1
+		IF @IsExportExcel = 0
+		BEGIN
+			SELECT  @RowStart = (@PageIndex - 1) * @PageSize + 1,
+					@RowEnd = @RowStart + @PageSize - 1
+		END
+		ELSE
+		BEGIN
+			SELECT  @RowStart = 1,
+					@RowEnd = @NRows
+		END
 
 		SELECT
 			IBCUserName,
