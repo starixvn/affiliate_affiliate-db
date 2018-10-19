@@ -1,3 +1,4 @@
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="1" isNested="1"></info>*/
 USE [Affiliate_12BET]
 GO
 
@@ -9,17 +10,17 @@ RETURNS BIT
 AS
 
 /*
-	Created by: Percy
-	Date: 2017-06-01
-	DB: DBAFF.Affiliate_Athena000
-	Task: Check testing SP
+	Created by: 20170601@Percy
+	DB: DBAFF12BET.Affiliate_12BET
+	Task: Core function - Check SP version
 
 	Revisions:
+		- 20170601@Percy: Initialize SP [RedmineID: #77521]
 */
 
 BEGIN
 	DECLARE @isTest BIT, @SPName NVARCHAR(200)
-	
+
 	SELECT  @SPName = OBJECT_NAME(@ProcId)
 	IF (
 		@SPName LIKE '%_xtest'
@@ -34,13 +35,9 @@ BEGIN
 	END
 	ELSE
 	BEGIN
-		SELECT @isTest = 1
+		SELECT @isTest = 0
 	END
 
 	RETURN @isTest
 END
-GO
-GRANT EXECUTE ON [dbo].[f_Aff_CheckSPVersion] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[f_Aff_CheckSPVersion] TO [vnteam]
 GO
