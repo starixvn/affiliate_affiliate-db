@@ -55,6 +55,8 @@ BEGIN
 
 	IF @tempToMonth > @CutOffDate
 	BEGIN
+		DELETE @MonthDate
+
 		SELECT @tempFrom = CASE WHEN @tempFromMonth <= @CutOffDate THEN DATEADD(DAY, 1, @CutOffDate) ELSE @tempFromMonth END
 		SELECT @tempTo = @tempToMonth
 
@@ -62,7 +64,7 @@ BEGIN
 		BEGIN
 			WITH CTE_MonthDate AS
 			(
-				SELECT @tempFrom AS MonthDate
+				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempFrom) + 1, 0)) AS MonthDate
 				UNION ALL
 				SELECT DATEADD(DAY, -1, DATEADD(MONTH, 1, DATEADD(DAY, 1, MonthDate)))
 				FROM CTE_MonthDate
@@ -94,7 +96,7 @@ BEGIN
 		BEGIN
 			WITH CTE_MonthDate AS
 			(
-				SELECT @tempFrom AS MonthDate
+				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempFrom) + 1, 0)) AS MonthDate
 				UNION ALL
 				SELECT DATEADD(DAY, -1, DATEADD(MONTH, 1, DATEADD(DAY, 1, MonthDate)))
 				FROM CTE_MonthDate
@@ -142,7 +144,7 @@ BEGIN
 		BEGIN
 			WITH CTE_MonthDate AS
 			(
-				SELECT @tempFrom AS MonthDate
+				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempFrom) + 1, 0)) AS MonthDate
 				UNION ALL
 				SELECT DATEADD(DAY, -1, DATEADD(MONTH, 1, DATEADD(DAY, 1, MonthDate)))
 				FROM CTE_MonthDate
@@ -175,7 +177,7 @@ BEGIN
 		BEGIN
 			WITH CTE_MonthDate AS
 			(
-				SELECT @tempFrom AS MonthDate
+				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempFrom) + 1, 0)) AS MonthDate
 				UNION ALL
 				SELECT DATEADD(DAY, -1, DATEADD(MONTH, 1, DATEADD(DAY, 1, MonthDate)))
 				FROM CTE_MonthDate
@@ -249,12 +251,12 @@ BEGIN
 					SELECT SUM(c2.Turnover) AS Turnover, SUM(c2.Winloss) AS Winloss
 					FROM #AffCommission c2
 					WHERE c1.MonthDate = c2.MonthDate AND c1.AffId = c2.AffId
-						AND ',' + @ProductIds + ',' LIKE '%' + CONVERT(VARCHAR(10), c2.ProductId) + '%'
+						AND ',' + @ProductIds + ',' LIKE '%,' + CONVERT(VARCHAR(10), c2.ProductId) + ',%'
 				) AS c2
 			WHERE c1.ProductId = 0
 
 			IF @GetRowTotalOnly = 0
-				DELETE #AffCommission WHERE ',' + @ProductIds + ',' NOT LIKE '%' + CONVERT(VARCHAR(10), ProductId) + '%'
+				DELETE #AffCommission WHERE ',' + @ProductIds + ',' NOT LIKE '%,' + CONVERT(VARCHAR(10), ProductId) + ',%'
 			ELSE
 				DELETE #AffCommission WHERE ProductId <> 0
 		END
