@@ -2,7 +2,7 @@
 USE [Affiliate_12BET]
 GO
 
-ALTER PROCEDURE [dbo].[Task_Aff_ImportData_API__CheckData_Job]
+ALTER PROCEDURE [dbo].[Task_Aff_ImportData_API_CheckData_Job]
 AS
 
 /*
