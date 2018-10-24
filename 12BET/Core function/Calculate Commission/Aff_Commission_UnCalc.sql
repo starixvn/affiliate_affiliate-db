@@ -570,12 +570,12 @@ BEGIN
 						SELECT SUM(c2.Turnover) AS Turnover, SUM(c2.Winloss) AS Winloss
 						FROM #Commission c2
 						WHERE c1.MonthDate = c2.MonthDate AND c1.AffId = c2.AffId
-							AND ',' + @ProductIds + ',' LIKE '%,' + CONVERT(VARCHAR(10), c2.ProductId) + ',%'
+							AND ',' + @ProductIds + ',' LIKE '%' + CONVERT(VARCHAR(10), c2.ProductId) + '%'
 					) AS c2
 				WHERE c1.ProductId = 0
 
 				IF @GetRowTotalOnly = 0
-					DELETE #Commission WHERE ',' + @ProductIds + ',' NOT LIKE '%,' + CONVERT(VARCHAR(10), ProductId) + ',%'
+					DELETE #Commission WHERE ',' + @ProductIds + ',' NOT LIKE '%' + CONVERT(VARCHAR(10), ProductId) + '%'
 				ELSE
 					DELETE #Commission WHERE ProductId <> 0
 			END

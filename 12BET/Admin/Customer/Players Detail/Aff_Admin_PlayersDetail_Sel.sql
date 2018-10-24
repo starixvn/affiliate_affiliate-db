@@ -2,7 +2,7 @@
 USE [Affiliate_12BET]
 GO
 
-ALTER PROCEDURE [dbo].[Aff_Admin_PlayersDetail_Sel_xtest]
+ALTER PROCEDURE [dbo].[Aff_Admin_PlayersDetail_Sel]
 	@AffId			INT,
 	@ProductId		INT = 0,
 	@MonthDate		SMALLDATETIME,
@@ -21,6 +21,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20181001@Percy: Support export excel [RedmineID: #102322]
 */
 
 BEGIN

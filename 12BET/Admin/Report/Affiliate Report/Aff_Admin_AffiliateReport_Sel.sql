@@ -2,7 +2,7 @@
 USE [Affiliate_12BET]
 GO
 
-ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel_xtest]
+ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	@Username			NVARCHAR(50) = NULL,
 	@FromDate			SMALLDATETIME,
 	@ToDate				SMALLDATETIME,
@@ -23,6 +23,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20181001@Percy: Support export excel [RedmineID: #102322]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: Winloss, 4: Earning (Commission)

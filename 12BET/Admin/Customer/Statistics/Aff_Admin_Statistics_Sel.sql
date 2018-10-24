@@ -241,8 +241,8 @@ BEGIN
 	SELECT
 		@TotalClickPCByMonth		= SUM(CASE WHEN DeviceType = 0 THEN ISNULL(TotalClickByMonth, 0) ELSE 0 END),
 		@UniqueClickPCByMonth		= SUM(CASE WHEN DeviceType = 0 THEN ISNULL(UniqueClicks, 0) ELSE 0 END),
-		@UniqueClickMobileByMonth	= SUM(CASE WHEN DeviceType = 1 THEN ISNULL(TotalClickByMonth, 0) ELSE 0 END),
-		@TotalClickMobileByMonth	= SUM(CASE WHEN DeviceType = 1 THEN ISNULL(UniqueClicks, 0) ELSE 0 END)
+		@TotalClickMobileByMonth	= SUM(CASE WHEN DeviceType = 1 THEN ISNULL(TotalClickByMonth, 0) ELSE 0 END),
+		@UniqueClickMobileByMonth	= SUM(CASE WHEN DeviceType = 1 THEN ISNULL(UniqueClicks, 0) ELSE 0 END)
 	FROM CTE_Device
 
 

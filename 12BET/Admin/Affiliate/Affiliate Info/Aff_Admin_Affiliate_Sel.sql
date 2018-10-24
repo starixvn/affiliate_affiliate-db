@@ -2,7 +2,7 @@
 USE [Affiliate_12BET]
 GO
 
-ALTER PROCEDURE [dbo].[Aff_Admin_Affiliate_Sel_xtest] 
+ALTER PROCEDURE [dbo].[Aff_Admin_Affiliate_Sel] 
 	@UserId 			INT,
 	@GroupID 			INT				= 0,
 	@PreferredLanguage	VARCHAR(10)		= '',
