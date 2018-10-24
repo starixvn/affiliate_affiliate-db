@@ -68,7 +68,6 @@ BEGIN
 			WHERE mr.RemovedDate <= DATEADD(DAY, 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @WinlostDate) + 1, 0))
 				AND mi.IBCCustId = mr.IBCCustId
 		)
-		AND mi.AffId IN (927841,92040664,92040667) -- testing Affiliates - will remove later
 
 	MERGE dbo.rptMemberDaily AS TARGET
 	USING
