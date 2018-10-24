@@ -13,7 +13,7 @@ AS
 	Task: Get data of aff's member on bettrans_AGCasino
 
 	Revisions:
-		- 20181001@Percy: Initialize SP [RedmineID: #87923]
+		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 */
 
 BEGIN

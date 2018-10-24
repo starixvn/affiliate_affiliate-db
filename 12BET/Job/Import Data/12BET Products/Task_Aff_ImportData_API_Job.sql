@@ -11,7 +11,7 @@ AS
 	Task: Import Data Job - API Products
 
 	Revisions:
-		- 20181001@Percy: Initialize SP [RedmineID: #87923]
+		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 */
 
 BEGIN
@@ -23,22 +23,29 @@ BEGIN
 
 	DECLARE @tblWinlostDate TABLE (WinlostDate SMALLDATETIME, MaxQueueId BIGINT)
 
-	DECLARE @OldLastQueueId BIGINT, @NewLastQueueId BIGINT, @WinlostDate SMALLDATETIME
+	DECLARE @OldLastQueueId BIGINT, @NewLastQueueId BIGINT, @WinlostDate SMALLDATETIME,
+			@LaunchDate SMALLDATETIME, @FromImportDate SMALLDATETIME
 
 	DECLARE @ErrTable TABLE (ProductId INT, WinlostDate SMALLDATETIME)
 
 	-- AG Casino
 	BEGIN
 		-- Reset data
-		SELECT @OldLastQueueId = NULL, @NewLastQueueId = NULL, @WinlostDate = NULL
+		SELECT @OldLastQueueId = NULL, @NewLastQueueId = NULL, @WinlostDate = NULL, @LaunchDate = NULL, @FromImportDate = NULL
+		
 		DELETE @tblWinlostDate
 		
 		SELECT @OldLastQueueId = CONVERT(BIGINT, SettingValue) FROM dbo.APIProductSettings WITH (NOLOCK)
 		WHERE ProductId = 9 AND SettingName = 'LastQueueId'
+
+		SELECT @LaunchDate = CONVERT(SMALLDATETIME, SettingValue) FROM dbo.APIProductSettings WITH (NOLOCK)
+		WHERE ProductId = 9 AND SettingName = 'LaunchDate'
+
+		SELECT @FromImportDate = CASE WHEN @LaunchDate > @MaxCommDate THEN @LaunchDate ELSE DATEADD(DAY, 1, @MaxCommDate) END
 	
 		INSERT INTO @tblWinlostDate (WinlostDate, MaxQueueId)
 		SELECT WinlostDate, MAX(QueueId) FROM bodb_PlaytechCS.dbo.Product3rd_ImportQueue WITH (NOLOCK)
-		WHERE ProductId = 10 AND QueueId > @OldLastQueueId AND WinlostDate > @MaxCommDate
+		WHERE ProductId = 10 AND QueueId > @OldLastQueueId AND WinlostDate >= @FromImportDate
 		GROUP BY WinlostDate
 
 		SELECT @NewLastQueueId = MAX(MaxQueueId) FROM @tblWinlostDate

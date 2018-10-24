@@ -11,7 +11,7 @@ AS
 	Task: Import Data Job - API Products
 
 	Revisions:
-		- 20181001@Percy: Initialize SP [RedmineID: #87923]
+		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 */
 
 BEGIN
@@ -21,7 +21,8 @@ BEGIN
 	SELECT  @MaxCommDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK)
 	WHERE SName = 'AFF_CommissionDate'
 
-	DECLARE @FromDate SMALLDATETIME, @ToDate SMALLDATETIME, @WinlostDate SMALLDATETIME
+	DECLARE @FromDate SMALLDATETIME, @ToDate SMALLDATETIME, @WinlostDate SMALLDATETIME,
+			@LaunchDate SMALLDATETIME, @FromImportDate SMALLDATETIME
 
 	DECLARE @ErrTable TABLE (ProductId INT, WinlostDate SMALLDATETIME)
 
@@ -30,13 +31,19 @@ BEGIN
 	-- AG Casino
 	BEGIN
 		-- Reset data
-		SELECT @LastQueueId = NULL, @WinlostDate = NULL
+		SELECT @LastQueueId = NULL, @WinlostDate = NULL, @LaunchDate = NULL, @FromImportDate = NULL
+		
 		SELECT @LastQueueId = CONVERT(BIGINT, SettingValue) FROM dbo.APIProductSettings WITH (NOLOCK)
 		WHERE ProductId = 9 AND SettingName = 'LastQueueId'
 
+		SELECT @LaunchDate = CONVERT(SMALLDATETIME, SettingValue) FROM dbo.APIProductSettings WITH (NOLOCK)
+		WHERE ProductId = 9 AND SettingName = 'LaunchDate'
+
+		SELECT @FromImportDate = CASE WHEN @LaunchDate > @MaxCommDate THEN @LaunchDate ELSE DATEADD(DAY, 1, @MaxCommDate) END
+
 		SELECT @FromDate = MIN(WinlostDate), @ToDate = MAX(WinlostDate)
 		FROM bodb_PlaytechCS.dbo.Product3rd_ImportQueue WITH (NOLOCK)
-		WHERE ProductId = 10 AND QueueId <= @LastQueueId AND WinlostDate > @MaxCommDate
+		WHERE ProductId = 10 AND QueueId <= @LastQueueId AND WinlostDate >= @FromImportDate
 
 		SELECT @WinlostDate = @FromDate
 
