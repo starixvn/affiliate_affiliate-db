@@ -1,6 +1,12 @@
 USE [Affiliate_12BET]
 GO
 
+/*
+	Created: 20181001@Percy
+	DB: DBAFF12BET.Affiliate_12BET
+	Task: Add new table for Landing Page [RedmineID: #102322]
+*/
+
 CREATE TABLE [dbo].[LandingPage]
 (
 	PageId		SMALLINT NOT NULL IDENTITY(1,1),
