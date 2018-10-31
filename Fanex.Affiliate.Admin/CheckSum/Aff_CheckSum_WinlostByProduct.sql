@@ -21,6 +21,7 @@ Revisions:
 	- 20161110@Bobby: #67071 - Correct productid for funding data
 	- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 	- 20180629@Percy: Get member data by sporttype after movebetday [RedmineID: #97592]
+	- 20181031@Patrick: DB052 indexes revolution [RedmineID: #103572]
 	
 Param's Explanation:  
 	@Xml: 
@@ -266,7 +267,7 @@ BEGIN
 					WHEN b.statusID = 111 THEN 0
 					ELSE 1
 					END)
-		FROM bodb02.dbo.bettrans b WITH (NOLOCK, INDEX (IX_recommend_transid))
+		FROM bodb02.dbo.bettrans b WITH (NOLOCK)
 			INNER JOIN #LicenseeCust c WITH (NOLOCK)
 			ON b.custid = c.custid
 				AND b.recommend = c.recommend
