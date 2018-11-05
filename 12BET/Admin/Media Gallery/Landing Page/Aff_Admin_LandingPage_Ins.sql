@@ -23,6 +23,8 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
+	DECLARE @Language VARCHAR(10) = 'en-US'
+
 	-- Check permission
 	EXEC dbo.Aff_Con_CheckPermission
 		@CustId		= @UserId,
@@ -72,6 +74,6 @@ BEGIN
 		@SPName		= @SPName,
 		@NewData	= @Data,
 		@IP			= @IP,
-		@Language	= 'E'
+		@Language	= @Language
 END
 GO

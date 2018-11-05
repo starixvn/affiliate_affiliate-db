@@ -37,7 +37,7 @@ BEGIN
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 		LEFT JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupId = cg.GroupId
-		LEFT JOIN dbo.AdminFavorite af WITH (NOLOCK) ON ai.AffID = af.AffId
+		LEFT JOIN dbo.AdminFavorite af WITH (NOLOCK) ON ai.AffID = af.AffId AND af.AdminId = @UserId
 	WHERE
 		(ISNULL(@Username, '') = '' OR ai.Username LIKE '%' + @Username + '%')
 		AND (ISNULL(@Email, '') = '' OR ai.Email LIKE '%' + @Email + '%')
@@ -45,7 +45,7 @@ BEGIN
 							WHEN ISNULL(@Status, '') = '' THEN ai.Status
 							WHEN @Status IN ('Favorite', 'Approved', 'Closed') THEN 'Approved'
 							ELSE @Status END
-		AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId = @UserId)
+		AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
 		AND (ISNULL(@Status, '') <> 'Closed' OR ai.IsClosed = 1)
 		AND (ISNULL(@PreferredLanguage, '') = '' OR ad.PreferredLanguage = @PreferredLanguage)
 		AND (ISNULL(@GroupID, 0) = 0 OR ai.GroupID = @GroupID)
@@ -115,7 +115,7 @@ BEGIN
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 		LEFT JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupId = cg.GroupId
-		LEFT JOIN dbo.AdminFavorite af WITH (NOLOCK) ON ai.AffID = af.AffId
+		LEFT JOIN dbo.AdminFavorite af WITH (NOLOCK) ON ai.AffID = af.AffId AND af.AdminId = @UserId
 		LEFT JOIN (
 			SELECT AffId, COUNT(1) AS NoOfMember
 			FROM dbo.MemberInfo WITH (NOLOCK)
@@ -135,10 +135,10 @@ BEGIN
 							WHEN ISNULL(@Status, '') = '' THEN ai.Status
 							WHEN @Status IN ('Favorite', 'Approved', 'Closed') THEN 'Approved'
 							ELSE @Status END
-		AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId = @UserId)
 		AND (ISNULL(@Status, '') <> 'Closed' OR ai.IsClosed = 1)
 		AND (ISNULL(@PreferredLanguage, '') = '' OR ad.PreferredLanguage = @PreferredLanguage)
 		AND (ISNULL(@GroupID, 0) = 0 OR ai.GroupID = @GroupID)
+		AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
 	) AS result
 	WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 END
