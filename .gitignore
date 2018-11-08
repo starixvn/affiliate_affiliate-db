@@ -30,3 +30,4 @@ $tf*/
 *.dbmdl
 *.dbproj.user
 *.sqlproj.user
+*.vs/*

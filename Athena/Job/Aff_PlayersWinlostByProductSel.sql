@@ -25,6 +25,7 @@ AS
 		- 20160119@Bobby: #51099 - Get member data by sporttype after movebetday
 		- 20161022@Jim:move table to bodb_licenseereport [RedmineID :#60449]
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
+		- 20181031@Patrick: DB052 indexes revolution [RedmineID: #103572]
   
 	Param's Explanation:  
 		- @Xml: List member's username is under affiliate user
@@ -248,7 +249,7 @@ BEGIN
 					WHEN b.statusID = 111 THEN 0
 					ELSE 1
 					END) AS BetCountNoDraw
-		FROM bettrans b WITH (NOLOCK, INDEX (IX_recommend_transid))
+		FROM bettrans b WITH (NOLOCK)
 			INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid = c.custid AND b.recommend = c.recommend
 			INNER JOIN #ProductBettype bt ON b.bettype = bt.bettype
 		WHERE b.winlostdate = @date
