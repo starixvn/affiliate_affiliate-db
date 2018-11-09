@@ -3,12 +3,12 @@ GO
 
 CREATE TABLE dbo.bettrans_Betsoft
 (
-	IBCCustId		INT,
-	Username		NVARCHAR(50),
-	GameSessionId	BIGINT,
-	GameId			INT,
+	IBCCustId		INT NOT NULL,
+	Username		NVARCHAR(50) NOT NULL,
+	GameSessionId	BIGINT NOT NULL,
+	GameId			INT NOT NULL,
 	PlatForm		VARCHAR(50),
-	BetId			INT,
+	BetId			INT NOT NULL,
 	Amount			MONEY,
 	Win				MONEY,
 	BetTime			DATETIME,

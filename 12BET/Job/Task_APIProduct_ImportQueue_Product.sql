@@ -31,7 +31,32 @@ BEGIN
 	-- Ebet
 	IF @ProductId = 10
 	BEGIN
-		RETURN
+		INSERT INTO #tempData
+		(
+			AffId,
+			IBCCustId,
+			Currency,
+			Turnover,
+			Winloss
+		)
+		SELECT
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency,
+			SUM(ISNULL(b.Bet, 0)) AS Turnover,
+			SUM(ISNULL(b.Payout, 0) - ISNULL(b.Bet, 0)) AS Winloss
+		FROM dbo.bettrans_Ebet b WITH (NOLOCK)
+			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON b.IBCCustId = mi.IBCCustId
+		WHERE b.WinlostDate = @WinlostDate
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE mr.RemovedDate <= DATEADD(DAY, 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @WinlostDate) + 1, 0))
+					AND mi.IBCCustId = mr.IBCCustId
+			)
+		GROUP BY
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency
 	END
 	-- Betsoft
 	ELSE IF @ProductId = 11

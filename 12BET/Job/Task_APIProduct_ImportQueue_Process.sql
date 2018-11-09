@@ -23,6 +23,7 @@ BEGIN
 
 	DECLARE @QueueId BIGINT, @XmlData XML, @WinlostDate SMALLDATETIME
 
+	CREATE TABLE #Ebet (Username NVARCHAR(50), BetHistoryId NVARCHAR(100), Bet MONEY, Payout MONEY, PayoutTime DATETIME)
 	CREATE TABLE #Betsoft (Username NVARCHAR(50), GameSessionId BIGINT, GameId INT, PlatForm VARCHAR(50), BetId INT, Amount MONEY, Win MONEY, BetTime DATETIME)
 
 	-- Manually import
@@ -39,12 +40,38 @@ BEGIN
 	WHILE @XmlData IS NOT NULL
 	BEGIN
 		-- clean up tmp table
+		TRUNCATE TABLE #Ebet
 		TRUNCATE TABLE #Betsoft
 
 		-- Ebet
 		IF @ProductId = 10
 		BEGIN
-			RETURN
+			BEGIN TRY
+				INSERT INTO #Ebet (Username, BetHistoryId, Bet, Payout, PayoutTime)
+				SELECT	t.c.value('@USERNAME', 'NVARCHAR(50)')	AS Username,
+						t.c.value('@ID', 'NVARCHAR(100)')		AS BetHistoryId,
+						t.c.value('@BET', 'MONEY')				AS Bet,
+						t.c.value('@PAYOUT', 'MONEY')			AS Payout,
+						t.c.value('@PAYOUTTIME', 'DATETIME')	AS PayoutTime
+				FROM @XmlData.nodes('ROOT/RESPONSE/BETHISTORYLIST/BETHISTORY') AS t(c)
+				OPTION (OPTIMIZE FOR (@XmlData = NULL))
+
+				DELETE be WITH (ROWLOCK, UPDLOCK)
+				FROM dbo.bettrans_Ebet be
+				WHERE EXISTS (SELECT 1 FROM #Ebet e WHERE be.BetHistoryId = e.BetHistoryId)
+
+				INSERT INTO dbo.bettrans_Ebet (IBCCustId, Username, BetHistoryId, Bet, Payout, PayoutTime, WinlostDate)
+				SELECT m.IBCCustId, e.Username, e.BetHistoryId, e.Bet, e.Payout, e.PayoutTime, CONVERT(DATE, e.PayoutTime) AS WinlostDate
+				FROM #Ebet e
+					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + e.Username = m.Username
+
+				SELECT @WinlostDate = MIN(CONVERT(DATE, PayoutTime)) FROM #Ebet
+			END TRY
+			BEGIN CATCH
+				UPDATE dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
+				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
+				WHERE QueueId = @QueueId
+			END CATCH
 		END
 		-- Betsoft
 		ELSE IF @ProductId = 11
@@ -76,7 +103,7 @@ BEGIN
 			END TRY
 			BEGIN CATCH
 				UPDATE dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
-				SET FinishedTime = GETDATE(), WinlostDate = @WinlostDate, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
+				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
 				WHERE QueueId = @QueueId
 			END CATCH
 		END
@@ -93,6 +120,7 @@ BEGIN
 		ORDER BY QueueId
 	END
 
+	DROP TABLE #Ebet
 	DROP TABLE #Betsoft
 END
 GO
