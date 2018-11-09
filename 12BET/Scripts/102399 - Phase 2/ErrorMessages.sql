@@ -2,6 +2,9 @@ USE [Affiliate_12BET]
 GO
 
 /*
+	Created: 20181109@Percy
+	DB: DBAFF12BET.Affiliate_12BET
+	Task: Insert new error messages
 */
 
 INSERT INTO dbo.Messages(MessageId,MessageTypeId,Description,MessageContentEN)
