@@ -4,6 +4,7 @@ GO
 
 ALTER PROCEDURE [dbo].[Aff_User_PaymentRequest_Sel]
 	@AffID				INT,
+	@Year				INT,
 	@PreferredPayment	VARCHAR(20) OUTPUT,
 	@BalBroughtForward	MONEY OUTPUT,	
 	@MinAmount			MONEY OUTPUT
@@ -12,15 +13,17 @@ AS
 /*
 	Created: 20180601@Percy
 	DB: DBAFF12BET.Affiliate_12BET
-	Task: User - Payment Request - Get payment list
+	Task: User site - Payment Request - Get payment list
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20181001@Percy: Add @MonthDate - filter Requested Date (TransDate) by Year [RedmineID: #102322]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
+	-- Preferred Payment
 	SELECT @PreferredPayment = PreferredPayment
 	FROM dbo.AffDetail WITH (NOLOCK)
 	WHERE AffID = @AffID
@@ -36,13 +39,25 @@ BEGIN
 	FROM SystemSettings WITH (NOLOCK)
 	WHERE SName = 'AFF_Min' + @PreferredPayment + @currencyName
 
-	--Get Balance Brought Forward
+	-- Get Balance Brought Forward
 	SELECT @BalBroughtForward = dbo.Aff_GetAffBalance(@AffID)
+
+	-- Payment list
+	DECLARE @BeginYear SMALLDATETIME, @EndYear SMALLDATETIME
+	SELECT  @BeginYear	= CONVERT(VARCHAR(4), @Year) + '-01-01'
+	SELECT  @EndYear	= CONVERT(VARCHAR(4), @Year) + '-12-31'
+
+	DECLARE @MinReportDate SMALLDATETIME
+	SELECT  @MinReportDate = dbo.Aff_f_GetMinReportDate(@AffId)
+
+	SELECT  @BeginYear = CASE WHEN @BeginYear < @MinReportDate THEN @MinReportDate ELSE @BeginYear END
 
 	SELECT t.TransID, p.RefID, p.TransDate, p.CompletedDate, p.Status, ABS(p.Amount) AS Amount, p.AffDesc
 	FROM dbo.AffPayout p WITH (NOLOCK)
 		INNER JOIN dbo.AffTrans t WITH (NOLOCK) ON p.RefID = t.RefID
 	WHERE p.AffID = @AffID
+		AND t.TransType = 202 -- Payment
+		AND p.TransDate BETWEEN @BeginYear AND @EndYear
 	ORDER BY p.RefID DESC
 END
 GO

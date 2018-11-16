@@ -139,6 +139,8 @@ BEGIN
 	DECLARE @NewData NVARCHAR(MAX)
 	SELECT  @NewData = 
 			'AffType='				+ ISNULL(CONVERT(VARCHAR(10), @AffType), '') + ',' +
+			'AffId='				+ ISNULL(CONVERT(VARCHAR(20), @AffId), '') + ',' +
+			'UserName='				+ ISNULL(@UserName, '') + ',' +
 			'FirstName='			+ ISNULL(@FirstName, '') + ',' +
 			'LastName='				+ ISNULL(@LastName, '') + ',' +
 			'Gender='				+ ISNULL(CONVERT(VARCHAR(10), @Gender), '') + ',' +

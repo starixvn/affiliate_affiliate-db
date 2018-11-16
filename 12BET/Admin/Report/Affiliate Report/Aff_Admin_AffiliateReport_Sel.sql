@@ -10,6 +10,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	@ProductIds			VARCHAR(MAX) = '0',
 	@SortType			TINYINT = 1,
 	@SortDirectionType	BIT = 0,
+	@IsExportExcel		BIT = 0,
 	@PageIndex			INT = 1,
 	@PageSize			INT = 50,
 	@NRows				INT = 0 OUTPUT
@@ -22,6 +23,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20181001@Percy: Support export excel [RedmineID: #102322]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -267,8 +269,16 @@ BEGIN
 	BEGIN
 		DECLARE @RowStart INT, @RowEnd INT
 
-		SELECT  @RowStart = (@PageIndex - 1) * @PageSize + 1,
-				@RowEnd = @RowStart + @PageSize - 1
+		IF @IsExportExcel = 0
+		BEGIN
+			SELECT  @RowStart = (@PageIndex - 1) * @PageSize + 1,
+					@RowEnd = @RowStart + @PageSize - 1
+		END
+		ELSE
+		BEGIN
+			SELECT  @RowStart = 1,
+					@RowEnd = @NRows
+		END
 
 		CREATE TABLE #AffPaging
 		(
