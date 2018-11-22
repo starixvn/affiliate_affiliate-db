@@ -61,7 +61,8 @@ BEGIN
 						+ '<table border="1"> '
 						+ '<tr><th>No.</th><th>Product</th><th>WinlostDate</th></tr>'
 						+ CAST((SELECT	td = ROW_NUMBER() OVER(ORDER BY (SELECT NULL)), '',
-										td = p.ProductName, ''
+										td = p.ProductName, '',
+										td = e.ErrMsg, ''
 								FROM @ErrTable e
 									INNER JOIN dbo.Products p WITH (NOLOCK) ON e.ProductId = p.ProductID
 								FOR XML PATH('tr'), TYPE 

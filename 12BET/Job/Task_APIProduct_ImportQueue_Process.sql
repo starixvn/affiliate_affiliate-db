@@ -21,21 +21,29 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @QueueId BIGINT, @XmlData XML, @WinlostDate SMALLDATETIME
+	DECLARE @QueueId BIGINT, @XmlData XML, @WinlostDate SMALLDATETIME, @LastQueueId BIGINT
 
 	CREATE TABLE #Ebet (Username NVARCHAR(50), BetHistoryId NVARCHAR(100), Bet MONEY, Payout MONEY, PayoutTime DATETIME)
 	CREATE TABLE #Betsoft (Username NVARCHAR(50), GameSessionId BIGINT, GameId INT, PlatForm VARCHAR(50), BetId INT, Amount MONEY, Win MONEY, BetTime DATETIME)
 
 	-- Manually import
 	IF @QueueIdInput <> 0
+	BEGIN
 		SELECT @QueueId = QueueId, @XmlData = XmlData
 		FROM dbo.APIProduct_ImportQueue WITH (NOLOCK)
-		WHERE ProductId = @ProductId AND QueueId = @QueueIdInput
+		WHERE ProductId = @ProductId AND JobType = 0 AND QueueId = @QueueIdInput
+	END
 	ELSE
+	BEGIN
+		SELECT @LastQueueId = CONVERT(BIGINT, SettingValue)
+		FROM dbo.APIProductSettings WITH (NOLOCK)
+		WHERE ProductId = @ProductId AND SettingName = 'LastQueueId'
+
 		SELECT TOP 1 @QueueId = QueueId, @XmlData = XmlData
 		FROM dbo.APIProduct_ImportQueue WITH (NOLOCK)
-		WHERE ProductId = @ProductId AND FinishedTime IS NULL
+		WHERE ProductId = @ProductId AND QueueId >= @LastQueueId AND JobType = 0 AND FinishedTime IS NULL
 		ORDER BY QueueId
+	END
 
 	DECLARE @IsErr BIT = 1
 	
@@ -126,14 +134,20 @@ BEGIN
 			SET FinishedTime = GETDATE(), WinlostDate = @WinlostDate, LogDesc = 'Successfully'
 			WHERE QueueId = @QueueId
 
+			SELECT @LastQueueId = @QueueId
+
 			SELECT @QueueId = NULL, @XmlData = NULL
 
 			SELECT TOP 1 @QueueId = QueueId, @XmlData = XmlData
 			FROM dbo.APIProduct_ImportQueue WITH (NOLOCK)
-			WHERE ProductId = @ProductId AND FinishedTime IS NULL
+			WHERE ProductId = @ProductId AND QueueId >= @LastQueueId AND JobType = 0 AND FinishedTime IS NULL
 			ORDER BY QueueId
 		END
 	END
+
+	UPDATE dbo.APIProductSettings WITH (ROWLOCK, UPDLOCK)
+	SET SettingValue = CONVERT(VARCHAR(20), @LastQueueId)
+	WHERE ProductId = @ProductId AND SettingName = 'LastQueueId'
 
 	DROP TABLE #Ebet
 	DROP TABLE #Betsoft

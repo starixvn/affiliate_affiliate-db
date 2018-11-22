@@ -32,8 +32,8 @@ BEGIN
 	BEGIN TRY
 		SELECT @Xml = CONVERT(XML, @XmlData)
 
-		INSERT INTO dbo.APIProduct_ImportQueue (ProductId, XmlData, CheckInTime)
-		VALUES (@ProductId, @Xml, GETDATE())
+		INSERT INTO dbo.APIProduct_ImportQueue (ProductId, XmlData, JobType, CheckInTime)
+		VALUES (@ProductId, @Xml, @JobType, GETDATE())
 
 		SELECT @ErrCode = 0, @ErrMsg = ''
 	END TRY
