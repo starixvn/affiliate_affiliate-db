@@ -18,6 +18,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20181120@Percy: Change way to get amount of fees [RedmineID: #104963]
 */
 
 BEGIN
@@ -46,6 +47,9 @@ BEGIN
 		Turnover		MONEY,
 		Winloss			MONEY,
 		NetWinloss		MONEY,
+		PlatFormFee		MONEY,
+		OperationalFee	MONEY,
+		BankingFee		MONEY,
 		ActivePlayer	INT,
 		QualifiedMember INT,
 		QMTurnover		MONEY,
@@ -81,7 +85,7 @@ BEGIN
 			)
 			SELECT
 				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Turnover,dt.Winloss,
-				dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,dt.NetWinloss*dt.CommissionRate AS Commission
+				dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,0 AS Commission
 			FROM @MonthDate md
 				CROSS APPLY (
 					SELECT TOP (@n)
@@ -91,6 +95,55 @@ BEGIN
 					WHERE ac.MonthDate = md.MonthDate
 				) AS dt
 			OPTION (OPTIMIZE FOR (@n=1))
+
+			UPDATE d
+			SET d.Commission = Amount
+			FROM #AffCommission d
+				INNER JOIN dbo.AffTrans at WITH (NOLOCK) ON d.MonthDate = at.TransDate AND d.AffId = at.AffId
+			WHERE d.ProductId = 0 AND at.TransType = 201
+
+			UPDATE d
+			SET d.PlatFormFee	= ad.Amount
+			FROM #AffCommission d
+				INNER JOIN dbo.rptAffDeduction ad WITH (NOLOCK) ON d.MonthDate = ad.MonthDate AND d.AffId = ad.AffId AND d.ProductId = ad.ProductId
+			WHERE ad.DeductionId = 10 AND d.ProductId > 0
+
+			;WITH CTE_Fees AS
+			(
+				SELECT
+					MonthDate,
+					AffId,
+					SUM(ABS(PlatFormFee))	AS PlatFormFee,
+					SUM(OperationalFee)		AS OperationalFee,
+					SUM(BankingFee)			AS BankingFee
+				FROM
+				(
+					SELECT
+						ad.MonthDate,
+						ad.AffId,
+						ad.GroupProductId,
+						SUM(CASE WHEN ad.DeductionId = 10 THEN ad.Amount ELSE 0 END) AS PlatFormFee,
+						SUM(CASE WHEN ad.DeductionId = 11 THEN ad.Amount ELSE 0 END) AS OperationalFee,
+						SUM(CASE WHEN ad.DeductionId = 12 THEN ad.Amount ELSE 0 END) AS BankingFee
+					FROM @MonthDate md
+						CROSS APPLY dbo.rptAffDeduction ad WITH (NOLOCK)
+					WHERE md.MonthDate = ad.MonthDate
+					GROUP BY
+						ad.MonthDate,
+						ad.AffId,
+						ad.GroupProductId
+				) AS pf
+				GROUP BY
+					MonthDate,
+					AffId
+			)
+			UPDATE d
+			SET d.PlatFormFee		= f.PlatFormFee,
+				d.OperationalFee	= f.OperationalFee,
+				d.BankingFee		= f.BankingFee
+			FROM #AffCommission d
+				INNER JOIN CTE_Fees f ON d.MonthDate = f.MonthDate AND d.AffId = f.AffId
+			WHERE d.ProductId = 0
 		END
 		ELSE
 		BEGIN
@@ -113,7 +166,7 @@ BEGIN
 			)
 			SELECT
 				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Turnover,dt.Winloss,
-				dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,dt.NetWinloss*dt.CommissionRate AS Commission
+				dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,0 AS Commission
 			FROM @MonthDate md
 				CROSS APPLY (
 					SELECT TOP (@n)
@@ -124,6 +177,55 @@ BEGIN
 						AND ac.AffId = md.AffId
 				) AS dt
 			OPTION (OPTIMIZE FOR (@n=1))
+
+			UPDATE d
+			SET d.Commission = Amount
+			FROM #AffCommission d
+				INNER JOIN dbo.AffTrans at WITH (NOLOCK) ON d.MonthDate = at.TransDate AND d.AffId = at.AffId
+			WHERE d.ProductId = 0 AND at.TransType = 201
+			
+			UPDATE d
+			SET d.PlatFormFee	= ad.Amount
+			FROM #AffCommission d
+				INNER JOIN dbo.rptAffDeduction ad WITH (NOLOCK) ON d.MonthDate = ad.MonthDate AND d.AffId = ad.AffId AND d.ProductId = ad.ProductId
+			WHERE ad.DeductionId = 10 AND d.ProductId > 0
+
+			;WITH CTE_Fees AS
+			(
+				SELECT
+					MonthDate,
+					AffId,
+					SUM(ABS(PlatFormFee))	AS PlatFormFee,
+					SUM(OperationalFee)		AS OperationalFee,
+					SUM(BankingFee)			AS BankingFee
+				FROM
+				(
+					SELECT
+						ad.MonthDate,
+						ad.AffId,
+						ad.GroupProductId,
+						SUM(CASE WHEN ad.DeductionId = 10 THEN ad.Amount ELSE 0 END) AS PlatFormFee,
+						SUM(CASE WHEN ad.DeductionId = 11 THEN ad.Amount ELSE 0 END) AS OperationalFee,
+						SUM(CASE WHEN ad.DeductionId = 12 THEN ad.Amount ELSE 0 END) AS BankingFee
+					FROM @MonthDate md
+						CROSS APPLY dbo.rptAffDeduction ad WITH (NOLOCK)
+					WHERE md.MonthDate = ad.MonthDate AND md.AffId = ad.AffId
+					GROUP BY
+						ad.MonthDate,
+						ad.AffId,
+						ad.GroupProductId
+				) AS pf
+				GROUP BY
+					MonthDate,
+					AffId
+			)
+			UPDATE d
+			SET d.PlatFormFee		= f.PlatFormFee,
+				d.OperationalFee	= f.OperationalFee,
+				d.BankingFee		= f.BankingFee
+			FROM #AffCommission d
+				INNER JOIN CTE_Fees f ON d.MonthDate = f.MonthDate AND d.AffId = f.AffId
+			WHERE d.ProductId = 0
 		END
 	END
 
@@ -137,6 +239,7 @@ BEGIN
 		DECLARE @tempData TABLE
 		(
 			MonthDate SMALLDATETIME, AffId INT, GroupId INT, ProductId INT, Deposit MONEY, Withdrawal MONEY, Bonus MONEY, Turnover MONEY, Winloss MONEY,
+			PlatFormFee MONEY, OperationalFee MONEY, BankingFee MONEY,
 			ActivePlayer INT, QualifiedMember INT, NetWinloss MONEY, CommissionRate DECIMAL(9,8), Commission MONEY
 		)
 
@@ -256,7 +359,7 @@ BEGIN
 			WHERE c1.ProductId = 0
 
 			IF @GetRowTotalOnly = 0
-				DELETE #AffCommission WHERE ',' + @ProductIds + ',' NOT LIKE '%,' + CONVERT(VARCHAR(10), ProductId) + ',%'
+				DELETE #AffCommission WHERE ',' + @ProductIds + ',' NOT LIKE '%,' + CONVERT(VARCHAR(10), ProductId) + ',%' AND ProductId <> 0
 			ELSE
 				DELETE #AffCommission WHERE ProductId <> 0
 		END
@@ -288,15 +391,7 @@ BEGIN
 			SUM(QMTurnOver),
 			SUM(CommissionRate),
 			SUM(Commission)
-		FROM #AffCommission ac
-			CROSS APPLY (
-				SELECT
-					SUM(CASE WHEN ad.DeductionId = 10 THEN Amount ELSE 0 END) AS PlatFormFee,
-					SUM(CASE WHEN ad.DeductionId = 11 THEN Amount ELSE 0 END) AS OperationalFee,
-					SUM(CASE WHEN ad.DeductionId = 12 THEN Amount ELSE 0 END) AS BankingFee
-				FROM dbo.rptAffDeduction ad WITH (NOLOCK)
-				WHERE ac.MonthDate = ad.MonthDate AND ac.AffId = ad.AffId
-			) AS f
+		FROM #AffCommission
 		GROUP BY
 			AffId,
 			GroupId,
@@ -323,15 +418,7 @@ BEGIN
 			QMTurnOver,
 			CommissionRate,
 			Commission
-		FROM #AffCommission ac
-			CROSS APPLY (
-				SELECT
-					SUM(CASE WHEN ad.DeductionId = 10 THEN Amount ELSE 0 END) AS PlatFormFee,
-					SUM(CASE WHEN ad.DeductionId = 11 THEN Amount ELSE 0 END) AS OperationalFee,
-					SUM(CASE WHEN ad.DeductionId = 12 THEN Amount ELSE 0 END) AS BankingFee
-				FROM dbo.rptAffDeduction ad WITH (NOLOCK)
-				WHERE ac.MonthDate = ad.MonthDate AND ac.AffId = ad.AffId
-			) AS f
+		FROM #AffCommission
 	END
 
 	DROP TABLE #AffCommission
