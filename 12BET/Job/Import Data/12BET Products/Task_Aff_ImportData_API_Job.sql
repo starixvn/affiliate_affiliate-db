@@ -1,10 +1,7 @@
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_12BET]
 GO
-/****** Object:  StoredProcedure [dbo].[Task_Aff_ImportData_API_Job]    Script Date: 11/30/2018 7:38:09 AM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
+
 ALTER PROCEDURE [dbo].[Task_Aff_ImportData_API_Job]
 AS
 
@@ -15,6 +12,7 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
+		- 20181020@Percy: Add list of products in APIProduct_ImportQueue [RedmineID: #102]
 */
 
 BEGIN
@@ -29,7 +27,7 @@ BEGIN
 	DECLARE @OldLastQueueId BIGINT, @NewLastQueueId BIGINT, @WinlostDate SMALLDATETIME,
 			@LaunchDate SMALLDATETIME, @FromImportDate SMALLDATETIME
 
-	DECLARE @ErrTable TABLE (ProductId INT, WinlostDate SMALLDATETIME)
+	DECLARE @ErrTable TABLE (ProductId INT, WinlostDate SMALLDATETIME, ErrMsg NVARCHAR(4000))
 
 	-- AG Casino
 	BEGIN
@@ -62,8 +60,8 @@ BEGIN
 				EXEC dbo.Task_Aff_ImportData_AGCasino @WinlostDate = @WinlostDate
 			END TRY
 			BEGIN CATCH
-				INSERT INTO @ErrTable (ProductId, WinlostDate)
-				VALUES (10, @WinlostDate)
+				INSERT INTO @ErrTable (ProductId, WinlostDate, ErrMsg)
+				VALUES (9, @WinlostDate, ERROR_MESSAGE())
 			END CATCH
 			
 			DELETE @tblWinlostDate WHERE WinlostDate = @WinlostDate
@@ -75,6 +73,54 @@ BEGIN
 		UPDATE dbo.APIProductSettings WITH (ROWLOCK, UPDLOCK)
 		SET SettingValue = CONVERT(VARCHAR(200), @NewLastQueueId)
 		WHERE ProductId = 9 AND SettingName = 'LastQueueId'
+	END
+
+	-- Products in APIProduct_ImportQueue
+	BEGIN
+		-- Reset data
+		SELECT @OldLastQueueId = NULL, @NewLastQueueId = NULL, @WinlostDate = NULL, @LaunchDate = NULL, @FromImportDate = NULL
+
+		DECLARE @today SMALLDATETIME
+		SELECT  @today = CONVERT(DATE, GETDATE())
+
+		DECLARE @Products TABLE (Id INT IDENTITY(1,1), ProductId INT, LaunchDate SMALLDATETIME)
+	
+		INSERT INTO @Products (ProductId)
+		SELECT ProductId FROM dbo.APIProductSettings WITH (NOLOCK)
+		WHERE SettingName = 'SourceTable' AND SettingValue = 'APIProduct_ImportQueue'
+
+		UPDATE p
+		SET p.LaunchDate = CONVERT(SMALLDATETIME, aps.SettingValue)
+		FROM @Products p
+			INNER JOIN dbo.APIProductSettings aps WITH (NOLOCK) ON p.ProductId = aps.ProductId AND aps.SettingName = 'LaunchDate'
+
+		DECLARE @Id INT = 1, @ProductId INT = NULL
+		SELECT  @ProductId = ProductId, @LaunchDate = LaunchDate FROM @Products WHERE Id = @Id
+
+		WHILE @ProductId IS NOT NULL
+		BEGIN
+			SELECT @WinlostDate = DATEADD(DAY, -2, @today)
+
+			IF @WinlostDate < @LaunchDate
+				SELECT @WinlostDate = @LaunchDate
+
+			WHILE @WinlostDate <= @today
+			BEGIN
+				BEGIN TRY
+					EXEC dbo.Task_APIProduct_ImportQueue_Product @ProductId = @ProductId, @WinlostDate = @WinlostDate
+				END TRY
+				BEGIN CATCH
+					INSERT INTO @ErrTable (ProductId, WinlostDate, ErrMsg)
+					VALUES (@ProductId, @WinlostDate, ERROR_MESSAGE())
+				END CATCH
+
+				SELECT @WinlostDate = DATEADD(DAY, 1, @WinlostDate)
+			END
+		
+			SELECT @Id = @Id + 1
+			SELECT @ProductId = NULL, @LaunchDate = NULL
+			SELECT  @ProductId = ProductId, @LaunchDate = LaunchDate FROM @Products WHERE Id = @Id
+		END
 	END
 
 	-- Send mail if have error
@@ -89,6 +135,7 @@ BEGIN
 						+ '<tr><th>No.</th><th>Product</th><th>WinlostDate</th></tr>'
 						+ CAST((SELECT	td = ROW_NUMBER() OVER(ORDER BY (SELECT NULL)), '',
 										td = p.ProductName, '',
+										td = CONVERT(VARCHAR(20), e.WinlostDate, 120), '',
 										td = e.WinlostDate, ''
 								FROM @ErrTable e
 									INNER JOIN dbo.Products p WITH (NOLOCK) ON e.ProductId = p.ProductID
@@ -102,3 +149,4 @@ BEGIN
 			@body_format	= 'HTML'
 	END
 END
+GO
