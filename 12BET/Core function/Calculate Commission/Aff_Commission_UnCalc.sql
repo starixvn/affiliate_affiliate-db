@@ -19,6 +19,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20181001@Percy: Add CutOffDate [RedmineID: #102399]
+		- 20181120@Percy: Keep line total (productId = 0) [RedmineID: #104963]
 */
 
 BEGIN
@@ -575,7 +576,7 @@ BEGIN
 				WHERE c1.ProductId = 0
 
 				IF @GetRowTotalOnly = 0
-					DELETE #Commission WHERE ',' + @ProductIds + ',' NOT LIKE '%,' + CONVERT(VARCHAR(10), ProductId) + ',%'
+					DELETE #Commission WHERE ',' + @ProductIds + ',' NOT LIKE '%,' + CONVERT(VARCHAR(10), ProductId) + ',%' AND ProductId <> 0
 				ELSE
 					DELETE #Commission WHERE ProductId <> 0
 			END
