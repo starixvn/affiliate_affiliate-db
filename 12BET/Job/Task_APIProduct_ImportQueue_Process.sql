@@ -16,6 +16,7 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
+		- 20181201@Percy: Integrate new products: Crystal [RedmineID: #104892]
 */
 
 BEGIN
@@ -25,6 +26,7 @@ BEGIN
 
 	CREATE TABLE #Ebet (Username NVARCHAR(50), BetHistoryId NVARCHAR(100), Bet MONEY, Payout MONEY, PayoutTime DATETIME)
 	CREATE TABLE #Betsoft (Username NVARCHAR(50), GameSessionId BIGINT, GameId INT, PlatForm VARCHAR(50), BetId INT, Amount MONEY, Win MONEY, BetTime DATETIME)
+	CREATE TABLE #Crystal (operationCode BIGINT, userId VARCHAR(50), changeTime DATETIME, changeType VARCHAR(20), gameName VARCHAR(200), fround SMALLINT, bet MONEY, ret MONEY, changes MONEY, endBalance MONEY, operator VARCHAR(50), jcon MONEY, jwin MONEY, platform TINYINT, gametype SMALLINT, ver VARCHAR(20))
 
 	-- Manually import
 	IF @QueueIdInput <> 0
@@ -52,6 +54,7 @@ BEGIN
 		-- clean up tmp table
 		TRUNCATE TABLE #Ebet
 		TRUNCATE TABLE #Betsoft
+		TRUNCATE TABLE #Crystal
 
 		-- Ebet
 		IF @ProductId = 10
@@ -122,6 +125,49 @@ BEGIN
 				WHERE QueueId = @QueueId
 			END CATCH
 		END
+		-- Crystal
+		ELSE IF @ProductId = 12
+		BEGIN
+			BEGIN TRY
+				INSERT INTO #Crystal (operationCode, userId, changeTime, changeType, gameName, fround, bet, ret, changes, endBalance, operator, jcon, jwin, platform, gametype, ver)
+				SELECT	t.c.value('@operationCode', 'BIGINT')	AS operationCode,
+						t.c.value('@userId', 'VARCHAR(50)')		AS userId,
+						t.c.value('@changeTime', 'DATETIME')	AS changeTime,
+						t.c.value('@changeType', 'VARCHAR(20)')	AS changeType,
+						t.c.value('@gameName', 'VARCHAR(200)')	AS gameName,
+						t.c.value('@fround', 'SMALLINT')		AS fround,
+						t.c.value('@bet', 'MONEY')				AS bet,
+						t.c.value('@ret', 'MONEY')				AS ret,
+						t.c.value('@changes', 'MONEY')			AS changes,
+						t.c.value('@endBalance', 'MONEY')		AS endBalance,
+						t.c.value('@operator', 'VARCHAR(50)')	AS operator,
+						t.c.value('@jcon', 'MONEY')				AS jcon,
+						t.c.value('@jwin', 'MONEY')				AS jwin,
+						t.c.value('@platform', 'TINYINT')		AS platform,
+						t.c.value('@gametype', 'SMALLINT')		AS gametype,
+						t.c.value('@ver', 'VARCHAR(20)')		AS ver
+				FROM @XmlData.nodes('historyinfo/history') AS t(c)
+				OPTION (OPTIMIZE FOR (@XmlData = NULL))
+
+				DELETE bc WITH (ROWLOCK, UPDLOCK)
+				FROM dbo.bettrans_Crystal bc
+				WHERE EXISTS (SELECT 1 FROM #Crystal c WHERE bc.operationCode = c.operationCode)
+				
+				INSERT INTO dbo.bettrans_Crystal (operationCode, userId, changeTime, changeType, gameName, fround, bet, ret, changes, endBalance, operator, jcon, jwin, platform, gametype, ver, IBCCustId, WinlostDate)
+				SELECT c.operationCode, c.userId, c.changeTime, c.changeType, c.gameName, c.fround, c.bet, c.ret, c.changes, c.endBalance, c.operator, c.jcon, c.jwin, c.platform, c.gametype, c.ver, m.IBCCustId, CONVERT(DATE, c.changeTime) AS WinlostDate
+				FROM #Crystal c
+					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + c.userId = m.Username
+
+				SELECT @WinlostDate = MIN(CONVERT(DATE, changeTime)) FROM #Crystal
+
+				SELECT @IsErr = 0
+			END TRY
+			BEGIN CATCH
+				UPDATE dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
+				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
+				WHERE QueueId = @QueueId
+			END CATCH
+		END
 
 		IF @IsErr = 1
 		BEGIN
@@ -151,5 +197,6 @@ BEGIN
 
 	DROP TABLE #Ebet
 	DROP TABLE #Betsoft
+	DROP TABLE #Crystal
 END
 GO
