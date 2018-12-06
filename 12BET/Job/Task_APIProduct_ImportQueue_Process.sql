@@ -16,7 +16,7 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
-		- 20181201@Percy: Integrate new products: Crystal [RedmineID: #104892]
+		- 20181201@Percy: Integrate new products: 12Crystal - GPI, 12Quartz - iSoftbet [RedmineID: #104892]
 */
 
 BEGIN
@@ -27,6 +27,7 @@ BEGIN
 	CREATE TABLE #Ebet (Username NVARCHAR(50), BetHistoryId NVARCHAR(100), Bet MONEY, Payout MONEY, PayoutTime DATETIME)
 	CREATE TABLE #Betsoft (Username NVARCHAR(50), GameSessionId BIGINT, GameId INT, PlatForm VARCHAR(50), BetId INT, Amount MONEY, Win MONEY, BetTime DATETIME)
 	CREATE TABLE #Crystal (operationCode BIGINT, userId VARCHAR(50), changeTime DATETIME, changeType VARCHAR(20), gameName VARCHAR(200), fround SMALLINT, bet MONEY, ret MONEY, changes MONEY, endBalance MONEY, operator VARCHAR(50), jcon MONEY, jwin MONEY, platform TINYINT, gametype SMALLINT, ver VARCHAR(20))
+	CREATE TABLE #iSoftbet (PLAYERID VARCHAR(50), CURRENCY VARCHAR(5), SESSIONID VARCHAR(100), GAMEID VARCHAR(10), ROUNDID VARCHAR(100), TRANSACTIONID VARCHAR(100), TYPE VARCHAR(50), TIME DATETIME, AMOUNT MONEY)
 
 	-- Manually import
 	IF @QueueIdInput <> 0
@@ -55,6 +56,7 @@ BEGIN
 		TRUNCATE TABLE #Ebet
 		TRUNCATE TABLE #Betsoft
 		TRUNCATE TABLE #Crystal
+		TRUNCATE TABLE #iSoftbet
 
 		-- Ebet
 		IF @ProductId = 10
@@ -168,6 +170,42 @@ BEGIN
 				WHERE QueueId = @QueueId
 			END CATCH
 		END
+		-- iSoftbet
+		ELSE IF @ProductId = 13
+		BEGIN
+			BEGIN TRY
+				INSERT INTO #iSoftbet (PLAYERID, CURRENCY, SESSIONID, GAMEID, ROUNDID, TRANSACTIONID, TYPE, TIME, AMOUNT)
+				SELECT	t.c.value('@PLAYERID', 'VARCHAR(50)')		AS PLAYERID,
+						t.c.value('@CURRENCY', 'VARCHAR(5)')		AS CURRENCY,
+						t.c.value('@SESSIONID', 'VARCHAR(100)')		AS SESSIONID,
+						t.c.value('@GAMEID', 'VARCHAR(10)')			AS GAMEID,
+						t.c.value('@ROUNDID', 'VARCHAR(100)')		AS ROUNDID,
+						t.c.value('@TRANSACTIONID', 'VARCHAR(100)')	AS TRANSACTIONID,
+						t.c.value('@TYPE', 'VARCHAR(50)')			AS TYPE,
+						t.c.value('@TIME', 'DATETIME')				AS TIME,
+						t.c.value('@AMOUNT', 'MONEY')				AS AMOUNT
+				FROM @XmlData.nodes('ROOT/RESPONSE/BETHISTORYLIST/BETHISTORY') AS t(c)
+				OPTION (OPTIMIZE FOR (@XmlData = NULL))
+
+				DELETE bi WITH (ROWLOCK, UPDLOCK)
+				FROM dbo.bettrans_iSoftbet bi
+				WHERE EXISTS (SELECT 1 FROM #iSoftbet i WHERE bi.TRANSACTIONID = i.TRANSACTIONID)
+				
+				INSERT INTO dbo.bettrans_iSoftbet (PLAYERID, CURRENCY, SESSIONID, GAMEID, ROUNDID, TRANSACTIONID, TYPE, TIME, AMOUNT, IBCCustId, WinlostDate)
+				SELECT i.PLAYERID, i.CURRENCY, i.SESSIONID, i.GAMEID, i.ROUNDID, i.TRANSACTIONID, i.TYPE, i.TIME, i.AMOUNT, m.IBCCustId, CONVERT(DATE, i.TIME) AS WinlostDate
+				FROM #iSoftbet i
+					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + i.PLAYERID = m.Username
+
+				SELECT @WinlostDate = MIN(CONVERT(DATE, TIME)) FROM #iSoftbet
+
+				SELECT @IsErr = 0
+			END TRY
+			BEGIN CATCH
+				UPDATE dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
+				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
+				WHERE QueueId = @QueueId
+			END CATCH
+		END
 
 		IF @IsErr = 1
 		BEGIN
@@ -198,5 +236,6 @@ BEGIN
 	DROP TABLE #Ebet
 	DROP TABLE #Betsoft
 	DROP TABLE #Crystal
+	DROP TABLE #iSoftbet
 END
 GO
