@@ -53,3 +53,37 @@ GO
 
 CREATE CLUSTERED INDEX [CIX_WinlostDate] ON [dbo].[bettrans_iSoftbet] (WinlostDate)
 GO
+
+CREATE TABLE [dbo].[bettrans_OPUS]
+(
+	transaction_id			BIGINT NOT NULL,
+    transaction_date_time	DATETIME,
+    member_code				VARCHAR(30),
+    member_type				VARCHAR(10),
+    currency				VARCHAR(5),
+    balance_start			MONEY,
+    balance_end				MONEY,
+    bet						MONEY,
+    win						MONEY,
+    game_code				VARCHAR(5),
+    game_detail				VARCHAR(300),
+    bet_status				VARCHAR(10),
+    player_hand				NVARCHAR(4000),
+    game_result				VARCHAR(500),
+    game_category			VARCHAR(10),
+    vendor					VARCHAR(20),
+    DrawNumber				INT,
+    m88_studio				VARCHAR(5),
+    stamp_date				DATETIME,
+    bet_record_id			VARCHAR(10),
+	IBCCustId				INT,
+	WinlostDate				SMALLDATETIME
+	CONSTRAINT [PK_bettrans_OPUS] PRIMARY KEY NONCLUSTERED 
+	(
+		transaction_id ASC
+	)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [ReportData]
+) ON [ReportData]
+GO
+
+CREATE CLUSTERED INDEX [CIX_WinlostDate] ON [dbo].[bettrans_OPUS] (WinlostDate)
+GO
