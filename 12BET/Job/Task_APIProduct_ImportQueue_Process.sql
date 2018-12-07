@@ -136,7 +136,7 @@ BEGIN
 				INSERT INTO #Crystal (operationCode, userId, changeTime, changeType, gameName, fround, bet, ret, changes, endBalance, operator, jcon, jwin, platform, gametype, ver)
 				SELECT	t.c.value('@operationCode', 'BIGINT')	AS operationCode,
 						t.c.value('@userId', 'VARCHAR(50)')		AS userId,
-						t.c.value('@changeTime', 'DATETIME')	AS changeTime,
+						CONVERT(DATETIME, t.c.value('@changeTime', 'VARCHAR(50)'), 105)	AS changeTime,
 						t.c.value('@changeType', 'VARCHAR(20)')	AS changeType,
 						t.c.value('@gameName', 'VARCHAR(200)')	AS gameName,
 						t.c.value('@fround', 'SMALLINT')		AS fround,
