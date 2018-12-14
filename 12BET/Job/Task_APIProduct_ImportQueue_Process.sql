@@ -213,27 +213,27 @@ BEGIN
 		BEGIN
 			BEGIN TRY
 				INSERT INTO #OPUS (transaction_id, transaction_date_time, member_code, member_type, currency, balance_start, balance_end, bet, win, game_code, game_detail, bet_status, player_hand, game_result, game_category, vendor, DrawNumber, m88_studio, stamp_date, bet_record_id)
-				SELECT	t.c.value('@transaction_id', 'BIGINT')			AS transaction_id,
-						t.c.value('@transaction_date_time', 'DATETIME')	AS transaction_date_time,
-						t.c.value('@member_code', 'VARCHAR(50)')		AS member_code,
-						t.c.value('@member_type', 'VARCHAR(10)')		AS member_type,
-						t.c.value('@currency', 'VARCHAR(5)')			AS currency,
-						t.c.value('@balance_start', 'MONEY')			AS balance_start,
-						t.c.value('@balance_end', 'MONEY')				AS balance_end,
-						t.c.value('@bet', 'MONEY')						AS bet,
-						t.c.value('@win', 'MONEY')						AS win,
-						t.c.value('@game_code', 'VARCHAR(5)')			AS game_code,
-						t.c.value('@game_detail', 'VARCHAR(300)')		AS game_detail,
-						t.c.value('@bet_status', 'VARCHAR(10)')			AS bet_status,
-						t.c.value('@player_hand', 'NVARCHAR(MAX)')		AS player_hand,
-						t.c.value('@game_result', 'VARCHAR(500)')		AS game_result,
-						t.c.value('@game_category', 'VARCHAR(10)')		AS game_category,
-						t.c.value('@vendor', 'VARCHAR(20)')				AS vendor,
-						t.c.value('@DrawNumber', 'INT')					AS DrawNumber,
-						t.c.value('@m88_studio', 'VARCHAR(5)')			AS m88_studio,
-						t.c.value('@stamp_date', 'DATETIME')			AS stamp_date,
-						t.c.value('@bet_record_id', 'VARCHAR(10)')		AS bet_record_id
-				FROM @XmlData.nodes('ROOT/RESPONSE/BETHISTORYLIST/BETHISTORY') AS t(c)
+				SELECT	t.c.value('(transaction_id/text())[1]', 'BIGINT')			AS transaction_id,
+						t.c.value('(transaction_date_time/text())[1]', 'DATETIME')	AS transaction_date_time,
+						t.c.value('(member_code/text())[1]', 'VARCHAR(50)')			AS member_code,
+						t.c.value('(member_type/text())[1]', 'VARCHAR(10)')			AS member_type,
+						t.c.value('(currency/text())[1]', 'VARCHAR(5)')				AS currency,
+						t.c.value('(balance_start/text())[1]', 'MONEY')				AS balance_start,
+						t.c.value('(balance_end/text())[1]', 'MONEY')				AS balance_end,
+						t.c.value('(bet/text())[1]', 'MONEY')						AS bet,
+						t.c.value('(win/text())[1]', 'MONEY')						AS win,
+						t.c.value('(game_code/text())[1]', 'VARCHAR(5)')			AS game_code,
+						t.c.value('(game_detail/text())[1]', 'VARCHAR(300)')		AS game_detail,
+						t.c.value('(bet_status/text())[1]', 'VARCHAR(10)')			AS bet_status,
+						t.c.value('(player_hand/text())[1]', 'NVARCHAR(MAX)')		AS player_hand,
+						t.c.value('(game_result/text())[1]', 'VARCHAR(500)')		AS game_result,
+						t.c.value('(game_category/text())[1]', 'VARCHAR(10)')		AS game_category,
+						t.c.value('(vendor/text())[1]', 'VARCHAR(20)')				AS vendor,
+						t.c.value('(DrawNumber/text())[1]', 'INT')					AS DrawNumber,
+						t.c.value('(m88_studio/text())[1]', 'VARCHAR(5)')			AS m88_studio,
+						t.c.value('(stamp_date/text())[1]', 'DATETIME')				AS stamp_date,
+						t.c.value('(bet_record_id/text())[1]', 'VARCHAR(10)')		AS bet_record_id
+				FROM @XmlData.nodes('Transaction_Detail/bets/row') AS t(c)
 				OPTION (OPTIMIZE FOR (@XmlData = NULL))
 
 				DELETE bo WITH (ROWLOCK, UPDLOCK)
