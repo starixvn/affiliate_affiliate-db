@@ -8,6 +8,6 @@ GO
 */
 
 INSERT INTO dbo.Products (ProductId,ProductName,ProductPrefix,IsIBC,Enabled,IsTest)
-SELECT 12, '12Crystal - GPI', '12GPI', 0, 0, 1, 0 UNION ALL
-SELECT 13, '12Quartz - iSoftbet', '12ISB', 0, 0, 1, 0 UNION ALL
-SELECT 14, '12Diamond - OPUS', '12OPUS', 0, 0, 1, 0
+SELECT 12, '12Crystal - GPI', '12GPI', 0, 1, 0 UNION ALL
+SELECT 13, '12Quartz - iSoftbet', '12ISB', 0, 1, 0 UNION ALL
+SELECT 14, '12Diamond - OPUS', '12OPUS', 0, 1, 0
