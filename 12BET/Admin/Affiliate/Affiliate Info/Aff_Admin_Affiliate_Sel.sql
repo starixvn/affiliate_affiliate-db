@@ -6,6 +6,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Affiliate_Sel]
 	@UserId 			INT,
 	@GroupID 			INT				= 0,
 	@PreferredLanguage	VARCHAR(10)		= '',
+	@AffId				INT				= 0,
 	@UserName 			NVARCHAR(50) 	= '',
 	@Status				VARCHAR(30)		= '',
 	@Email 				NVARCHAR(50) 	= '',
@@ -24,6 +25,7 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
+		- 20181212@Percy: Return more information: currency, player currency, phone and player username [RedmineID: #]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
@@ -39,7 +41,8 @@ BEGIN
 		LEFT JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupId = cg.GroupId
 		LEFT JOIN dbo.AdminFavorite af WITH (NOLOCK) ON ai.AffID = af.AffId AND af.AdminId = @UserId
 	WHERE
-		(ISNULL(@Username, '') = '' OR ai.Username LIKE '%' + @Username + '%')
+		(ISNULL(@AffId, 0) = 0 OR ai.AffId = @AffId)
+		AND (ISNULL(@Username, '') = '' OR ai.Username LIKE '%' + @Username + '%')
 		AND (ISNULL(@Email, '') = '' OR ai.Email LIKE '%' + @Email + '%')
 		AND ai.Status = CASE
 							WHEN ISNULL(@Status, '') = '' THEN ai.Status
@@ -88,7 +91,11 @@ BEGIN
 		GroupName,
 		NoOfMember,
 		BFF,
-		IsFavorite
+		IsFavorite,
+		Currency,
+		PlayerCurrency,
+		Phone,
+		Player_Username
 	FROM
 	(
 		SELECT
@@ -107,6 +114,10 @@ BEGIN
 			CASE WHEN ai.Status IN ('Pending', 'Disapproved') THEN NULL ELSE ISNULL(mi.NoOfMember, 0) END AS NoOfMember,
 			CASE WHEN ai.Status IN ('Pending', 'Disapproved') THEN NULL ELSE ISNULL(at.BFF, 0) END AS BFF,
 			CASE WHEN af.AffId IS NOT NULL THEN 1 ELSE 0 END AS IsFavorite,
+			e1.Currency,
+			e2.Currency AS PlayerCurrency,
+			ad.Phone,
+			ad.Player_Username,
 			ROW_NUMBER() OVER (ORDER BY
 						CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN ai.Username END ASC,
 						CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN ai.Username END DESC,
@@ -123,6 +134,9 @@ BEGIN
 			LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 			LEFT JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupId = cg.GroupId
 			LEFT JOIN dbo.AdminFavorite af WITH (NOLOCK) ON ai.AffID = af.AffId AND af.AdminId = @UserId
+			LEFT JOIN dbo.Exchange_Current e1 WITH (NOLOCK) ON ai.Currency = e1.ExchangeID
+			LEFT JOIN bodb02.dbo.custInfo c WITH (NOLOCK) ON ad.Player_IBCCustID = c.custid
+			LEFT JOIN dbo.Exchange_Current e2 WITH (NOLOCK) ON c.Currency = e2.ExchangeID
 			LEFT JOIN (
 				SELECT AffId, COUNT(1) AS NoOfMember
 				FROM dbo.MemberInfo WITH (NOLOCK)
@@ -136,7 +150,8 @@ BEGIN
 				GROUP BY AffId
 			) at ON at.AffId = mi.AffId
 		WHERE
-			(ISNULL(@Username, '') = '' OR ai.Username LIKE '%' + @Username + '%')
+			(ISNULL(@AffId, 0) = 0 OR ai.AffId = @AffId)
+			AND (ISNULL(@Username, '') = '' OR ai.Username LIKE '%' + @Username + '%')
 			AND (ISNULL(@Email, '') = '' OR ai.Email LIKE '%' + @Email + '%')
 			AND ai.Status = CASE
 								WHEN ISNULL(@Status, '') = '' THEN ai.Status
