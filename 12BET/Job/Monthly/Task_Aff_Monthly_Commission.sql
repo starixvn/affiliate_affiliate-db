@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20181201@Percy: Exclude closed affiliates [RedmineID: #104892]
 */
 
 BEGIN
@@ -127,7 +128,7 @@ BEGIN
 	DELETE tc
 	FROM #TempCommission tc
 		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON tc.AffId = ai.AffId
-	WHERE ai.Status <> 'Approved'
+	WHERE ai.Status <> 'Approved' AND ai.IsClosed = 0
 
 		-- Import data
 	IF @IsForceUpdate = 1
