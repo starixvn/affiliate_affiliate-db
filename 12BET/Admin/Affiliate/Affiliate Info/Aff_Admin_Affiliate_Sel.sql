@@ -25,7 +25,9 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
-		- 20181212@Percy: Return more information: currency, player currency, phone and player username [RedmineID: #]
+		- 20181212@Percy:
+			1. Return more information: currency, player currency, phone and player username [RedmineID: #106837]
+			2. Add @AffId to support search by Affiliate ID [RedmineID: #106265]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
