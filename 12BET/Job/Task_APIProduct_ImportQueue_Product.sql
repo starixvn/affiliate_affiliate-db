@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
+		- 20181201@Percy: Integrate new products: 12Crystal - GPI, 12Quartz - iSoftbet, 12Diamond - OPUS [RedmineID: #104892]
 */
 
 BEGIN
@@ -78,6 +79,97 @@ BEGIN
 		FROM dbo.bettrans_Betsoft b WITH (NOLOCK)
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON b.IBCCustId = mi.IBCCustId
 		WHERE b.WinlostDate = @WinlostDate
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE mr.RemovedDate <= DATEADD(DAY, 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @WinlostDate) + 1, 0))
+					AND mi.IBCCustId = mr.IBCCustId
+			)
+		GROUP BY
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency
+	END
+	-- Crystal
+	ELSE IF @ProductId = 12
+	BEGIN
+		INSERT INTO #tempData
+		(
+			AffId,
+			IBCCustId,
+			Currency,
+			Turnover,
+			Winloss
+		)
+		SELECT
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency,
+			SUM(ISNULL(c.bet, 0)) AS Turnover,
+			SUM(ISNULL(c.changes, 0)) AS Winloss
+		FROM dbo.bettrans_Crystal c WITH (NOLOCK)
+			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON c.IBCCustId = mi.IBCCustId
+		WHERE c.WinlostDate = @WinlostDate
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE mr.RemovedDate <= DATEADD(DAY, 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @WinlostDate) + 1, 0))
+					AND mi.IBCCustId = mr.IBCCustId
+			)
+		GROUP BY
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency
+	END
+	-- iSoftbet
+	ELSE IF @ProductId = 13
+	BEGIN
+		INSERT INTO #tempData
+		(
+			AffId,
+			IBCCustId,
+			Currency,
+			Turnover,
+			Winloss
+		)
+		SELECT
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency,
+			SUM(CASE WHEN i.TYPE = 'BET' THEN ISNULL(i.Amount, 0) ELSE 0 END) AS Turnover,
+			SUM(CASE WHEN i.TYPE = 'BET' THEN -ISNULL(i.Amount, 0) WHEN i.TYPE = 'WIN' THEN ISNULL(i.Amount, 0) ELSE 0 END) AS Winloss
+		FROM dbo.bettrans_iSoftbet i WITH (NOLOCK)
+			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON i.IBCCustId = mi.IBCCustId
+		WHERE i.WinlostDate = @WinlostDate
+			AND i.TYPE IN ('BET', 'WIN')
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE mr.RemovedDate <= DATEADD(DAY, 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @WinlostDate) + 1, 0))
+					AND mi.IBCCustId = mr.IBCCustId
+			)
+		GROUP BY
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency
+	END
+	-- OPUS
+	ELSE IF @ProductId = 14
+	BEGIN
+		INSERT INTO #tempData
+		(
+			AffId,
+			IBCCustId,
+			Currency,
+			Turnover,
+			Winloss
+		)
+		SELECT
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency,
+			SUM(ISNULL(o.bet, 0)) AS Turnover,
+			SUM(ISNULL(o.win, 0) - ISNULL(o.bet, 0)) AS Winloss
+		FROM dbo.bettrans_OPUS o WITH (NOLOCK)
+			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON o.IBCCustId = mi.IBCCustId
+		WHERE o.WinlostDate = @WinlostDate
 			AND NOT EXISTS (
 				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 				WHERE mr.RemovedDate <= DATEADD(DAY, 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @WinlostDate) + 1, 0))

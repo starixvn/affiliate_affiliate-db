@@ -16,6 +16,7 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
+		- 20181201@Percy: Integrate new products: 12Crystal - GPI, 12Quartz - iSoftbet, 12Diamond - OPUS [RedmineID: #104892]
 */
 
 BEGIN
@@ -25,6 +26,9 @@ BEGIN
 
 	CREATE TABLE #Ebet (Username NVARCHAR(50), BetHistoryId NVARCHAR(100), Bet MONEY, Payout MONEY, PayoutTime DATETIME)
 	CREATE TABLE #Betsoft (Username NVARCHAR(50), GameSessionId BIGINT, GameId INT, PlatForm VARCHAR(50), BetId INT, Amount MONEY, Win MONEY, BetTime DATETIME)
+	CREATE TABLE #Crystal (operationCode BIGINT, userId VARCHAR(50), changeTime DATETIME, changeType VARCHAR(20), gameName VARCHAR(200), fround SMALLINT, bet MONEY, ret MONEY, changes MONEY, endBalance MONEY, operator VARCHAR(50), jcon MONEY, jwin MONEY, platform TINYINT, gametype SMALLINT, ver VARCHAR(20))
+	CREATE TABLE #iSoftbet (PLAYERID VARCHAR(50), CURRENCY VARCHAR(5), SESSIONID VARCHAR(100), GAMEID VARCHAR(10), ROUNDID VARCHAR(100), TRANSACTIONID VARCHAR(100), TYPE VARCHAR(50), TIME DATETIME, AMOUNT MONEY)
+	CREATE TABLE #OPUS (transaction_id BIGINT, transaction_date_time DATETIME, member_code VARCHAR(30), member_type VARCHAR(10), currency VARCHAR(5), balance_start MONEY, balance_end MONEY, bet MONEY, win MONEY, game_code VARCHAR(5), game_detail VARCHAR(300), bet_status VARCHAR(10), player_hand NVARCHAR(4000), game_result VARCHAR(500), game_category VARCHAR(10), vendor VARCHAR(20), DrawNumber INT, m88_studio VARCHAR(5), stamp_date DATETIME, bet_record_id VARCHAR(10))
 
 	-- Manually import
 	IF @QueueIdInput <> 0
@@ -52,6 +56,9 @@ BEGIN
 		-- clean up tmp table
 		TRUNCATE TABLE #Ebet
 		TRUNCATE TABLE #Betsoft
+		TRUNCATE TABLE #Crystal
+		TRUNCATE TABLE #iSoftbet
+		TRUNCATE TABLE #OPUS
 
 		-- Ebet
 		IF @ProductId = 10
@@ -122,6 +129,132 @@ BEGIN
 				WHERE QueueId = @QueueId
 			END CATCH
 		END
+		-- Crystal
+		ELSE IF @ProductId = 12
+		BEGIN
+			BEGIN TRY
+				INSERT INTO #Crystal (operationCode, userId, changeTime, changeType, gameName, fround, bet, ret, changes, endBalance, operator, jcon, jwin, platform, gametype, ver)
+				SELECT	t.c.value('@operationCode', 'BIGINT')	AS operationCode,
+						t.c.value('@userId', 'VARCHAR(50)')		AS userId,
+						CONVERT(DATETIME, t.c.value('@changeTime', 'VARCHAR(50)'), 105)	AS changeTime,
+						t.c.value('@changeType', 'VARCHAR(20)')	AS changeType,
+						t.c.value('@gameName', 'VARCHAR(200)')	AS gameName,
+						t.c.value('@fround', 'SMALLINT')		AS fround,
+						t.c.value('@bet', 'MONEY')				AS bet,
+						t.c.value('@ret', 'MONEY')				AS ret,
+						t.c.value('@changes', 'MONEY')			AS changes,
+						t.c.value('@endBalance', 'MONEY')		AS endBalance,
+						t.c.value('@operator', 'VARCHAR(50)')	AS operator,
+						t.c.value('@jcon', 'MONEY')				AS jcon,
+						t.c.value('@jwin', 'MONEY')				AS jwin,
+						t.c.value('@platform', 'TINYINT')		AS platform,
+						t.c.value('@gametype', 'SMALLINT')		AS gametype,
+						t.c.value('@ver', 'VARCHAR(20)')		AS ver
+				FROM @XmlData.nodes('historyinfo/history') AS t(c)
+				OPTION (OPTIMIZE FOR (@XmlData = NULL))
+
+				DELETE bc WITH (ROWLOCK, UPDLOCK)
+				FROM dbo.bettrans_Crystal bc
+				WHERE EXISTS (SELECT 1 FROM #Crystal c WHERE bc.operationCode = c.operationCode)
+				
+				INSERT INTO dbo.bettrans_Crystal (operationCode, userId, changeTime, changeType, gameName, fround, bet, ret, changes, endBalance, operator, jcon, jwin, platform, gametype, ver, IBCCustId, WinlostDate)
+				SELECT c.operationCode, c.userId, c.changeTime, c.changeType, c.gameName, c.fround, c.bet, c.ret, c.changes, c.endBalance, c.operator, c.jcon, c.jwin, c.platform, c.gametype, c.ver, m.IBCCustId, CONVERT(DATE, c.changeTime) AS WinlostDate
+				FROM #Crystal c
+					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + c.userId = m.Username
+
+				SELECT @WinlostDate = MIN(CONVERT(DATE, changeTime)) FROM #Crystal
+
+				SELECT @IsErr = 0
+			END TRY
+			BEGIN CATCH
+				UPDATE dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
+				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
+				WHERE QueueId = @QueueId
+			END CATCH
+		END
+		-- iSoftbet
+		ELSE IF @ProductId = 13
+		BEGIN
+			BEGIN TRY
+				INSERT INTO #iSoftbet (PLAYERID, CURRENCY, SESSIONID, GAMEID, ROUNDID, TRANSACTIONID, TYPE, TIME, AMOUNT)
+				SELECT	t.c.value('@PLAYERID', 'VARCHAR(50)')		AS PLAYERID,
+						t.c.value('@CURRENCY', 'VARCHAR(5)')		AS CURRENCY,
+						t.c.value('@SESSIONID', 'VARCHAR(100)')		AS SESSIONID,
+						t.c.value('@GAMEID', 'VARCHAR(10)')			AS GAMEID,
+						t.c.value('@ROUNDID', 'VARCHAR(100)')		AS ROUNDID,
+						t.c.value('@TRANSACTIONID', 'VARCHAR(100)')	AS TRANSACTIONID,
+						t.c.value('@TYPE', 'VARCHAR(50)')			AS TYPE,
+						t.c.value('@TIME', 'DATETIME')				AS TIME,
+						t.c.value('@AMOUNT', 'MONEY')				AS AMOUNT
+				FROM @XmlData.nodes('ROOT/RESPONSE/BETHISTORYLIST/BETHISTORY') AS t(c)
+				OPTION (OPTIMIZE FOR (@XmlData = NULL))
+
+				DELETE bi WITH (ROWLOCK, UPDLOCK)
+				FROM dbo.bettrans_iSoftbet bi
+				WHERE EXISTS (SELECT 1 FROM #iSoftbet i WHERE bi.TRANSACTIONID = i.TRANSACTIONID)
+				
+				INSERT INTO dbo.bettrans_iSoftbet (PLAYERID, CURRENCY, SESSIONID, GAMEID, ROUNDID, TRANSACTIONID, TYPE, TIME, AMOUNT, IBCCustId, WinlostDate)
+				SELECT i.PLAYERID, i.CURRENCY, i.SESSIONID, i.GAMEID, i.ROUNDID, i.TRANSACTIONID, i.TYPE, i.TIME, i.AMOUNT, m.IBCCustId, CONVERT(DATE, i.TIME) AS WinlostDate
+				FROM #iSoftbet i
+					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + i.PLAYERID = m.Username
+
+				SELECT @WinlostDate = MIN(CONVERT(DATE, TIME)) FROM #iSoftbet
+
+				SELECT @IsErr = 0
+			END TRY
+			BEGIN CATCH
+				UPDATE dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
+				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
+				WHERE QueueId = @QueueId
+			END CATCH
+		END
+		-- OPUS
+		ELSE IF @ProductId = 14
+		BEGIN
+			BEGIN TRY
+				INSERT INTO #OPUS (transaction_id, transaction_date_time, member_code, member_type, currency, balance_start, balance_end, bet, win, game_code, game_detail, bet_status, player_hand, game_result, game_category, vendor, DrawNumber, m88_studio, stamp_date, bet_record_id)
+				SELECT	t.c.value('(transaction_id/text())[1]', 'BIGINT')			AS transaction_id,
+						t.c.value('(transaction_date_time/text())[1]', 'DATETIME')	AS transaction_date_time,
+						t.c.value('(member_code/text())[1]', 'VARCHAR(50)')			AS member_code,
+						t.c.value('(member_type/text())[1]', 'VARCHAR(10)')			AS member_type,
+						t.c.value('(currency/text())[1]', 'VARCHAR(5)')				AS currency,
+						t.c.value('(balance_start/text())[1]', 'MONEY')				AS balance_start,
+						t.c.value('(balance_end/text())[1]', 'MONEY')				AS balance_end,
+						t.c.value('(bet/text())[1]', 'MONEY')						AS bet,
+						t.c.value('(win/text())[1]', 'MONEY')						AS win,
+						t.c.value('(game_code/text())[1]', 'VARCHAR(5)')			AS game_code,
+						t.c.value('(game_detail/text())[1]', 'VARCHAR(300)')		AS game_detail,
+						t.c.value('(bet_status/text())[1]', 'VARCHAR(10)')			AS bet_status,
+						t.c.value('(player_hand/text())[1]', 'NVARCHAR(MAX)')		AS player_hand,
+						t.c.value('(game_result/text())[1]', 'VARCHAR(500)')		AS game_result,
+						t.c.value('(game_category/text())[1]', 'VARCHAR(10)')		AS game_category,
+						t.c.value('(vendor/text())[1]', 'VARCHAR(20)')				AS vendor,
+						t.c.value('(DrawNumber/text())[1]', 'INT')					AS DrawNumber,
+						t.c.value('(m88_studio/text())[1]', 'VARCHAR(5)')			AS m88_studio,
+						t.c.value('(stamp_date/text())[1]', 'DATETIME')				AS stamp_date,
+						t.c.value('(bet_record_id/text())[1]', 'VARCHAR(10)')		AS bet_record_id
+				FROM @XmlData.nodes('Transaction_Detail/bets/row') AS t(c)
+				OPTION (OPTIMIZE FOR (@XmlData = NULL))
+
+				DELETE bo WITH (ROWLOCK, UPDLOCK)
+				FROM dbo.bettrans_OPUS bo
+				WHERE EXISTS (SELECT 1 FROM #OPUS o WHERE bo.transaction_id = o.transaction_id)
+				
+				INSERT INTO dbo.bettrans_OPUS (transaction_id, transaction_date_time, member_code, member_type, currency, balance_start, balance_end, bet, win, game_code, game_detail, bet_status, player_hand, game_result, game_category, vendor, DrawNumber, m88_studio, stamp_date, bet_record_id, IBCCustId, WinlostDate)
+				SELECT o.transaction_id, o.transaction_date_time, o.member_code, o.member_type, o.currency, o.balance_start, o.balance_end, o.bet, o.win, o.game_code, o.game_detail, o.bet_status, o.player_hand, o.game_result, o.game_category, o.vendor, o.DrawNumber, o.m88_studio, o.stamp_date, o.bet_record_id, m.IBCCustId, CONVERT(DATE, o.transaction_date_time) AS WinlostDate
+				FROM #OPUS o
+					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + RIGHT(o.member_code, LEN(o.member_code) - 3) = m.Username
+
+				SELECT @WinlostDate = MIN(CONVERT(DATE, transaction_date_time)) FROM #OPUS
+
+				SELECT @IsErr = 0
+			END TRY
+			BEGIN CATCH
+				UPDATE dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
+				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
+				WHERE QueueId = @QueueId
+			END CATCH
+		END
 
 		IF @IsErr = 1
 		BEGIN
@@ -145,11 +278,17 @@ BEGIN
 		END
 	END
 
-	UPDATE dbo.APIProductSettings WITH (ROWLOCK, UPDLOCK)
-	SET SettingValue = CONVERT(VARCHAR(20), @LastQueueId)
-	WHERE ProductId = @ProductId AND SettingName = 'LastQueueId'
+	IF @IsErr = 0
+	BEGIN
+		UPDATE dbo.APIProductSettings WITH (ROWLOCK, UPDLOCK)
+		SET SettingValue = CONVERT(VARCHAR(20), @LastQueueId)
+		WHERE ProductId = @ProductId AND SettingName = 'LastQueueId'
+	END
 
 	DROP TABLE #Ebet
 	DROP TABLE #Betsoft
+	DROP TABLE #Crystal
+	DROP TABLE #iSoftbet
+	DROP TABLE #OPUS
 END
 GO
