@@ -13,10 +13,18 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20190108@Percy: Get Product List from bettrans (IsIBC = 1) [RedmineID: #107623]
 */
 
 BEGIN 
 	SET NOCOUNT ON
+
+	-- Get Product List
+	BEGIN
+		DECLARE @Products TABLE (ProductId INT PRIMARY KEY)
+		INSERT INTO @Products (ProductId)
+		SELECT ProductId FROM dbo.Products WITH (NOLOCK) WHERE IsIBC = 1
+	END
 
 	-- Get data from bettrans
 	BEGIN
@@ -52,8 +60,6 @@ BEGIN
 
 	-- Prepare data
 	BEGIN
-		DECLARE @Products TABLE (ProductId INT PRIMARY KEY)
-
 		CREATE TABLE #rptMemberDaily
 		(
 			IBCCustId		INT,
@@ -104,9 +110,6 @@ BEGIN
 		WHERE
 			(mi.IsRemoved = 0 OR DATEDIFF(MONTH, mr.RemovedDate, @WinlostDate) < 0)
 			AND DATEDIFF(DAY, mi.CreatedDate, @WinlostDate) >= 0
-
-		INSERT INTO @Products (ProductId)
-		SELECT DISTINCT ProductId FROM #rptMemberDaily
 	END
 	
 	-- Insert data into MemberDaily
