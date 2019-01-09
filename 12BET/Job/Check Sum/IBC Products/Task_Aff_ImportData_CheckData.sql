@@ -14,10 +14,18 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20190108@Percy: Get Product List from bettrans (IsIBC = 1) [RedmineID: #107623]
 */
 
 BEGIN 
 	SET NOCOUNT ON
+
+	-- Get Product List
+	BEGIN
+		DECLARE @Products TABLE (ProductId INT PRIMARY KEY)
+		INSERT INTO @Products (ProductId)
+		SELECT ProductId FROM dbo.Products WITH (NOLOCK) WHERE IsIBC = 1
+	END
 
 	DECLARE @IsMatched BIT
 
@@ -218,7 +226,7 @@ BEGIN
 					SOURCE.Deposit,SOURCE.Withdrawal,SOURCE.Bonus,SOURCE.Adjustment,
 					SOURCE.Turnover,SOURCE.Winloss,SOURCE.AffExRate,SOURCE.ExRate
 				)
-			WHEN NOT MATCHED BY SOURCE AND TARGET.WinlostDate = @WinlostDate THEN
+			WHEN NOT MATCHED BY SOURCE AND TARGET.WinlostDate = @WinlostDate AND TARGET.ProductId IN (SELECT ProductId FROM @Products) THEN
 				DELETE;
 		END
 	END
