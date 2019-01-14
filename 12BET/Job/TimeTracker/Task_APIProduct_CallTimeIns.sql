@@ -9,6 +9,14 @@ ALTER PROCEDURE [dbo].[Task_APIProduct_CallTimeIns]
 	@ErrCode	INT = 0 OUTPUT,
 	@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
+/*
+	Created: 20190114@Walter
+	DB: DBAFF12BET.Affiliate_12BET
+	Task: Insert The Last Time Call Service Successfully
+
+	Revisions:
+		- Created: 20190114@Walter: Initialize SP [RedmineID: #107594]
+*/
 BEGIN
     SET NOCOUNT ON
 
@@ -21,3 +29,4 @@ BEGIN
 		RETURN
 	END
 END
+GO
