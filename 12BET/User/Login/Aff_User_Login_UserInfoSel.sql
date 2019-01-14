@@ -32,7 +32,8 @@ BEGIN
 		ai.AffType,
 		ai.IsClosed,
 		ai.Status,
-		ad.PreferredLanguage
+		ad.PreferredLanguage,
+		ai.IsLocked
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffID = ad.AffID
 		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupID = cg.GroupID
