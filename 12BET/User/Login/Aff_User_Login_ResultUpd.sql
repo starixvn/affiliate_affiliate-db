@@ -19,6 +19,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20190115@Walter: Remove Locking action [RedmineID: #104884]
 */
 
 BEGIN
@@ -40,24 +41,6 @@ BEGIN
 	FROM AffInfo ai WITH (NOLOCK)
 		INNER JOIN AffDetail ad WITH (NOLOCK) ON ai.AffID = ad.AffID
 	WHERE ai.AffID = @AffId
-
-	IF @IsLocked = 1
-	BEGIN
-		-- Unlock user
-		IF DATEDIFF(MINUTE, @LastLoginDate, @CurrentTime) >= 10
-		BEGIN
-			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
-			SET IsLocked = 0
-			WHERE AffID = @AffId
-		END
-		ELSE
-		BEGIN
-			-- Account is locked
-			SELECT @ErrCode = 101, @ErrMsg = dbo.Aff_f_GetMessageById (103, @Language)
-
-			RETURN
-		END
-	END
 	
 	-- Login successful
 	IF @IsSuccessful = 1
