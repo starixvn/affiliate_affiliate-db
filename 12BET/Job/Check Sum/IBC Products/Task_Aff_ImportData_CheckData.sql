@@ -4,7 +4,9 @@ GO
 
 ALTER PROCEDURE [dbo].[Task_Aff_ImportData_CheckData]
 	@WinlostDate	SMALLDATETIME,
-	@IsCheckOnly	BIT = 0
+	@IsCheckOnly	BIT = 0,
+	@IsMatched		BIT = 0 OUTPUT,
+	@ProductList	VARCHAR(50) = '' OUTPUT
 AS
 
 /*
@@ -16,6 +18,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20190108@Percy: Get Product List from bettrans (IsIBC = 1) [RedmineID: #107623]
 		- 20190109@Percy: Send mail if data has mismatch [RedmineID: #107623]
+		- 20190116@Percy: Move send mail part out main SP: Task_Aff_ImportData_CheckData_Job [RedmineID: #107623]
 */
 
 BEGIN 
@@ -27,10 +30,11 @@ BEGIN
 		INSERT INTO @Products (ProductId)
 		SELECT ProductId FROM dbo.Products WITH (NOLOCK) WHERE IsIBC = 1
 
+		INSERT INTO @Products (ProductId)
+		VALUES (-1)
+
 		DECLARE @MisMatchProducts TABLE (ProductId INT)
 	END
-
-	DECLARE @IsMatched BIT
 
 	-- Get data from bettrans
 	BEGIN
@@ -148,20 +152,21 @@ BEGIN
 			ExRate
 		)
 		SELECT
-			IBCCustId,
-			Currency,
-			AffId,
-			ProductId,
-			Deposit,
-			Withdrawal,
-			Bonus,
-			Adjustment,
-			Turnover,
-			Winloss,
-			AffExRate,
-			ExRate
-		FROM dbo.rptMemberDaily WITH (NOLOCK)
-		WHERE WinlostDate = @WinlostDate
+			md.IBCCustId,
+			md.Currency,
+			md.AffId,
+			md.ProductId,
+			md.Deposit,
+			md.Withdrawal,
+			md.Bonus,
+			md.Adjustment,
+			md.Turnover,
+			md.Winloss,
+			md.AffExRate,
+			md.ExRate
+		FROM dbo.rptMemberDaily md WITH (NOLOCK)
+			INNER JOIN @Products p ON md.ProductId = p.ProductId
+		WHERE md.WinlostDate = @WinlostDate
 	END
 
 	-- Compare data
@@ -234,29 +239,10 @@ BEGIN
 				DELETE;
 		END
 
-		-- Send mail
-		DECLARE @Subject VARCHAR(1000) = '', @Msg NVARCHAR(MAX) = ''
-
-		BEGIN
-			SELECT @Subject = 'SQL Server Job System: ''Affiliate_12BET: Check and Correct Member Data Daily'' on ' + @@SERVERNAME
-
-			SELECT @Msg = '<H3>Data on rptMemberDaily is not matched with source.</H3>'
-							+ '<table border="1"> '
-							+ '<tr><th>No.</th><th>Product</th><th>WinlostDate</th></tr>'
-							+ CAST((SELECT	td = ROW_NUMBER() OVER(ORDER BY (SELECT NULL)), '',
-											td = p.ProductName, '',
-											td = @WinlostDate, ''
-									FROM @MisMatchProducts mp
-										INNER JOIN dbo.Products p WITH (NOLOCK) ON mp.ProductId = p.ProductID
-									FOR XML PATH('tr'), TYPE 
-									) AS NVARCHAR(MAX)) + N'</table>'
-			
-			EXEC msdb.dbo.sp_send_dbmail
-				@recipients		= 'percy.nguyen@starixsoft.com;pontus@starixsoft.com',
-				@subject		= @subject,
-				@body			= @Msg,
-				@body_format	= 'HTML'
-		END
+		-- Output data
+		SELECT @ProductList = NULL
+		SELECT @ProductList = COALESCE(@ProductList + ',', '') + CONVERT(VARCHAR(5), ProductId)
+		FROM @MisMatchProducts
 	END
 
 	DROP TABLE #Data
