@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20190108@Percy: Get Product List from bettrans (IsIBC = 1) [RedmineID: #107623]
+		- 20190109@Percy: Send mail if data has mismatch [RedmineID: #107623]
 */
 
 BEGIN 
@@ -25,6 +26,8 @@ BEGIN
 		DECLARE @Products TABLE (ProductId INT PRIMARY KEY)
 		INSERT INTO @Products (ProductId)
 		SELECT ProductId FROM dbo.Products WITH (NOLOCK) WHERE IsIBC = 1
+
+		DECLARE @MisMatchProducts TABLE (ProductId INT)
 	END
 
 	DECLARE @IsMatched BIT
@@ -163,25 +166,26 @@ BEGIN
 
 	-- Compare data
 	BEGIN
-		IF EXISTS (
-			SELECT 1
-			FROM #rptMemberDaily_Target t
-				FULL OUTER JOIN #rptMemberDaily_Source s ON t.IBCCustId = s.IBCCustId AND t.ProductId = s.ProductId
-			WHERE
-				t.IBCCustId IS NULL
-				OR s.IBCCustId IS NULL
-				OR t.Deposit		<> s.Deposit
-				OR t.Withdrawal		<> s.Withdrawal
-				OR t.Bonus			<> s.Bonus
-				OR t.Adjustment		<> s.Adjustment
-				OR t.Turnover		<> s.Turnover
-				OR t.Winloss		<> s.Winloss
-				OR t.AffExRate		<> s.AffExRate
-				OR t.ExRate			<> s.ExRate
-		)
-			SELECT @IsMatched = 0
-		ELSE
+		INSERT INTO @MisMatchProducts (ProductId)
+		SELECT DISTINCT ISNULL(t.ProductId, s.ProductId)
+		FROM #rptMemberDaily_Target t
+			FULL OUTER JOIN #rptMemberDaily_Source s ON t.IBCCustId = s.IBCCustId AND t.ProductId = s.ProductId
+		WHERE
+			t.IBCCustId IS NULL
+			OR s.IBCCustId IS NULL
+			OR t.Deposit		<> s.Deposit
+			OR t.Withdrawal		<> s.Withdrawal
+			OR t.Bonus			<> s.Bonus
+			OR t.Adjustment		<> s.Adjustment
+			OR t.Turnover		<> s.Turnover
+			OR t.Winloss		<> s.Winloss
+			OR t.AffExRate		<> s.AffExRate
+			OR t.ExRate			<> s.ExRate
+		
+		IF @@ROWCOUNT = 0
 			SELECT @IsMatched = 1
+		ELSE
+			SELECT @IsMatched = 0
 	END
 	
 	IF @IsMatched = 0
@@ -228,6 +232,30 @@ BEGIN
 				)
 			WHEN NOT MATCHED BY SOURCE AND TARGET.WinlostDate = @WinlostDate AND TARGET.ProductId IN (SELECT ProductId FROM @Products) THEN
 				DELETE;
+		END
+
+		-- Send mail
+		DECLARE @Subject VARCHAR(1000) = '', @Msg NVARCHAR(MAX) = ''
+
+		BEGIN
+			SELECT @Subject = 'SQL Server Job System: ''Affiliate_12BET: Check and Correct Member Data Daily'' on ' + @@SERVERNAME
+
+			SELECT @Msg = '<H3>Data on rptMemberDaily is not matched with source.</H3>'
+							+ '<table border="1"> '
+							+ '<tr><th>No.</th><th>Product</th><th>WinlostDate</th></tr>'
+							+ CAST((SELECT	td = ROW_NUMBER() OVER(ORDER BY (SELECT NULL)), '',
+											td = p.ProductName, '',
+											td = @WinlostDate, ''
+									FROM @MisMatchProducts mp
+										INNER JOIN dbo.Products p WITH (NOLOCK) ON mp.ProductId = p.ProductID
+									FOR XML PATH('tr'), TYPE 
+									) AS NVARCHAR(MAX)) + N'</table>'
+			
+			EXEC msdb.dbo.sp_send_dbmail
+				@recipients		= 'percy.nguyen@starixsoft.com;pontus@starixsoft.com',
+				@subject		= @subject,
+				@body			= @Msg,
+				@body_format	= 'HTML'
 		END
 	END
 
