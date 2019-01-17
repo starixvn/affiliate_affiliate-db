@@ -14,6 +14,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20190108@Percy: Get Product List from bettrans (IsIBC = 1) [RedmineID: #107623]
+		- 20190116@Percy: Add transfer: ProductId = -1 [RedmineID: #107623]
 */
 
 BEGIN 
@@ -24,6 +25,9 @@ BEGIN
 		DECLARE @Products TABLE (ProductId INT PRIMARY KEY)
 		INSERT INTO @Products (ProductId)
 		SELECT ProductId FROM dbo.Products WITH (NOLOCK) WHERE IsIBC = 1
+
+		INSERT INTO @Products (ProductId)
+		VALUES (-1)
 	END
 
 	-- Get data from bettrans
