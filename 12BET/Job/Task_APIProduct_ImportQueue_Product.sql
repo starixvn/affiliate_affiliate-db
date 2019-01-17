@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 		- 20181201@Percy: Integrate new products: 12Crystal - GPI, 12Quartz - iSoftbet, 12Diamond - OPUS [RedmineID: #104892]
+		- 20190117@Percy: Divide amount by 100 for Betsoft [RedmineID: #107979]
 */
 
 BEGIN
@@ -74,8 +75,8 @@ BEGIN
 			mi.AffId,
 			mi.IBCCustId,
 			mi.currency,
-			SUM(ISNULL(b.Amount, 0)) AS Turnover,
-			SUM(ISNULL(b.win, 0) - ISNULL(b.Amount, 0)) AS Winloss
+			SUM(ISNULL(b.Amount, 0) / 100) AS Turnover,
+			SUM(ISNULL(b.Win, 0) / 100 - ISNULL(b.Amount, 0) / 100) AS Winloss
 		FROM dbo.bettrans_Betsoft b WITH (NOLOCK)
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON b.IBCCustId = mi.IBCCustId
 		WHERE b.WinlostDate = @WinlostDate
