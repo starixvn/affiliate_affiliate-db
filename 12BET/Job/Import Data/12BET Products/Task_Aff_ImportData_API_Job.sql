@@ -13,6 +13,7 @@ AS
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 		- 20181020@Percy: Add list of products in APIProduct_ImportQueue [RedmineID: #102]
+		- 20190117@Percy: Using core table for 3rd Products [RedmineID: #106503]
 */
 
 BEGIN
@@ -29,61 +30,86 @@ BEGIN
 
 	DECLARE @ErrTable TABLE (ProductId INT, WinlostDate SMALLDATETIME, ErrMsg NVARCHAR(4000))
 
-	-- AG Casino
+	DECLARE @Products TABLE (Id INT IDENTITY(1,1), ProductId INT, LaunchDate SMALLDATETIME)
+	DECLARE @Id INT = 1, @ProductId INT = NULL
+
+	-- 3rd Products: Product3rd_ImportQueue
 	BEGIN
-		-- Reset data
-		SELECT @OldLastQueueId = NULL, @NewLastQueueId = NULL, @WinlostDate = NULL, @LaunchDate = NULL, @FromImportDate = NULL
+		DECLARE @3rdProductId INT
 		
-		DELETE @tblWinlostDate
+		SELECT @Id = 1, @ProductId = NULL
 		
-		SELECT @OldLastQueueId = CONVERT(BIGINT, SettingValue) FROM dbo.APIProductSettings WITH (NOLOCK)
-		WHERE ProductId = 9 AND SettingName = 'LastQueueId'
+		DELETE @Products
 
-		SELECT @LaunchDate = CONVERT(SMALLDATETIME, SettingValue) FROM dbo.APIProductSettings WITH (NOLOCK)
-		WHERE ProductId = 9 AND SettingName = 'LaunchDate'
+		INSERT INTO @Products (ProductId)
+		SELECT ProductId FROM dbo.APIProductSettings WITH (NOLOCK)
+		WHERE SettingName = 'SourceTable' AND SettingValue = '3rdProducts'
 
-		SELECT @FromImportDate = CASE WHEN @LaunchDate > @MaxCommDate THEN @LaunchDate ELSE DATEADD(DAY, 1, @MaxCommDate) END
-	
-		INSERT INTO @tblWinlostDate (WinlostDate, MaxQueueId)
-		SELECT WinlostDate, MAX(QueueId) FROM bodb_PlaytechCS.dbo.Product3rd_ImportQueue WITH (NOLOCK)
-		WHERE ProductId = 10 AND QueueId > @OldLastQueueId AND WinlostDate >= @FromImportDate
-		GROUP BY WinlostDate
+		UPDATE p
+		SET p.LaunchDate = CONVERT(SMALLDATETIME, aps.SettingValue)
+		FROM @Products p
+			INNER JOIN dbo.APIProductSettings aps WITH (NOLOCK) ON p.ProductId = aps.ProductId AND aps.SettingName = 'LaunchDate'
 
-		SELECT @NewLastQueueId = MAX(MaxQueueId) FROM @tblWinlostDate
-		SELECT @NewLastQueueId = ISNULL(@NewLastQueueId, @OldLastQueueId)
+		SELECT @ProductId = ProductId, @LaunchDate = LaunchDate FROM @Products WHERE Id = @Id
 
-		SELECT TOP 1 @WinlostDate = WinlostDate FROM @tblWinlostDate ORDER BY WinlostDate
-
-		WHILE @WinlostDate IS NOT NULL
+		WHILE @ProductId IS NOT NULL
 		BEGIN
-			BEGIN TRY
-				EXEC dbo.Task_Aff_ImportData_AGCasino @WinlostDate = @WinlostDate
-			END TRY
-			BEGIN CATCH
-				INSERT INTO @ErrTable (ProductId, WinlostDate, ErrMsg)
-				VALUES (9, @WinlostDate, ERROR_MESSAGE())
-			END CATCH
+			-- Reset data
+			SELECT @OldLastQueueId = NULL, @NewLastQueueId = NULL, @WinlostDate = NULL, @LaunchDate = NULL, @FromImportDate = NULL, @3rdProductId = NULL
 			
-			DELETE @tblWinlostDate WHERE WinlostDate = @WinlostDate
-			
-			SELECT @WinlostDate = NULL
-			SELECT TOP 1 @WinlostDate = WinlostDate FROM @tblWinlostDate ORDER BY WinlostDate
-		END
+			DELETE @tblWinlostDate
 
-		UPDATE dbo.APIProductSettings WITH (ROWLOCK, UPDLOCK)
-		SET SettingValue = CONVERT(VARCHAR(200), @NewLastQueueId)
-		WHERE ProductId = 9 AND SettingName = 'LastQueueId'
+			SELECT @3rdProductId = CONVERT(INT, SettingValue) FROM dbo.APIProductSettings WITH (NOLOCK)
+			WHERE ProductId = @ProductId AND SettingName = '3rdProductId'
+
+			SELECT @OldLastQueueId = CONVERT(BIGINT, SettingValue) FROM dbo.APIProductSettings WITH (NOLOCK)
+			WHERE ProductId = @ProductId AND SettingName = 'LastQueueId'
+
+			SELECT @LaunchDate = CONVERT(SMALLDATETIME, SettingValue) FROM dbo.APIProductSettings WITH (NOLOCK)
+			WHERE ProductId = @ProductId AND SettingName = 'LaunchDate'
+
+			SELECT @FromImportDate = CASE WHEN @LaunchDate > @MaxCommDate THEN @LaunchDate ELSE DATEADD(DAY, 1, @MaxCommDate) END
+
+			INSERT INTO @tblWinlostDate (WinlostDate, MaxQueueId)
+			SELECT WinlostDate, MAX(QueueId) FROM bodb_PlaytechCS.dbo.Product3rd_ImportQueue WITH (NOLOCK)
+			WHERE ProductId = @3rdProductId AND QueueId > @OldLastQueueId AND WinlostDate >= @FromImportDate
+			GROUP BY WinlostDate
+
+			SELECT @NewLastQueueId = MAX(MaxQueueId) FROM @tblWinlostDate
+			SELECT @NewLastQueueId = ISNULL(@NewLastQueueId, @OldLastQueueId)
+
+			SELECT TOP 1 @WinlostDate = WinlostDate FROM @tblWinlostDate ORDER BY WinlostDate
+
+			WHILE @WinlostDate IS NOT NULL
+			BEGIN
+				BEGIN TRY
+					EXEC dbo.Task_Aff_ImportData_3rdProduct @ProductId = @ProductId, @WinlostDate = @WinlostDate
+				END TRY
+				BEGIN CATCH
+					INSERT INTO @ErrTable (ProductId, WinlostDate, ErrMsg)
+					VALUES (@ProductId, @WinlostDate, ERROR_MESSAGE())
+				END CATCH
+			
+				DELETE @tblWinlostDate WHERE WinlostDate = @WinlostDate
+			
+				SELECT @WinlostDate = NULL
+				SELECT TOP 1 @WinlostDate = WinlostDate FROM @tblWinlostDate ORDER BY WinlostDate
+			END
+
+			UPDATE dbo.APIProductSettings WITH (ROWLOCK, UPDLOCK)
+			SET SettingValue = CONVERT(VARCHAR(200), @NewLastQueueId)
+			WHERE ProductId = @ProductId AND SettingName = 'LastQueueId'
+		END
 	END
 
 	-- Products in APIProduct_ImportQueue
 	BEGIN
 		-- Reset data
 		SELECT @OldLastQueueId = NULL, @NewLastQueueId = NULL, @WinlostDate = NULL, @LaunchDate = NULL, @FromImportDate = NULL
+		SELECT @Id = 1, @ProductId = NULL
 
 		DECLARE @today SMALLDATETIME
 		SELECT  @today = CONVERT(DATE, GETDATE())
-
-		DECLARE @Products TABLE (Id INT IDENTITY(1,1), ProductId INT, LaunchDate SMALLDATETIME)
 	
 		INSERT INTO @Products (ProductId)
 		SELECT ProductId FROM dbo.APIProductSettings WITH (NOLOCK)
@@ -93,13 +119,12 @@ BEGIN
 		SET p.LaunchDate = CONVERT(SMALLDATETIME, aps.SettingValue)
 		FROM @Products p
 			INNER JOIN dbo.APIProductSettings aps WITH (NOLOCK) ON p.ProductId = aps.ProductId AND aps.SettingName = 'LaunchDate'
-
-		DECLARE @Id INT = 1, @ProductId INT = NULL
+		
 		SELECT  @ProductId = ProductId, @LaunchDate = LaunchDate FROM @Products WHERE Id = @Id
 
 		WHILE @ProductId IS NOT NULL
 		BEGIN
-			SELECT @WinlostDate = DATEADD(DAY, -2, @today)
+			SELECT @WinlostDate = DATEADD(DAY, -3, @today)
 
 			IF @WinlostDate < @LaunchDate
 				SELECT @WinlostDate = @LaunchDate
