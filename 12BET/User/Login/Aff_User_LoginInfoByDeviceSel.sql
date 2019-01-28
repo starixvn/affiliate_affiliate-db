@@ -2,10 +2,9 @@
 USE [Affiliate_12BET]
 GO
 
-CREATE PROCEDURE [dbo].[Aff_User_LoginInfoSel]
-    @AffId      INT,
-    @IpAddress  NVARCHAR(25),
-    @OS         NVARCHAR(50)
+ALTER PROCEDURE [dbo].[Aff_User_LoginInfoByDeviceSel]
+	@AffId		INT,
+    @IpAddress  NVARCHAR(25)
 AS
 
 /*
@@ -25,6 +24,6 @@ BEGIN
 
     SELECT FailedLoginCount
     FROM dbo.AffLoginByUserDevices WITH (NOLOCK) 
-    WHERE AffId = @AffId AND IpAddress = @IpAddress AND OS = @OS
+    WHERE AffId = @AffId AND IP = @IpAddress
 END
 GO

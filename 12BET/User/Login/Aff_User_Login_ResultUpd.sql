@@ -3,9 +3,8 @@ USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_User_Login_ResultUpd]
-	@AffId      	INT,
+	@AffId			INT,
     @IpAddress  	NVARCHAR(25),
-    @OS         	NVARCHAR(50),
     @Browser    	NVARCHAR(20) = NULL,
     @UserAgent  	NVARCHAR(256) = NULL,
 	@Language		VARCHAR(20) = 'en-US',
@@ -28,7 +27,6 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @LogData NVARCHAR(2000)
 	DECLARE @FailedLoginCount	TINYINT
 
 	DECLARE @CurrentTime DATETIME
@@ -39,14 +37,12 @@ BEGIN
 	BEGIN		
 		-- Reset Failed Login Count
 		SELECT @FailedLoginCount = 0
-		-- Log
-		SELECT @LogData = 'Successful Login, IpAddress: ' + @IpAddress
 	END
 	ELSE
 	BEGIN
 		SELECT @FailedLoginCount = ISNULL(FailedLoginCount, 0)
 		FROM dbo.AffLoginByUserDevices WITH (NOLOCK)
-		WHERE AffId = @AffId AND IpAddress = @IpAddress AND OS = @OS
+		WHERE AffId = @AffId AND IP = @IpAddress
 		
 		IF @@ROWCOUNT = 0
 		BEGIN
@@ -54,28 +50,25 @@ BEGIN
 		END
 		ELSE
 		BEGIN
-			SELECT @FailedLoginCount = @FailedLoginCount + 1
+			SET @FailedLoginCount = @FailedLoginCount + 1
 		END
-
-		-- Log
-		SELECT @LogData = 'Failed Login, IpAddress: ' + @IpAddress
 	END
 
 	-- Update login info
 	BEGIN TRY
-		IF(EXISTS (SELECT TOP 1 1 FROM dbo.AffLoginByUserDevices WITH (NOLOCK) WHERE AffId = @AffId AND IpAddress = @IpAddress AND OS = @OS))
-		BEGIN
-			INSERT INTO dbo.AffLoginByUserDevices (AffId, IpAddress, OS, Browser, UserAgent, FailedLoginCount, LastLoginDate)
-			VALUES (@AffId, @IpAddress, @OS, @Browser, @UserAgent, @FailedLoginCount, @CurrentTime)
-		END
-		ELSE
+		IF(EXISTS (SELECT TOP 1 1 FROM dbo.AffLoginByUserDevices WITH (NOLOCK) WHERE AffId = @AffId AND IP = @IpAddress))
 		BEGIN
 			UPDATE dbo.AffLoginByUserDevices WITH (ROWLOCK, UPDLOCK)
 			SET FailedLoginCount = @FailedLoginCount,
 				LastLoginDate = @CurrentTime,
 				Browser = @Browser,
 				UserAgent = @UserAgent
-			WHERE AffId = @AffId AND IpAddress = @IpAddress AND OS = @OS
+			WHERE AffId = @AffId AND IP = @IpAddress
+		END
+		ELSE
+		BEGIN
+			INSERT INTO dbo.AffLoginByUserDevices (AffId, IP, Browser, UserAgent, FailedLoginCount, LastLoginDate)
+			VALUES (@AffId, @IpAddress, @Browser, @UserAgent, @FailedLoginCount, @CurrentTime)
 		END
 	END TRY
 	BEGIN CATCH
@@ -92,8 +85,7 @@ BEGIN
 	SELECT  @NewData = 
 			'IsSuccessful='			+ ISNULL(CONVERT(VARCHAR(1), @IsSuccessful), '') + ',' +
 			'FailedLoginCount='		+ ISNULL(CONVERT(VARCHAR(10), @FailedLoginCount), '') + ',' +
-			'IpAddress='			+ ISNULL(@IpAddress, '') + ',' +
-			'OS='					+ ISNULL(@OS, '') + ',' +
+			'IP='					+ ISNULL(@IpAddress, '') + ',' +
 			'Browser='				+ ISNULL(@Browser, '') + ',' +
 			'UserAgent='			+ ISNULL(@UserAgent, '')
 
