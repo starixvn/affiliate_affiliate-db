@@ -17,6 +17,7 @@ AS
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 		- 20181201@Percy: Integrate new products: 12Crystal - GPI, 12Quartz - iSoftbet, 12Diamond - OPUS [RedmineID: #104892]
+		- 20190128@Percy: Betsoft - Change way to get winlostdate [RedmineID: #107979]
 */
 
 BEGIN
@@ -25,7 +26,7 @@ BEGIN
 	DECLARE @QueueId BIGINT, @XmlData XML, @WinlostDate SMALLDATETIME, @ListQueueId VARCHAR(MAX) = ''
 
 	CREATE TABLE #Ebet (Username NVARCHAR(50), BetHistoryId NVARCHAR(100), Bet MONEY, Payout MONEY, PayoutTime DATETIME)
-	CREATE TABLE #Betsoft (Username NVARCHAR(50), GameSessionId BIGINT, GameId INT, PlatForm VARCHAR(50), BetId INT, Amount MONEY, Win MONEY, BetTime DATETIME)
+	CREATE TABLE #Betsoft (Username NVARCHAR(50), GameSessionId BIGINT, GameId INT, PlatForm VARCHAR(50), BetId INT, Amount MONEY, Win MONEY, BetTime DATETIME, StartDate DATETIME, EndDate DATETIME)
 	CREATE TABLE #Crystal (operationCode BIGINT, userId VARCHAR(50), changeTime DATETIME, changeType VARCHAR(20), gameName VARCHAR(200), fround SMALLINT, bet MONEY, ret MONEY, changes MONEY, endBalance MONEY, operator VARCHAR(50), jcon MONEY, jwin MONEY, platform TINYINT, gametype SMALLINT, ver VARCHAR(20))
 	CREATE TABLE #iSoftbet (PLAYERID VARCHAR(50), CURRENCY VARCHAR(5), SESSIONID VARCHAR(100), GAMEID VARCHAR(10), ROUNDID VARCHAR(100), TRANSACTIONID VARCHAR(100), TYPE VARCHAR(50), TIME DATETIME, AMOUNT MONEY)
 	CREATE TABLE #OPUS (transaction_id BIGINT, transaction_date_time DATETIME, member_code VARCHAR(30), member_type VARCHAR(10), currency VARCHAR(5), balance_start MONEY, balance_end MONEY, bet MONEY, win MONEY, game_code VARCHAR(5), game_detail VARCHAR(300), bet_status VARCHAR(10), player_hand NVARCHAR(4000), game_result VARCHAR(500), game_category VARCHAR(10), vendor VARCHAR(20), DrawNumber INT, m88_studio VARCHAR(5), stamp_date DATETIME, bet_record_id VARCHAR(10))
@@ -105,8 +106,25 @@ BEGIN
 		-- Betsoft
 		ELSE IF @ProductId = 11
 		BEGIN
+			DECLARE @StartDate DATETIME, @EndDate DATETIME
+
 			BEGIN TRY
-				INSERT INTO #Betsoft (Username, GameSessionId, GameId, PlatForm, BetId, Amount, Win, BetTime)
+				SELECT	@StartDate = REPLACE(t.c.value('(STARTDATE/text())[1]', 'VARCHAR(50)'), '_', ' '),
+						@EndDate = REPLACE(t.c.value('(ENDDATE/text())[1]', 'VARCHAR(50)'), '_', ' ')
+				FROM @XmlData.nodes('BSGSYSTEM/REQUEST') AS t(c)
+
+				-- Convert from GMT+0 to GMT-4
+				SELECT @StartDate = DATEADD(HOUR, -4, @StartDate), @EndDate = DATEADD(HOUR, -4, @EndDate)
+
+				IF DATEDIFF(DAY, @StartDate, DATEADD(SECOND, -1, @EndDate)) <> 0
+				BEGIN
+					SELECT @ErrCode = 100, @ErrMsg = CONVERT(NVARCHAR(100), @QueueId) + ': StartDate and EndDate are not in the same date!'
+					RETURN
+				END
+
+				SELECT @WinlostDate = CONVERT(DATE, @StartDate)
+
+				INSERT INTO #Betsoft (Username, GameSessionId, GameId, PlatForm, BetId, Amount, Win, BetTime, StartDate, EndDate)
 				SELECT	t.c.value('(USERNAME/text())[1]', 'NVARCHAR(50)')	AS Username,
 						t1.c.value('@id', 'BIGINT')							AS GameSessionId,
 						t1.c.value('(GAMEID/text())[1]', 'INT')				AS GameId,
@@ -114,7 +132,9 @@ BEGIN
 						t2.c.value('@id', 'INT')							AS BetId,
 						t2.c.value('(AMOUNT/text())[1]', 'MONEY')			AS Amount,
 						t2.c.value('(WIN/text())[1]', 'MONEY')				AS Win,
-						t2.c.value('(BETTIME/text())[1]', 'DATETIME')		AS BetTime
+						t2.c.value('(BETTIME/text())[1]', 'DATETIME')		AS BetTime,
+						@StartDate,
+						@EndDate
 				FROM @XmlData.nodes('BSGSYSTEM/RESPONSE/ACCOUNT') AS t(c)
 					CROSS APPLY t.c.nodes('GAMESESSION') AS t1(c)
 					CROSS APPLY t1.c.nodes('BET') AS t2(c)
@@ -123,7 +143,7 @@ BEGIN
 				IF EXISTS (
 					SELECT 1
 					FROM (
-						SELECT m.IBCCustId, b.Username, b.GameSessionId, b.GameId, b.PlatForm, b.BetId, b.Amount, b.Win, b.BetTime
+						SELECT m.IBCCustId, b.Username, b.GameSessionId, b.GameId, b.PlatForm, b.BetId, b.Amount, b.Win, b.BetTime, b.StartDate, b.EndDate
 						FROM #Betsoft b
 							INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + b.Username = m.Username
 					) AS b
@@ -133,6 +153,8 @@ BEGIN
 						OR b.Amount		<> bb.Amount
 						OR b.Win		<> bb.Win
 						OR b.BetTime	<> bb.BetTime
+						OR b.StartDate	<> bb.StartDate
+						OR b.StartDate	<> bb.EndDate
 				)
 				BEGIN
 					SELECT @ListQueueId = @ListQueueId + ',' + CONVERT(VARCHAR(20), @QueueId)
@@ -141,13 +163,11 @@ BEGIN
 					FROM dbo.bettrans_Betsoft bb
 					WHERE EXISTS (SELECT 1 FROM #Betsoft b WHERE bb.Username = b.Username AND bb.GameSessionId = b.GameSessionId AND bb.GameId = b.GameId)
 				
-					INSERT INTO dbo.bettrans_Betsoft (IBCCustId, Username, GameSessionId, GameId, PlatForm, BetId, Amount, Win, BetTime, WinlostDate)
-					SELECT m.IBCCustId, b.Username, b.GameSessionId, b.GameId, b.PlatForm, b.BetId, b.Amount, b.Win, b.BetTime, CONVERT(DATE, b.Bettime) AS WinlostDate
+					INSERT INTO dbo.bettrans_Betsoft (IBCCustId, Username, GameSessionId, GameId, PlatForm, BetId, Amount, Win, BetTime, StartDate, EndDate, WinlostDate)
+					SELECT m.IBCCustId, b.Username, b.GameSessionId, b.GameId, b.PlatForm, b.BetId, b.Amount, b.Win, b.BetTime, b.StartDate, b.EndDate, @WinlostDate
 					FROM #Betsoft b
 						INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + b.Username = m.Username
 				END
-
-				SELECT @WinlostDate = MIN(CONVERT(DATE, BetTime)) FROM #Betsoft
 
 				SELECT @IsErr = 0
 			END TRY
