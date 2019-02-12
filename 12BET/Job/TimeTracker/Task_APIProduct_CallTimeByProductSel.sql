@@ -20,6 +20,6 @@ BEGIN
     SELECT TOP 1 CallTime
     FROM dbo.APIProduct_TimeTracker WITH (NOLOCK)
     WHERE ProductId = @ProductId AND (Currency IS NULL OR Currency = @Currency)
-    ORDER BY CallTime DESC
+    ORDER BY Id DESC
 END
 GO
