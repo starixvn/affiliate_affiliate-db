@@ -25,7 +25,7 @@ BEGIN
 
     IF @@ERROR <> 0
 	BEGIN
-		SELECT @ErrCode = 103, @ErrMsg = 'Insert failed'
+		SELECT @ErrCode = @@ERROR, @ErrMsg = 'Insert failed'
 		RETURN
 	END
 END
