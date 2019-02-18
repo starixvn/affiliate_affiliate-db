@@ -9,7 +9,7 @@ GO
 
 CREATE TABLE [dbo].[APIProduct_TimeTracker]
 (
-	[Id] [bigint] IDENTITY(1,1) NOT NULL,
+	[Id] [int] IDENTITY(1,1) NOT NULL,
 	[ProductId] [int] NULL,
 	[Currency] [int] NULL,
 	[CallTime] [datetime] NULL
