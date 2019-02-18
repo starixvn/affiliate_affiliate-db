@@ -20,5 +20,5 @@ CREATE TABLE [dbo].[APIProduct_TimeTracker]
 ) ON [ReportData]
 GO
 
-CREATE NONCLUSTERED INDEX IX_ProductId ON [APIProduct_TimeTracker] (ProductId) INCLUDE (Currency, CallTime)
+CREATE NONCLUSTERED INDEX IX_ProductId ON [APIProduct_TimeTracker] (ProductId) INCLUDE (Currency, CallTime) ON [ReportData]
 GO
