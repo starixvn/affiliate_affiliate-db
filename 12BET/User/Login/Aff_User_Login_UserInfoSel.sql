@@ -26,14 +26,11 @@ BEGIN
 		ai.AffID,
 		ai.UserName,
 		ai.Password,
-		ai.Currency AS CurrencyId,
-		ai.GroupID,
 		cg.GroupName,
 		ai.AffType,
 		ai.IsClosed,
 		ai.Status,
-		ad.PreferredLanguage,
-		ai.IsLocked
+		ad.PreferredLanguage
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffID = ad.AffID
 		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupID = cg.GroupID
