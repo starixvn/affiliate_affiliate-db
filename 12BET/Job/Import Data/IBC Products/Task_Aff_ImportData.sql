@@ -15,6 +15,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20190108@Percy: Get Product List from bettrans (IsIBC = 1) [RedmineID: #107623]
 		- 20190116@Percy: Add transfer: ProductId = -1 [RedmineID: #107623]
+		- 20180117@Percy: Check product by releasedDate [RedmineID: #106503]
 */
 
 BEGIN 
@@ -24,7 +25,7 @@ BEGIN
 	BEGIN
 		DECLARE @Products TABLE (ProductId INT PRIMARY KEY)
 		INSERT INTO @Products (ProductId)
-		SELECT ProductId FROM dbo.Products WITH (NOLOCK) WHERE IsIBC = 1
+		SELECT ProductId FROM dbo.Products WITH (NOLOCK) WHERE IsIBC = 1 AND ReleasedDate <= @WinlostDate
 
 		INSERT INTO @Products (ProductId)
 		VALUES (-1)
