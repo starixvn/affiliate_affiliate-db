@@ -19,6 +19,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize function [RedmineID: #87923]
+		- 20190117@Percy: Check product by releasedDate [RedmineID: #106503]
 */
 
 RETURN
@@ -26,6 +27,7 @@ RETURN
 	FROM dbo.Products WITH (NOLOCK)
 	WHERE ProductId = @ProductId
 		AND (EndOfSupportDate IS NULL OR DATEDIFF(MONTH, EndOfSupportDate, @WinlostDate) < 0)
+		AND (ReleasedDate IS NULL OR ReleasedDate <= @WinlostDate)
 		AND (
 			@IsBettrans = 1
 			OR (IsIBC = 0 OR @WinlostDate <= @MoveBetsDay)
