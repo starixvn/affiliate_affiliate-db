@@ -1,6 +1,6 @@
 CREATE TABLE [dbo].[AffLoginByUserDevices](
 	[AffId] [int] NOT NULL,
-	[IpAddress] [nvarchar](25) NOT NULL,
+	[IP] [nvarchar](25) NOT NULL,
 	[DeviceInfo] [nvarchar](100) NOT NULL,
 	[FailedLoginCount] [tinyint] NULL,
 	[LastLoginDate] [datetime] NULL,
@@ -9,7 +9,7 @@ CREATE TABLE [dbo].[AffLoginByUserDevices](
  CONSTRAINT [PK_AffLoginByUserDevices] PRIMARY KEY CLUSTERED 
 (
 	[AffId] ASC,
-	[IpAddress] ASC,
+	[IP] ASC,
 	[DeviceInfo] ASC
 ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [DATA]
 ) ON [DATA]
