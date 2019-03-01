@@ -4,7 +4,8 @@ GO
 
 ALTER PROCEDURE [dbo].[Aff_User_LoginInfoByDeviceSel]
 	@AffId		INT,
-    @IpAddress  NVARCHAR(25)
+    @IpAddress  NVARCHAR(25),
+	@DeviceInfo  NVARCHAR(100)
 AS
 
 /*
@@ -16,14 +17,17 @@ AS
 		- 20190125@Walter: Initiliaze SP [RedmineID: #104884]
 
 	Parameter's Explanation:
-
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-    SELECT FailedLoginCount
+	DECLARE @FailedLoginCount TINYINT
+
+    SELECT @FailedLoginCount = FailedLoginCount
     FROM dbo.AffLoginByUserDevices WITH (NOLOCK) 
-    WHERE AffId = @AffId AND IP = @IpAddress
+    WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo
+
+	SELECT ISNULL(@FailedLoginCount, 0)
 END
 GO

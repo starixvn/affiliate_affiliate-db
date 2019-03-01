@@ -5,8 +5,7 @@ GO
 ALTER PROCEDURE [dbo].[Aff_User_Login_ResultUpd]
 	@AffId			INT,
     @IpAddress  	NVARCHAR(25),
-    @Browser    	NVARCHAR(20) = NULL,
-    @UserAgent  	NVARCHAR(256) = NULL,
+	@DeviceInfo  	NVARCHAR(100),
 	@Language		VARCHAR(20) = 'en-US',
 	@IsSuccessful	BIT,
 	@ErrCode		INT = 0 OUTPUT,
@@ -27,22 +26,22 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @FailedLoginCount	TINYINT
+	DECLARE @FailedLoginCount TINYINT
 
 	DECLARE @CurrentTime DATETIME
-	SELECT  @CurrentTime = GETDATE()
+	SET @CurrentTime = GETDATE()
 	
 	-- Login successful
 	IF @IsSuccessful = 1
 	BEGIN		
 		-- Reset Failed Login Count
-		SELECT @FailedLoginCount = 0
+		SET @FailedLoginCount = 0
 	END
 	ELSE
 	BEGIN
 		SELECT @FailedLoginCount = ISNULL(FailedLoginCount, 0)
 		FROM dbo.AffLoginByUserDevices WITH (NOLOCK)
-		WHERE AffId = @AffId AND IP = @IpAddress
+		WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo
 		
 		IF @@ROWCOUNT = 0
 		BEGIN
@@ -56,24 +55,21 @@ BEGIN
 
 	-- Update login info
 	BEGIN TRY
-		IF(EXISTS (SELECT TOP 1 1 FROM dbo.AffLoginByUserDevices WITH (NOLOCK) WHERE AffId = @AffId AND IP = @IpAddress))
+		IF(EXISTS (SELECT TOP 1 1 FROM dbo.AffLoginByUserDevices WITH (NOLOCK) WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo))
 		BEGIN
 			UPDATE dbo.AffLoginByUserDevices WITH (ROWLOCK, UPDLOCK)
 			SET FailedLoginCount = @FailedLoginCount,
-				LastLoginDate = @CurrentTime,
-				Browser = @Browser,
-				UserAgent = @UserAgent
-			WHERE AffId = @AffId AND IP = @IpAddress
+				LastLoginDate = @CurrentTime
+			WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo
 		END
 		ELSE
 		BEGIN
-			INSERT INTO dbo.AffLoginByUserDevices (AffId, IP, Browser, UserAgent, FailedLoginCount, LastLoginDate)
-			VALUES (@AffId, @IpAddress, @Browser, @UserAgent, @FailedLoginCount, @CurrentTime)
+			INSERT INTO dbo.AffLoginByUserDevices (AffId, IP, DeviceInfo, FailedLoginCount, LastLoginDate)
+			VALUES (@AffId, @IpAddress, @DeviceInfo, @FailedLoginCount, @CurrentTime)
 		END
 	END TRY
 	BEGIN CATCH
-		SELECT @ErrCode = 102, @ErrMsg = ERROR_MESSAGE()
-
+		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
 		RETURN
 	END CATCH
 
@@ -86,8 +82,7 @@ BEGIN
 			'IsSuccessful='			+ ISNULL(CONVERT(VARCHAR(1), @IsSuccessful), '') + ',' +
 			'FailedLoginCount='		+ ISNULL(CONVERT(VARCHAR(10), @FailedLoginCount), '') + ',' +
 			'IP='					+ ISNULL(@IpAddress, '') + ',' +
-			'Browser='				+ ISNULL(@Browser, '') + ',' +
-			'UserAgent='			+ ISNULL(@UserAgent, '')
+			'DeviceInfo='			+ ISNULL(@DeviceInfo, '')
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @AffId,
