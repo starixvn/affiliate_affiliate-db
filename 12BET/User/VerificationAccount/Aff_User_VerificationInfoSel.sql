@@ -1,8 +1,8 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbDownlineNet" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_12BET]
 GO
 
-ALTER PROCEDURE [dbo].[Aff_User_LoginInfoByDeviceSel]
+ALTER PROCEDURE [dbo].[Aff_User_VerificationInfoSel]
 	@AffId		INT,
     @IpAddress  NVARCHAR(25),
 	@DeviceInfo  NVARCHAR(100)
@@ -23,11 +23,19 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @FailedLoginCount TINYINT
+	DECLARE @DeviceCount TINYINT
 
     SELECT @FailedLoginCount = FailedLoginCount
     FROM dbo.AffLoginByUserDevices WITH (NOLOCK) 
     WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo
 
-	SELECT ISNULL(@FailedLoginCount, 0)
+	SELECT @DeviceCount = COUNT(DeviceInfo)
+	FROM dbo.AffLoginByUserDevices WITH (NOLOCK)
+	WHERE AffId = @AffId AND IP = @IpAddress
+	GROUP BY AffId, IP
+
+	SET @DeviceCount = ISNULL(@DeviceCount, 0)
+
+	SELECT @FailedLoginCount AS FailedLoginCount, @DeviceCount AS DeviceCount
 END
 GO
