@@ -14,6 +14,7 @@ AS
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 		- 20181020@Percy: Add list of products in APIProduct_ImportQueue [RedmineID: #102]
 		- 20190117@Percy: Using core table for 3rd Products [RedmineID: #106503]
+		- 20190322@Percy: Missing break loop [RedmineID: #110638]
 */
 
 BEGIN
@@ -30,6 +31,7 @@ BEGIN
 
 	DECLARE @ErrTable TABLE (ProductId INT, WinlostDate SMALLDATETIME, ErrMsg NVARCHAR(4000))
 
+	DECLARE @3rdProducts TABLE (Id INT IDENTITY(1,1), ProductId INT, LaunchDate SMALLDATETIME)
 	DECLARE @Products TABLE (Id INT IDENTITY(1,1), ProductId INT, LaunchDate SMALLDATETIME)
 	DECLARE @Id INT = 1, @ProductId INT = NULL
 
@@ -39,18 +41,16 @@ BEGIN
 		
 		SELECT @Id = 1, @ProductId = NULL
 		
-		DELETE @Products
-
-		INSERT INTO @Products (ProductId)
+		INSERT INTO @3rdProducts (ProductId)
 		SELECT ProductId FROM dbo.APIProductSettings WITH (NOLOCK)
 		WHERE SettingName = 'SourceTable' AND SettingValue = '3rdProducts'
 
 		UPDATE p
 		SET p.LaunchDate = CONVERT(SMALLDATETIME, aps.SettingValue)
-		FROM @Products p
+		FROM @3rdProducts p
 			INNER JOIN dbo.APIProductSettings aps WITH (NOLOCK) ON p.ProductId = aps.ProductId AND aps.SettingName = 'LaunchDate'
 
-		SELECT @ProductId = ProductId, @LaunchDate = LaunchDate FROM @Products WHERE Id = @Id
+		SELECT @ProductId = ProductId, @LaunchDate = LaunchDate FROM @3rdProducts WHERE Id = @Id
 
 		WHILE @ProductId IS NOT NULL
 		BEGIN
@@ -99,6 +99,10 @@ BEGIN
 			UPDATE dbo.APIProductSettings WITH (ROWLOCK, UPDLOCK)
 			SET SettingValue = CONVERT(VARCHAR(200), @NewLastQueueId)
 			WHERE ProductId = @ProductId AND SettingName = 'LastQueueId'
+
+			SELECT @Id = @Id + 1
+			SELECT @ProductId = NULL, @LaunchDate = NULL
+			SELECT @ProductId = ProductId, @LaunchDate = LaunchDate FROM @3rdProducts WHERE Id = @Id
 		END
 	END
 
@@ -120,11 +124,11 @@ BEGIN
 		FROM @Products p
 			INNER JOIN dbo.APIProductSettings aps WITH (NOLOCK) ON p.ProductId = aps.ProductId AND aps.SettingName = 'LaunchDate'
 		
-		SELECT  @ProductId = ProductId, @LaunchDate = LaunchDate FROM @Products WHERE Id = @Id
+		SELECT @ProductId = ProductId, @LaunchDate = LaunchDate FROM @Products WHERE Id = @Id
 
 		WHILE @ProductId IS NOT NULL
 		BEGIN
-			SELECT @WinlostDate = DATEADD(DAY, -3, @today)
+			SELECT @WinlostDate = DATEADD(DAY, 1, @MaxCommDate)
 
 			IF @WinlostDate < @LaunchDate
 				SELECT @WinlostDate = @LaunchDate
@@ -144,7 +148,7 @@ BEGIN
 		
 			SELECT @Id = @Id + 1
 			SELECT @ProductId = NULL, @LaunchDate = NULL
-			SELECT  @ProductId = ProductId, @LaunchDate = LaunchDate FROM @Products WHERE Id = @Id
+			SELECT @ProductId = ProductId, @LaunchDate = LaunchDate FROM @Products WHERE Id = @Id
 		END
 	END
 

@@ -17,7 +17,7 @@ AS
 		- 20181201@Percy: Integrate new products: 12Crystal - GPI, 12Quartz - iSoftbet, 12Diamond - OPUS [RedmineID: #104892]
 		- 20190117@Percy: Divide amount by 100 for Betsoft [RedmineID: #107979]
 		- 20190131@Percy: Divide amount by 100 for iSoftbet [RedmineID: #107979]
-		- 20190322@Percy: Include more type of iSoftbet [RedmineID: #110692]
+		- 20190322@Percy: Include more type of iSoftbet [RedmineID: #110638]
 */
 
 BEGIN
