@@ -13,6 +13,7 @@ AS
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 		- 20190117@Percy: Using core table for 3rd Products [RedmineID: #106503]
+		- 20190322@Percy: Missing break loop [RedmineID: #110638]
 */
 
 BEGIN
@@ -85,6 +86,10 @@ BEGIN
 			
 				SELECT @WinlostDate = DATEADD(DAY, 1, @WinlostDate)
 			END
+
+			SELECT @Id = @Id + 1
+			SELECT @ProductId = NULL, @LaunchDate = NULL
+			SELECT @ProductId = ProductId, @LaunchDate = LaunchDate FROM @Products WHERE Id = @Id
 		END
 	END
 
