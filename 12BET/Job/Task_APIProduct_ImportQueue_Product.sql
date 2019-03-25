@@ -17,6 +17,7 @@ AS
 		- 20181201@Percy: Integrate new products: 12Crystal - GPI, 12Quartz - iSoftbet, 12Diamond - OPUS [RedmineID: #104892]
 		- 20190117@Percy: Divide amount by 100 for Betsoft [RedmineID: #107979]
 		- 20190131@Percy: Divide amount by 100 for iSoftbet [RedmineID: #107979]
+		- 20190322@Percy: Include more type of iSoftbet [RedmineID: #110638]
 */
 
 BEGIN
@@ -136,12 +137,11 @@ BEGIN
 			mi.AffId,
 			mi.IBCCustId,
 			mi.currency,
-			SUM(CASE WHEN i.TYPE = 'BET' THEN ISNULL(i.Amount, 0)/100 ELSE 0 END) AS Turnover,
-			SUM(CASE WHEN i.TYPE = 'BET' THEN -ISNULL(i.Amount, 0)/100 WHEN i.TYPE = 'WIN' THEN ISNULL(i.Amount, 0)/100 ELSE 0 END) AS Winloss
+			SUM(CASE WHEN i.TYPE LIKE '%BET%' THEN ISNULL(i.Amount, 0)/100 ELSE 0 END) AS Turnover,
+			SUM(CASE WHEN i.TYPE LIKE '%BET%' THEN -ISNULL(i.Amount, 0)/100 WHEN i.TYPE LIKE '%WIN%' THEN ISNULL(i.Amount, 0)/100 ELSE 0 END) AS Winloss
 		FROM dbo.bettrans_iSoftbet i WITH (NOLOCK)
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON i.IBCCustId = mi.IBCCustId
 		WHERE i.WinlostDate = @WinlostDate
-			AND i.TYPE IN ('BET', 'WIN')
 			AND NOT EXISTS (
 				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 				WHERE mr.RemovedDate <= DATEADD(DAY, 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @WinlostDate) + 1, 0))
