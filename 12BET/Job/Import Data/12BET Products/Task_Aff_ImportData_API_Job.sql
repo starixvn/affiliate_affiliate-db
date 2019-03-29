@@ -165,7 +165,7 @@ BEGIN
 						+ CAST((SELECT	td = ROW_NUMBER() OVER(ORDER BY (SELECT NULL)), '',
 										td = p.ProductName, '',
 										td = CONVERT(VARCHAR(20), e.WinlostDate, 120), '',
-										td = e.WinlostDate, ''
+										td = e.ErrMsg, ''
 								FROM @ErrTable e
 									INNER JOIN dbo.Products p WITH (NOLOCK) ON e.ProductId = p.ProductID
 								FOR XML PATH('tr'), TYPE 
