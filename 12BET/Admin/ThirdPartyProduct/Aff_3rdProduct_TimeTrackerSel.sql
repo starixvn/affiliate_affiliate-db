@@ -20,5 +20,6 @@ BEGIN
     FROM [dbo].[APIProduct_TimeTracker] WITH (NOLOCK)
     WHERE ProductId = @ProductId AND 
         CallTime >= @FromDate AND CallTime <= @ToDate
+    ORDER BY CallTime DESC
 END
 GO

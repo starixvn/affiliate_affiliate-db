@@ -22,5 +22,6 @@ BEGIN
     WHERE ProductId = @ProductId AND 
         CheckInTime >= @FromDate AND CheckInTime <= @ToDate AND 
         JobType = ISNULL(@JobType, 0)
+    ORDER BY CheckInTime DESC
 END
 GO
