@@ -18,6 +18,7 @@ AS
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 		- 20181201@Percy: Integrate new products: 12Crystal - GPI, 12Quartz - iSoftbet, 12Diamond - OPUS [RedmineID: #104892]
 		- 20190128@Percy: Betsoft - Change way to get winlostdate [RedmineID: #107979]
+		- 20190328@Percy: Betsoft - Remove convert time zone [RedmineID: #110638]
 */
 
 BEGIN
@@ -102,9 +103,6 @@ BEGIN
 				SELECT	@StartDate = REPLACE(t.c.value('(STARTDATE/text())[1]', 'VARCHAR(50)'), '_', ' '),
 						@EndDate = REPLACE(t.c.value('(ENDDATE/text())[1]', 'VARCHAR(50)'), '_', ' ')
 				FROM @XmlData.nodes('BSGSYSTEM/REQUEST') AS t(c)
-
-				-- Convert from GMT+0 to GMT-4
-				SELECT @StartDate = DATEADD(HOUR, -4, @StartDate), @EndDate = DATEADD(HOUR, -4, @EndDate)
 
 				IF DATEDIFF(DAY, @StartDate, DATEADD(SECOND, -1, @EndDate)) <> 0
 				BEGIN
