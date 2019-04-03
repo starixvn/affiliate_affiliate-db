@@ -3,9 +3,9 @@ USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_3rdProduct_TimeTrackerSel]
-    @ProductId INT,
+    @ProductId	INT,
     @FromDate   DATETIME,
-    @ToDate   DATETIME
+    @ToDate		DATETIME
 AS
 /*
 	Created: 20190327@Walter
@@ -13,13 +13,15 @@ AS
 	Task: Get Importing Information
 
 	Revisions:
-		- Created: 20190327@Walter: Initialize SP [RedmineID: #110638]
+		- 20190327@Walter: Initialize SP [RedmineID: #110638]
 */
 BEGIN
+	SET NOCOUNT ON
+
     SELECT Currency, CallTime
-    FROM [dbo].[APIProduct_TimeTracker] WITH (NOLOCK)
-    WHERE ProductId = @ProductId AND 
-        CallTime >= @FromDate AND CallTime <= @ToDate
+    FROM dbo.APIProduct_TimeTracker WITH (NOLOCK)
+    WHERE ProductId = @ProductId
+		AND CallTime >= @FromDate AND CallTime <= @ToDate
     ORDER BY CallTime DESC
 END
 GO

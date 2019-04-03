@@ -3,10 +3,10 @@ USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_3rdProduct_ImportQueueSel]
-    @ProductId INT,
+    @ProductId	INT,
     @FromDate   DATETIME,
-    @ToDate   DATETIME,
-    @JobType TINYINT = 0
+    @ToDate		DATETIME,
+    @JobType	TINYINT = 0
 AS
 /*
 	Created: 20190327@Walter
@@ -14,14 +14,16 @@ AS
 	Task: Get Importing Information
 
 	Revisions:
-		- Created: 20190327@Walter: Initialize SP [RedmineID: #110638]
+		- 20190327@Walter: Initialize SP [RedmineID: #110638]
 */
 BEGIN
+	SET NOCOUNT ON
+
     SELECT QueueId, CheckInTime, FinishedTime, WinlostDate, LogDesc
-    FROM [dbo].[APIProduct_ImportQueue] WITH (NOLOCK)
-    WHERE ProductId = @ProductId AND 
-        CheckInTime >= @FromDate AND CheckInTime <= @ToDate AND 
-        JobType = ISNULL(@JobType, 0)
+    FROM dbo.APIProduct_ImportQueue WITH (NOLOCK)
+    WHERE ProductId = @ProductId
+		AND CheckInTime >= @FromDate AND CheckInTime <= @ToDate
+		AND JobType = ISNULL(@JobType, 0)
     ORDER BY CheckInTime DESC
 END
 GO

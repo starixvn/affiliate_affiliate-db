@@ -11,10 +11,10 @@ AS
 	Task: Get Importing Information
 
 	Revisions:
-		- Created: 20190327@Walter: Initialize SP [RedmineID: #110638]
+		- 20190327@Walter: Initialize SP [RedmineID: #110638]
 */
 BEGIN
-    SELECT TOP 1 XmlData
+    SELECT XmlData
     FROM [dbo].[APIProduct_ImportQueue] WITH (NOLOCK)
     WHERE QueueId = @QueueId
 END
