@@ -26,11 +26,11 @@ BEGIN
 	DECLARE @DeviceCount TINYINT
 
     SELECT @FailedLoginCount = FailedLoginCount
-    FROM dbo.AffLoginByUserDevices WITH (NOLOCK) 
+    FROM dbo.AffUserLoginInfo WITH (NOLOCK) 
     WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo
 
 	SELECT @DeviceCount = COUNT(DeviceInfo)
-	FROM dbo.AffLoginByUserDevices WITH (NOLOCK)
+	FROM dbo.AffUserLoginInfo WITH (NOLOCK)
 	WHERE AffId = @AffId AND IP = @IpAddress
 	GROUP BY AffId, IP
 

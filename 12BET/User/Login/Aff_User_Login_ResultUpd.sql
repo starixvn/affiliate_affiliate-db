@@ -40,7 +40,7 @@ BEGIN
 	ELSE
 	BEGIN
 		SELECT @FailedLoginCount = ISNULL(FailedLoginCount, 0)
-		FROM dbo.AffLoginByUserDevices WITH (NOLOCK)
+		FROM dbo.AffUserLoginInfo WITH (NOLOCK)
 		WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo
 		
 		IF @@ROWCOUNT = 0
@@ -55,16 +55,16 @@ BEGIN
 
 	-- Update login info
 	BEGIN TRY
-		IF(EXISTS (SELECT TOP 1 1 FROM dbo.AffLoginByUserDevices WITH (NOLOCK) WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo))
+		IF(EXISTS (SELECT TOP 1 1 FROM dbo.AffUserLoginInfo WITH (NOLOCK) WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo))
 		BEGIN
-			UPDATE dbo.AffLoginByUserDevices WITH (ROWLOCK, UPDLOCK)
+			UPDATE dbo.AffUserLoginInfo WITH (ROWLOCK, UPDLOCK)
 			SET FailedLoginCount = @FailedLoginCount,
 				LastLoginDate = @CurrentTime
 			WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo
 		END
 		ELSE
 		BEGIN
-			INSERT INTO dbo.AffLoginByUserDevices (AffId, IP, DeviceInfo, FailedLoginCount, LastLoginDate)
+			INSERT INTO dbo.AffUserLoginInfo (AffId, IP, DeviceInfo, FailedLoginCount, LastLoginDate)
 			VALUES (@AffId, @IpAddress, @DeviceInfo, @FailedLoginCount, @CurrentTime)
 		END
 	END TRY

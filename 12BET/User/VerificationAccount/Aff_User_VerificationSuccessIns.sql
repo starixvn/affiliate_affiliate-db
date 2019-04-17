@@ -28,7 +28,7 @@ BEGIN
 	SET @CurrentTime = GETDATE()
 
     BEGIN TRY
-        INSERT INTO dbo.AffLoginByUserDevices (AffId, IP, DeviceInfo, FailedLoginCount, LastLoginDate, VerificationCount, LastVerificationDate)
+        INSERT INTO dbo.AffUserLoginInfo (AffId, IP, DeviceInfo, FailedLoginCount, LastLoginDate, VerificationCount, LastVerificationDate)
 			VALUES (@AffId, @IpAddress, @DeviceInfo, 0, @CurrentTime, 1, @CurrentTime)
     END TRY
     BEGIN CATCH

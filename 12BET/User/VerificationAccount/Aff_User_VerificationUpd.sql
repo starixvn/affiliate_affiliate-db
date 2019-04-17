@@ -30,13 +30,13 @@ BEGIN
 	SET @CurrentTime = GETDATE()
 
     SELECT @VerificationCount = ISNULL(VerificationCount, 0)
-		FROM dbo.AffLoginByUserDevices WITH (NOLOCK)
+		FROM dbo.AffUserLoginInfo WITH (NOLOCK)
 		WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo
 
-    IF(EXISTS (SELECT TOP 1 1 FROM dbo.AffLoginByUserDevices WITH (NOLOCK) WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo))
+    IF(EXISTS (SELECT TOP 1 1 FROM dbo.AffUserLoginInfo WITH (NOLOCK) WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo))
     BEGIN
         BEGIN TRY
-            UPDATE dbo.AffLoginByUserDevices WITH (ROWLOCK, UPDLOCK)
+            UPDATE dbo.AffUserLoginInfo WITH (ROWLOCK, UPDLOCK)
                 SET VerificationCount = @VerificationCount + 1,
                     LastVerificationDate = @CurrentTime
                 WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo

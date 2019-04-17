@@ -1,4 +1,4 @@
-CREATE TABLE [dbo].[AffLoginByUserDevices](
+CREATE TABLE [dbo].[AffUserLoginInfo](
 	[AffId] [int] NOT NULL,
 	[IP] [nvarchar](25) NOT NULL,
 	[DeviceInfo] [nvarchar](100) NOT NULL,
@@ -6,7 +6,7 @@ CREATE TABLE [dbo].[AffLoginByUserDevices](
 	[LastLoginDate] [datetime] NULL,
     [VerificationCount] [tinyint] NULL,
 	[LastVerificationDate] [datetime] NULL,
- CONSTRAINT [PK_AffLoginByUserDevices] PRIMARY KEY CLUSTERED 
+ CONSTRAINT [PK_AffUserLoginInfo] PRIMARY KEY CLUSTERED 
 (
 	[AffId] ASC,
 	[IP] ASC,
