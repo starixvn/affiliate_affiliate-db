@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBLIC-bodb_licensee" executers="bodbAdminNet,bodbLicenseeNet" viewers="" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBCUST-bodb_licensee" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 USE [bodb_licensee]
 GO
 
@@ -20,10 +20,11 @@ AS
 /*
 	Created: 20151012@Victor
 	Task: User Login into Affiliate Admin site
-	DB: DBLIC/bodb_Licensee
+	DB: DBCUST.bodb_Licensee
   
 	Revisions:
 		- 20171002@Percy: Write more password into log [RedmineID: #83692]
+		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee & Apply SP log wrapper [RedmineID: #103658]
 */
 
 BEGIN
@@ -130,16 +131,16 @@ BEGIN
 	SELECT @UserID	= ISNULL(@UserID, 0), @ServerID	= 200, @Duration = DATEDIFF(MILLISECOND, @Begin, GETDATE())
 	SELECT @LogData = CASE WHEN @LogData = 'Success' AND @UserRole = 'Admin' THEN 'Admin: ' ELSE 'User: ' END + @UserName +  ' - ' + 'Password: ' + @UserPwd + ' - ' + @LogData
 
-	EXEC dbo.Aff_WriteLog_UserLog_Login
-		@UserID = @UserID,
-		@ServerID = @ServerID,
-		@LoginIP = @LoginIP,
-		@DomainName = @LoginDomain,	
-		@ActionID = 5000,
-		@Doing = @LogData,
-		@BrowserName = @BrowserName,
-		@Platform = @Platform,
-		@CountryCode = @CountryCode,
-		@Duration = @Duration
+	EXEC dbo.Aff_WriteLog_UserLog_Login_Wrapper
+		@UserID			= @UserID,
+		@ServerID		= @ServerID,
+		@LoginIP		= @LoginIP,
+		@DomainName		= @LoginDomain,
+		@ActionID		= 5000,
+		@Doing			= @LogData,
+		@BrowserName	= @BrowserName,
+		@Platform		= @Platform,
+		@CountryCode	= @CountryCode,
+		@Duration		= @Duration
 END
 GO

@@ -1,30 +1,34 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_CheckIn]
-	@CustID INT,
-	@NetSessionID VARCHAR(30),
-	@ServerID INT,
-	@On_UserID INT OUTPUT,
-	@IP VARCHAR(15) = ''
+﻿﻿/*<info serverAlias="DBCUST-bodb_licensee" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+USE [bodb_licensee]
+GO
+
+ALTER PROCEDURE [dbo].[AffAdmin_CheckIn]
+	@CustID			INT,
+	@NetSessionID	VARCHAR(30),
+	@ServerID		INT,
+	@On_UserID		INT OUTPUT,
+	@IP				VARCHAR(15) = ''
 AS
 
 /*
 	Created: 20151013@Victor
 	Task: Check in
-	DB: DBLIC/bodb_Licensee
+	DB: DBCUST.bodb_Licensee
 	
 	Revisions:
-
+		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RedmineID: #103658]
 */
 
-UPDATE Aff_On_User WITH (ROWLOCK) SET IsKickedOut=1 WHERE CustID = @CustID AND ServerID = @ServerID
+BEGIN
+	SET NOCOUNT ON
 	
-INSERT INTO Aff_On_User (CustID, NetSessionID, ServerID, IsKickedOut, IP)
-VALUES (@custid, @NetSessionid, @ServerID, 0, @IP)
+	UPDATE dbo.Aff_On_User WITH (ROWLOCK)
+	SET IsKickedOut = 1
+	WHERE CustID = @CustID AND ServerID = @ServerID
+	
+	INSERT INTO dbo.Aff_On_User (CustID, NetSessionID, ServerID, IsKickedOut, IP)
+		VALUES (@custid, @NetSessionid, @ServerID, 0, @IP)
 
-SELECT @On_UserID = SCOPE_IDENTITY()
-
+	SELECT @On_UserID = SCOPE_IDENTITY()
+END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_CheckIn] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT EXECUTE ON [dbo].[AffAdmin_CheckIn] TO [bodbLicenseeNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_CheckIn] TO [vnteam] AS [dbo]
