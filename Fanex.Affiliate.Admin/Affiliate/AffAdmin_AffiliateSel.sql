@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_Athena000]
 GO
 
@@ -7,6 +7,7 @@ ALTER PROCEDURE [dbo].[AffAdmin_AffiliateSel]
 	,@UserId			INT				= 0
 	,@AffName			NVARCHAR(100)	= NULL
 	,@AffTypes			VARCHAR(100)	= NULL
+	,@Player_Username	VARCHAR(100)	= NULL
 	,@Currencies		VARCHAR(100)	= NULL
 	,@UserCurrencies	VARCHAR(MAX)	= NULL
 	,@CommGroups		VARCHAR(1000)	= NULL
@@ -39,6 +40,7 @@ AS
 	 - 20140924@Bobby: Add Email Info & refactor code
 	 - 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 	 - 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
+	 - 20190403@PercyL Add Player_Username [RedmineID: #111191]
  
 	Param's Explanation: 
 		• @UserID: Admin UserID
@@ -175,6 +177,7 @@ BEGIN
 		,CAST(0 AS MONEY) AS ConvertedBF
 		,AI.TotalMembers
 		,AI.Email
+		,AD.Player_Username
 	INTO #tmpAffList
 	FROM dbo.AffInfo AI WITH(NOLOCK)
 		INNER JOIN dbo.AffDetail AD WITH(NOLOCK) ON AD.AffID = AI.AffID
@@ -182,6 +185,10 @@ BEGIN
 			@AffName IS NULL
 			OR AI.UserName LIKE '%' + @AffName + '%'
 			)
+		AND (
+			@Player_Username IS NULL
+			OR AD.Player_Username LIKE '%' + @Player_Username + '%'
+		)
 		AND AI.AffType IN (SELECT AffTypeID FROM @AffTypeList)
 		AND AI.Currency IN (SELECT CurrencyID FROM @tmpCurrency)
 		AND (
@@ -332,6 +339,7 @@ BEGIN
 			END AS BF
 		,R.TotalMembers
 		,R.Email
+		,R.Player_Username
 	FROM SortedResTable R
 		LEFT JOIN dbo.AffType T WITH(NOLOCK) ON T.TypeID = R.AffType
 		LEFT JOIN dbo.CommGroup cg WITH(NOLOCK) ON R.GroupId = cg.GroupId
