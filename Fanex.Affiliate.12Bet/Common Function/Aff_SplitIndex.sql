@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCUST-bodb_Licensee,DBAFF-Affliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBCUST-bodb_Licensee,DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER FUNCTION [dbo].[Aff_SplitIndex]
 (
 	@string		NVARCHAR(4000),
