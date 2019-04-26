@@ -1,23 +1,31 @@
+/*<info serverAlias="DBCUST-bodb_Licensee" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
+USE [bodb_Licensee]
+GO
+
 ALTER PROCEDURE [dbo].[AffAdmin_GroupPolicy_Insert]
-(
 	@GroupID		INT,
 	@FunctionIDs	VARCHAR(1000),
 	@Policy			TINYINT,
 	@CreateDate		DATETIME = NULL,
 	@ModifyDate		DATETIME = NULL,
 	@Creator		INT = NULL
-)
+AS
+
 /*
 	Created: 20151112@Victor
-	DB: DBLIC/bodb_licensee
+	DB: DBCUST.bodb_Licensee
 	Remark: Insert GroupPolicy
-	Revision:
+	
+	Revisions:
+		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RedmineID: #103658]
 */
-AS
+
 BEGIN
+	SET NOCOUNT ON
+	
 	DECLARE @FunctionList TABLE (FunctionID INT)
 	INSERT INTO @FunctionList (FunctionID)
-	SELECT CAST(val AS INT) FROM bodb02.dbo.Lrf_f_StringSplit(@FunctionIDs, ',')
+	SELECT CAST(val AS INT) FROM dbo.Lrf_f_StringSplit(@FunctionIDs, ',')
 
 	SELECT @CreateDate = ISNULL(@CreateDate, GETDATE()),
 		@ModifyDate = ISNULL(@ModifyDate, GETDATE())
@@ -25,10 +33,5 @@ BEGIN
 	INSERT INTO Aff_GroupPolicy (GroupID, FunctionID, Policy, CreateDate, ModifyDate, Creator)
 	SELECT @GroupID, FunctionID, @Policy, @CreateDate, @ModifyDate, @Creator
 	FROM @FunctionList
-
 END
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_GroupPolicy_Insert] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_GroupPolicy_Insert] TO [vnteam] AS [dbo]

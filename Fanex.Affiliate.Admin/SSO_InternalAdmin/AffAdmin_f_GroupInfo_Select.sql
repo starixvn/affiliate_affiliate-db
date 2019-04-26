@@ -1,43 +1,27 @@
-﻿ALTER FUNCTION [dbo].[AffAdmin_f_GroupInfo_Select]
+﻿/*<info serverAlias="DBCUST-bodb_Licensee" selecters="bodbAdminNet" isFunction="1" isNested="1"></info>*/
+USE [bodb_Licensee]
+GO
+
+ALTER FUNCTION [dbo].[AffAdmin_f_GroupInfo_Select]
 (		
-	@GroupID INT,
+	@GroupID	INT,
 	@LicenseeID INT
 )
-RETURNS @tbData TABLE
-(
-	GroupID			INT,
-	LicenseeID		INT,
-	GroupName		NVARCHAR(50),
-	GroupDesc		NVARCHAR(50),
-	CreateDate		DATETIME,
-	ModifyDate		DATETIME,
-	DisplayOrder	INT,
-	Creator			INT
-) 
-AS	
+RETURNS TABLE
+AS
+
 /*
-Created:20151113@Victor
-Task :  SSO from Internal Admin to Affiliate Admin
-DB: DBAFF - Affiliate database
+	Created:20151113@Victor
+	Task: SSO from Internal Admin to Affiliate Admin
+	DB: DBCUST.bodb_Licensee
 
-Revisions:
-Param's Explanation:
-
+	Revisions:
+		- 20190424@Percy: Move function to DBCUST.bodb_Licensee [RedmineID: #103658]
 */
 
-BEGIN
-	SET @GroupID = ISNULL(@GroupID,'')
-	SET @LicenseeID = ISNULL(@LicenseeID,'')
-
-	INSERT INTO @tbData (GroupID, LicenseeID, GroupName, GroupDesc, CreateDate, ModifyDate, DisplayOrder, Creator)
-	SELECT g.GroupID, g.LicenseeID, g.GroupName, g.GroupDesc, g.CreateDate, g.ModifyDate, g.DisplayOrder, g.Creator
-	FROM DBLIC.bodb_licensee.dbo.Aff_GroupInfo g WITH (NOLOCK) 
-	WHERE (@GroupID = '' OR g.GroupID = @GroupID)
-		AND (@LicenseeID = '' OR g.LicenseeID = @LicenseeID)
-	
-	RETURN
-END
+RETURN
+	SELECT GroupID, LicenseeID, GroupName, GroupDesc, CreateDate, ModifyDate, DisplayOrder, Creator
+	FROM dbo.Aff_GroupInfo WITH (NOLOCK) 
+	WHERE (ISNULL(@GroupID,'') = '' OR GroupID = @GroupID)
+		AND (ISNULL(@LicenseeID,'') = '' OR LicenseeID = @LicenseeID)
 GO
-GRANT SELECT ON [dbo].[AffAdmin_f_GroupInfo_Select] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_GroupInfo_Select] TO [vnteam] AS [dbo]

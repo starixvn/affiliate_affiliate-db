@@ -1,4 +1,5 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_Con_CheckPermission]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
+ALTER PROCEDURE [dbo].[AffAdmin_Con_CheckPermission]
 	@LicenseeID INT,
     @CustID int, 
     @FuncID int=null,
@@ -7,52 +8,84 @@
     @Language varchar(5) = 'en-US',
     @ErrCode int = 0 OUTPUT    
 AS
+
 /*
 	Created by: []
     Task: Check permission by CustID and Function 
-    DB: DB03.BODB02 --> DB052.Affiliate_ZZun
+    DB: DBAFF.Affiliate_XXX
     
     Revisions:
         - 20101123@Jamie: Change to use acc_functioninfo instead of acc_functioninfo_1 
         - 20101214@Peter : Move this SP to DB DB052.Affiliate_ZZun
 		- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
-*/  
- SET NOCOUNT ON   
- IF @FuncID is null  
-  Select @FuncID=functionid from dbo.AffAdmin_f_FunctionInfo_Select('',@LicenseeID) where FunctionName=@Funcname
-   
- -- Permission: bitwise(OR) permission of the group that user belong to and permission of this user  
- -- IsAllow: 1:Readonly, 2:Host, 3:All  
-   
- Declare @roleid tinyint,@IsAllow tinyint  
-   
- IF exists(select 1 from dbo.AffAdmin_f_AdminUserInfo_Select(@CustID,@LicenseeID))  
- BEGIN   
-    
-   SELECT @IsAllow=(isnull(mp.policy,0)|isnull(gp.policy,0)) & isnull(fi.FunctionRender,0)  
-   FROM dbo.AffAdmin_f_AdminUserInfo_Select(@CustID,@LicenseeID) ac   
-		Left JOIN dbo.AffAdmin_f_FunctionInfo_Select(@funcid,@LicenseeID) fi on fi.FunctionID = @funcid
-		LEFT JOIN dbo.AffAdmin_f_UserPolicy_Select(@CustID, @LicenseeID, @funcID) mp on mp.userid=ac.userid and mp.functionid=@funcid
-		LEFT JOIN dbo.AffAdmin_f_GroupPolicy_Select('',@funcid) gp on gp.groupid=ac.groupid and gp.functionid=@funcid
-   WHERE ac.[Status]=0  
-   SELECT @IsAllow = isnull(@IsAllow,0)  
-    
- END  
- ELSE IF exists(select 1 from AffInfo (nolock) where AffID=@CustID)  
- BEGIN  
-	SELECT @IsAllow=2  
- END   
- ELSE  
-	SELECT @IsAllow=0  
-    
- IF @IsAllow <2  
- BEGIN  
-	SELECT @ErrCode = 500  --You are not authorized on this function
-	RETURN   
- END  
- ELSE  
-	SET @ErrCode=0
+		- 20190424@Percy: Change server of nested function [RedmineID: #103658]
+							AffAdmin_f_FunctionInfo_Select
+							AffAdmin_f_AdminUserInfo_Select
+							AffAdmin_f_UserPolicy_Select
+							AffAdmin_f_GroupPolicy_Select
+*/
+
+BEGIN
+	SET NOCOUNT ON
+
+	DECLARE @tblFunction TABLE (FunctionID INT)
+
+	DECLARE @sql NVARCHAR(MAX)
+
+	IF @FuncID IS NULL
+	BEGIN
+		SELECT @sql = 'SELECT FunctionID FROM OPENQUERY(DBCUST, 
+								''SELECT FunctionID FROM bodb_Licensee.dbo.AffAdmin_f_FunctionInfo_Select('''',' + CONVERT(VARCHAR(10), @LicenseeID) + ')
+									WHERE FunctionName = ''''' + ISNULL(@Funcname, '') + ''''''')'
+
+		INSERT INTO @tblFunction (FunctionID)
+		EXEC (@sql)
+
+		SELECT @FuncID = FunctionID FROM @tblFunction
+	END
+
+	DECLARE @IsAllow TINYINT
+
+	DECLARE @tblUsers TABLE (UserID INT)
+
+	SELECT @sql = 'SELECT UserID FROM OPENQUERY(DBCUST,
+								''SELECT UserID FROM bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select(' + CONVERT(VARCHAR(20), @CustID) + ',' + CONVERT(VARCHAR(10), @LicenseeID) + ')'')'
+
+	INSERT INTO @tblUsers (UserID)
+	EXEC (@sql)
+
+	DECLARE @tblPermission TABLE (IsAllow TINYINT)
+	
+	IF EXISTS (SELECT 1 FROM @tblUsers)
+	BEGIN
+		SELECT @sql = 'SELECT (ISNULL(mp_policy, 0) | ISNULL(gp_policy, 0)) & ISNULL(FunctionRender, 0) FROM OPENQUERY(DBCUST,
+							''SELECT mp.policy AS mp_policy, gp.policy AS gp_policy, fi.FunctionRender
+								FROM dbo.AffAdmin_f_AdminUserInfo_Select(' + CONVERT(VARCHAR(20), @CustID) + ',' + CONVERT(VARCHAR(10), @LicenseeID) + ') ac
+									LEFT JOIN dbo.AffAdmin_f_FunctionInfo_Select(' + CONVERT(VARCHAR(20), @FuncID) + ',' + CONVERT(VARCHAR(10), @LicenseeID) + ') fi
+											ON fi.FunctionID = ' + CONVERT(VARCHAR(20), @FuncID) + '
+									LEFT JOIN dbo.AffAdmin_f_UserPolicy_Select(' + CONVERT(VARCHAR(20), @CustID) + ',' + CONVERT(VARCHAR(10), @LicenseeID) + ',' + CONVERT(VARCHAR(10), @FuncID) + ') mp
+											ON mp.userid = ac.userid AND mp.functionid = ' + CONVERT(VARCHAR(20), @FuncID) + '
+									LEFT JOIN dbo.AffAdmin_f_GroupPolicy_Select('',@funcid) gp
+											ON gp.groupid = ac.groupid AND gp.functionid = ' + CONVERT(VARCHAR(20), @FuncID) + '
+								WHERE ac.[Status]=0'')'
+			
+		SELECT @IsAllow = IsAllow FROM @tblPermission
+
+		SELECT @IsAllow = ISNULL(@IsAllow, 0)
+	END
+	ELSE IF EXISTS(SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffID = @CustID)
+	BEGIN
+		SELECT @IsAllow=2
+	END 
+	ELSE
+		SELECT @IsAllow=0
+		
+	IF @IsAllow < 2
+	BEGIN
+		SELECT @ErrCode = 500
+		RETURN
+	END
+	ELSE
+		SET @ErrCode=0
+END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_Con_CheckPermission] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_Con_CheckPermission] TO [vnteam] AS [dbo]

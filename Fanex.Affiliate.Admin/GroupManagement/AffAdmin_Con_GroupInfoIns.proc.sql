@@ -1,64 +1,86 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_Con_GroupInfoIns]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[AffAdmin_Con_GroupInfoIns]
 	@LicenseeID INT,
-	@GroupName nvarchar(50)='',
-	@GroupDesc nvarchar(50)='',
-	@Language varchar(5)= 'en-US', 
-	@ErrCode int = 0 OUTPUT,
-	@UserID int,
-	@IP varchar(15) = '' 
-As
-/*DB03.BODB02 -->DB052.Affiliate_ZZun*/
+	@GroupName	NVARCHAR(50) = '',
+	@GroupDesc	NVARCHAR(50) = '',
+	@Language	VARCHAR(5) = 'en-US', 
+	@ErrCode	INT = 0 OUTPUT,
+	@UserID		INT,
+	@IP			VARCHAR(15) = '' 
+AS
+
 /*
-	Revision:
-		-- 20101214@Peter : Move this SP to DB DB052.Affiliate_ZZun
-		-- 20151111@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+	DB: DBAFF.Affiliate_XXX
+
+	Revisions:
+		- 20101214@Peter : Move this SP to DB DB052.Affiliate_ZZun
+		- 20151111@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20190424@Percy: Change server of nested function [RedmineID: #103658]
+							AffAdmin_f_GroupInfo_Select
+							AffAdmin_f_FunctionInfo_Select
+							AffAdmin_GroupInfo_Insert
+							AffAdmin_GroupPolicy_Insert
+							AffAdmin_GroupInfo_Delete
 */
 
---Check permission for account site: @phuc20080213
-
-/*EXEC [dbo].[AffAdmin_Con_CheckPermission] @custid=@UserID,@funcname='[UserControl]',@ErrCode=@ErrCode output,@System = 'AFFILIATE'
-If @ErrCode <> 0
-	RETURN*/
---end
-SET NOCOUNT ON
-
-IF exists (select 1 from dbo.AffAdmin_f_GroupInfo_Select('', @LicenseeID) WHERE GroupName = @GroupName)
 BEGIN
-	Select @ErrCode = 21
-	return
-END
+	SET NOCOUNT ON
 
-DECLARE @NewGroupID INT = 0
-DECLARE @Today DATETIME
-SET @Today = GETDATE()
+	DECLARE @sql NVARCHAR(MAX)
+	DECLARE @tblGroups TABLE (GroupName NVARCHAR(50))
 
-DECLARE @FuncIDs VARCHAR(1000)
+	SELECT @sql = 'SELECT GroupName FROM OPENQUERY(DBCUST,
+								''SELECT GroupName FROM bodb_Licensee.dbo.AffAdmin_f_GroupInfo_Select('''',' + CONVERT(VARCHAR(10), @LicenseeID) + ')'')'
 
-SELECT	@FuncIDs = COALESCE(@FuncIDs + ', ', '') + CONVERT(VARCHAR(10), FunctionID)
-FROM	dbo.AffAdmin_f_FunctionInfo_Select('', @LicenseeID)
+	INSERT INTO @tblGroups (GroupName)
+	EXEC (@sql)
+
+	IF EXISTS (SELECT 1 FROM @tblGroups WHERE GroupName = @GroupName) 
+	BEGIN
+		SELECT @ErrCode = 21
+		RETURN
+	END	
+
+	DECLARE @NewGroupID INT = 0
+	DECLARE @Today DATETIME
+	SET @Today = GETDATE()
+
+	DECLARE @FuncIDs VARCHAR(1000)
+	DECLARE @tblFunctions TABLE (FunctionID INT)
+
+	SELECT @sql = 'SELECT FunctionID FROM OPENQUERY(DBCUST,
+								''SELECT FunctionID FROM bodb_Licensee.dbo.AffAdmin_f_FunctionInfo_Select('''',' + CONVERT(VARCHAR(10), @LicenseeID) + ')'')'
+
+	INSERT INTO @tblFunctions (FunctionID)
+	EXEC (@sql)
+
+	SELECT @FuncIDs = COALESCE(@FuncIDs + ', ', '') + CONVERT(VARCHAR(10), FunctionID)
+	FROM @tblFunctions
 
 
-EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupInfo_Insert @LicenseeID = @LicenseeID, @GroupName = @GroupName, @GroupDesc = @GroupDesc, @CreateDate = @Today, @ModifyDate = @Today, @Creator = @UserID, @DisplayOrder = 1, @GroupID = @NewGroupID OUTPUT
+	EXEC DBCUST.bodb_Licensee.dbo.AffAdmin_GroupInfo_Insert @LicenseeID = @LicenseeID, @GroupName = @GroupName, @GroupDesc = @GroupDesc, @CreateDate = @Today, @ModifyDate = @Today, @Creator = @UserID, @DisplayOrder = 1, @GroupID = @NewGroupID OUTPUT
 
-EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupPolicy_Insert @GroupID = @NewGroupID, @FunctionIDs = @FuncIDs, @Policy = 0, @Creator = @UserID
+	EXEC DBCUST.bodb_Licensee.dbo.AffAdmin_GroupPolicy_Insert @GroupID = @NewGroupID, @FunctionIDs = @FuncIDs, @Policy = 0, @Creator = @UserID
 
-IF @@ERROR <> 0
-BEGIN
-				EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupInfo_Delete @GroupID = @NewGroupID
-	select @ErrCode = 12
-	return
-END
+	IF @@ERROR <> 0
+	BEGIN
+		EXEC DBCUST.bodb_licensee.dbo.AffAdmin_GroupInfo_Delete @GroupID = @NewGroupID
+		
+		select @ErrCode = 12
+		return
+	END
 
+	DECLARE @SPName VARCHAR(50), @LogData NVARCHAR(200)
+	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
-DECLARE @SPName varchar(50), @LogData nvarchar(200)
-select @SPName = OBJECT_NAME(@@ProcID)
-
-SELECT @LogData = '[AFFILIATE] add groupinfo:' + dbo.Aff_ToString(@NewGroupID)
+	SELECT @LogData = '[AFFILIATE] add groupinfo:' + dbo.Aff_ToString(@NewGroupID)
 	
-EXEC [dbo].[Aff_WriteLog]
+	EXEC [dbo].[Aff_WriteLog]
 		@Creator=@UserID,	
 		@AffID=0,
 		@Typename= 'UserControl',	
 		@SPName=@SPName ,		
 		@IP =@IP,
 		@Details=@LogData
+END
+GO

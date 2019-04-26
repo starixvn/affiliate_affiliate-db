@@ -1,19 +1,27 @@
+/*<info serverAlias="DBCUST-bodb_Licensee" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
+USE [bodb_Licensee]
+GO
+
 ALTER PROCEDURE [dbo].[AffAdmin_GroupPolicy_Update]
-(
 	@GroupID	INT,
 	@FunctionID	INT,
 	@Policy		TINYINT,
 	@ModifyDate	DATETIME = NULL,
 	@Creator	INT = NULL
-)
+AS
+
 /*
 	Created: 20151117@Victor
-	DB: DBLIC/bodb_licensee
+	DB: DBCUST.bodb_Licensee
 	Remark: Update GroupPolicy
-	Revision:
+	
+	Revisions:
+		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RedmineID: #103658]
 */
-AS
+
 BEGIN
+	SET NOCOUNT ON
+	
 	SELECT @ModifyDate = ISNULL(@ModifyDate, GETDATE())
 
 	UPDATE Aff_GroupPolicy WITH (ROWLOCK, UPDLOCK)
@@ -23,8 +31,4 @@ BEGIN
 	WHERE GroupID = @GroupID
 		AND FunctionID = @FunctionID
 END
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_GroupPolicy_Update] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_GroupPolicy_Update] TO [vnteam] AS [dbo]

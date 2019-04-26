@@ -1,10 +1,4 @@
-﻿USE [Affiliate_ZZun]
-GO
-/****** Object:  StoredProcedure [dbo].[Aff_AffTypeDel]    Script Date: 02/27/2013 13:45:47 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_AffTypeDel]
 	@Updatedby int ,
 	@IDList varchar(max),

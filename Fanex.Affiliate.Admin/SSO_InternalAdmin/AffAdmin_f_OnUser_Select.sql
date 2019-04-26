@@ -1,40 +1,26 @@
-﻿ALTER  FUNCTION  [dbo].[AffAdmin_f_OnUser_Select]
+﻿/*<info serverAlias="DBCUST-bodb_Licensee" selecters="bodbAdminNet" isFunction="1" isNested="1"></info>*/
+USE [bodb_Licensee]
+GO
+
+ALTER FUNCTION [dbo].[AffAdmin_f_OnUser_Select]
 (		
 	@IsKickedOut BIT
 )
-RETURNS @tbData TABLE
-(
-	On_UserID		INT,
-	CustID			INT,
-	Reload_Time		SMALLDATETIME,
-	ServerID		INT,
-	IP				VARCHAR(15),
-	IsKickedOut		BIT,
-	NetSessionID	VARCHAR(30)
-) 
-AS	
+RETURNS TABLE
+AS
+
 /*
-Created:20151117@Victor
-Task :  SSO from Internal Admin to Affiliate Admin
-DB: DBAFF - Affiliate database
+	Created: 20151117@Victor
+	Task: SSO from Internal Admin to Affiliate Admin
+	DB: DBCUST.bodb_Licensee
 
-Revisions:
-Param's Explanation:
-
+	Revisions:
+		- 20190424@Percy: Move function to DBCUST.bodb_Licensee [RedmineID: #103658]
 */
 
-BEGIN
-	SET @IsKickedOut = ISNULL(@IsKickedOut, 0)
-
-	INSERT INTO @tbData (On_UserID, CustID, Reload_Time, ServerID, IP, IsKickedOut, NetSessionID)
+RETURN
 	SELECT On_UserID, CustID, Reload_Time, ServerID, IP, IsKickedOut, NetSessionID
-	FROM DBLIC.bodb_licensee.dbo.Aff_On_User o WITH (NOLOCK) 
-	WHERE IsKickedOut = @IsKickedOut
-		AND reload_time >= dateadd(minute,-15,CURRENT_TIMESTAMP)
-
-	RETURN
-END
+	FROM dbo.Aff_On_User WITH (NOLOCK)
+	WHERE IsKickedOut = ISNULL(@IsKickedOut, 0)
+		AND reload_time >= DATEADD(MINUTE, -15, CURRENT_TIMESTAMP)
 GO
-GRANT SELECT ON [dbo].[AffAdmin_f_OnUser_Select] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_OnUser_Select] TO [vnteam] AS [dbo]

@@ -1,19 +1,13 @@
-﻿USE [Affiliate_ZZun]
-GO
-/****** Object:  StoredProcedure [dbo].[Aff_AffTypeIns]    Script Date: 02/27/2013 13:33:11 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_AffTypeIns]
-	@Updatedby int ,	
-	@Name nvarchar(50),	
-	@Description nvarchar(100)=NULL,		
-	@IP nvarchar(15)='',	
-	@ErrCode int = 0 OUTPUT,
-	@ErrMsg nvarchar(4000) = '' OUTPUT
-as
-begin 
+	@Updatedby		INT ,	
+	@Name			NVARCHAR(50),	
+	@Description	NVARCHAR(100)=NULL,		
+	@IP				NVARCHAR(15)='',	
+	@ErrCode		INT = 0 OUTPUT,
+	@ErrMsg			NVARCHAR(4000) = '' OUTPUT
+AS
+
 /*
 Created: 20130123@Joseph
 Task : Insert AffType
@@ -31,6 +25,8 @@ Param's Explanation:
 
 • @ErrMsg: Error description.
 */
+
+BEGIN
 SET NOCOUNT ON
 
 EXEC [dbo].[Aff_Con_CheckPermission]
@@ -71,14 +67,5 @@ EXEC [dbo].[Aff_WriteLog]
 	@SPName = @SPName,
 	@Details = @Detail,
 	@IP = @IP
-	
-end
+END
 GO
-GRANT EXECUTE ON [dbo].[Aff_AffTypeIns] TO [bodbAdminNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_AffTypeIns] TO [bodbDownlineNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_AffTypeIns] TO [bodbDownlineNetView]
-
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_AffTypeIns] TO [vnteam]
