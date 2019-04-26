@@ -23,10 +23,18 @@ BEGIN
 	DECLARE @LicenseeID INT
 	SELECT	@LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'LicenseeID'
 
-	DECLARE @GroupIT INT
-	SELECT	@GroupIT = DBCUST.bodb_Licensee.dbo.AffAdmin_f_GetITGroupID(@LicenseeID)
-
 	DECLARE @sql NVARCHAR(MAX)
+
+	DECLARE @tblGroupIT TABLE (GroupID INT)
+
+	SELECT  @sql = 'SELECT GroupID FROM OPENQUERY(DBCUST, ''SELECT GroupID FROM bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select(' + CONVERT(VARCHAR(20), @LicenseeID) + ')'')'
+	
+	INSERT INTO @tblGroupIT (GroupID)
+	EXEC (@sql)
+
+	DECLARE @GroupIT INT
+	SELECT	@GroupIT = GroupID FROM @tblGroupIT
+	
 	SELECT  @sql =
 		'SELECT userid,username,firstname,lastname,groupid,[Status], CASE WHEN ac.GroupId = ' + CONVERT(VARCHAR(10), @GroupIT) + ' THEN 1 ELSE 0 END AS IsIT
 		FROM OPENQUERY(DBCUST, ''SELECT GroupID FROM bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select(' + CONVERT(VARCHAR(20), @CustID) + ', ' + CONVERT(VARCHAR(20), @LicenseeID) + ')'')'

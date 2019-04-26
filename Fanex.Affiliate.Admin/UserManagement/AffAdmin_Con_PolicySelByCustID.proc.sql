@@ -55,7 +55,7 @@ BEGIN
 
 	Declare @GroupIT varchar(50)
 
-	select @GroupIT = dbo.AffAdmin_f_GetITGroupID(@LicenseeID)
+	SELECT  @GroupIT = GroupID FROM dbo.AffAdmin_f_GetITGroupID(@LicenseeID)
 
 	if(@GroupID <> @GroupIT)
 	Begin

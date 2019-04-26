@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCUST-bodb_Licensee" executers="bodbAdminNet" isFunction="1" isNested="1"></info>*/
+﻿/*<info serverAlias="DBCUST-bodb_Licensee" selecters="bodbAdminNet" isFunction="1" isNested="1"></info>*/
 USE [bodb_Licensee]
 GO
 
@@ -6,7 +6,7 @@ ALTER FUNCTION [dbo].[AffAdmin_f_GetITGroupID]
 (
 	@LicenseeID INT
 )
-RETURNS INT
+RETURNS TABLE
 AS
 
 /*
@@ -19,13 +19,9 @@ AS
 		- 20190424@Percy: Move function to DBCUST.bodb_Licensee [RedmineID: #103658]
 */
 
-BEGIN
-	DECLARE @GroupIT INT
-	SELECT  @GroupIT = GroupID 
+RETURN
+	SELECT GroupID 
 	FROM dbo.Aff_GroupInfo WITH (NOLOCK)
 	WHERE GroupName = 'Aff_IT_Dept' 
 		AND LicenseeID = @LicenseeID
-
-	RETURN @GroupIT
-END
 GO

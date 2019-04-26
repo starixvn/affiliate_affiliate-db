@@ -23,7 +23,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @GroupIT INT
-	SELECT  @GroupIT = dbo.AffAdmin_f_GetITGroupID(@LicenseeID)
+	SELECT  @GroupIT = GroupID FROM dbo.AffAdmin_f_GetITGroupID(@LicenseeID)
 
 	IF @Username IS NULL SET @Username = '%'
 	IF @FirstChar IS NULL SET @FirstChar = '%'
