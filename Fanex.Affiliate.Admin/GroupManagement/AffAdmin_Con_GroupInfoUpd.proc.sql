@@ -52,6 +52,6 @@ BEGIN
 		@Typename= 'UserControl',	
 		@SPName=@SPName ,		
 		@IP=@IP,
-		@Details=@LogDat
+		@Details=@LogData
 END
 GO

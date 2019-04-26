@@ -23,7 +23,7 @@ BEGIN
 
 	SELECT userid, username, groupid
 	INTO #AdminUser
-	FROM dbo.AffAdmin_f_AdminUserInfo_Select(@CustID, @LicenseeID)
+	FROM dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID)
 	
 	SELECT functionid, functionname, functiondesc, functionrender, parentid, displayorder
 	INTO #FuncInfo
@@ -35,7 +35,7 @@ BEGIN
 
 	SELECT userid, functionid, policy
 	INTO #UserPolicy
-	FROM dbo.AffAdmin_f_UserPolicy_Select(@CustID,@LicenseeID,'')
+	FROM dbo.AffAdmin_f_UserPolicy_Select('',@LicenseeID,'')
 
 	SELECT TOP 1 @GroupID = GroupID FROM #AdminUser WHERE UserID IN (SELECT val FROM dbo.strSplit_Key(@CustIDs,','))
 
