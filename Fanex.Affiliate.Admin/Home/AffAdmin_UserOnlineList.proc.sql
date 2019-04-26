@@ -38,10 +38,18 @@ BEGIN
 	declare @startNum int, @endNum int
 	declare @Table table (UserName varchar(50),LoggedIn datetime,LastRequest datetime,IP varchar(20),Role varchar(20))
 	
-	DECLARE @GroupIT INT
-	SELECT  @GroupIT = DBCUST.bodb_Licensee.dbo.AffAdmin_f_GetITGroupID(@LicenseeID)  
-	
 	DECLARE @sql NVARCHAR(MAX)
+
+	DECLARE @tblGroupIT TABLE (GroupID INT)
+
+	SELECT  @sql = 'SELECT GroupID FROM OPENQUERY(DBCUST, ''SELECT GroupID FROM bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select(' + CONVERT(VARCHAR(20), @LicenseeID) + ')'')'
+	
+	INSERT INTO @tblGroupIT (GroupID)
+	EXEC (@sql)
+
+	DECLARE @GroupIT INT
+	SELECT	@GroupIT = GroupID FROM @tblGroupIT
+	
 	SELECT  @sql = 'SELECT au.username AS UserName, au.LastLogin AS LoggedIn, o.reload_time AS LastRequest, o.IP AS IP, ''Admin'' AS RoleName
 					FROM OPENQUERY(DBCUST,
 							''SELECT au.username AS UserName, au.LastLogin AS LoggedIn, o.reload_time AS LastRequest, o.IP AS IP, ''Admin'' AS RoleName

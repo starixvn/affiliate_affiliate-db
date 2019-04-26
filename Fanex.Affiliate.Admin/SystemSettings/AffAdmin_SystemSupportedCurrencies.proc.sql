@@ -37,7 +37,7 @@ BEGIN
 	SELECT c.CurrencyID
 		,c.CurrencyCode
 		,c.MultipliedBy
-	FROM dbo.Currency WITH (NOLOCK) c
+	FROM dbo.Currency c WITH (NOLOCK)
 		INNER JOIN @tblCurrency tmp ON c.CurrencyID = tmp.CurrencyID
 	WHERE c.CurrencyCode IN (SELECT val FROM [dbo].[strSplit](@Currencies, ',') )
 END
