@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCUST-bodb_CustomerLog,DBLOG-bodb_CustomerLog" executers="bodbLicenseeNet" isFunction="0" isNested="1"></info>*/
+/*<info serverAlias="DBCUST-bodb_CustomerLog,DBLOG-bodb_CustomerLog" executers="bodbAdminNet,bodbLicenseeNet" isFunction="0" isNested="1"></info>*/
 USE [bodb_CustomerLog]
 GO
 

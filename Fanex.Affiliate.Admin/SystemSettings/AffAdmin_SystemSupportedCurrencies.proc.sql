@@ -6,39 +6,40 @@ AS
 
 /*    
 	Task: Get Affiliate System Supported Currencies Information  
-	DB: DBAFF-Affiliate_Athena000
-	Original:[Aff_SystemSupportedCurrencies]      
+	DB: DBAFF.Affiliate_XXX
 	
 	Revisions:          
-		- 20130219@Peter: created 
-		- 20130830@Joseph: restrict user permission by currency   
-		- 20140112@Bobby.Nguyen: replace AFF_AffiliateCurrencies to AffiliateCurrencies key
-		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
-		- 20190424@Percy: Change server of nested function [RedmineID: #103658]
-							AffAdmin_f_UserCurrency_Select
+	 - 20130219@Peter: created 
+	 - 20130830@Joseph: restrict user permission by currency   
+	 - 20140112@Bobby.Nguyen: replace AFF_AffiliateCurrencies to AffiliateCurrencies key
+	 - 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 */
 
 BEGIN
-	SET NOCOUNT ON
+	SET NOCOUNT ON;
 
-	DECLARE @sql NVARCHAR(MAX)
-	DECLARE @tblCurrency TABLE (CurrencyID INT)
+	SELECT AffCurrencyID AS CurrencyID
+	INTO #tmpCurrency
+	FROM dbo.AffAdmin_f_UserCurrency_Select(@UserId, @LicenseeID)
 
-	SELECT @sql = 'SELECT CurrencyID FROM OPENQUERY(DBCUST,
-								''SELECT CurrencyID FROM bodb_Licensee.dbo.AffAdmin_f_UserCurrency_Select(' + CONVERT(VARCHAR(10), @UserId) + ',' + CONVERT(VARCHAR(10), @LicenseeID) + ')'')'
+	DECLARE @Currencies VARCHAR(max)
 
-	INSERT INTO @tblCurrency (CurrencyID)
-	EXEC (@sql)
-
-	DECLARE @Currencies VARCHAR(MAX)
-	SELECT  @Currencies = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffiliateCurrencies' AND Type = 'Meta'
+	SELECT @Currencies = (
+			SELECT SValue
+			FROM SystemSettings
+			WHERE SName = 'AffiliateCurrencies'
+				AND Type = 'Meta'
+			)
 
 	-- Insert statements for procedure here  
 	SELECT c.CurrencyID
 		,c.CurrencyCode
 		,c.MultipliedBy
-	FROM dbo.Currency c WITH (NOLOCK)
-		INNER JOIN @tblCurrency tmp ON c.CurrencyID = tmp.CurrencyID
-	WHERE c.CurrencyCode IN (SELECT val FROM [dbo].[strSplit](@Currencies, ',') )
+	FROM Currency(NOLOCK) c
+		INNER JOIN #tmpCurrency tmp ON c.CurrencyID = tmp.CurrencyID
+	WHERE c.CurrencyCode IN (
+			SELECT val
+			FROM [dbo].[strSplit](@Currencies, ',')
+			)
 END
 GO
