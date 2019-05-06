@@ -37,7 +37,7 @@ BEGIN
 	
 	SELECT  @sql =
 		'SELECT userid,username,firstname,lastname,groupid,[Status], CASE WHEN ac.GroupId = ' + CONVERT(VARCHAR(10), @GroupIT) + ' THEN 1 ELSE 0 END AS IsIT
-		FROM OPENQUERY(DBCUST, ''SELECT GroupID FROM bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select(' + CONVERT(VARCHAR(20), @CustID) + ', ' + CONVERT(VARCHAR(20), @LicenseeID) + ')'')'
+		FROM OPENQUERY(DBCUST, ''SELECT GroupID,userid,username,firstname,lastname,groupid,[Status] FROM bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select(' + CONVERT(VARCHAR(20), @CustID) + ', ' + CONVERT(VARCHAR(20), @LicenseeID) + ')'')'
 
 	EXEC (@sql)
 END
