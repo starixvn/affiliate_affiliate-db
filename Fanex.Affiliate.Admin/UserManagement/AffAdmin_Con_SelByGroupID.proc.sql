@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCUST-bodb_Licensee" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBCUST-bodb_Licensee" executers="bodbLicenseeNet" isFunction="0" isNested="0"></info>*/
 USE [bodb_Licensee]
 GO
 
@@ -28,7 +28,7 @@ BEGIN
 	IF @Username IS NULL SET @Username = '%'
 	IF @FirstChar IS NULL SET @FirstChar = '%'
 
-	SELECT userid, username, firstname, lastname, groupid, [status], createdate
+	SELECT userid, username, firstname, lastname, groupid, [status], createdate, Creator
 	INTO #AdminUser
 	FROM dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID)
 
