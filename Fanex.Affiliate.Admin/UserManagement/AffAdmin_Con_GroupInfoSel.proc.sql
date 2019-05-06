@@ -21,7 +21,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @GroupIT INT
-	SELECT  @GroupIt = [dbo].[AffAdmin_f_GetITGroupID](@LicenseeID)
+	SELECT  @GroupIt = GroupID FROM dbo.AffAdmin_f_GetITGroupID(@LicenseeID)
 
 	IF @groupid IS NULL
 	BEGIN	

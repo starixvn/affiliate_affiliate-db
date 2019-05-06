@@ -56,7 +56,7 @@ BEGIN
 	ORDER BY fi.parentid, count(fip.functionID) DESC, fi.DisplayOrder
 
 	Declare @GroupIT varchar(50)
-	select  @GroupIT = [dbo].AffAdmin_f_GetITGroupID(@LicenseeID)
+	select  @GroupIT = GroupID FROM dbo.AffAdmin_f_GetITGroupID(@LicenseeID)
 
 	if(@GroupID <> @GroupIT)
 	Begin

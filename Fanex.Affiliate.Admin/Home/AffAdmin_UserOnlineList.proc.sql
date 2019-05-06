@@ -21,7 +21,6 @@ AS
 		- 20151207@Francis: Revise sp to return only affiliate under user's currency permissions
 		- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
 		- 20190424@Percy: Change server of nested function [RedmineID: #103658]
-							AffAdmin_f_GetITGroupID
 							AffAdmin_f_OnUser_Select
 							AffAdmin_f_AdminUserInfo_Select
 
