@@ -38,10 +38,8 @@ BEGIN
 	DECLARE @FuncList TABLE (FunctionID INT, LicenseeID INT, FunctionName NVARCHAR(50), FunctionNote NVARCHAR(2000), FunctionDesc NVARCHAR(50), FunctionRender TINYINT, 
 							CreateDate DATETIME, ModifyDate DATETIME, DisplayOrder TINYINT, Creator INT, ParentID INT, Filenames VARCHAR(2000))
 
-	SELECT @sql = 'SELECT FunctionID, LicenseeID, FunctionName, FunctionNote, FunctionDesc, FunctionRender, CreateDate, ModifyDate, DisplayOrder, Creator, ParentID, Filenames
-					FROM OPENQUERY(DBCUST,
-								''SELECT FunctionID, LicenseeID, FunctionName, FunctionNote, FunctionDesc, FunctionRender, CreateDate, ModifyDate, DisplayOrder, Creator, ParentID, Filenames
-								FROM bodb_Licensee.dbo.AffAdmin_f_FunctionInfo_Select('''''''',' + CONVERT(VARCHAR(10), @LicenseeID) + ')'')'
+	SELECT @sql = 'SELECT FunctionID, LicenseeID, FunctionName, FunctionNote, FunctionDesc, FunctionRender, CreateDate, ModifyDate, DisplayOrder, Creator, ParentID, Filenames FROM OPENQUERY(DBCUST,
+					''SELECT FunctionID, LicenseeID, FunctionName, FunctionNote, FunctionDesc, FunctionRender, CreateDate, ModifyDate, DisplayOrder, Creator, ParentID, Filenames FROM bodb_Licensee.dbo.AffAdmin_f_FunctionInfo_Select('''''''',' + CONVERT(VARCHAR(10), @LicenseeID) + ')'')'
 
 	INSERT INTO @FuncList (FunctionID, LicenseeID, FunctionName, FunctionNote, FunctionDesc, FunctionRender, CreateDate, ModifyDate, DisplayOrder, Creator, ParentID, Filenames)
 	EXEC (@sql)

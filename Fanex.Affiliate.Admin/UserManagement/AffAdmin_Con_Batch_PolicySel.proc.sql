@@ -48,7 +48,7 @@ BEGIN
 			(SELECT functionID,min(policy) as policy,ac.groupid as groupid
 			FROM #UserPolicy mp
 				inner join #AdminUser ac on ac.userid=mp.userid
-			WHERE mp.userid in (SELECT val FROM dbo.strSplit_Key(@CustIDs,','))
+			WHERE mp.userid in (SELECT val FROM dbo.strSplit(@CustIDs,','))
 			GROUP BY mp.functionID,ac.groupid) f on fi.functionID=f.functionID
 		LEFT JOIN #GroupPolicy gp on gp.groupid=@GroupID and gp.functionID=fi.functionID
 		left join #FuncInfo fip on fi.functionID = fip.ParentID and fip.parentid <> fip.functionID

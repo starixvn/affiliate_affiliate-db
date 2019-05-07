@@ -58,17 +58,12 @@ BEGIN
 	
 	IF EXISTS (SELECT 1 FROM @tblUsers)
 	BEGIN
-		SELECT @sql = 'SELECT (ISNULL(mp_policy, 0) | ISNULL(gp_policy, 0)) & ISNULL(FunctionRender, 0) FROM OPENQUERY(DBCUST,
-							''SELECT mp.policy AS mp_policy, gp.policy AS gp_policy, fi.FunctionRender
-								FROM bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select(' + CONVERT(VARCHAR(20), @CustID) + ',' + CONVERT(VARCHAR(10), @LicenseeID) + ') ac
-									LEFT JOIN bodb_Licensee.dbo.AffAdmin_f_FunctionInfo_Select(' + CONVERT(VARCHAR(20), @FuncID) + ',' + CONVERT(VARCHAR(10), @LicenseeID) + ') fi
-											ON fi.FunctionID = ' + CONVERT(VARCHAR(20), @FuncID) + '
-									LEFT JOIN bodb_Licensee.dbo.AffAdmin_f_UserPolicy_Select(' + CONVERT(VARCHAR(20), @CustID) + ',' + CONVERT(VARCHAR(10), @LicenseeID) + ',' + CONVERT(VARCHAR(10), @FuncID) + ') mp
-											ON mp.userid = ac.userid AND mp.functionid = ' + CONVERT(VARCHAR(20), @FuncID) + '
-									LEFT JOIN bodb_Licensee.dbo.AffAdmin_f_GroupPolicy_Select('',@funcid) gp
-											ON gp.groupid = ac.groupid AND gp.functionid = ' + CONVERT(VARCHAR(20), @FuncID) + '
-								WHERE ac.[Status]=0'')'
+		SELECT @sql = 'SELECT IsAllow FROM OPENQUERY(DBCUST,
+							''SELECT IsAllow FROM bodb_Licensee.dbo.Aff_f_Con_IsAllowByUserID(' + CONVERT(VARCHAR(20), @CustID) + ',' + CONVERT(VARCHAR(10), @LicenseeID) + ',' + CONVERT(VARCHAR(10), @FuncID) + ')'')'
 			
+		INSERT INTO @tblPermission (IsAllow)
+		EXEC (@sql)
+
 		SELECT @IsAllow = IsAllow FROM @tblPermission
 
 		SELECT @IsAllow = ISNULL(@IsAllow, 0)

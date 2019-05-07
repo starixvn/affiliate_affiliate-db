@@ -49,12 +49,8 @@ BEGIN
 	DECLARE @GroupIT INT
 	SELECT	@GroupIT = GroupID FROM @tblGroupIT
 	
-	SELECT  @sql = 'SELECT au.username AS UserName, au.LastLogin AS LoggedIn, o.reload_time AS LastRequest, o.IP AS IP, ''Admin'' AS RoleName
-					FROM OPENQUERY(DBCUST,
-							''SELECT au.username AS UserName, au.LastLogin AS LoggedIn, o.reload_time AS LastRequest, o.IP AS IP, ''Admin'' AS RoleName
-							FROM bodb_Licensee.dbo.AffAdmin_f_OnUser_Select(0) o
-								INNER JOIN bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select('''''''',' + CONVERT(VARCHAR(10), @LicenseeID) + ') au
-									ON au.userid = o.custid
+	SELECT  @sql = 'SELECT au.username AS UserName, au.LastLogin AS LoggedIn, o.reload_time AS LastRequest, o.IP AS IP, ''Admin'' AS RoleName FROM OPENQUERY(DBCUST,
+							''SELECT au.username AS UserName, au.LastLogin AS LoggedIn, o.reload_time AS LastRequest, o.IP AS IP, ''Admin'' AS RoleName FROM bodb_Licensee.dbo.AffAdmin_f_OnUser_Select(0) o INNER JOIN bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select('''''''',' + CONVERT(VARCHAR(10), @LicenseeID) + ') au ON au.userid = o.custid
 							WHERE 1 = CASE WHEN ' + CONVERT(VARCHAR(1), @IsIt) + ' = 1 THEN 1 WHEN GroupId = ' + CONVERT(VARCHAR(1), @GroupIt) + ' THEN 0 ELSE 1 END'')'
         
 	INSERT INTO @Table(UserName,LoggedIn,LastRequest,IP,Role)       

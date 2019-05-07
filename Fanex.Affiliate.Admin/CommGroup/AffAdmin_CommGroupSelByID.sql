@@ -24,7 +24,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @sql NVARCHAR(MAX)
-	SELECT  @sql = 'SELECT IsITAdmin FROM OPENQUERY(DBCUST, ''SELECT IsITAdmin FROM dbo.AffAdmin_f_IsITAdmin('
+	SELECT  @sql = 'SELECT IsITAdmin FROM OPENQUERY(DBCUST, ''SELECT IsITAdmin FROM bodb_Licensee.dbo.AffAdmin_f_IsITAdmin('
 																+ CONVERT(VARCHAR(20), @UserID) + ',' + CONVERT(VARCHAR(20), @LicenseeID) + ')'')'
 
 	DECLARE @tblIsITAdmin TABLE (IsITAdmin BIT)
