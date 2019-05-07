@@ -1,20 +1,22 @@
+/*<info serverAlias="DBCUST-bodb_Licensee" executers="bodbLicenseeNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[AffAdmin_IsITAdminAccount]
 (
-	@UserID INT,
+	@UserID		INT,
 	@LicenseeID INT,
-	@IsITAdmin BIT OUTPUT
+	@IsITAdmin	BIT = 0 OUTPUT
 )
+AS
+
 /*
 	Created: 20151117@Victor
-	DB: DBAFF - affiliate database
+	DB: DBCUST.bodb_Licensee
 	Remark: Check IT Admin account
-	Revision:
+	
+	Revisions:
+		- 20190424@Percy: Move function to DBCUST.bodb_Licensee [RedmineID: #103658]
 */
-AS
+
 BEGIN
-	SELECT @IsITAdmin = dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID)
+	SELECT @IsITAdmin = IsITAdmin FROM dbo.AffAdmin_f_IsITAdmin (@UserID, @LicenseeID)
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_IsITAdminAccount] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_IsITAdminAccount] TO [vnteam] AS [dbo]

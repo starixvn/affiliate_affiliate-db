@@ -1,7 +1,4 @@
-﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_Athena000]
-GO
-
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[AffAdmin_CommGroupSelByID]		
 	@LicenseeID		INT,
 	@GroupID		INT,
@@ -10,33 +7,45 @@ ALTER PROCEDURE [dbo].[AffAdmin_CommGroupSelByID]
 AS
 
 /*
-Created: 20131114@Joseph
-Task : Search a Commission Group
-DB: DB052.Affiliate_MYM
-Original:
-Revisions:	
-	- 20131121@Joseph: filter by TestLevel
-	- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
-	- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
+	Created: 20131114@Joseph
+	Task : Search a Commission Group
+	DB: DBAFF.Affiliate_XXX
+	Original:
+
+	Revisions:	
+		- 20131121@Joseph: filter by TestLevel
+		- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
+		- 20190424@Percy: Change server of nested function [RedmineID: #103658]
+							AffAdmin_f_IsITAdmin
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @IsITAdmin BIT
-	SELECT @IsITAdmin = dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID)
+	DECLARE @sql NVARCHAR(MAX)
+	SELECT  @sql = 'SELECT IsITAdmin FROM OPENQUERY(DBCUST, ''SELECT IsITAdmin FROM dbo.AffAdmin_f_IsITAdmin('
+																+ CONVERT(VARCHAR(20), @UserID) + ',' + CONVERT(VARCHAR(20), @LicenseeID) + ')'')'
 
-	SELECT cg.GroupID,GroupName,Description, cg.CreatorName as Creator,
-		cg.CreatedDate,e.CurrencyID,e.CurrencyCode as Currency,QualifiedAmount,
-		Count(ai.AffID) as NoOfAffiliate
-	from CommGroup cg with (nolock)
-		inner join dbo.Currency e on cg.Currency = e.CurrencyID			  
-		left join AffInfo ai with (nolock) on ai.GroupID = cg.GroupID
-	where 			   
+	DECLARE @tblIsITAdmin TABLE (IsITAdmin BIT)
+	INSERT INTO @tblIsITAdmin (IsITAdmin)
+	EXEC (@sql)
+	
+	DECLARE @IsITAdmin BIT
+	SELECT  @IsITAdmin = IsITAdmin FROM @tblIsITAdmin
+
+	SELECT
+		cg.GroupID,GroupName,Description,cg.CreatorName AS Creator
+		,cg.CreatedDate,e.CurrencyID,e.CurrencyCode AS Currency,QualifiedAmount,
+		Count(ai.AffID) AS NoOfAffiliate
+	FROM dbo.CommGroup cg WITH (NOLOCK)
+		INNER JOIN dbo.Currency e ON cg.Currency = e.CurrencyID			  
+		LEFT JOIN dbo.AffInfo ai WITH (NOLOCK) ON ai.GroupID = cg.GroupID
+	WHERE 			   
 		cg.GroupID = @GroupID
-		and (@IsITAdmin = 1 or ai.TestLevel in (0,1))
-		and (cg.Currency = 0 or (cg.Currency in (select convert(int, val) from dbo.strSplit(@UserCurrencies, ','))))
-	group by cg.GroupID, cg.GroupName, cg.Description,cg.CreatedDate,cg.QualifiedAmount,
+		AND (@IsITAdmin = 1 OR ai.TestLevel IN (0,1))
+		AND (cg.Currency = 0 OR (cg.Currency IN (SELECT CONVERT(INT, val) FROM dbo.strSplit(@UserCurrencies, ','))))
+	GROUP BY cg.GroupID, cg.GroupName,cg.Description,cg.CreatedDate,cg.QualifiedAmount,
 		cg.CreatorName,e.CurrencyID,e.CurrencyCode
 END
 GO

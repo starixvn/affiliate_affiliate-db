@@ -1,7 +1,4 @@
-﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_Athena000]
-GO
-
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[AffAdmin_CommGroupSel] 
 	@LicenseeID			INT
 	,@GroupName			NVARCHAR(100)	= ''
@@ -19,7 +16,7 @@ AS
 /*
 	Created: 20090719@DungTong
 	Task: Search a Commission Group (paging)
-	DB: DBAFF.Affiliate_Athena000
+	DB: DBAFF.Affiliate_XXX
 	Original:
 
 	Revisions:
@@ -28,6 +25,8 @@ AS
 		- 20140820@Bobby: Add Deposit & Withdrawal percent - apply SQL stylescope
 		- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
+		- 20190424@Percy: Change server of nested function [RedmineID: #103658]
+							AffAdmin_f_IsITAdmin
 
 	Params Explaination:
 */
@@ -48,7 +47,15 @@ BEGIN
 	DECLARE @TblCurrency 	TABLE (val NVARCHAR(6))
 	DECLARE @CommTmp		TABLE (GroupID INT, Currency INT, MonthDate SMALLDATETIME, RowIDX INT IDENTITY(1,1))
 	
-	SELECT @IsITAdmin 	= dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID)
+	DECLARE @sql NVARCHAR(MAX)
+	SELECT  @sql = 'SELECT IsITAdmin FROM OPENQUERY(DBCUST, ''SELECT IsITAdmin FROM dbo.AffAdmin_f_IsITAdmin('
+																+ CONVERT(VARCHAR(20), @UserID) + ',' + CONVERT(VARCHAR(20), @LicenseeID) + ')'')'
+
+	DECLARE @tblIsITAdmin TABLE (IsITAdmin BIT)
+	INSERT INTO @tblIsITAdmin (IsITAdmin)
+	EXEC (@sql)
+	
+	SELECT  @IsITAdmin = IsITAdmin FROM @tblIsITAdmin
 
 	-- Insert statements for procedure here  
 	IF @Currencies != 'All'
