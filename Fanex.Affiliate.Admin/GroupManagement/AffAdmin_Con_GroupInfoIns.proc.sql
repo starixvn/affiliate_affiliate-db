@@ -30,7 +30,7 @@ BEGIN
 	DECLARE @tblGroups TABLE (GroupName NVARCHAR(50))
 
 	SELECT @sql = 'SELECT GroupName FROM OPENQUERY(DBCUST,
-								''SELECT GroupName FROM bodb_Licensee.dbo.AffAdmin_f_GroupInfo_Select('''',' + CONVERT(VARCHAR(10), @LicenseeID) + ')'')'
+								''SELECT GroupName FROM bodb_Licensee.dbo.AffAdmin_f_GroupInfo_Select('''''''',' + CONVERT(VARCHAR(10), @LicenseeID) + ')'')'
 
 	INSERT INTO @tblGroups (GroupName)
 	EXEC (@sql)
@@ -49,7 +49,7 @@ BEGIN
 	DECLARE @tblFunctions TABLE (FunctionID INT)
 
 	SELECT @sql = 'SELECT FunctionID FROM OPENQUERY(DBCUST,
-								''SELECT FunctionID FROM bodb_Licensee.dbo.AffAdmin_f_FunctionInfo_Select('''',' + CONVERT(VARCHAR(10), @LicenseeID) + ')'')'
+								''SELECT FunctionID FROM bodb_Licensee.dbo.AffAdmin_f_FunctionInfo_Select('''''''',' + CONVERT(VARCHAR(10), @LicenseeID) + ')'')'
 
 	INSERT INTO @tblFunctions (FunctionID)
 	EXEC (@sql)

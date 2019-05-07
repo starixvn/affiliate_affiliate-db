@@ -25,7 +25,7 @@ BEGIN
 	DECLARE @tblGroups TABLE (LicenseeID INT, GroupID INT, GroupName NVARCHAR(50))
 
 	SELECT @sql = 'SELECT LicenseeID, GroupID, GroupName FROM OPENQUERY(DBCUST,
-								''SELECT LicenseeID, GroupID, GroupName FROM bodb_Licensee.dbo.AffAdmin_f_GroupInfo_Select(' + CONVERT(VARCHAR(10), @GroupID) + ',''''))'
+								''SELECT LicenseeID, GroupID, GroupName FROM bodb_Licensee.dbo.AffAdmin_f_GroupInfo_Select(' + CONVERT(VARCHAR(10), @GroupID) + ','''''''')'')'
 
 	INSERT INTO @tblGroups (LicenseeID, GroupID, GroupName)
 	EXEC (@sql)
@@ -41,7 +41,7 @@ BEGIN
 	SELECT @sql = 'SELECT FunctionID, LicenseeID, FunctionName, FunctionNote, FunctionDesc, FunctionRender, CreateDate, ModifyDate, DisplayOrder, Creator, ParentID, Filenames
 					FROM OPENQUERY(DBCUST,
 								''SELECT FunctionID, LicenseeID, FunctionName, FunctionNote, FunctionDesc, FunctionRender, CreateDate, ModifyDate, DisplayOrder, Creator, ParentID, Filenames
-								FROM bodb_Licensee.dbo.AffAdmin_f_FunctionInfo_Select('''',' + CONVERT(VARCHAR(10), @LicenseeID) + ')'')'
+								FROM bodb_Licensee.dbo.AffAdmin_f_FunctionInfo_Select('''''''',' + CONVERT(VARCHAR(10), @LicenseeID) + ')'')'
 
 	INSERT INTO @FuncList (FunctionID, LicenseeID, FunctionName, FunctionNote, FunctionDesc, FunctionRender, CreateDate, ModifyDate, DisplayOrder, Creator, ParentID, Filenames)
 	EXEC (@sql)
@@ -49,7 +49,7 @@ BEGIN
 	DECLARE @tblGroupPolicy TABLE (FunctionID INT, policy TINYINT, createdate DATETIME, modifydate DATETIME)
 
 	SELECT @sql = 'SELECT FunctionID, policy, createdate, modifydate FROM OPENQUERY(DBCUST,
-								''SELECT FunctionID, policy, createdate, modifydate FROM bodb_Licensee.dbo.AffAdmin_f_GroupPolicy_Select(' + CONVERT(VARCHAR(10), @GroupID) + ',''''))'
+								''SELECT FunctionID, policy, createdate, modifydate FROM bodb_Licensee.dbo.AffAdmin_f_GroupPolicy_Select(' + CONVERT(VARCHAR(10), @GroupID) + ','''''''')'')'
 
 	INSERT INTO @tblGroupPolicy (FunctionID, policy, createdate, modifydate)
 	EXEC (@sql)

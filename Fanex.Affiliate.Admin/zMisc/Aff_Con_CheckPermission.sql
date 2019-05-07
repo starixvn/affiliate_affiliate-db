@@ -36,7 +36,7 @@ BEGIN
 	IF @FuncID IS NULL
 	BEGIN
 		SELECT @sql = 'SELECT FunctionID FROM OPENQUERY(DBCUST, 
-								''SELECT FunctionID FROM bodb_Licensee.dbo.AffAdmin_f_FunctionInfo_Select('''',' + CONVERT(VARCHAR(10), @LicenseeID) + ')
+								''SELECT FunctionID FROM bodb_Licensee.dbo.AffAdmin_f_FunctionInfo_Select('''''''',' + CONVERT(VARCHAR(10), @LicenseeID) + ')
 									WHERE FunctionName = ''''' + ISNULL(@Funcname, '') + ''''''')'
 
 		INSERT INTO @tblFunction (FunctionID)

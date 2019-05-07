@@ -28,7 +28,7 @@ BEGIN
 	DECLARE @tblGroups TABLE (GroupID INT, GroupName NVARCHAR(50))
 
 	SELECT @sql = 'SELECT GroupID, GroupName FROM OPENQUERY(DBCUST,
-								''SELECT GroupID, GroupName FROM bodb_Licensee.dbo.AffAdmin_f_GroupInfo_Select('''',' + CONVERT(VARCHAR(10), @LicenseeID) + ')'')'
+								''SELECT GroupID, GroupName FROM bodb_Licensee.dbo.AffAdmin_f_GroupInfo_Select('''''''',' + CONVERT(VARCHAR(10), @LicenseeID) + ')'')'
 
 	INSERT INTO @tblGroups (GroupID, GroupName)
 	EXEC (@sql)
