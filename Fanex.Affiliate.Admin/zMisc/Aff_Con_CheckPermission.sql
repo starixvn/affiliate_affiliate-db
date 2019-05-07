@@ -61,12 +61,12 @@ BEGIN
 	BEGIN
 		SELECT @sql = 'SELECT (ISNULL(mp_policy, 0) | ISNULL(gp_policy, 0)) & ISNULL(FunctionRender, 0) FROM OPENQUERY(DBCUST,
 							''SELECT mp.policy AS mp_policy, gp.policy AS gp_policy, fi.FunctionRender
-								FROM dbo.AffAdmin_f_AdminUserInfo_Select(' + CONVERT(VARCHAR(20), @CustID) + ',' + CONVERT(VARCHAR(10), @LicenseeID) + ') ac
-									LEFT JOIN dbo.AffAdmin_f_FunctionInfo_Select(' + CONVERT(VARCHAR(20), @FuncID) + ',' + CONVERT(VARCHAR(10), @LicenseeID) + ') fi
+								FROM bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select(' + CONVERT(VARCHAR(20), @CustID) + ',' + CONVERT(VARCHAR(10), @LicenseeID) + ') ac
+									LEFT JOIN bodb_Licensee.dbo.AffAdmin_f_FunctionInfo_Select(' + CONVERT(VARCHAR(20), @FuncID) + ',' + CONVERT(VARCHAR(10), @LicenseeID) + ') fi
 											ON fi.FunctionID = ' + CONVERT(VARCHAR(20), @FuncID) + '
-									LEFT JOIN dbo.AffAdmin_f_UserPolicy_Select(' + CONVERT(VARCHAR(20), @CustID) + ',' + CONVERT(VARCHAR(10), @LicenseeID) + ',' + CONVERT(VARCHAR(10), @FuncID) + ') mp
+									LEFT JOIN bodb_Licensee.dbo.AffAdmin_f_UserPolicy_Select(' + CONVERT(VARCHAR(20), @CustID) + ',' + CONVERT(VARCHAR(10), @LicenseeID) + ',' + CONVERT(VARCHAR(10), @FuncID) + ') mp
 											ON mp.userid = ac.userid AND mp.functionid = ' + CONVERT(VARCHAR(20), @FuncID) + '
-									LEFT JOIN dbo.AffAdmin_f_GroupPolicy_Select('',@funcid) gp
+									LEFT JOIN bodb_Licensee.dbo.AffAdmin_f_GroupPolicy_Select('''''''',' + + CONVERT(VARCHAR(20), @FuncID) + ') gp
 											ON gp.groupid = ac.groupid AND gp.functionid = ' + CONVERT(VARCHAR(20), @FuncID) + '
 								WHERE ac.[Status]=0'')'
 			

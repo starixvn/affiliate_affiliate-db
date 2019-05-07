@@ -37,7 +37,7 @@ BEGIN
 	INTO #UserPolicy
 	FROM dbo.AffAdmin_f_UserPolicy_Select('',@LicenseeID,'')
 
-	SELECT TOP 1 @GroupID = GroupID FROM #AdminUser WHERE UserID IN (SELECT val FROM dbo.strSplit_Key(@CustIDs,','))
+	SELECT TOP 1 @GroupID = GroupID FROM #AdminUser WHERE UserID IN (SELECT val FROM dbo.strSplit(@CustIDs,','))
 
 	Declare @Tmp table(funcid int, funcname varchar(50), funcdesc varchar(50), policy tinyint, gpolicy tinyint, parentid int, SubFuncCount int, DisplayOrder int)
 
