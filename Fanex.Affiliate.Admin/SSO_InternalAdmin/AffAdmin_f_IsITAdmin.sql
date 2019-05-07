@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCUST-bodb_Licensee" executers="bodbAdminNet,bodbLicenseeNet" isFunction="1" isNested="1"></info>*/
+﻿/*<info serverAlias="DBCUST-bodb_Licensee" selecters="bodbAdminNet,bodbLicenseeNet" isFunction="1" isNested="1"></info>*/
 ALTER FUNCTION [dbo].[AffAdmin_f_IsITAdmin]
 (
 	@UserID		INT,
