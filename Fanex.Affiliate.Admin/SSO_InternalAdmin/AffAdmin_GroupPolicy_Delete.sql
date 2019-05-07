@@ -1,19 +1,21 @@
+/*<info serverAlias="DBCUST-bodb_licensee" executers="bodbLicenseeNet" isFunction="0" isNested="1"></info>*/
+USE [bodb_licensee]
+GO
+
 ALTER PROCEDURE [dbo].[AffAdmin_GroupPolicy_Delete]
-(
-	@GroupID	INT
-)
+	@GroupID INT
+AS
+
 /*
 	Created: 20151111@Victor
-	DB: DBLIC/bodb_licensee
+	DB: DBCUST.bodb_Licensee
 	Remark: Delete GroupPolicy by GroupID
-	Revision:
+	
+	Revisions:
+		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RemineID: #103658]
 */
-AS
-BEGIN
-	DELETE FROM dbo.Aff_GroupPolicy WHERE GroupID = @GroupID
-END
 
+BEGIN
+	DELETE dbo.Aff_GroupPolicy WITH (ROWLOCK, UPDLOCK) WHERE GroupID = @GroupID
+END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_GroupPolicy_Delete] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_GroupPolicy_Delete] TO [vnteam] AS [dbo]
