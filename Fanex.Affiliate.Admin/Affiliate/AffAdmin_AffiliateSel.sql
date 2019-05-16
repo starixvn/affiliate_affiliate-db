@@ -1,7 +1,4 @@
 ﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_Athena000]
-GO
-
 ALTER PROCEDURE [dbo].[AffAdmin_AffiliateSel] 
 	@LicenseeID			INT
 	,@UserId			INT				= 0
@@ -29,7 +26,7 @@ AS
 
 /*    
 	Task: Get All Affiliate for a specific page      
-	DB: DBAFF.Affiliate_Athena000
+	DB: DBAFF.Affiliate_XXX
 	Original:[Aff_CustomerSelAffiliate]
 	  
 	Revisions:          
@@ -40,7 +37,9 @@ AS
 	 - 20140924@Bobby: Add Email Info & refactor code
 	 - 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 	 - 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
-	 - 20190403@PercyL Add Player_Username [RedmineID: #111191]
+	 - 20190403@Percy: Add Player_Username [RedmineID: #111191]
+	 - 20190424@Percy: Change server of nested function [RedmineID: #103658]
+							AffAdmin_f_IsITAdmin
  
 	Param's Explanation: 
 		• @UserID: Admin UserID
@@ -152,9 +151,16 @@ BEGIN
 	END
 
 	-- Test Account
-	DECLARE @IsITAdmin BIT
+	DECLARE @sql NVARCHAR(MAX)
+	SELECT  @sql = 'SELECT IsITAdmin FROM OPENQUERY(DBCUST, ''SELECT IsITAdmin FROM bodb_Licensee.dbo.AffAdmin_f_IsITAdmin('
+																+ CONVERT(VARCHAR(20), @UserID) + ',' + CONVERT(VARCHAR(20), @LicenseeID) + ')'')'
 
-	SELECT @IsITAdmin = dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID)
+	DECLARE @tblIsITAdmin TABLE (IsITAdmin BIT)
+	INSERT INTO @tblIsITAdmin (IsITAdmin)
+	EXEC (@sql)
+	
+	DECLARE @IsITAdmin BIT
+	SELECT  @IsITAdmin = IsITAdmin FROM @tblIsITAdmin
 
 	-- Retrieve data
 	SELECT AI.AffID

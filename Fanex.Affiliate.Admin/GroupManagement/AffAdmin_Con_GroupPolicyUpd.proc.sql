@@ -1,23 +1,24 @@
-﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_Athena000]
+﻿/*<info serverAlias="DBCUST-bodb_Licensee" executers="bodbLicenseeNet" isFunction="0" isNested="0"></info>*/
+USE [bodb_Licensee]
 GO
 
 ALTER PROCEDURE [dbo].[AffAdmin_Con_GroupPolicyUpd]
-	@LicenseeID INT,
-	@GroupPolicys NVARCHAR(4000),
-	@UserID int, 
-	@Language varchar(5)= 'en-US', 
-	@ErrCode int = 0 OUTPUT,
-	@IP varchar(15) = ''
+	@LicenseeID		INT,
+	@GroupPolicys	NVARCHAR(4000),
+	@UserID			INT, 
+	@Language		VARCHAR(5)= 'en-US', 
+	@ErrCode		INT = 0 OUTPUT,
+	@IP				VARCHAR(15) = ''
 AS
 
 /*
-	DB: DBAFF
+	DB: DBCUST.bodb_Licensee
 
 	Revisions:
 		- 20101214@Peter : Move this SP to DB DB052.Affiliate_ZZun
 		- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RedmineID: #103658]
 */
 
 BEGIN
@@ -32,7 +33,7 @@ BEGIN
 	DECLARE GroupPolicysCur CURSOR
 		FOR SELECT val AS row_index FROM dbo.strSplit(@GroupPolicys, ';') ORDER BY row_index
 	
-	SELECT * INTO #GroupPolicy FROM dbo.AffAdmin_f_GroupPolicy_Select('', '')
+	SELECT GroupID, FunctionID INTO #GroupPolicy FROM dbo.AffAdmin_f_GroupPolicy_Select('','')
 
 	OPEN GroupPolicysCur
 	
@@ -46,29 +47,13 @@ BEGIN
 
 		IF(@GroupPolicyCount = 0)
 		BEGIN
-			EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupPolicy_Insert @GroupID = @GroupID, @FunctionIDs = @Funcid, @Policy = @Policy, @Creator = @UserID
+			EXEC dbo.AffAdmin_GroupPolicy_Insert @GroupID = @GroupID, @FunctionIDs = @Funcid, @Policy = @Policy, @Creator = @UserID
 		END
 		ELSE
 		BEGIN
-			EXEC DBLIC.bodb_licensee.dbo.AffAdmin_GroupPolicy_Update @GroupID = @GroupID, @FunctionID = @FuncID, @Policy = @Policy
+			EXEC dbo.AffAdmin_GroupPolicy_Update @GroupID = @GroupID, @FunctionID = @FuncID, @Policy = @Policy
 		END
 		
-		-- Write log  
-		DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000) 
-	
-		SELECT	@SPName = OBJECT_NAME(@@PROCID),
-				@Detail = '[AFFILIATE] UPDATE (multiple) Policy = ' + dbo.Aff_ToString(@Policy)
-						+ ' of Function ' + dbo.Aff_ToString(@Funcid)
-						+ ' for Group ' + dbo.Aff_ToString(@GroupID)
-
-		EXEC [dbo].[Aff_WriteLog]
-			@Creator = @UserID,	
-			@AffID = 0,
-			@Typename = 'UserControl',	
-			@SPName = @SPName ,		
-			@IP = @IP,
-			@Details = @Detail	
-
 		FETCH NEXT FROM GroupPolicysCur INTO @GroupPolicy
 	END
 

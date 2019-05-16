@@ -1,31 +1,34 @@
+/*<info serverAlias="DBCUST-bodb_Licensee" executers="bodbLicenseeNet" viewers="" isFunction="0" isNested="1"></info>*/
+USE [bodb_Licensee]
+GO
+
 ALTER PROCEDURE [dbo].[AffAdmin_ITAdminUser_Update]
-(
 	@UserID		INT,
 	@UserPwd	VARCHAR(50) = NULL,
 	@UserSalt	VARCHAR(50) = NULL,
 	@FirstName	NVARCHAR(50) = NULL,
 	@LastName	NVARCHAR(50) = NULL,
 	@Status		VARCHAR(30) = NULL
-)
+AS
+
 /*
 	Created: 20151125@Victor
-	DB: DBLIC/bodb_licensee
+	DB: DBCUST.bodb_licensee
 	Remark: Update IT Admin user
-	Revision:
+	
+	Revisions:
+		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RedmineID: #103658]
 */
-AS
+
 BEGIN
-	UPDATE Users WITH (ROWLOCK, UPDLOCK) 
-	SET UserPwd = ISNULL(@UserPwd, UserPwd),
-		UserSalt = ISNULL(@UserSalt, UserSalt),
-		FirstName = ISNULL(@FirstName, FirstName),
-		LastName = ISNULL(@LastName, LastName),
-		[Status] = ISNULL(@Status, [Status])
-	WHERE UserID = @UserID
-
+	SET NOCOUNT ON
+	
+	UPDATE dbo.Users WITH (ROWLOCK, UPDLOCK)
+	SET UserPwd		= ISNULL(@UserPwd, UserPwd),
+		UserSalt	= ISNULL(@UserSalt, UserSalt),
+		FirstName	= ISNULL(@FirstName, FirstName),
+		LastName	= ISNULL(@LastName, LastName),
+		[Status]	= ISNULL(@Status, [Status])
+	WHERE UserID	= @UserID
 END
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_ITAdminUser_Update] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_ITAdminUser_Update] TO [vnteam] AS [dbo]

@@ -1,17 +1,20 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_SystemSupportedCurrencies] 
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[AffAdmin_SystemSupportedCurrencies] 
 	@LicenseeID INT,
-	@UserId INT
+	@UserId		INT
 AS
+
 /*    
-Task : Get Affiliate System Supported Currencies Information  
-DB:    
-Original:[Aff_SystemSupportedCurrencies]      
-Revisions:          
- - 20130219@Peter: created 
- - 20130830@Joseph: restrict user permission by currency   
- - 20140112@Bobby.Nguyen: replace AFF_AffiliateCurrencies to AffiliateCurrencies key
- - 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
- */
+	Task: Get Affiliate System Supported Currencies Information  
+	DB: DBAFF.Affiliate_XXX
+	
+	Revisions:          
+	 - 20130219@Peter: created 
+	 - 20130830@Joseph: restrict user permission by currency   
+	 - 20140112@Bobby.Nguyen: replace AFF_AffiliateCurrencies to AffiliateCurrencies key
+	 - 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+*/
+
 BEGIN
 	SET NOCOUNT ON;
 
@@ -40,6 +43,3 @@ BEGIN
 			)
 END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_SystemSupportedCurrencies] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_SystemSupportedCurrencies] TO [vnteam] AS [dbo]

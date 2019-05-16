@@ -1,39 +1,39 @@
-﻿ALTER PROCEDURE [dbo].[AffAdmin_ReCheckIn]     
-	@On_UserID INT,    
-	@IsKickedOut BIT = 0 OUTPUT    
-AS    
-SET NOCOUNT ON    
+﻿/*<info serverAlias="DBCUST-bodb_licensee" executers="bodbAdminNet,bodbLicenseeNet" isFunction="0" isNested="0"></info>*/
+USE [bodb_licensee]
+GO
 
+ALTER PROCEDURE [dbo].[AffAdmin_ReCheckIn]    
+	@On_UserID		INT,
+	@IsKickedOut	BIT = 0 OUTPUT
+AS
 
 /*
 	Created: 20151013@Victor
 	Task: Re check in
-	DB: DBLIC/bodb_Licensee
+	DB: DBCUST.bodb_Licensee
 	
 	Revisions:
+		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RedmineID: #103658]
 */
-   
-DECLARE @OUTPUT TABLE (IsKickedOut BIT)
-DECLARE @_On_UserID INT
 
-SET @_On_UserID = @On_UserID
+BEGIN
+	SET NOCOUNT ON
 
-UPDATE Aff_On_User with (ROWLOCK)
-SET Reload_Time = GETDATE() 
-OUTPUT DELETED.IsKickedOut INTO @OUTPUT
-WHERE On_UserID = @_On_UserID
+	DECLARE @OUTPUT TABLE (IsKickedOut BIT)
+	DECLARE @_On_UserID INT
 
+	SET @_On_UserID = @On_UserID
 
-IF @@ROWCOUNT = 0
-	SELECT @IsKickedOut = 1
-ELSE IF EXISTS (SELECT 1 FROM @OUTPUT WHERE IsKickedOut = 1)
-	SELECT @IsKickedOut = 1
-ELSE
-	SET @IsKickedOut = 0
+	UPDATE Aff_On_User WITH (ROWLOCK)
+	SET Reload_Time = GETDATE() 
+	OUTPUT DELETED.IsKickedOut INTO @OUTPUT
+	WHERE On_UserID = @_On_UserID
 
+	IF @@ROWCOUNT = 0
+		SELECT @IsKickedOut = 1
+	ELSE IF EXISTS (SELECT 1 FROM @OUTPUT WHERE IsKickedOut = 1)
+		SELECT @IsKickedOut = 1
+	ELSE
+		SET @IsKickedOut = 0
+END
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_ReCheckIn] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT EXECUTE ON [dbo].[AffAdmin_ReCheckIn] TO [bodbLicenseeNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_ReCheckIn] TO [vnteam] AS [dbo]

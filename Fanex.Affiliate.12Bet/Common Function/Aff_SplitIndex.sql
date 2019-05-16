@@ -1,13 +1,23 @@
-﻿/****** Object:  UserDefinedFunction [dbo].[Aff_SplitIndex]    Script Date: 12/15/2010 11:41:36 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
+﻿/*<info serverAlias="DBCUST-bodb_Licensee,DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="1" isNested="1"></info>*/
 ALTER FUNCTION [dbo].[Aff_SplitIndex]
- (@string NVARCHAR(4000), @splitter CHAR, @index INT)  
-RETURNS NVARCHAR(4000) AS  
-BEGIN 
+(
+	@string		NVARCHAR(4000),
+	@splitter	CHAR,
+	@index		INT
+)  
+RETURNS NVARCHAR(4000)
+AS
 
+/*
+	DB: DBCUST.bodb_Licensee, DBAFF-Affliate_AthenaXXX
+
+	Revisions:
+		- 20101214@Peter : Move this SP to DB DB052.Affiliate_MYM
+		- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20190424@Percy: Add more server: DBCUST.bodb_Licensee [RedmineID: #103658]
+*/
+
+BEGIN
 	IF SUBSTRING(@string, len(@string), 1) <> @splitter
 		SET @string = @string + @splitter
 
@@ -25,7 +35,6 @@ BEGIN
 		  SET @i=@i+1
 	END
 
-	Return @string
-
+	RETURN @string
 END
-
+GO

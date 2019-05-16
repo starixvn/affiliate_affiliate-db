@@ -1,26 +1,27 @@
-﻿ALTER FUNCTION [dbo].[AffAdmin_f_GetITGroupID]
+﻿/*<info serverAlias="DBCUST-bodb_Licensee" selecters="bodbAdminNet,bodbLicenseeNet" isFunction="1" isNested="1"></info>*/
+USE [bodb_Licensee]
+GO
+
+ALTER FUNCTION [dbo].[AffAdmin_f_GetITGroupID]
 (
 	@LicenseeID INT
 )
+RETURNS TABLE
+AS
+
 /*
 	Created: 20151109@Victor
-	DB: DBAFF - Affiliate database
+	DB: DBCUST.bodb_Licensee
 	Remark: Get IT Group ID
-	Revision:
+	
+	Revisions:
 		- 20151109@Victor: Implement SSO from Internal Admin to Affiliate Admin [Redmine: #41437]
+		- 20190424@Percy: Move function to DBCUST.bodb_Licensee [RedmineID: #103658]
 */
-RETURNS INT
-AS
-BEGIN
-	DECLARE @GroupIT int
-	SELECT @GroupIT = GroupID 
-	FROM DBLIC.bodb_licensee.dbo.Aff_GroupInfo WITH (NOLOCK) 
-	WHERE GroupName LIKE 'Aff_IT_Dept' 
-		AND LicenseeID = @LicenseeID
 
-	RETURN @GroupIT
-END
+RETURN
+	SELECT GroupID 
+	FROM dbo.Aff_GroupInfo WITH (NOLOCK)
+	WHERE GroupName = 'Aff_IT_Dept' 
+		AND LicenseeID = @LicenseeID
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_f_GetITGroupID] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_GetITGroupID] TO [vnteam] AS [dbo]

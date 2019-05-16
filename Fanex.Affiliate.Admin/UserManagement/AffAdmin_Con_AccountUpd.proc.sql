@@ -1,7 +1,4 @@
 ﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_Athena000]
-GO
-
 ALTER PROCEDURE [dbo].[AffAdmin_Con_AccountUpd]
 	@CustID int,
 	@UserID int,
@@ -20,6 +17,8 @@ AS
 		- 20101214@Peter : Move this SP to DB DB052.Affiliate_ZZun
 		- 20151127@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
+		 - 20190424@Percy: Change server of nested SP [RedmineID: #103658]
+							AffAdmin_AdminUser_UpdateGroup
 */
 
 BEGIN
@@ -28,7 +27,7 @@ BEGIN
 	DECLARE @LicenseeID INT
 	SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName LIKE 'LicenseeID'
 
-	EXEC DBLIC.bodb_licensee.dbo.AffAdmin_AdminUser_UpdateGroup @UserID = @CustID, @LicenseeID = @LicenseeID, @GroupID = @GroupID, @ModifyBy = @UserID
+	EXEC DBCUST.bodb_Licensee.dbo.AffAdmin_AdminUser_UpdateGroup @UserID = @CustID, @LicenseeID = @LicenseeID, @GroupID = @GroupID, @ModifyBy = @UserID
 
 	-- Write log  
 	DECLARE @SPName VARCHAR(50), @Detail NVARCHAR(4000)

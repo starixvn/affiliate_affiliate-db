@@ -1,6 +1,7 @@
-﻿ALTER FUNCTION [dbo].[AffAdmin_f_UserCurrency_Select]
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" selecters="bodbAdminNet" isFunction="1" isNested="1"></info>*/
+ALTER FUNCTION [dbo].[AffAdmin_f_UserCurrency_Select]
 (		
-	@UserID INT,
+	@UserID		INT,
 	@LicenseeID INT
 )
 RETURNS @tbData TABLE
@@ -9,38 +10,37 @@ RETURNS @tbData TABLE
 	LicenseeID		INT,
 	CurrencyID		INT,
 	AffCurrencyID	INT
-) 
-AS	
+)
+AS
+
 /*
-Created:20151117@Victor
-Task :  SSO from Internal Admin to Affiliate Admin
-DB: DBAFF - Affiliate database
+	Created: 20151117@Victor
+	Task: SSO from Internal Admin to Affiliate Admin
+	DB: DBAFF.Affiliate_XXX
 
-Revisions:
-Param's Explanation:
-
+	Revisions:
+		- 20190424@Percy: Migrate DBCUST.bodb_Licensee [RedmineID: #103658]
 */
 
 BEGIN
-
 	DECLARE @sql VARCHAR(1000)	
 	DECLARE @GroupID INT
 	DECLARE @IsITAdmin BIT = 0
 
 	DECLARE @AffiliateCurrencies NVARCHAR(MAX)
-	select @AffiliateCurrencies=Svalue FROM SystemSettings WITH (NOLOCK) WHERE Sname='AffiliateCurrencies'
+	SELECT  @AffiliateCurrencies = Svalue FROM dbo.SystemSettings WITH (NOLOCK) WHERE Sname = 'AffiliateCurrencies'
 
-	SELECT @GroupID = GroupID FROM DBLIC.bodb_licensee.dbo.Aff_LicenseeUser lu WITH (NOLOCK) WHERE lu.IsActive = 1 AND lu.UserID = @UserID AND lu.LicenseeID = @LicenseeID
-	SELECT @IsITAdmin = CASE WHEN GroupName LIKE 'Aff_IT_Dept' THEN 1 ELSE 0 END FROM DBLIC.bodb_licensee.dbo.Aff_GroupInfo WITH (NOLOCK) WHERE GroupID = @GroupID
+	SELECT @GroupID = GroupID FROM DBCUST.bodb_licensee.dbo.Aff_LicenseeUser lu WITH (NOLOCK) WHERE lu.IsActive = 1 AND lu.UserID = @UserID AND lu.LicenseeID = @LicenseeID
+	SELECT @IsITAdmin = CASE WHEN GroupName LIKE 'Aff_IT_Dept' THEN 1 ELSE 0 END FROM DBCUST.bodb_licensee.dbo.Aff_GroupInfo WITH (NOLOCK) WHERE GroupID = @GroupID
 
-	IF (@IsITAdmin = 0)
+	IF @IsITAdmin = 0
 	BEGIN
 		DECLARE @System INT
-		SELECT @System = id FROM DBLIC.bodb_licensee.dbo.Systems WITH (NOLOCK) WHERE SystemName LIKE 'AFF'
+		SELECT  @System = id FROM DBCUST.bodb_licensee.dbo.Systems WITH (NOLOCK) WHERE SystemName LIKE 'AFF'
 
 		INSERT INTO @tbData (UserID, LicenseeID, CurrencyID, AffCurrencyID)
 		SELECT UsrID, cu.LicenseeID, CurrencyID, NULL 
-		FROM DBLIC.bodb_licensee.dbo.CurrencyUser cu WITH (NOLOCK) 
+		FROM DBCUST.bodb_licensee.dbo.CurrencyUser cu WITH (NOLOCK) 
 		WHERE SystemID = @System -- Affliate 
 			AND cu.IsActive = 1
 			AND cu.UsrID = @UserID
@@ -64,6 +64,3 @@ BEGIN
 	RETURN
 END
 GO
-GRANT SELECT ON [dbo].[AffAdmin_f_UserCurrency_Select] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_UserCurrency_Select] TO [vnteam] AS [dbo]

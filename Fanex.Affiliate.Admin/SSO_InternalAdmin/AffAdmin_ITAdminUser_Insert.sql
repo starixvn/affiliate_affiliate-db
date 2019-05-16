@@ -1,5 +1,8 @@
+/*<info serverAlias="DBCUST-bodb_licensee" executers="bodbLicenseeNet" isFunction="0" isNested="1"></info>*/
+USE [bodb_licensee]
+GO
+
 ALTER PROCEDURE [dbo].[AffAdmin_ITAdminUser_Insert]
-(
 	@LicenseeID	INT,
 	@Username	VARCHAR(50),
 	@UserPwd	VARCHAR(50),
@@ -9,21 +12,24 @@ ALTER PROCEDURE [dbo].[AffAdmin_ITAdminUser_Insert]
 	@Creator	INT = NULL,
 	@ErrCode	INT = 0 OUTPUT, 
 	@UserID		INT OUTPUT
-)
+AS
+
 /*
 	Created: 20151125@Victor
-	DB: DBLIC/bodb_licensee
+	DB: DBCUST.bodb_licensee
 	Remark: Insert IT Admin user
-	Revision:
+	
+	Revisions:
+		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RedmineID: #103658]
 */
-AS
+
 BEGIN
 	SELECT @CreateDate = ISNULL(@CreateDate, GETDATE())
 	SELECT @UserID = NULL
 
 	SELECT TOP 1 @UserID = UserID FROM dbo.Users WITH (NOLOCK) WHERE Username LIKE @Username AND isInternal = 0
 
-	IF EXISTS (SELECT 1 FROM Aff_LicenseeUser WHERE UserID = @UserID AND LicenseeID = @LicenseeID)
+	IF EXISTS (SELECT 1 FROM dbo.Aff_LicenseeUser WITH (NOLOCK) WHERE UserID = @UserID AND LicenseeID = @LicenseeID)
 	BEGIN
 		SELECT @ErrCode = 1
 		RETURN
@@ -37,23 +43,19 @@ BEGIN
 		SELECT @UserID = SCOPE_IDENTITY()
 	END
 
-	IF @@ERROR != 0
+	IF @@ERROR <> 0
 	BEGIN
 		SELECT @ErrCode = 2
 		RETURN
 	END
 
-	DELETE FROM Aff_LicenseeUser WHERE UserID = @UserID
+	DELETE dbo.Aff_LicenseeUser WITH (ROWLOCK, UPDLOCK)
+	WHERE UserID = @UserID
 
-	INSERT INTO Aff_LicenseeUser (LicenseeID, UserID, GroupID, IsActive, ModifyDate, ModifyBy)
+	INSERT INTO dbo.Aff_LicenseeUser (LicenseeID, UserID, GroupID, IsActive, ModifyDate, ModifyBy)
 	SELECT l.LicenseeID, @UserID, g.GroupID, 1, @CreateDate, @Creator
-	FROM Aff_LicenseeInfo l WITH (NOLOCK) 
-		INNER JOIN Aff_GroupInfo g WITH (NOLOCK) ON g.LicenseeID = l.LicenseeID AND g.GroupName LIKE 'Aff_IT_Dept'
+	FROM dbo.Aff_LicenseeInfo l WITH (NOLOCK) 
+		INNER JOIN dbo.Aff_GroupInfo g WITH (NOLOCK) ON g.LicenseeID = l.LicenseeID AND g.GroupName LIKE 'Aff_IT_Dept'
 	WHERE IsActive = 1
-
 END
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_ITAdminUser_Insert] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_ITAdminUser_Insert] TO [vnteam] AS [dbo]

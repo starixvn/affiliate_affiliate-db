@@ -1,45 +1,29 @@
-﻿ALTER FUNCTION [dbo].[AffAdmin_f_UserPolicy_Select]
+﻿/*<info serverAlias="DBCUST-bodb_Licensee" selecters="bodbAdminNet,bodbLicenseeNet" isFunction="1" isNested="1"></info>*/
+USE [bodb_Licensee]
+GO
+
+ALTER FUNCTION [dbo].[AffAdmin_f_UserPolicy_Select]
 (		
-	@UserID INT,
+	@UserID		INT,
 	@LicenseeID INT,
 	@FunctionID INT
 )
-RETURNS @tbData TABLE
-(
-	UserID			INT,
-	LicenseeID		INT,
-	FunctionID		INT,
-	Policy			TINYINT,
-	CreateDate		DATETIME,
-	ModifyDate		DATETIME,
-	Creator			INT
-) 
-AS	
+RETURNS TABLE
+AS
+
 /*
-Created:20151117@Victor
-Task :  SSO from Internal Admin to Affiliate Admin
-DB: DBAFF - Affiliate database
+	Created:20151117@Victor
+	Task: SSO from Internal Admin to Affiliate Admin
+	DB: DBCUST.bodb_Licensee
 
-Revisions:
-Param's Explanation:
-
+	Revisions:
+		- 20190424@Percy: Move function to DBCUST.bodb_Licensee [RedmineID: #103658]
 */
 
-BEGIN
-	SET @UserID = ISNULL(@UserID,'')
-	SET @LicenseeID = ISNULL(@LicenseeID,'')
-	SET @FunctionID = ISNULL(@FunctionID,'')
-
-	INSERT INTO @tbData (UserID, LicenseeID, FunctionID, Policy, CreateDate, ModifyDate, Creator)
+RETURN
 	SELECT UserID, LicenseeID, FunctionID, Policy, CreateDate, ModifyDate, Creator
-	FROM DBLIC.bodb_licensee.dbo.Aff_UserPolicy up WITH (NOLOCK) 
-	WHERE (@UserID = '' OR UserID = @UserID)
-		AND (@LicenseeID = '' OR LicenseeID = @LicenseeID)
-		AND (@FunctionID = '' OR FunctionID = @FunctionID)
-	
-	RETURN
-END
+	FROM dbo.Aff_UserPolicy up WITH (NOLOCK) 
+	WHERE (ISNULL(@UserID, '') = '' OR UserID = @UserID)
+		AND (ISNULL(@LicenseeID, '') = '' OR LicenseeID = @LicenseeID)
+		AND (ISNULL(@FunctionID, '') = '' OR FunctionID = @FunctionID)
 GO
-GRANT SELECT ON [dbo].[AffAdmin_f_UserPolicy_Select] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_UserPolicy_Select] TO [vnteam] AS [dbo]

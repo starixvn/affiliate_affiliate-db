@@ -1,31 +1,28 @@
-﻿ALTER FUNCTION [dbo].[AffAdmin_f_IsITAdmin]
+﻿/*<info serverAlias="DBCUST-bodb_Licensee" selecters="bodbAdminNet,bodbLicenseeNet" isFunction="1" isNested="1"></info>*/
+ALTER FUNCTION [dbo].[AffAdmin_f_IsITAdmin]
 (
-	@UserID INT,
+	@UserID		INT,
 	@LicenseeID INT
 )
+RETURNS TABLE
+AS
+
 /*
 	Created: 20151109@Victor
-	DB: DBAFF - Affiliate database
+	DB: DBCUST.bodb_Licensee
 	Remark: Is IT Admin account
-	Revision:
+	
+	Revisions:
 		- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin [Redmine: #41437]
+		- 20190424@Percy: Move function to DBCUST.bodb_Licensee [RedmineID: #103658]
 */
-RETURNS INT
-AS
-BEGIN
-	DECLARE @IsITAdmin int = 0
-	DECLARE @ITGroupID int = 0
-	SELECT @ITGroupID = GroupID 
-	FROM DBLIC.bodb_licensee.dbo.Aff_GroupInfo WITH (NOLOCK) 
-	WHERE LicenseeID = @LicenseeID AND GroupName LIKE 'Aff_IT_Dept'
 
-	SELECT @IsITAdmin = CASE WHEN lu.GroupID = @ITGroupID THEN 1 ELSE 0 END
-	FROM DBLIC.bodb_licensee.dbo.Aff_LicenseeUser lu WITH (NOLOCK) 
-	WHERE lu.LicenseeID = @LicenseeID AND lu.UserID = @UserID AND lu.IsActive = 1
-
-	RETURN @IsITAdmin
-END
+RETURN
+	SELECT CASE WHEN lu.GroupID = g.GroupID THEN 1 ELSE 0 END AS IsITAdmin
+	FROM dbo.Aff_GroupInfo g WITH (NOLOCK)
+		INNER JOIN dbo.Aff_LicenseeUser lu WITH (NOLOCK) ON g.LicenseeID = lu.LicenseeID
+	WHERE g.GroupName = 'Aff_IT_Dept'
+		AND lu.UserID = @UserID
+		AND lu.LicenseeID = @LicenseeID
+		AND lu.IsActive = 1
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_f_IsITAdmin] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_f_IsITAdmin] TO [vnteam] AS [dbo]

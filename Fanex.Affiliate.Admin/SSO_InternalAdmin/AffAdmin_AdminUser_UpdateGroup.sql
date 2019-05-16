@@ -1,4 +1,4 @@
-/*<info serverAlias="DBLIC-bodb_licensee" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCUST-bodb_licensee" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
 USE [bodb_licensee]
 GO
 
@@ -17,6 +17,7 @@ ALTER PROCEDURE [dbo].[AffAdmin_AdminUser_UpdateGroup]
 	Revision:
 		- 20160118@Francis: Add full currency permission for user that is changed to Administrator Group
 		- 20180108@Percy: Fix issue duplicate currency [RedmineID: #89325]
+		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RemineID: #103658]
 */
 AS
 BEGIN

@@ -1,5 +1,8 @@
+/*<info serverAlias="DBCUST-bodb_Licensee" executers="bodbLicenseeNet" isFunction="0" isNested="1"></info>*/
+USE [bodb_Licensee]
+GO
+
 ALTER PROCEDURE [dbo].[AffAdmin_UserPolicy_Insert]
-(
 	@UserID			INT,
 	@LicenseeID		INT,
 	@FunctionID		INT,
@@ -7,24 +10,22 @@ ALTER PROCEDURE [dbo].[AffAdmin_UserPolicy_Insert]
 	@CreateDate		DATETIME = NULL,
 	@ModifyDate		DATETIME = NULL,
 	@Creator		INT = NULL
-)
+AS
+
 /*
 	Created: 20151118@Victor
-	DB: DBLIC/bodb_licensee
+	DB: DBCUST.bodb_licensee
 	Remark: Insert UserPolicy
-	Revision:
+	
+	Revisions:
+		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RedmineID: #103658]
 */
-AS
+
 BEGIN
 	SELECT @CreateDate = ISNULL(@CreateDate, GETDATE()),
 		@ModifyDate = ISNULL(@ModifyDate, GETDATE())
 	
 	INSERT INTO Aff_UserPolicy (UserID, LicenseeID, FunctionID, Policy, CreateDate, ModifyDate, Creator)
 	SELECT @UserID, @LicenseeID, @FunctionID, @Policy, @CreateDate, @ModifyDate, @Creator
-
 END
-
 GO
-GRANT EXECUTE ON [dbo].[AffAdmin_UserPolicy_Insert] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[AffAdmin_UserPolicy_Insert] TO [vnteam] AS [dbo]
