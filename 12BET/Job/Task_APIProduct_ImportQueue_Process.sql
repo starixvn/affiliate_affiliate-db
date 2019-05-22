@@ -19,6 +19,7 @@ AS
 		- 20181201@Percy: Integrate new products: 12Crystal - GPI, 12Quartz - iSoftbet, 12Diamond - OPUS [RedmineID: #104892]
 		- 20190128@Percy: Betsoft - Change way to get winlostdate [RedmineID: #107979]
 		- 20190328@Percy: Betsoft - Remove convert time zone [RedmineID: #110638]
+		- 20190520@Percy: Ebet - Change way to get winlostdate: PayoutTime to CreateDate [RedmineID: #110638]
 */
 
 BEGIN
@@ -26,7 +27,7 @@ BEGIN
 
 	DECLARE @QueueId BIGINT, @XmlData XML, @WinlostDate SMALLDATETIME, @LastQueueId BIGINT
 
-	CREATE TABLE #Ebet (Username NVARCHAR(50), BetHistoryId NVARCHAR(100), Bet MONEY, Payout MONEY, PayoutTime DATETIME)
+	CREATE TABLE #Ebet (Username NVARCHAR(50), BetHistoryId NVARCHAR(100), Bet MONEY, Payout MONEY, CreateDate DATETIME, PayoutTime DATETIME)
 	CREATE TABLE #Betsoft (Username NVARCHAR(50), GameSessionId BIGINT, GameId INT, PlatForm VARCHAR(50), BetId INT, Amount MONEY, Win MONEY, BetTime DATETIME, StartDate DATETIME, EndDate DATETIME)
 	CREATE TABLE #Crystal (operationCode BIGINT, userId VARCHAR(50), changeTime DATETIME, changeType VARCHAR(20), gameName VARCHAR(200), fround SMALLINT, bet MONEY, ret MONEY, changes MONEY, endBalance MONEY, operator VARCHAR(50), jcon MONEY, jwin MONEY, platform TINYINT, gametype SMALLINT, ver VARCHAR(20))
 	CREATE TABLE #iSoftbet (PLAYERID VARCHAR(50), CURRENCY VARCHAR(5), SESSIONID VARCHAR(100), GAMEID VARCHAR(10), ROUNDID VARCHAR(100), TRANSACTIONID VARCHAR(100), TYPE VARCHAR(50), TIME DATETIME, AMOUNT MONEY)
@@ -66,11 +67,12 @@ BEGIN
 		IF @ProductId = 10
 		BEGIN
 			BEGIN TRY
-				INSERT INTO #Ebet (Username, BetHistoryId, Bet, Payout, PayoutTime)
+				INSERT INTO #Ebet (Username, BetHistoryId, Bet, Payout, CreateDate, PayoutTime)
 				SELECT	t.c.value('@USERNAME', 'NVARCHAR(50)')	AS Username,
 						t.c.value('@ID', 'NVARCHAR(100)')		AS BetHistoryId,
 						t.c.value('@BET', 'MONEY')				AS Bet,
 						t.c.value('@PAYOUT', 'MONEY')			AS Payout,
+						t.c.value('@CREATEDATE', 'DATETIME')	AS CreateDate,
 						t.c.value('@PAYOUTTIME', 'DATETIME')	AS PayoutTime
 				FROM @XmlData.nodes('ROOT/RESPONSE/BETHISTORYLIST/BETHISTORY') AS t(c)
 				OPTION (OPTIMIZE FOR (@XmlData = NULL))
@@ -79,12 +81,12 @@ BEGIN
 				FROM dbo.bettrans_Ebet be
 				WHERE EXISTS (SELECT 1 FROM #Ebet e WHERE be.BetHistoryId = e.BetHistoryId)
 
-				INSERT INTO dbo.bettrans_Ebet (IBCCustId, Username, BetHistoryId, Bet, Payout, PayoutTime, WinlostDate)
-				SELECT m.IBCCustId, e.Username, e.BetHistoryId, e.Bet, e.Payout, e.PayoutTime, CONVERT(DATE, e.PayoutTime) AS WinlostDate
+				INSERT INTO dbo.bettrans_Ebet (IBCCustId, Username, BetHistoryId, Bet, Payout, CreateDate, PayoutTime, WinlostDate)
+				SELECT m.IBCCustId, e.Username, e.BetHistoryId, e.Bet, e.Payout, e.CreateDate, e.PayoutTime, CONVERT(DATE, e.CreateDate) AS WinlostDate
 				FROM #Ebet e
 					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + e.Username = m.Username
 
-				SELECT @WinlostDate = MIN(CONVERT(DATE, PayoutTime)) FROM #Ebet
+				SELECT @WinlostDate = MIN(CONVERT(DATE, CreateDate)) FROM #Ebet
 
 				SELECT @IsErr = 0
 			END TRY
