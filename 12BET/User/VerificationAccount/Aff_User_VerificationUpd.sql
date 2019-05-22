@@ -48,24 +48,23 @@ BEGIN
     END
 
     -- Write log
-    -- BEGIN
-    --     DECLARE @SPName VARCHAR(200)
-    --     SELECT  @SPName = OBJECT_NAME(@@PROCID)
+     BEGIN
+         DECLARE @SPName VARCHAR(200)
+         SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
-    --     DECLARE @NewData NVARCHAR(MAX)
-    --     SELECT  @NewData = 
-    --             'VerificationCount='	+ ISNULL(CONVERT(VARCHAR(10), @VerificationCount), '') + ',' +
-    --             'IP='					+ ISNULL(@IpAddress, '') + ',' +
-    --             'DeviceInfo='			+ ISNULL(@DeviceInfo, '')
+         DECLARE @NewData NVARCHAR(MAX)
+         SELECT  @NewData = 
+                 'VerificationCount='	+ ISNULL(CONVERT(VARCHAR(10), @VerificationCount), '') + ',' +
+                 'IP='					+ ISNULL(@IpAddress, '') + ',' +
+                 'DeviceInfo='			+ ISNULL(@DeviceInfo, '')
 
-    --     EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
-    --         @UserId		= @AffId,
-    --         @AffId		= @AffId,
-    --         @SPName		= @SPName,
-    --         @NewData	= @NewData,
-    --         @IP			= @IpAddress,
-    --         @Language	= @Language
-    -- END
+         EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
+             @UserId	= @AffId,
+             @AffId		= @AffId,
+             @SPName	= @SPName,
+             @NewData	= @NewData,
+             @IP		= @IpAddress,
+             @Language	= @Language
+     END
 END
-
 GO
