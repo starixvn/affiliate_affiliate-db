@@ -8,5 +8,5 @@ GO
 */
 
 ALTER TABLE dbo.bettrans_Ebet
-	ADD CreateDate DATETIME NULL
+	ADD CreateTime DATETIME NULL
 GO
