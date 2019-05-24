@@ -1,3 +1,14 @@
+USE [Affiliate_12BET]
+GO
+
+/*
+	/*
+	Created: 20190522@Percy
+	DB: DBAFF12BET.Affiliate_12BET
+	Task: User Login - New table
+*/
+*/
+
 CREATE TABLE [dbo].[AffUserLoginInfo](
 	[AffId] [int] NOT NULL,
 	[IP] [nvarchar](25) NOT NULL,
