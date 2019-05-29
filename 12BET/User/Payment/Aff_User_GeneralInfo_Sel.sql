@@ -13,12 +13,13 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initiliaze SP [RedmineID: #87923]
+		- 20190218@Walter: Return more column SecretKey [RedmineID: #104884]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT ai.AffID, ai.UserName, ai.FirstName, ai.LastName, ai.Email, ad.PreferredLanguage, ad.MailOption
+	SELECT ai.AffID, ai.UserName, ai.FirstName, ai.LastName, ai.Email, ad.PreferredLanguage, ad.MailOption, ai.SecretKey
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffID = ad.AffID
 	WHERE ai.AffID = @AffId

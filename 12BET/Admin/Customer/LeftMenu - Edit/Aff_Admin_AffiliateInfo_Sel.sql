@@ -17,6 +17,7 @@ AS
 	
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20190509@Percy: Enhance Security Questions [RedmineID: #104884]
 */
 
 BEGIN
@@ -59,7 +60,7 @@ BEGIN
 		ad.State,
 		ad.Postal,
 		ad.Country,
-		ad.Question,
+		ISNULL(q.Question, ad.Question) AS Question,
 		ad.Answer,
 		-- Email Format Preference
 		ad.MailOption,
@@ -90,6 +91,7 @@ BEGIN
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 		LEFT JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupId = cg.GroupId
+		LEFT JOIN dbo.Aff_f_Get_SecurityQuestions (1, 'en-US') q ON ad.QuestionID = q.QuestionID
 	WHERE ai.AffId = @AffId
 
 	-- Online List (for left menu)

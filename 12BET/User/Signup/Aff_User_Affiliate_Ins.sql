@@ -24,7 +24,7 @@ ALTER PROCEDURE [dbo].[Aff_User_Affiliate_Ins]
 	@NoSiteDesc			NVARCHAR(MAX) = NULL,
 	-- Preferrence
 	@PreferredLanguage	VARCHAR(100),
-	@Question			NVARCHAR(600),
+	@QuestionID			TINYINT,
 	@Answer				NVARCHAR(600),
 	-- Payment Information
 	@PreferredPayment	VARCHAR(20) = 'Player',
@@ -45,6 +45,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [Redmine: #87923]
+		- 20190509@Percy: Enhance Security Questions [RedmineID: #104884]
 */
 
 BEGIN
@@ -103,7 +104,7 @@ BEGIN
 			-- Website Information
 			SiteUrl,MoreSiteUrls,NoSiteDesc,
 			-- Preferrence
-			PreferredLanguage,Question,Answer,
+			PreferredLanguage,QuestionID,Answer,
 			-- Payment Information
 			PreferredPayment,Player_IBCCustID,Player_UserName
 		)
@@ -117,7 +118,7 @@ BEGIN
 			-- Website Information
 			@SiteUrl,@MoreSiteUrls,@NoSiteDesc,
 			-- Preferrence
-			@PreferredLanguage,@Question,@Answer,
+			@PreferredLanguage,@QuestionID,@Answer,
 			-- Payment Information
 			@PreferredPayment,@Player_IBCCustId,@Player_UserName
 		)
@@ -156,7 +157,7 @@ BEGIN
 			'MoreSiteUrls='			+ ISNULL(@MoreSiteUrls, '') + ',' +
 			'NoSiteDesc='			+ ISNULL(@NoSiteDesc, '') + ',' +
 			'PreferredLanguage='	+ ISNULL(@PreferredLanguage, '') + ',' +
-			'Question='				+ ISNULL(@Question, '') + ',' +
+			'QuestionID='			+ ISNULL(CONVERT(VARCHAR(5), @QuestionID), '') + ',' +
 			'Answer='				+ ISNULL(@Answer, '') + ',' +
 			'PreferredPayment='		+ ISNULL(@PreferredPayment, '') + ',' +
 			'Player_UserName='		+ ISNULL(@Player_UserName, '')

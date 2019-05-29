@@ -18,6 +18,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Return ContactApps [RedmineID: #87923]
+		- 20190509@Percy: Enhance Security Questions [RedmineID: #104884]
 */
 
 BEGIN
@@ -73,11 +74,12 @@ SET NOCOUNT ON
 		ad.Cheque_State,
 		ad.Cheque_Postal,
 		ad.Cheque_Country,
-		ad.question,
+		ISNULL(q.question, ad.question) AS question,
 		ad.answer,
 		ad.mailoption		
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+		LEFT JOIN dbo.Aff_f_Get_SecurityQuestions (1, 'en-US') q ON ad.QuestionID = q.QuestionID
 	WHERE  ai.AffId = @AffID
 END
 GO

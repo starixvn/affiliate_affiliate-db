@@ -26,8 +26,6 @@ BEGIN
 		ai.AffID,
 		ai.UserName,
 		ai.Password,
-		ai.Currency AS CurrencyId,
-		ai.GroupID,
 		cg.GroupName,
 		ai.AffType,
 		ai.IsClosed,
