@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_12BET]
 GO
 
@@ -79,9 +79,8 @@ BEGIN
 
 	IF NOT EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @AffId)
 	BEGIN
-		-- Invalid Affiliate
+		-- Invalid Affiliate!
 		SELECT @ErrCode = 1003, @ErrMsg = dbo.Aff_f_GetMessageById(304, @Language)
-
 		RETURN
 	END
 
@@ -179,7 +178,6 @@ BEGIN
 		BEGIN CATCH
 			-- Update process is unsuccessful. Please try again!
 			SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-
 			RETURN
 		END CATCH
 
@@ -204,7 +202,6 @@ BEGIN
 		BEGIN CATCH
 			-- Update process is unsuccessful. Please try again!
 			SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-
 			RETURN
 		END CATCH
 
@@ -225,7 +222,6 @@ BEGIN
 		BEGIN CATCH
 			-- Update process is unsuccessful. Please try again!
 			SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-
 			RETURN
 		END CATCH
 
@@ -246,7 +242,6 @@ BEGIN
 		BEGIN CATCH
 			-- Update process is unsuccessful. Please try again!
 			SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-
 			RETURN
 		END CATCH
 
@@ -261,7 +256,6 @@ BEGIN
 		BEGIN
 			-- Invalid status
 			SELECT @ErrCode = 1004, @ErrMsg = dbo.Aff_f_GetMessageById(305, @Language)
-
 			RETURN
 		END
 
@@ -277,7 +271,6 @@ BEGIN
 			BEGIN
 				-- Email Address has been used. Please choose another one!
 				SELECT @ErrCode = 1007, @ErrMsg = dbo.Aff_f_GetMessageById(1, @Language)
-
 				RETURN
 			END
 
@@ -285,7 +278,6 @@ BEGIN
 			BEGIN
 				-- Invalid Commission Group
 				SELECT @ErrCode = 1007, @ErrMsg = dbo.Aff_f_GetMessageById(601, @Language)
-
 				RETURN
 			END
 		END
@@ -304,7 +296,6 @@ BEGIN
 		BEGIN CATCH
 			-- Update process is unsuccessful. Please try again!
 			SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-
 			RETURN
 		END CATCH
 
@@ -344,7 +335,6 @@ BEGIN
 			BEGIN
 				-- Update process is unsuccessful. Please try again!
 				SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-
 				RETURN
 			END
 		END
@@ -366,7 +356,6 @@ BEGIN
 		BEGIN CATCH
 			-- Update process is unsuccessful. Please try again!
 			SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-
 			RETURN
 		END CATCH
 
@@ -384,7 +373,6 @@ BEGIN
 			BEGIN
 				-- Oops, this account is having 1 pending pay out request, please update this transaction first!
 				SELECT @ErrCode = 1001, @ErrMsg = dbo.Aff_f_GetMessageById(301, @Language)
-
 				RETURN
 			END
 		END
@@ -394,7 +382,6 @@ BEGIN
 		BEGIN
 			-- Email Address has been used. Please choose another one!
 			SELECT @ErrCode = 1002, @ErrMsg = dbo.Aff_f_GetMessageById(1, @Language)
-
 			RETURN
 		END
 
@@ -417,7 +404,6 @@ BEGIN
 		BEGIN CATCH
 			-- Update process is unsuccessful. Please try again!
 			SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-
 			RETURN
 		END CATCH
 
@@ -489,7 +475,6 @@ BEGIN
 
 			-- Update process is unsuccessful. Please try again!
 			SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-
 			RETURN
 		END CATCH
 

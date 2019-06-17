@@ -20,6 +20,7 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
+		- 20190614@Percy: Add @AffID into log [RedmineID: #109008]
 */
 
 BEGIN
@@ -39,8 +40,8 @@ BEGIN
 
 	IF NOT EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @AffId)
 	BEGIN
+		-- Invalid Affiliate!
 		SELECT @ErrCode = 101, @ErrMsg = dbo.Aff_f_GetMessageById(304, @Language)
-
 		RETURN
 	END
 
@@ -56,8 +57,8 @@ BEGIN
 		WHERE AffId = @AffId
 	END TRY
 	BEGIN CATCH
+		-- Error! Change password unsuccessfully!
 		SELECT @ErrCode = 102, @ErrMsg = dbo.Aff_f_GetMessageById(308, @Language)
-
 		RETURN
 	END CATCH
 
@@ -72,7 +73,7 @@ BEGIN
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,
-		@AffId		= 0,
+		@AffId		= @AffId,
 		@SPName		= @SPName,
 		@OldData	= @OldData,
 		@NewData	= @NewData,
