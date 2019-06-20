@@ -64,6 +64,7 @@ BEGIN
 				SELECT MID
 				FROM dbo.EmailHistory e WITH (NOLOCK)
 				WHERE tmp.MID = e.MID
+					AND ISNULL(IsDeleted, 0) = 0
 			) AS e
 		WHERE e.MID IS NULL
 	)

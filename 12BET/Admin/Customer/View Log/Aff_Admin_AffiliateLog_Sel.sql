@@ -94,7 +94,7 @@ BEGIN
 	SELECT RowNum,LogId,[Date],UpdatedName,[Action],[Description],[IP]
 	FROM (
 		SELECT
-			ROW_NUMBER() OVER (ORDER BY ul.LogDate DESC, ul.LogId DESC) AS RowNum
+			ROW_NUMBER() OVER (ORDER BY [Date] DESC, LogId DESC) AS RowNum
 			,LogId,[Date],UpdatedName,[Action],[Description],[IP]
 		FROM #Logs
 	) AS result

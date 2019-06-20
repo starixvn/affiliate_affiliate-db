@@ -57,7 +57,7 @@ BEGIN
 				SELECT MID, ROW_NUMBER() OVER(ORDER BY CreatedDate DESC) AS RN
 				FROM dbo.EmailHistory WITH (NOLOCK)
 				WHERE AffName = @SearchText
-					AND IsDeleted = 0
+					AND ISNULL(IsDeleted, 0) = 0
 			) AS r
 			WHERE RN BETWEEN @RowStart AND @RowEnd
 		END
@@ -70,7 +70,7 @@ BEGIN
 				FROM dbo.EmailHistory WITH (NOLOCK)
 				WHERE AffName = @SearchText
 					AND CreatedDate BETWEEN @FromDate AND @ToDate
-					AND IsDeleted = 0
+					AND ISNULL(IsDeleted, 0) = 0
 			) AS r
 			WHERE RN BETWEEN @RowStart AND @RowEnd
 		END
@@ -93,7 +93,7 @@ BEGIN
 						OR (@SearchById = 2 AND Email LIKE @SearchText)
 						OR (@SearchById = 4 AND AffId = -1) -- unknown affiliate
 					)
-					AND IsDeleted = 0
+					AND ISNULL(IsDeleted, 0) = 0
 			) AS r
 			WHERE RN BETWEEN @RowStart AND @RowEnd
 		END
@@ -111,7 +111,7 @@ BEGIN
 						OR (@SearchById = 2 AND Email LIKE @SearchText)
 						OR (@SearchById = 4 AND AffId = -1) -- unknown affiliate
 					)
-					AND IsDeleted = 0
+					AND ISNULL(IsDeleted, 0) = 0
 			) AS r
 			WHERE RN BETWEEN @RowStart AND @RowEnd
 		END
@@ -130,5 +130,6 @@ BEGIN
 			FROM dbo.EmailHistory e WITH (NOLOCK)
 			WHERE tmp.MID = e.MID
 		) AS e
+	ORDER BY CreatedDate DESC
 END
 GO

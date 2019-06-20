@@ -67,23 +67,28 @@ BEGIN
 	SELECT  @RowStart = @PageSize * (@PageIndex - 1) + 1
 			,@RowEnd = @RowStart + @PageSize - 1
 	
-	SELECT t.TransID, a.TransDate, ai.AffID, ai.UserName, a.Amount, a.Status, a.CompletedDate
-			,CASE WHEN a.Creator = 148 THEN 'System' ELSE au.username END AS Creator
-	FROM @tblTransID t
-		CROSS APPLY (
-			SELECT TOP 1 a.AffID, a.Creator, a.Status, a.TransDate, a.Amount, a.CompletedDate
+	SELECT TransID, TransDate, AffID, UserName, Amount, Status, CompletedDate, Creator
+	FROM (
+		SELECT t.TransID, a.TransDate, ai.AffID, ai.UserName, a.Amount, a.Status, a.CompletedDate
+				,CASE WHEN a.Creator = 148 THEN 'System' ELSE au.username END AS Creator
 				,ROW_NUMBER() OVER(ORDER BY
-										CASE a.Status
-											WHEN 'Pending' THEN 1
-											WHEN 'Approved' THEN 2
-											WHEN 'Rejected' THEN 3
-											ELSE 4 END
-										,TransID DESC) AS RN
-			FROM dbo.AffTrans a WITH (NOLOCK)
-			WHERE t.TransID = a.TransID
-		) AS a
-		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON a.AffID = ai.AffID
-		LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON a.Creator = au.custid
-	WHERE a.RN BETWEEN @RowStart AND @RowEnd
+											CASE a.Status
+												WHEN 'Pending' THEN 1
+												WHEN 'Approved' THEN 2
+												WHEN 'Rejected' THEN 3
+												ELSE 4 END
+											,TransDate DESC) AS RN
+		FROM @tblResultTransID t
+			CROSS APPLY (
+				SELECT TOP 1 a.AffID, a.Creator, a.Status, a.TransDate, a.Amount, a.CompletedDate
+				
+				FROM dbo.AffTrans a WITH (NOLOCK)
+				WHERE t.TransID = a.TransID
+			) AS a
+			INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON a.AffID = ai.AffID
+			LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON a.Creator = au.custid
+	) AS r
+	WHERE RN BETWEEN @RowStart AND @RowEnd
+	ORDER BY RN
 END
 GO

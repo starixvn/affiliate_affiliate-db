@@ -40,6 +40,8 @@ BEGIN
 		LEFT JOIN dbo.LogType lt WITH (NOLOCK) ON lt.TypeID = la.ActionTypeId
 	WHERE la.SPName = @SPName
 
+	SELECT @LogTypeId = ISNULL(@LogTypeId, 0), @LogActionId = ISNULL(@LogActionId, 0)
+
 	INSERT INTO dbo.UserLog_RunSP_Detail
 	(
 		LogTypeId,

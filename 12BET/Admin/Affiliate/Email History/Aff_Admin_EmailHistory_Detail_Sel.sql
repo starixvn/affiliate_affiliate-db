@@ -21,6 +21,6 @@ BEGIN
 	SELECT MID, Content, Sender, Email, Subject, CreatedDate
 	FROM dbo.EmailHistory WITH (NOLOCK)
 	WHERE MID = @MID
-		AND IsDeleted = 0
+		AND ISNULL(IsDeleted, 0) = 0
 END
 GO

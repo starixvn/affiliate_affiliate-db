@@ -33,14 +33,18 @@ BEGIN
 	DECLARE @RowStart INT, @RowEnd INT
 	SELECT  @RowStart = @PageSize * (@PageIndex - 1) + 1, @RowEnd = @RowStart + @PageSize - 1
 
-	SELECT n.NoteID, an.Note, an.UpdatedBy, an.UpdatedName, an.UpdatedDate
-	FROM @tblNote n
-		CROSS APPLY (
-			SELECT an.Note, an.UpdatedBy, u.Username AS UpdatedName, an.UpdatedDate, ROW_NUMBER() OVER(ORDER BY an.UpdatedDate DESC) AS RN
-			FROM dbo.AdminNotes an WITH (NOLOCK)
-				LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON an.UpdatedBy = u.custid
-			WHERE n.NoteID = an.NoteID
-		) AS an
-	WHERE an.RN BETWEEN @RowStart AND @RowEnd
+	SELECT NoteID, Note, UpdatedBy, UpdatedName, UpdatedDate
+	FROM (
+		SELECT n.NoteID, an.Note, an.UpdatedBy, an.UpdatedName, an.UpdatedDate, ROW_NUMBER() OVER(ORDER BY an.UpdatedDate DESC) AS RN
+		FROM @tblNote n
+			CROSS APPLY (
+				SELECT an.Note, an.UpdatedBy, u.Username AS UpdatedName, an.UpdatedDate
+				FROM dbo.AdminNotes an WITH (NOLOCK)
+					LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON an.UpdatedBy = u.custid
+				WHERE n.NoteID = an.NoteID
+			) AS an
+	) AS r
+	WHERE RN BETWEEN @RowStart AND @RowEnd
+	ORDER BY RN
 END
 GO
