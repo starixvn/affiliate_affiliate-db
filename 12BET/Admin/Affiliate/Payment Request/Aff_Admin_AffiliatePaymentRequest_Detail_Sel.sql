@@ -30,7 +30,7 @@ BEGIN
 		,ad.Player_Username AS UserName2
 		,ad.PreferredPayment
 		,ad.PreferredLanguage
-		,a.Amount
+		,ABS(a.Amount) AS Amount
 		,ap.AdminDesc
 		,ap.AffDesc
 		,ai.Email

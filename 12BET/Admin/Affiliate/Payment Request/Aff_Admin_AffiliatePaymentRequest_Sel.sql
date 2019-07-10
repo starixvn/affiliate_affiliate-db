@@ -80,7 +80,7 @@ BEGIN
 											,TransDate DESC) AS RN
 		FROM @tblResultTransID t
 			CROSS APPLY (
-				SELECT TOP 1 a.AffID, a.Creator, a.Status, a.TransDate, a.Amount, a.CompletedDate
+				SELECT TOP 1 a.AffID, a.Creator, a.Status, a.TransDate, ABS(a.Amount) AS Amount, a.CompletedDate
 				
 				FROM dbo.AffTrans a WITH (NOLOCK)
 				WHERE t.TransID = a.TransID
