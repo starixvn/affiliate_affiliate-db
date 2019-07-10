@@ -16,7 +16,7 @@ AS
 */
 
 BEGIN
-	SET NOCOUNT ON;
+	SET NOCOUNT ON
 
 	SELECT AffCurrencyID AS CurrencyID
 	INTO #tmpCurrency

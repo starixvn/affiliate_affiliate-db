@@ -32,7 +32,7 @@ AS
 */
 
 BEGIN        
-	SET NOCOUNT ON      
+	SET NOCOUNT ON;
 	
 	declare @startNum int, @endNum int
 	declare @Table table (UserName varchar(50),LoggedIn datetime,LastRequest datetime,IP varchar(20),Role varchar(20))

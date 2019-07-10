@@ -32,7 +32,7 @@ AS
 */
 
 BEGIN
-	SET NOCOUNT ON
+	SET NOCOUNT ON;
 
 	-- Test Account
 	DECLARE @IsITAdmin 		BIT

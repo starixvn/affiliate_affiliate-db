@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_Athena000]
-GO
-
 ALTER PROCEDURE [dbo].[AffAdmin_PaymentRequestUpd] 
 	@TransID			BIGINT,
 	@Status				NVARCHAR(50),
@@ -48,7 +45,7 @@ AS
 */
 
 BEGIN
-	SET NOCOUNT ON
+	SET NOCOUNT ON;
 
 	DECLARE @AffID INT, @RefID BIGINT
 
