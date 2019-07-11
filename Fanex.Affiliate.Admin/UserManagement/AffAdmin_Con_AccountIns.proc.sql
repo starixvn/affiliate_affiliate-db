@@ -33,7 +33,7 @@ AS
 */
 
 BEGIN
-	SET NOCOUNT ON
+	SET NOCOUNT ON;
 	
 	DECLARE @LicenseeID INT
 	SELECT @LicenseeID = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'LicenseeID'

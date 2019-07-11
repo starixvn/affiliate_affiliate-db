@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbDownlineNet" viewers="" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_Athena000]
-GO
-
 ALTER PROCEDURE [dbo].[Aff_User_PaymentRequestIns]  
 	@AffID				INT,  
 	@Player_UserName	VARCHAR(30), 	
@@ -31,7 +28,7 @@ AS
 */
 
 BEGIN
-	SET NOCOUNT ON
+	SET NOCOUNT ON;
 
 	IF NOT EXISTS (
 		SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffID = @AffID AND Status = 'Approved' AND IsClosed = 0

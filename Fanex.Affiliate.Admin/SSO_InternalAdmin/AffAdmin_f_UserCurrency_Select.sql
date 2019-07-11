@@ -1,6 +1,6 @@
 ﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" selecters="bodbAdminNet" isFunction="1" isNested="1"></info>*/
 ALTER FUNCTION [dbo].[AffAdmin_f_UserCurrency_Select]
-(		
+(
 	@UserID		INT,
 	@LicenseeID INT
 )

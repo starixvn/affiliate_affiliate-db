@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_Athena000]
-GO
-
 ALTER PROCEDURE [dbo].[AffAdmin_PaymentRequest_InProgress]
 	@TransID		BIGINT,
 	@UserID			INT,
@@ -22,7 +19,7 @@ AS
 */
 
 BEGIN
-	SET NOCOUNT ON
+	SET NOCOUNT ON;
 
 	DECLARE @Status NVARCHAR(100), @IsProcessing BIT, @AffID INT
 	SELECT  @Status = Status, @IsProcessing = IsProcessing, @AffID = AffID

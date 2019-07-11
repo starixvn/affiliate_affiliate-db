@@ -69,7 +69,7 @@ AS
 */
 
 BEGIN
-	SET NOCOUNT ON
+	SET NOCOUNT ON;
 
 	SELECT @FromDate 	= dbo.Aff_GetStartDate(@FromDate)
 		,@ToDate 		= dbo.Aff_GetEndDate(@ToDate)
