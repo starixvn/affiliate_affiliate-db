@@ -13,22 +13,34 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20190116@Percy: Send mail if data has mismatch [RedmineID: #107623]
+		- 20190716@Percy: Do not run if MB does not run [RedmineID: #116964]
 */
 
 BEGIN 
 	SET NOCOUNT ON
 
+	-- Check today MB run or not
+	DECLARE @MoveBetSchedule TABLE(ScheduleId TINYINT, MoveBetDay DATE)
+	
+	INSERT INTO @MoveBetSchedule(ScheduleId, MoveBetDay)
+	EXEC DBTXN.bodb02.dbo.Task_MoveBetsDayByScheduleSel
+
+	IF NOT EXISTS (SELECT TOP 1 1 FROM @MoveBetSchedule)
+	BEGIN
+		RETURN
+	END
+
 	DECLARE @IsMatched BIT = 0, @ProductList VARCHAR(50) = ''
 	DECLARE @ErrTable TABLE (WinlostDate SMALLDATETIME, ProductId INT)
 	
 	DECLARE @winlostdate SMALLDATETIME, @MoveBetsDay SMALLDATETIME, @BalanceUpDay SMALLDATETIME
+	DECLARE @MBBUDate TABLE (MoveBetsDay SMALLDATETIME, BalanceUpDay SMALLDATETIME)
+	
+	INSERT INTO @MBBUDate (MoveBetsDay, BalanceUpDay)
+	EXEC DBEXT.bodb02.dbo.Lrf_SelBalanceUpDay
 		
-	SELECT @MoveBetsDay = MAX(eventdate)
-	FROM bodb02.dbo.match14 WITH(NOLOCK)
-		
-	SELECT TOP 1 @BalanceUpDay = winlostdate
-	FROM bodb02.dbo.bettrans WITH (NOLOCK)
-	WHERE matchid = 0 AND bettype = 20000
+	SELECT @MoveBetsDay = MoveBetsDay, @BalanceUpDay = BalanceUpDay
+	FROM @MBBUDate
 		
 	SELECT @winlostdate = @BalanceUpDay
 		
