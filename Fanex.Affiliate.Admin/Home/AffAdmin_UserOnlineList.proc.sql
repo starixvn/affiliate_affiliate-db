@@ -41,7 +41,7 @@ BEGIN
 
 	DECLARE @tblGroupIT TABLE (GroupID INT)
 
-	SELECT  @sql = 'SELECT GroupID FROM OPENQUERY(DBCUST, ''SELECT GroupID FROM bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select(' + CONVERT(VARCHAR(20), @LicenseeID) + ')'')'
+	SELECT  @sql = 'SELECT GroupID FROM OPENQUERY(DBCUST, ''SELECT GroupID FROM bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select('''''''',' + CONVERT(VARCHAR(20), @LicenseeID) + ')'')'
 	
 	INSERT INTO @tblGroupIT (GroupID)
 	EXEC (@sql)
