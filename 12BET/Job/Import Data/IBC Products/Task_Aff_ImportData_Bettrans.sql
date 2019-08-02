@@ -13,6 +13,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20190716@Percy: Add bet types of rebate bonus (22202: bonus, 22203: adjustment) [RedmineID: #116778]
 */
 
 BEGIN 
@@ -46,10 +47,10 @@ BEGIN
 				-- -2: Withdrawal
 				(-2, 22002), (-2, 22003),
 				-- -3: Bonus
-				(-3, 22004), (-3, 22200),
+				(-3, 22004), (-3, 22200), (-3, 22202),
 				-- -4: Adjustment
 				(-4, 21001), (-4, 21002), (-4, 21003), (-4, 21004), (-4, 21005),
-				(-4, 22005), (-4, 22201)
+				(-4, 22005), (-4, 22201), (-4, 22203)
 		) AS bt (ProductId, Bettype)
 
 		UPDATE s
