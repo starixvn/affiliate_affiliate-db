@@ -1,23 +1,2 @@
-Fanex.Affiliate.Admin/Affiliate/AffAdmin_AffiliateSel.sql
-Fanex.Affiliate.Admin/CommGroup/AffAdmin_CommGroupSel.sql
-Fanex.Affiliate.Admin/CommGroup/AffAdmin_CommGroupSelByID.sql
-Fanex.Affiliate.Admin/Common Function/AffAdmin_Con_CheckPermission.proc.sql
-Fanex.Affiliate.Admin/GroupManagement/AffAdmin_Con_GroupInfoDel.proc.sql
-Fanex.Affiliate.Admin/GroupManagement/AffAdmin_Con_GroupInfoIns.proc.sql
-Fanex.Affiliate.Admin/GroupManagement/AffAdmin_Con_GroupInfoUpd.proc.sql
-Fanex.Affiliate.Admin/GroupManagement/AffAdmin_Con_GroupPolicySel.proc.sql
-Fanex.Affiliate.Admin/GroupManagement/AffAdmin_Con_GroupPolicyUpd.proc.sql
-Fanex.Affiliate.Admin/Home/AffAdmin_UserOnlineList.proc.sql
-Fanex.Affiliate.Admin/Login/AffAdmin_AdminUpdPwd.proc.sql
-Fanex.Affiliate.Admin/SSO_InternalAdmin/AffAdmin_f_UserCurrency_Select.sql
-Fanex.Affiliate.Admin/SystemSettings/AffAdmin_SystemSupportedCurrencies.proc.sql
-Fanex.Affiliate.Admin/UserManagement/AffAdmin_AccountUpdPwd.proc.sql
-Fanex.Affiliate.Admin/UserManagement/AffAdmin_Con_AccountIns.proc.sql
-Fanex.Affiliate.Admin/UserManagement/AffAdmin_Con_AccountUpd.proc.sql
-Fanex.Affiliate.Admin/UserManagement/AffAdmin_Con_SelByCustID.proc.sql
-Fanex.Affiliate.Admin/UserManagement/AffAdmin_UserCurrencyIns.proc.sql
-Fanex.Affiliate.Admin/UserManagement/AffAdmin_UserCurrencySel.proc.sql
-Athena/Admin/Payment/AffAdmin_PaymentRequest_InProgress.sql
-Athena/Admin/Payment/AffAdmin_PaymentRequestUpd.sql
-Athena/User/Payment Request/Aff_User_PaymentRequestIns.sql
-Athena/User/Payment Request/Aff_User_PaymentRequestUpd.sql
+12BET\Admin\Affiliate\Commission Group\Aff_Admin_CommGroup_Sel.sql
+12BET\Admin\Affiliate\Commission Group\Aff_Admin_CommGroup_Deductions_Sel.sql
