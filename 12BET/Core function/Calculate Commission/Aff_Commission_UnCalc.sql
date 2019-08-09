@@ -49,32 +49,40 @@ BEGIN
 		Withdrawal		MONEY,
 		Bonus			MONEY,
 		Turnover		MONEY,
-		Winloss			MONEY
+		Winloss			MONEY,
+		AWinloss		MONEY,
+		AComm			MONEY
 	)
 
 	CREATE TABLE #Commission
 	(
-		MonthDate		SMALLDATETIME,
-		AffId			INT,
-		GroupId			INT,
-		ProductId		INT,
-		GroupProductId	TINYINT,
-		Deposit			MONEY DEFAULT (0),
-		Withdrawal		MONEY DEFAULT (0),
-		Bonus			MONEY DEFAULT (0),
-		Turnover		MONEY DEFAULT (0),
-		Winloss			MONEY DEFAULT (0),
+		MonthDate				SMALLDATETIME,
+		AffId					INT,
+		GroupId					INT,
+		ProductId				INT,
+		GroupProductId			TINYINT,
+		Deposit					MONEY DEFAULT (0),
+		Withdrawal				MONEY DEFAULT (0),
+		Bonus					MONEY DEFAULT (0),
+		Turnover				MONEY DEFAULT (0),
+		Winloss					MONEY DEFAULT (0),
+		AWinloss				MONEY DEFAULT (0),
+		AComm					MONEY DEFAULT (0),
 		-- Fees
-		PlatFormFee		MONEY DEFAULT (0),
-		OperationalFee	MONEY DEFAULT (0),
-		BankingFee		MONEY DEFAULT (0),
+		PlatFormFee				MONEY DEFAULT (0),
+		OperationalFee			MONEY DEFAULT (0),
+		BankingFee				MONEY DEFAULT (0),
+		-- Exchange Share
+		ExchangeWinlossShare	MONEY DEFAULT (0),
+		ExchangeCommShare		MONEY DEFAULT (0),
 		-- Calculation
-		NetWinloss		MONEY DEFAULT (0),
-		ActivePlayer	INT DEFAULT (0),
-		QualifiedMember INT DEFAULT (0),
-		QMTurnover		MONEY DEFAULT (0),
-		CommissionRate	DECIMAL(9,8) DEFAULT (0),
-		Commission		MONEY DEFAULT (0)
+		GrossWinloss			MONEY DEFAULT (0),
+		NetWinloss				MONEY DEFAULT (0),
+		ActivePlayer			INT DEFAULT (0),
+		QualifiedMember			INT DEFAULT (0),
+		QMTurnover				MONEY DEFAULT (0),
+		CommissionRate			DECIMAL(9,8) DEFAULT (0),
+		Commission				MONEY DEFAULT (0)
 	)
 
 	CREATE CLUSTERED INDEX CIX_MonthDate ON #Data (MonthDate, AffId, IBCCustId, ProductId)
@@ -101,7 +109,9 @@ BEGIN
 					Withdrawal,
 					Bonus,
 					Turnover,
-					Winloss
+					Winloss,
+					AWinloss,
+					AComm
 				)
 				SELECT
 					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate, -- last day of month
@@ -112,7 +122,9 @@ BEGIN
 					SUM(ISNULL(md.Withdrawal, 0)* ISNULL(md.AffExRate, 1)) AS Withdrawal,
 					SUM(ISNULL(md.Bonus, 0)		* ISNULL(md.AffExRate, 1)) AS Bonus,
 					SUM(ISNULL(md.Turnover, 0)	* ISNULL(md.AffExRate, 1)) AS Turnover,
-					SUM(ISNULL(md.Winlost, 0)	* ISNULL(md.AffExRate, 1)) AS Winloss
+					SUM(ISNULL(md.Winlost, 0)	* ISNULL(md.AffExRate, 1)) AS Winloss,
+					0 AS AWinloss,
+					0 AS AComm
 				FROM dbo.MemberDaily md WITH (NOLOCK)
 				WHERE md.WinlostDate BETWEEN @BeginOfFromMonthDate AND @tmpDate
 				GROUP BY
@@ -137,7 +149,9 @@ BEGIN
 					Withdrawal,
 					Bonus,
 					Turnover,
-					Winloss
+					Winloss,
+					AWinloss,
+					AComm
 				)
 				SELECT
 					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate, -- last day of month
@@ -148,7 +162,9 @@ BEGIN
 					SUM(ISNULL(md.Withdrawal, 0)* ISNULL(md.AffExRate, 1)) AS Withdrawal,
 					SUM(ISNULL(md.Bonus, 0)		* ISNULL(md.AffExRate, 1)) AS Bonus,
 					SUM(ISNULL(md.Turnover, 0)	* ISNULL(md.AffExRate, 1)) AS Turnover,
-					SUM(ISNULL(md.Winloss, 0)	* ISNULL(md.AffExRate, 1)) AS Winloss
+					SUM(ISNULL(md.Winloss, 0)	* ISNULL(md.AffExRate, 1)) AS Winloss,
+					SUM(ISNULL(md.AWinloss, 0)	* ISNULL(md.AffExRate, 1)) AS AWinloss,
+					SUM(ISNULL(md.AComm, 0)		* ISNULL(md.AffExRate, 1)) AS AComm
 				FROM dbo.rptMemberDaily md WITH (NOLOCK)
 					CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 0, md.WinlostDate, @MoveBetsDay) f
 				WHERE md.WinlostDate BETWEEN @tmpDate AND @EndOfToMonthDate
@@ -172,7 +188,9 @@ BEGIN
 						Withdrawal,
 						Bonus,
 						Turnover,
-						Winloss
+						Winloss,
+						AWinloss,
+						AComm
 					)
 					SELECT
 						DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate, -- last day of month
@@ -183,7 +201,9 @@ BEGIN
 						SUM(ISNULL(md.Withdrawal, 0)* ISNULL(e.ActualRate2, 1)) AS Withdrawal,
 						SUM(ISNULL(md.Bonus, 0)		* ISNULL(e.ActualRate2, 1)) AS Bonus,
 						SUM(ISNULL(md.Turnover, 0)	* ISNULL(e.ActualRate2, 1)) AS Turnover,
-						SUM(ISNULL(md.Winloss, 0)	* ISNULL(e.ActualRate2, 1)) AS Winloss
+						SUM(ISNULL(md.Winloss, 0)	* ISNULL(e.ActualRate2, 1)) AS Winloss,
+						0 AS AWinloss,
+						0 AS AComm
 					FROM dbo.Aff_f_Bettrans_Sel('all', @tmpDate, @EndOfToMonthDate, '0') md
 						CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(md.Currency, md.WinlostDate) e
 						CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 1, md.WinlostDate, @MoveBetsDay) f
@@ -217,7 +237,9 @@ BEGIN
 					Withdrawal,
 					Bonus,
 					Turnover,
-					Winloss
+					Winloss,
+					AWinloss,
+					AComm
 				)
 				SELECT
 					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate, -- last day of month
@@ -228,7 +250,9 @@ BEGIN
 					SUM(ISNULL(md.Withdrawal, 0)* ISNULL(md.AffExRate, 1)) AS Withdrawal,
 					SUM(ISNULL(md.Bonus, 0)		* ISNULL(md.AffExRate, 1)) AS Bonus,
 					SUM(ISNULL(md.Turnover, 0)	* ISNULL(md.AffExRate, 1)) AS Turnover,
-					SUM(ISNULL(md.Winlost, 0)	* ISNULL(md.AffExRate, 1)) AS Winloss
+					SUM(ISNULL(md.Winlost, 0)	* ISNULL(md.AffExRate, 1)) AS Winloss,
+					0 AS AWinloss,
+					0 AS AComm
 				FROM dbo.MemberDaily md WITH (NOLOCK)
 					INNER JOIN dbo.Aff_f_StringSplit(@AffIds, ',') s ON md.AffId = s.val
 				WHERE md.WinlostDate BETWEEN @BeginOfFromMonthDate AND @tmpDate
@@ -255,7 +279,9 @@ BEGIN
 					Withdrawal,
 					Bonus,
 					Turnover,
-					Winloss
+					Winloss,
+					AWinloss,
+					AComm
 				)
 				SELECT
 					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate, -- last day of month
@@ -266,7 +292,9 @@ BEGIN
 					SUM(ISNULL(md.Withdrawal, 0)* ISNULL(md.AffExRate, 1)) AS Withdrawal,
 					SUM(ISNULL(md.Bonus, 0)		* ISNULL(md.AffExRate, 1)) AS Bonus,
 					SUM(ISNULL(md.Turnover, 0)	* ISNULL(md.AffExRate, 1)) AS Turnover,
-					SUM(ISNULL(md.Winloss, 0)	* ISNULL(md.AffExRate, 1)) AS Winloss
+					SUM(ISNULL(md.Winloss, 0)	* ISNULL(md.AffExRate, 1)) AS Winloss,
+					SUM(ISNULL(md.AWinloss, 0)	* ISNULL(md.AffExRate, 1)) AS AWinloss,
+					SUM(ISNULL(md.AComm, 0)		* ISNULL(md.AffExRate, 1)) AS AComm
 				FROM dbo.rptMemberDaily md WITH (NOLOCK)
 					INNER JOIN dbo.Aff_f_StringSplit(@AffIds, ',') s ON md.AffId = s.val
 					CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 0, md.WinlostDate, @MoveBetsDay) f
@@ -292,7 +320,9 @@ BEGIN
 						Withdrawal,
 						Bonus,
 						Turnover,
-						Winloss
+						Winloss,
+						AWinloss,
+						AComm
 					)
 					SELECT
 						DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate, -- last day of month
@@ -303,7 +333,9 @@ BEGIN
 						SUM(ISNULL(md.Withdrawal, 0)* ISNULL(e.ActualRate2, 1)) AS Withdrawal,
 						SUM(ISNULL(md.Bonus, 0)		* ISNULL(e.ActualRate2, 1)) AS Bonus,
 						SUM(ISNULL(md.Turnover, 0)	* ISNULL(e.ActualRate2, 1)) AS Turnover,
-						SUM(ISNULL(md.Winloss, 0)	* ISNULL(e.ActualRate2, 1)) AS Winloss
+						SUM(ISNULL(md.Winloss, 0)	* ISNULL(e.ActualRate2, 1)) AS Winloss,
+						0 AS AWinloss,
+						0 AS AComm
 					FROM dbo.Aff_f_Bettrans_Sel(@AffIds, @tmpDate, @EndOfToMonthDate, '0') md
 						CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(md.Currency, md.WinlostDate) e
 						CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 1, md.WinlostDate, @MoveBetsDay) f
@@ -326,14 +358,16 @@ BEGIN
 	BEGIN
 		DECLARE @Setting TABLE
 		(
-			MonthDate		SMALLDATETIME,
-			AffId			INT,
-			GroupId			INT,
-			ProductId		INT,
-			GroupProductId	TINYINT,
-			PlatFormFee		DECIMAL(9,8) DEFAULT (0),
-			OperationalFee	DECIMAL(9,8) DEFAULT (0),
-			BankingFee		DECIMAL(9,8) DEFAULT (0)
+			MonthDate				SMALLDATETIME,
+			AffId					INT,
+			GroupId					INT,
+			ProductId				INT,
+			GroupProductId			TINYINT,
+			PlatFormFee				DECIMAL(9,8) DEFAULT (0),
+			OperationalFee			DECIMAL(9,8) DEFAULT (0),
+			BankingFee				DECIMAL(9,8) DEFAULT (0),
+			ExchangeWinlossShare	DECIMAL(9,8) DEFAULT (0),
+			ExchangeCommShare		DECIMAL(9,8) DEFAULT (0)
 		)
 	
 		;WITH CTE_MonthDate AS
@@ -351,7 +385,9 @@ BEGIN
 			GroupProductId,
 			PlatFormFee,
 			OperationalFee,
-			BankingFee
+			BankingFee,
+			ExchangeWinlossShare,
+			ExchangeCommShare
 		)
 		SELECT
 			md.MonthDate,
@@ -361,7 +397,9 @@ BEGIN
 			ds.GroupProductId,
 			ds.PlatFormFee,
 			ds.OperationalFee,
-			ds.BankingFee
+			ds.BankingFee,
+			ds.ExchangeWinlossShare,
+			ds.ExchangeCommShare
 		FROM CTE_MonthDate md
 			INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON md.MonthDate = agh.MonthDate AND md.AffId = agh.AffId
 			CROSS APPLY (
@@ -370,7 +408,9 @@ BEGIN
 					dsh.GroupProductId,
 					SUM(CASE WHEN dsh.DeductionId = 10 THEN dsh.DeductedPercentage ELSE 0 END) AS PlatFormFee,
 					SUM(CASE WHEN dsh.DeductionId = 11 THEN dsh.DeductedPercentage ELSE 0 END) AS OperationalFee,
-					SUM(CASE WHEN dsh.DeductionId = 12 THEN dsh.DeductedPercentage ELSE 0 END) AS BankingFee
+					SUM(CASE WHEN dsh.DeductionId = 12 THEN dsh.DeductedPercentage ELSE 0 END) AS BankingFee,
+					SUM(CASE WHEN dsh.DeductionId = 13 THEN dsh.DeductedPercentage ELSE 0 END) AS ExchangeWinlossShare,
+					SUM(CASE WHEN dsh.DeductionId = 14 THEN dsh.DeductedPercentage ELSE 0 END) AS ExchangeCommShare
 				FROM dbo.DeductionSettingHistory dsh WITH (NOLOCK)
 				WHERE agh.MonthDate = dsh.MonthDate AND agh.GroupId = dsh.GroupId
 				GROUP BY
@@ -389,14 +429,18 @@ BEGIN
 			AffId,
 			ProductId,
 			Turnover,
-			Winloss
+			Winloss,
+			AWinloss,
+			AComm
 		)
 		SELECT
 			MonthDate,
 			AffId,
 			ProductId,
-			SUM(Turnover) AS Turnover,
-			SUM(Winloss) AS Winloss
+			SUM(Turnover)	AS Turnover,
+			SUM(Winloss)	AS Winloss,
+			SUM(AWinloss)	AS AWinloss,
+			SUM(AComm)		AS AComm
 		FROM #Data
 		WHERE ProductId > 0
 		GROUP BY
@@ -429,6 +473,8 @@ BEGIN
 			Bonus,
 			Turnover,
 			Winloss,
+			AWinloss,
+			AComm,
 			ActivePlayer,
 			QualifiedMember,
 			QMTurnover
@@ -442,6 +488,8 @@ BEGIN
 			SUM(Bonus)				AS Bonus,
 			SUM(Turnover)			AS Turnover,
 			SUM(Winloss)			AS Winloss,
+			SUM(AWinloss)			AS AWinloss,
+			SUM(AComm)				AS AComm,
 			SUM(ActivePlayer)		AS ActivePlayer,
 			SUM(QualifiedMember)	AS QualifiedMember,
 			SUM(QMTurnover)			AS QMTurnover
@@ -455,6 +503,8 @@ BEGIN
 				0 AS Bonus,
 				0 AS Turnover,
 				0 AS Winloss,
+				0 AS AWinloss,
+				0 AS AComm,
 				SUM(CASE WHEN dt.Turnover > 0 OR dt.Deposit > 0 THEN 1 ELSE 0 END) AS ActivePlayer,
 				SUM(CASE WHEN dt.Turnover >= ISNULL(cgh.QMTurnOver, 0) THEN 1 ELSE 0 END) AS QualifiedMember,
 				ISNULL(cgh.QMTurnover, 0) AS QMTurnover
@@ -470,11 +520,13 @@ BEGIN
 			SELECT
 				MonthDate,
 				AffId,
-				SUM(Deposit) AS Deposit,
+				SUM(Deposit)	AS Deposit,
 				SUM(Withdrawal) AS Withdrawal,
-				SUM(Bonus) AS Bonus,
-				SUM(Turnover) AS Turnover,
-				SUM(Winloss) AS Winloss,
+				SUM(Bonus)		AS Bonus,
+				SUM(Turnover)	AS Turnover,
+				SUM(Winloss)	AS Winloss,
+				SUM(AWinloss)	AS AWinloss,
+				SUM(AComm)		AS AComm,
 				0 AS ActivePlayer,
 				0 AS QualifiedMember,
 				0 AS QMTurnover
@@ -489,11 +541,13 @@ BEGIN
 
 		-- Calculate fees
 		UPDATE c
-		SET c.GroupId			= s.GroupId,
-			c.GroupProductId	= s.GroupProductId,
-			c.PlatFormFee		= c.Winloss * s.PlatFormFee,
-			c.OperationalFee	= ABS(c.Winloss) * s.OperationalFee,
-			c.BankingFee		= (c.Deposit + c.Withdrawal) * s.BankingFee
+		SET c.GroupId				= s.GroupId,
+			c.GroupProductId		= s.GroupProductId,
+			c.PlatFormFee			= c.Winloss * s.PlatFormFee,
+			c.OperationalFee		= ABS(c.Winloss) * s.OperationalFee,
+			c.BankingFee			= (c.Deposit + c.Withdrawal) * s.BankingFee,
+			c.ExchangeWinlossShare	= AWinloss * s.ExchangeWinlossShare,
+			c.ExchangeCommShare		= AComm * s.ExchangeCommShare
 		FROM #Commission c
 			INNER JOIN @Setting s ON c.AffId = s.AffId AND c.MonthDate = s.MonthDate AND c.ProductId = s.ProductId
 
@@ -529,7 +583,9 @@ BEGIN
 
 		-- Net Winloss
 		UPDATE #Commission
-		SET NetWinloss = -Winloss - (PlatFormFee + OperationalFee + BankingFee)
+		SET GrossWinloss = CASE WHEN ProductId = 19 THEN ExchangeWinlossShare + ExchangeCommShare ELSE - Winloss END
+			,NetWinloss  = CASE WHEN ProductId = 19 THEN ExchangeWinlossShare + ExchangeCommShare ELSE - Winloss END
+							- (PlatFormFee + OperationalFee + BankingFee)
 		FROM #Commission
 		WHERE ProductId = 0
 	
@@ -595,20 +651,25 @@ BEGIN
 			c.AffId,
 			c.GroupId,
 			c.ProductId,
-			SUM(c.Deposit)			AS Deposit,
-			SUM(c.Withdrawal)		AS Withdrawal,
-			SUM(c.Bonus)			AS Bonus,
-			SUM(c.Turnover)			AS Turnover,
-			SUM(c.Winloss)			AS Winloss,
-			SUM(c.PlatFormFee)		AS PlatFormFee,
-			SUM(c.OperationalFee)	AS OperationalFee,
-			SUM(c.BankingFee)		AS BankingFee,
-			SUM(c.NetWinloss)		AS NetWinloss,
-			SUM(c.ActivePlayer)		AS ActivePlayer,
-			SUM(c.QualifiedMember)	AS QualifiedMember,
-			SUM(c.QMTurnOver)		AS QMTurnOver,
-			SUM(c.CommissionRate)	AS CommissionRate,
-			SUM(c.Commission)		AS Commission
+			SUM(c.Deposit)				AS Deposit,
+			SUM(c.Withdrawal)			AS Withdrawal,
+			SUM(c.Bonus)				AS Bonus,
+			SUM(c.Turnover)				AS Turnover,
+			SUM(c.Winloss)				AS Winloss,
+			SUM(c.AWinloss)				AS AWinloss,
+			SUM(c.AComm)				AS AComm,
+			SUM(c.PlatFormFee)			AS PlatFormFee,
+			SUM(c.OperationalFee)		AS OperationalFee,
+			SUM(c.BankingFee)			AS BankingFee,
+			SUM(c.ExchangeWinlossShare) AS ExchangeWinlossShare,
+			SUM(c.ExchangeCommShare)	AS ExchangeCommShare,
+			SUM(c.GrossWinloss)			AS GrossWinloss,
+			SUM(c.NetWinloss)			AS NetWinloss,
+			SUM(c.ActivePlayer)			AS ActivePlayer,
+			SUM(c.QualifiedMember)		AS QualifiedMember,
+			SUM(c.QMTurnOver)			AS QMTurnOver,
+			SUM(c.CommissionRate)		AS CommissionRate,
+			SUM(c.Commission)			AS Commission
 		FROM #Commission c
 			INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON c.AffId = ai.AffId
 		GROUP BY
@@ -628,9 +689,14 @@ BEGIN
 			c.Bonus,
 			c.Turnover,
 			c.Winloss,
+			c.AWinloss,
+			c.AComm,
 			c.PlatFormFee,
 			c.OperationalFee,
 			c.BankingFee,
+			c.ExchangeWinlossShare,
+			c.ExchangeCommShare,
+			c.GrossWinloss,
 			c.NetWinloss,
 			c.ActivePlayer,
 			c.QualifiedMember,

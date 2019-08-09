@@ -123,6 +123,45 @@ BEGIN
 			IBCCustId,
 			Currency,
 			Turnover,
+			Winloss
+		)
+		SELECT
+			a.AffId,
+			a.IBCCustId,
+			a.currency,
+			a.Turnover,
+			a.Winloss
+		FROM
+		(
+			SELECT
+				mi.AffId,
+				mi.IBCCustId,
+				mi.currency,
+				SUM(ISNULL(b.stakeTotal / b.ExVirtualRate, 0)) AS Turnover,
+				SUM(ISNULL(b.profitLoss / b.ExVirtualRate, 0)) AS Winloss
+			FROM bodb_3rdProduct.dbo.Sum_winloss_Exchange b WITH (NOLOCK)
+				INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON mi.IBCCustId = b.custid
+			WHERE b.settledDate >= @WinlostDate AND b.settledDate < DATEADD(DAY, 1, @WinlostDate)
+				AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+					WHERE mr.RemovedDate <= DATEADD(DAY, 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @WinlostDate) + 1, 0))
+						AND mi.IBCCustId = mr.IBCCustId
+				)
+			GROUP BY
+				mi.AffId,
+				mi.IBCCustId,
+				mi.currency
+		) AS a
+	END
+	-- Exchange
+	ELSE IF @ProductId = 19
+	BEGIN
+		INSERT INTO #tempData
+		(
+			AffId,
+			IBCCustId,
+			Currency,
+			Turnover,
 			Winloss,
 			AWinloss,
 			AComm

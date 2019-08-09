@@ -71,26 +71,31 @@ BEGIN
 	BEGIN
 		CREATE TABLE #TempCommission
 		(
-			MonthDate		SMALLDATETIME,
-			AffId			INT,
-			GroupId			INT,
-			ProductId		INT,
-			Deposit			MONEY,
-			Withdrawal		MONEY,
-			Bonus			MONEY,
-			Turnover		MONEY,
-			Winloss			MONEY,
+			MonthDate				SMALLDATETIME,
+			AffId					INT,
+			GroupId					INT,
+			ProductId				INT,
+			Deposit					MONEY,
+			Withdrawal				MONEY,
+			Bonus					MONEY,
+			Turnover				MONEY,
+			Winloss					MONEY,
+			AWinloss				MONEY,
+			AComm					MONEY,
 			-- Fees
-			PlatFormFee		MONEY,
-			OperationalFee	MONEY,
-			BankingFee		MONEY,
+			PlatFormFee				MONEY,
+			OperationalFee			MONEY,
+			BankingFee				MONEY,
+			ExchangeWinlossShare	MONEY,
+			ExchangeCommShare		MONEY,
 			-- Calculation
-			NetWinloss		MONEY,
-			ActivePlayer	INT,
-			QualifiedMember INT,
-			QMTurnover		MONEY,
-			CommissionRate	FLOAT,
-			Commission		MONEY
+			GrossWinloss			MONEY,
+			NetWinloss				MONEY,
+			ActivePlayer			INT,
+			QualifiedMember			INT,
+			QMTurnover				MONEY,
+			CommissionRate			FLOAT,
+			Commission				MONEY
 		)
 
 		-- Uncalculated Months
@@ -105,9 +110,14 @@ BEGIN
 			Bonus,
 			Turnover,
 			Winloss,
+			AWinloss,
+			AComm,
 			PlatFormFee,
 			OperationalFee,
 			BankingFee,
+			ExchangeWinlossShare,
+			ExchangeCommShare,
+			GrossWinloss,
 			NetWinloss,
 			ActivePlayer,
 			QualifiedMember,
@@ -155,6 +165,9 @@ BEGIN
 		Adjustment,
 		Turnover,
 		Winloss,
+		AWinloss,
+		AComm,
+		GrossWinloss,
 		NetWinloss,
 		QMTurnover,
 		ActivePlayer,
@@ -172,6 +185,9 @@ BEGIN
 		0 AS Adjustment,
 		Turnover,
 		Winloss,
+		AWinloss,
+		AComm,
+		GrossWinloss,
 		NetWinloss,
 		QMTurnover,
 		ActivePlayer,
@@ -196,7 +212,12 @@ BEGIN
 		tc.ProductId,
 		dsh.GroupProductId,
 		dsh.DeductionId,
-		CASE dsh.DeductionId WHEN 10 THEN tc.PlatFormFee WHEN 11 THEN tc.OperationalFee WHEN 12 THEN tc.BankingFee END AS Amount
+		CASE dsh.DeductionId	WHEN 10 THEN tc.PlatFormFee
+								WHEN 11 THEN tc.OperationalFee
+								WHEN 12 THEN tc.BankingFee
+								WHEN 13 THEN tc.ExchangeWinlossShare
+								WHEN 14 THEN tc.ExchangeCommShare
+								END AS Amount
 	FROM #TempCommission tc
 		INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON tc.MonthDate = dsh.MonthDate AND tc.GroupId = dsh.GroupId AND tc.ProductId = dsh.ProductId
 
