@@ -37,9 +37,9 @@ BEGIN
 	(
 		IBCCustId INT,
 		UserName VARCHAR(50),
-		FirstName VARCHAR(50),
-		LastName VARCHAR(50),
-		Email VARCHAR(200),
+		FirstName NVARCHAR(50),
+		LastName NVARCHAR(50),
+		Email NVARCHAR(200),
 		Currency INT,
 		RegisteredDate DATETIME
 	)
