@@ -44,35 +44,27 @@ BEGIN
 	IF @SearchById IN (1,2,3) AND @SearchText = ''
 		SELECT @SearchById = 0
 
-	DECLARE @tblMailID	TABLE (MID INT NOT NULL PRIMARY KEY)
+	DECLARE @tblMailID	TABLE (MID INT NOT NULL PRIMARY KEY, RowNum INT)
 
 	-- Search by Affiliate
 	IF @SearchById = 3
 	BEGIN
 		IF @IsGetAll = 1
 		BEGIN
-			INSERT INTO @tblMailID (MID)
-			SELECT MID
-			FROM (
-				SELECT MID, ROW_NUMBER() OVER(ORDER BY CreatedDate DESC) AS RN
-				FROM dbo.EmailHistory WITH (NOLOCK)
-				WHERE AffName = @SearchText
-					AND ISNULL(IsDeleted, 0) = 0
-			) AS r
-			WHERE RN BETWEEN @RowStart AND @RowEnd
+			INSERT INTO @tblMailID (MID, RowNum)
+			SELECT MID, ROW_NUMBER() OVER(ORDER BY CreatedDate DESC) AS RowNum
+			FROM dbo.EmailHistory WITH (NOLOCK)
+			WHERE AffName = @SearchText
+				AND ISNULL(IsDeleted, 0) = 0
 		END
 		ELSE
 		BEGIN
-			INSERT INTO @tblMailID (MID)
-			SELECT MID
-			FROM (
-				SELECT MID, ROW_NUMBER() OVER(ORDER BY CreatedDate DESC) AS RN
-				FROM dbo.EmailHistory WITH (NOLOCK)
-				WHERE AffName = @SearchText
-					AND CreatedDate BETWEEN @FromDate AND @ToDate
-					AND ISNULL(IsDeleted, 0) = 0
-			) AS r
-			WHERE RN BETWEEN @RowStart AND @RowEnd
+			INSERT INTO @tblMailID (MID, RowNum)
+			SELECT MID, ROW_NUMBER() OVER(ORDER BY CreatedDate DESC) AS RowNum
+			FROM dbo.EmailHistory WITH (NOLOCK)
+			WHERE AffName = @SearchText
+				AND CreatedDate BETWEEN @FromDate AND @ToDate
+				AND ISNULL(IsDeleted, 0) = 0
 		END
 	END
 	ELSE
@@ -81,39 +73,31 @@ BEGIN
 		
 		IF @IsGetAll = 1
 		BEGIN
-			INSERT INTO @tblMailID (MID)
-			SELECT MID
-			FROM (
-				SELECT MID, ROW_NUMBER() OVER(ORDER BY CreatedDate DESC) AS RN
-				FROM dbo.EmailHistory WITH (NOLOCK)
-				WHERE
-					(
-						@SearchById = 0
-						OR (@SearchById = 1 AND Sender LIKE @SearchText)
-						OR (@SearchById = 2 AND Email LIKE @SearchText)
-						OR (@SearchById = 4 AND AffId = -1) -- unknown affiliate
-					)
-					AND ISNULL(IsDeleted, 0) = 0
-			) AS r
-			WHERE RN BETWEEN @RowStart AND @RowEnd
+			INSERT INTO @tblMailID (MID, RowNum)
+			SELECT MID, ROW_NUMBER() OVER(ORDER BY CreatedDate DESC) AS RowNum
+			FROM dbo.EmailHistory WITH (NOLOCK)
+			WHERE
+				(
+					@SearchById = 0
+					OR (@SearchById = 1 AND Sender LIKE @SearchText)
+					OR (@SearchById = 2 AND Email LIKE @SearchText)
+					OR (@SearchById = 4 AND AffId = -1) -- unknown affiliate
+				)
+				AND ISNULL(IsDeleted, 0) = 0
 		END
 		ELSE
 		BEGIN
-			INSERT INTO @tblMailID (MID)
-			SELECT MID
-			FROM (
-				SELECT MID, ROW_NUMBER() OVER(ORDER BY CreatedDate DESC) AS RN
-				FROM dbo.EmailHistory WITH (NOLOCK)
-				WHERE CreatedDate BETWEEN @FromDate AND @ToDate
-					AND (
-						@SearchById = 0
-						OR (@SearchById = 1 AND Sender LIKE @SearchText)
-						OR (@SearchById = 2 AND Email LIKE @SearchText)
-						OR (@SearchById = 4 AND AffId = -1) -- unknown affiliate
-					)
-					AND ISNULL(IsDeleted, 0) = 0
-			) AS r
-			WHERE RN BETWEEN @RowStart AND @RowEnd
+			INSERT INTO @tblMailID (MID, RowNum)
+			SELECT MID, ROW_NUMBER() OVER(ORDER BY CreatedDate DESC) AS RowNum
+			FROM dbo.EmailHistory WITH (NOLOCK)
+			WHERE CreatedDate BETWEEN @FromDate AND @ToDate
+				AND (
+					@SearchById = 0
+					OR (@SearchById = 1 AND Sender LIKE @SearchText)
+					OR (@SearchById = 2 AND Email LIKE @SearchText)
+					OR (@SearchById = 4 AND AffId = -1) -- unknown affiliate
+				)
+				AND ISNULL(IsDeleted, 0) = 0
 		END
 	END
 
@@ -121,6 +105,8 @@ BEGIN
 
 	IF @NRows = 0
 		RETURN
+
+	DELETE @tblMailID WHERE RowNum NOT BETWEEN @RowStart AND @RowEnd
 
 	-- Return data
 	SELECT e.MID, e.Sender, e.AffName, e.Email, e.Subject, e.CreatedDate
