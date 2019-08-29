@@ -133,7 +133,7 @@ BEGIN
 			a.currency,
 			a.Turnover,
 			a.Winloss,
-			a.Winloss * (1 - ISNULL(r.Rate, 0)) AS AWinloss,
+			-a.Winloss * (1 - ISNULL(r.Rate, 0)) AS AWinloss,
 			a.AComm
 		FROM
 		(
