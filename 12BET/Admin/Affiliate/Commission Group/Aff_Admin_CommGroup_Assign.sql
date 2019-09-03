@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
 USE [Affiliate_12BET]
 GO
 
@@ -18,6 +18,7 @@ AS
 	
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20190614@Percy: Add @AffID into log [RedmineID: #109008]
 */
 
 BEGIN
@@ -39,7 +40,6 @@ BEGIN
 	BEGIN
 		-- Group is not existed
 		SELECT @ErrCode = 100, @ErrMsg = dbo.Aff_f_GetMessageById(1006, @Language)
-
 		RETURN
 	END
 
@@ -80,6 +80,10 @@ BEGIN
 		UPDATE dbo.AffGroupHistory WITH (ROWLOCK, UPDLOCK)
 		SET GroupId = @OldGroupId
 		WHERE AffId = @AffId AND MonthDate = @MonthDate
+
+		-- Update process is unsuccessful. Please try again!
+		SELECT @ErrCode = 101, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
+		RETURN
 	END CATCH
 
 	-- Write log
@@ -93,7 +97,7 @@ BEGIN
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,
-		@AffId		= 0,
+		@AffId		= @AffId,
 		@SPName		= @SPName,
 		@OldData	= @OldData,
 		@NewData	= @NewData,

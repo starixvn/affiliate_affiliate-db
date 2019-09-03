@@ -1,11 +1,10 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateInfo_Sel]
 	@AffId		INT = NULL,
-	@Username	NVARCHAR(50) = NULL,
-	@IsCasino	BIT = 0 OUTPUT
+	@Username	NVARCHAR(50) = NULL
 AS
 
 /*
@@ -18,6 +17,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20190509@Percy: Enhance Security Questions [RedmineID: #104884]
+		- 20190614@Percy: Remove IsCasino [RedmineID: #109008]
 */
 
 BEGIN
@@ -71,39 +71,28 @@ BEGIN
 		-- Commission Group Information
 		ISNULL(cg.GroupId, 0) AS GroupId,
 		ISNULL(cg.GroupName, '') AS GroupName,
-		ISNULL(dbo.Aff_GetAffBalance(@AffId), 0) AS BalBroughtForward,
+		ISNULL(b.BalBroughtForward, 0) AS BalBroughtForward,
 		-- Language
 		ad.PreferredLanguage,
 		-- Payment Information
 		ad.PreferredPayment, -- Player, Neteller, Moneybookers, Wire (Bank Transfer)
 			-- Player
-		ad.Player_Username AS PlayerUsername,
+		ad.Player_Username		AS PlayerUsername,
 			-- Netteller
-		ad.Neteller_AccountID AS NetellerAccountId,
+		ad.Neteller_AccountID	AS NetellerAccountId,
 			-- Moneybookers
-		ad.Moneybookers_Email AS MoneybookersEmail,
+		ad.Moneybookers_Email	AS MoneybookersEmail,
 			-- Wire (Bank Transfer)
-		ad.Wire_BankName AS BankName,
+		ad.Wire_BankName	AS BankName,
 		ad.Wire_BankAddress AS BankAddress,
-		ad.Wire_SwiftCode AS BankSwiftCode,
+		ad.Wire_SwiftCode	AS BankSwiftCode,
 		ad.Wire_AccountName AS BankAccountName,
-		ad.Wire_AccountNo AS BankAccountNo
+		ad.Wire_AccountNo	AS BankAccountNo
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+		OUTER APPLY dbo.Aff_f_GetBalBroughtForward (@AffId) b
 		LEFT JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupId = cg.GroupId
 		LEFT JOIN dbo.Aff_f_Get_SecurityQuestions (1, 'en-US') q ON ad.QuestionID = q.QuestionID
 	WHERE ai.AffId = @AffId
-
-	-- Online List (for left menu)
-	SELECT IP, reload_time AS ReloadTime
-	FROM dbo.On_User WITH (NOLOCK)
-	WHERE custid = @AffId
-	ORDER BY reload_time DESC
-
-	-- Is Casino
-	IF EXISTS (SELECT 1 FROM dbo.CommonSettings WITH (NOLOCK) WHERE [Type] = '12betcasino' AND CName = @Username)
-		SELECT @IsCasino = 1
-	ELSE
-		SELECT @IsCasino = 0
 END
 GO
