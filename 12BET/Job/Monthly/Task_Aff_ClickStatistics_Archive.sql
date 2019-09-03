@@ -13,6 +13,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20190808@Percy: Loop archive data + delete 3000 rows per batch to prevent lock tables [RedmineID: #115959]
 */
 
 BEGIN
@@ -136,71 +137,95 @@ BEGIN
 
 	-- Archive data
 	BEGIN
-		DELETE dbo.ClickStatistics WITH (ROWLOCK, UPDLOCK)
-		OUTPUT
-			DELETED.TrackingId,
-			DELETED.UpdatedTime,
-			DELETED.IP,
-			DELETED.Date,
-			DELETED.Browser,
-			DELETED.URLReferrer
-		INTO dbo.ClickStatistics_bk
-		(
-			TrackingID,
-			UpdatedTime,
-			IP,
-			Date,
-			Browser,
-			URLReferrer
-		)
-		WHERE Date BETWEEN @FirstDayOfMonth AND @LastDayOfMonth
+		DECLARE @winlostdate SMALLDATETIME
+		SELECT  @winlostdate = @FirstDayOfMonth
 
-		DELETE dbo.ClickStatistics1 WITH (ROWLOCK, UPDLOCK)
-		OUTPUT
-			DELETED.ClickId,
-			DELETED.AffId,
-			DELETED.UpdatedTime,
-			DELETED.IP,
-			DELETED.Date,
-			DELETED.Browser,
-			DELETED.URLReferrer,
-			DELETED.DomainReferrer,
-			DELETED.OS,
-			DELETED.Device,
-			DELETED.BrowserVersion,
-			DELETED.BrowserResolution,
-			DELETED.BrowserLanguage,
-			DELETED.UserAgent,
-			DELETED.Country,
-			DELETED.LanguageCode,
-			DELETED.SportCode,
-			DELETED.RedirectURL,
-			DELETED.Status,
-			DELETED.DeviceType
-		INTO dbo.ClickStatistics1_bk
-		(
-			ClickId,
-			AffId,
-			UpdatedTime,
-			IP,
-			Date,
-			Browser,
-			URLReferrer,
-			DomainReferrer,
-			OS,
-			Device,
-			BrowserVersion,
-			BrowserResolution,
-			BrowserLanguage,
-			UserAgent,
-			Country,
-			LanguageCode,
-			SportCode,
-			RedirectURL,
-			Status,
-			DeviceType
-		)
-		WHERE Date BETWEEN @FirstDayOfMonth AND @LastDayOfMonth
+		WHILE @winlostdate <= @LastDayOfMonth
+		BEGIN
+			WHILE 1 = 1
+			BEGIN
+				DELETE TOP (3000) dbo.ClickStatistics WITH (ROWLOCK, UPDLOCK)
+				OUTPUT
+					DELETED.TrackingId,
+					DELETED.UpdatedTime,
+					DELETED.IP,
+					DELETED.Date,
+					DELETED.Browser,
+					DELETED.URLReferrer
+				INTO dbo.ClickStatistics_bk
+				(
+					TrackingID,
+					UpdatedTime,
+					IP,
+					Date,
+					Browser,
+					URLReferrer
+				)
+				WHERE Date = @winlostdate
+
+				IF @@ROWCOUNT < 3000
+					BREAK
+
+				WAITFOR DELAY '00:00:00.280'
+			END
+
+			WHILE 1 = 1
+			BEGIN
+				DELETE TOP (3000) dbo.ClickStatistics1 WITH (ROWLOCK, UPDLOCK)
+				OUTPUT
+					DELETED.ClickId,
+					DELETED.AffId,
+					DELETED.UpdatedTime,
+					DELETED.IP,
+					DELETED.Date,
+					DELETED.Browser,
+					DELETED.URLReferrer,
+					DELETED.DomainReferrer,
+					DELETED.OS,
+					DELETED.Device,
+					DELETED.BrowserVersion,
+					DELETED.BrowserResolution,
+					DELETED.BrowserLanguage,
+					DELETED.UserAgent,
+					DELETED.Country,
+					DELETED.LanguageCode,
+					DELETED.SportCode,
+					DELETED.RedirectURL,
+					DELETED.Status,
+					DELETED.DeviceType
+				INTO dbo.ClickStatistics1_bk
+				(
+					ClickId,
+					AffId,
+					UpdatedTime,
+					IP,
+					Date,
+					Browser,
+					URLReferrer,
+					DomainReferrer,
+					OS,
+					Device,
+					BrowserVersion,
+					BrowserResolution,
+					BrowserLanguage,
+					UserAgent,
+					Country,
+					LanguageCode,
+					SportCode,
+					RedirectURL,
+					Status,
+					DeviceType
+				)
+				WHERE Date = @winlostdate
+
+				IF @@ROWCOUNT < 3000
+					BREAK
+
+				WAITFOR DELAY '00:00:00.280'
+			END
+
+			SELECT @winlostdate = DATEADD(DAY, 1, @winlostdate)
+		END
 	END
 END
 GO
