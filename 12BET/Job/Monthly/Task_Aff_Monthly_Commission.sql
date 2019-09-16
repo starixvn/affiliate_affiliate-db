@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-  
 ALTER PROCEDURE [dbo].[Task_Aff_Monthly_Commission]  
 	@MonthDate		SMALLDATETIME,
 	@IsForceUpdate	BIT = 0

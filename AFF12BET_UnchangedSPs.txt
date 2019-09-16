@@ -1,3 +1,0 @@
-12BET\Admin\Affiliate\Commission Group\Aff_Admin_CommGroup_Sel.sql
-12BET\Admin\Affiliate\Commission Group\Aff_Admin_CommGroup_Deductions_Sel.sql
-12BET\Core function\Aff_ProductList_Sel.sql
