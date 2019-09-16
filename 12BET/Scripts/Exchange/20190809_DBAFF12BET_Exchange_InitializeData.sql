@@ -1,6 +1,12 @@
 use Affiliate_12BET
 go
 
+/*
+	Created: 20190809@Percy
+	DB: DBAFF12BET.Affiliate_12BET
+	Task: Integrate Exchange Product
+*/
+
 -- Add new Product
 insert into dbo.Products (ProductId, ProductName, ProductPrefix, IsIBC, Enabled, IsTest)
 values (19, 'Exchange', 'BX', 0, 1, 1)
@@ -27,7 +33,7 @@ select GroupId, 13 AS DeductionId, 0 AS DeductedPercentage, 0 AS NextDeductedPer
 from dbo.CommGroup cg with (nolock)
 
 insert into dbo.DeductionSettingHistory(GroupID, MonthDate, DeductionID, DeductedPercentage, ProductId, GroupProductId)
-select GroupId, '2019-08-31' AS MonthDate, 13 AS DeductionId, 0 AS DeductedPercentage, 19 AS ProductId, 1 AS GroupProductId
+select GroupId, '2019-09-30' AS MonthDate, 13 AS DeductionId, 0 AS DeductedPercentage, 19 AS ProductId, 1 AS GroupProductId
 from dbo.CommGroup cg with (nolock)
 
 -- Exchange Commission Share
@@ -36,5 +42,5 @@ select GroupId, 14 AS DeductionId, 0 AS DeductedPercentage, 0 AS NextDeductedPer
 from dbo.CommGroup cg with (nolock)
 
 insert into dbo.DeductionSettingHistory(GroupID, MonthDate, DeductionID, DeductedPercentage, ProductId, GroupProductId)
-select GroupId, '2019-08-31' AS MonthDate, 14 AS DeductionId, 0 AS DeductedPercentage, 19 AS ProductId, 1 AS GroupProductId
+select GroupId, '2019-09-30' AS MonthDate, 14 AS DeductionId, 0 AS DeductedPercentage, 19 AS ProductId, 1 AS GroupProductId
 from dbo.CommGroup cg with (nolock)

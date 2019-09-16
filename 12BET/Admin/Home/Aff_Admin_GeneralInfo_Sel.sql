@@ -93,7 +93,7 @@ BEGIN
 				@FromMonthDate		= @tempFromDate,
 				@ToMonthDate		= @tempToDate,
 				@ProductIds			= '0',
-				@IsSumAll			= 1,
+				@IsSumAll			= 0,
 				@GetRowTotalOnly	= 1
 		END
 
