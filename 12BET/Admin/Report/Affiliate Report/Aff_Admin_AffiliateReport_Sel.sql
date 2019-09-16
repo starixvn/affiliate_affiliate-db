@@ -21,6 +21,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20181001@Percy: Support export excel [RedmineID: #102322]
+		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: Winloss, 4: Earning (Commission)

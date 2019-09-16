@@ -9,6 +9,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 */
 
 BEGIN

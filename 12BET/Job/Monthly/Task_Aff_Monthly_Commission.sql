@@ -12,6 +12,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20181201@Percy: Exclude closed affiliates [RedmineID: #104892]
+		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 */
 
 BEGIN

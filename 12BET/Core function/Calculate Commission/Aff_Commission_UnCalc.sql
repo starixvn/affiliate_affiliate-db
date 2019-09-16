@@ -17,6 +17,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20181001@Percy: Add CutOffDate [RedmineID: #102399]
 		- 20181120@Percy: Keep line total (productId = 0) [RedmineID: #104963]
+		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 */
 
 BEGIN

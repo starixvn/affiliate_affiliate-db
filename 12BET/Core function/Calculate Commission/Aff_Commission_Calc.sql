@@ -16,6 +16,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20181120@Percy: Change way to get amount of fees [RedmineID: #104963]
+		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 */
 
 BEGIN

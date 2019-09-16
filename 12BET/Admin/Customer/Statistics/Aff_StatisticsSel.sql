@@ -46,6 +46,7 @@ AS
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 		- 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 		- 20180601@Percy: Refactor code for new change [RedmineID: #87923]
+		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 
 	Param's Explanation:
 		• @AffID : Affiliate custid
