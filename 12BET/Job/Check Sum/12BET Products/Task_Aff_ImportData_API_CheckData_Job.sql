@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Task_Aff_ImportData_API_CheckData_Job]
 AS
 
@@ -14,6 +11,7 @@ AS
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 		- 20190117@Percy: Using core table for 3rd Products [RedmineID: #106503]
 		- 20190322@Percy: Missing break loop [RedmineID: #110638]
+		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 */
 
 BEGIN
@@ -68,9 +66,16 @@ BEGIN
 
 			SELECT @FromImportDate = CASE WHEN @LaunchDate > @MaxCommDate THEN @LaunchDate ELSE DATEADD(DAY, 1, @MaxCommDate) END
 
-			SELECT @FromDate = MIN(WinlostDate), @ToDate = MAX(WinlostDate)
-			FROM bodb_PlaytechCS.dbo.Product3rd_ImportQueue WITH (NOLOCK)
-			WHERE ProductId = @3rdProductId AND QueueId <= @LastQueueId AND WinlostDate >= @FromImportDate
+			IF @3rdProductId = 31 -- Exchange
+			BEGIN
+				SELECT @FromDate = @FromImportDate, @ToDate = DATEADD(DAY, -1, GETDATE())
+			END
+			ELSE
+			BEGIN
+				SELECT @FromDate = MIN(WinlostDate), @ToDate = MAX(WinlostDate)
+				FROM bodb_PlaytechCS.dbo.Product3rd_ImportQueue WITH (NOLOCK)
+				WHERE ProductId = @3rdProductId AND QueueId <= @LastQueueId AND WinlostDate >= @FromImportDate
+			END
 
 			SELECT @WinlostDate = @FromDate
 
