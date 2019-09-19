@@ -172,7 +172,7 @@ BEGIN
 		d.ProductId,
 		p.ProductName,
 		d.Turnover,
-		-d.Winloss AS Winloss, -- Gross Winloss = - Member Winloss
+		d.GrossWinloss AS Winloss,
 		d.PlatformFee,
 		d.OperationalFee,
 		d.BankingFee,

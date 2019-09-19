@@ -579,13 +579,28 @@ BEGIN
 			INNER JOIN CTE_PlatFormFee pf ON c.MonthDate = pf.MonthDate AND c.AffId = pf.AffId
 		WHERE c.ProductId = 0
 
-		-- Net Winloss
+		-- Gross Winloss
 		UPDATE #Commission
 		SET GrossWinloss = CASE WHEN ProductId = 19 THEN ExchangeWinlossShare + ExchangeCommShare ELSE - Winloss END
-			,NetWinloss  = CASE WHEN ProductId = 19 THEN ExchangeWinlossShare + ExchangeCommShare ELSE - Winloss END
-							- (PlatFormFee + OperationalFee + BankingFee)
-		FROM #Commission
-		WHERE ProductId = 0
+		WHERE ProductId > 0
+
+		-- Exchange Winloss Share, Exchange Comm Share, Total Gross Winloss, Total Net Winloss
+		UPDATE c
+		SET c.ExchangeWinlossShare	= e.ExchangeWinlossShare,
+			c.ExchangeCommShare		= e.ExchangeCommShare,
+			c.GrossWinloss			= e.GrossWinloss,
+			c.NetWinloss			= e.GrossWinloss - (c.PlatFormFee + c.OperationalFee + c.BankingFee)
+		FROM #Commission c
+			CROSS APPLY (
+				SELECT
+					SUM(ExchangeWinlossShare)	AS ExchangeWinlossShare,
+					SUM(ExchangeCommShare)		AS ExchangeCommShare,
+					SUM(GrossWinloss)			AS GrossWinloss
+				FROM #Commission e
+				WHERE c.MonthDate = e.MonthDate AND c.AffId = e.AffId
+					AND e.ProductId > 0
+			) AS e
+		WHERE c.ProductId = 0
 	
 		-- Commission
 		UPDATE c
