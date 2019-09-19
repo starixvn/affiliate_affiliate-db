@@ -538,14 +538,22 @@ BEGIN
 			AffId
 
 		-- Calculate fees
+		DECLARE @ExchangeWinlossShare	MONEY,
+				@ExchangeCommShare		MONEY,
+				@GrossWinLoss			MONEY
+		
 		UPDATE c
-		SET c.GroupId				= s.GroupId,
+		SET @ExchangeWinlossShare	= c.AWinloss * s.ExchangeWinlossShare,
+			@ExchangeCommShare		= c.AComm * s.ExchangeCommShare,
+			@GrossWinLoss			= CASE WHEN c.ProductId = 19 THEN @ExchangeWinlossShare + @ExchangeCommShare ELSE - c.Winloss END,
+			c.GroupId				= s.GroupId,
 			c.GroupProductId		= s.GroupProductId,
-			c.PlatFormFee			= c.Winloss * s.PlatFormFee,
-			c.OperationalFee		= ABS(c.Winloss) * s.OperationalFee,
-			c.BankingFee			= (c.Deposit + c.Withdrawal) * s.BankingFee,
-			c.ExchangeWinlossShare	= AWinloss * s.ExchangeWinlossShare,
-			c.ExchangeCommShare		= AComm * s.ExchangeCommShare
+			c.ExchangeWinlossShare	= @ExchangeWinlossShare,
+			c.ExchangeCommShare		= @ExchangeCommShare,
+			c.GrossWinloss			= @GrossWinLoss,
+			c.PlatFormFee			= @GrossWinLoss * s.PlatFormFee,
+			c.OperationalFee		= ABS(@GrossWinLoss) * s.OperationalFee,
+			c.BankingFee			= (c.Deposit + c.Withdrawal) * s.BankingFee
 		FROM #Commission c
 			INNER JOIN @Setting s ON c.AffId = s.AffId AND c.MonthDate = s.MonthDate AND c.ProductId = s.ProductId
 
@@ -578,11 +586,6 @@ BEGIN
 		FROM #Commission c
 			INNER JOIN CTE_PlatFormFee pf ON c.MonthDate = pf.MonthDate AND c.AffId = pf.AffId
 		WHERE c.ProductId = 0
-
-		-- Gross Winloss
-		UPDATE #Commission
-		SET GrossWinloss = CASE WHEN ProductId = 19 THEN ExchangeWinlossShare + ExchangeCommShare ELSE - Winloss END
-		WHERE ProductId > 0
 
 		-- Exchange Winloss Share, Exchange Comm Share, Total Gross Winloss, Total Net Winloss
 		UPDATE c
