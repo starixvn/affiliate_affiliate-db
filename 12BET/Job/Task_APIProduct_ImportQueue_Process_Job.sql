@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Task_APIProduct_ImportQueue_Process_Job]
 AS
 
@@ -12,6 +9,7 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
+		- 20191010@Percy: Clean old data (keep 3 months) [RedmineID: #121795]
 */
 
 BEGIN
@@ -31,6 +29,27 @@ BEGIN
 
 	WHILE @ProductId IS NOT NULL
 	BEGIN
+		-- Clean old data (keep 3 months)
+		IF EXISTS (
+			SELECT 1 FROM dbo.APIProduct_ImportQueue WITH (NOLOCK)
+			WHERE ProductId = @ProductId AND WinlostDate < DATEADD(MONTH, -3, GETDATE())
+				AND FinishedTime IS NOT NULL
+		)
+		BEGIN
+			WHILE 1 = 1
+			BEGIN
+				DELETE TOP (2000) FROM dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
+				WHERE ProductId = @ProductId AND WinlostDate < DATEADD(MONTH, -3, GETDATE())
+					AND FinishedTime IS NOT NULL
+
+				IF @@ROWCOUNT < 2000
+					BREAK
+
+				WAITFOR DELAY '00:00:00.280'
+			END
+		END
+
+		-- Parse data
 		SELECT @ErrCode = 0, @ErrMsg = ''
 		
 		BEGIN TRY
