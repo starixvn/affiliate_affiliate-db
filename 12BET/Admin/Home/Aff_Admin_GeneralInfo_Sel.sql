@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Aff_Admin_GeneralInfo_Sel]
 AS
 
@@ -12,6 +9,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 */
 
 BEGIN
@@ -30,26 +28,31 @@ BEGIN
 
 		CREATE TABLE #TempCommission
 		(
-			MonthDate		SMALLDATETIME,
-			AffId			INT,
-			GroupId			INT,
-			ProductId		INT,
-			Deposit			MONEY,
-			Withdrawal		MONEY,
-			Bonus			MONEY,
-			Turnover		MONEY,
-			Winloss			MONEY,
+			MonthDate				SMALLDATETIME,
+			AffId					INT,
+			GroupId					INT,
+			ProductId				INT,
+			Deposit					MONEY,
+			Withdrawal				MONEY,
+			Bonus					MONEY,
+			Turnover				MONEY,
+			Winloss					MONEY,
+			AWinloss				MONEY,
+			AComm					MONEY,
 			-- Fees
-			PlatFormFee		MONEY,
-			OperationalFee	MONEY,
-			BankingFee		MONEY,
+			PlatFormFee				MONEY,
+			OperationalFee			MONEY,
+			BankingFee				MONEY,
+			ExchangeWinlossShare	MONEY,
+			ExchangeCommShare		MONEY,
 			-- Calculation
-			NetWinloss		MONEY,
-			ActivePlayer	INT,
-			QualifiedMember INT,
-			QMTurnover		MONEY,
-			CommissionRate	FLOAT,
-			Commission		MONEY
+			GrossWinloss			MONEY,
+			NetWinloss				MONEY,
+			ActivePlayer			INT,
+			QualifiedMember			INT,
+			QMTurnover				MONEY,
+			CommissionRate			FLOAT,
+			Commission				MONEY
 		)
 
 		-- Uncalculated Months
@@ -68,9 +71,14 @@ BEGIN
 				Bonus,
 				Turnover,
 				Winloss,
+				AWinloss,
+				AComm,
 				PlatFormFee,
 				OperationalFee,
 				BankingFee,
+				ExchangeWinlossShare,
+				ExchangeCommShare,
+				GrossWinloss,
 				NetWinloss,
 				ActivePlayer,
 				QualifiedMember,
@@ -83,7 +91,7 @@ BEGIN
 				@FromMonthDate		= @tempFromDate,
 				@ToMonthDate		= @tempToDate,
 				@ProductIds			= '0',
-				@IsSumAll			= 1,
+				@IsSumAll			= 0,
 				@GetRowTotalOnly	= 1
 		END
 
@@ -103,9 +111,14 @@ BEGIN
 				Bonus,
 				Turnover,
 				Winloss,
+				AWinloss,
+				AComm,
 				PlatFormFee,
 				OperationalFee,
 				BankingFee,
+				ExchangeWinlossShare,
+				ExchangeCommShare,
+				GrossWinloss,
 				NetWinloss,
 				ActivePlayer,
 				QualifiedMember,

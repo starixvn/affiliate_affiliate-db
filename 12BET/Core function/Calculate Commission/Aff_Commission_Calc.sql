@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="1"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Aff_Commission_Calc]
 	@AffIds				VARCHAR(MAX) = 'all',
 	@FromMonthDate		SMALLDATETIME,
@@ -19,6 +16,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20181120@Percy: Change way to get amount of fees [RedmineID: #104963]
+		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 */
 
 BEGIN
@@ -37,24 +35,29 @@ BEGIN
 
 	CREATE TABLE #AffCommission
 	(
-		MonthDate		SMALLDATETIME,
-		AffId			INT,
-		GroupId			INT,
-		ProductId		INT,
-		Deposit			MONEY,
-		Withdrawal		MONEY,
-		Bonus			MONEY,
-		Turnover		MONEY,
-		Winloss			MONEY,
-		NetWinloss		MONEY,
-		PlatFormFee		MONEY,
-		OperationalFee	MONEY,
-		BankingFee		MONEY,
-		ActivePlayer	INT,
-		QualifiedMember INT,
-		QMTurnover		MONEY,
-		CommissionRate	DECIMAL(9,8),
-		Commission		MONEY
+		MonthDate				SMALLDATETIME,
+		AffId					INT,
+		GroupId					INT,
+		ProductId				INT,
+		Deposit					MONEY,
+		Withdrawal				MONEY,
+		Bonus					MONEY,
+		Turnover				MONEY,
+		Winloss					MONEY,
+		AWinloss				MONEY,
+		AComm					MONEY,
+		GrossWinloss			MONEY,
+		NetWinloss				MONEY,
+		PlatFormFee				MONEY,
+		OperationalFee			MONEY,
+		BankingFee				MONEY,
+		ExchangeWinlossShare	MONEY,
+		ExchangeCommShare		MONEY,
+		ActivePlayer			INT,
+		QualifiedMember			INT,
+		QMTurnover				MONEY,
+		CommissionRate			DECIMAL(9,8),
+		Commission				MONEY
 	)
 
 	IF @tempToMonth > @CutOffDate
@@ -80,17 +83,17 @@ BEGIN
 
 			INSERT INTO #AffCommission
 			(
-				MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,
-				NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission
+				MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,AWinloss,AComm,
+				GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission
 			)
 			SELECT
-				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Turnover,dt.Winloss,
-				dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,0 AS Commission
+				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Turnover,dt.Winloss,dt.AWinloss,dt.AComm,
+				dt.GrossWinloss,dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,0 AS Commission
 			FROM @MonthDate md
 				CROSS APPLY (
 					SELECT TOP (@n)
-						MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,
-						NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate
+						MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,AWinloss,AComm,
+						GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate
 					FROM dbo.rptAffCommission ac WITH (NOLOCK)
 					WHERE ac.MonthDate = md.MonthDate
 				) AS dt
@@ -113,9 +116,11 @@ BEGIN
 				SELECT
 					MonthDate,
 					AffId,
-					SUM(ABS(PlatFormFee))	AS PlatFormFee,
-					SUM(OperationalFee)		AS OperationalFee,
-					SUM(BankingFee)			AS BankingFee
+					SUM(ABS(PlatFormFee))		AS PlatFormFee,
+					SUM(OperationalFee)			AS OperationalFee,
+					SUM(BankingFee)				AS BankingFee,
+					SUM(ExchangeWinlossShare)	AS ExchangeWinlossShare,
+					SUM(ExchangeCommShare)		AS ExchangeCommShare
 				FROM
 				(
 					SELECT
@@ -124,7 +129,9 @@ BEGIN
 						ad.GroupProductId,
 						SUM(CASE WHEN ad.DeductionId = 10 THEN ad.Amount ELSE 0 END) AS PlatFormFee,
 						SUM(CASE WHEN ad.DeductionId = 11 THEN ad.Amount ELSE 0 END) AS OperationalFee,
-						SUM(CASE WHEN ad.DeductionId = 12 THEN ad.Amount ELSE 0 END) AS BankingFee
+						SUM(CASE WHEN ad.DeductionId = 12 THEN ad.Amount ELSE 0 END) AS BankingFee,
+						SUM(CASE WHEN ad.DeductionId = 13 THEN ad.Amount ELSE 0 END) AS ExchangeWinlossShare,
+						SUM(CASE WHEN ad.DeductionId = 14 THEN ad.Amount ELSE 0 END) AS ExchangeCommShare
 					FROM @MonthDate md
 						CROSS APPLY dbo.rptAffDeduction ad WITH (NOLOCK)
 					WHERE md.MonthDate = ad.MonthDate
@@ -138,9 +145,11 @@ BEGIN
 					AffId
 			)
 			UPDATE d
-			SET d.PlatFormFee		= f.PlatFormFee,
-				d.OperationalFee	= f.OperationalFee,
-				d.BankingFee		= f.BankingFee
+			SET d.PlatFormFee			= f.PlatFormFee,
+				d.OperationalFee		= f.OperationalFee,
+				d.BankingFee			= f.BankingFee,
+				d.ExchangeWinlossShare	= f.ExchangeWinlossShare,
+				d.ExchangeCommShare		= f.ExchangeCommShare
 			FROM #AffCommission d
 				INNER JOIN CTE_Fees f ON d.MonthDate = f.MonthDate AND d.AffId = f.AffId
 			WHERE d.ProductId = 0
@@ -161,17 +170,17 @@ BEGIN
 
 			INSERT INTO #AffCommission
 			(
-				MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,
-				NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission
+				MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,AWinloss,AComm,
+				GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission
 			)
 			SELECT
-				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Turnover,dt.Winloss,
-				dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,0 AS Commission
+				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Turnover,dt.Winloss,dt.AWinloss,dt.AComm,
+				dt.GrossWinloss,dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,0 AS Commission
 			FROM @MonthDate md
 				CROSS APPLY (
 					SELECT TOP (@n)
-						MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,
-						NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate
+						MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,AWinloss,AComm,
+						GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate
 					FROM dbo.rptAffCommission ac WITH (NOLOCK)
 					WHERE ac.MonthDate = md.MonthDate
 						AND ac.AffId = md.AffId
@@ -195,9 +204,11 @@ BEGIN
 				SELECT
 					MonthDate,
 					AffId,
-					SUM(ABS(PlatFormFee))	AS PlatFormFee,
-					SUM(OperationalFee)		AS OperationalFee,
-					SUM(BankingFee)			AS BankingFee
+					SUM(ABS(PlatFormFee))		AS PlatFormFee,
+					SUM(OperationalFee)			AS OperationalFee,
+					SUM(BankingFee)				AS BankingFee,
+					SUM(ExchangeWinlossShare)	AS ExchangeWinlossShare,
+					SUM(ExchangeCommShare)		AS ExchangeCommShare
 				FROM
 				(
 					SELECT
@@ -206,7 +217,9 @@ BEGIN
 						ad.GroupProductId,
 						SUM(CASE WHEN ad.DeductionId = 10 THEN ad.Amount ELSE 0 END) AS PlatFormFee,
 						SUM(CASE WHEN ad.DeductionId = 11 THEN ad.Amount ELSE 0 END) AS OperationalFee,
-						SUM(CASE WHEN ad.DeductionId = 12 THEN ad.Amount ELSE 0 END) AS BankingFee
+						SUM(CASE WHEN ad.DeductionId = 12 THEN ad.Amount ELSE 0 END) AS BankingFee,
+						SUM(CASE WHEN ad.DeductionId = 13 THEN ad.Amount ELSE 0 END) AS ExchangeWinlossShare,
+						SUM(CASE WHEN ad.DeductionId = 14 THEN ad.Amount ELSE 0 END) AS ExchangeCommShare
 					FROM @MonthDate md
 						CROSS APPLY dbo.rptAffDeduction ad WITH (NOLOCK)
 					WHERE md.MonthDate = ad.MonthDate AND md.AffId = ad.AffId
@@ -220,9 +233,11 @@ BEGIN
 					AffId
 			)
 			UPDATE d
-			SET d.PlatFormFee		= f.PlatFormFee,
-				d.OperationalFee	= f.OperationalFee,
-				d.BankingFee		= f.BankingFee
+			SET d.PlatFormFee			= f.PlatFormFee,
+				d.OperationalFee		= f.OperationalFee,
+				d.BankingFee			= f.BankingFee,
+				d.ExchangeWinlossShare	= f.ExchangeWinlossShare,
+				d.ExchangeCommShare		= f.ExchangeCommShare
 			FROM #AffCommission d
 				INNER JOIN CTE_Fees f ON d.MonthDate = f.MonthDate AND d.AffId = f.AffId
 			WHERE d.ProductId = 0
@@ -326,12 +341,12 @@ BEGIN
 		-- Total
 		INSERT INTO #AffCommission
 		(
-			MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,
-			NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission
+			MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,AWinloss,AComm,
+			GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission
 		)
 		SELECT
-			MonthDate,AffId,MAX(GroupId) AS GroupId,0 AS ProductId,SUM(ISNULL(Deposit, 0)),SUM(ISNULL(Withdrawal, 0)),SUM(ISNULL(Bonus, 0)),SUM(ISNULL(Turnover, 0)),SUM(ISNULL(Winloss, 0)),
-			SUM(ISNULL(NetWinloss, 0)),SUM(ISNULL(ActivePlayer, 0)),SUM(ISNULL(QualifiedMember, 0)),100 AS QMTurnover,AVG(ISNULL(CommissionRate, 0)),SUM(ISNULL(Commission, 0))
+			MonthDate,AffId,MAX(GroupId) AS GroupId,0 AS ProductId,SUM(ISNULL(Deposit, 0)),SUM(ISNULL(Withdrawal, 0)),SUM(ISNULL(Bonus, 0)),SUM(ISNULL(Turnover, 0)),SUM(ISNULL(Winloss, 0)),0 AS AWinloss,0 AS AComm,
+			0 AS GrossWinloss,SUM(ISNULL(NetWinloss, 0)),SUM(ISNULL(ActivePlayer, 0)),SUM(ISNULL(QualifiedMember, 0)),100 AS QMTurnover,AVG(ISNULL(CommissionRate, 0)),SUM(ISNULL(Commission, 0))
 		FROM @tempData
 		GROUP BY MonthDate, AffId
 	END
@@ -377,20 +392,25 @@ BEGIN
 			AffId,
 			GroupId,
 			ProductId,
-			SUM(Deposit) AS Deposit,
+			SUM(Deposit)	AS Deposit,
 			SUM(Withdrawal) AS Withdrawal,
-			SUM(Bonus) AS Bonus,
-			SUM(Turnover) AS Turnover,
-			SUM(Winloss) AS Winloss,
-			SUM(ISNULL(PlatFormFee, 0)) AS PlatFormFee,
-			SUM(ISNULL(OperationalFee, 0)) AS OperationalFee,
-			SUM(ISNULL(BankingFee, 0)) AS BankingFee,
-			SUM(NetWinloss),
-			SUM(ActivePlayer),
-			SUM(QualifiedMember),
-			SUM(QMTurnOver),
-			SUM(CommissionRate),
-			SUM(Commission)
+			SUM(Bonus)		AS Bonus,
+			SUM(Turnover)	AS Turnover,
+			SUM(Winloss)	AS Winloss,
+			SUM(AWinloss)	AS AWinloss,
+			SUM(AComm)		AS AComm,
+			SUM(ISNULL(PlatFormFee, 0))				AS PlatFormFee,
+			SUM(ISNULL(OperationalFee, 0))			AS OperationalFee,
+			SUM(ISNULL(BankingFee, 0))				AS BankingFee,
+			SUM(ISNULL(ExchangeWinlossShare, 0))	AS ExchangeWinlossShare,
+			SUM(ISNULL(ExchangeCommShare, 0))		AS ExchangeCommShare,
+			SUM(GrossWinloss)		AS GrossWinloss,
+			SUM(NetWinloss)			AS NetWinloss,
+			SUM(ActivePlayer)		AS ActivePlayer,
+			SUM(QualifiedMember)	AS QualifiedMember,
+			SUM(QMTurnOver)			AS QMTurnOver,
+			SUM(CommissionRate)		AS CommissionRate,
+			SUM(Commission)			AS Commission
 		FROM #AffCommission
 		GROUP BY
 			AffId,
@@ -409,9 +429,14 @@ BEGIN
 			Bonus,
 			Turnover,
 			Winloss,
-			ISNULL(PlatFormFee, 0) AS PlatFormFee,
-			ISNULL(OperationalFee, 0) AS OperationalFee,
-			ISNULL(BankingFee, 0) AS BankingFee,
+			AWinloss,
+			AComm,
+			ISNULL(PlatFormFee, 0)			AS PlatFormFee,
+			ISNULL(OperationalFee, 0)		AS OperationalFee,
+			ISNULL(BankingFee, 0)			AS BankingFee,
+			ISNULL(ExchangeWinlossShare, 0)	AS ExchangeWinlossShare,
+			ISNULL(ExchangeCommShare, 0)	AS ExchangeCommShare,
+			GrossWinloss,
 			NetWinloss,
 			ActivePlayer,
 			QualifiedMember,

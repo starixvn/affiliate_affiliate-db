@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-  
 ALTER PROCEDURE [dbo].[Task_Aff_Monthly_Commission]  
 	@MonthDate		SMALLDATETIME,
 	@IsForceUpdate	BIT = 0
@@ -15,6 +12,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20181201@Percy: Exclude closed affiliates [RedmineID: #104892]
+		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 */
 
 BEGIN
@@ -71,26 +69,31 @@ BEGIN
 	BEGIN
 		CREATE TABLE #TempCommission
 		(
-			MonthDate		SMALLDATETIME,
-			AffId			INT,
-			GroupId			INT,
-			ProductId		INT,
-			Deposit			MONEY,
-			Withdrawal		MONEY,
-			Bonus			MONEY,
-			Turnover		MONEY,
-			Winloss			MONEY,
+			MonthDate				SMALLDATETIME,
+			AffId					INT,
+			GroupId					INT,
+			ProductId				INT,
+			Deposit					MONEY,
+			Withdrawal				MONEY,
+			Bonus					MONEY,
+			Turnover				MONEY,
+			Winloss					MONEY,
+			AWinloss				MONEY,
+			AComm					MONEY,
 			-- Fees
-			PlatFormFee		MONEY,
-			OperationalFee	MONEY,
-			BankingFee		MONEY,
+			PlatFormFee				MONEY,
+			OperationalFee			MONEY,
+			BankingFee				MONEY,
+			ExchangeWinlossShare	MONEY,
+			ExchangeCommShare		MONEY,
 			-- Calculation
-			NetWinloss		MONEY,
-			ActivePlayer	INT,
-			QualifiedMember INT,
-			QMTurnover		MONEY,
-			CommissionRate	FLOAT,
-			Commission		MONEY
+			GrossWinloss			MONEY,
+			NetWinloss				MONEY,
+			ActivePlayer			INT,
+			QualifiedMember			INT,
+			QMTurnover				MONEY,
+			CommissionRate			FLOAT,
+			Commission				MONEY
 		)
 
 		-- Uncalculated Months
@@ -105,9 +108,14 @@ BEGIN
 			Bonus,
 			Turnover,
 			Winloss,
+			AWinloss,
+			AComm,
 			PlatFormFee,
 			OperationalFee,
 			BankingFee,
+			ExchangeWinlossShare,
+			ExchangeCommShare,
+			GrossWinloss,
 			NetWinloss,
 			ActivePlayer,
 			QualifiedMember,
@@ -155,6 +163,9 @@ BEGIN
 		Adjustment,
 		Turnover,
 		Winloss,
+		AWinloss,
+		AComm,
+		GrossWinloss,
 		NetWinloss,
 		QMTurnover,
 		ActivePlayer,
@@ -172,6 +183,9 @@ BEGIN
 		0 AS Adjustment,
 		Turnover,
 		Winloss,
+		AWinloss,
+		AComm,
+		GrossWinloss,
 		NetWinloss,
 		QMTurnover,
 		ActivePlayer,
@@ -196,7 +210,12 @@ BEGIN
 		tc.ProductId,
 		dsh.GroupProductId,
 		dsh.DeductionId,
-		CASE dsh.DeductionId WHEN 10 THEN tc.PlatFormFee WHEN 11 THEN tc.OperationalFee WHEN 12 THEN tc.BankingFee END AS Amount
+		CASE dsh.DeductionId	WHEN 10 THEN tc.PlatFormFee
+								WHEN 11 THEN tc.OperationalFee
+								WHEN 12 THEN tc.BankingFee
+								WHEN 13 THEN tc.ExchangeWinlossShare
+								WHEN 14 THEN tc.ExchangeCommShare
+								END AS Amount
 	FROM #TempCommission tc
 		INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON tc.MonthDate = dsh.MonthDate AND tc.GroupId = dsh.GroupId AND tc.ProductId = dsh.ProductId
 

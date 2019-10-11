@@ -1,7 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" viewers="" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_StatisticsSel] 
 	@AffID INT
 	,@MonthDate SMALLDATETIME
@@ -49,6 +46,7 @@ AS
 		- 20170525@Percy: Integrate Cash Out [RedmineID: #74874]
 		- 20180222@Percy: Change range of winlostdate when getting data [RedmineID: #90861]
 		- 20180601@Percy: Refactor code for new change [RedmineID: #87923]
+		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 
 	Param's Explanation:
 		• @AffID : Affiliate custid
@@ -82,26 +80,31 @@ BEGIN
 
 		CREATE TABLE #TempCommission
 		(
-			MonthDate		SMALLDATETIME,
-			AffId			INT,
-			GroupId			INT,
-			ProductId		INT,
-			Deposit			MONEY,
-			Withdrawal		MONEY,
-			Bonus			MONEY,
-			Turnover		MONEY,
-			Winloss			MONEY,
+			MonthDate				SMALLDATETIME,
+			AffId					INT,
+			GroupId					INT,
+			ProductId				INT,
+			Deposit					MONEY,
+			Withdrawal				MONEY,
+			Bonus					MONEY,
+			Turnover				MONEY,
+			Winloss					MONEY,
+			AWinloss				MONEY,
+			AComm					MONEY,
 			-- Fees
-			PlatFormFee		MONEY,
-			OperationalFee	MONEY,
-			BankingFee		MONEY,
+			PlatFormFee				MONEY,
+			OperationalFee			MONEY,
+			BankingFee				MONEY,
+			ExchangeWinlossShare	MONEY,
+			ExchangeCommShare		MONEY,
 			-- Calculation
-			NetWinloss		MONEY,
-			ActivePlayer	INT,
-			QualifiedMember INT,
-			QMTurnover		MONEY,
-			CommissionRate	FLOAT,
-			Commission		MONEY
+			GrossWinloss			MONEY,
+			NetWinloss				MONEY,
+			ActivePlayer			INT,
+			QualifiedMember			INT,
+			QMTurnover				MONEY,
+			CommissionRate			FLOAT,
+			Commission				MONEY
 		)
 
 		-- Uncalculated Months
@@ -122,9 +125,14 @@ BEGIN
 				Bonus,
 				Turnover,
 				Winloss,
+				AWinloss,
+				AComm,
 				PlatFormFee,
 				OperationalFee,
 				BankingFee,
+				ExchangeWinlossShare,
+				ExchangeCommShare,
+				GrossWinloss,
 				NetWinloss,
 				ActivePlayer,
 				QualifiedMember,
@@ -159,9 +167,14 @@ BEGIN
 				Bonus,
 				Turnover,
 				Winloss,
+				AWinloss,
+				AComm,
 				PlatFormFee,
 				OperationalFee,
 				BankingFee,
+				ExchangeWinlossShare,
+				ExchangeCommShare,
+				GrossWinloss,
 				NetWinloss,
 				ActivePlayer,
 				QualifiedMember,
