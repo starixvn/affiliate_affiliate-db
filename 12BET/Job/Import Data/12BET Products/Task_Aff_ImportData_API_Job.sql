@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Task_Aff_ImportData_API_Job]
 AS
 
@@ -15,6 +12,7 @@ AS
 		- 20181020@Percy: Add list of products in APIProduct_ImportQueue [RedmineID: #102]
 		- 20190117@Percy: Using core table for 3rd Products [RedmineID: #106503]
 		- 20190322@Percy: Missing break loop [RedmineID: #110638]
+		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 */
 
 BEGIN
@@ -70,10 +68,34 @@ BEGIN
 
 			SELECT @FromImportDate = CASE WHEN @LaunchDate > @MaxCommDate THEN @LaunchDate ELSE DATEADD(DAY, 1, @MaxCommDate) END
 
-			INSERT INTO @tblWinlostDate (WinlostDate, MaxQueueId)
-			SELECT WinlostDate, MAX(QueueId) FROM bodb_PlaytechCS.dbo.Product3rd_ImportQueue WITH (NOLOCK)
-			WHERE ProductId = @3rdProductId AND QueueId > @OldLastQueueId AND WinlostDate >= @FromImportDate
-			GROUP BY WinlostDate
+			IF @3rdProductId = 31 -- Exchange
+			BEGIN
+				;WITH CTE_WinlostDate AS
+				(
+					SELECT @FromImportDate AS WinlostDate
+					UNION ALL
+					SELECT DATEADD(DAY, 1, WinlostDate)
+					FROM CTE_WinlostDate
+					WHERE WinlostDate < DATEADD(DAY, -1, GETDATE())
+				)
+				,CTE_QueueId AS
+				(
+					SELECT MAX(QueueId) AS QueueId FROM bodb_PlaytechCS.dbo.Product3rd_ImportQueue WITH (NOLOCK)
+					WHERE ProductId = 31 AND FinishedTime IS NOT NULL
+				)
+				INSERT INTO @tblWinlostDate (WinlostDate, MaxQueueId)
+				SELECT WinlostDate, QueueId
+				FROM CTE_WinlostDate wld
+					CROSS JOIN CTE_QueueId q
+				OPTION (MAXRECURSION 0)
+			END
+			ELSE
+			BEGIN
+				INSERT INTO @tblWinlostDate (WinlostDate, MaxQueueId)
+				SELECT WinlostDate, MAX(QueueId) FROM bodb_PlaytechCS.dbo.Product3rd_ImportQueue WITH (NOLOCK)
+				WHERE ProductId = @3rdProductId AND QueueId > @OldLastQueueId AND WinlostDate >= @FromImportDate
+				GROUP BY WinlostDate
+			END
 
 			SELECT @NewLastQueueId = MAX(MaxQueueId) FROM @tblWinlostDate
 			SELECT @NewLastQueueId = ISNULL(@NewLastQueueId, @OldLastQueueId)
