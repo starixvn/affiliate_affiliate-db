@@ -9,7 +9,7 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
-		- 20191010@Percy: Clean old data (keep 3 months) [RedmineID: #121795]
+		- 20191010@Percy: Clean old data (keep 1 month) [RedmineID: #121795]
 */
 
 BEGIN
@@ -29,17 +29,17 @@ BEGIN
 
 	WHILE @ProductId IS NOT NULL
 	BEGIN
-		-- Clean old data (keep 3 months)
+		-- Clean old data (keep 1 month)
 		IF EXISTS (
 			SELECT 1 FROM dbo.APIProduct_ImportQueue WITH (NOLOCK)
-			WHERE ProductId = @ProductId AND WinlostDate < DATEADD(MONTH, -3, GETDATE())
+			WHERE ProductId = @ProductId AND WinlostDate < DATEADD(MONTH, -1, GETDATE())
 				AND FinishedTime IS NOT NULL
 		)
 		BEGIN
 			WHILE 1 = 1
 			BEGIN
 				DELETE TOP (2000) FROM dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
-				WHERE ProductId = @ProductId AND WinlostDate < DATEADD(MONTH, -3, GETDATE())
+				WHERE ProductId = @ProductId AND WinlostDate < DATEADD(MONTH, -1, GETDATE())
 					AND FinishedTime IS NOT NULL
 
 				IF @@ROWCOUNT < 2000
