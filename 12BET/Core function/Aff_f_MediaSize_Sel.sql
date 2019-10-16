@@ -163,5 +163,5 @@ RETURN
 			,('940x60', 143)
 			,('980x90', 144)
 			,('1000x120', 145)
-	) AS MediaSize (SizeId, Size)
+	) AS MediaSize (Size, SizeId)
 GO

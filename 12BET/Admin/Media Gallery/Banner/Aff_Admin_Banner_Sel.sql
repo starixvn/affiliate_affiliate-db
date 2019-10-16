@@ -6,8 +6,8 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Banner_Sel]
 	,@Currency		VARCHAR(50) = NULL
 	,@ImageType		VARCHAR(50) = NULL
 	,@Size			VARCHAR(50) = NULL
-	,@AffType		TINYINT
-	,@DeviceType	TINYINT
+	,@AffType		TINYINT = 0
+	,@DeviceType	TINYINT = 0
 	,@PageIndex		INT = 1
 	,@PageSize		INT = 50
 	,@NRows			INT = 0 OUTPUT
@@ -25,9 +25,15 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
+	DECLARE @tblCategory TABLE (Category VARCHAR(50))
+	INSERT INTO @tblCategory (Category)
+	SELECT @Category
+	UNION
+	SELECT Category FROM dbo.Aff_f_MediaCategory_Sel() WHERE ParentCategory = @Category
+	
 	IF @BannerId <> 0
 	BEGIN
-		SELECT BannerId, FileName, Category, Language, Currency, DeviceType, ImageType, Size
+		SELECT BannerId, FileName, Category, Language, Currency, DeviceType, ImageType, Size, AffType
 		FROM dbo.Banners_1 WITH (NOLOCK)
 		WHERE BannerId = @BannerId
 	END
@@ -38,8 +44,8 @@ BEGIN
 				,@RowEnd	= @RowStart + @PageSize - 1
 
 		SELECT @NRows = COUNT(1)
-		FROM dbo.Banners_1 WITH (NOLOCK)
-		WHERE (@Category IS NULL OR Category = @Category)
+		FROM dbo.Banners_1 b WITH (NOLOCK)
+		WHERE (@Category IS NULL OR EXISTS (SELECT 1 FROM @tblCategory t WHERE t.Category = b.Category))
 			AND (@Language IS NULL OR Language = @Language)
 			AND (@ImageType IS NULL OR ImageType = @ImageType)
 			AND (@Size IS NULL OR Size = @Size)
@@ -50,12 +56,12 @@ BEGIN
 		IF @NRows = 0
 			RETURN
 
-		SELECT BannerId, FileName, Category, Language, Currency, DeviceType, ImageType, Size
+		SELECT BannerId, FileName, Category, Language, Currency, DeviceType, ImageType, Size, AffType
 		FROM (
-			SELECT BannerId, FileName, Category, Language, Currency, DeviceType, ImageType, Size
+			SELECT BannerId, FileName, Category, Language, Currency, DeviceType, ImageType, Size, AffType
 				,ROW_NUMBER() OVER(ORDER BY BannerId DESC) AS RowNum
-			FROM dbo.Banners_1 WITH (NOLOCK)
-			WHERE (@Category IS NULL OR Category = @Category)
+			FROM dbo.Banners_1 b WITH (NOLOCK)
+			WHERE (@Category IS NULL OR EXISTS (SELECT 1 FROM @tblCategory t WHERE t.Category = b.Category))
 				AND (@Language IS NULL OR Language = @Language)
 				AND (@ImageType IS NULL OR ImageType = @ImageType)
 				AND (@Size IS NULL OR Size = @Size)

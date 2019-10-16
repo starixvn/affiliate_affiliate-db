@@ -64,16 +64,18 @@ BEGIN
 
 	BEGIN TRY
 		UPDATE dbo.News WITH (ROWLOCK)
-		SET Message_En  = @MsgEn
-			,Message_Cn = @MsgCn
-			,Message_Tw = @MsgTw
-			,Message_Es = @MsgEs
-			,Message_Th = @MsgTh
-			,Message_Id = @MsgId
-			,Message_Vi = @MsgVi
-			,Message_Kr = @MsgKr
-			,Message_Jp = @MsgJp
-			,Important  = @IsImportant
+		SET Message_En		= @MsgEn
+			,Message_Cn		= @MsgCn
+			,Message_Tw		= @MsgTw
+			,Message_Es		= @MsgEs
+			,Message_Th		= @MsgTh
+			,Message_Id		= @MsgId
+			,Message_Vi		= @MsgVi
+			,Message_Kr		= @MsgKr
+			,Message_Jp		= @MsgJp
+			,Important		= @IsImportant
+			,UpdatedBy		= @UserId
+			,UpdatedDate	= GETDATE()
 		WHERE MsgId = @MessageId
 	END TRY
 	BEGIN CATCH

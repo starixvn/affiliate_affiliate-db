@@ -50,10 +50,12 @@ BEGIN
 			,m.Message_Jp
 			,m.PostedDate
 			,m.Important
-			,m.Creator
-			,ISNULL(u.Username, '') AS CreatorName
+			,m.UpdatedDate
+			,ISNULL(c.Username, '') AS CreatorName
+			,ISNULL(u.Username, '') AS UpdatedName
 		FROM dbo.News m WITH (NOLOCK)
-			LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON m.Creator = u.custid
+			LEFT JOIN dbo.Affiliate_User c WITH (NOLOCK) ON m.Creator = c.custid
+			LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON m.UpdatedBy = u.custid
 		WHERE m.MsgID = @MessageId
 	END
 	ELSE
@@ -67,8 +69,8 @@ BEGIN
 		WHERE
 			(
 				@SearchById = 0
-				OR @SearchById = 1 AND Important = 1
-				OR @SearchById = 2 AND Important = 0
+				OR @SearchById = 1 AND Important = 0
+				OR @SearchById = 2 AND Important = 1
 			)
 			AND
 			(
@@ -81,7 +83,7 @@ BEGIN
 
 		SELECT
 			MessageId, Message_En, Message_Cn, Message_Tw, Message_Es, Message_Th, Message_Id
-			,Message_Vi, Message_Kr, Message_Jp, PostedDate, Important, Creator, CreatorName
+			,Message_Vi, Message_Kr, Message_Jp, PostedDate, Important, UpdatedDate, CreatorName, UpdatedName
 		FROM (
 			SELECT
 				m.MsgId AS MessageId
@@ -96,16 +98,18 @@ BEGIN
 				,m.Message_Jp
 				,m.PostedDate
 				,m.Important
-				,m.Creator
-				,ISNULL(u.Username, '') AS CreatorName
+				,m.UpdatedDate
+				,ISNULL(c.Username, '') AS CreatorName
+				,ISNULL(u.Username, '') AS UpdatedName
 				,ROW_NUMBER() OVER (ORDER BY m.MsgId DESC) AS RowNum
 			FROM dbo.News m WITH (NOLOCK)
-				LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON m.Creator = u.custid
+				LEFT JOIN dbo.Affiliate_User c WITH (NOLOCK) ON m.Creator = c.custid
+				LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON m.UpdatedBy = u.custid
 			WHERE
 				(
 					@SearchById = 0
-					OR @SearchById = 1 AND Important = 1
-					OR @SearchById = 2 AND Important = 0
+					OR @SearchById = 1 AND Important = 0
+					OR @SearchById = 2 AND Important = 1
 				)
 				AND
 				(

@@ -15,7 +15,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @SupportedCurrencies VARCHAR(10)
+	DECLARE @SupportedCurrencies VARCHAR(200)
 	SELECT  @SupportedCurrencies = SValue
 	FROM dbo.SystemSettings WITH (NOLOCK)
 	WHERE SName = 'AFF_SupportedCurrencies'
@@ -25,10 +25,10 @@ BEGIN
 		SELECT e.ExchangeId, MAX(e.UpdatedTime) AS UpdateTime
 		FROM dbo.Exchange e WITH (NOLOCK)
 			CROSS APPLY (
-				SELECT s.val FROM dbo.strSplit(@SupportedCurrencies, ';') s WHERE e.ExchangeID = s.val
+				SELECT s.val FROM dbo.strSplit(@SupportedCurrencies, ';') s WHERE e.Currency = s.val
 			) s
-		WHERE UpdatedTime <= @Date
-		GROUP BY ExchangeID
+		WHERE e.UpdatedTime <= @Date
+		GROUP BY e.ExchangeID
 	)
 	SELECT
 		e.ExchangeId, e.Currency, e.ActualRate2 AS ActualRate, e.BuyingRate2 AS BuyingRate

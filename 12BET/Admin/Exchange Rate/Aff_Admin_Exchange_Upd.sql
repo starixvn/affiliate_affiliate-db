@@ -48,8 +48,8 @@ BEGIN
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 	SELECT  @OldData = 'ExchangeId=' + ISNULL(CONVERT(VARCHAR(5), ExchangeId), '')
-					+ ',' + 'ActualRate2=' + ISNULL(ActualRate2, '')
-					+ ',' + 'BuyingRate2=' + ISNULL(BuyingRate2, '')
+					+ ',' + 'ActualRate2=' + ISNULL(CONVERT(VARCHAR(20), ActualRate2), '')
+					+ ',' + 'BuyingRate2=' + ISNULL(CONVERT(VARCHAR(20), BuyingRate2), '')
 	FROM dbo.Exchange_Current WITH (NOLOCK)
 	WHERE ExchangeId = @ExchangeId
 
@@ -126,8 +126,8 @@ BEGIN
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
 	SELECT  @NewData = 'ExchangeId=' + ISNULL(CONVERT(VARCHAR(5), ExchangeId), '')
-					+ ',' + 'ActualRate2=' + ISNULL(ActualRate2, '')
-					+ ',' + 'BuyingRate2=' + ISNULL(BuyingRate2, '')
+					+ ',' + 'ActualRate2=' + ISNULL(CONVERT(VARCHAR(20), ActualRate2), '')
+					+ ',' + 'BuyingRate2=' + ISNULL(CONVERT(VARCHAR(20), BuyingRate2), '')
 	FROM dbo.Exchange_Current WITH (NOLOCK)
 	WHERE ExchangeId = @ExchangeId
 

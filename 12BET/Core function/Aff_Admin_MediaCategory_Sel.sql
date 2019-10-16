@@ -15,7 +15,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT CategoryId, Category, ParentCategoryId
+	SELECT CategoryId, Category, ParentCategoryId, ParentCategory
 	FROM dbo.Aff_f_MediaCategory_Sel()
 	WHERE (@TypeId = 0 OR TypeId = @TypeId)
 	ORDER BY CategoryId

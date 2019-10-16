@@ -4,7 +4,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Text_Sel]
 	,@Category		VARCHAR(50) = NULL
 	,@Language		VARCHAR(50) = NULL
 	,@Currency		VARCHAR(50) = NULL
-	,@DeviceType	TINYINT
+	,@DeviceType	TINYINT = 0
 	,@PageIndex		INT = 1
 	,@PageSize		INT = 50
 	,@NRows			INT = 0 OUTPUT
