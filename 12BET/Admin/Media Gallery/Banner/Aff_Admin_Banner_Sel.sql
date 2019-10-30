@@ -45,7 +45,8 @@ BEGIN
 
 		SELECT @NRows = COUNT(1)
 		FROM dbo.Banners_1 b WITH (NOLOCK)
-		WHERE (@Category IS NULL OR EXISTS (SELECT 1 FROM @tblCategory t WHERE t.Category = b.Category))
+		WHERE ImageType <> 'Text'
+			AND (@Category IS NULL OR EXISTS (SELECT 1 FROM @tblCategory t WHERE t.Category = b.Category))
 			AND (@Language IS NULL OR Language = @Language)
 			AND (@ImageType IS NULL OR ImageType = @ImageType)
 			AND (@Size IS NULL OR Size = @Size)
@@ -61,7 +62,8 @@ BEGIN
 			SELECT BannerId, FileName, Category, Language, Currency, DeviceType, ImageType, Size, AffType
 				,ROW_NUMBER() OVER(ORDER BY BannerId DESC) AS RowNum
 			FROM dbo.Banners_1 b WITH (NOLOCK)
-			WHERE (@Category IS NULL OR EXISTS (SELECT 1 FROM @tblCategory t WHERE t.Category = b.Category))
+			WHERE ImageType <> 'Text'
+				AND (@Category IS NULL OR EXISTS (SELECT 1 FROM @tblCategory t WHERE t.Category = b.Category))
 				AND (@Language IS NULL OR Language = @Language)
 				AND (@ImageType IS NULL OR ImageType = @ImageType)
 				AND (@Size IS NULL OR Size = @Size)
