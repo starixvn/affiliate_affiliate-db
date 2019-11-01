@@ -16,6 +16,6 @@ BEGIN
 
 	SELECT CurrencyId, Currency
 	FROM dbo.Aff_f_MediaCurrency_Sel()
-	ORDER BY CurrencyId
+	ORDER BY Currency
 END
 GO

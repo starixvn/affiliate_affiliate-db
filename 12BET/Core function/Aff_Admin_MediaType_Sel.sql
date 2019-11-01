@@ -16,6 +16,6 @@ BEGIN
 
 	SELECT TypeId, Type
 	FROM dbo.Aff_f_MediaType_Sel()
-	ORDER BY TypeId
+	ORDER BY Type
 END
 GO

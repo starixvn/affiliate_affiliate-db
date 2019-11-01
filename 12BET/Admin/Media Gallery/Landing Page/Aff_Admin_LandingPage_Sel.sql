@@ -1,7 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_LandingPage_Sel]
 	@PageId SMALLINT = NULL
 AS
@@ -22,6 +19,6 @@ BEGIN
 	FROM dbo.LandingPage WITH (NOLOCK)
 	WHERE IsDeleted = 0
 		AND (@PageId IS NULL OR PageId = @PageId)
-	ORDER BY PageId
+	ORDER BY PageId ASC
 END
 GO

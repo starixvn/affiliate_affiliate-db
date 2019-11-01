@@ -14,12 +14,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT
-		a.DomainID
-		,a.DomainName
-		,b.Username AS Creator
-		,a.CreateDate
-		,ISNULL(a.IsSSL, 0) AS IsSSL
+	SELECT a.DomainID, a.DomainName, b.Username AS Creator, a.CreateDate, ISNULL(a.IsSSL, 0) AS IsSSL
 	FROM [12BetDomain] a WITH (NOLOCK)
 		INNER JOIN Affiliate_User b WITH (NOLOCK) ON a.Creator = b.CustId
 	WHERE IsDeleted = 0
