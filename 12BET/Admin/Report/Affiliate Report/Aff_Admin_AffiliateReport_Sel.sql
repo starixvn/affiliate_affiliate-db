@@ -529,7 +529,8 @@ BEGIN
 			WHERE mi.CreatedDate >= @FromDate AND mi.CreatedDate < DATEADD(DAY, 1, @ToDate)
 				AND NOT EXISTS (
 					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-					WHERE mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
+					WHERE mi.IBCCustID = mr.IBCCustID
+						AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
 				)
 			GROUP BY mi.AffId
 		) mi ON a.AffId = mi.AffId
