@@ -22,6 +22,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20181001@Percy: Support export excel [RedmineID: #102322]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
+		- 20191101@Percy: Fix wrong FDM value [RedmineID: #123134]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -363,7 +364,8 @@ BEGIN
 				AND mi.CreatedDate >= @FromDate AND mi.CreatedDate < DATEADD(DAY, 1, @ToDate)
 				AND NOT EXISTS (
 					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-					WHERE mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
+					WHERE mi.IBCCustID = mr.IBCCustID
+						AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
 				)
 			GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, mi.CreatedDate) + 1, 0))
 		) mi ON md.MonthDate = mi.MonthDate
@@ -406,7 +408,8 @@ BEGIN
 				AND mi.CreatedDate >= @FromDate AND mi.CreatedDate < DATEADD(DAY, 1, @ToDate)
 				AND NOT EXISTS (
 					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-					WHERE mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
+					WHERE mi.IBCCustID = mr.IBCCustID
+						AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
 				)
 			GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, mi.CreatedDate) + 1, 0))
 		) mi ON md.MonthDate = mi.MonthDate
