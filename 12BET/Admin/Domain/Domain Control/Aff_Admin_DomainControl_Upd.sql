@@ -39,9 +39,11 @@ BEGIN
 	SELECT  @OldData = 'AffDomainId=' + CONVERT(VARCHAR(10), AffDomainId)
 						+ ',12BetDomainId=' + CONVERT(VARCHAR(10), [12BetDomainId])
 						+ ',MarketId=' + ISNULL(MarketId, '')
+						+ ',Status=' + CONVERT(VARCHAR(2), Status)
 			,@NewData = 'AffDomainId=' + CONVERT(VARCHAR(10), @AffDomainId)
 						+ ',12BetDomainId=' + CONVERT(VARCHAR(10), @12BetDomainId)
 						+ ',MarketId=' + ISNULL(@MarketId, '')
+						+ ',Status=' + CONVERT(VARCHAR(2), @Status)
 	FROM dbo.AffDomainControl WITH (NOLOCK) WHERE Id = @DomainControlId AND IsDeleted = 0
 
 	IF @@ROWCOUNT = 0

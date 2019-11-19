@@ -19,8 +19,11 @@ BEGIN
 	IF @DomainControlId <> 0
 		SELECT
 			a.Id AS DomainControlId
+			,a.MarketId
 			,d.MarketName
+			,b.DomainId		AS AffDomainId
 			,b.DomainName	AS AffDomain
+			,c.DomainId		AS RedirectDomainId
 			,c.DomainName	AS RedirectDomain
 			,e.Username		AS Creator
 			,a.CreateDate	AS CreatedDate
@@ -35,8 +38,11 @@ BEGIN
 	ELSE
 		SELECT
 			a.Id AS DomainControlId
+			,a.MarketId
 			,d.MarketName
+			,b.DomainId		AS AffDomainId
 			,b.DomainName	AS AffDomain
+			,c.DomainId		AS RedirectDomainId
 			,c.DomainName	AS RedirectDomain
 			,e.Username		AS Creator
 			,a.CreateDate	AS CreatedDate
