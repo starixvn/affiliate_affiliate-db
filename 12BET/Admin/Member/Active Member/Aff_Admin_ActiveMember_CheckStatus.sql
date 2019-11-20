@@ -61,6 +61,7 @@ BEGIN
 					FROM OPENQUERY(DBDEPOSIT, ''SELECT Username, Firstname, Lastname
 												FROM Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
 												WHERE username IN (''''' + REPLACE(@Username, ',', ''''',''''') + ''''')
+													AND accstatus NOT IN (2, 9)
 												''
 									)'
 	BEGIN TRY
