@@ -10,6 +10,12 @@ ALTER PROCEDURE [dbo].[Aff_Admin_ChangePassword]
 AS
 
 /*
+	Created: 20191010@Percy
+	DB: DBAFF12BET.Affiliate_12BET
+	Task: Admin - User Password - Change password
+
+	Revisions:
+		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 */
 
 BEGIN
