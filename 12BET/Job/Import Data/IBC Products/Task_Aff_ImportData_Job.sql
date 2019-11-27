@@ -1,17 +1,15 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Task_Aff_ImportData_Job]
 AS
 
 /*
 	Created: 20180601@Percy
 	DB: DBAFF12BET.Affiliate_12BET
-	Task: Job - Import data of IBC's Products from bettrans (MoveBetsDay + 1 to yesterday)
+	Task: Job - Import data of IBC's Products from bettrans (MoveBetsDay + 1 to current date)
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20191127@Percy: Input job name into error message [RedmineID: #118992]
 */
 
 BEGIN 
@@ -29,7 +27,7 @@ BEGIN
 	SELECT @WinlostDate = DATEADD(DAY, 1, @MoveBetsDay)
 	SELECT @CurrentDate = CONVERT(DATE, GETDATE())
 
-	WHILE @WinlostDate < @CurrentDate
+	WHILE @WinlostDate <= @CurrentDate
 	BEGIN
 		SELECT @Retry = 1, @IsErr = 1
 		
@@ -43,8 +41,6 @@ BEGIN
 				BREAK
 			END TRY
 			BEGIN CATCH
-				PRINT 'Failed to generate data for MemberDaily/AffDaily/AffDailySummary on ' + CONVERT(VARCHAR(10), @WinlostDate, 112) + ' Retry times: ' + CONVERT(VARCHAR(10), @Retry)
-				
 				SELECT @Retry = @Retry + 1
 				
 				WAITFOR DELAY '000:00:05.280'
@@ -53,7 +49,7 @@ BEGIN
 
 		IF @IsErr = 1
 		BEGIN
-			SELECT @ErrMsg = 'Failed to generate data for MemberDaily/AffDaily/AffDailySummary on ' + CONVERT(VARCHAR(10), @WinlostDate, 112)
+			SELECT @ErrMsg = 'SQL Server Job System: ''Affiliate_12BET: Generate Data Daily'' failed on' + @@SERVERNAME
 			RAISERROR (@ErrMsg, 16, 1)
 		END
 
