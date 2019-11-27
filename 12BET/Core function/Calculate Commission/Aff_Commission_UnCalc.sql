@@ -37,8 +37,6 @@ BEGIN
 
 	-- Get data
 	BEGIN
-		DECLARE @FDate SMALLDATETIME, @TDate SMALLDATETIME
-		
 		CREATE TABLE #Data
 		(
 			MonthDate		SMALLDATETIME,
@@ -54,159 +52,45 @@ BEGIN
 			AComm			MONEY
 		)
 
-		CREATE CLUSTERED INDEX CIX_MonthDate ON #Data (MonthDate, AffId, IBCCustId, ProductId)
-
-		-- bettrans
-		IF @EndOfToMonthDate > @MoveBetsDay
-		BEGIN
-			SELECT	@FDate = CASE WHEN @BeginOfFromMonthDate <= @MoveBetsDay THEN DATEADD(DAY, 1, @MoveBetsDay) ELSE @BeginOfFromMonthDate END
-					,@TDate = @EndOfToMonthDate
-
-			CREATE TABLE #tmpBettrans
-			(
-				winlostdate	SMALLDATETIME
-				,custid		INT
-				,ProductId	INT
-				,Deposit	MONEY
-				,Withdrawal	MONEY
-				,Bonus		MONEY
-				,Adjustment	MONEY
-				,Turnover	MONEY
-				,Winloss	MONEY
-			)
-			
-			SELECT DISTINCT p.ProductId, s.bettype -- bet types of bet tickets
-			INTO #_bettype
-			FROM dbo.Products p WITH (NOLOCK)
-				INNER JOIN bodb02.dbo.Products ps WITH (NOLOCK) ON p.ProductPrefix = ps.ProductPrefix
-				INNER JOIN bodb02.dbo.SportBettypeMatrix s WITH (NOLOCK) ON ps.ProductID = s.ProductID
-			WHERE p.IsIBC = 1
-				AND p.Enabled = 1
-
-			UNION ALL -- bet types of transfer tickets
-			SELECT bt.ProductId, bt.Bettype
-			FROM (
-				VALUES
-					-- -1: Deposit
-					(-1, 22001),
-					-- -2: Withdrawal
-					(-2, 22002), (-2, 22003),
-					-- -3: Bonus
-					(-3, 22004), (-3, 22200),
-					-- -4: Adjustment
-					(-4, 21001), (-4, 21002), (-4, 21003), (-4, 21004), (-4, 21005),
-					(-4, 22005), (-4, 22201)
-			) AS bt (ProductId, Bettype)
-			
-			SELECT DISTINCT recommend
-			INTO #_recommend
-			FROM dbo.MemberInfo WITH (NOLOCK)
-			WHERE (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%' + CONVERT(VARCHAR(20), AffId) + '%')
-			
-			INSERT INTO #tmpBettrans (custid, winlostdate, ProductId, Deposit, Withdrawal, Bonus, Adjustment, Turnover, Winloss)
-			SELECT b.custid, b.winlostdate, CASE WHEN bt.ProductId < 0 THEN -1 ELSE bt.ProductId END AS ProductId
-				,SUM(CASE WHEN bt.ProductId = -1 THEN b.winlost-b.actual_stake		ELSE 0 END) AS Deposit
-				,SUM(CASE WHEN bt.ProductId = -2 THEN -(b.winlost-b.actual_stake)	ELSE 0 END) AS Withdrawal
-				,SUM(CASE WHEN bt.ProductId = -3 THEN b.winlost-b.actual_stake		ELSE 0 END) AS Bonus
-				,SUM(CASE WHEN bt.ProductId = -4 THEN b.winlost-b.actual_stake		ELSE 0 END) AS Adjustment
-				,SUM(CASE WHEN bt.ProductId > 0 AND b.bettype <> 911 THEN b.stake	ELSE 0 END) AS Turnover
-				,SUM(CASE WHEN bt.ProductId > 0 THEN b.winlost-b.actual_stake+b.playercomm ELSE 0 END) AS Winloss
-			FROM bodb02.dbo.bettrans b WITH (NOLOCK)
-				INNER JOIN #_recommend r ON b.recommend = r.recommend
-				INNER JOIN #_bettype bt ON b.bettype = bt.bettype
-			WHERE b.winlostdate BETWEEN @FDate AND @TDate
-				AND b.statusID NOT IN (0, 1, 101, 102, 103)
-			GROUP BY b.custid, b.winlostdate, CASE WHEN bt.ProductId < 0 THEN -1 ELSE bt.ProductId END
-
-			INSERT INTO #Data
-			(
-				MonthDate,
-				AffId,
-				IBCCustId,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Turnover,
-				Winloss,
-				AWinloss,
-				AComm
-			)
-			SELECT
-				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, b.winlostdate) + 1, 0)) AS MonthDate
-				,mi.AffId
-				,mi.IBCCustId
-				,b.ProductId
-				,SUM(ISNULL(b.Deposit, 0)		* ISNULL(e.ActualRate2, 1)) AS Deposit
-				,SUM(ISNULL(b.Withdrawal, 0)	* ISNULL(e.ActualRate2, 1)) AS Withdrawal
-				,SUM(ISNULL(b.Bonus, 0)			* ISNULL(e.ActualRate2, 1)) AS Bonus
-				,SUM(ISNULL(b.Turnover, 0)		* ISNULL(e.ActualRate2, 1)) AS Turnover
-				,SUM(ISNULL(b.Winloss, 0)		* ISNULL(e.ActualRate2, 1)) AS Winloss
-				,0 AS AWinloss
-				,0 AS AComm
-			FROM #tmpBettrans b
-				INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON b.custid = mi.IBCCustID
-				CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(mi.currency, b.winlostdate) e
-			WHERE (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%' + CONVERT(VARCHAR(20), AffId) + '%')
-				AND NOT EXISTS (
-					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-					WHERE mr.RemovedDate < DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, b.WinlostDate) + 1, 0))
-						AND mr.IBCCustId = mi.IBCCustId
-					)
-			GROUP BY
-				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, b.winlostdate) + 1, 0))
-				,mi.AffId
-				,mi.IBCCustId
-				,b.ProductId
-
-			DROP TABLE #_bettype
-			DROP TABLE #_recommend
-			DROP TABLE #tmpBettrans
-		END
-
-		-- rptMemberDaily
-		BEGIN
-			INSERT INTO #Data
-			(
-				MonthDate,
-				AffId,
-				IBCCustId,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Turnover,
-				Winloss,
-				AWinloss,
-				AComm
-			)
-			SELECT
-				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate
-				,md.AffId
-				,md.IBCCustId
-				,md.ProductId
-				,SUM(ISNULL(md.Deposit, 0)		* ISNULL(md.AffExRate, 1)) AS Deposit
-				,SUM(ISNULL(md.Withdrawal, 0)	* ISNULL(md.AffExRate, 1)) AS Withdrawal
-				,SUM(ISNULL(md.Bonus, 0)		* ISNULL(md.AffExRate, 1)) AS Bonus
-				,SUM(ISNULL(md.Turnover, 0)		* ISNULL(md.AffExRate, 1)) AS Turnover
-				,SUM(ISNULL(md.Winloss, 0)		* ISNULL(md.AffExRate, 1)) AS Winloss
-				,SUM(ISNULL(md.AWinloss, 0)		* ISNULL(md.AffExRate, 1)) AS AWinloss
-				,SUM(ISNULL(md.AComm, 0)		* ISNULL(md.AffExRate, 1)) AS AComm
-			FROM dbo.rptMemberDaily md WITH (NOLOCK)
-				CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 0, md.WinlostDate, @MoveBetsDay) f
-			WHERE (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%' + CONVERT(VARCHAR(20), md.AffId) + '%')
-				AND md.winlostdate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
-				AND NOT EXISTS (
-					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-					WHERE mr.RemovedDate < DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
-						AND mr.IBCCustId = md.IBCCustId
-					)
-			GROUP BY
-				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
-				,md.AffId
-				,md.IBCCustId
-				,md.ProductId
-		END
+		INSERT INTO #Data
+		(
+			MonthDate,
+			AffId,
+			IBCCustId,
+			ProductId,
+			Deposit,
+			Withdrawal,
+			Bonus,
+			Turnover,
+			Winloss,
+			AWinloss,
+			AComm
+		)
+		SELECT
+			DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate
+			,md.AffId
+			,md.IBCCustId
+			,md.ProductId
+			,SUM(ISNULL(md.Deposit, 0)		* ISNULL(md.AffExRate, 1)) AS Deposit
+			,SUM(ISNULL(md.Withdrawal, 0)	* ISNULL(md.AffExRate, 1)) AS Withdrawal
+			,SUM(ISNULL(md.Bonus, 0)		* ISNULL(md.AffExRate, 1)) AS Bonus
+			,SUM(ISNULL(md.Turnover, 0)		* ISNULL(md.AffExRate, 1)) AS Turnover
+			,SUM(ISNULL(md.Winloss, 0)		* ISNULL(md.AffExRate, 1)) AS Winloss
+			,SUM(ISNULL(md.AWinloss, 0)		* ISNULL(md.AffExRate, 1)) AS AWinloss
+			,SUM(ISNULL(md.AComm, 0)		* ISNULL(md.AffExRate, 1)) AS AComm
+		FROM dbo.rptMemberDaily md WITH (NOLOCK)
+		WHERE (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%' + CONVERT(VARCHAR(20), md.AffId) + '%')
+			AND md.winlostdate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE mr.RemovedDate < DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
+					AND mr.IBCCustId = md.IBCCustId
+				)
+		GROUP BY
+			DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
+			,md.AffId
+			,md.IBCCustId
+			,md.ProductId
 	END
 
 	-- Setting
