@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102399]
+		- 20191127@Percy: Sort by newest landing page [RedmineID: #118992]
 */
 
 BEGIN
@@ -19,6 +20,6 @@ BEGIN
 	FROM dbo.LandingPage WITH (NOLOCK)
 	WHERE IsDeleted = 0
 		AND (@PageId IS NULL OR PageId = @PageId)
-	ORDER BY PageId ASC
+	ORDER BY PageId DESC
 END
 GO

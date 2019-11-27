@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Aff_Admin_Member_Sel]
 	@AffId		INT,
 	@MemberType	SMALLINT = 0,
@@ -20,6 +17,7 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
+		- 20191127@Percy: Sort by Registered Date Descending [RedmineID: #118992]
 	
 	Param's Explanation:
 		@MemberType:
@@ -103,7 +101,7 @@ BEGIN
 	FROM
 	(
 		SELECT mi.IBCCustId, mi.UserName, mi.FirstName, mi.LastName, mi.Email, e.Currency, mi.RegisteredDate,
-			ROW_NUMBER() OVER(ORDER BY mi.RegisteredDate) AS RowNum
+			ROW_NUMBER() OVER(ORDER BY mi.RegisteredDate DESC) AS RowNum
 		FROM #MemberInfo mi
 			LEFT JOIN dbo.Exchange_Current e WITH (NOLOCK) ON mi.Currency = e.ExchangeID
 	) AS result
