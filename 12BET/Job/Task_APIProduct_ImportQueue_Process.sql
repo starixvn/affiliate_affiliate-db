@@ -158,8 +158,6 @@ BEGIN
 						ON t.winlostdate = r.winlostdate AND t.IBCCustId = r.IBCCustId AND t.ProductId = r.ProductId
 							AND r.ProductId IN (-3, 3) AND r.winlostdate IN (SELECT DISTINCT ExchangeDate FROM @Exchange)
 
-				DROP TABLE #__tmp
-
 				SELECT @WinlostDate = MIN(WinlostDate) FROM #__Data
 
 				-- Delete
