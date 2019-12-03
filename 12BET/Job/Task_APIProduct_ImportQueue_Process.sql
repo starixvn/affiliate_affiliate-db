@@ -25,7 +25,7 @@ BEGIN
 
 	DECLARE @QueueId BIGINT, @XmlData XML, @WinlostDate SMALLDATETIME, @LastQueueId BIGINT
 
-	CREATE TABLE #PTCS (winlostdate SMALLDATETIME, UserName NVARCHAR(30), Currency NVARCHAR(50), Turnover MONEY, Winlost MONEY, Deposit MONEY, Bonus MONEY, PShare MONEY, PWin MONEY, WinlostPShare MONEY)
+	CREATE TABLE #PTCS (winlostdate SMALLDATETIME, UserName NVARCHAR(50), Turnover MONEY, Winlost MONEY, Deposit MONEY, Bonus MONEY, PShare MONEY, PWin MONEY, WinlostPShare MONEY)
 	CREATE TABLE #Ebet (Username NVARCHAR(50), BetHistoryId NVARCHAR(100), Bet MONEY, Payout MONEY, CreateTime DATETIME, PayoutTime DATETIME)
 	CREATE TABLE #Betsoft (Username NVARCHAR(50), GameSessionId BIGINT, GameId INT, PlatForm VARCHAR(50), BetId INT, Amount MONEY, Win MONEY, BetTime DATETIME, StartDate DATETIME, EndDate DATETIME)
 	CREATE TABLE #Crystal (operationCode BIGINT, userId VARCHAR(50), changeTime DATETIME, changeType VARCHAR(20), gameName VARCHAR(200), fround SMALLINT, bet MONEY, ret MONEY, changes MONEY, endBalance MONEY, operator VARCHAR(50), jcon MONEY, jwin MONEY, platform TINYINT, gametype SMALLINT, ver VARCHAR(20))
@@ -75,28 +75,28 @@ BEGIN
 			CREATE TABLE #__tmp (winlostdate SMALLDATETIME, IBCCustID INT, Currency INT, Deposit MONEY, Bonus MONEY, Turnover MONEY, Winlost MONEY, ExRate FLOAT, AffExRate FLOAT, AffId INT)
 
 			BEGIN TRY
-				INSERT INTO #PTCS (winlostdate, UserName, Currency, Turnover, Winlost, Deposit, Bonus, PShare, PWin, WinlostPShare)
+				INSERT INTO #PTCS (winlostdate, UserName, Turnover, Winlost, Deposit, Bonus, PShare, PWin, WinlostPShare)
 				SELECT	winlostdate
-						,CASE WHEN Currency IN ('IDR', 'INH', 'VND') THEN RIGHT(UserName, LEN(UserName) - 2) ELSE UserName END -- remove x_username
-						,Currency
-						,Turnover / CASE WHEN Currency IN ('IDR', 'INH', 'VND') THEN 1000.0 ELSE 1.0 END
-						,(WinlostPShare - PShare) / CASE WHEN Currency IN ('IDR', 'INH', 'VND') THEN 1000.0 ELSE 1.0 END AS Winlost
-						,Deposit / CASE WHEN Currency IN ('IDR', 'INH', 'VND') THEN 1000.0 ELSE 1.0 END
-						,Bonus / CASE WHEN Currency IN ('IDR', 'INH', 'VND') THEN 1000.0 ELSE 1.0 END
-						,PShare / CASE WHEN Currency IN ('IDR', 'INH', 'VND') THEN 1000.0 ELSE 1.0 END
-						,PWin / CASE WHEN Currency IN ('IDR', 'INH', 'VND') THEN 1000.0 ELSE 1.0 END
-						,WinlostPShare / CASE WHEN Currency IN ('IDR', 'INH', 'VND') THEN 1000.0 ELSE 1.0 END
+						,CASE WHEN UserName LIKE 'x[_]%' THEN RIGHT(UserName, LEN(UserName) - 2) ELSE UserName END -- remove x_username
+						,Turnover / Div
+						,(WinlostPShare - PShare) / Div AS Winlost
+						,Deposit / Div
+						,Bonus / Div
+						,PShare / Div
+						,PWin / Div
+						,WinlostPShare / Div
 				FROM (
 					SELECT	t.c.value('@date', 'SMALLDATETIME') AS winlostdate,
 							t.c.value('@username', 'VARCHAR(200)') AS UserName,
-							t.c.value('@currency', 'VARCHAR(50)') AS Currency,
-							t.c.value('@turnover', 'FLOAT') AS Turnover,
-							t.c.value('@deposit', 'FLOAT') AS Deposit,
-							t.c.value('@bonus', 'FLOAT') AS Bonus,
-							t.c.value('@progressiveshare', 'FLOAT') AS PShare,
-							t.c.value('@progressivewin', 'FLOAT') AS PWin,
-							t.c.value('@winlostaff', 'FLOAT') AS WinlostPShare
+							t.c.value('@turnover', 'MONEY') AS Turnover,
+							t.c.value('@deposit', 'MONEY') AS Deposit,
+							t.c.value('@bonus', 'MONEY') AS Bonus,
+							t.c.value('@progressiveshare', 'MONEY') AS PShare,
+							t.c.value('@progressivewin', 'MONEY') AS PWin,
+							t.c.value('@winlostaff', 'MONEY') AS WinlostPShare,
+							CONVERT(MONEY, a.Div) AS Div
 					FROM @XmlData.nodes('/root/trans') AS t(c)
+						CROSS APPLY (SELECT CASE WHEN t.c.value('@username', 'VARCHAR(200)') LIKE 'x[_]%' THEN 1000.0 ELSE 1.0 END AS Div) a
 				) AS t
 				OPTION (OPTIMIZE FOR (@XmlData = NULL))
 			END TRY
@@ -418,5 +418,6 @@ BEGIN
 	DROP TABLE #Crystal
 	DROP TABLE #iSoftbet
 	DROP TABLE #OPUS
+	DROP TABLE #PTCS
 END
 GO
