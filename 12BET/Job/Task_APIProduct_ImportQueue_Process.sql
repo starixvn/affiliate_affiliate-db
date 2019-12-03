@@ -99,77 +99,130 @@ BEGIN
 						CROSS APPLY (SELECT CASE WHEN t.c.value('@username', 'VARCHAR(200)') LIKE 'x[_]%' THEN 1000.0 ELSE 1.0 END AS Div) a
 				) AS t
 				OPTION (OPTIMIZE FOR (@XmlData = NULL))
+
+				INSERT INTO @tmpWinlostDate (winlostdate)
+				SELECT DISTINCT winlostdate FROM #PTCS
+
+				INSERT INTO @Exchange (ExchangeDate, ExchangeId, Currency, ExRate, AffExRate)
+				SELECT ex1.winlostdate, ex.ExchangeId, ex.Currency, ex.ActualRate AS ExRate, ex.ActualRate2 AS AffExRate
+				FROM dbo.Exchange ex WITH (NOLOCK)
+					INNER JOIN
+					(
+						SELECT w.winlostdate, e.ExchangeId, MAX(e.UpdatedTime) AS UpdatedTime
+						FROM dbo.Exchange e WITH (NOLOCK)
+							INNER JOIN @tmpWinlostdate w ON e.UpdatedTime <= w.winlostdate
+						GROUP BY w.winlostdate, e.ExchangeId
+					) ex1 ON ex.ExchangeId = ex1.ExchangeId AND ex.UpdatedTime = ex1.UpdatedTime
+
+				INSERT INTO #__tmp (winlostdate, IBCCustID, Currency, Deposit, Bonus, Turnover, Winlost, ExRate, AffExRate, AffId)
+				SELECT d.winlostdate, d.IBCCustID, d.Currency, d.Deposit, d.Bonus, d.Turnover, -d.Winlost, ex.ExRate, ex.AffExRate, d.AffId
+				FROM (
+					SELECT t.winlostdate, mi.IBCCustID, mi.Currency, mi.AffId, SUM(Deposit) Deposit, SUM(Bonus) Bonus, SUM(Turnover) Turnover, SUM(Winlost) Winlost
+					FROM #PTCS t
+						INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON '12BET$' + t.Username = mi.Username
+						INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId AND winlostdate >= ai.CasinoJoinedDate
+						LEFT JOIN dbo.MemberRemoval mr WITH (NOLOCK) ON mi.IBCCustID = mr.IBCCustID
+					WHERE ai.CasinoJoinedDate IS NOT NULL
+						AND mi.CreatedDate IS NOT NULL
+						AND DATEDIFF(DAY, mi.CreatedDate, winlostdate) >= 0
+						AND (
+							mr.IBCCustID IS NULL
+							OR DATEDIFF(MONTH, mr.RemovedDate, winlostdate) < 0
+						)
+					GROUP BY t.winlostdate, mi.IBCCustID, mi.Currency, mi.AffId
+				) AS d
+					INNER JOIN @Exchange ex ON d.Currency = ex.ExchangeID AND d.winlostdate = ex.ExchangeDate
+
+				-- Check data
+				SELECT
+					CASE	WHEN t.winlostdate IS NULL THEN -1 -- delete
+							WHEN r.winlostdate IS NULL THEN 1 -- insert
+							ELSE 0 END AS ModifiedType-- update
+					,ISNULL(t.winlostdate, r.winlostdate) AS winlostdate
+					,ISNULL(t.IBCCustId, r.IBCCustId) AS IBCCustId
+					,ISNULL(t.ProductId, r.ProductId) AS ProductId
+					,t.AffId, t.Currency, t.AffExRate, t.ExRate, t.Bonus, t.Turnover, t.Winloss
+				INTO #__Data
+				FROM (
+					SELECT t1.WinlostDate, t1.IBCCustID, t1.AffId, t2.ProductId, t1.Currency, t1.AffExRate, t1.ExRate, t2.Bonus, t2.Turnover, t2.Winloss
+					FROM #__tmp t1
+						CROSS APPLY (
+							SELECT 3 AS ProductId, 0 AS Bonus, Turnover, Winlost AS Winloss
+							WHERE Turnover <> 0 OR Winlost <> 0
+							UNION ALL
+							SELECT -3 AS ProductId, Bonus, 0 AS Turnover, 0 AS Winloss
+							WHERE Bonus <> 0
+						) AS t2
+				) AS t
+					FULL OUTER JOIN dbo.rptMemberDaily r WITH (NOLOCK)
+						ON t.winlostdate = r.winlostdate AND t.IBCCustId = r.IBCCustId AND t.ProductId = r.ProductId
+							AND r.ProductId IN (-3, 3) AND r.winlostdate IN (SELECT DISTINCT ExchangeDate FROM @Exchange)
+
+				DROP TABLE #__tmp
+
+				SELECT @WinlostDate = MIN(WinlostDate) FROM #__Data
+
+				-- Delete
+				IF EXISTS (SELECT 1 FROM #__Data WHERE ModifiedType = -1)
+				BEGIN
+					DELETE r WITH (ROWLOCK, UPDLOCK)
+					FROM dbo.rptMemberDaily r
+						INNER JOIN #__Data d ON d.winlostdate = r.winlostdate AND d.IBCCustId = r.IBCCustId AND d.ProductId = r.ProductId
+					WHERE d.ModifiedType = -1
+
+					DELETE #__Data WHERE ModifiedType = -1
+				END
+				
+				-- Insert
+				IF EXISTS (SELECT 1 FROM #__Data WHERE ModifiedType = 1)
+				BEGIN
+					DELETE #__Data
+					OUTPUT DELETED.WinlostDate,DELETED.AffId,DELETED.IBCCustId,DELETED.ProductId
+							,0 Deposit,0 Withdrawal,DELETED.Bonus,0 Adjustment,DELETED.Turnover,DELETED.Winloss
+							,DELETED.Currency,DELETED.ExRate,DELETED.AffExRate,0 AWinloss,0 AComm
+					INTO dbo.rptMemberDaily(WinlostDate,AffId,IBCCustId,ProductId,Deposit,Withdrawal,Bonus,Adjustment,Turnover,Winloss,Currency,ExRate,AffExRate,AWinloss,AComm)
+					WHERE ModifiedType = 1
+				END
+
+				-- Update
+				IF EXISTS (SELECT 1 FROM #__Data WHERE ModifiedType = 0)
+				BEGIN
+					UPDATE r WITH (ROWLOCK)
+					SET r.AffId = d.AffId
+						,r.Deposit = 0
+						,r.Withdrawal = 0
+						,r.Bonus = d.Bonus
+						,r.Adjustment = 0
+						,r.Turnover = d.Turnover
+						,r.Winloss = d.Winloss
+						,r.Currency = d.Currency
+						,r.ExRate = d.ExRate
+						,r.AffExRate = d.AffExRate
+						,r.AWinloss = 0
+						,r.AComm = 0
+					FROM dbo.rptMemberDaily r
+						INNER JOIN #__Data d ON d.winlostdate = r.winlostdate AND d.IBCCustId = r.IBCCustId AND d.ProductId = r.ProductId
+					WHERE d.ModifiedType = 0
+						AND (
+							r.AffId <> d.AffId
+							OR r.Bonus <> d.Bonus
+							OR r.Turnover <> d.Turnover
+							OR r.Winloss <> d.Winloss
+							OR r.Currency <> d.Currency
+							OR r.ExRate <> d.ExRate
+							OR r.AffExRate <> d.AffExRate
+						)
+				END
+
+				DROP TABLE #__Data
+
+				SELECT @IsErr = 0
 			END TRY
 			BEGIN CATCH
 				UPDATE dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
 				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
 				WHERE QueueId = @QueueId
 			END CATCH
-
-			INSERT INTO @tmpWinlostDate (winlostdate)
-			SELECT DISTINCT winlostdate FROM #PTCS
-
-			INSERT INTO @Exchange (ExchangeDate, ExchangeId, Currency, ExRate, AffExRate)
-			SELECT ex1.winlostdate, ex.ExchangeId, ex.Currency, ex.ActualRate AS ExRate, ex.ActualRate2 AS AffExRate
-			FROM dbo.Exchange ex WITH (NOLOCK)
-				INNER JOIN
-				(
-					SELECT w.winlostdate, e.ExchangeId, MAX(e.UpdatedTime) AS UpdatedTime
-					FROM dbo.Exchange e WITH (NOLOCK)
-						INNER JOIN @tmpWinlostdate w ON e.UpdatedTime <= w.winlostdate
-					GROUP BY w.winlostdate, e.ExchangeId
-				) ex1 ON ex.ExchangeId = ex1.ExchangeId AND ex.UpdatedTime = ex1.UpdatedTime
-
-			INSERT INTO #__tmp (winlostdate, IBCCustID, Currency, Deposit, Bonus, Turnover, Winlost, ExRate, AffExRate, AffId)
-			SELECT d.winlostdate, d.IBCCustID, d.Currency, d.Deposit, d.Bonus, d.Turnover, -d.Winlost, ex.ExRate, ex.AffExRate, d.AffId
-			FROM (
-				SELECT t.winlostdate, mi.IBCCustID, mi.Currency, mi.AffId, SUM(Deposit) Deposit, SUM(Bonus) Bonus, SUM(Turnover) Turnover, SUM(Winlost) Winlost
-				FROM #PTCS t
-					INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON '12BET$' + t.Username = mi.Username
-					INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId AND winlostdate >= ai.CasinoJoinedDate
-					LEFT JOIN dbo.MemberRemoval mr WITH (NOLOCK) ON mi.IBCCustID = mr.IBCCustID
-				WHERE ai.CasinoJoinedDate IS NOT NULL
-					AND mi.CreatedDate IS NOT NULL
-					AND DATEDIFF(DAY, mi.CreatedDate, winlostdate) >= 0
-					AND (
-						mr.IBCCustID IS NULL
-						OR DATEDIFF(MONTH, mr.RemovedDate, winlostdate) < 0
-					)
-				GROUP BY t.winlostdate, mi.IBCCustID, mi.Currency, mi.AffId
-			) AS d
-				INNER JOIN @Exchange ex ON d.Currency = ex.ExchangeID AND d.winlostdate = ex.ExchangeDate
-
-			;MERGE dbo.rptMemberDaily AS TARGET
-			USING
-			(
-				SELECT t1.WinlostDate, t1.IBCCustID, t1.AffId, t2.ProductId, t1.Currency, t1.AffExRate, t1.ExRate, t2.Bonus, t2.Turnover, t2.Winloss
-				FROM #__tmp t1
-					CROSS APPLY (
-						SELECT 3 AS ProductId, 0 AS Bonus, Turnover, Winlost AS Winloss
-						UNION ALL
-						SELECT -3 AS ProductId, Bonus, 0 AS Turnover, 0 AS Winloss
-					) AS t2
-			) AS SOURCE
-				ON		TARGET.winlostdate	= SOURCE.winlostdate
-					AND TARGET.IBCCustID	= SOURCE.IBCCustID
-					AND TARGET.ProductId	= SOURCE.ProductId
-			WHEN MATCHED THEN UPDATE
-				SET TARGET.AffId		= SOURCE.AffId,
-					TARGET.Currency		= SOURCE.Currency,
-					TARGET.AffExRate	= SOURCE.AffExRate,
-					TARGET.ExRate		= SOURCE.ExRate,
-					TARGET.Bonus		= SOURCE.Bonus,
-					TARGET.Turnover		= SOURCE.Turnover,
-					TARGET.Winloss		= SOURCE.Winloss,
-					TARGET.Deposit		= 0,
-					TARGET.Withdrawal	= 0,
-					TARGET.Adjustment	= 0,
-					TARGET.AWinloss		= 0,
-					TARGET.AComm		= 0
-			WHEN NOT MATCHED BY TARGET THEN INSERT
-				(WinlostDate,AffId,IBCCustId,ProductId,Deposit,Withdrawal,Bonus,Adjustment,Turnover,Winloss,Currency,ExRate,AffExRate,AWinloss,AComm)
-				VALUES (WinlostDate,AffId,IBCCustId,ProductId,0,0,Bonus,0,Turnover,Winloss,Currency,ExRate,AffExRate,0,0)
-			WHEN NOT MATCHED BY SOURCE AND TARGET.ProductId IN (3, -3) AND TARGET.winlostdate IN (SELECT ExchangeDate FROM @Exchange) THEN DELETE;
 
 			DROP TABLE #__tmp
 		END
