@@ -1,7 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="" isFunction="0" isNested="1"></info>*/
-USE [Affiliate_12BET]
-GO
-
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Task_APIProduct_ImportQueue_Process]
 	@ProductId		INT,
 	@QueueIdInput	INT = 0, -- manually import
@@ -20,6 +17,7 @@ AS
 		- 20190128@Percy: Betsoft - Change way to get winlostdate [RedmineID: #107979]
 		- 20190328@Percy: Betsoft - Remove convert time zone [RedmineID: #110638]
 		- 20190520@Percy: Ebet - Change way to get winlostdate: PayoutTime to CreateTime [RedmineID: #110638]
+		- 20191130@Percy: Add Playtech Casino [RedmineID: #124784]
 */
 
 BEGIN
@@ -27,11 +25,15 @@ BEGIN
 
 	DECLARE @QueueId BIGINT, @XmlData XML, @WinlostDate SMALLDATETIME, @LastQueueId BIGINT
 
+	CREATE TABLE #PTCS (winlostdate SMALLDATETIME, UserName NVARCHAR(30), Currency NVARCHAR(50), Turnover MONEY, Winlost MONEY, Deposit MONEY, Bonus MONEY, PShare MONEY, PWin MONEY, WinlostPShare MONEY)
 	CREATE TABLE #Ebet (Username NVARCHAR(50), BetHistoryId NVARCHAR(100), Bet MONEY, Payout MONEY, CreateTime DATETIME, PayoutTime DATETIME)
 	CREATE TABLE #Betsoft (Username NVARCHAR(50), GameSessionId BIGINT, GameId INT, PlatForm VARCHAR(50), BetId INT, Amount MONEY, Win MONEY, BetTime DATETIME, StartDate DATETIME, EndDate DATETIME)
 	CREATE TABLE #Crystal (operationCode BIGINT, userId VARCHAR(50), changeTime DATETIME, changeType VARCHAR(20), gameName VARCHAR(200), fround SMALLINT, bet MONEY, ret MONEY, changes MONEY, endBalance MONEY, operator VARCHAR(50), jcon MONEY, jwin MONEY, platform TINYINT, gametype SMALLINT, ver VARCHAR(20))
 	CREATE TABLE #iSoftbet (PLAYERID VARCHAR(50), CURRENCY VARCHAR(5), SESSIONID VARCHAR(100), GAMEID VARCHAR(10), ROUNDID VARCHAR(100), TRANSACTIONID VARCHAR(100), TYPE VARCHAR(50), TIME DATETIME, AMOUNT MONEY)
 	CREATE TABLE #OPUS (transaction_id BIGINT, transaction_date_time DATETIME, member_code VARCHAR(30), member_type VARCHAR(10), currency VARCHAR(5), balance_start MONEY, balance_end MONEY, bet MONEY, win MONEY, game_code VARCHAR(5), game_detail VARCHAR(300), bet_status VARCHAR(10), player_hand NVARCHAR(4000), game_result VARCHAR(500), game_category VARCHAR(10), vendor VARCHAR(20), DrawNumber INT, m88_studio VARCHAR(5), stamp_date DATETIME, bet_record_id VARCHAR(10))
+
+	DECLARE @Exchange TABLE (ExchangeDate SMALLDATETIME, ExchangeId INT, Currency NVARCHAR(50), ExRate FLOAT, AffExRate FLOAT)
+	DECLARE @tmpWinlostDate TABLE (winlostdate SMALLDATETIME)
 
 	-- Manually import
 	IF @QueueIdInput <> 0
@@ -57,14 +59,122 @@ BEGIN
 	WHILE @XmlData IS NOT NULL
 	BEGIN
 		-- clean up tmp table
+		TRUNCATE TABLE #PTCS
 		TRUNCATE TABLE #Ebet
 		TRUNCATE TABLE #Betsoft
 		TRUNCATE TABLE #Crystal
 		TRUNCATE TABLE #iSoftbet
 		TRUNCATE TABLE #OPUS
 
+		-- PTCS
+		IF @ProductId = 3
+		BEGIN
+			DELETE @Exchange
+			DELETE @tmpWinlostDate
+
+			CREATE TABLE #__tmp (winlostdate SMALLDATETIME, IBCCustID INT, Currency INT, Deposit MONEY, Bonus MONEY, Turnover MONEY, Winlost MONEY, ExRate FLOAT, AffExRate FLOAT, AffId INT)
+
+			BEGIN TRY
+				INSERT INTO #PTCS (winlostdate, UserName, Currency, Turnover, Winlost, Deposit, Bonus, PShare, PWin, WinlostPShare)
+				SELECT	winlostdate
+						,CASE WHEN Currency IN ('IDR', 'INH', 'VND') THEN RIGHT(UserName, LEN(UserName) - 2) ELSE UserName END -- remove x_username
+						,Currency
+						,Turnover / CASE WHEN Currency IN ('IDR', 'INH', 'VND') THEN 1000.0 ELSE 1.0 END
+						,(WinlostPShare - PShare) / CASE WHEN Currency IN ('IDR', 'INH', 'VND') THEN 1000.0 ELSE 1.0 END AS Winlost
+						,Deposit / CASE WHEN Currency IN ('IDR', 'INH', 'VND') THEN 1000.0 ELSE 1.0 END
+						,Bonus / CASE WHEN Currency IN ('IDR', 'INH', 'VND') THEN 1000.0 ELSE 1.0 END
+						,PShare / CASE WHEN Currency IN ('IDR', 'INH', 'VND') THEN 1000.0 ELSE 1.0 END
+						,PWin / CASE WHEN Currency IN ('IDR', 'INH', 'VND') THEN 1000.0 ELSE 1.0 END
+						,WinlostPShare / CASE WHEN Currency IN ('IDR', 'INH', 'VND') THEN 1000.0 ELSE 1.0 END
+				FROM (
+					SELECT	t.c.value('@date', 'SMALLDATETIME') AS winlostdate,
+							t.c.value('@username', 'VARCHAR(200)') AS UserName,
+							t.c.value('@currency', 'VARCHAR(50)') AS Currency,
+							t.c.value('@turnover', 'FLOAT') AS Turnover,
+							t.c.value('@deposit', 'FLOAT') AS Deposit,
+							t.c.value('@bonus', 'FLOAT') AS Bonus,
+							t.c.value('@progressiveshare', 'FLOAT') AS PShare,
+							t.c.value('@progressivewin', 'FLOAT') AS PWin,
+							t.c.value('@winlostaff', 'FLOAT') AS WinlostPShare
+					FROM @XmlData.nodes('/root/trans') AS t(c)
+				) AS t
+				OPTION (OPTIMIZE FOR (@XmlData = NULL))
+			END TRY
+			BEGIN CATCH
+				UPDATE dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
+				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
+				WHERE QueueId = @QueueId
+			END CATCH
+
+			INSERT INTO @tmpWinlostDate (winlostdate)
+			SELECT DISTINCT winlostdate FROM #PTCS
+
+			INSERT INTO @Exchange (ExchangeDate, ExchangeId, Currency, ExRate, AffExRate)
+			SELECT ex1.winlostdate, ex.ExchangeId, ex.Currency, ex.ActualRate AS ExRate, ex.ActualRate2 AS AffExRate
+			FROM dbo.Exchange ex WITH (NOLOCK)
+				INNER JOIN
+				(
+					SELECT w.winlostdate, e.ExchangeId, MAX(e.UpdatedTime) AS UpdatedTime
+					FROM dbo.Exchange e WITH (NOLOCK)
+						INNER JOIN @tmpWinlostdate w ON e.UpdatedTime <= w.winlostdate
+					GROUP BY w.winlostdate, e.ExchangeId
+				) ex1 ON ex.ExchangeId = ex1.ExchangeId AND ex.UpdatedTime = ex1.UpdatedTime
+
+			INSERT INTO #__tmp (winlostdate, IBCCustID, Currency, Deposit, Bonus, Turnover, Winlost, ExRate, AffExRate, AffId)
+			SELECT d.winlostdate, d.IBCCustID, d.Currency, d.Deposit, d.Bonus, d.Turnover, -d.Winlost, ex.ExRate, ex.AffExRate, d.AffId
+			FROM (
+				SELECT t.winlostdate, mi.IBCCustID, mi.Currency, mi.AffId, SUM(Deposit) Deposit, SUM(Bonus) Bonus, SUM(Turnover) Turnover, SUM(Winlost) Winlost
+				FROM #PTCS t
+					INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON '12BET$' + t.Username = mi.Username
+					INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId AND winlostdate >= ai.CasinoJoinedDate
+					LEFT JOIN dbo.MemberRemoval mr WITH (NOLOCK) ON mi.IBCCustID = mr.IBCCustID
+				WHERE ai.CasinoJoinedDate IS NOT NULL
+					AND mi.CreatedDate IS NOT NULL
+					AND DATEDIFF(DAY, mi.CreatedDate, winlostdate) >= 0
+					AND (
+						mr.IBCCustID IS NULL
+						OR DATEDIFF(MONTH, mr.RemovedDate, winlostdate) < 0
+					)
+				GROUP BY t.winlostdate, mi.IBCCustID, mi.Currency, mi.AffId
+			) AS d
+				INNER JOIN @Exchange ex ON d.Currency = ex.ExchangeID AND d.winlostdate = ex.ExchangeDate
+
+			;MERGE dbo.rptMemberDaily AS TARGET
+			USING
+			(
+				SELECT t1.WinlostDate, t1.IBCCustID, t1.AffId, t2.ProductId, t1.Currency, t1.AffExRate, t1.ExRate, t2.Bonus, t2.Turnover, t2.Winloss
+				FROM #__tmp t1
+					CROSS APPLY (
+						SELECT 3 AS ProductId, 0 AS Bonus, Turnover, Winlost AS Winloss
+						UNION ALL
+						SELECT -3 AS ProductId, Bonus, 0 AS Turnover, 0 AS Winloss
+					) AS t2
+			) AS SOURCE
+				ON		TARGET.winlostdate	= SOURCE.winlostdate
+					AND TARGET.IBCCustID	= SOURCE.IBCCustID
+					AND TARGET.ProductId	= SOURCE.ProductId
+			WHEN MATCHED THEN UPDATE
+				SET TARGET.AffId		= SOURCE.AffId,
+					TARGET.Currency		= SOURCE.Currency,
+					TARGET.AffExRate	= SOURCE.AffExRate,
+					TARGET.ExRate		= SOURCE.ExRate,
+					TARGET.Bonus		= SOURCE.Bonus,
+					TARGET.Turnover		= SOURCE.Turnover,
+					TARGET.Winloss		= SOURCE.Winloss,
+					TARGET.Deposit		= 0,
+					TARGET.Withdrawal	= 0,
+					TARGET.Adjustment	= 0,
+					TARGET.AWinloss		= 0,
+					TARGET.AComm		= 0
+			WHEN NOT MATCHED BY TARGET THEN INSERT
+				(WinlostDate,AffId,IBCCustId,ProductId,Deposit,Withdrawal,Bonus,Adjustment,Turnover,Winloss,Currency,ExRate,AffExRate,AWinloss,AComm)
+				VALUES (WinlostDate,AffId,IBCCustId,ProductId,0,0,Bonus,0,Turnover,Winloss,Currency,ExRate,AffExRate,0,0)
+			WHEN NOT MATCHED BY SOURCE AND TARGET.ProductId IN (3, -3) AND TARGET.winlostdate IN (SELECT ExchangeDate FROM @Exchange) THEN DELETE;
+
+			DROP TABLE #__tmp
+		END
 		-- Ebet
-		IF @ProductId = 10
+		ELSE IF @ProductId = 10
 		BEGIN
 			BEGIN TRY
 				INSERT INTO #Ebet (Username, BetHistoryId, Bet, Payout, CreateTime, PayoutTime)
