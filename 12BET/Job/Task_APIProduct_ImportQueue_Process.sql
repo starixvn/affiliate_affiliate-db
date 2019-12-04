@@ -134,6 +134,13 @@ BEGIN
 					INNER JOIN @Exchange ex ON d.Currency = ex.ExchangeID AND d.winlostdate = ex.ExchangeDate
 
 				-- Check data
+				;WITH CTE_rptMemberDaily AS
+				(
+					SELECT WinlostDate, IBCCustID, AffId, ProductId, Currency, AffExRate, ExRate, Bonus, Turnover, Winloss
+					FROM dbo.rptMemberDaily WITH (NOLOCK)
+					WHERE winlostdate IN (SELECT winlostdate FROM @tmpWinlostDate)
+						AND ProductId IN (3, -3)
+				)
 				SELECT
 					CASE	WHEN t.winlostdate IS NULL THEN -1 -- delete
 							WHEN r.winlostdate IS NULL THEN 1 -- insert
@@ -154,9 +161,8 @@ BEGIN
 							WHERE Bonus <> 0
 						) AS t2
 				) AS t
-					FULL OUTER JOIN dbo.rptMemberDaily r WITH (NOLOCK)
+					FULL OUTER JOIN CTE_rptMemberDaily r
 						ON t.winlostdate = r.winlostdate AND t.IBCCustId = r.IBCCustId AND t.ProductId = r.ProductId
-							AND r.ProductId IN (-3, 3) AND r.winlostdate IN (SELECT DISTINCT ExchangeDate FROM @Exchange)
 
 				SELECT @WinlostDate = MIN(WinlostDate) FROM #__Data
 
