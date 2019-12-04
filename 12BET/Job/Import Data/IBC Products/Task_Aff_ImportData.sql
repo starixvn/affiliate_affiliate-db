@@ -117,12 +117,12 @@ BEGIN
 			,mi.Currency
 			,mi.AffId
 			,b.ProductId
-			,SUM(ISNULL(b.Deposit, 0)		* ISNULL(e.ActualRate2, 1)) AS Deposit
-			,SUM(ISNULL(b.Withdrawal, 0)	* ISNULL(e.ActualRate2, 1)) AS Withdrawal
-			,SUM(ISNULL(b.Bonus, 0)			* ISNULL(e.ActualRate2, 1)) AS Bonus
-			,SUM(ISNULL(b.Adjustment, 0)	* ISNULL(e.ActualRate2, 1)) AS Adjustment
-			,SUM(ISNULL(b.Turnover, 0)		* ISNULL(e.ActualRate2, 1)) AS Turnover
-			,SUM(ISNULL(b.Winloss, 0)		* ISNULL(e.ActualRate2, 1)) AS Winloss
+			,SUM(ISNULL(b.Deposit, 0)) AS Deposit
+			,SUM(ISNULL(b.Withdrawal, 0)) AS Withdrawal
+			,SUM(ISNULL(b.Bonus, 0)) AS Bonus
+			,SUM(ISNULL(b.Adjustment, 0)) AS Adjustment
+			,SUM(ISNULL(b.Turnover, 0)) AS Turnover
+			,SUM(ISNULL(b.Winloss, 0)) AS Winloss
 			,e.ActualRate
 			,e.ActualRate2
 		FROM #tmpBettrans b
@@ -147,42 +147,84 @@ BEGIN
 
 	-- Gen data into rptMemberDaily
 	BEGIN
-		MERGE dbo.rptMemberDaily AS TARGET
-		USING #rptMemberDaily AS SOURCE
-			ON		TARGET.WinlostDate	= @WinlostDate
-				AND TARGET.IBCCustId	= SOURCE.IBCCustId
-				AND TARGET.ProductId	= SOURCE.ProductId
-		WHEN MATCHED THEN
-			UPDATE SET
-				TARGET.Currency		= SOURCE.Currency
-				,TARGET.AffId		= SOURCE.AffId
-				,TARGET.Deposit		= SOURCE.Deposit
-				,TARGET.Withdrawal	= SOURCE.Withdrawal
-				,TARGET.Bonus		= SOURCE.Bonus
-				,TARGET.Adjustment	= SOURCE.Adjustment
-				,TARGET.Turnover	= SOURCE.Turnover
-				,TARGET.Winloss		= SOURCE.Winloss
-				,TARGET.AWinloss	= 0
-				,TARGET.AComm		= 0
-				,TARGET.AffExRate	= SOURCE.AffExRate
-				,TARGET.ExRate		= SOURCE.ExRate
-		WHEN NOT MATCHED BY TARGET THEN
-			INSERT
-			(
-				WinlostDate,IBCCustId,Currency,AffId,ProductId,
-				Deposit,Withdrawal,Bonus,Adjustment,
-				Turnover,Winloss,AWinloss,AComm,AffExRate,ExRate
-			)
-			VALUES
-			(
-				@WinlostDate,SOURCE.IBCCustId,SOURCE.Currency,SOURCE.AffId,SOURCE.ProductId,
-				SOURCE.Deposit,SOURCE.Withdrawal,SOURCE.Bonus,SOURCE.Adjustment,
-				SOURCE.Turnover,SOURCE.Winloss,0,0,SOURCE.AffExRate,SOURCE.ExRate
-			)
-		WHEN NOT MATCHED BY SOURCE AND TARGET.WinlostDate = @WinlostDate AND TARGET.ProductId IN (SELECT ProductId FROM #_bettype) THEN
-			DELETE;
+		;WITH CTE_rptMemberDaily AS
+		(
+			SELECT AffId,IBCCustId,ProductId,Deposit,Withdrawal,Bonus,Adjustment,Turnover,Winloss,Currency,ExRate,AffExRate
+			FROM dbo.rptMemberDaily WITH (NOLOCK)
+			WHERE winlostdate = @WinlostDate
+				AND ProductId IN (SELECT ProductId FROM #_bettype)
+		)
+		SELECT
+			CASE	WHEN t.IBCCustId IS NULL THEN -1 -- delete
+					WHEN r.IBCCustId IS NULL THEN 1 -- insert
+					ELSE 0 END AS ModifiedType-- update
+			,ISNULL(t.IBCCustId, r.IBCCustId) AS IBCCustId
+			,ISNULL(t.ProductId, r.ProductId) AS ProductId
+			,t.AffId, t.Currency, t.AffExRate, t.ExRate, t.Bonus, t.Turnover, t.Winloss
+			,t.Deposit, t.Withdrawal, t.Adjustment
+		INTO #__Data
+		FROM #rptMemberDaily t
+			FULL OUTER JOIN CTE_rptMemberDaily r ON t.IBCCustId = r.IBCCustId AND t.ProductId = r.ProductId
+		
+		-- Delete
+		IF EXISTS (SELECT 1 FROM #__Data WHERE ModifiedType = -1)
+		BEGIN
+			DELETE r WITH (ROWLOCK, UPDLOCK)
+			FROM dbo.rptMemberDaily r
+				INNER JOIN #__Data d ON r.winlostdate = @WinlostDate AND d.IBCCustId = r.IBCCustId AND d.ProductId = r.ProductId
+			WHERE d.ModifiedType = -1
+
+			DELETE #__Data WHERE ModifiedType = -1
+		END
+				
+		-- Insert
+		IF EXISTS (SELECT 1 FROM #__Data WHERE ModifiedType = 1)
+		BEGIN
+			DELETE #__Data
+			OUTPUT @WinlostDate,DELETED.AffId,DELETED.IBCCustId,DELETED.ProductId
+					,DELETED.Deposit,DELETED.Withdrawal,DELETED.Bonus,DELETED.Adjustment,DELETED.Turnover,DELETED.Winloss
+					,DELETED.Currency,DELETED.ExRate,DELETED.AffExRate,0 AWinloss,0 AComm
+			INTO dbo.rptMemberDaily(WinlostDate,AffId,IBCCustId,ProductId,Deposit,Withdrawal,Bonus,Adjustment,Turnover,Winloss,Currency,ExRate,AffExRate,AWinloss,AComm)
+			WHERE ModifiedType = 1
+
+			DELETE #__Data WHERE ModifiedType = 1
+		END
+
+		-- Update
+		IF EXISTS (SELECT 1 FROM #__Data WHERE ModifiedType = 0)
+		BEGIN
+			UPDATE r WITH (ROWLOCK)
+			SET r.AffId = d.AffId
+				,r.Deposit = d.Deposit
+				,r.Withdrawal = d.Withdrawal
+				,r.Bonus = d.Bonus
+				,r.Adjustment = d.Adjustment
+				,r.Turnover = d.Turnover
+				,r.Winloss = d.Winloss
+				,r.Currency = d.Currency
+				,r.ExRate = d.ExRate
+				,r.AffExRate = d.AffExRate
+				,r.AWinloss = 0
+				,r.AComm = 0
+			FROM dbo.rptMemberDaily r
+				INNER JOIN #__Data d ON r.winlostdate = @WinlostDate AND d.IBCCustId = r.IBCCustId AND d.ProductId = r.ProductId
+			WHERE d.ModifiedType = 0
+				AND (
+					r.AffId <> d.AffId
+					OR r.Bonus <> d.Bonus
+					OR r.Turnover <> d.Turnover
+					OR r.Winloss <> d.Winloss
+					OR r.Deposit <> d.Deposit
+					OR r.Withdrawal <> d.Withdrawal
+					OR r.Adjustment <> d.Adjustment
+					OR r.Currency <> d.Currency
+					OR r.ExRate <> d.ExRate
+					OR r.AffExRate <> d.AffExRate
+				)
+		END
 	END
 
+	DROP TABLE #_bettype
 	DROP TABLE #rptMemberDaily
 END
 GO

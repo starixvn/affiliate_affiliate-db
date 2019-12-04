@@ -186,6 +186,8 @@ BEGIN
 							,DELETED.Currency,DELETED.ExRate,DELETED.AffExRate,0 AWinloss,0 AComm
 					INTO dbo.rptMemberDaily(WinlostDate,AffId,IBCCustId,ProductId,Deposit,Withdrawal,Bonus,Adjustment,Turnover,Winloss,Currency,ExRate,AffExRate,AWinloss,AComm)
 					WHERE ModifiedType = 1
+
+					DELETE #__Data WHERE ModifiedType = 1
 				END
 
 				-- Update
