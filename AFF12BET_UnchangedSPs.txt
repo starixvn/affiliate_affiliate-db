@@ -1,6 +1,5 @@
 12BET\Admin\Customer\Statement History\Aff_Admin_StatementHistory_Sel.sql
 12BET\Admin\Customer\Statistics\Aff_Admin_Statistics_Sel.sql
-12BET\Admin\Customer\Statistics\Aff_StatisticsSel.sql
 12BET\Admin\Home\Aff_Admin_GeneralInfo_Sel.sql
 12BET\Admin\Report\Affiliate Report\Aff_Admin_AffiliateReport_Detail_Sel.sql
 12BET\Admin\Report\Affiliate Report\Aff_Admin_AffiliateReport_Sel.sql

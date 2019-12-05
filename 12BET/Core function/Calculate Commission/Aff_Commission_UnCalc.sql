@@ -269,7 +269,7 @@ BEGIN
 				,SUM(CASE WHEN dt.Turnover > 0 OR dt.Deposit > 0 THEN 1 ELSE 0 END) AS ActivePlayer
 				,SUM(CASE WHEN dt.Turnover >= a.QMTurnOver THEN 1 ELSE 0 END) AS QualifiedMember
 			FROM CTE_SumMember dt
-				INNER JOIN @AffGroupInfo a ON dt.AffId = a.AffId
+				INNER JOIN @AffGroupInfo a ON dt.AffId = a.AffId AND dt.MonthDate = a.MonthDate
 			GROUP BY dt.MonthDate, dt.AffId, a.QMTurnover
 
 			UNION ALL
