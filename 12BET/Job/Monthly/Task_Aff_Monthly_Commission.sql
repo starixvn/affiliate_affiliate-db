@@ -13,6 +13,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20181201@Percy: Exclude closed affiliates [RedmineID: #104892]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
+		- 20191127@Percy: Deduct bonus amount from commission amount [RedmineID: #118992]
 */
 
 BEGIN
@@ -234,7 +235,7 @@ BEGIN
 		AffID,
 		MonthDate AS TransDate,
 		GETDATE() AS CompletedDate,
-		ISNULL(NetWinloss * CommissionRate, 0) AS Amount,
+		ISNULL((NetWinloss - Bonus) * CommissionRate, 0) AS Amount,
 		'Approved' AS Status,
 		'Monthly Earning' AS Description,
 		148 AS Creator,
