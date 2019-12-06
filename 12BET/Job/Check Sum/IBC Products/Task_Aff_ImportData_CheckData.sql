@@ -128,8 +128,8 @@ BEGIN
 			,SUM(ISNULL(b.Adjustment, 0)) AS Adjustment
 			,SUM(ISNULL(b.Turnover, 0)) AS Turnover
 			,SUM(ISNULL(b.Winloss, 0)) AS Winloss
-			,e.ActualRate
 			,e.ActualRate2
+			,e.ActualRate
 		FROM #tmpBettrans b
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON b.custid = mi.IBCCustID
 			CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(mi.currency, b.winlostdate) e
@@ -143,8 +143,8 @@ BEGIN
 			,mi.Currency
 			,mi.AffId
 			,b.ProductId
-			,e.ActualRate
 			,e.ActualRate2
+			,e.ActualRate
 
 		DROP TABLE #_recommend
 		DROP TABLE #tmpBettrans
