@@ -1,7 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="" isFunction="0" isNested="1"></info>*/
-USE [Affiliate_12BET]
-GO
-
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Task_APIProduct_ImportQueue_Product]
 	@ProductId		INT,
 	@WinlostDate	SMALLDATETIME
@@ -18,6 +15,7 @@ AS
 		- 20190117@Percy: Divide amount by 100 for Betsoft [RedmineID: #107979]
 		- 20190131@Percy: Divide amount by 100 for iSoftbet [RedmineID: #107979]
 		- 20190322@Percy: Include more type of iSoftbet [RedmineID: #110638]
+		- 20191206@Percy: Integrate new products: 12Topaz, LB Keno, GPI lottery, VR Lottery [RedmineID: #117197]
 */
 
 BEGIN
@@ -172,6 +170,103 @@ BEGIN
 		FROM dbo.bettrans_OPUS o WITH (NOLOCK)
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON o.IBCCustId = mi.IBCCustId
 		WHERE o.WinlostDate = @WinlostDate
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE mr.RemovedDate <= DATEADD(DAY, 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @WinlostDate) + 1, 0))
+					AND mi.IBCCustId = mr.IBCCustId
+			)
+		GROUP BY
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency
+	END
+	-- GPI Lottery
+	ELSE IF @ProductId = 20
+	BEGIN
+		INSERT INTO #tempData
+		(
+			AffId,
+			IBCCustId,
+			Currency,
+			Turnover,
+			Winloss
+		)
+		SELECT
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency,
+			SUM(ISNULL(g.betAmount, 0)) AS Turnover,
+			SUM(ISNULL(g.winAmount, 0) - ISNULL(g.betAmount, 0)) AS Winloss
+		FROM dbo.bettrans_GPILottery g WITH (NOLOCK)
+			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON g.IBCCustId = mi.IBCCustId
+		WHERE g.WinlostDate = @WinlostDate
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE mr.RemovedDate <= DATEADD(DAY, 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @WinlostDate) + 1, 0))
+					AND mi.IBCCustId = mr.IBCCustId
+			)
+			AND g.status = 'Settled'
+		GROUP BY
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency
+	END
+	-- VR Lottery
+	ELSE IF @ProductId = 21
+	BEGIN
+		
+	END
+	-- LB Keno
+	ELSE IF @ProductId = 22
+	BEGIN
+		INSERT INTO #tempData
+		(
+			AffId,
+			IBCCustId,
+			Currency,
+			Turnover,
+			Winloss
+		)
+		SELECT
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency,
+			SUM(ISNULL(l.bet_money, 0)) AS Turnover,
+			SUM(ISNULL(l.bet_winning, 0)) AS Winloss
+		FROM dbo.bettrans_LBKeno l WITH (NOLOCK)
+			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON l.IBCCustId = mi.IBCCustId
+		WHERE l.WinlostDate = @WinlostDate
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE mr.RemovedDate <= DATEADD(DAY, 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @WinlostDate) + 1, 0))
+					AND mi.IBCCustId = mr.IBCCustId
+			)
+			AND l.bet_status = 'Settled'
+		GROUP BY
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency
+	END
+	-- 12 Topaz
+	ELSE IF @ProductId = 23
+	BEGIN
+		INSERT INTO #tempData
+		(
+			AffId,
+			IBCCustId,
+			Currency,
+			Turnover,
+			Winloss
+		)
+		SELECT
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency,
+			SUM(CASE WHEN t.tranType = 'GAME_BET' THEN ISNULL(t.amount, 0) ELSE 0 END) AS Turnover,
+			SUM(CASE WHEN t.tranType = 'GAME_WIN' THEN ISNULL(t.amount, 0) ELSE 0 END) AS Winloss
+		FROM dbo.bettrans_Topaz t WITH (NOLOCK)
+			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON t.IBCCustId = mi.IBCCustId
+		WHERE t.WinlostDate = @WinlostDate
 			AND NOT EXISTS (
 				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 				WHERE mr.RemovedDate <= DATEADD(DAY, 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @WinlostDate) + 1, 0))

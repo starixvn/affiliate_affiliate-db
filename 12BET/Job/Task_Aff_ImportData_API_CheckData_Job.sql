@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Task_Aff_ImportData_API_CheckData_Job]
 AS
 
@@ -16,6 +16,12 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
+
+	DECLARE @checkDate SMALLDATETIME
+	SELECT  @checkDate = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CheckData_API'
+
+	IF @checkDate = CONVERT(DATE, CURRENT_TIMESTAMP) -- check 1 time per day
+		RETURN
 
 	DECLARE @MaxCommDate SMALLDATETIME
 	SELECT  @MaxCommDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK)
@@ -98,29 +104,8 @@ BEGIN
 		END
 	END
 
-	-- Send mail if have error
-	DECLARE @Subject VARCHAR(1000) = '', @Msg NVARCHAR(MAX) = ''
-
-	IF EXISTS (SELECT 1 FROM @ErrTable)
-	BEGIN
-		SELECT @Subject = 'SQL Server Job System: ''Check data from raw table (API)'' failed on ' + @@SERVERNAME
-
-		SELECT @Msg = '<H3>List of products have wrong data</H3>'
-						+ '<table border="1"> '
-						+ '<tr><th>No.</th><th>Product</th><th>WinlostDate</th></tr>'
-						+ CAST((SELECT	td = ROW_NUMBER() OVER(ORDER BY (SELECT NULL)), '',
-										td = p.ProductName, '',
-										td = e.WinlostDate, ''
-								FROM @ErrTable e
-									INNER JOIN dbo.Products p WITH (NOLOCK) ON e.ProductId = p.ProductID
-								FOR XML PATH('tr'), TYPE 
-								) AS NVARCHAR(MAX)) + N'</table>'
-			
-		EXEC msdb.dbo.sp_send_dbmail
-			@recipients		= 'percy.nguyen@starixsoft.com;pontus@starixsoft.com',
-			@subject		= @subject,
-			@body			= @Msg,
-			@body_format	= 'HTML'
-	END
+	UPDATE dbo.SystemSettings WITH (ROWLOCK)
+	SET SValue = CONVERT(VARCHAR(10), CURRENT_TIMESTAMP, 120)
+	WHERE SName = 'AFF_CheckData_API'
 END
 GO

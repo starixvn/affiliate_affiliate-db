@@ -5,7 +5,7 @@ AS
 /*
 	Created: 20180601@Percy
 	DB: DBAFF12BET.Affiliate_12BET
-	Task: Job - Import data of IBC's Products from bettrans (MoveBetsDay + 1 to current date)
+	Task: Job - Import data of IBC's Products from bettrans
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
@@ -19,11 +19,7 @@ BEGIN
 	
 	DECLARE @MoveBetsDay SMALLDATETIME, @CurrentDate SMALLDATETIME, @WinlostDate SMALLDATETIME
 
-	DECLARE @MBBUDate TABLE (BalanceUpDay SMALLDATETIME, MoveBetsDay SMALLDATETIME)
-	INSERT INTO @MBBUDate (BalanceUpDay, MoveBetsDay)
-	EXEC DBEXT.bodb02.dbo.Lrf_SelBalanceUpDay
-
-	SELECT @MoveBetsDay = MoveBetsDay FROM @MBBUDate
+	SELECT @MoveBetsDay = MAX(eventdate) FROM bodb02.dbo.match14 WITH (NOLOCK)
 	SELECT @WinlostDate = DATEADD(DAY, 1, @MoveBetsDay)
 	SELECT @CurrentDate = CONVERT(DATE, GETDATE())
 
