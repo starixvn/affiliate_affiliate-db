@@ -12,6 +12,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20191210@Percy: Correct column name accstatus to actstatus [RedmineID: #125216]
 */
 
 BEGIN
@@ -61,7 +62,7 @@ BEGIN
 					FROM OPENQUERY(DBDEPOSIT, ''SELECT Username, Firstname, Lastname
 												FROM Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
 												WHERE username IN (''''' + REPLACE(@Username, ',', ''''',''''') + ''''')
-													AND accstatus NOT IN (2, 9)
+													AND actstatus NOT IN (2, 9)
 												''
 									)'
 	BEGIN TRY
