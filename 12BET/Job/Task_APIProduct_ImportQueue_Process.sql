@@ -502,7 +502,60 @@ BEGIN
 		-- VR Lottery
 		ELSE IF @ProductId = 21
 		BEGIN
-			
+			CREATE TABLE #VRLottery (Provider VARCHAR(20), GameId VARCHAR(30), GameName VARCHAR(100), GameNo VARCHAR(20), GameNoId INT, PlayerId VARCHAR(50), ProviderPlayerId NVARCHAR(200), Currency VARCHAR(10), Tray SMALLINT, BetId VARCHAR(50), BetOn NVARCHAR(50), BetType NVARCHAR(100), BetDetails VARCHAR(100), Odds MONEY, BetAmount MONEY, ValidBet MONEY, WinLoss MONEY, PlayerWinLoss MONEY, LossPrize MONEY, Tips MONEY, CommissionRate FLOAT, Commission MONEY, Status VARCHAR(20), Platform VARCHAR(20), BetDate DATETIME, ResultDate DATETIME, DateCreated DATETIME, LastUpdatedDate DATETIME)
+			BEGIN TRY
+				INSERT INTO #VRLottery (Provider, GameId, GameName, GameNo, GameNoId, PlayerId, ProviderPlayerId, Currency, Tray, BetId, BetOn, BetType, BetDetails, Odds, BetAmount, ValidBet, WinLoss, PlayerWinLoss, LossPrize, Tips, CommissionRate, Commission, Status, Platform, BetDate, ResultDate, DateCreated, LastUpdatedDate)
+				SELECT	t.c.value('(Provider/text())[1]', 'VARCHAR(20)') AS Provider,
+						t.c.value('(GameId/text())[1]', 'VARCHAR(30)') AS GameId,
+						t.c.value('(GameName/text())[1]', 'VARCHAR(100)') AS GameName,
+						t.c.value('(GameNo/text())[1]', 'VARCHAR(20)') AS GameNo,
+						t.c.value('(GameNoId/text())[1]', 'INT') AS GameNoId,
+						t.c.value('(PlayerId/text())[1]', 'VARCHAR(50)') AS PlayerId,
+						t.c.value('(ProviderPlayerId/text())[1]', 'NVARCHAR(400)') AS ProviderPlayerId,
+						t.c.value('(Currency/text())[1]', 'VARCHAR(10)') AS Currency,
+						t.c.value('(Tray/text())[1]', 'SMALLINT') AS Tray,
+						t.c.value('(BetId/text())[1]', 'VARCHAR(50)') AS BetId,
+						t.c.value('(BetOn/text())[1]', 'NVARCHAR(100)') AS BetOn,
+						t.c.value('(BetType/text())[1]', 'NVARCHAR(200)') AS BetType,
+						t.c.value('(BetDetails/text())[1]', 'VARCHAR(100)') AS BetDetails,
+						t.c.value('(Odds/text())[1]', 'MONEY') AS Odds,
+						t.c.value('(BetAmount/text())[1]', 'MONEY') AS BetAmount,
+						t.c.value('(ValidBet/text())[1]', 'MONEY') AS ValidBet,
+						t.c.value('(WinLoss/text())[1]', 'MONEY') AS WinLoss,
+						t.c.value('(PlayerWinLoss/text())[1]', 'MONEY') AS PlayerWinLoss,
+						t.c.value('(LossPrize/text())[1]', 'MONEY') AS LossPrize,
+						t.c.value('(Tips/text())[1]', 'MONEY') AS Tips,
+						t.c.value('(CommissionRate/text())[1]', 'FLOAT') AS CommissionRate,
+						t.c.value('(Commission/text())[1]', 'MONEY') AS Commission,
+						t.c.value('(Status/text())[1]', 'VARCHAR(20)') AS Status,
+						t.c.value('(Platform/text())[1]', 'VARCHAR(20)') AS Platform,
+						t.c.value('(BetDate/text())[1]', 'DATETIME') AS BetDate,
+						t.c.value('(ResultDate/text())[1]', 'DATETIME') AS ResultDate,
+						t.c.value('(DateCreated/text())[1]', 'DATETIME') AS DateCreated,
+						t.c.value('(LastUpdatedDate/text())[1]', 'DATETIME') AS LastUpdatedDate
+				FROM @XmlData.nodes('root/transactions') AS t(c)
+				OPTION (OPTIMIZE FOR (@XmlData = NULL))
+
+				DELETE bv WITH (ROWLOCK, UPDLOCK)
+				FROM dbo.bettrans_VRLottery bv
+				WHERE EXISTS (SELECT 1 FROM #VRLottery v WHERE bv.betId = v.betId)
+				
+				INSERT INTO dbo.bettrans_VRLottery (Provider, GameId, GameName, GameNo, GameNoId, PlayerId, ProviderPlayerId, Currency, Tray, BetId, BetOn, BetType, BetDetails, Odds, BetAmount, ValidBet, WinLoss, PlayerWinLoss, LossPrize, Tips, CommissionRate, Commission, Status, Platform, BetDate, ResultDate, DateCreated, LastUpdatedDate, IBCCustId, WinlostDate)
+				SELECT Provider, v.GameId, v.GameName, v.GameNo, v.GameNoId, v.PlayerId, v.ProviderPlayerId, v.Currency, v.Tray, v.BetId, v.BetOn, v.BetType, v.BetDetails, v.Odds, v.BetAmount, v.ValidBet, v.WinLoss, v.PlayerWinLoss, v.LossPrize, v.Tips, v.CommissionRate, v.Commission, v.Status, v.Platform, v.BetDate, v.ResultDate, v.DateCreated, v.LastUpdatedDate, m.IBCCustId, CONVERT(DATE, v.ResultDate) AS WinlostDate
+				FROM #VRLottery v
+					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + v.PlayerId = m.Username
+
+				SELECT @WinlostDate = MIN(CONVERT(DATE, ResultDate)) FROM #VRLottery
+
+				SELECT @IsErr = 0
+			END TRY
+			BEGIN CATCH
+				UPDATE dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
+				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
+				WHERE QueueId = @QueueId
+			END CATCH
+
+			DROP TABLE #VRLottery
 		END
 		-- LB Keno
 		ELSE IF @ProductId = 22

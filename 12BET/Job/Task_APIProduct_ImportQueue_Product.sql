@@ -214,7 +214,33 @@ BEGIN
 	-- VR Lottery
 	ELSE IF @ProductId = 21
 	BEGIN
-		
+		INSERT INTO #tempData
+		(
+			AffId,
+			IBCCustId,
+			Currency,
+			Turnover,
+			Winloss
+		)
+		SELECT
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency,
+			SUM(ISNULL(v.BetAmount, 0)) AS Turnover,
+			SUM(ISNULL(v.PlayerWinLoss, 0)) AS Winloss
+		FROM dbo.bettrans_VRLottery v WITH (NOLOCK)
+			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON v.IBCCustId = mi.IBCCustId
+		WHERE v.WinlostDate = @WinlostDate
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE mr.RemovedDate <= DATEADD(DAY, 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @WinlostDate) + 1, 0))
+					AND mi.IBCCustId = mr.IBCCustId
+			)
+			AND v.status = 'Settled'
+		GROUP BY
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency
 	END
 	-- LB Keno
 	ELSE IF @ProductId = 22
