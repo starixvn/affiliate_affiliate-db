@@ -11,6 +11,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20190116@Percy: Send mail if data has mismatch [RedmineID: #107623]
 		- 20190716@Percy: Do not run if MB does not run [RedmineID: #116964]
+		- 20191206@Percy: Check data 1 time per day [RedmineID: #117197]
 */
 
 BEGIN 

@@ -12,6 +12,7 @@ AS
 		- 20190117@Percy: Using core table for 3rd Products [RedmineID: #106503]
 		- 20190322@Percy: Missing break loop [RedmineID: #110638]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
+		- 20191206@Percy: Check data 1 time per day [RedmineID: #117197]
 */
 
 BEGIN

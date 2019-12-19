@@ -10,6 +10,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20191127@Percy: Input job name into error message [RedmineID: #118992]
+		- 20191206@Percy: Change way get MoveBetsDay [RedmineID: #117197]
 */
 
 BEGIN 
