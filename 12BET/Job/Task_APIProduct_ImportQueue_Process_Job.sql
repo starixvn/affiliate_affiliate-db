@@ -10,6 +10,7 @@ AS
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 		- 20191010@Percy: Clean old data (keep 1 month) [RedmineID: #121795]
+		- 20191206@Percy: Update send mail part [RedmineID: #117197]
 */
 
 BEGIN
@@ -70,15 +71,20 @@ BEGIN
 	END
 
 	-- Send mail if have error
-	DECLARE @Subject VARCHAR(1000) = '', @Msg NVARCHAR(MAX) = ''
+	DECLARE @Subject VARCHAR(1000) = '', @recipients VARCHAR(1000), @Msg NVARCHAR(MAX) = ''
 
 	IF EXISTS (SELECT 1 FROM @ErrTable)
 	BEGIN
-		SELECT @Subject = 'SQL Server Job System: ''Import raw data from queue table (API)'' failed on ' + @@SERVERNAME
+		SELECT @Subject = 'SQL Server Job System: ''Affiliate_12BET: Generate Queue Data'' failed on ' + @@SERVERNAME
+
+		SELECT @recipients = 'percy.nguyen@starixsoft.com'
+		
+		IF @@SERVERNAME IN ('DB052', 'DB053')
+			SELECT @recipients = @recipients + ';pontus@starixsoft.com'
 
 		SELECT @Msg = '<H3>List of products have wrong data</H3>'
 						+ '<table border="1"> '
-						+ '<tr><th>No.</th><th>Product</th><th>WinlostDate</th></tr>'
+						+ '<tr><th>No.</th><th>Product</th><th>Error Message</th></tr>'
 						+ CAST((SELECT	td = ROW_NUMBER() OVER(ORDER BY (SELECT NULL)), '',
 										td = p.ProductName, '',
 										td = e.ErrMsg, ''
@@ -88,7 +94,7 @@ BEGIN
 								) AS NVARCHAR(MAX)) + N'</table>'
 			
 		EXEC msdb.dbo.sp_send_dbmail
-			@recipients		= 'percy.nguyen@starixsoft.com;pontus@starixsoft.com',
+			@recipients		= @recipients,
 			@subject		= @subject,
 			@body			= @Msg,
 			@body_format	= 'HTML'

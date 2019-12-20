@@ -18,19 +18,13 @@ AS
 		- 20190328@Percy: Betsoft - Remove convert time zone [RedmineID: #110638]
 		- 20190520@Percy: Ebet - Change way to get winlostdate: PayoutTime to CreateTime [RedmineID: #110638]
 		- 20191130@Percy: Add Playtech Casino [RedmineID: #124784]
+		- 20191206@Percy: Integrate new products: 12Topaz, LB Keno, GPI lottery, VR Lottery [RedmineID: #117197]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @QueueId BIGINT, @XmlData XML, @WinlostDate SMALLDATETIME, @LastQueueId BIGINT
-
-	CREATE TABLE #PTCS (winlostdate SMALLDATETIME, UserName NVARCHAR(50), Turnover MONEY, Winlost MONEY, Deposit MONEY, Bonus MONEY, PShare MONEY, PWin MONEY, WinlostPShare MONEY)
-	CREATE TABLE #Ebet (Username NVARCHAR(50), BetHistoryId NVARCHAR(100), Bet MONEY, Payout MONEY, CreateTime DATETIME, PayoutTime DATETIME)
-	CREATE TABLE #Betsoft (Username NVARCHAR(50), GameSessionId BIGINT, GameId INT, PlatForm VARCHAR(50), BetId INT, Amount MONEY, Win MONEY, BetTime DATETIME, StartDate DATETIME, EndDate DATETIME)
-	CREATE TABLE #Crystal (operationCode BIGINT, userId VARCHAR(50), changeTime DATETIME, changeType VARCHAR(20), gameName VARCHAR(200), fround SMALLINT, bet MONEY, ret MONEY, changes MONEY, endBalance MONEY, operator VARCHAR(50), jcon MONEY, jwin MONEY, platform TINYINT, gametype SMALLINT, ver VARCHAR(20))
-	CREATE TABLE #iSoftbet (PLAYERID VARCHAR(50), CURRENCY VARCHAR(5), SESSIONID VARCHAR(100), GAMEID VARCHAR(10), ROUNDID VARCHAR(100), TRANSACTIONID VARCHAR(100), TYPE VARCHAR(50), TIME DATETIME, AMOUNT MONEY)
-	CREATE TABLE #OPUS (transaction_id BIGINT, transaction_date_time DATETIME, member_code VARCHAR(30), member_type VARCHAR(10), currency VARCHAR(5), balance_start MONEY, balance_end MONEY, bet MONEY, win MONEY, game_code VARCHAR(5), game_detail VARCHAR(300), bet_status VARCHAR(10), player_hand NVARCHAR(4000), game_result VARCHAR(500), game_category VARCHAR(10), vendor VARCHAR(20), DrawNumber INT, m88_studio VARCHAR(5), stamp_date DATETIME, bet_record_id VARCHAR(10))
 
 	DECLARE @Exchange TABLE (ExchangeDate SMALLDATETIME, ExchangeId INT, Currency NVARCHAR(50), ExRate FLOAT, AffExRate FLOAT)
 	DECLARE @tmpWinlostDate TABLE (winlostdate SMALLDATETIME)
@@ -58,17 +52,11 @@ BEGIN
 	
 	WHILE @XmlData IS NOT NULL
 	BEGIN
-		-- clean up tmp table
-		TRUNCATE TABLE #PTCS
-		TRUNCATE TABLE #Ebet
-		TRUNCATE TABLE #Betsoft
-		TRUNCATE TABLE #Crystal
-		TRUNCATE TABLE #iSoftbet
-		TRUNCATE TABLE #OPUS
-
 		-- PTCS
 		IF @ProductId = 3
 		BEGIN
+			CREATE TABLE #PTCS (winlostdate SMALLDATETIME, UserName NVARCHAR(50), Turnover MONEY, Winlost MONEY, Deposit MONEY, Bonus MONEY, PShare MONEY, PWin MONEY, WinlostPShare MONEY)
+
 			DELETE @Exchange
 			DELETE @tmpWinlostDate
 
@@ -229,10 +217,13 @@ BEGIN
 			END CATCH
 
 			DROP TABLE #__tmp
+			DROP TABLE #PTCS
 		END
 		-- Ebet
 		ELSE IF @ProductId = 10
 		BEGIN
+			CREATE TABLE #Ebet (Username NVARCHAR(50), BetHistoryId NVARCHAR(100), Bet MONEY, Payout MONEY, CreateTime DATETIME, PayoutTime DATETIME)
+
 			BEGIN TRY
 				INSERT INTO #Ebet (Username, BetHistoryId, Bet, Payout, CreateTime, PayoutTime)
 				SELECT	t.c.value('@USERNAME', 'NVARCHAR(50)')	AS Username,
@@ -262,10 +253,14 @@ BEGIN
 				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
 				WHERE QueueId = @QueueId
 			END CATCH
+
+			DROP TABLE #Ebet
 		END
 		-- Betsoft
 		ELSE IF @ProductId = 11
 		BEGIN
+			CREATE TABLE #Betsoft (Username NVARCHAR(50), GameSessionId BIGINT, GameId INT, PlatForm VARCHAR(50), BetId INT, Amount MONEY, Win MONEY, BetTime DATETIME, StartDate DATETIME, EndDate DATETIME)
+
 			DECLARE @StartDate DATETIME, @EndDate DATETIME
 			
 			BEGIN TRY
@@ -313,10 +308,14 @@ BEGIN
 				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
 				WHERE QueueId = @QueueId
 			END CATCH
+
+			DROP TABLE #Betsoft
 		END
 		-- Crystal
 		ELSE IF @ProductId = 12
 		BEGIN
+			CREATE TABLE #Crystal (operationCode BIGINT, userId VARCHAR(50), changeTime DATETIME, changeType VARCHAR(20), gameName VARCHAR(200), fround SMALLINT, bet MONEY, ret MONEY, changes MONEY, endBalance MONEY, operator VARCHAR(50), jcon MONEY, jwin MONEY, platform TINYINT, gametype SMALLINT, ver VARCHAR(20))
+
 			BEGIN TRY
 				INSERT INTO #Crystal (operationCode, userId, changeTime, changeType, gameName, fround, bet, ret, changes, endBalance, operator, jcon, jwin, platform, gametype, ver)
 				SELECT	t.c.value('@operationCode', 'BIGINT')	AS operationCode,
@@ -356,10 +355,14 @@ BEGIN
 				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
 				WHERE QueueId = @QueueId
 			END CATCH
+
+			DROP TABLE #Crystal
 		END
 		-- iSoftbet
 		ELSE IF @ProductId = 13
 		BEGIN
+			CREATE TABLE #iSoftbet (PLAYERID VARCHAR(50), CURRENCY VARCHAR(5), SESSIONID VARCHAR(100), GAMEID VARCHAR(10), ROUNDID VARCHAR(100), TRANSACTIONID VARCHAR(100), TYPE VARCHAR(50), TIME DATETIME, AMOUNT MONEY)
+
 			BEGIN TRY
 				INSERT INTO #iSoftbet (PLAYERID, CURRENCY, SESSIONID, GAMEID, ROUNDID, TRANSACTIONID, TYPE, TIME, AMOUNT)
 				SELECT	t.c.value('@PLAYERID', 'VARCHAR(50)')		AS PLAYERID,
@@ -392,10 +395,14 @@ BEGIN
 				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
 				WHERE QueueId = @QueueId
 			END CATCH
+
+			DROP TABLE #iSoftbet
 		END
 		-- OPUS
 		ELSE IF @ProductId = 14
 		BEGIN
+			CREATE TABLE #OPUS (transaction_id BIGINT, transaction_date_time DATETIME, member_code VARCHAR(30), member_type VARCHAR(10), currency VARCHAR(5), balance_start MONEY, balance_end MONEY, bet MONEY, win MONEY, game_code VARCHAR(5), game_detail VARCHAR(300), bet_status VARCHAR(10), player_hand NVARCHAR(4000), game_result VARCHAR(500), game_category VARCHAR(10), vendor VARCHAR(20), DrawNumber INT, m88_studio VARCHAR(5), stamp_date DATETIME, bet_record_id VARCHAR(10))
+
 			BEGIN TRY
 				INSERT INTO #OPUS (transaction_id, transaction_date_time, member_code, member_type, currency, balance_start, balance_end, bet, win, game_code, game_detail, bet_status, player_hand, game_result, game_category, vendor, DrawNumber, m88_studio, stamp_date, bet_record_id)
 				SELECT	t.c.value('(transaction_id/text())[1]', 'BIGINT')			AS transaction_id,
@@ -439,11 +446,217 @@ BEGIN
 				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
 				WHERE QueueId = @QueueId
 			END CATCH
+
+			DROP TABLE #OPUS
+		END
+		-- GPI Lottery
+		ELSE IF @ProductId = 20
+		BEGIN
+			CREATE TABLE #GPILottery (memberId VARCHAR(50), memberType VARCHAR(10), betId BIGINT, betNo VARCHAR(50), drawId BIGINT, drawNo VARCHAR(50), areaName VARCHAR(50), isRNG BIT, betType VARCHAR(50), betContent VARCHAR(20), currency VARCHAR(10), betAmount MONEY, odds FLOAT, isWin BIT, winAmount MONEY, timeBet DATETIME, actionTime DATETIME, status VARCHAR(20), OS VARCHAR(10))
+
+			BEGIN TRY
+				INSERT INTO #GPILottery (memberId, memberType, betId, betNo, drawId, drawNo, areaName, isRNG, betType, betContent, currency, betAmount, odds, isWin, winAmount, timeBet, actionTime, status, OS)
+				SELECT	t.c.value('(memberId/text())[1]', 'VARCHAR(50)')	AS memberId,
+						t.c.value('(memberType/text())[1]', 'VARCHAR(10)')	AS memberType,
+						t.c.value('(betId/text())[1]', 'BIGINT')			AS betId,
+						t.c.value('(betNo/text())[1]', 'VARCHAR(50)')		AS betNo,
+						t.c.value('(drawId/text())[1]', 'BIGINT')			AS drawId,
+						t.c.value('(drawNo/text())[1]', 'VARCHAR(50)')		AS drawNo,
+						t.c.value('(areaName/text())[1]', 'VARCHAR(50)')	AS areaName,
+						t.c.value('(isRNG/text())[1]', 'BIT')				AS isRNG,
+						t.c.value('(betType/text())[1]', 'VARCHAR(50)')		AS betType,
+						t.c.value('(betContent/text())[1]', 'VARCHAR(20)')	AS betContent,
+						t.c.value('(currency/text())[1]', 'VARCHAR(10)')	AS currency,
+						t.c.value('(betAmount/text())[1]', 'MONEY')			AS betAmount,
+						t.c.value('(odds/text())[1]', 'FLOAT')				AS odds,
+						t.c.value('(isWin/text())[1]', 'BIT')				AS isWin,
+						t.c.value('(winAmount/text())[1]', 'MONEY')			AS winAmount,
+						t.c.value('(timeBet/text())[1]', 'DATETIME')		AS timeBet,
+						t.c.value('(actionTime/text())[1]', 'DATETIME')		AS actionTime,
+						t.c.value('(status/text())[1]', 'VARCHAR(20)')		AS status,
+						t.c.value('(OS/text())[1]', 'VARCHAR(10)')			AS OS
+				FROM @XmlData.nodes('root/transactions') AS t(c)
+				OPTION (OPTIMIZE FOR (@XmlData = NULL))
+
+				DELETE bg WITH (ROWLOCK, UPDLOCK)
+				FROM dbo.bettrans_GPILottery bg
+				WHERE EXISTS (SELECT 1 FROM #GPILottery g WHERE bg.betId = g.betId)
+				
+				INSERT INTO dbo.bettrans_GPILottery (memberId, memberType, betId, betNo, drawId, drawNo, areaName, isRNG, betType, betContent, currency, betAmount, odds, isWin, winAmount, timeBet, actionTime, status, OS, IBCCustId, WinlostDate)
+				SELECT g.memberId, g.memberType, g.betId, g.betNo, g.drawId, g.drawNo, g.areaName, g.isRNG, g.betType, g.betContent, g.currency, g.betAmount, g.odds, g.isWin, g.winAmount, g.timeBet, g.actionTime, g.status, g.OS, m.IBCCustId, CONVERT(DATE, g.actionTime) AS WinlostDate
+				FROM #GPILottery g
+					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + g.memberId = m.Username
+
+				SELECT @WinlostDate = MIN(CONVERT(DATE, actionTime)) FROM #GPILottery
+
+				SELECT @IsErr = 0
+			END TRY
+			BEGIN CATCH
+				UPDATE dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
+				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
+				WHERE QueueId = @QueueId
+			END CATCH
+
+			DROP TABLE #GPILottery
+		END
+		-- VR Lottery
+		ELSE IF @ProductId = 21
+		BEGIN
+			CREATE TABLE #VRLottery (Provider VARCHAR(20), GameId VARCHAR(30), GameName VARCHAR(100), GameNo VARCHAR(20), GameNoId INT, PlayerId VARCHAR(50), ProviderPlayerId NVARCHAR(200), Currency VARCHAR(10), Tray SMALLINT, BetId VARCHAR(50), BetOn NVARCHAR(50), BetType NVARCHAR(100), BetDetails VARCHAR(100), Odds MONEY, BetAmount MONEY, ValidBet MONEY, WinLoss MONEY, PlayerWinLoss MONEY, LossPrize MONEY, Tips MONEY, CommissionRate FLOAT, Commission MONEY, Status VARCHAR(20), Platform VARCHAR(20), BetDate DATETIME, ResultDate DATETIME, DateCreated DATETIME, LastUpdatedDate DATETIME)
+			BEGIN TRY
+				INSERT INTO #VRLottery (Provider, GameId, GameName, GameNo, GameNoId, PlayerId, ProviderPlayerId, Currency, Tray, BetId, BetOn, BetType, BetDetails, Odds, BetAmount, ValidBet, WinLoss, PlayerWinLoss, LossPrize, Tips, CommissionRate, Commission, Status, Platform, BetDate, ResultDate, DateCreated, LastUpdatedDate)
+				SELECT	t.c.value('(Provider/text())[1]', 'VARCHAR(20)') AS Provider,
+						t.c.value('(GameId/text())[1]', 'VARCHAR(30)') AS GameId,
+						t.c.value('(GameName/text())[1]', 'VARCHAR(100)') AS GameName,
+						t.c.value('(GameNo/text())[1]', 'VARCHAR(20)') AS GameNo,
+						t.c.value('(GameNoId/text())[1]', 'INT') AS GameNoId,
+						t.c.value('(PlayerId/text())[1]', 'VARCHAR(50)') AS PlayerId,
+						t.c.value('(ProviderPlayerId/text())[1]', 'NVARCHAR(400)') AS ProviderPlayerId,
+						t.c.value('(Currency/text())[1]', 'VARCHAR(10)') AS Currency,
+						t.c.value('(Tray/text())[1]', 'SMALLINT') AS Tray,
+						t.c.value('(BetId/text())[1]', 'VARCHAR(50)') AS BetId,
+						t.c.value('(BetOn/text())[1]', 'NVARCHAR(100)') AS BetOn,
+						t.c.value('(BetType/text())[1]', 'NVARCHAR(200)') AS BetType,
+						t.c.value('(BetDetails/text())[1]', 'VARCHAR(100)') AS BetDetails,
+						t.c.value('(Odds/text())[1]', 'MONEY') AS Odds,
+						t.c.value('(BetAmount/text())[1]', 'MONEY') AS BetAmount,
+						t.c.value('(ValidBet/text())[1]', 'MONEY') AS ValidBet,
+						t.c.value('(WinLoss/text())[1]', 'MONEY') AS WinLoss,
+						t.c.value('(PlayerWinLoss/text())[1]', 'MONEY') AS PlayerWinLoss,
+						t.c.value('(LossPrize/text())[1]', 'MONEY') AS LossPrize,
+						t.c.value('(Tips/text())[1]', 'MONEY') AS Tips,
+						t.c.value('(CommissionRate/text())[1]', 'FLOAT') AS CommissionRate,
+						t.c.value('(Commission/text())[1]', 'MONEY') AS Commission,
+						t.c.value('(Status/text())[1]', 'VARCHAR(20)') AS Status,
+						t.c.value('(Platform/text())[1]', 'VARCHAR(20)') AS Platform,
+						t.c.value('(BetDate/text())[1]', 'DATETIME') AS BetDate,
+						t.c.value('(ResultDate/text())[1]', 'DATETIME') AS ResultDate,
+						t.c.value('(DateCreated/text())[1]', 'DATETIME') AS DateCreated,
+						t.c.value('(LastUpdatedDate/text())[1]', 'DATETIME') AS LastUpdatedDate
+				FROM @XmlData.nodes('root/transactions') AS t(c)
+				OPTION (OPTIMIZE FOR (@XmlData = NULL))
+
+				DELETE bv WITH (ROWLOCK, UPDLOCK)
+				FROM dbo.bettrans_VRLottery bv
+				WHERE EXISTS (SELECT 1 FROM #VRLottery v WHERE bv.betId = v.betId)
+				
+				INSERT INTO dbo.bettrans_VRLottery (Provider, GameId, GameName, GameNo, GameNoId, PlayerId, ProviderPlayerId, Currency, Tray, BetId, BetOn, BetType, BetDetails, Odds, BetAmount, ValidBet, WinLoss, PlayerWinLoss, LossPrize, Tips, CommissionRate, Commission, Status, Platform, BetDate, ResultDate, DateCreated, LastUpdatedDate, IBCCustId, WinlostDate)
+				SELECT Provider, v.GameId, v.GameName, v.GameNo, v.GameNoId, v.PlayerId, v.ProviderPlayerId, v.Currency, v.Tray, v.BetId, v.BetOn, v.BetType, v.BetDetails, v.Odds, v.BetAmount, v.ValidBet, v.WinLoss, v.PlayerWinLoss, v.LossPrize, v.Tips, v.CommissionRate, v.Commission, v.Status, v.Platform, v.BetDate, v.ResultDate, v.DateCreated, v.LastUpdatedDate, m.IBCCustId, CONVERT(DATE, v.ResultDate) AS WinlostDate
+				FROM #VRLottery v
+					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + v.PlayerId = m.Username
+
+				SELECT @WinlostDate = MIN(CONVERT(DATE, ResultDate)) FROM #VRLottery
+
+				SELECT @IsErr = 0
+			END TRY
+			BEGIN CATCH
+				UPDATE dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
+				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
+				WHERE QueueId = @QueueId
+			END CATCH
+
+			DROP TABLE #VRLottery
+		END
+		-- LB Keno
+		ELSE IF @ProductId = 22
+		BEGIN
+			CREATE TABLE #LBKeno (member_id VARCHAR(50), member_type VARCHAR(10), session_token VARCHAR(200), bet_id BIGINT, bet_no VARCHAR(50), match_no VARCHAR(10), match_area VARCHAR(10), match_id INT, bet_type VARCHAR(10), bet_content NVARCHAR(50), bet_currency VARCHAR(5), bet_money MONEY, bet_odds FLOAT, bet_winning MONEY, bet_win VARCHAR(20), bet_status VARCHAR(20), bet_time DATETIME, trans_time DATETIME, bet_platform VARCHAR(20), bet_previous_id BIGINT)
+			BEGIN TRY
+				INSERT INTO #LBKeno (member_id, member_type, session_token, bet_id, bet_no, match_no, match_area, match_id, bet_type, bet_content, bet_currency, bet_money, bet_odds, bet_winning, bet_win, bet_status, bet_time, trans_time, bet_platform, bet_previous_id)
+				SELECT	t.c.value('@member_id', 'VARCHAR(50)')		AS member_id,
+						t.c.value('@member_type', 'VARCHAR(10)')	AS member_type,
+						t.c.value('@session_token', 'VARCHAR(200)') AS session_token,
+						t.c.value('@bet_id', 'BIGINT')				AS bet_id,
+						t.c.value('@bet_no', 'VARCHAR(50)')			AS bet_no,
+						t.c.value('@match_no', 'VARCHAR(10)')		AS match_no,
+						t.c.value('@match_area', 'VARCHAR(10)')		AS match_area,
+						t.c.value('@match_id', 'INT')				AS match_id,
+						t.c.value('@bet_type', 'VARCHAR(10)')		AS bet_type,
+						t.c.value('@bet_content', 'NVARCHAR(50)')	AS bet_content,
+						t.c.value('@bet_currency', 'VARCHAR(5)')	AS bet_currency,
+						t.c.value('@bet_money', 'MONEY')			AS bet_money,
+						t.c.value('@bet_odds', 'FLOAT')				AS bet_odds,
+						t.c.value('@bet_winning', 'MONEY')			AS bet_winning,
+						t.c.value('@bet_win', 'VARCHAR(20)')		AS bet_win,
+						t.c.value('@bet_status', 'VARCHAR(20)')		AS bet_status,
+						t.c.value('@bet_time', 'DATETIME')			AS bet_time,
+						t.c.value('@trans_time', 'DATETIME')		AS trans_time,
+						t.c.value('@bet_platform', 'VARCHAR(20)')	AS bet_platform,
+						t.c.value('@bet_previous_id', 'BIGINT')		AS bet_previous_id
+				FROM @XmlData.nodes('game_transaction_detail/bet/item') AS t(c)
+				OPTION (OPTIMIZE FOR (@XmlData = NULL))
+
+				DELETE bl WITH (ROWLOCK, UPDLOCK)
+				FROM dbo.bettrans_LBKeno bl
+				WHERE EXISTS (SELECT 1 FROM #LBKeno l WHERE bl.bet_id = l.bet_id)
+				
+				INSERT INTO dbo.bettrans_LBKeno (member_id, member_type, session_token, bet_id, bet_no, match_no, match_area, match_id, bet_type, bet_content, bet_currency, bet_money, bet_odds, bet_winning, bet_win, bet_status, bet_time, trans_time, bet_platform, bet_previous_id, IBCCustId, WinlostDate)
+				SELECT l.member_id, l.member_type, l.session_token, l.bet_id, l.bet_no, l.match_no, l.match_area, l.match_id, l.bet_type, l.bet_content, l.bet_currency, l.bet_money, l.bet_odds, l.bet_winning, l.bet_win, l.bet_status, l.bet_time, l.trans_time, l.bet_platform, l.bet_previous_id, m.IBCCustId, CONVERT(DATE, l.trans_time) AS WinlostDate
+				FROM #LBKeno l
+					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + l.member_id = m.Username
+
+				SELECT @WinlostDate = MIN(CONVERT(DATE, trans_time)) FROM #LBKeno
+
+				SELECT @IsErr = 0
+			END TRY
+			BEGIN CATCH
+				UPDATE dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
+				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
+				WHERE QueueId = @QueueId
+			END CATCH
+
+			DROP TABLE #LBKeno
+		END
+		-- 12 Topaz
+		ELSE IF @ProductId = 23
+		BEGIN
+			CREATE TABLE #Topaz (id BIGINT, partyId INT, userId VARCHAR(50), gameInfoId INT, gameTranId VARCHAR(100), platformCode VARCHAR(20), platformTranId VARCHAR(50), gameId VARCHAR(20), tranType VARCHAR(20), dateTime DATETIME, amount MONEY, currency VARCHAR(3), balance MONEY, rollbackTranId BIGINT, rollbackTranType VARCHAR(20))
+
+			BEGIN TRY
+				INSERT INTO #Topaz (id, partyId, userId, gameInfoId, gameTranId, platformCode, platformTranId, gameId, tranType, dateTime, amount, currency, balance, rollbackTranId, rollbackTranType)
+				SELECT	t.c.value('(id/text())[1]', 'BIGINT')						AS id,
+						t.c.value('(partyId/text())[1]', 'INT')						AS partyId,
+						t.c.value('(userId/text())[1]', 'VARCHAR(50)')				AS userId,
+						t.c.value('(gameInfoId/text())[1]', 'INT')					AS gameInfoId,
+						t.c.value('(gameTranId/text())[1]', 'VARCHAR(100)')			AS gameTranId,
+						t.c.value('(platformCode/text())[1]', 'VARCHAR(20)')		AS platformCode,
+						t.c.value('(platformTranId/text())[1]', 'VARCHAR(50)')		AS platformTranId,
+						t.c.value('(gameId/text())[1]', 'VARCHAR(20)')				AS gameId,
+						t.c.value('(tranType/text())[1]', 'VARCHAR(20)')			AS tranType,
+						t.c.value('(dateTime/text())[1]', 'DATETIME')				AS dateTime,
+						t.c.value('(amount/text())[1]', 'MONEY')					AS amount,
+						t.c.value('(currency/text())[1]', 'VARCHAR(3)')				AS currency,
+						t.c.value('(balance/text())[1]', 'MONEY')					AS balance,
+						t.c.value('(rollbackTranId/text())[1]', 'BIGINT')			AS rollbackTranId,
+						t.c.value('(rollbackTranType/text())[1]', 'VARCHAR(20)')	AS rollbackTranType
+				FROM @XmlData.nodes('Transaction_Detail/bets/row') AS t(c)
+				OPTION (OPTIMIZE FOR (@XmlData = NULL))
+
+				DELETE bt WITH (ROWLOCK, UPDLOCK)
+				FROM dbo.bettrans_Topaz bt
+				WHERE EXISTS (SELECT 1 FROM #Topaz t WHERE bt.id = t.id)
+				
+				INSERT INTO dbo.bettrans_Topaz (id, partyId, userId, gameInfoId, gameTranId, platformCode, platformTranId, gameId, tranType, dateTime, amount, currency, balance, rollbackTranId, rollbackTranType, IBCCustId, WinlostDate)
+				SELECT t.id, t.partyId, t.userId, t.gameInfoId, t.gameTranId, t.platformCode, t.platformTranId, t.gameId, t.tranType, t.dateTime, t.amount, t.currency, t.balance, t.rollbackTranId, t.rollbackTranType, m.IBCCustId, CONVERT(DATE, t.dateTime) AS WinlostDate
+				FROM #Topaz t
+					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + t.userId = m.Username
+
+				SELECT @WinlostDate = MIN(CONVERT(DATE, dateTime)) FROM #Topaz
+
+				SELECT @IsErr = 0
+			END TRY
+			BEGIN CATCH
+				UPDATE dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
+				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
+				WHERE QueueId = @QueueId
+			END CATCH
+
+			DROP TABLE #Topaz
 		END
 
 		IF @IsErr = 1
 		BEGIN
-			SELECT @ErrCode = 101, @ErrMsg = CONVERT(NVARCHAR(100), @QueueId)
+			SELECT @ErrCode = 101, @ErrMsg = 'Please help check data in APIProduct_ImportQueue table with QueueId = ' + CONVERT(NVARCHAR(100), @QueueId)
 			RETURN
 		END
 		ELSE
@@ -469,12 +682,5 @@ BEGIN
 		SET SettingValue = CONVERT(VARCHAR(20), @LastQueueId)
 		WHERE ProductId = @ProductId AND SettingName = 'LastQueueId'
 	END
-
-	DROP TABLE #Ebet
-	DROP TABLE #Betsoft
-	DROP TABLE #Crystal
-	DROP TABLE #iSoftbet
-	DROP TABLE #OPUS
-	DROP TABLE #PTCS
 END
 GO
