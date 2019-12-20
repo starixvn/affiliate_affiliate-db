@@ -533,7 +533,7 @@ BEGIN
 						t.c.value('(ResultDate/text())[1]', 'DATETIME') AS ResultDate,
 						t.c.value('(DateCreated/text())[1]', 'DATETIME') AS DateCreated,
 						t.c.value('(LastUpdatedDate/text())[1]', 'DATETIME') AS LastUpdatedDate
-				FROM @XmlData.nodes('root/transactions') AS t(c)
+				FROM @XmlData.nodes('root/Result') AS t(c)
 				OPTION (OPTIMIZE FOR (@XmlData = NULL))
 
 				DELETE bv WITH (ROWLOCK, UPDLOCK)
@@ -629,7 +629,7 @@ BEGIN
 						t.c.value('(balance/text())[1]', 'MONEY')					AS balance,
 						t.c.value('(rollbackTranId/text())[1]', 'BIGINT')			AS rollbackTranId,
 						t.c.value('(rollbackTranType/text())[1]', 'VARCHAR(20)')	AS rollbackTranType
-				FROM @XmlData.nodes('Transaction_Detail/bets/row') AS t(c)
+				FROM @XmlData.nodes('root/transactions') AS t(c)
 				OPTION (OPTIMIZE FOR (@XmlData = NULL))
 
 				DELETE bt WITH (ROWLOCK, UPDLOCK)

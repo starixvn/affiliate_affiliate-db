@@ -258,7 +258,7 @@ BEGIN
 			mi.IBCCustId,
 			mi.currency,
 			SUM(ISNULL(l.bet_money, 0)) AS Turnover,
-			SUM(ISNULL(l.bet_winning, 0)) AS Winloss
+			SUM(ISNULL(l.bet_winning, 0) - ISNULL(l.bet_money, 0)) AS Winloss
 		FROM dbo.bettrans_LBKeno l WITH (NOLOCK)
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON l.IBCCustId = mi.IBCCustId
 		WHERE l.WinlostDate = @WinlostDate
@@ -288,8 +288,9 @@ BEGIN
 			mi.AffId,
 			mi.IBCCustId,
 			mi.currency,
-			SUM(CASE WHEN t.tranType = 'GAME_BET' THEN ISNULL(t.amount, 0) ELSE 0 END) AS Turnover,
-			SUM(CASE WHEN t.tranType = 'GAME_WIN' THEN ISNULL(t.amount, 0) ELSE 0 END) AS Winloss
+			SUM(CASE WHEN t.tranType = 'GAME_BET' THEN ISNULL(-t.amount, 0) ELSE 0 END) AS Turnover,
+			SUM(CASE	WHEN t.tranType = 'GAME_WIN' THEN ISNULL(-t.amount, 0)
+						WHEN t.tranType = 'GAME_BET' THEN ISNULL(-t.amount, 0) ELSE 0 END) AS Winloss
 		FROM dbo.bettrans_Topaz t WITH (NOLOCK)
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON t.IBCCustId = mi.IBCCustId
 		WHERE t.WinlostDate = @WinlostDate
