@@ -13,6 +13,7 @@ AS
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 		- 20190117@Percy: Add Gold Deluxe [RedmineID: #106503]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
+		- 20191220@Percy: Enhance performance - Split code merge rptMemberDaily to insert/update/delete [RedmineID: #117197]
 */
 
 BEGIN
@@ -211,37 +212,88 @@ BEGIN
 			) AS r
 	END
 
-	MERGE dbo.rptMemberDaily AS TARGET
-	USING
+	-- Import data
+	BEGIN
+		;WITH CTE_rptMemberDaily AS
 		(
+			SELECT IBCCustID, AffId, Currency, AffExRate, ExRate, Bonus, Turnover, Winloss, AWinloss, AComm
+			FROM dbo.rptMemberDaily WITH (NOLOCK)
+			WHERE winlostdate = @WinlostDate AND ProductId = @ProductId
+		)
+		SELECT
+			CASE	WHEN t.IBCCustId IS NULL THEN -1 -- delete
+					WHEN r.IBCCustId IS NULL THEN 1 -- insert
+					ELSE 0 END AS ModifiedType-- update
+			,ISNULL(t.IBCCustId, r.IBCCustId) AS IBCCustId
+			,t.AffId, t.Currency, t.AffExRate, t.ExRate, t.Turnover, t.Winloss, t.AWinloss, t.AComm
+		INTO #__Data
+		FROM (
 			SELECT AffId,IBCCustId,Turnover,Winloss,AWinloss,AComm,Currency,e.ActualRate AS ExRate,e.ActualRate2 AS AffExRate
 			FROM #tempData d
 				CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(d.Currency, @WinlostDate) e
-		) AS SOURCE
-		ON		TARGET.WinlostDate	= @WinlostDate
-			AND TARGET.ProductId	= @ProductId
-			AND TARGET.AffId		= SOURCE.AffId
-			AND TARGET.IBCCustId	= SOURCE.IBCCustId
-	WHEN MATCHED THEN UPDATE
-		SET TARGET.Deposit			= 0,
-			TARGET.Withdrawal		= 0,
-			TARGET.Bonus			= 0,
-			TARGET.Adjustment		= 0,
-			TARGET.Turnover			= SOURCE.Turnover,
-			TARGET.Winloss			= SOURCE.Winloss,
-			TARGET.AWinloss			= SOURCE.AWinloss,
-			TARGET.AComm			= SOURCE.AComm
-	WHEN NOT MATCHED BY TARGET THEN
-		INSERT
-		(
-			WinlostDate,AffId,IBCCustId,ProductId,Deposit,Withdrawal,Bonus,Adjustment,Turnover,Winloss,AWinloss,AComm,Currency,ExRate,AffExRate
-		)
-		VALUES
-		(
-			@WinlostDate,AffId,IBCCustId,@ProductId,0,0,0,0,Turnover,Winloss,AWinloss,AComm,Currency,ExRate,AffExRate
-		)
-	WHEN NOT MATCHED BY SOURCE AND TARGET.WinlostDate = @WinlostDate AND TARGET.ProductId = @ProductId THEN DELETE;
+		) t
+			FULL OUTER JOIN CTE_rptMemberDaily r ON t.IBCCustId = r.IBCCustId
 
-	DROP TABLE #tempData
+		DROP TABLE #tempData
+
+		-- Delete
+		IF EXISTS (SELECT 1 FROM #__Data WHERE ModifiedType = -1)
+		BEGIN
+			DELETE r WITH (ROWLOCK, UPDLOCK)
+			FROM dbo.rptMemberDaily r
+				INNER JOIN #__Data d ON d.IBCCustId = r.IBCCustId
+			WHERE r.WinlostDate = @WinlostDate
+				AND r.ProductId = @ProductId
+				AND d.ModifiedType = -1
+
+			DELETE #__Data WHERE ModifiedType = -1
+		END
+				
+		-- Insert
+		IF EXISTS (SELECT 1 FROM #__Data WHERE ModifiedType = 1)
+		BEGIN
+			DELETE #__Data
+			OUTPUT @WinlostDate WinlostDate,DELETED.AffId,DELETED.IBCCustId,@ProductId ProductId
+					,0 Deposit,0 Withdrawal,0 Bonus,0 Adjustment,DELETED.Turnover,DELETED.Winloss
+					,DELETED.Currency,DELETED.ExRate,DELETED.AffExRate,DELETED.AWinloss,DELETED.AComm
+			INTO dbo.rptMemberDaily(WinlostDate,AffId,IBCCustId,ProductId,Deposit,Withdrawal,Bonus,Adjustment,Turnover,Winloss,Currency,ExRate,AffExRate,AWinloss,AComm)
+			WHERE ModifiedType = 1
+		END
+
+		-- Update
+		IF EXISTS (SELECT 1 FROM #__Data WHERE ModifiedType = 0)
+		BEGIN
+			UPDATE r WITH (ROWLOCK)
+			SET r.AffId = d.AffId
+				,r.Deposit = 0
+				,r.Withdrawal = 0
+				,r.Bonus = 0
+				,r.Adjustment = 0
+				,r.Turnover = d.Turnover
+				,r.Winloss = d.Winloss
+				,r.Currency = d.Currency
+				,r.ExRate = d.ExRate
+				,r.AffExRate = d.AffExRate
+				,r.AWinloss = d.AWinloss
+				,r.AComm = d.AComm
+			FROM dbo.rptMemberDaily r
+				INNER JOIN #__Data d ON d.IBCCustId = r.IBCCustId
+			WHERE r.WinlostDate = @WinlostDate
+				AND r.ProductId = @ProductId
+				AND d.ModifiedType = 0
+				AND (
+					r.AffId <> d.AffId
+					OR r.Turnover <> d.Turnover
+					OR r.Winloss <> d.Winloss
+					OR r.AWinloss <> d.AWinloss
+					OR r.AComm <> d.AComm
+					OR r.Currency <> d.Currency
+					OR r.ExRate <> d.ExRate
+					OR r.AffExRate <> d.AffExRate
+				)
+		END
+
+		DROP TABLE #__Data
+	END
 END
 GO
