@@ -215,54 +215,63 @@ BEGIN
 			) AS r
 	END
 
-	IF EXISTS (
-		SELECT 1
-		FROM #tempData d
-			FULL OUTER JOIN dbo.rptMemberDaily md WITH (NOLOCK)
-				ON		d.AffId			= md.AffId
-					AND d.IBCCustId		= md.IBCCustId
-					AND md.WinlostDate	= @WinlostDate
-					AND md.ProductId	= @ProductId
-		WHERE (ISNULL(md.WinlostDate, @WinlostDate) = @WinlostDate AND ISNULL(md.ProductId, @ProductId) = @ProductId)
-			AND (
-				d.AffId IS NULL
-				OR md.AffId IS NULL
-				OR d.Turnover <> md.Turnover
-				OR d.Winloss <> md.Winloss
-				OR ISNULL(d.AWinloss, 0) <> ISNULL(md.AWinloss, 0)
-				OR ISNULL(d.AComm, 0) <> ISNULL(md.AComm, 0)
-			)
+	-- Compare dataa
+	;WITH CTE_rptMemberDaily AS
+	(
+		SELECT IBCCustID, AffId, Currency, AffExRate, ExRate, Bonus, Turnover, Winloss, AWinloss, AComm
+		FROM dbo.rptMemberDaily WITH (NOLOCK)
+		WHERE winlostdate = @WinlostDate AND ProductId = @ProductId
 	)
+	SELECT
+		CASE	WHEN t.IBCCustId IS NULL THEN -1 -- delete
+				WHEN r.IBCCustId IS NULL THEN 1 -- insert
+				ELSE 0 END AS ModifiedType-- update
+		,ISNULL(t.IBCCustId, r.IBCCustId) AS IBCCustId
+		,t.AffId, t.Currency, t.AffExRate, t.ExRate, t.Turnover, t.Winloss, t.AWinloss, t.AComm
+	INTO #__Data
+	FROM (
+		SELECT AffId,IBCCustId,Turnover,Winloss,AWinloss,AComm,Currency,e.ActualRate AS ExRate,e.ActualRate2 AS AffExRate
+		FROM #tempData d
+			CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(d.Currency, @WinlostDate) e
+	) t
+		FULL OUTER JOIN CTE_rptMemberDaily r ON t.IBCCustId = r.IBCCustId
+
+	DROP TABLE #tempData
+
+	IF EXISTS (SELECT 1 FROM #__Data WHERE ModifiedType IN (-1, 1))
 		SELECT @IsMismatch = 1
+	ELSE IF EXISTS (SELECT 1 FROM #__Data WHERE ModifiedType = 0)
+	BEGIN
+		IF EXISTS (
+			SELECT 1
+			FROM dbo.rptMemberDaily r WITH (NOLOCK)
+					INNER JOIN #__Data d ON d.IBCCustId = r.IBCCustId
+				WHERE r.WinlostDate = @WinlostDate
+					AND r.ProductId = @ProductId
+					AND d.ModifiedType = 0
+					AND (
+						r.AffId <> d.AffId
+						OR r.Turnover <> d.Turnover
+						OR r.Winloss <> d.Winloss
+						OR r.AWinloss <> d.AWinloss
+						OR r.AComm <> d.AComm
+						OR r.Currency <> d.Currency
+						OR r.ExRate <> d.ExRate
+						OR r.AffExRate <> d.AffExRate
+					)
+		)
+			SELECT @IsMismatch = 1
+		ELSE
+			SELECT @IsMismatch = 0
+	END
 	ELSE
 		SELECT @IsMismatch = 0
 
+	-- Correct Data
 	IF @IsMismatch = 1
 	BEGIN
 		IF @IsCheckDataOnly = 0
 		BEGIN
-			;WITH CTE_rptMemberDaily AS
-			(
-				SELECT IBCCustID, AffId, Currency, AffExRate, ExRate, Bonus, Turnover, Winloss, AWinloss, AComm
-				FROM dbo.rptMemberDaily WITH (NOLOCK)
-				WHERE winlostdate = @WinlostDate AND ProductId = @ProductId
-			)
-			SELECT
-				CASE	WHEN t.IBCCustId IS NULL THEN -1 -- delete
-						WHEN r.IBCCustId IS NULL THEN 1 -- insert
-						ELSE 0 END AS ModifiedType-- update
-				,ISNULL(t.IBCCustId, r.IBCCustId) AS IBCCustId
-				,t.AffId, t.Currency, t.AffExRate, t.ExRate, t.Turnover, t.Winloss, t.AWinloss, t.AComm
-			INTO #__Data
-			FROM (
-				SELECT AffId,IBCCustId,Turnover,Winloss,AWinloss,AComm,Currency,e.ActualRate AS ExRate,e.ActualRate2 AS AffExRate
-				FROM #tempData d
-					CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(d.Currency, @WinlostDate) e
-			) t
-				FULL OUTER JOIN CTE_rptMemberDaily r ON t.IBCCustId = r.IBCCustId
-
-			DROP TABLE #tempData
-
 			-- Delete
 			IF EXISTS (SELECT 1 FROM #__Data WHERE ModifiedType = -1)
 			BEGIN
