@@ -145,6 +145,7 @@ BEGIN
 				WHERE mr.RemovedDate <= DATEADD(DAY, 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @WinlostDate) + 1, 0))
 					AND mi.IBCCustId = mr.IBCCustId
 			)
+			AND (i.TYPE LIKE '%BET%' OR i.TYPE LIKE '%WIN%')
 		GROUP BY
 			mi.AffId,
 			mi.IBCCustId,
@@ -288,9 +289,11 @@ BEGIN
 			mi.AffId,
 			mi.IBCCustId,
 			mi.currency,
-			SUM(CASE WHEN t.tranType = 'GAME_BET' THEN ISNULL(-t.amount, 0) ELSE 0 END) AS Turnover,
-			SUM(CASE	WHEN t.tranType = 'GAME_WIN' THEN ISNULL(-t.amount, 0)
-						WHEN t.tranType = 'GAME_BET' THEN ISNULL(-t.amount, 0) ELSE 0 END) AS Winloss
+			-SUM(CASE WHEN t.tranType = 'GAME_BET' THEN ISNULL(t.amount, 0) ELSE 0 END
+				/ CASE WHEN mi.Currency IN (34, 51) THEN 1000.0 ELSE 1.0 END) AS Turnover, -- IDR, VND amount divide by 1000
+			-SUM((CASE	WHEN t.tranType = 'GAME_WIN' THEN ISNULL(t.amount, 0)
+						WHEN t.tranType = 'GAME_BET' THEN ISNULL(t.amount, 0) ELSE 0 END)
+				/ CASE WHEN mi.Currency IN (34, 51) THEN 1000.0 ELSE 1.0 END) AS Winloss -- IDR, VND amount divide by 1000
 		FROM dbo.bettrans_Topaz t WITH (NOLOCK)
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON t.IBCCustId = mi.IBCCustId
 		WHERE t.WinlostDate = @WinlostDate
@@ -299,6 +302,7 @@ BEGIN
 				WHERE mr.RemovedDate <= DATEADD(DAY, 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @WinlostDate) + 1, 0))
 					AND mi.IBCCustId = mr.IBCCustId
 			)
+			AND t.tranType IN ('GAME_BET', 'GAME_WIN')
 		GROUP BY
 			mi.AffId,
 			mi.IBCCustId,
