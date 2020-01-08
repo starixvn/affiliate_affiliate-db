@@ -1,9 +1,11 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_MediaSize_Sel]
-	@Language	VARCHAR(50) = NULL
-	,@Category	VARCHAR(50) = NULL
-	,@Currency	VARCHAR(50) = NULL
-	,@ImageType	VARCHAR(50) = NULL
+	@Language		VARCHAR(50) = NULL
+	,@Category		VARCHAR(50) = NULL
+	,@Currency		VARCHAR(50) = NULL
+	,@ImageType		VARCHAR(50) = NULL
+	,@AffType		TINYINT = NULL
+	,@DeviceType	TINYINT = NULL
 AS
 
 /*
@@ -19,7 +21,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	IF @Language IS NULL AND @Category IS NULL AND @Currency IS NULL AND @ImageType IS NULL
+	IF @Language IS NULL AND @Category IS NULL AND @Currency IS NULL AND @ImageType IS NULL AND @AffType IS NULL AND @DeviceType IS NULL
 	BEGIN
 		SELECT
 			ROW_NUMBER() OVER(ORDER BY CONVERT(INT, h.val), CONVERT(INT, w.val)) AS SizeId
@@ -56,6 +58,8 @@ BEGIN
 					AND (@Language IS NULL OR bn.Language = @Language)
 					AND (@ImageType IS NULL OR bn.ImageType = @ImageType)
 					AND (@Currency IS NULL OR bn.Currency = @Currency)
+					AND (@AffType IS NULL OR bn.AffType = @AffType)
+					AND (@DeviceType IS NULL OR bn.DeviceType = @DeviceType)
 			)
 		ORDER BY SizeId
 	END
