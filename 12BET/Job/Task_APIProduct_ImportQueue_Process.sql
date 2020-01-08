@@ -669,10 +669,11 @@ BEGIN
 
 			SELECT @QueueId = NULL, @XmlData = NULL
 
-			SELECT TOP 1 @QueueId = QueueId, @XmlData = XmlData
-			FROM dbo.APIProduct_ImportQueue WITH (NOLOCK)
-			WHERE ProductId = @ProductId AND QueueId >= @LastQueueId AND JobType = 0 AND FinishedTime IS NULL
-			ORDER BY QueueId
+			IF @QueueIdInput = 0
+				SELECT TOP 1 @QueueId = QueueId, @XmlData = XmlData
+				FROM dbo.APIProduct_ImportQueue WITH (NOLOCK)
+				WHERE ProductId = @ProductId AND QueueId >= @LastQueueId AND JobType = 0 AND FinishedTime IS NULL
+				ORDER BY QueueId
 		END
 	END
 
