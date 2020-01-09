@@ -502,7 +502,7 @@ BEGIN
 		-- VR Lottery
 		ELSE IF @ProductId = 21
 		BEGIN
-			CREATE TABLE #VRLottery (Provider VARCHAR(20), GameId VARCHAR(30), GameName VARCHAR(100), GameNo VARCHAR(20), GameNoId INT, PlayerId VARCHAR(50), ProviderPlayerId NVARCHAR(200), Currency VARCHAR(10), Tray SMALLINT, BetId VARCHAR(50), BetOn NVARCHAR(50), BetType NVARCHAR(100), BetDetails VARCHAR(100), Odds MONEY, BetAmount MONEY, ValidBet MONEY, WinLoss MONEY, PlayerWinLoss MONEY, LossPrize MONEY, Tips MONEY, CommissionRate FLOAT, Commission MONEY, Status VARCHAR(20), Platform VARCHAR(20), BetDate DATETIME, ResultDate DATETIME, DateCreated DATETIME, LastUpdatedDate DATETIME)
+			CREATE TABLE #VRLottery (Provider VARCHAR(20), GameId VARCHAR(30), GameName VARCHAR(100), GameNo VARCHAR(20), GameNoId INT, PlayerId VARCHAR(50), ProviderPlayerId NVARCHAR(200), Currency VARCHAR(10), Tray SMALLINT, BetId VARCHAR(50), BetOn NVARCHAR(50), BetType NVARCHAR(100), BetDetails VARCHAR(100), Odds NVARCHAR(100), BetAmount MONEY, ValidBet MONEY, WinLoss MONEY, PlayerWinLoss MONEY, LossPrize MONEY, Tips MONEY, CommissionRate FLOAT, Commission MONEY, Status VARCHAR(20), Platform VARCHAR(20), BetDate DATETIME, ResultDate DATETIME, DateCreated DATETIME, LastUpdatedDate DATETIME)
 			BEGIN TRY
 				INSERT INTO #VRLottery (Provider, GameId, GameName, GameNo, GameNoId, PlayerId, ProviderPlayerId, Currency, Tray, BetId, BetOn, BetType, BetDetails, Odds, BetAmount, ValidBet, WinLoss, PlayerWinLoss, LossPrize, Tips, CommissionRate, Commission, Status, Platform, BetDate, ResultDate, DateCreated, LastUpdatedDate)
 				SELECT	t.c.value('(Provider/text())[1]', 'VARCHAR(20)') AS Provider,
@@ -518,7 +518,7 @@ BEGIN
 						t.c.value('(BetOn/text())[1]', 'NVARCHAR(100)') AS BetOn,
 						t.c.value('(BetType/text())[1]', 'NVARCHAR(200)') AS BetType,
 						t.c.value('(BetDetails/text())[1]', 'VARCHAR(100)') AS BetDetails,
-						t.c.value('(Odds/text())[1]', 'MONEY') AS Odds,
+						t.c.value('(Odds/text())[1]', 'NVARCHAR(100)') AS Odds,
 						t.c.value('(BetAmount/text())[1]', 'MONEY') AS BetAmount,
 						t.c.value('(ValidBet/text())[1]', 'MONEY') AS ValidBet,
 						t.c.value('(WinLoss/text())[1]', 'MONEY') AS WinLoss,
