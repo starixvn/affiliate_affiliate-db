@@ -34,8 +34,8 @@ BEGIN
 
 	-- Balance Brought Forward
 	BEGIN
-		DECLARE @BFF MONEY
-		SELECT  @BFF = SUM(Amount) FROM dbo.AffTrans WITH (NOLOCK)
+		DECLARE @BBF MONEY
+		SELECT  @BBF = SUM(Amount) FROM dbo.AffTrans WITH (NOLOCK)
 		WHERE AffId = @AffId AND TransDate < @ToNextMonth AND Status IN ('Pending', 'Approved', 'Completed')
 	END
 
@@ -164,7 +164,7 @@ BEGIN
 		SELECT
 			ISNULL(@Signups, 0)					AS Signups
 			,ISNULL(@DepositedMembers, 0)		AS DepositedMembers
-			,ISNULL(@BFF, 0)					AS BFF
+			,ISNULL(@BBF, 0)					AS BalanceBroughtForward
 			,ISNULL(@ActivePlayers, 0)			AS ActivePlayers
 			,ISNULL(@QualifiedActivePlayers, 0)	AS QualifiedActivePlayers
 			,ISNULL(@Turnover, 0)				AS Turnover

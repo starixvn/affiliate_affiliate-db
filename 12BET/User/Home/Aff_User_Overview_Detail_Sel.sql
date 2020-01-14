@@ -149,6 +149,7 @@ BEGIN
 				FROM @QualifiedActiveMembers q
 				WHERE wld.WinlostDate = q.WinlostDate
 			) q
+		ORDER BY wld.WinlostDate DESC
 	END
 
 	DROP TABLE #Data
