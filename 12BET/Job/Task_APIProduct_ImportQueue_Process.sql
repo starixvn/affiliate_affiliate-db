@@ -483,11 +483,11 @@ BEGIN
 				WHERE EXISTS (SELECT 1 FROM #GPILottery g WHERE bg.betId = g.betId)
 				
 				INSERT INTO dbo.bettrans_GPILottery (memberId, memberType, betId, betNo, drawId, drawNo, areaName, isRNG, betType, betContent, currency, betAmount, odds, isWin, winAmount, timeBet, actionTime, status, OS, IBCCustId, WinlostDate)
-				SELECT g.memberId, g.memberType, g.betId, g.betNo, g.drawId, g.drawNo, g.areaName, g.isRNG, g.betType, g.betContent, g.currency, g.betAmount, g.odds, g.isWin, g.winAmount, g.timeBet, g.actionTime, g.status, g.OS, m.IBCCustId, CONVERT(DATE, g.actionTime) AS WinlostDate
+				SELECT g.memberId, g.memberType, g.betId, g.betNo, g.drawId, g.drawNo, g.areaName, g.isRNG, g.betType, g.betContent, g.currency, g.betAmount, g.odds, g.isWin, g.winAmount, g.timeBet, g.actionTime, g.status, g.OS, m.IBCCustId, CONVERT(DATE, g.timeBet) AS WinlostDate
 				FROM #GPILottery g
 					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + g.memberId = m.Username
 
-				SELECT @WinlostDate = MIN(CONVERT(DATE, actionTime)) FROM #GPILottery
+				SELECT @WinlostDate = MIN(CONVERT(DATE, timeBet)) FROM #GPILottery
 
 				SELECT @IsErr = 0
 			END TRY
@@ -541,11 +541,11 @@ BEGIN
 				WHERE EXISTS (SELECT 1 FROM #VRLottery v WHERE bv.betId = v.betId)
 				
 				INSERT INTO dbo.bettrans_VRLottery (Provider, GameId, GameName, GameNo, GameNoId, PlayerId, ProviderPlayerId, Currency, Tray, BetId, BetOn, BetType, BetDetails, Odds, BetAmount, ValidBet, WinLoss, PlayerWinLoss, LossPrize, Tips, CommissionRate, Commission, Status, Platform, BetDate, ResultDate, DateCreated, LastUpdatedDate, IBCCustId, WinlostDate)
-				SELECT Provider, v.GameId, v.GameName, v.GameNo, v.GameNoId, v.PlayerId, v.ProviderPlayerId, v.Currency, v.Tray, v.BetId, v.BetOn, v.BetType, v.BetDetails, v.Odds, v.BetAmount, v.ValidBet, v.WinLoss, v.PlayerWinLoss, v.LossPrize, v.Tips, v.CommissionRate, v.Commission, v.Status, v.Platform, v.BetDate, v.ResultDate, v.DateCreated, v.LastUpdatedDate, m.IBCCustId, CONVERT(DATE, v.ResultDate) AS WinlostDate
+				SELECT Provider, v.GameId, v.GameName, v.GameNo, v.GameNoId, v.PlayerId, v.ProviderPlayerId, v.Currency, v.Tray, v.BetId, v.BetOn, v.BetType, v.BetDetails, v.Odds, v.BetAmount, v.ValidBet, v.WinLoss, v.PlayerWinLoss, v.LossPrize, v.Tips, v.CommissionRate, v.Commission, v.Status, v.Platform, v.BetDate, v.ResultDate, v.DateCreated, v.LastUpdatedDate, m.IBCCustId, CONVERT(DATE, DATEADD(HOUR, -6.5, v.ResultDate)) AS WinlostDate
 				FROM #VRLottery v
 					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + v.PlayerId = m.Username
 
-				SELECT @WinlostDate = MIN(CONVERT(DATE, ResultDate)) FROM #VRLottery
+				SELECT @WinlostDate = MIN(CONVERT(DATE, DATEADD(HOUR, -6.5, ResultDate))) FROM #VRLottery
 
 				SELECT @IsErr = 0
 			END TRY
