@@ -483,11 +483,11 @@ BEGIN
 				WHERE EXISTS (SELECT 1 FROM #GPILottery g WHERE bg.betId = g.betId)
 				
 				INSERT INTO dbo.bettrans_GPILottery (memberId, memberType, betId, betNo, drawId, drawNo, areaName, isRNG, betType, betContent, currency, betAmount, odds, isWin, winAmount, timeBet, actionTime, status, OS, IBCCustId, WinlostDate)
-				SELECT g.memberId, g.memberType, g.betId, g.betNo, g.drawId, g.drawNo, g.areaName, g.isRNG, g.betType, g.betContent, g.currency, g.betAmount, g.odds, g.isWin, g.winAmount, g.timeBet, g.actionTime, g.status, g.OS, m.IBCCustId, CONVERT(DATE, g.actionTime) AS WinlostDate
+				SELECT g.memberId, g.memberType, g.betId, g.betNo, g.drawId, g.drawNo, g.areaName, g.isRNG, g.betType, g.betContent, g.currency, g.betAmount, g.odds, g.isWin, g.winAmount, g.timeBet, g.actionTime, g.status, g.OS, m.IBCCustId, CONVERT(DATE, g.timeBet) AS WinlostDate
 				FROM #GPILottery g
 					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + g.memberId = m.Username
 
-				SELECT @WinlostDate = MIN(CONVERT(DATE, actionTime)) FROM #GPILottery
+				SELECT @WinlostDate = MIN(CONVERT(DATE, timeBet)) FROM #GPILottery
 
 				SELECT @IsErr = 0
 			END TRY
@@ -502,7 +502,7 @@ BEGIN
 		-- VR Lottery
 		ELSE IF @ProductId = 21
 		BEGIN
-			CREATE TABLE #VRLottery (Provider VARCHAR(20), GameId VARCHAR(30), GameName VARCHAR(100), GameNo VARCHAR(20), GameNoId INT, PlayerId VARCHAR(50), ProviderPlayerId NVARCHAR(200), Currency VARCHAR(10), Tray SMALLINT, BetId VARCHAR(50), BetOn NVARCHAR(50), BetType NVARCHAR(100), BetDetails VARCHAR(100), Odds MONEY, BetAmount MONEY, ValidBet MONEY, WinLoss MONEY, PlayerWinLoss MONEY, LossPrize MONEY, Tips MONEY, CommissionRate FLOAT, Commission MONEY, Status VARCHAR(20), Platform VARCHAR(20), BetDate DATETIME, ResultDate DATETIME, DateCreated DATETIME, LastUpdatedDate DATETIME)
+			CREATE TABLE #VRLottery (Provider VARCHAR(20), GameId VARCHAR(30), GameName VARCHAR(100), GameNo VARCHAR(20), GameNoId INT, PlayerId VARCHAR(50), ProviderPlayerId NVARCHAR(200), Currency VARCHAR(10), Tray SMALLINT, BetId VARCHAR(50), BetOn NVARCHAR(50), BetType NVARCHAR(100), BetDetails VARCHAR(100), Odds NVARCHAR(100), BetAmount MONEY, ValidBet MONEY, WinLoss MONEY, PlayerWinLoss MONEY, LossPrize MONEY, Tips MONEY, CommissionRate FLOAT, Commission MONEY, Status VARCHAR(20), Platform VARCHAR(20), BetDate DATETIME, ResultDate DATETIME, DateCreated DATETIME, LastUpdatedDate DATETIME)
 			BEGIN TRY
 				INSERT INTO #VRLottery (Provider, GameId, GameName, GameNo, GameNoId, PlayerId, ProviderPlayerId, Currency, Tray, BetId, BetOn, BetType, BetDetails, Odds, BetAmount, ValidBet, WinLoss, PlayerWinLoss, LossPrize, Tips, CommissionRate, Commission, Status, Platform, BetDate, ResultDate, DateCreated, LastUpdatedDate)
 				SELECT	t.c.value('(Provider/text())[1]', 'VARCHAR(20)') AS Provider,
@@ -511,14 +511,14 @@ BEGIN
 						t.c.value('(GameNo/text())[1]', 'VARCHAR(20)') AS GameNo,
 						t.c.value('(GameNoId/text())[1]', 'INT') AS GameNoId,
 						t.c.value('(PlayerId/text())[1]', 'VARCHAR(50)') AS PlayerId,
-						t.c.value('(ProviderPlayerId/text())[1]', 'NVARCHAR(400)') AS ProviderPlayerId,
+						t.c.value('(ProviderPlayerId/text())[1]', 'NVARCHAR(200)') AS ProviderPlayerId,
 						t.c.value('(Currency/text())[1]', 'VARCHAR(10)') AS Currency,
 						t.c.value('(Tray/text())[1]', 'SMALLINT') AS Tray,
 						t.c.value('(BetId/text())[1]', 'VARCHAR(50)') AS BetId,
-						t.c.value('(BetOn/text())[1]', 'NVARCHAR(100)') AS BetOn,
-						t.c.value('(BetType/text())[1]', 'NVARCHAR(200)') AS BetType,
+						t.c.value('(BetOn/text())[1]', 'NVARCHAR(50)') AS BetOn,
+						t.c.value('(BetType/text())[1]', 'NVARCHAR(100)') AS BetType,
 						t.c.value('(BetDetails/text())[1]', 'VARCHAR(100)') AS BetDetails,
-						t.c.value('(Odds/text())[1]', 'MONEY') AS Odds,
+						t.c.value('(Odds/text())[1]', 'NVARCHAR(100)') AS Odds,
 						t.c.value('(BetAmount/text())[1]', 'MONEY') AS BetAmount,
 						t.c.value('(ValidBet/text())[1]', 'MONEY') AS ValidBet,
 						t.c.value('(WinLoss/text())[1]', 'MONEY') AS WinLoss,
@@ -541,11 +541,11 @@ BEGIN
 				WHERE EXISTS (SELECT 1 FROM #VRLottery v WHERE bv.betId = v.betId)
 				
 				INSERT INTO dbo.bettrans_VRLottery (Provider, GameId, GameName, GameNo, GameNoId, PlayerId, ProviderPlayerId, Currency, Tray, BetId, BetOn, BetType, BetDetails, Odds, BetAmount, ValidBet, WinLoss, PlayerWinLoss, LossPrize, Tips, CommissionRate, Commission, Status, Platform, BetDate, ResultDate, DateCreated, LastUpdatedDate, IBCCustId, WinlostDate)
-				SELECT Provider, v.GameId, v.GameName, v.GameNo, v.GameNoId, v.PlayerId, v.ProviderPlayerId, v.Currency, v.Tray, v.BetId, v.BetOn, v.BetType, v.BetDetails, v.Odds, v.BetAmount, v.ValidBet, v.WinLoss, v.PlayerWinLoss, v.LossPrize, v.Tips, v.CommissionRate, v.Commission, v.Status, v.Platform, v.BetDate, v.ResultDate, v.DateCreated, v.LastUpdatedDate, m.IBCCustId, CONVERT(DATE, v.ResultDate) AS WinlostDate
+				SELECT Provider, v.GameId, v.GameName, v.GameNo, v.GameNoId, v.PlayerId, v.ProviderPlayerId, v.Currency, v.Tray, v.BetId, v.BetOn, v.BetType, v.BetDetails, v.Odds, v.BetAmount, v.ValidBet, v.WinLoss, v.PlayerWinLoss, v.LossPrize, v.Tips, v.CommissionRate, v.Commission, v.Status, v.Platform, v.BetDate, v.ResultDate, v.DateCreated, v.LastUpdatedDate, m.IBCCustId, CONVERT(DATE, DATEADD(HOUR, -6.5, v.ResultDate)) AS WinlostDate
 				FROM #VRLottery v
 					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + v.PlayerId = m.Username
 
-				SELECT @WinlostDate = MIN(CONVERT(DATE, ResultDate)) FROM #VRLottery
+				SELECT @WinlostDate = MIN(CONVERT(DATE, DATEADD(HOUR, -6.5, ResultDate))) FROM #VRLottery
 
 				SELECT @IsErr = 0
 			END TRY
