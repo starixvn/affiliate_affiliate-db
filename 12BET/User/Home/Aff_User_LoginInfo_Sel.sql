@@ -17,8 +17,8 @@ BEGIN
 
 	SELECT LastLoginDate, LastLoginIP
 	FROM (
-		SELECT LastLoginDate, LastLoginIP, ROW_NUMBER() OVER(ORDER BY LastLoginDate DESC) AS RN
-		FROM dbo.AffLoginInfo WITH (NOLOCK)
+		SELECT LastLoginDate, IP AS LastLoginIP, ROW_NUMBER() OVER(ORDER BY LastLoginDate DESC) AS RN
+		FROM dbo.AffUserLoginInfo WITH (NOLOCK)
 		WHERE AffId = @AffId
 	) i
 	WHERE RN = 1
