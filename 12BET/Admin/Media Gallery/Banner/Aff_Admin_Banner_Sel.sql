@@ -20,6 +20,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20200120@Percy: Return more field: LastUpdate [RedmineID: #127345]
 */
 
 BEGIN
@@ -33,7 +34,7 @@ BEGIN
 	
 	IF @BannerId <> 0
 	BEGIN
-		SELECT BannerId, FileName, Category, Language, Currency, DeviceType, ImageType, Size, AffType
+		SELECT BannerId, FileName, Category, Language, Currency, DeviceType, ImageType, Size, AffType, LastUpdate
 		FROM dbo.Banners_1 WITH (NOLOCK)
 		WHERE BannerId = @BannerId
 	END
@@ -57,9 +58,9 @@ BEGIN
 		IF @NRows = 0
 			RETURN
 
-		SELECT BannerId, FileName, Category, Language, Currency, DeviceType, ImageType, Size, AffType
+		SELECT BannerId, FileName, Category, Language, Currency, DeviceType, ImageType, Size, AffType, LastUpdate
 		FROM (
-			SELECT BannerId, FileName, Category, Language, Currency, DeviceType, ImageType, Size, AffType
+			SELECT BannerId, FileName, Category, Language, Currency, DeviceType, ImageType, Size, AffType, LastUpdate
 				,ROW_NUMBER() OVER(ORDER BY BannerId DESC) AS RowNum
 			FROM dbo.Banners_1 b WITH (NOLOCK)
 			WHERE ImageType <> 'Text'
