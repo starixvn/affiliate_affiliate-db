@@ -31,7 +31,13 @@ BEGIN
 		RETURN
 
 	DECLARE @QMTurnover MONEY
-	SELECT  @QMTurnover = QMTurnover FROM dbo.CommGroupHistory WITH (NOLOCK) WHERE MonthDate = @EndOfMonth
+	
+	SELECT  @QMTurnover = QMTurnover
+	FROM dbo.CommGroupHistory cgh WITH (NOLOCK)
+		INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON cgh.GroupID = agh.GroupID AND cgh.MonthDate = agh.MonthDate
+	WHERE cgh.MonthDate = @EndOfMonth
+		AND agh.AffID = @AffId
+	
 	SELECT  @QMTurnover = ISNULL(@QMTurnover, 0)
 
 	-- Signups, Deposited Members
@@ -74,6 +80,11 @@ BEGIN
 				FROM dbo.rptMemberDaily r WITH (NOLOCK)
 				WHERE r.WinlostDate = wld.WinlostDate
 					AND r.AffId = @AffId
+					AND NOT EXISTS (
+						SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+						WHERE mr.IBCCustId = r.IBCCustId
+							AND mr.RemovedDate <= @EndOfMonth
+					)
 			) r
 		GROUP BY r.WinlostDate, r.IBCCustId
 
@@ -98,19 +109,12 @@ BEGIN
 				AND NOT EXISTS (SELECT 1 FROM @ActiveMembers a WHERE d.IBCCustId = a.IBCCustId)
 
 			INSERT INTO @QualifiedActiveMembers (WinlostDate, IBCCustId, Turnover)
-			SELECT WinlostDate, IBCCustId, SUM(Turnover)
-			FROM (
-				SELECT WinlostDate, IBCCustId, Turnover
-				FROM @QualifiedActiveMembers
-				WHERE WinlostDate = DATEADD(DAY, -1, @tmpWinlostDate)
-					AND Turnover < @QMTurnover
-				UNION ALL
-				SELECT WinlostDate, IBCCustId, Turnover
-				FROM #Data d
-				WHERE WinlostDate = @tmpWinlostDate
-					AND EXISTS (SELECT 1 FROM @QualifiedActiveMembers q WHERE d.IBCCustId = q.IBCCustId AND q.Turnover < @QMTurnover)
-			) t
-			GROUP BY WinlostDate, IBCCustId
+			SELECT @tmpWinlostDate AS WinlostDate, IBCCustId, SUM(Turnover) AS Turnover
+			FROM #Data d
+			WHERE WinlostDate <= @tmpWinlostDate
+				AND NOT EXISTS (SELECT 1 FROM @QualifiedActiveMembers q WHERE d.IBCCustId = q.IBCCustId)
+			GROUP BY IBCCustId
+			HAVING SUM(Turnover) >= @QMTurnover
 
 			SELECT @tmpWinlostDate = DATEADD(DAY, 1, @tmpWinlostDate)
 		END

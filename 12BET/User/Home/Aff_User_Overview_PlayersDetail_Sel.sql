@@ -75,6 +75,11 @@ BEGIN
 				FROM dbo.rptMemberDaily r WITH (NOLOCK)
 				WHERE wld.WinlostDate = r.WinlostDate
 					AND r.AffId = @AffId
+					AND NOT EXISTS (
+						SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+						WHERE mr.IBCCustId = r.IBCCustId
+							AND mr.RemovedDate <= @ToEndMonth
+					)
 			) r
 		GROUP BY r.IBCCustId
 		HAVING SUM((r.Deposit + r.Withdrawal + r.Turnover + ABS(r.Winloss) + r.Bonus) * r.AffExRate) > 0.0
@@ -112,6 +117,11 @@ BEGIN
 				FROM dbo.MemberDaily r WITH (NOLOCK)
 				WHERE wld.WinlostDate = r.WinlostDate
 					AND r.AffId = @AffId
+					AND NOT EXISTS (
+						SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+						WHERE mr.IBCCustId = r.IBCCustId
+							AND mr.RemovedDate <= @ToEndMonth
+					)
 			) r
 		GROUP BY r.IBCCustId
 		HAVING SUM((r.Deposit + r.Withdrawal + r.Turnover + ABS(r.Winlost) + r.Bonus) * r.AffExRate) > 0.0
@@ -124,10 +134,11 @@ BEGIN
 		RETURN
 
 	DECLARE @BankingFee DECIMAL(9, 8) = 0
-	SELECT  @BankingFee = ISNULL(ds.DeductedPercentage, 0)
-	FROM dbo.AffGroupHistory ag WITH (NOLOCK)
-		INNER JOIN dbo.DeductionSettingHistory ds WITH (NOLOCK) ON ag.GroupID = ds.GroupID
-	WHERE ds.DeductionID = 12 AND ag.MonthDate = @ToEndMonth
+	SELECT  @BankingFee = ISNULL(dsh.DeductedPercentage, 0)
+	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+		INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupID = dsh.GroupID AND agh.MonthDate = dsh.MonthDate
+	WHERE dsh.DeductionID = 12 AND agh.MonthDate = @ToEndMonth
+		AND agh.AffID = @AffId
 
 	-- Paging
 	DECLARE @RowStart INT, @RowEnd INT
