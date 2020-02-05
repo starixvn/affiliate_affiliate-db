@@ -106,6 +106,7 @@ BEGIN
 			SELECT WinlostDate, IBCCustId
 			FROM #Data d
 			WHERE WinlostDate = @tmpWinlostDate
+				AND (Deposit > 0 OR Turnover > 0)
 				AND NOT EXISTS (SELECT 1 FROM @ActiveMembers a WHERE d.IBCCustId = a.IBCCustId)
 
 			INSERT INTO @QualifiedActiveMembers (WinlostDate, IBCCustId, Turnover)
