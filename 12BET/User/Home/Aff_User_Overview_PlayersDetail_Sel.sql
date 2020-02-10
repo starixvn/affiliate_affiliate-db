@@ -75,11 +75,6 @@ BEGIN
 				FROM dbo.rptMemberDaily r WITH (NOLOCK)
 				WHERE wld.WinlostDate = r.WinlostDate
 					AND r.AffId = @AffId
-					AND NOT EXISTS (
-						SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-						WHERE mr.IBCCustId = r.IBCCustId
-							AND mr.RemovedDate <= @ToEndMonth
-					)
 			) r
 		GROUP BY r.IBCCustId
 		HAVING SUM((r.Deposit + r.Withdrawal + r.Turnover + ABS(r.Winloss) + r.Bonus) * r.AffExRate) > 0.0
@@ -117,11 +112,6 @@ BEGIN
 				FROM dbo.MemberDaily r WITH (NOLOCK)
 				WHERE wld.WinlostDate = r.WinlostDate
 					AND r.AffId = @AffId
-					AND NOT EXISTS (
-						SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-						WHERE mr.IBCCustId = r.IBCCustId
-							AND mr.RemovedDate <= @ToEndMonth
-					)
 			) r
 		GROUP BY r.IBCCustId
 		HAVING SUM((r.Deposit + r.Withdrawal + r.Turnover + ABS(r.Winlost) + r.Bonus) * r.AffExRate) > 0.0
@@ -180,7 +170,7 @@ BEGIN
 			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.IBCCustId = m.IBCCustId
 		WHERE NOT EXISTS (
 				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-				WHERE mr.RemovedDate < @MonthDate
+				WHERE mr.RemovedDate <= @ToEndMonth
 					AND mr.IBCCustId = d.IBCCustId
 				)
 	) r
