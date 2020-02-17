@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Aff_DailyEarning_Sel]
 	@AffId		INT,
 	@ProductId	INT = 0,
@@ -17,157 +14,120 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20191210@Percy: Remove get data on bettrans [RedmineID: #121971]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @FromBeginMonth SMALLDATETIME, @ToEndMonth SMALLDATETIME
+	-- date range for get data whole month of @MonthDate
+	DECLARE @FromBeginMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME
 	SELECT  @FromBeginMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
-	SELECT  @ToEndMonth		= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate) + 1, 0))
-	
-	DECLARE @MoveBetsDay SMALLDATETIME
-	SELECT  @MoveBetsDay = dbo.Aff_f_GetMoveBetsDay()
+	SELECT  @ToNextMonth	= DATEADD(MONTH, 1, @FromBeginMonth)
 
-	DECLARE @CutOffDate SMALLDATETIME
-	SELECT  @CutOffDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CutOffReportDate'
+	DECLARE @EndOfMonth SMALLDATETIME
+	SELECT  @EndOfMonth = DATEADD(DAY, -1, @ToNextMonth)
 
-	DECLARE @tmpFromDate SMALLDATETIME, @tmpToDate SMALLDATETIME
+	IF @ToNextMonth > DATEADD(DAY, 1, CONVERT(DATE, GETDATE()))
+		SELECT @ToNextMonth = DATEADD(DAY, 1, CONVERT(DATE, GETDATE()))
 
-	CREATE TABLE #Data
-	(
-		WinlostDate SMALLDATETIME,
-		Deposit		MONEY,
-		Withdrawal	MONEY,
-		Winloss		MONEY,
-		Bonus		MONEY
-	)
+	IF @ToNextMonth < DATEADD(DAY, 1, @FromBeginMonth)
+		RETURN
 
-	-- Old data
-	IF @FromBeginMonth <= @CutOffDate
+	-- Get Data
 	BEGIN
-		SELECT @tmpFromDate = @FromBeginMonth
-		SELECT @tmpToDate = CASE WHEN @ToEndMonth > @CutOffDate THEN @CutOffDate ELSE @ToEndMonth END
-
-		INSERT INTO #Data
+		CREATE TABLE #Data
 		(
-			WinlostDate,
-			Deposit,
-			Withdrawal,
-			Winloss,
-			Bonus
+			WinlostDate SMALLDATETIME
+			,Deposit	MONEY
+			,Withdrawal	MONEY
+			,Winloss	MONEY
+			,Bonus		MONEY
 		)
-		SELECT
-			md.WinlostDate,
-			SUM(ISNULL(Deposit, 0)		* ISNULL(md.AffExRate, 0))	AS Deposit,
-			SUM(ISNULL(Withdrawal, 0)	* ISNULL(md.AffExRate, 0))	AS Withdrawal,
-			SUM(CASE WHEN ISNULL(@ProductId, 0) = 0 OR md.SportType = @ProductId
-				THEN ISNULL(Winlost, 0) * ISNULL(md.AffExRate, 0)
-						ELSE 0 END)									AS Winloss,
-			SUM(ISNULL(Bonus, 0)		* ISNULL(md.AffExRate, 0))	AS Bonus
-		FROM dbo.MemberDaily md WITH (NOLOCK)
-		WHERE AffId = @AffId
-			AND WinlostDate BETWEEN @tmpFromDate AND @tmpToDate
-			AND NOT EXISTS (
-				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-				WHERE mr.IBCCustId = md.IBCCustId
-					AND mr.RemovedDate <= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
-			)
-		GROUP BY
-			md.WinlostDate
-	END
-	
-	-- New data
-	IF @ToEndMonth > @CutOffDate
-	BEGIN
-		SELECT @tmpFromDate = CASE WHEN @FromBeginMonth <= @CutOffDate THEN DATEADD(DAY, 1, @CutOffDate) ELSE @FromBeginMonth END
-		SELECT @tmpToDate = @ToEndMonth
-		
+
+		DECLARE @tblWinlostDate TABLE (WinlostDate SMALLDATETIME)
+		;WITH CTE AS (
+			SELECT @FromBeginMonth AS WinlostDate
+			UNION ALL
+			SELECT DATEADD(DAY, 1, WinlostDate)
+			FROM CTE
+			WHERE WinlostDate < DATEADD(DAY, -1, @ToNextMonth)
+		)
+		INSERT INTO @tblWinlostDate (WinlostDate)
+		SELECT WinlostDate FROM CTE
+		OPTION (MAXRECURSION 0)
+
+		DECLARE @CutOffDate SMALLDATETIME
+		SELECT  @CutOffDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CutOffReportDate'
+
+		-- MemberDaily
+		IF EXISTS (SELECT 1 FROM @tblWinlostDate WHERE WinlostDate = @CutOffDate)
+		BEGIN
+			INSERT INTO #Data (WinlostDate, Deposit, Withdrawal, Winloss, Bonus)
+			SELECT r.WinlostDate, SUM(r.Deposit), SUM(r.Withdrawal), SUM(r.Winloss), SUM(r.Bonus)
+			FROM @tblWinlostDate wld
+				CROSS APPLY (
+					SELECT	r.WinlostDate
+							,r.Deposit * r.AffExRate	AS Deposit
+							,r.Withdrawal * r.AffExRate AS Withdrawal
+							,CASE WHEN ISNULL(@ProductId, 0) = 0 OR r.SportType = @ProductId THEN r.Winlost * r.AffExRate ELSE 0 END AS Winloss
+							,r.Bonus * r.AffExRate		AS Bonus
+					FROM dbo.MemberDaily r WITH (NOLOCK)
+					WHERE r.WinlostDate = wld.WinlostDate
+						AND r.AffId = @AffId
+						AND NOT EXISTS (
+							SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+							WHERE mr.IBCCustId = r.IBCCustId
+								AND mr.RemovedDate <= @EndOfMonth
+						)
+				) r
+			GROUP BY r.WinlostDate
+		END
 		-- rptMemberDaily
+		ELSE
 		BEGIN
-			INSERT INTO #Data
-			(
-				WinlostDate,
-				Deposit,
-				Withdrawal,
-				Winloss,
-				Bonus
-			)
-			SELECT
-				md.WinlostDate,
-				SUM(ISNULL(Deposit, 0)		* ISNULL(md.AffExRate, 0)) AS Deposit,
-				SUM(ISNULL(Withdrawal, 0)	* ISNULL(md.AffExRate, 0)) AS Withdrawal,
-				SUM(ISNULL(Winloss, 0)		* ISNULL(md.AffExRate, 0)) AS Winloss,
-				SUM(ISNULL(Bonus, 0)		* ISNULL(md.AffExRate, 0)) AS Bonus
-			FROM dbo.rptMemberDaily md WITH (NOLOCK)
-				CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 0, md.Winlostdate, @MoveBetsDay) f
-			WHERE AffId = @AffId
-				AND WinlostDate BETWEEN @tmpFromDate AND @tmpToDate
-				AND (@ProductId = 0 OR md.ProductId < 0 OR md.ProductId = @ProductId)
-				AND NOT EXISTS (
-					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-					WHERE mr.IBCCustId = md.IBCCustId
-						AND mr.RemovedDate <= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
-				)
-			GROUP BY
-				md.WinlostDate
+			INSERT INTO #Data (WinlostDate, Deposit, Withdrawal, Winloss, Bonus)
+			SELECT r.WinlostDate, SUM(r.Deposit), SUM(r.Withdrawal), SUM(r.Winloss), SUM(r.Bonus)
+			FROM @tblWinlostDate wld
+				CROSS APPLY (
+					SELECT	r.WinlostDate
+							,r.Deposit * r.AffExRate	AS Deposit
+							,r.Withdrawal * r.AffExRate AS Withdrawal
+							,r.Winloss * r.AffExRate	AS Winloss
+							,r.Bonus * r.AffExRate		AS Bonus
+					FROM dbo.rptMemberDaily r WITH (NOLOCK)
+					WHERE r.WinlostDate = wld.WinlostDate
+						AND r.AffId = @AffId
+						AND (@ProductId = 0 OR r.ProductId < 0 OR r.ProductId = @ProductId)
+						AND NOT EXISTS (
+							SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+							WHERE mr.IBCCustId = r.IBCCustId
+								AND mr.RemovedDate <= @EndOfMonth
+						)
+				) r
+			GROUP BY r.WinlostDate
 		END
 
-		-- bettrans
-		BEGIN
-			DECLARE @AffIds VARCHAR(MAX), @ProductIds VARCHAR(MAX)
-			SELECT  @AffIds = CONVERT(VARCHAR(20), @AffId), @ProductIds = CONVERT(VARCHAR(5), @ProductId)
-
-			SELECT @tmpFromDate = CASE WHEN @FromBeginMonth <= @MoveBetsDay THEN DATEADD(DAY, 1, @MoveBetsDay) ELSE @FromBeginMonth END
-			SELECT @tmpToDate = @ToEndMonth
-			
-			INSERT INTO #Data
-			(
-				WinlostDate,
-				Deposit,
-				Withdrawal,
-				Winloss,
-				Bonus
-			)
-			SELECT
-				md.WinlostDate,
-				SUM(ISNULL(md.Deposit, 0)	* ISNULL(e.ActualRate2, 0)),
-				SUM(ISNULL(md.Withdrawal, 0)* ISNULL(e.ActualRate2, 0)),
-				SUM(ISNULL(md.Winloss, 0)	* ISNULL(e.ActualRate2, 0)),
-				SUM(ISNULL(md.Bonus, 0)		* ISNULL(e.ActualRate2, 0))
-			FROM dbo.Aff_f_Bettrans_Sel(@AffIds, @tmpFromDate, @tmpToDate, @ProductIds) md
-				CROSS APPLY dbo.Aff_f_ExchangeRateById_Sel(md.Currency, md.WinlostDate) e
-				CROSS APPLY dbo.Aff_f_CheckProduct(md.ProductId, 1, md.WinlostDate, @MoveBetsDay) f
-			WHERE (@ProductId = 0 OR md.ProductId < 0 OR md.ProductId = @ProductId)
-				AND NOT EXISTS (
-					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-					WHERE mr.IBCCustId = md.IBCCustId
-						AND mr.RemovedDate <= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
-				)
-			GROUP BY
-				md.WinlostDate
-		END
+		-- Get Banking Fee
+		DECLARE @BankingFee DECIMAL(9,8)
+		SELECT  @BankingFee = dsh.DeductedPercentage
+		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+			INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.MonthDate = dsh.MonthDate AND agh.GroupId = dsh.GroupId
+		WHERE agh.AffId = @AffId AND agh.MonthDate = @EndOfMonth
+			AND dsh.DeductionID = 12 -- Banking Fee
 	END
-
-	-- Get Banking Fee
-	DECLARE @BankingFee DECIMAL(9,8)
-	SELECT  @BankingFee = dsh.DeductedPercentage
-	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-		INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.MonthDate = dsh.MonthDate AND agh.GroupId = dsh.GroupId
-	WHERE agh.AffId = @AffId AND agh.MonthDate = @ToEndMonth
-		AND dsh.DeductionID = 12 -- Banking Fee
 	
 	-- Return data
 	BEGIN
 		-- Detail
 		SELECT
-			WinlostDate,
-			SUM(ISNULL(Deposit, 0))		AS Deposit,
-			SUM(ISNULL(Withdrawal, 0))	AS Withdrawal,
-			SUM(ISNULL(Winloss, 0))		AS MemberWinlost,
-			SUM(ISNULL(Winloss, 0))		AS MemberWinlostFake,
-			SUM(ISNULL(Bonus, 0))		AS Bonus,
-			SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * ISNULL(@BankingFee, 0)) AS BankingFee
+			WinlostDate
+			,SUM(ISNULL(Deposit, 0))	AS Deposit
+			,SUM(ISNULL(Withdrawal, 0))	AS Withdrawal
+			,SUM(ISNULL(Winloss, 0))	AS MemberWinlost
+			,SUM(ISNULL(Winloss, 0))	AS MemberWinlostFake
+			,SUM(ISNULL(Bonus, 0))		AS Bonus
+			,SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * ISNULL(@BankingFee, 0)) AS BankingFee
 		FROM #Data
 		GROUP BY
 			WinlostDate
@@ -175,12 +135,12 @@ BEGIN
 
 		-- Sum
 		SELECT
-			SUM(ISNULL(Deposit, 0))		AS Deposit,
-			SUM(ISNULL(Withdrawal, 0))	AS Withdrawal,
-			SUM(ISNULL(Winloss, 0))		AS MemberWinlost,
-			SUM(ISNULL(Winloss, 0))		AS MemberWinlostFake,
-			SUM(ISNULL(Bonus, 0))		AS Bonus,
-			SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * ISNULL(@BankingFee, 0)) AS BankingFee
+			SUM(ISNULL(Deposit, 0))		AS Deposit
+			,SUM(ISNULL(Withdrawal, 0))	AS Withdrawal
+			,SUM(ISNULL(Winloss, 0))	AS MemberWinlost
+			,SUM(ISNULL(Winloss, 0))	AS MemberWinlostFake
+			,SUM(ISNULL(Bonus, 0))		AS Bonus
+			,SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * ISNULL(@BankingFee, 0)) AS BankingFee
 		FROM #Data
 		HAVING SUM(ISNULL(Deposit, 0)) IS NOT NULL
 	END
