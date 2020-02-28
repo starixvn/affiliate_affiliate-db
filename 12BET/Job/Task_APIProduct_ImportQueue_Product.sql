@@ -16,6 +16,7 @@ AS
 		- 20190131@Percy: Divide amount by 100 for iSoftbet [RedmineID: #107979]
 		- 20190322@Percy: Include more type of iSoftbet [RedmineID: #110638]
 		- 20191206@Percy: Integrate new products: 12Topaz, LB Keno, GPI lottery, VR Lottery [RedmineID: #117197]
+		- 20200228@Percy: Return if input wrong @ProductId [RedmineID: #129442]
 */
 
 BEGIN
@@ -307,6 +308,11 @@ BEGIN
 			mi.AffId,
 			mi.IBCCustId,
 			mi.currency
+	END
+	ELSE
+	BEGIN
+		-- Prevent input wrong ProductId
+		RETURN
 	END
 
 	-- Import data
