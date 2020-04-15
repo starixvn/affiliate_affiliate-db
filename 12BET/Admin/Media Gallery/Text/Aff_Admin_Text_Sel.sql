@@ -4,7 +4,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Text_Sel]
 	,@Category		VARCHAR(50) = NULL
 	,@Language		VARCHAR(50) = NULL
 	,@Currency		VARCHAR(50) = NULL
-	,@DeviceType	TINYINT = 0
+	,@DeviceType	VARCHAR(10) = 0
 	,@PageIndex		INT = 1
 	,@PageSize		INT = 50
 	,@NRows			INT = 0 OUTPUT
@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 */
 
 BEGIN
@@ -24,8 +25,8 @@ BEGIN
 
 	IF @TextId <> 0
 	BEGIN
-		SELECT BannerId AS TextId, Category, Language, Currency, Message, DeviceType
-		FROM dbo.Banners_1 WITH (NOLOCK)
+		SELECT BannerId AS TextId, Categories AS Category, Language, Currencies AS Currency, Message, DeviceTypes AS DeviceType
+		FROM dbo.Banners WITH (NOLOCK)
 		WHERE BannerId = @TextId
 	END
 	ELSE
@@ -35,26 +36,26 @@ BEGIN
 				,@RowEnd	= @RowStart + @PageSize - 1
 
 		SELECT @NRows = COUNT(1)
-		FROM dbo.Banners_1 WITH (NOLOCK)
+		FROM dbo.Banners WITH (NOLOCK)
 		WHERE ImageType = 'Text'
-			AND (@Category IS NULL OR Category = @Category)
+			AND (@Category IS NULL OR Categories = @Category)
 			AND (@Language IS NULL OR Language = @Language)
-			AND (@Currency IS NULL OR Currency = @Currency)
-			AND (@DeviceType IS NULL OR ISNULL(DeviceType, 0) = @DeviceType)
+			AND (@Currency IS NULL OR Currencies = @Currency)
+			AND (@DeviceType IS NULL OR DeviceTypes = @DeviceType)
 
 		IF @NRows = 0
 			RETURN
 
-		SELECT BannerId AS TextId, Category, Language, Currency, Message, DeviceType
+		SELECT BannerId AS TextId, Categories AS Category, Language, Currencies AS Currency, Message, DeviceTypes AS DeviceType
 		FROM (
-			SELECT BannerId, Category, Language, Currency, Message, DeviceType
+			SELECT BannerId, Categories, Language, Currencies, Message, DeviceTypes
 				,ROW_NUMBER() OVER(ORDER BY BannerId DESC) AS RowNum
-			FROM dbo.Banners_1 WITH (NOLOCK)
+			FROM dbo.Banners WITH (NOLOCK)
 			WHERE ImageType = 'Text'
-				AND (@Category IS NULL OR Category = @Category)
+				AND (@Category IS NULL OR Categories = @Category)
 				AND (@Language IS NULL OR Language = @Language)
-				AND (@Currency IS NULL OR Currency = @Currency)
-				AND (@DeviceType IS NULL OR ISNULL(DeviceType, 0) = @DeviceType)
+				AND (@Currency IS NULL OR Currencies = @Currency)
+				AND (@DeviceType IS NULL OR DeviceTypes = @DeviceType)
 		) AS r
 		WHERE RowNum BETWEEN @RowStart AND @RowEnd
 	END

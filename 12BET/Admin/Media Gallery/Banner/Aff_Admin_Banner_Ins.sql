@@ -1,14 +1,13 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Banner_Ins]
 	@UserId			INT
-	,@FileName		VARCHAR(100)
-	,@Category		VARCHAR(50)
+	,@Files			XML
+	,@Categories	VARCHAR(MAX)
+	,@SubCategories	VARCHAR(MAX)
 	,@Language		VARCHAR(50)
-	,@Currency		VARCHAR(50)
-	,@ImageType		VARCHAR(50)
-	,@Size			VARCHAR(50)
-	,@AffType		TINYINT
-	,@DeviceType	TINYINT
+	,@Currencies	VARCHAR(MAX)
+	,@AffTypes		VARCHAR(MAX)
+	,@DeviceTypes	VARCHAR(MAX)
 	,@IP			VARCHAR(20) = ''
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
@@ -21,6 +20,11 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
+
+	Param's Explanation:
+		@Files format
+
 */
 
 BEGIN
@@ -37,26 +41,59 @@ BEGIN
 	IF @ErrCode <> 0
 		RETURN
 
-	-- Check input banner
-	IF @ImageType = 'Text'
+	DECLARE @tblBanner TABLE (FileName NVARCHAR(200), ImageType VARCHAR(50), Size VARCHAR(50))
+
+	BEGIN TRY
+		INSERT INTO @tblBanner (FileName, ImageType, Size)
+		SELECT
+			FileName	=  t.c.value('@FileName', 'NVARCHAR(200)')
+			,ImageType	=  t.c.value('@ImageType', 'VARCHAR(50)')
+			,Size		=  t.c.value('@Size', 'VARCHAR(50)')
+		FROM @Files.nodes('root/row') AS t(c)
+		OPTION (OPTIMIZE FOR (@Files = NULL))
+	END TRY
+	BEGIN CATCH
+		SELECT @ErrCode = 101, @ErrMsg = 'Error occurs. Invalid input params.'
+		RETURN
+	END CATCH
+
+	-- Check input params
+	IF (SELECT COUNT(1) FROM @tblBanner) > 10
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'Error occurs. Invalid Image Type.'
+		SELECT @ErrCode = 102, @ErrMsg = 'Error occurs. Maximum files: 10.'
 		RETURN
 	END
 
-	-- Check file exists
-	IF EXISTS (SELECT 1 FROM dbo.Banners_1 WITH (NOLOCK) WHERE FileName = @FileName)
+	IF EXISTS (SELECT 1 FROM @tblBanner GROUP BY FileName HAVING COUNT(1) > 1)
 	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'Error occurs. FileName has already been exist.'
+		SELECT @ErrCode = 103, @ErrMsg = 'Error occurs. Duplicate FileName.'
+		RETURN
+	END
+
+	IF EXISTS (SELECT 1 FROM @tblBanner WHERE ImageType = 'Text')
+	BEGIN
+		SELECT @ErrCode = 104, @ErrMsg = 'Error occurs. Invalid Image Type.'
+		RETURN
+	END
+
+	DECLARE @ExistedFileName NVARCHAR(MAX)
+	SELECT  @ExistedFileName = COALESCE(@ExistedFileName + ',', '') + b.FileName
+	FROM dbo.Banners b WITH (NOLOCK)
+		INNER JOIN @tblBanner t ON b.FileName = t.FileName
+
+	IF ISNULL(@ExistedFileName, '') <> ''
+	BEGIN
+		SELECT @ErrCode = 105, @ErrMsg = 'Error occurs. FileNames have already been existed: ' + @ExistedFileName + '.'
 		RETURN
 	END
 
 	BEGIN TRY
-		INSERT INTO dbo.Banners_1 (FileName, Category, Language, ImageType, Size, Currency, LastUpdate, CreatedDate, Creator, AffType, DeviceType)
-		VALUES (@FileName, @Category, @Language, @ImageType, @Size, @Currency, GETDATE(), GETDATE(), @UserId, @AffType, @DeviceType)
+		INSERT INTO dbo.Banners (FileName,ImageType,Size,Categories,SubCategories,Language,Currencies,AffTypes,DeviceTypes,Creator,CreatedDate,UpdatedDate)
+		SELECT FileName,ImageType,Size,@Categories,@SubCategories,@Language,@Currencies,@AffTypes,@DeviceTypes,@UserId,GETDATE(),GETDATE()
+		FROM @tblBanner t
 	END TRY
 	BEGIN CATCH
-		SELECT @ErrCode = 103, @ErrMsg = 'Error occurs. Insert unsuccessfully.'
+		SELECT @ErrCode = 106, @ErrMsg = 'Error occurs. Insert unsuccessfully.'
 		RETURN
 	END CATCH
 
@@ -65,14 +102,15 @@ BEGIN
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
 	DECLARE @NewData NVARCHAR(MAX)
-	SELECT  @NewData = 'FileName=' + ISNULL(@FileName, '')
-					+ ',' + 'Category=' + ISNULL(@Category, '')
+	SELECt  @NewData = COALESCE(@NewData + ',' ,'') + 'FileName:' + FileName + '-ImageType:' + ImageType + '-Size' + Size
+	FROM @tblBanner
+
+	SELECT  @NewData = 'Files=' + ISNULL(@NewData, '')
+					+ ',' + 'Categories=' + ISNULL(@Categories, '')
 					+ ',' + 'Language=' + ISNULL(@Language, '')
-					+ ',' + 'Currency=' + ISNULL(@Currency, '')
-					+ ',' + 'ImageType=' + ISNULL(@ImageType, '')
-					+ ',' + 'Size=' + ISNULL(@Size, '')
-					+ ',' + 'AffType=' + ISNULL(CONVERT(VARCHAR(5), @AffType), '')
-					+ ',' + 'DeviceType=' + ISNULL(CONVERT(VARCHAR(5), @DeviceType), '')
+					+ ',' + 'Currencies=' + ISNULL(@Currencies, '')
+					+ ',' + 'AffTypes=' + ISNULL(@AffTypes, '')
+					+ ',' + 'DeviceTypes=' + ISNULL(@DeviceTypes, '')
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,

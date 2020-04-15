@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 */
 
 BEGIN
@@ -37,17 +38,17 @@ BEGIN
 		INSERT INTO @Texts (TextId, IsValid)
 		SELECT s.val, CASE WHEN b.BannerId IS NULL THEN 0 ELSE 1 END
 		FROM dbo.strSplit (@TextIds, ',') s
-			LEFT JOIN dbo.Banners_1 b WITH (NOLOCK) ON s.val = b.BannerId AND b.ImageType = 'Text'
+			LEFT JOIN dbo.Banners b WITH (NOLOCK) ON s.val = b.BannerId AND b.ImageType = 'Text'
 	END TRY
 	BEGIN CATCH
-		SELECT @ErrCode = 101, @ErrMsg = 'Sorry, your input banner id is invalid. Please recheck it again.'
+		SELECT @ErrCode = 101, @ErrMsg = 'Sorry, your input text id is invalid. Please recheck it again.'
 		RETURN
 	END CATCH
 
 	IF NOT EXISTS (SELECT 1 FROM @Texts)
 		OR EXISTS (SELECT 1 FROM @Texts WHERE IsValid = 0)
 	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'Sorry, your input banner id is invalid. Please recheck it again.'
+		SELECT @ErrCode = 102, @ErrMsg = 'Sorry, your input text id is invalid. Please recheck it again.'
 		RETURN
 	END
 
@@ -55,16 +56,16 @@ BEGIN
 	SELECT  @OldData = COALESCE(@OldData + ' - ', '')
 						+ 'BannerId=' + ISNULL(CONVERT(VARCHAR(10), b.BannerId), '')
 						+ ',' + 'FileName=' + ISNULL(b.FileName, '')
-						+ ',' + 'Category=' + ISNULL(b.Category, '')
+						+ ',' + 'Category=' + ISNULL(b.Categories, '')
 						+ ',' + 'Language=' + ISNULL(b.Language, '')
-						+ ',' + 'Currency=' + ISNULL(b.Currency, '')
-						+ ',' + 'DeviceType=' + ISNULL(CONVERT(VARCHAR(5), b.DeviceType), '')
-	FROM dbo.Banners_1 b WITH (NOLOCK)
+						+ ',' + 'Currency=' + ISNULL(b.Currencies, '')
+						+ ',' + 'DeviceType=' + ISNULL(b.DeviceTypes, '')
+	FROM dbo.Banners b WITH (NOLOCK)
 		INNER JOIN @Texts tmp ON b.BannerId = tmp.TextId
 
 	BEGIN TRY
 		DELETE b WITH (ROWLOCK, UPDLOCK)
-		FROM dbo.Banners_1 b
+		FROM dbo.Banners b
 		WHERE EXISTS (SELECT 1 FROM @Texts tmp WHERE b.BannerId = tmp.TextId)
 	END TRY
 	BEGIN CATCH
