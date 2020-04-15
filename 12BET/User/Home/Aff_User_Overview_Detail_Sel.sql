@@ -11,6 +11,7 @@ AS
 
 	Revisions:
 		- 20191210@Percy: Initialize SP [RedmineID: #121971]
+		- 20200303@Percy: Fix issue wrongly count Active Members and Qualified Members [RedmineID: #121974]
 */
 
 BEGIN
@@ -99,23 +100,23 @@ BEGIN
 
 		WHILE @tmpWinlostDate < @ToNextMonth
 		BEGIN
-			IF NOT EXISTS (SELECT 1 FROM #Data WHERE WinlostDate = @tmpWinlostDate)
-				BREAK
+			IF EXISTS (SELECT 1 FROM #Data WHERE WinlostDate = @tmpWinlostDate)
+			BEGIN
+				INSERT INTO @ActiveMembers (WinlostDate, IBCCustId)
+				SELECT WinlostDate, IBCCustId
+				FROM #Data d
+				WHERE WinlostDate = @tmpWinlostDate
+					AND (Deposit > 0 OR Turnover > 0)
+					AND NOT EXISTS (SELECT 1 FROM @ActiveMembers a WHERE d.IBCCustId = a.IBCCustId)
 
-			INSERT INTO @ActiveMembers (WinlostDate, IBCCustId)
-			SELECT WinlostDate, IBCCustId
-			FROM #Data d
-			WHERE WinlostDate = @tmpWinlostDate
-				AND (Deposit > 0 OR Turnover > 0)
-				AND NOT EXISTS (SELECT 1 FROM @ActiveMembers a WHERE d.IBCCustId = a.IBCCustId)
-
-			INSERT INTO @QualifiedActiveMembers (WinlostDate, IBCCustId, Turnover)
-			SELECT @tmpWinlostDate AS WinlostDate, IBCCustId, SUM(Turnover) AS Turnover
-			FROM #Data d
-			WHERE WinlostDate <= @tmpWinlostDate
-				AND NOT EXISTS (SELECT 1 FROM @QualifiedActiveMembers q WHERE d.IBCCustId = q.IBCCustId)
-			GROUP BY IBCCustId
-			HAVING SUM(Turnover) >= @QMTurnover
+				INSERT INTO @QualifiedActiveMembers (WinlostDate, IBCCustId, Turnover)
+				SELECT @tmpWinlostDate AS WinlostDate, IBCCustId, SUM(Turnover) AS Turnover
+				FROM #Data d
+				WHERE WinlostDate <= @tmpWinlostDate
+					AND NOT EXISTS (SELECT 1 FROM @QualifiedActiveMembers q WHERE d.IBCCustId = q.IBCCustId)
+				GROUP BY IBCCustId
+				HAVING SUM(Turnover) >= @QMTurnover
+			END
 
 			SELECT @tmpWinlostDate = DATEADD(DAY, 1, @tmpWinlostDate)
 		END
