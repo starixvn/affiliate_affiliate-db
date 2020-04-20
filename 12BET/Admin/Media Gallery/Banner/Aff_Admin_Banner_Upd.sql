@@ -2,14 +2,13 @@
 ALTER PROCEDURE [dbo].[Aff_Admin_Banner_Upd]
 	@UserId			INT
 	,@BannerId		INT
-	,@FileName		VARCHAR(100)
-	,@Category		VARCHAR(50)
+	,@Files			XML
+	,@Categories	VARCHAR(MAX)
+	,@SubCategories	VARCHAR(MAX)
 	,@Language		VARCHAR(50)
-	,@Currency		VARCHAR(50)
-	,@ImageType		VARCHAR(50)
-	,@Size			VARCHAR(50)
-	,@AffType		TINYINT
-	,@DeviceType	TINYINT
+	,@Currencies	VARCHAR(MAX)
+	,@AffTypes		VARCHAR(MAX)
+	,@DeviceTypes	VARCHAR(MAX)
 	,@IP			VARCHAR(20) = ''
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
@@ -22,6 +21,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 */
 
 BEGIN
@@ -38,60 +38,71 @@ BEGIN
 	IF @ErrCode <> 0
 		RETURN
 
-	-- Check banner exists
-	DECLARE @OldSize VARCHAR(50), @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
-	SELECT  @OldSize = Size
-			,@OldData = 'BannerId=' + ISNULL(CONVERT(VARCHAR(10), BannerId), '')
+	DECLARE @tblBanner TABLE (FileName NVARCHAR(200), ImageType VARCHAR(50), Size VARCHAR(50))
+
+	BEGIN TRY
+		INSERT INTO @tblBanner (FileName, ImageType, Size)
+		SELECT
+			FileName	=  t.c.value('@FileName', 'NVARCHAR(200)')
+			,ImageType	=  t.c.value('@ImageType', 'VARCHAR(50)')
+			,Size		=  t.c.value('@Size', 'VARCHAR(50)')
+		FROM @Files.nodes('root/row') AS t(c)
+		OPTION (OPTIMIZE FOR (@Files = NULL))
+	END TRY
+	BEGIN CATCH
+		SELECT @ErrCode = 101, @ErrMsg = 'Error occurs. Invalid input params.'
+		RETURN
+	END CATCH
+
+	-- Check input params
+	IF (SELECT COUNT(1) FROM @tblBanner) > 1
+	BEGIN
+		SELECT @ErrCode = 102, @ErrMsg = 'Error occurs. Invalid input params.'
+		RETURN
+	END
+
+	DECLARE @FileName NVARCHAR(200), @ImageType VARCHAR(50), @Size VARCHAR(50)
+	SELECT  @FileName = FileName, @ImageType = ImageType, @Size= Size FROM @tblBanner
+
+	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
+	SELECT  @OldData = 'BannerId=' + ISNULL(CONVERT(VARCHAR(10), BannerId), '')
 						+ ',' + 'FileName=' + ISNULL(FileName, '')
-						+ ',' + 'Category=' + ISNULL(Category, '')
-						+ ',' + 'Language=' + ISNULL(Language, '')
-						+ ',' + 'Currency=' + ISNULL(Currency, '')
 						+ ',' + 'ImageType=' + ISNULL(ImageType, '')
 						+ ',' + 'Size=' + ISNULL(Size, '')
-						+ ',' + 'AffType=' + ISNULL(CONVERT(VARCHAR(5), AffType), '')
-						+ ',' + 'DeviceType=' + ISNULL(CONVERT(VARCHAR(5), DeviceType), '')
-	FROM dbo.Banners_1 WITH (NOLOCK)
+						+ ',' + 'Categories=' + ISNULL(Categories, '')
+						+ ',' + 'Language=' + ISNULL(Language, '')
+						+ ',' + 'Currencies=' + ISNULL(Currencies, '')
+						+ ',' + 'AffTypes=' + ISNULL(AffTypes, '')
+						+ ',' + 'DeviceTypes=' + ISNULL(DeviceTypes, '')
+	FROM dbo.Banners WITH (NOLOCK)
 	WHERE BannerId = @BannerId
 		AND ImageType <> 'Text'
 
-	IF @OldSize IS NULL
+	IF @OldData IS NULL
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'Error occurs. Banner does not exist.'
 		RETURN
 	END
 
 	BEGIN TRY
-		UPDATE dbo.Banners_1 WITH (ROWLOCK)
-		SET FileName	= @FileName
-			,Category	= @Category
-			,Language	= @Language
-			,ImageType	= @ImageType
-			,Size		= @Size
-			,Currency	= @Currency
-			,LastUpdate = GETDATE()
-			,UpdatedBy	= @UserId
-			,AffType	= @AffType
-			,DeviceType = @DeviceType
-		WHERE BannerId	= @BannerId
+		UPDATE dbo.Banners WITH (ROWLOCK)
+		SET FileName		= @FileName
+			,ImageType		= @ImageType
+			,Size			= @Size
+			,Categories		= @Categories
+			,SubCategories	= @SubCategories
+			,Language		= @Language
+			,Currencies		= @Currencies
+			,AffTypes		= @AffTypes
+			,DeviceTypes	= @DeviceTypes
+			,UpdatedBy		= @UserId
+			,UpdatedDate	= GETDATE()
+		WHERE BannerId		= @BannerId
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = 102, @ErrMsg = 'Error occurs. Update unsuccessfully.'
 		RETURN
 	END CATCH
-
-	-- Add new size if not exists
-	IF NOT EXISTS (SELECT 1 FROM dbo.BannerTypes_1 WITH (NOLOCK) WHERE Type = 'Size' AND Value = @Size)
-	BEGIN
-		INSERT INTO dbo.BannerTypes_1 (Type, Value)
-		VALUES ('Size', @Size)
-	END
-
-	-- Remove old size if no banner uses
-	IF NOT EXISTS (SELECT 1 FROM dbo.Banners_1 WITH (NOLOCK) WHERE Size = @OldSize)
-	BEGIN
-		DELETE dbo.BannerTypes_1 WITH (ROWLOCK, UPDLOCK)
-		WHERE Type = 'Size' AND Value = @OldSize
-	END
 
 	-- Write log
 	DECLARE @SPName VARCHAR(200)
@@ -99,13 +110,13 @@ BEGIN
 
 	SELECT  @NewData = 'BannerId=' + ISNULL(CONVERT(VARCHAR(10), @BannerId), '')
 						+ ',' + 'FileName=' + ISNULL(@FileName, '')
-						+ ',' + 'Category=' + ISNULL(@Category, '')
-						+ ',' + 'Language=' + ISNULL(@Language, '')
-						+ ',' + 'Currency=' + ISNULL(@Currency, '')
 						+ ',' + 'ImageType=' + ISNULL(@ImageType, '')
 						+ ',' + 'Size=' + ISNULL(@Size, '')
-						+ ',' + 'AffType=' + ISNULL(CONVERT(VARCHAR(5), @AffType), '')
-						+ ',' + 'DeviceType=' + ISNULL(CONVERT(VARCHAR(5), @DeviceType), '')
+						+ ',' + 'Categories=' + ISNULL(@Categories, '')
+						+ ',' + 'Language=' + ISNULL(@Language, '')
+						+ ',' + 'Currencies=' + ISNULL(@Currencies, '')
+						+ ',' + 'AffTypes=' + ISNULL(@AffTypes, '')
+						+ ',' + 'DeviceTypes=' + ISNULL(@DeviceTypes, '')
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId

@@ -10,6 +10,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
+		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 */
 
 BEGIN
@@ -192,11 +193,11 @@ BEGIN
 		CROSS JOIN 
 		(
 			SELECT
-				SUM(CASE WHEN ImageType IN ('Image','Flash') THEN 1 ELSE 0 END) AS BannerNum,
-				SUM(CASE WHEN ImageType = 'Image' THEN 1 ELSE 0 END)			AS ImageBannerNum,
-				SUM(CASE WHEN ImageType = 'Flash' THEN 1 ELSE 0 END)			AS FlashBannerNum,
-				SUM(CASE WHEN ImageType = 'Text' THEN 1 ELSE 0 END)				AS TextBannerNum
-			FROM dbo.Banners_1 WITH (NOLOCK)
+				SUM(CASE WHEN ImageType <> 'Text' THEN 1 ELSE 0 END)	AS BannerNum,
+				SUM(CASE WHEN ImageType = 'Image' THEN 1 ELSE 0 END)	AS ImageBannerNum,
+				SUM(CASE WHEN ImageType = 'Flash' THEN 1 ELSE 0 END)	AS FlashBannerNum,
+				SUM(CASE WHEN ImageType = 'Text' THEN 1 ELSE 0 END)		AS TextBannerNum
+			FROM dbo.Banners WITH (NOLOCK)
 		) AS bannerStatistics
 		
 		-- affiliate statistics

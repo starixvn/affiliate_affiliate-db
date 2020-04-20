@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 */
 
 BEGIN
@@ -37,7 +38,7 @@ BEGIN
 		INSERT INTO @Banners (BannerId, IsValid)
 		SELECT s.val, CASE WHEN b.BannerId IS NULL THEN 0 ELSE 1 END
 		FROM dbo.strSplit (@BannerIds, ',') s
-			LEFT JOIN dbo.Banners_1 b WITH (NOLOCK) ON s.val = b.BannerId AND b.ImageType <> 'Text'
+			LEFT JOIN dbo.Banners b WITH (NOLOCK) ON s.val = b.BannerId AND b.ImageType <> 'Text'
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = 101, @ErrMsg = 'Sorry, your input banner id is invalid. Please recheck it again.'
@@ -52,34 +53,29 @@ BEGIN
 	END
 
 	DECLARE @OldData NVARCHAR(MAX)
-	SELECT  @OldData = COALESCE(@OldData + ' - ', '')
-						+ 'BannerId=' + ISNULL(CONVERT(VARCHAR(10), b.BannerId), '')
-						+ ',' + 'FileName=' + ISNULL(b.FileName, '')
-						+ ',' + 'Category=' + ISNULL(b.Category, '')
-						+ ',' + 'Language=' + ISNULL(b.Language, '')
-						+ ',' + 'Currency=' + ISNULL(b.Currency, '')
-						+ ',' + 'ImageType=' + ISNULL(b.ImageType, '')
-						+ ',' + 'Size=' + ISNULL(b.Size, '')
-						+ ',' + 'AffType=' + ISNULL(CONVERT(VARCHAR(5), b.AffType), '')
-						+ ',' + 'DeviceType=' + ISNULL(CONVERT(VARCHAR(5), b.DeviceType), '')
-	FROM dbo.Banners_1 b WITH (NOLOCK)
-		INNER JOIN @Banners tmp ON b.BannerId = tmp.BannerId
+	SELECT  @OldData = COALESCE(@OldData + ';', '')
+						+ 'BannerId=' + ISNULL(CONVERT(VARCHAR(10), BannerId), '')
+						+ ',' + 'FileName=' + ISNULL(FileName, '')
+						+ ',' + 'ImageType=' + ISNULL(ImageType, '')
+						+ ',' + 'Size=' + ISNULL(Size, '')
+						+ ',' + 'Categories=' + ISNULL(Categories, '')
+						+ ',' + 'Language=' + ISNULL(Language, '')
+						+ ',' + 'Currencies=' + ISNULL(Currencies, '')
+						+ ',' + 'AffTypes=' + ISNULL(AffTypes, '')
+						+ ',' + 'DeviceTypes=' + ISNULL(DeviceTypes, '')
+	FROM dbo.Banners b WITH (NOLOCK)
+	WHERE ImageType <> 'Text'
+		AND EXISTS (SELECT 1 FROM @Banners tmp WHERE b.BannerId = tmp.BannerId)
 
 	BEGIN TRY
 		DELETE b WITH (ROWLOCK, UPDLOCK)
-		FROM dbo.Banners_1 b
+		FROM dbo.Banners b
 		WHERE EXISTS (SELECT 1 FROM @Banners tmp WHERE b.BannerId = tmp.BannerId)
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = 102, @ErrMsg = 'Error occurs. Delete unsuccessfully.'
 		RETURN
 	END CATCH
-
-	-- Remove old size if no banner uses
-	DELETE bt WITH (ROWLOCK, UPDLOCK)
-	FROM dbo.BannerTypes_1 bt
-	WHERE bt.Type = 'Size'
-		AND NOT EXISTS (SELECT 1 FROM dbo.Banners_1 b WITH (NOLOCK) WHERE bt.Value = b.Size)
 
 	-- Write log
 	DECLARE @SPName VARCHAR(200)

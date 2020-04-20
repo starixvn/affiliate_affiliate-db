@@ -10,14 +10,17 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT CategoryId, Category, ParentCategoryId, ParentCategory
+	SELECT
+		ParentCategory AS Category
+		,CASE WHEN ParentCategory = Category THEN NULL ELSE Category END AS SubCategory
 	FROM dbo.Aff_f_MediaCategory_Sel()
 	WHERE (@TypeId = 0 OR TypeId = @TypeId)
-	ORDER BY Category
+	ORDER BY ParentCategoryId, SubCategory
 END
 GO

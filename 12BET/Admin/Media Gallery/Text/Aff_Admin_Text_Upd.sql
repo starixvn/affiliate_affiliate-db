@@ -6,7 +6,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Text_Upd]
 	,@Category		VARCHAR(50)
 	,@Language		VARCHAR(50)
 	,@Currency		VARCHAR(50)
-	,@DeviceType	TINYINT
+	,@DeviceType	VARCHAR(10)
 	,@IP			VARCHAR(20) = ''
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
@@ -19,6 +19,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 */
 
 BEGIN
@@ -38,11 +39,11 @@ BEGIN
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 	SELECT  @OldData = 'TextId=' + ISNULL(CONVERT(VARCHAR(10), BannerId), '')
 						+ ',' + 'Message=' + ISNULL(Message, '')
-						+ ',' + 'Category=' + ISNULL(Category, '')
+						+ ',' + 'Category=' + ISNULL(Categories, '')
 						+ ',' + 'Language=' + ISNULL(Language, '')
-						+ ',' + 'Currency=' + ISNULL(Currency, '')
-						+ ',' + 'DeviceType=' + ISNULL(CONVERT(VARCHAR(5), DeviceType), '')
-	FROM dbo.Banners_1 WITH (NOLOCK)
+						+ ',' + 'Currency=' + ISNULL(Currencies, '')
+						+ ',' + 'DeviceType=' + ISNULL(DeviceTypes, '')
+	FROM dbo.Banners WITH (NOLOCK)
 	WHERE BannerId = @TextId
 		AND ImageType = 'Text'
 
@@ -53,15 +54,15 @@ BEGIN
 	END
 
 	BEGIN TRY
-		UPDATE dbo.Banners_1 WITH (ROWLOCK)
-		SET Message		= @Message
-			,Category	= @Category
-			,Language	= @Language
-			,Currency	= @Currency
-			,LastUpdate = GETDATE()
-			,UpdatedBy	= @UserId
-			,DeviceType = @DeviceType
-		WHERE BannerId	= @TextId
+		UPDATE dbo.Banners WITH (ROWLOCK)
+		SET Message			= @Message
+			,Categories		= @Category
+			,Language		= @Language
+			,Currencies		= @Currency
+			,UpdatedDate	= GETDATE()
+			,UpdatedBy		= @UserId
+			,DeviceTypes	= CONVERT(VARCHAR(10), @DeviceType)
+		WHERE BannerId		= @TextId
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = 102, @ErrMsg = 'Error occurs. Update unsuccessfully.'
@@ -77,7 +78,7 @@ BEGIN
 						+ ',' + 'Category=' + ISNULL(@Category, '')
 						+ ',' + 'Language=' + ISNULL(@Language, '')
 						+ ',' + 'Currency=' + ISNULL(@Currency, '')
-						+ ',' + 'DeviceType=' + ISNULL(CONVERT(VARCHAR(5), @DeviceType), '')
+						+ ',' + 'DeviceType=' + ISNULL(CONVERT(VARCHAR(10), @DeviceType), '')
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId
