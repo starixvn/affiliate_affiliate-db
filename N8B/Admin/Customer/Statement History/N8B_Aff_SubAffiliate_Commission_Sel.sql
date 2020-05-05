@@ -1,11 +1,11 @@
 /*<info serverAlias="DBAFFN8B-Affiliate_N8B" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_SubAffiliate_Commission_Sel]
-	@AffId			INT,
-	@MonthDate		SMALLDATETIME,
-	@BaseCurrency	INT = 0,
-	@PageIndex		INT = 1,
-	@PageSize		INT = 50,
-	@NRows			INT = 0 OUTPUT
+	@AffId			INT
+	,@MonthDate		SMALLDATETIME
+	,@BaseCurrency	INT = 0
+	,@PageIndex		INT = 1
+	,@PageSize		INT = 50
+	,@NRows			INT = 0 OUTPUT
 AS
 
 /*

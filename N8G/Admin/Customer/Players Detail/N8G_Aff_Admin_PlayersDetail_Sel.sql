@@ -1,0 +1,160 @@
+/*<info serverAlias="DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[Aff_Admin_PlayersDetail_Sel]
+	@AffId			INT
+	,@ProductId		INT = 0
+	,@MonthDate		SMALLDATETIME
+	,@Currencies	VARCHAR(MAX) = ''
+	,@BaseCurrency	INT = 0
+	,@SortById		TINYINT = 5 -- default
+	,@IsSortAsc		BIT = 0 -- default
+	,@IsExportExcel	BIT = 0
+	,@PageIndex		INT = 1
+	,@PageSize		INT = 20
+	,@NRows			INT = 0 OUTPUT
+AS
+
+/*
+	Created: 20180601@Percy
+	DB: DBAFFN8G-Affiliate_N8G
+	Task:
+		Admin site - Customer - Players Detail
+		Admin site - Customer - Statistics - Click amount of Total Active Players
+
+	Revisions:
+		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20181001@Percy: Support export excel [RedmineID: #102322]
+		- 20191210@Percy: Add withdrawal column and support sort [RedmineID: #121971]
+
+	Param's Explanation:
+		- @SortById:	1 = Username
+						2 = Registered Date
+						3 = Deposit
+						4 = Withdrawal
+						5 = Turnover
+						6 = Winloss
+						7 = Bonus
+						8 = Banking Fee
+						9 = IBCUsername
+		- @IsSortAsc:	0 = DESC
+						1 = ASC
+*/
+
+BEGIN
+	SET NOCOUNT ON
+
+	-- date range for get data whole month of @MonthDate
+	DECLARE @FromBeginMonth SMALLDATETIME, @ToEndMonth SMALLDATETIME
+	SELECT  @FromBeginMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
+	SELECT  @ToEndMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @FromBeginMonth))
+
+	CREATE TABLE #tmpData (IBCCustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, Winloss MONEY, Bonus MONEY)
+
+	-- rptMemberDaily
+	BEGIN
+		;WITH CTE_WinlostDate AS (
+			SELECT @FromBeginMonth AS WinlostDate
+			UNION ALL
+			SELECT DATEADD(DAY, 1, WinlostDate)
+			FROM CTE_WinlostDate
+			WHERE WinlostDate < @ToEndMonth
+		)
+		INSERT INTO #tmpData
+		(
+			IBCCustId
+			,Deposit
+			,Withdrawal
+			,Turnover
+			,Winloss
+			,Bonus
+		)
+		SELECT
+			r.IBCCustId
+			,SUM(r.Deposit * r.Rate)
+			,SUM(r.Withdrawal * r.Rate)
+			,SUM(r.Turnover * r.Rate)
+			,SUM(r.Winloss * r.Rate)
+			,SUM(r.Bonus * r.Rate)
+		FROM CTE_WinlostDate wld
+			CROSS APPLY (
+				SELECT r.IBCCustId, r.Deposit, r.Withdrawal, r.Turnover, r.Winloss, r.Bonus, e.Rate
+				FROM dbo.rptMemberDaily r WITH (NOLOCK)
+					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, r.Currency, @BaseCurrency) e
+				WHERE wld.WinlostDate = r.WinlostDate
+					AND r.AffId = @AffId
+					AND (@ProductId = 0 OR r.ProductId < 0 OR r.ProductId = @ProductId)
+					AND (@Currencies = '' OR ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
+			) r
+		GROUP BY r.IBCCustId
+		HAVING SUM((r.Deposit + r.Withdrawal + r.Turnover + ABS(r.Winloss) + r.Bonus) * r.Rate) > 0.0
+		OPTION (MAXRECURSION 0)
+	END
+
+	SELECT @NRows = COUNT(1) FROM #tmpData
+
+	IF @NRows = 0
+		RETURN
+
+	DECLARE @BankingFee DECIMAL(9, 8) = 0
+	SELECT  @BankingFee = ISNULL(dsh.DeductedPercentage, 0)
+	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+		INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupID = dsh.GroupID AND agh.MonthDate = dsh.MonthDate
+	WHERE dsh.DeductionID = 12 AND agh.MonthDate = @ToEndMonth
+		AND agh.AffID = @AffId
+
+	-- Paging
+	DECLARE @RowStart INT, @RowEnd INT
+
+	IF @IsExportExcel = 0
+		SELECT @RowStart = @PageSize * (@PageIndex - 1) + 1, @RowEnd = @RowStart + @PageSize - 1
+	ELSE
+		SELECT @RowStart =  1, @RowEnd = @NRows
+
+	SELECT IBCCustId, UserName, IBCUserName, RegisteredDate, Deposit, Withdrawal, Turnover, Winloss, Bonus, BankingFee
+	FROM
+	(
+		SELECT
+			m.IBCCustId
+			,m.UserName
+			,m.IBCUserName
+			,m.RegisteredDate
+			,d.Deposit
+			,d.Withdrawal
+			,d.Turnover
+			,d.Winloss
+			,d.Bonus
+			,(d.Deposit + d.Withdrawal) * @BankingFee AS BankingFee
+			,ROW_NUMBER() OVER(ORDER BY
+				 (CASE WHEN @IsSortAsc = 1 AND @SortById = 1 THEN m.UserName				END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 2 THEN m.RegisteredDate			END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 3 THEN d.Deposit					END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 4 THEN d.Withdrawal				END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 5 THEN d.Turnover				END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 6 THEN d.Winloss					END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 7 THEN d.Bonus					END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 8 THEN d.Deposit + d.Withdrawal	END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 9 THEN m.IBCUserName				END) ASC
+				
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 1 THEN m.UserName				END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 2 THEN m.RegisteredDate			END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 3 THEN d.Deposit					END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 4 THEN d.Withdrawal				END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 5 THEN d.Turnover				END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 6 THEN d.Winloss					END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 7 THEN d.Bonus					END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 8 THEN d.Deposit + d.Withdrawal	END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 9 THEN m.IBCUserName				END) DESC
+			) AS RN
+		FROM #tmpData d
+			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.IBCCustId = m.IBCCustId
+		WHERE NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE mr.RemovedDate <= @ToEndMonth
+					AND mr.IBCCustId = d.IBCCustId
+				)
+	) r
+	WHERE r.RN BETWEEN @RowStart AND @RowEnd
+	ORDER BY r.RN
+
+	DROP TABLE #tmpData
+END
+GO

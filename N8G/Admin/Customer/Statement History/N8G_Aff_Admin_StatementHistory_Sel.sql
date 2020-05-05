@@ -1,12 +1,10 @@
 /*<info serverAlias="DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_StatementHistory_Sel] 
 	@AffId		INT,
-	@TransType	INT = - 1,
 	@FDate		SMALLDATETIME = NULL,
 	@TDate		SMALLDATETIME = NULL,
 	@PageSize	INT = 50,
 	@PageIndex	INT = 1,
-	@TotalPages INT = 0 OUTPUT,
 	@NRows		INT = 0 OUTPUT
 AS
 
@@ -247,8 +245,6 @@ BEGIN
 	-- Return data
 	SELECT @NRows = COUNT(1) FROM #tempData WHERE TransType <> 204
 
-	SELECT @TotalPages = @NRows/@PageSize + CASE WHEN @NRows % @PageSize > 0 THEN 1 ELSE 0 END
-
 	DECLARE @RowStart INT, @RowEnd INT
 
 	SELECT  @RowStart = (@PageIndex - 1) * @PageSize + 1
@@ -274,7 +270,7 @@ BEGIN
 			Creator,
 			Description,
 			CalculatedType,
-			DENSE_RANK() OVER(ORDER BY MonthDate DESC, CASE WHEN TransType = 204 THEN 201 ELSE TransType END) AS RowNum
+			DENSE_RANK() OVER(ORDER BY MonthDate DESC, CASE WHEN TransType IN (201, 204) THEN 0 ELSE TransType END DESC) AS RowNum
 		FROM #tempData
 	) AS result
 	WHERE RowNum BETWEEN @RowStart AND @RowEnd
