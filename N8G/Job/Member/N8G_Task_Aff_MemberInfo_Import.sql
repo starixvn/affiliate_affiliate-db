@@ -19,8 +19,8 @@ BEGIN
 
 	SELECT @ErrCode = 0, @ErrMsg = ''
 
-	DECLARE @SiteName VARCHAR(30)
-	SELECT  @SiteName = dbo.Aff_f_GetSetting('SiteName')
+	DECLARE @SiteName VARCHAR(30), @BrandName VARCHAR(30)
+	SELECT  @SiteName = dbo.Aff_f_GetSetting('SiteName'), @BrandName = dbo.Aff_f_GetSetting('BrandName')
 
 	CREATE TABLE #Customer
 	(
@@ -32,6 +32,7 @@ BEGIN
 		,RegTime			DATETIME
 		,FirstDepositDate	DATETIME
 		,Status				TINYINT
+		,IsTest				BIT
 	)
 
 	CREATE TABLE #MemberInfo
@@ -64,16 +65,18 @@ BEGIN
 			,RegTime
 			,FirstDepositDate
 			,Status
+			,IsTest
 		)
 		SELECT
-			CustId				= t.c.value('@CustId', 'INT')
-			,UserName			= t.c.value('@UserName', 'VARCHAR(30)')
-			,CurrencyId			= t.c.value('@CurrencyId', 'INT')
-			,ActStatus			= t.c.value('@ActStatus', 'TINYINT')
-			,AffId				= t.c.value('@AffId', 'INT')
-			,RegTime			= t.c.value('@RegTime', 'DATETIME')
-			,FirstDepositDate	= NULLIF(t.c.value('@FirstDepositDate', 'DATETIME'), '')
-			,Status				= t.c.value('@Status', 'TINYINT')
+			CustId				= t.c.value('@custid', 'INT')
+			,UserName			= t.c.value('@username', 'VARCHAR(30)')
+			,CurrencyId			= t.c.value('@currencyid', 'INT')
+			,ActStatus			= t.c.value('@actstatus', 'TINYINT')
+			,AffId				= t.c.value('@affid', 'INT')
+			,RegTime			= NULLIF(t.c.value('@regtime', 'DATETIME'), '')
+			,FirstDepositDate	= NULLIF(t.c.value('@firstdepositdate', 'DATETIME'), '')
+			,Status				= t.c.value('@status', 'TINYINT')
+			,IsTest				= t.c.value('@istest', 'BIT')
 		FROM @XmlData.nodes('root/row') AS t(c)
 		OPTION (OPTIMIZE FOR (@XmlData = NULL))
 	END TRY
@@ -108,7 +111,7 @@ BEGIN
 			,cu.FirstName
 			,cu.LastName
 			,cu.Email
-			,c.CurrencyId		AS Currency
+			,CASE WHEN c.IsTest = 1 THEN 20 ELSE c.CurrencyId END AS Currency
 			,c.ActStatus
 			,c.Status
 			,c.RegTime			AS RegisteredDate
@@ -118,7 +121,7 @@ BEGIN
 			,c.FirstDepositDate	AS CreatedDate
 			,cu.recommend
 		FROM #Customer c
-			LEFT JOIN bodb02.dbo.Customer cu WITH (NOLOCK) ON @SiteName + '$' + c.UserName = cu.username2
+			LEFT JOIN bodb02.dbo.Customer cu WITH (NOLOCK) ON @SiteName + '$' + @BrandName + '_' + CONVERT(VARCHAR(20), c.CustId) = cu.username2
 
 		DROP TABLE #Customer
 	END

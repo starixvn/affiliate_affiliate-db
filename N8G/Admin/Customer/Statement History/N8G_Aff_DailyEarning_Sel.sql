@@ -1,9 +1,10 @@
 /*<info serverAlias="DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_DailyEarning_Sel]
-	@AffId			INT,
-	@ProductId		INT = 0,
-	@MonthDate		SMALLDATETIME,
-	@BaseCurrency	INT = 0
+	@AffId			INT
+	,@ProductId		INT = 0
+	,@MonthDate		SMALLDATETIME
+	,@Currencies	VARCHAR(MAX) = ''
+	,@BaseCurrency	INT = 0
 AS
 
 /*
@@ -74,6 +75,7 @@ BEGIN
 					WHERE r.WinlostDate = wld.WinlostDate
 						AND r.AffId = @AffId
 						AND (@ProductId = 0 OR r.ProductId < 0 OR r.ProductId = @ProductId)
+						AND (@Currencies = '' OR ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
 						AND NOT EXISTS (
 							SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 							WHERE mr.IBCCustId = r.IBCCustId
