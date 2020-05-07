@@ -5,6 +5,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	,@ToDate			SMALLDATETIME
 	,@PreferredLanguage	VARCHAR(11) = NULL
 	,@ProductIds		VARCHAR(MAX) = '0'
+	,@Currencies		VARCHAR(MAX) = ''
 	,@BaseCurrency		INT = 0
 	,@SortType			TINYINT = 1
 	,@SortDirectionType	BIT = 0
@@ -473,7 +474,7 @@ BEGIN
 			WHERE mi.AffId = a.AffId
 				AND NOT EXISTS (
 					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-					WHERE mi.IBCCustID = mr.IBCCustID
+					WHERE mi.CustId = mr.CustId
 						AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
 				)
 		) mi
@@ -538,7 +539,7 @@ BEGIN
 			WHERE mi.AffId = a.AffId
 				AND NOT EXISTS (
 					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-					WHERE mi.IBCCustID = mr.IBCCustID
+					WHERE mi.CustId = mr.CustId
 						AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
 				)
 		) mi

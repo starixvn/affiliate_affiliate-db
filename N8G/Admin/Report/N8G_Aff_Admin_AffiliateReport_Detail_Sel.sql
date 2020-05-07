@@ -5,6 +5,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Detail_Sel]
 	,@ToDate			SMALLDATETIME
 	,@IsGetAll			BIT = 0
 	,@ProductIds		VARCHAR(MAX) = '0'
+	,@Currencies		VARCHAR(MAX) = ''
 	,@BaseCurrency		INT = 0
 	,@SortType			TINYINT = 1
 	,@SortDirectionType	BIT = 0
@@ -316,7 +317,7 @@ BEGIN
 		AND mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate)
 		AND NOT EXISTS (
 			SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-			WHERE mi.IBCCustID = mr.IBCCustID
+			WHERE mi.CustId = mr.CustId
 				AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
 		)
 	GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, RegisteredDate) + 1, 0))
@@ -328,7 +329,7 @@ BEGIN
 		AND mi.CreatedDate >= @FromDate AND mi.CreatedDate < DATEADD(DAY, 1, @ToDate)
 		AND NOT EXISTS (
 			SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-			WHERE mi.IBCCustID = mr.IBCCustID
+			WHERE mi.CustId = mr.CustId
 				AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
 		)
 	GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, CreatedDate) + 1, 0))

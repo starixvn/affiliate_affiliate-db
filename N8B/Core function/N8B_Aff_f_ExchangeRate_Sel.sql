@@ -24,19 +24,25 @@ RETURN
 		FROM dbo.ExchangeOanda WITH (NOLOCK)
 		WHERE ExchangeDate <= @ExchangeDate
 			AND ExchangeId = @ExchangeId
+	), CTE_BaseCurrency AS
+	(
+		SELECT @ExchangeId AS ExchangeId, CASE WHEN @BaseCurrency = 0 THEN CONVERT(INT, SValue) ELSE @BaseCurrency END AS BaseCurrency
+		FROM dbo.SystemSettings WITH (NOLOCK)
+		WHERE SName = 'AffCurrency'
 	)
 	SELECT
 		e.ExchangeDate
 		,e.ExchangeId
-		,CASE @BaseCurrency
-							WHEN 0 THEN e.VND / 1000.0 -- default is INH
+		,CASE bc.BaseCurrency
 							WHEN 2 THEN e.MYR
 							WHEN 3 THEN e.USD
 							WHEN 6 THEN e.EUR
 							WHEN 13 THEN e.CNY
+							WHEN 20 THEN 1 -- cheat code for UAT testing
 							WHEN 51 THEN e.VND / 1000.0
 							ELSE 0 END AS Rate
 	FROM dbo.ExchangeOanda e WITH (NOLOCK)
 		INNER JOIN CTE_Exchange c ON e.ExchangeDate = c.ExchangeDate
+		INNER JOIN CTE_BaseCurrency bc ON e.ExchangeId = bc.ExchangeId
 	WHERE e.ExchangeId = @ExchangeId
 GO

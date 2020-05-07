@@ -26,7 +26,7 @@ BEGIN
 
 		CREATE TABLE #rptMemberDaily
 		(
-			IBCCustId		INT
+			CustId			INT
 			,Currency		INT
 			,AffId			INT
 			,ProductId		INT
@@ -40,7 +40,7 @@ BEGIN
 		)
 		INSERT INTO #rptMemberDaily
 		(
-			IBCCustId
+			CustId
 			,Currency
 			,AffId
 			,ProductId
@@ -53,7 +53,7 @@ BEGIN
 			,AffExRate
 		)
 		SELECT
-			mi.IBCCustId
+			mi.CustId
 			,mi.Currency
 			,mi.AffId
 			,p.ProductId
@@ -65,14 +65,13 @@ BEGIN
 			,SUM(b.WinlostAmount)	AS Winloss
 			,e.Rate
 		FROM bodb_3rdProduct.dbo.TpBetRecord b WITH (NOLOCK)
-			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON b.IBCCustId = mi.IBCCustId
+			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON b.CustId = mi.CustId
 			INNER JOIN @Products p ON b.GameType = p.RefProductId
 			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(b.winlostdate, mi.currency, 0) e
-		WHERE mi.IBCCustId IS NOT NULL
-			AND b.WinlostDate = @WinlostDate
+		WHERE b.WinlostDate = @WinlostDate
 			AND b.TicketStatus IN (1, 2, 4) -- Won/Lose/Draw
 		GROUP BY
-			mi.IBCCustId
+			mi.CustId
 			,mi.Currency
 			,mi.AffId
 			,p.ProductId
@@ -84,7 +83,7 @@ BEGIN
 		CREATE TABLE #_CheckData
 		(
 			ModifiedType	INT
-			,IBCCustId		INT
+			,CustId			INT
 			,ProductId		INT
 			,AffId			INT
 			,Currency		INT
@@ -98,29 +97,29 @@ BEGIN
 		)
 		;WITH CTE_rptMemberDaily AS
 		(
-			SELECT AffId,IBCCustId,ProductId,Deposit,Withdrawal,Bonus,Adjustment,Turnover,Winloss,Currency,AffExRate
+			SELECT AffId,CustId,ProductId,Deposit,Withdrawal,Bonus,Adjustment,Turnover,Winloss,Currency,AffExRate
 			FROM dbo.rptMemberDaily WITH (NOLOCK)
 			WHERE winlostdate = @WinlostDate
 				AND ProductId IN (SELECT ProductId FROM @Products)
 		)
-		INSERT INTO #_CheckData (ModifiedType, IBCCustId, ProductId, AffId, Currency, AffExRate, Bonus, Turnover, Winloss, Deposit, Withdrawal, Adjustment)
+		INSERT INTO #_CheckData (ModifiedType, CustId, ProductId, AffId, Currency, AffExRate, Bonus, Turnover, Winloss, Deposit, Withdrawal, Adjustment)
 		SELECT
-			CASE	WHEN t.IBCCustId IS NULL THEN -1 -- delete
-					WHEN r.IBCCustId IS NULL THEN 1 -- insert
+			CASE	WHEN t.CustId IS NULL THEN -1 -- delete
+					WHEN r.CustId IS NULL THEN 1 -- insert
 					ELSE 0 END AS ModifiedType -- update
-			,ISNULL(t.IBCCustId, r.IBCCustId) AS IBCCustId
+			,ISNULL(t.CustId, r.CustId) AS CustId
 			,ISNULL(t.ProductId, r.ProductId) AS ProductId
 			,t.AffId, t.Currency, t.AffExRate, t.Bonus, t.Turnover, t.Winloss
 			,t.Deposit, t.Withdrawal, t.Adjustment
 		FROM #rptMemberDaily t
-			FULL OUTER JOIN CTE_rptMemberDaily r ON t.IBCCustId = r.IBCCustId AND t.ProductId = r.ProductId
+			FULL OUTER JOIN CTE_rptMemberDaily r ON t.CustId = r.CustId AND t.ProductId = r.ProductId
 		
 		-- Delete
 		IF EXISTS (SELECT 1 FROM #_CheckData WHERE ModifiedType = -1)
 		BEGIN
 			DELETE r WITH (ROWLOCK, UPDLOCK)
 			FROM dbo.rptMemberDaily r
-				INNER JOIN #_CheckData d ON r.winlostdate = @WinlostDate AND d.IBCCustId = r.IBCCustId AND d.ProductId = r.ProductId
+				INNER JOIN #_CheckData d ON r.winlostdate = @WinlostDate AND d.CustId = r.CustId AND d.ProductId = r.ProductId
 			WHERE d.ModifiedType = -1
 
 			DELETE #_CheckData WHERE ModifiedType = -1
@@ -130,10 +129,10 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM #_CheckData WHERE ModifiedType = 1)
 		BEGIN
 			DELETE #_CheckData
-			OUTPUT @WinlostDate,DELETED.AffId,DELETED.IBCCustId,DELETED.ProductId
+			OUTPUT @WinlostDate,DELETED.AffId,DELETED.CustId,DELETED.ProductId
 					,DELETED.Deposit,DELETED.Withdrawal,DELETED.Bonus,DELETED.Adjustment,DELETED.Turnover,DELETED.Winloss
 					,DELETED.Currency,DELETED.AffExRate
-			INTO dbo.rptMemberDaily(WinlostDate,AffId,IBCCustId,ProductId,Deposit,Withdrawal,Bonus,Adjustment,Turnover,Winloss,Currency,AffExRate)
+			INTO dbo.rptMemberDaily(WinlostDate,AffId,CustId,ProductId,Deposit,Withdrawal,Bonus,Adjustment,Turnover,Winloss,Currency,AffExRate)
 			WHERE ModifiedType = 1
 		END
 
@@ -151,18 +150,18 @@ BEGIN
 				,r.Currency = d.Currency
 				,r.AffExRate = d.AffExRate
 			FROM dbo.rptMemberDaily r
-				INNER JOIN #_CheckData d ON r.winlostdate = @WinlostDate AND d.IBCCustId = r.IBCCustId AND d.ProductId = r.ProductId
+				INNER JOIN #_CheckData d ON r.winlostdate = @WinlostDate AND d.CustId = r.CustId AND d.ProductId = r.ProductId
 			WHERE d.ModifiedType = 0
 				AND (
-					r.AffId			<> d.AffId
-					OR r.Bonus		<> d.Bonus
-					OR r.Turnover	<> d.Turnover
-					OR r.Winloss	<> d.Winloss
-					OR r.Deposit	<> d.Deposit
-					OR r.Withdrawal	<> d.Withdrawal
-					OR r.Adjustment	<> d.Adjustment
-					OR r.Currency	<> d.Currency
-					OR r.AffExRate	<> d.AffExRate
+					r.AffId						<> d.AffId
+					OR ISNULL(r.Bonus, 0)		<> ISNULL(d.Bonus, 0)
+					OR ISNULL(r.Turnover, 0)	<> ISNULL(d.Turnover, 0)
+					OR ISNULL(r.Winloss, 0)		<> ISNULL(d.Winloss, 0)
+					OR ISNULL(r.Deposit, 0)		<> ISNULL(d.Deposit, 0)
+					OR ISNULL(r.Withdrawal, 0)	<> ISNULL(d.Withdrawal, 0)
+					OR ISNULL(r.Adjustment, 0)	<> ISNULL(d.Adjustment, 0)
+					OR ISNULL(r.Currency, 0)	<> ISNULL(d.Currency, 0)
+					OR ISNULL(r.AffExRate, 0)	<> ISNULL(d.AffExRate, 0)
 				)
 		END
 	END

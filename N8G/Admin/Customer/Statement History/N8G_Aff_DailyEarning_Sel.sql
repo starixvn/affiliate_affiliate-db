@@ -8,15 +8,14 @@ ALTER PROCEDURE [dbo].[Aff_DailyEarning_Sel]
 AS
 
 /*
-	Created: 20180601@Percy
+	Created: 20200220@Percy
 	DB: DBAFFN8G-Affiliate_N8G
 	Task:
 		User site - Statement History - Daily Earning
 		Admin site - Customer - Statement History - Daily Earning
 
 	Revisions:
-		- 20180601@Percy: Initialize SP [RedmineID: #87923]
-		- 20191210@Percy: Remove get data on bettrans [RedmineID: #121971]
+		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 */
 
 BEGIN
@@ -78,7 +77,7 @@ BEGIN
 						AND (@Currencies = '' OR ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
 						AND NOT EXISTS (
 							SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-							WHERE mr.IBCCustId = r.IBCCustId
+							WHERE mr.CustId = r.CustId
 								AND mr.RemovedDate <= @EndOfMonth
 						)
 				) r
