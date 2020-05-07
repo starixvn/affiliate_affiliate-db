@@ -12,11 +12,14 @@ AS
 */
 
 BEGIN
-	SELECT e.ExchangeId, CASE WHEN e.ExchangeId = 20 THEN 'UUS' ELSE e.Code END AS Code
-	FROM dbo.SystemSettings ss WITH (NOLOCK)
-		CROSS APPLY dbo.Aff_f_StringSplit(ss.SValue, ',') f
-		INNER JOIN bodb02.dbo.Exchange e WITH (NOLOCK) ON e.currency = f.val
-	WHERE ss.SName = 'AFF_SupportedCurrencies'
-	ORDER BY CASE WHEN ExchangeId = 51 THEN 1 ELSE 2 END, Code
+	DECLARE @Currencies XML
+	SELECT  @Currencies = REPLACE(N'<root><r ID="' + REPLACE(SValue, ',', '" /><r ID="') + '" /></root>', ':', '" Name="')
+	FROM dbo.SystemSettings WITH (NOLOCK)
+	WHERE SName = 'AFF_SupportedCurrencies'
+
+	SELECT
+		t.c.value('@ID', 'INT') AS ExchangeId,
+		t.c.value('@Name', 'VARCHAR(5)') AS Code
+	FROM @Currencies.nodes('/root/r') AS t(c)
 END
 GO
