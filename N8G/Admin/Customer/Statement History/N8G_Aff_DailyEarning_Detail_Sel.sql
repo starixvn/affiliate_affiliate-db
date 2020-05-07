@@ -8,15 +8,14 @@ ALTER PROCEDURE [dbo].[Aff_DailyEarning_Detail_Sel]
 AS
 
 /*
-	Created: 20180601@Percy
+	Created: 20200220@Percy
 	DB: DBAFFN8G-Affiliate_N8G
 	Task:
 		User site - Statement History - Daily Earning - Detail
 		Admin site - Customer - Statement History - Daily Earning - Detail
 
 	Revisions:
-		- 20180601@Percy: Initialize SP [RedmineID: #87923]
-		- 20191210@Percy: Remove get data on bettrans [RedmineID: #121971]
+		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 */
 
 BEGIN
@@ -38,7 +37,7 @@ BEGIN
 		-- rptMemberDaily
 		BEGIN
 			SELECT
-				mi.IBCCustId	AS CustId
+				mi.CustId
 				,mi.UserName
 				,mi.IBCUsername
 				,r.Deposit
@@ -50,7 +49,7 @@ BEGIN
 			FROM
 			(
 				SELECT
-					r.IBCCustId
+					r.CustId
 					,SUM(r.Deposit * e.Rate)	AS Deposit
 					,SUM(r.Withdrawal * e.Rate)	AS Withdrawal
 					,SUM(r.Turnover * e.Rate)	AS Turnover
@@ -64,13 +63,13 @@ BEGIN
 					AND (@Currencies = '' OR ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
 					AND NOT EXISTS (
 						SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-						WHERE mr.IBCCustId = r.IBCCustId
+						WHERE mr.CustId = r.CustId
 							AND mr.RemovedDate <= @EndOfMonth
 					)
 				GROUP BY
-					r.IBCCustId
+					r.CustId
 			) r
-				INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON r.IBCCustId = mi.IBCCustId
+				INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON r.CustId = mi.CustId
 		END
 	END
 END

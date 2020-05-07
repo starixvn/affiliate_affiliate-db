@@ -51,7 +51,7 @@ BEGIN
 		(
 			MonthDate		SMALLDATETIME,
 			AffId			INT,
-			IBCCustId		INT,
+			CustId			INT,
 			ProductId		INT,
 
 			Deposit			MONEY,
@@ -73,7 +73,7 @@ BEGIN
 		(
 			MonthDate,
 			AffId,
-			IBCCustId,
+			CustId,
 			ProductId,
 
 			Deposit,
@@ -91,7 +91,7 @@ BEGIN
 		SELECT
 			DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate
 			,md.AffId
-			,md.IBCCustId
+			,md.CustId
 			,CASE WHEN md.ProductId < 0 THEN 0 ELSE md.ProductId END   AS ProductId
 
 			,SUM(ISNULL(md.Deposit, 0)		* ISNULL(md.AffExRate, 1)) AS Deposit
@@ -112,12 +112,12 @@ BEGIN
 			AND NOT EXISTS (
 				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 				WHERE mr.RemovedDate < DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
-					AND mr.IBCCustId = md.IBCCustId
+					AND mr.CustId = md.CustId
 				)
 		GROUP BY
 			DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
 			,md.AffId
-			,md.IBCCustId
+			,md.CustId
 			,CASE WHEN md.ProductId < 0 THEN 0 ELSE md.ProductId END
 	END
 
@@ -129,7 +129,7 @@ BEGIN
 			(
 				MonthDate,
 				AffId,
-				IBCCustId,
+				CustId,
 				ProductId,
 
 				Deposit,
@@ -149,7 +149,7 @@ BEGIN
 			SELECT
 				DATEADD(DAY, -1, @LaunchDate) AS MonthDate,
 				AffId,
-				IBCCustId,
+				CustId,
 				ProductId,
 
 				Deposit,
@@ -299,10 +299,10 @@ BEGIN
 		-- Total
 		;WITH CTE_SumMember AS
 		(
-			SELECT MonthDate, AffId, IBCCustId
+			SELECT MonthDate, AffId, CustId
 				,SUM(Turnover)	AS Turnover
 			FROM #Data
-			GROUP BY MonthDate, AffId, IBCCustId
+			GROUP BY MonthDate, AffId, CustId
 		)
 		INSERT INTO #Commission
 		(

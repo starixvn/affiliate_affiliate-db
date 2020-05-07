@@ -5,12 +5,12 @@ ALTER PROCEDURE [dbo].[Aff_User_Overview_Detail_Sel]
 AS
 
 /*
-	Created: 20191210@Percy
+	Created: 20200220@Percy
 	DB: DBAFFN8G-Affiliate_N8G
 	Task: User site - Home - Account Overview - Detail
 
 	Revisions:
-		- 20191210@Percy: Initialize SP [RedmineID: #121971]
+		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 */
 
 BEGIN
@@ -63,13 +63,13 @@ BEGIN
 		SELECT WinlostDate FROM CTE
 		OPTION (MAXRECURSION 0)
 
-		CREATE TABLE #Data (WinlostDate SMALLDATETIME, IBCCustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, Winloss MONEY)
+		CREATE TABLE #Data (WinlostDate SMALLDATETIME, CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, Winloss MONEY)
 		
-		INSERT INTO #Data (WinlostDate, IBCCustId, Deposit, Withdrawal, Turnover, Winloss)
-		SELECT r.WinlostDate, r.IBCCustId, SUM(r.Deposit), SUM(r.Withdrawal), SUM(r.Turnover), SUM(r.Winloss)
+		INSERT INTO #Data (WinlostDate, CustId, Deposit, Withdrawal, Turnover, Winloss)
+		SELECT r.WinlostDate, r.CustId, SUM(r.Deposit), SUM(r.Withdrawal), SUM(r.Turnover), SUM(r.Winloss)
 		FROM @tblWinlostDate wld
 			CROSS APPLY (
-				SELECT	r.WinlostDate, r.IBCCustId
+				SELECT	r.WinlostDate, r.CustId
 						,r.Deposit		* r.AffExRate AS Deposit
 						,r.Withdrawal	* r.AffExRate AS Withdrawal
 						,r.Turnover		* r.AffExRate AS Turnover
@@ -79,16 +79,16 @@ BEGIN
 					AND r.AffId = @AffId
 					AND NOT EXISTS (
 						SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-						WHERE mr.IBCCustId = r.IBCCustId
+						WHERE mr.CustId = r.CustId
 							AND mr.RemovedDate <= @EndOfMonth
 					)
 			) r
-		GROUP BY r.WinlostDate, r.IBCCustId
+		GROUP BY r.WinlostDate, r.CustId
 
-		CREATE CLUSTERED INDEX CIX_IBCCustId_WinlostDate ON #Data (IBCCustId, WinlostDate)
+		CREATE CLUSTERED INDEX CIX_IBCCustId_WinlostDate ON #Data (CustId, WinlostDate)
 
 		-- Active Members
-		DECLARE @ActiveMembers TABLE (WinlostDate SMALLDATETIME, IBCCustId INT)
+		DECLARE @ActiveMembers TABLE (WinlostDate SMALLDATETIME, CustId INT)
 
 		DECLARE @tmpWinlostDate SMALLDATETIME
 		SELECT  @tmpWinlostDate = @FromBeginMonth
@@ -97,12 +97,12 @@ BEGIN
 		BEGIN
 			IF EXISTS (SELECT 1 FROM #Data WHERE WinlostDate = @tmpWinlostDate)
 			BEGIN
-				INSERT INTO @ActiveMembers (WinlostDate, IBCCustId)
-				SELECT WinlostDate, IBCCustId
+				INSERT INTO @ActiveMembers (WinlostDate, CustId)
+				SELECT WinlostDate, CustId
 				FROM #Data d
 				WHERE WinlostDate = @tmpWinlostDate
 					AND Turnover > 0
-					AND NOT EXISTS (SELECT 1 FROM @ActiveMembers a WHERE d.IBCCustId = a.IBCCustId)
+					AND NOT EXISTS (SELECT 1 FROM @ActiveMembers a WHERE d.CustId = a.CustId)
 			END
 
 			SELECT @tmpWinlostDate = DATEADD(DAY, 1, @tmpWinlostDate)
@@ -133,7 +133,7 @@ BEGIN
 				WHERE wld.WinlostDate = d.WinlostDate
 			) d
 			OUTER APPLY (
-				SELECT COUNT(DISTINCT a.IBCCustID) AS ActiveMembers
+				SELECT COUNT(DISTINCT a.CustId) AS ActiveMembers
 				FROM @ActiveMembers a
 				WHERE wld.WinlostDate = a.WinlostDate
 			) a

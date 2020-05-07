@@ -171,7 +171,7 @@ BEGIN
 
 	SELECT
 		@SignupsTotal	= COUNT(1),
-		@FDMTotal		= COUNT(IBCCustID),
+		@FDMTotal		= COUNT(CreatedDate),
 		@SignupsByMonth = COUNT(CASE WHEN RegisteredDate >= @FromBeginMonth AND RegisteredDate < @ToNextMonth THEN 1 ELSE NULL END),
 		@FDMByMonth		= COUNT(CASE WHEN CreatedDate >= @FromBeginMonth AND CreatedDate < @ToNextMonth THEN 1 ELSE NULL END)
 	FROM dbo.MemberInfo WITH (NOLOCK)

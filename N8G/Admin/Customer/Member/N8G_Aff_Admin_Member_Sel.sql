@@ -32,24 +32,24 @@ BEGIN
 
 	CREATE TABLE #MemberInfo
 	(
-		IBCCustId INT,
-		UserName VARCHAR(50),
-		FirstName NVARCHAR(50),
-		LastName NVARCHAR(50),
-		Email NVARCHAR(200),
-		Currency INT,
-		RegisteredDate DATETIME
+		CustId			INT
+		,UserName		VARCHAR(50)
+		,FirstName		NVARCHAR(50)
+		,LastName		NVARCHAR(50)
+		,Email			NVARCHAR(200)
+		,Currency		INT
+		,RegisteredDate	DATETIME
 	)
 
-	INSERT INTO #MemberInfo (IBCCustId, UserName, FirstName, LastName, Email, Currency, RegisteredDate)
-	SELECT IBCCustId, UserName, FirstName, LastName, Email, Currency, RegisteredDate
+	INSERT INTO #MemberInfo (CustId, UserName, FirstName, LastName, Email, Currency, RegisteredDate)
+	SELECT CustId, UserName, FirstName, LastName, Email, Currency, RegisteredDate
 	FROM dbo.MemberInfo WITH (NOLOCK)
 	WHERE AffId = @AffId
 		AND IsRemoved = 0
 		AND 1 = CASE @MemberType
 					WHEN 0 THEN 1
-					WHEN 1 THEN CASE WHEN IBCCustId IS NULL THEN 1 ELSE 0 END
-					WHEN 2 THEN CASE WHEN IBCCustId IS NULL THEN 0 ELSE 1 END
+					WHEN 1 THEN CASE WHEN CreatedDate IS NULL THEN 1 ELSE 0 END
+					WHEN 2 THEN CASE WHEN CreatedDate IS NULL THEN 0 ELSE 1 END
 					ELSE 0 END
 		AND 1 = CASE @IsGetAll
 					WHEN 0 THEN CASE @MemberType
@@ -68,10 +68,10 @@ BEGIN
 			@RowEnd		= @RowStart + @PageSize - 1
 
 	-- Return data
-	SELECT IBCCustId, UserName, FirstName, LastName, Email, Currency, RegisteredDate
+	SELECT CustId, UserName, FirstName, LastName, Email, Currency, RegisteredDate
 	FROM
 	(
-		SELECT mi.IBCCustId, mi.UserName, mi.FirstName, mi.LastName, mi.Email, e.Currency, mi.RegisteredDate,
+		SELECT mi.CustId, mi.UserName, mi.FirstName, mi.LastName, mi.Email, e.Currency, mi.RegisteredDate,
 			ROW_NUMBER() OVER(ORDER BY mi.RegisteredDate DESC) AS RowNum
 		FROM #MemberInfo mi
 			LEFT JOIN bodb02.dbo.Exchange e WITH (NOLOCK) ON mi.Currency = e.ExchangeID

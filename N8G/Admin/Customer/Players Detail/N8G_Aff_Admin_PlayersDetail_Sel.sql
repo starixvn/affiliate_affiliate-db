@@ -14,16 +14,14 @@ ALTER PROCEDURE [dbo].[Aff_Admin_PlayersDetail_Sel]
 AS
 
 /*
-	Created: 20180601@Percy
+	Created: 20200220@Percy
 	DB: DBAFFN8G-Affiliate_N8G
 	Task:
 		Admin site - Customer - Players Detail
 		Admin site - Customer - Statistics - Click amount of Total Active Players
 
 	Revisions:
-		- 20180601@Percy: Initialize SP [RedmineID: #87923]
-		- 20181001@Percy: Support export excel [RedmineID: #102322]
-		- 20191210@Percy: Add withdrawal column and support sort [RedmineID: #121971]
+		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -47,7 +45,7 @@ BEGIN
 	SELECT  @FromBeginMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT  @ToEndMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @FromBeginMonth))
 
-	CREATE TABLE #tmpData (IBCCustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, Winloss MONEY, Bonus MONEY)
+	CREATE TABLE #tmpData (CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, Winloss MONEY, Bonus MONEY)
 
 	-- rptMemberDaily
 	BEGIN
@@ -60,7 +58,7 @@ BEGIN
 		)
 		INSERT INTO #tmpData
 		(
-			IBCCustId
+			CustId
 			,Deposit
 			,Withdrawal
 			,Turnover
@@ -68,7 +66,7 @@ BEGIN
 			,Bonus
 		)
 		SELECT
-			r.IBCCustId
+			r.CustId
 			,SUM(r.Deposit * r.Rate)
 			,SUM(r.Withdrawal * r.Rate)
 			,SUM(r.Turnover * r.Rate)
@@ -76,7 +74,7 @@ BEGIN
 			,SUM(r.Bonus * r.Rate)
 		FROM CTE_WinlostDate wld
 			CROSS APPLY (
-				SELECT r.IBCCustId, r.Deposit, r.Withdrawal, r.Turnover, r.Winloss, r.Bonus, e.Rate
+				SELECT r.CustId, r.Deposit, r.Withdrawal, r.Turnover, r.Winloss, r.Bonus, e.Rate
 				FROM dbo.rptMemberDaily r WITH (NOLOCK)
 					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, r.Currency, @BaseCurrency) e
 				WHERE wld.WinlostDate = r.WinlostDate
@@ -84,7 +82,7 @@ BEGIN
 					AND (@ProductId = 0 OR r.ProductId < 0 OR r.ProductId = @ProductId)
 					AND (@Currencies = '' OR ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
 			) r
-		GROUP BY r.IBCCustId
+		GROUP BY r.CustId
 		HAVING SUM((r.Deposit + r.Withdrawal + r.Turnover + ABS(r.Winloss) + r.Bonus) * r.Rate) > 0.0
 		OPTION (MAXRECURSION 0)
 	END
@@ -109,11 +107,11 @@ BEGIN
 	ELSE
 		SELECT @RowStart =  1, @RowEnd = @NRows
 
-	SELECT IBCCustId, UserName, IBCUserName, RegisteredDate, Deposit, Withdrawal, Turnover, Winloss, Bonus, BankingFee
+	SELECT CustId, UserName, IBCUserName, RegisteredDate, Deposit, Withdrawal, Turnover, Winloss, Bonus, BankingFee
 	FROM
 	(
 		SELECT
-			m.IBCCustId
+			m.CustId
 			,m.UserName
 			,m.IBCUserName
 			,m.RegisteredDate
@@ -145,11 +143,11 @@ BEGIN
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 9 THEN m.IBCUserName				END) DESC
 			) AS RN
 		FROM #tmpData d
-			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.IBCCustId = m.IBCCustId
+			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId
 		WHERE NOT EXISTS (
 				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 				WHERE mr.RemovedDate <= @ToEndMonth
-					AND mr.IBCCustId = d.IBCCustId
+					AND mr.CustId = d.CustId
 				)
 	) r
 	WHERE r.RN BETWEEN @RowStart AND @RowEnd

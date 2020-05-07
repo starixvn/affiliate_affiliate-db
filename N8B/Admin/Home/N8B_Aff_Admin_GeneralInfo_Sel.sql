@@ -228,7 +228,7 @@ BEGIN
 		(
 			SELECT
 				COUNT(1)			AS MemAllNum,
-				COUNT(IBCCustID)	AS DepositMemAllNum,
+				COUNT(CreatedDate)	AS DepositMemAllNum,
 
 				COUNT(CASE WHEN RegisteredDate >= @BeginOfCurrentMonth AND RegisteredDate < DATEADD(DAY, 1, @LastOfCurrentMonth)
 								OR CreatedDate >= @BeginOfCurrentMonth AND CreatedDate < DATEADD(DAY, 1, @LastOfCurrentMonth)

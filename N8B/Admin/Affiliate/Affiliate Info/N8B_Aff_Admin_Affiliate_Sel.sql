@@ -149,7 +149,7 @@ BEGIN
 				FROM dbo.MemberInfo mi WITH (NOLOCK)
 				WHERE mi.AffId = ai.AffId
 					AND mi.IsRemoved = 0
-					AND mi.IBCCustId IS NOT NULL
+					AND mi.CreatedDate IS NOT NULL
 			) mi
 			OUTER APPLY (
 				SELECT SUM(at.Amount) AS BFF
