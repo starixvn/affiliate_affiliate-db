@@ -5,6 +5,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Detail_Sel]
 	,@ToDate			SMALLDATETIME
 	,@IsGetAll			BIT = 0
 	,@ProductIds		VARCHAR(MAX) = '0'
+	,@Currencies		VARCHAR(MAX) = ''
 	,@BaseCurrency		INT = 0
 	,@SortType			TINYINT = 1
 	,@SortDirectionType	BIT = 0
@@ -190,6 +191,7 @@ BEGIN
 				@FromMonthDate		= @tempFromDate,
 				@ToMonthDate		= @tempToDate,
 				@ProductIds			= @ProductIds,
+				@Currencies			= @Currencies,
 				@BaseCurrency		= @BaseCurrency,
 				@IsSumAll			= 0,
 				@GetRowTotalOnly	= 1

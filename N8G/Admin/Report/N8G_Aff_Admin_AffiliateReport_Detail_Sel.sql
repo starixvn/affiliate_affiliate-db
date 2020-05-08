@@ -191,6 +191,7 @@ BEGIN
 				@FromMonthDate		= @tempFromDate,
 				@ToMonthDate		= @tempToDate,
 				@ProductIds			= @ProductIds,
+				@Currencies			= @Currencies,
 				@BaseCurrency		= @BaseCurrency,
 				@IsSumAll			= 0,
 				@GetRowTotalOnly	= 1
