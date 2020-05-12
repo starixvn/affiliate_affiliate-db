@@ -1,12 +1,13 @@
 /*<info serverAlias="DBAFFN88-Affiliate_N88" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Commission_UnCalc]
-	@AffIds				VARCHAR(MAX) = 'all',
-	@FromMonthDate		SMALLDATETIME,
-	@ToMonthDate		SMALLDATETIME,
-	@ProductIds			VARCHAR(MAX) = '0',
-	@BaseCurrency		INT = 0,
-	@IsSumAll			BIT = 0,
-	@GetRowTotalOnly	BIT = 0
+	@AffIds				VARCHAR(MAX) = 'all'
+	,@FromMonthDate		SMALLDATETIME
+	,@ToMonthDate		SMALLDATETIME
+	,@ProductIds		VARCHAR(MAX) = '0'
+	,@Currencies		VARCHAR(MAX) = ''
+	,@BaseCurrency		INT = 0
+	,@IsSumAll			BIT = 0
+	,@GetRowTotalOnly	BIT = 0
 AS
 
 /*
@@ -52,6 +53,7 @@ BEGIN
 			MonthDate		SMALLDATETIME,
 			AffId			INT,
 			CustId			INT,
+			Currency		INT,
 			ProductId		INT,
 
 			Deposit			MONEY,
@@ -74,6 +76,7 @@ BEGIN
 			MonthDate,
 			AffId,
 			CustId,
+			Currency,
 			ProductId,
 
 			Deposit,
@@ -92,6 +95,7 @@ BEGIN
 			DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate
 			,md.AffId
 			,md.CustId
+			,md.Currency
 			,CASE WHEN md.ProductId < 0 THEN 0 ELSE md.ProductId END   AS ProductId
 
 			,SUM(ISNULL(md.Deposit, 0)		* ISNULL(md.AffExRate, 1)) AS Deposit
@@ -118,6 +122,7 @@ BEGIN
 			DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0))
 			,md.AffId
 			,md.CustId
+			,md.Currency
 			,CASE WHEN md.ProductId < 0 THEN 0 ELSE md.ProductId END
 	END
 
@@ -130,6 +135,7 @@ BEGIN
 				MonthDate,
 				AffId,
 				CustId,
+				Currency,
 				ProductId,
 
 				Deposit,
@@ -150,6 +156,7 @@ BEGIN
 				DATEADD(DAY, -1, @LaunchDate) AS MonthDate,
 				AffId,
 				CustId,
+				Currency,
 				ProductId,
 
 				Deposit,
@@ -461,6 +468,46 @@ BEGIN
 					AND gsh.TierId <= t.TierId
 			) AS s
 		WHERE c.ProductId = 0
+
+		-- Filter by Currencies
+		IF @Currencies <> ''
+		BEGIN
+			UPDATE c
+			SET c.Turnover			= d.Turnover
+				,c.Winloss			= d.Winloss
+				,c.Turnover_Base	= d.Turnover_Base
+				,c.Winloss_Base		= d.Winloss_Base
+			FROM #Commission c
+				CROSS APPLY (
+					SELECT
+						SUM(d.Turnover)			AS Turnover
+						,SUM(d.Winloss)			AS Winloss
+						,SUM(d.Turnover_Base)	AS Turnover_Base
+						,SUM(d.Winloss_Base)	AS Winloss_Base
+					FROM #Data d
+					WHERE c.MonthDate = d.MonthDate AND c.AffId = d.AffId AND c.ProductId = d.ProductId
+						AND ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), d.Currency) + ',%'
+				) d
+			WHERE c.ProductId > 0
+
+			UPDATE c1
+			SET c1.Turnover			= c2.Turnover
+				,c1.Winloss			= c2.Winloss
+				,c1.Turnover_Base	= c2.Turnover_Base
+				,c1.Winloss_Base	= c2.Winloss_Base
+			FROM #Commission c1
+				CROSS APPLY (
+					SELECT
+						SUM(c2.Turnover)		AS Turnover
+						,SUM(c2.Winloss)		AS Winloss
+						,SUM(c2.Turnover_Base)	AS Turnover_Base
+						,SUM(c2.Winloss_Base)	AS Winloss_Base
+					FROM #Commission c2
+					WHERE c1.MonthDate = c2.MonthDate AND c1.AffId = c2.AffId
+						AND c2.ProductId > 0
+				) c2
+			WHERE c1.ProductId = 0
+		END
 
 		-- Filter by Products
 		IF @ProductIds <> '0'
