@@ -34,16 +34,16 @@ BEGIN
 	BEGIN
 		IF @Username = '' AND @IBCUserName = ''
 		BEGIN
-			SELECT @NRows = COUNT(1) FROM dbo.MemberInfo WITH (NOLOCK) WHERE IBCCustId IS NOT NULL
+			SELECT @NRows = COUNT(1) FROM dbo.MemberInfo WITH (NOLOCK) WHERE CreatedDate IS NOT NULL
 		
-			SELECT IBCCustID, UserName, IBCUserName, FirstName, LastName, CreatedDate, 0 AS CurrBalance, AffUserName 
+			SELECT CustId, UserName, IBCUserName, FirstName, LastName, CreatedDate, 0 AS CurrBalance, AffUserName 
 			FROM
 			(
-				SELECT	mi.IBCCustID, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.CreatedDate, ai.UserName AS AffUserName
+				SELECT	mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.CreatedDate, ai.UserName AS AffUserName
 						,ROW_NUMBER() OVER(ORDER BY mi.CreatedDate DESC) AS RowNum
 				FROM dbo.MemberInfo mi WITH (NOLOCK)
 					INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
-				WHERE mi.IBCCustId IS NOT NULL
+				WHERE mi.CreatedDate IS NOT NULL
 			) AS r
 			WHERE r.RowNum BETWEEN @RowStart AND @RowEnd
 			ORDER BY r.RowNum
@@ -52,18 +52,18 @@ BEGIN
 		BEGIN
 			SELECT @NRows = COUNT(1)
 			FROM dbo.MemberInfo WITH (NOLOCK)
-			WHERE IBCCustId IS NOT NULL
+			WHERE CreatedDate IS NOT NULL
 				AND UserName LIKE '%' + @UserName + '%'
 				AND IBCUserName LIKE '%' + @IBCUserName + '%'
 
-			SELECT IBCCustID, UserName, IBCUserName, FirstName, LastName, CreatedDate, 0 AS CurrBalance, AffUserName 
+			SELECT CustId, UserName, IBCUserName, FirstName, LastName, CreatedDate, 0 AS CurrBalance, AffUserName 
 			FROM
 			(
-				SELECT	mi.IBCCustID, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.CreatedDate, ai.UserName AS AffUserName
+				SELECT	mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.CreatedDate, ai.UserName AS AffUserName
 						,ROW_NUMBER() OVER(ORDER BY mi.CreatedDate DESC) AS RowNum
 				FROM dbo.MemberInfo mi WITH (NOLOCK)
 					INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
-				WHERE mi.IBCCustId IS NOT NULL
+				WHERE mi.CreatedDate IS NOT NULL
 					AND mi.UserName LIKE '%' + @UserName + '%'
 					AND mi.IBCUserName LIKE '%' + @IBCUserName + '%'
 			) AS r
@@ -76,19 +76,19 @@ BEGIN
 		SELECT @NRows = COUNT(1)
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
 			INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
-		WHERE mi.IBCCustId IS NOT NULL
+		WHERE mi.CreatedDate IS NOT NULL
 			AND mi.UserName LIKE '%' + @UserName + '%'
 			AND mi.IBCUserName LIKE '%' + @IBCUserName + '%'
 			AND ai.UserName LIKE '%' + @AffUsername + '%'
 
-		SELECT IBCCustID, UserName, IBCUserName, FirstName, LastName, CreatedDate, 0 AS CurrBalance, AffUserName 
+		SELECT CustId, UserName, IBCUserName, FirstName, LastName, CreatedDate, 0 AS CurrBalance, AffUserName 
 		FROM
 		(
-			SELECT	mi.IBCCustID, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.CreatedDate, ai.UserName AS AffUserName
+			SELECT	mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.CreatedDate, ai.UserName AS AffUserName
 					,ROW_NUMBER() OVER(ORDER BY mi.CreatedDate DESC) AS RowNum
 			FROM dbo.MemberInfo mi WITH (NOLOCK)
 				INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
-			WHERE mi.IBCCustId IS NOT NULL
+			WHERE mi.CreatedDate IS NOT NULL
 				AND mi.UserName LIKE '%' + @UserName + '%'
 				AND mi.IBCUserName LIKE '%' + @IBCUserName + '%'
 				AND ai.UserName LIKE '%' + @AffUsername + '%'
