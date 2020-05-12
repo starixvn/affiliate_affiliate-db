@@ -83,7 +83,7 @@ BEGIN
 		END
 
 		-- Replace Affilliate domain by Licensee domain to redirect to licensee site
-		SELECT @RedirectPage = CASE WHEN @IsSSL = 1 THEN 'https' ELSE 'http' END + '://' + @LicenseeDomain + '/' + @LanguageCode + '/' + @PageCode + 'Register?aff=' + CONVERT(VARCHAR(20), @AffId)
+		SELECT @RedirectPage = CASE WHEN @IsSSL = 1 THEN 'https' ELSE 'http' END + '://' + @LicenseeDomain + '/' + @LanguageCode + '/' + @PageCode + '/Register?aff=' + CONVERT(VARCHAR(20), @AffId)
 	END
 
 	-- Insert into ClickStatistics
