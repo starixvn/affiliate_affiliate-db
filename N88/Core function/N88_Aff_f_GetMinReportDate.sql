@@ -7,17 +7,17 @@ RETURNS SMALLDATETIME
 AS
 
 /*
-	Created: 20180601@Percy
+	Created: 20200220@Percy
 	DB: DBAFFN88-Affiliate_N88
 	Task: Get min report date
 
 	Revisions:
-		- 20180601@Percy: Initialize function [RedmineID: #87923]
+		- 20200220@Percy: Initialize function [RedmineID: #128775]
 */
 
 BEGIN
 	DECLARE @MinReportDate SMALLDATETIME
-	SELECT  @MinReportDate = DATEADD(DAY, 1, CONVERT(DATE, SValue)) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_OldReportDate'
+	SELECT  @MinReportDate = CONVERT(DATE, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'SoftLaunchDate'
 
 	IF @AffId <> 0
 	BEGIN
