@@ -154,11 +154,12 @@ BEGIN
 					,SUM(c.ActivePlayer) AS ActivePlayer
 				FROM #TempCommission c
 				WHERE ai.AffId = c.AffId
-					AND ai.IsSuspended = 0
+					AND ISNULL(ai.IsSuspended, 0) = 0
 			) c
 		WHERE ai.ParentAffId = @AffId
 			AND ai.Status = 'Approved'
 			AND ai.IsClosed = 0
+			AND ai.ApprovedDate < @ToNextMonth
 		ORDER BY
 			ai.IsSuspended
 			,ai.UserName
