@@ -60,7 +60,8 @@ BEGIN
 		WHERE ParentAffId = @AffId
 			AND Status = 'Approved'
 			AND IsClosed = 0
-			AND IsSuspended = 0
+			AND ISNULL(IsSuspended, 0) = 0
+			AND ApprovedDate < @ToNextMonth
 
 		IF @FromBeginMonth > @MaxCommDate
 		BEGIN
