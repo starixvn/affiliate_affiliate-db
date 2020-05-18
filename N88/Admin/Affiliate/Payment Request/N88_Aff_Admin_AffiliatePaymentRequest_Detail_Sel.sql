@@ -1,57 +1,42 @@
 /*<info serverAlias="DBAFFN88-Affiliate_N88" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliatePaymentRequest_Detail_Sel]
-	@TransID BIGINT
+	@TransId BIGINT
 AS
 
 /*
-	Created: 20160614@Percy
+	Created: 20200220@Percy
 	DB: DBAFFN88-Affiliate_N88
-	Task: Admin - Affiliate - Payment Request - View payment request by TransID
+	Task: Admin - Affiliate - Payment Request - View payment request by TransId
 
 	Revisions:
-		- 20190614@Percy: Initialize SP [RedmineID: #109008]
+		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	SELECT
-		a.TransID
-		,a.AffID
-		,a.TransDate
-		,a.CompletedDate
-		,a.RefID
-		,a.Status
-		,a.Description AS TransDesc
-		,ai.UserName
-		,ad.Player_Username AS UserName2
-		,ad.PreferredPayment
-		,ad.PreferredLanguage
-		,ABS(a.Amount) AS Amount
-		,ap.AdminDesc
-		,ap.AffDesc
+		at.TransId
+		,at.AffId
+		,ai.UserName AS AffName
 		,ai.Email
 		,ai.FirstName
 		,ai.LastName
-		,ad.neteller_accountID
-		,ad.moneybookers_email
-		,ad.wire_bankname
-		,ad.wire_bankaddress
-		,ad.wire_swiftcode
-		,ad.wire_accountname
-		,ad.wire_accountno
-		,ad.Cheque_FullName
-		,ad.cheque_address
-		,ad.cheque_city
-		,ad.cheque_state
-		,ad.cheque_postal
-		,ad.cheque_country
-		,au.username AS AdminName
-	FROM dbo.AffTrans a WITH (NOLOCK)
-		INNER JOIN dbo.AffPayout ap WITH (NOLOCK) ON a.RefID = ap.RefID
-		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON a.AffID = ai.AffID
-		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffID = ad.AffID
-		LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON a.creator = au.custid
-	WHERE a.TransID = @TransID
+		,ap.PreferredPayment
+		,ABS(ap.Amount) AS Amount
+		,ABS(ap.AffPayout) AS TransAmount
+		,CASE WHEN ap.Player_Currency = 20 THEN 'UUS' ELSE ap.Player_CurrencyCode END AS TransCurrencyCode
+		,ap.Player_Username AS PlayerUsername
+		,CASE WHEN at.Status = 'Pending' THEN 'Processing' ELSE at.Status END AS Status
+		,at.TransDate
+		,at.CompletedDate
+		,au.UserName AS Creator
+		,ap.AdminDesc
+		,ap.AffDesc
+	FROM dbo.AffTrans at WITH (NOLOCK)
+		INNER JOIN dbo.AffPayout ap WITH (NOLOCK) ON at.RefID = ap.RefID
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON at.AffID = ai.AffID
+		LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON at.creator = au.custid
+	WHERE at.TransId = @TransId
 END
 GO

@@ -12,12 +12,12 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliatePaymentRequest_Sel]
 AS
 
 /*
-	Created: 20160614@Percy
+	Created: 20200220@Percy
 	DB: DBAFFN88-Affiliate_N88
 	Task: Admin - Affiliate - Payment Request - View payment request list
 
 	Revisions:
-		- 20190614@Percy: Initialize SP [RedmineID: #109008]
+		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 
 	Param's Explanation:
 		- @SearchById
@@ -29,6 +29,9 @@ BEGIN
 	SET NOCOUNT ON
 
 	SELECT @Username = ISNULL(@Username, ''), @Status = ISNULL(@Status, ''), @IsGetAll = ISNULL(@IsGetAll, 0)
+
+	IF @Status = 'Processing'
+		SELECT @Status = 'Pending'
 
 	IF @SearchById = 1
 		SELECT @IsGetAll = 1
@@ -64,25 +67,33 @@ BEGIN
 	SELECT  @RowStart = @PageSize * (@PageIndex - 1) + 1
 			,@RowEnd = @RowStart + @PageSize - 1
 	
-	SELECT TransID, TransDate, AffID, UserName, Amount, Status, CompletedDate, Creator
+	SELECT TransId, TransDate, AffId, UserName, Amount, Status, CompletedDate, Creator
 	FROM (
-		SELECT t.TransID, a.TransDate, ai.AffID, ai.UserName, a.Amount, a.Status, a.CompletedDate
-				,CASE WHEN a.Creator = 148 THEN 'System' ELSE au.username END AS Creator
-				,ROW_NUMBER() OVER(ORDER BY
-											CASE a.Status
-												WHEN 'Pending' THEN 1
-												WHEN 'Approved' THEN 2
-												WHEN 'Rejected' THEN 3
-												ELSE 4 END
-											,TransDate DESC) AS RN
+		SELECT
+			t.TransId
+			,a.TransDate
+			,ai.AffId
+			,ai.UserName
+			,a.Amount
+			,CASE a.Status
+				WHEN 'Pending' THEN 'Processing'
+				ELSE a.Status END AS Status
+			,a.CompletedDate
+			,CASE WHEN a.Creator = 148 THEN 'System' ELSE au.username END AS Creator
+			,ROW_NUMBER() OVER(ORDER BY
+										CASE a.Status
+											WHEN 'Pending' THEN 1
+											WHEN 'Approved' THEN 2
+											WHEN 'Rejected' THEN 3
+											ELSE 4 END
+										,TransDate DESC) AS RN
 		FROM @tblResultTransID t
 			CROSS APPLY (
-				SELECT TOP 1 a.AffID, a.Creator, a.Status, a.TransDate, ABS(a.Amount) AS Amount, a.CompletedDate
-				
+				SELECT TOP 1 a.AffId, a.Creator, a.Status, a.TransDate, ABS(a.Amount) AS Amount, a.CompletedDate
 				FROM dbo.AffTrans a WITH (NOLOCK)
-				WHERE t.TransID = a.TransID
+				WHERE t.TransId = a.TransId
 			) AS a
-			INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON a.AffID = ai.AffID
+			INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON a.AffId = ai.AffId
 			LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON a.Creator = au.custid
 	) AS r
 	WHERE RN BETWEEN @RowStart AND @RowEnd

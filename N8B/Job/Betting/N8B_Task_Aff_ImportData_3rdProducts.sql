@@ -61,8 +61,8 @@ BEGIN
 			,0 AS Withdrawal
 			,0 AS Bonus
 			,0 AS Adjustment
-			,SUM(b.Stake)			AS Turnover
-			,SUM(b.WinlostAmount)	AS Winloss
+			,SUM(b.Stake * 1.0 / CASE WHEN e.Code IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END)			AS Turnover
+			,SUM(b.WinlostAmount * 1.0 / CASE WHEN e.Code IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END)	AS Winloss
 			,e.Rate
 		FROM bodb_3rdProduct.dbo.TpBetRecord b WITH (NOLOCK)
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON b.CustId = mi.CustId

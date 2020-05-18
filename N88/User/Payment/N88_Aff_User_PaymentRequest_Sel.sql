@@ -47,7 +47,16 @@ BEGIN
 
 	SELECT  @FromBeginYear = CASE WHEN @FromBeginYear < @MinReportDate THEN @MinReportDate ELSE @FromBeginYear END
 
-	SELECT t.TransID, p.RefID, p.TransDate, p.CompletedDate, p.Status, ABS(p.Amount) AS Amount, p.AffDesc
+	SELECT
+		t.TransID
+		,p.RefID
+		,p.TransDate
+		,p.CompletedDate
+		,CASE p.Status
+			WHEN 'Pending' THEN 'Processing'
+			ELSE p.Status END AS Status
+		,ABS(p.Amount) AS Amount
+		,p.AffDesc
 	FROM dbo.AffPayout p WITH (NOLOCK)
 		INNER JOIN dbo.AffTrans t WITH (NOLOCK) ON p.RefID = t.RefID
 	WHERE p.AffID = @AffID

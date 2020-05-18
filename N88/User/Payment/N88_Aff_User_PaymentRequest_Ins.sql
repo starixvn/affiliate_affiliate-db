@@ -66,11 +66,14 @@ BEGIN
 		,@Player_IBCUserName	VARCHAR(30)
 		,@Player_Username		VARCHAR(30)
 		,@Player_Currency		INT
+		,@Player_CurrencyName	NVARCHAR(50)
+		,@Player_CurrencyCode	VARCHAR(3)
 		,@AffCurrencyName		VARCHAR(50)
 		,@AffCurrency			INT
 		,@Player_ExRate			FLOAT
 		,@Aff_ExRate			FLOAT
 		,@MinAmount				MONEY
+		,@AffPayout				MONEY
 
 	SELECT
 		@AffUserName		= ai.UserName
@@ -95,6 +98,8 @@ BEGIN
 		@Player_IBCCustId		= c.custid
 		,@Player_IBCUserName	= c.username
 		,@Player_Currency		= c.currency
+		,@Player_CurrencyName	= e.currency
+		,@Player_CurrencyCode	= e.Code
 		,@Player_ExRate			= e.ActualRate
 	FROM bodb02.dbo.Customer c WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.Exchange e WITH (NOLOCK) ON c.Currency = e.ExchangeId
@@ -123,9 +128,12 @@ BEGIN
 	DECLARE @TransDate DATETIME, @RefId BIGINT
 	SET @TransDate = GETDATE()
 
+	SELECT @AffPayout = CASE WHEN Rate = 0 THEN 0 ELSE @Amount / Rate END
+	FROM dbo.Aff_f_ExchangeRate_Sel(@currentDate, @Player_Currency, @AffCurrency)
+
 	BEGIN TRY
-		INSERT INTO dbo.AffPayout (AffId, UserName, IBCCustId, IBCUserName, Amount, AffPayout, AffCurrency, MemberExRate, AffExRate, MemberCurrency, TransDate, Status, CompletedDate)
-		VALUES (@AffId, @AffUserName, @Player_IBCCustID, @Player_IBCUserName, -@Amount, -@Amount, @AffCurrency, @Player_ExRate, @Aff_ExRate, @Player_Currency, @TransDate, 'pending', @TransDate)
+		INSERT INTO dbo.AffPayout(AffId,IBCCustId,UserName,IBCUserName,Amount,AffPayout,AffCurrency,AffExRate,MemberCurrency,MemberExRate,TransDate,CompletedDate,Status,PreferredPayment,Player_Username,Player_Currency,Player_CurrencyName,Player_CurrencyCode)
+		VALUES (@AffId,@Player_IBCCustId,@AffUserName,@Player_IBCUserName,-@Amount,-@AffPayout,@AffCurrency,@Aff_ExRate,@Player_Currency,@Player_ExRate,@TransDate,@TransDate,'Pending',@PreferredPayment,@Player_Username,@Player_Currency,@Player_CurrencyName,@Player_CurrencyCode)
 
 		SELECT @RefId = SCOPE_IDENTITY()
 
