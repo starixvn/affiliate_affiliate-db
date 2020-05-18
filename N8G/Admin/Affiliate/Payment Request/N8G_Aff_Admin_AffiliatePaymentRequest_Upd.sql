@@ -22,6 +22,9 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
+	IF @Status = 'Processing'
+		SELECT @Status = 'Pending'
+
 	DECLARE @SiteName VARCHAR(30)
 	SELECT  @SiteName = dbo.Aff_f_GetSetting('SiteName')
 

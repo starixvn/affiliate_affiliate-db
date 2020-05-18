@@ -12,12 +12,12 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliatePaymentRequest_Sel]
 AS
 
 /*
-	Created: 20160614@Percy
+	Created: 20200220@Percy
 	DB: DBAFFN88-Affiliate_N88
 	Task: Admin - Affiliate - Payment Request - View payment request list
 
 	Revisions:
-		- 20190614@Percy: Initialize SP [RedmineID: #109008]
+		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 
 	Param's Explanation:
 		- @SearchById
@@ -29,6 +29,9 @@ BEGIN
 	SET NOCOUNT ON
 
 	SELECT @Username = ISNULL(@Username, ''), @Status = ISNULL(@Status, ''), @IsGetAll = ISNULL(@IsGetAll, 0)
+
+	IF @Status = 'Processing'
+		SELECT @Status = 'Pending'
 
 	IF @SearchById = 1
 		SELECT @IsGetAll = 1
