@@ -25,6 +25,7 @@ BEGIN
 		,ap.PreferredPayment
 		,ABS(ap.Amount) AS Amount
 		,ABS(ap.AffPayout) AS TransAmount
+		,CASE WHEN ap.Player_Currency = 20 THEN 'UUS' ELSE ap.Player_CurrencyCode END AS TransCurrencyCode
 		,ap.Player_Username AS PlayerUsername
 		,CASE WHEN at.Status = 'Pending' THEN 'Processing' ELSE at.Status END AS Status
 		,at.TransDate

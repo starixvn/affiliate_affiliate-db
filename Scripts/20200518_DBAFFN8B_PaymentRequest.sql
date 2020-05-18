@@ -13,3 +13,13 @@ ALTER TABLE dbo.AffPayout
 		,Player_CurrencyName	NVARCHAR(50)
 		,Player_CurrencyCode	VARCHAR(3)
 GO
+
+UPDATE ap WITH (ROWLOCK)
+SET ap.PreferredPayment = ad.PreferredPayment
+	,ap.Player_Username = ad.Player_Username
+	,ap.Player_Currency = ad.Player_Currency
+	,ap.Player_CurrencyName = ad.Player_CurrencyName
+	,ap.Player_CurrencyCode = ad.Player_CurrencyCode
+FROM dbo.AffPayout ap
+	INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ap.AffId = ad.AffId
+GO
