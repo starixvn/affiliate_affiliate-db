@@ -33,6 +33,7 @@ RETURN
 	SELECT
 		e.ExchangeDate
 		,e.ExchangeId
+		,e.Code
 		,CASE bc.BaseCurrency
 							WHEN 2 THEN e.MYR
 							WHEN 3 THEN e.USD
