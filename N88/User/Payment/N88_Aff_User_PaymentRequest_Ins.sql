@@ -27,7 +27,7 @@ BEGIN
 	DECLARE @SiteName VARCHAR(30)
 	SELECT  @SiteName = dbo.Aff_f_GetSetting('SiteName')
 
-	IF @Amount < 0
+	IF ISNULL(@Amount, 0) < 0
 	BEGIN
 		-- Sorry, amount is invalid.
 		SELECT @ErrCode = 100, @ErrMsg = dbo.Aff_f_GetMessageById(506, @Language)
@@ -128,8 +128,11 @@ BEGIN
 	DECLARE @TransDate DATETIME, @RefId BIGINT
 	SET @TransDate = GETDATE()
 
-	SELECT @AffPayout = CASE WHEN Rate = 0 THEN 0 ELSE @Amount / Rate END
-	FROM dbo.Aff_f_ExchangeRate_Sel(@currentDate, @Player_Currency, @AffCurrency)
+	IF @Player_Currency = 20 -- UUS
+		SELECT @AffPayout = @Amount
+	ELSE
+		SELECT @AffPayout = CASE WHEN Rate = 0 THEN 0 ELSE @Amount / Rate END
+		FROM dbo.Aff_f_ExchangeRate_Sel(@currentDate, @Player_Currency, @AffCurrency)
 
 	BEGIN TRY
 		INSERT INTO dbo.AffPayout(AffId,IBCCustId,UserName,IBCUserName,Amount,AffPayout,AffCurrency,AffExRate,MemberCurrency,MemberExRate,TransDate,CompletedDate,Status,PreferredPayment,Player_Username,Player_Currency,Player_CurrencyName,Player_CurrencyCode)
