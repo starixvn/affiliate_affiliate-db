@@ -65,7 +65,7 @@ BEGIN
 					INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
 				WHERE mi.CreatedDate IS NOT NULL
 					AND mi.UserName LIKE '%' + @UserName + '%'
-					AND mi.IBCUserName LIKE '%' + @IBCUserName + '%'
+					AND ISNULL(mi.IBCUserName, '') LIKE '%' + @IBCUserName + '%'
 			) AS r
 			WHERE r.RowNum BETWEEN @RowStart AND @RowEnd
 			ORDER BY r.RowNum
@@ -90,7 +90,7 @@ BEGIN
 				INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
 			WHERE mi.CreatedDate IS NOT NULL
 				AND mi.UserName LIKE '%' + @UserName + '%'
-				AND mi.IBCUserName LIKE '%' + @IBCUserName + '%'
+				AND ISNULL(mi.IBCUserName, '') LIKE '%' + @IBCUserName + '%'
 				AND ai.UserName LIKE '%' + @AffUsername + '%'
 		) AS r
 		WHERE r.RowNum BETWEEN @RowStart AND @RowEnd
