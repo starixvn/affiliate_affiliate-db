@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Sel]
 	@GroupId INT = 0,
 	@GroupName NVARCHAR(100) = NULL,
@@ -8,12 +8,12 @@ ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Sel]
 AS
 
 /*
-	Created: 20180601@Percy
+	Created: 20200220@Percy
 	DB: DBAFFN88-Affiliate_N88
 	Task: Admin site - Affiliate - Commission Group
 
 	Revisions:
-		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 */
 
 BEGIN
@@ -65,8 +65,6 @@ BEGIN
 		cg.CreatedDate,
 		au.Username AS Creator,
 		cg.Description,
-		0 AS QMTurnover,
-		0 AS NextQMTurnover,
 		ISNULL(n.NoAffs, 0) AS NoAffs
 	FROM dbo.CommGroup cg WITH (NOLOCK)
 		INNER JOIN @Group g ON cg.GroupId = g.GroupId
@@ -101,13 +99,10 @@ BEGIN
 				WHERE ds.GroupId					= d.GroupId
 					AND ds.DeductionId				= d.DeductionId
 					AND ds.GroupProductId			= d.GroupProductId
-					AND ds.NextGroupProductId		= d.NextGroupProductId
 					AND ds.DeductedPercentage		= d.DeductedPercentage
-					AND ds.NextDeductedPercentage	= d.NextDeductedPercentage
 				FOR XML PATH (''))
 				, 1, 1, '') AS ProductIds,
-		ds.DeductedPercentage,
-		ds.NextDeductedPercentage
+		ds.DeductedPercentage
 	FROM dbo.DeductionSetting ds WITH (NOLOCK)
 		INNER JOIN dbo.Deductions dt WITH (NOLOCK) ON ds.DeductionId = dt.DeductionId
 		INNER JOIN @Group g ON ds.GroupId = g.GroupId
@@ -117,8 +112,6 @@ BEGIN
 		ds.DeductionId,
 		dt.DeductionName,
 		ds.GroupProductId,
-		ds.NextGroupProductId,
-		ds.DeductedPercentage,
-		ds.NextDeductedPercentage
+		ds.DeductedPercentage
 END
 GO

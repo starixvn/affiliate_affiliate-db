@@ -1,16 +1,15 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Ins]
-	@UserId			INT,
-	@GroupId		INT = 0 OUTPUT,
-	@IsPrivate		BIT = 0,
-	@GroupName		NVARCHAR(100),
-	@Description	NVARCHAR(100) = NULL,
-	@DeductionList	XML,
-	@TierList		XML,
-	@QMTurnover		MONEY,
-	@IP				NVARCHAR(20) = '',
-	@ErrCode		INT = 0 OUTPUT,
-	@ErrMsg			NVARCHAR(4000) = '' OUTPUT
+	@UserId			INT
+	,@GroupId		INT = 0 OUTPUT
+	,@IsPrivate		BIT = 0
+	,@GroupName		NVARCHAR(100) = ''
+	,@Description	NVARCHAR(100) = NULL
+	,@DeductionList	XML
+	,@TierList		XML
+	,@IP			NVARCHAR(20) = ''
+	,@ErrCode		INT = 0 OUTPUT
+	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -31,8 +30,8 @@ AS
 			</root>
 		- @TierList:
 			<root>
-				<row id="1" minamount="0" maxamount="100" MinQM="0" MaxQM="5" commission="0.2" />
-				<row id="2" minamount="101" maxamount="100000000000000" MinQM="6" MaxQM="1000000000" commission="0.3" />
+				<row id="1" minamount="0" maxamount="100" minqm="0" maxqm="5" commission="0.2" />
+				<row id="2" minamount="101" maxamount="100000000000000" minqm="6" maxqm="1000000000" commission="0.3" />
 			</root>
 		- Note: Infinite value of MaxAmount is 100,000,000,000,000 and MaxAM is 1,000,000,000
 */
@@ -45,13 +44,14 @@ BEGIN
 	-- Check permission
 	EXEC dbo.Aff_Con_CheckPermission
 		@CustId		= @UserId,
-		@FuncName	= '[CommissionGroup]',
+		@FuncName	= '[RevenueGroup]',
 		@ErrCode	= @ErrCode OUTPUT,
 		@ErrMsg		= @ErrMsg OUTPUT
 	
 	IF @ErrCode <> 0
 		RETURN
 
+	-- last date of current month
 	DECLARE @MonthDate SMALLDATETIME
 	SELECT  @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
 

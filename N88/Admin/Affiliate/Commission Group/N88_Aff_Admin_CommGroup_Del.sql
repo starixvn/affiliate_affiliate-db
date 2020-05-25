@@ -8,12 +8,12 @@ ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Del]
 AS
 
 /*
-	Created: 20180601@Percy
+	Created: 20200220@Percy
 	DB: DBAFFN88-Affiliate_N88
 	Task: Admin site - Add new commission group
 
 	Revisions:
-		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 */
 
 BEGIN
@@ -24,7 +24,7 @@ BEGIN
 	-- Check permission
 	EXEC dbo.Aff_Con_CheckPermission
 		@CustId		= @UserId,
-		@FuncName	= '[CommissionGroup]',
+		@FuncName	= '[RevenueGroup]',
 		@ErrCode	= @ErrCode OUTPUT,
 		@ErrMsg		= @ErrMsg OUTPUT
 	
