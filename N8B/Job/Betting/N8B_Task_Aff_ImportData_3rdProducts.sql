@@ -64,7 +64,7 @@ BEGIN
 			,SUM(b.Stake * 1.0 / CASE WHEN e.Code IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END)			AS Turnover
 			,SUM(b.WinlostAmount * 1.0 / CASE WHEN e.Code IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END)	AS Winloss
 			,e.Rate
-		FROM bodb_3rdProduct.dbo.TpBetRecord b WITH (NOLOCK)
+		FROM bodb_N88.dbo.TpBetRecord b WITH (NOLOCK)
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON b.CustId = mi.CustId
 			INNER JOIN @Products p ON b.GameType = p.RefProductId
 			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(b.winlostdate, mi.currency, 0) e
