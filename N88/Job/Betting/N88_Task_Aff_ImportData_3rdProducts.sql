@@ -17,6 +17,11 @@ BEGIN
 
 	-- Get data
 	BEGIN
+		DECLARE @TimeZone SMALLINT
+		SELECT  @TimeZone = CONVERT(SMALLINT, SValue)
+		FROM dbo.SystemSettings WITH (NOLOCK)
+		WHERE SName = 'TimeZone'
+
 		DECLARE @Products TABLE (ProductId INT, RefProductId INT)
 		INSERT INTO @Products (ProductId, RefProductId)
 		SELECT ProductId, RefProductId
@@ -68,8 +73,9 @@ BEGIN
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON b.CustId = mi.CustId
 			INNER JOIN @Products p ON b.GameType = p.RefProductId
 			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(b.winlostdate, mi.currency, 0) e
-		WHERE b.WinlostDate = @WinlostDate
+		WHERE b.WinlostDate BETWEEN DATEADD(DAY, -1, @WinlostDate) AND DATEADD(DAY, 1, @WinlostDate)
 			AND b.TicketStatus IN (1, 2, 4) -- Won/Lose/Draw
+			AND CONVERT(DATE, DATEADD(HOUR, @TimeZone, b.SettledTime)) = @WinlostDate
 		GROUP BY
 			mi.CustId
 			,mi.Currency
