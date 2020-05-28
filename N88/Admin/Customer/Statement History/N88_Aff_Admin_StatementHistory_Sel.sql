@@ -119,7 +119,7 @@ BEGIN
 				CROSS APPLY (
 					SELECT 201 AS TransType, 'Monthly Earning' AS Description
 					UNION ALL
-					SELECT 204 AS TransType, 'Commission Bonus' AS Description
+					SELECT 204 AS TransType, 'Revenue Share' AS Description
 				) t
 				OUTER APPLY (
 					SELECT at.TransId, at.Amount
@@ -229,7 +229,7 @@ BEGIN
 				CROSS APPLY (
 					SELECT 201 AS TransType, 'Monthly Earning' AS Description
 					UNION ALL
-					SELECT 204 AS TransType, 'Commission Bonus' AS Description
+					SELECT 204 AS TransType, 'Revenue Share' AS Description
 				) t
 				OUTER APPLY (
 					SELECT CASE WHEN t.TransType = 201 THEN c.Commission ELSE c.SubAffCommission END AS Amount
