@@ -68,14 +68,27 @@ BEGIN
 		RETURN
 	END
 
+	DECLARE @MaxSubLevel SMALLINT
 	DECLARE @AllParentAffId VARCHAR(MAX)
+
 	IF ISNULL(@ParentAffId, 0) <> 0
 	BEGIN
 		SELECT @AllParentAffId = AllParentAffId FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @ParentAffId
 
 		IF @@ROWCOUNT = 0
 		BEGIN
-			SELECT @ErrCode = 102, @ErrMsg = 'Wrong parent aff'--dbo.Aff_f_GetMessageById(3, @Language)
+			-- The information you have entered is invalid. Please check again.
+			SELECT @ErrCode = 102, @ErrMsg = dbo.Aff_f_GetMessageById(105, @Language)
+
+			RETURN
+		END
+
+		SELECT @MaxSubLevel = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'MaxSubLevel'
+
+		IF (SELECT COUNT(1) + 1 AS SubLevel FROM dbo.Aff_f_StringSplit(@AllParentAffId, ',')) > @MaxSubLevel
+		BEGIN
+			-- The information you have entered is invalid. Please check again.
+			SELECT @ErrCode = 102, @ErrMsg = dbo.Aff_f_GetMessageById(105, @Language)
 
 			RETURN
 		END
