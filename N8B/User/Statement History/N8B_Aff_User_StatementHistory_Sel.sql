@@ -18,6 +18,22 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
+	DECLARE @MaxSubLevel SMALLINT, @IsMaxSubLevel BIT = 0
+	SELECT  @MaxSubLevel = CONVERT(SMALLINT, SValue)
+	FROM dbo.SystemSettings WITH (NOLOCK)
+	WHERE SName = 'MaxSubLevel'
+
+	SELECT @MaxSubLevel = ISNULL(@MaxSubLevel, 0)
+
+	IF EXISTS (
+		SELECT 1
+		FROM dbo.AffInfo ai WITH (NOLOCK)
+			CROSS APPLY (SELECT COUNT(1) AS SubLevel FROM dbo.Aff_f_StringSplit(ai.AllParentAffId, ',')) l
+		WHERE ai.AffId = @AffId
+			AND l.SubLevel = @MaxSubLevel
+	)
+		SELECT @IsMaxSubLevel = 1
+
 	CREATE TABLE #tempData
 	(
 		MonthDate		SMALLDATETIME,
@@ -52,13 +68,16 @@ BEGIN
 
 	-- Commission info
 	BEGIN
+		DECLARE @MinReportDate SMALLDATETIME
+		SELECT  @MinReportDate = dbo.Aff_f_GetMinReportDate(@AffId)
+
 		DECLARE @MaxCommDate SMALLDATETIME
 		SELECT  @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
 		DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
 
 		-- Calculated months
-		SELECT	@tempFromDate = dbo.Aff_f_GetMinReportDate(@AffId), @tempToDate = @MaxCommDate
+		SELECT	@tempFromDate = @MinReportDate, @tempToDate = @MaxCommDate
 
 		IF @tempFromDate <= @tempToDate
 		BEGIN
@@ -88,7 +107,8 @@ BEGIN
 				CROSS APPLY (
 					SELECT 201 AS TransType, 'Monthly Earning' AS Description
 					UNION ALL
-					SELECT 204 AS TransType, 'Commission Bonus' AS Description
+					SELECT 204 AS TransType, 'Revenue Share' AS Description
+					WHERE @IsMaxSubLevel = 0
 				) t
 				OUTER APPLY (
 					SELECT at.TransId, at.Amount
@@ -107,101 +127,108 @@ BEGIN
 		SELECT	@tempFromDate	= DATEADD(DAY, 1, @MaxCommDate),
 				@tempToDate		= CONVERT(DATE, GETDATE())
 
-		CREATE TABLE #TempCommission
-		(
-			MonthDate			SMALLDATETIME,
-			AffId				INT,
-			GroupId				INT,
-			ProductId			INT,
-			Deposit				MONEY,
-			Withdrawal			MONEY,
-			Bonus				MONEY,
-			Turnover			MONEY,
-			Winloss				MONEY,
-			-- Fees
-			PlatFormFee			MONEY,
-			OperationalFee		MONEY,
-			BankingFee			MONEY,
-			-- Calculation
-			GrossWinloss		MONEY,
-			NetWinloss			MONEY,
-			ActivePlayer		INT,
-			QualifiedMember		INT,
-			QMTurnover			MONEY,
-			CommissionRate		FLOAT,
-			Commission			MONEY,
-			SubAffCommission	MONEY
-		)
+		IF @tempFromDate < @MinReportDate
+			SELECT @tempFromDate = @MinReportDate
 
-		INSERT INTO #TempCommission
-		(
-			MonthDate,
-			AffId,
-			GroupId,
-			ProductId,
-			Deposit,
-			Withdrawal,
-			Bonus,
-			Turnover,
-			Winloss,
-			PlatFormFee,
-			OperationalFee,
-			BankingFee,
-			GrossWinloss,
-			NetWinloss,
-			ActivePlayer,
-			QualifiedMember,
-			QMTurnOver,
-			CommissionRate,
-			Commission,
-			SubAffCommission
-		)
-		EXEC dbo.Aff_Commission_UnCalc
-			@AffIds				= @AffIds,
-			@FromMonthDate		= @tempFromDate,
-			@ToMonthDate		= @tempToDate,
-			@ProductIds			= '0',
-			@IsSumAll			= 0,
-			@GetRowTotalOnly	= 1
+		IF @tempFromDate <= @tempToDate
+		BEGIN 
+			CREATE TABLE #TempCommission
+			(
+				MonthDate			SMALLDATETIME,
+				AffId				INT,
+				GroupId				INT,
+				ProductId			INT,
+				Deposit				MONEY,
+				Withdrawal			MONEY,
+				Bonus				MONEY,
+				Turnover			MONEY,
+				Winloss				MONEY,
+				-- Fees
+				PlatFormFee			MONEY,
+				OperationalFee		MONEY,
+				BankingFee			MONEY,
+				-- Calculation
+				GrossWinloss		MONEY,
+				NetWinloss			MONEY,
+				ActivePlayer		INT,
+				QualifiedMember		INT,
+				QMTurnover			MONEY,
+				CommissionRate		FLOAT,
+				Commission			MONEY,
+				SubAffCommission	MONEY
+			)
+
+			INSERT INTO #TempCommission
+			(
+				MonthDate,
+				AffId,
+				GroupId,
+				ProductId,
+				Deposit,
+				Withdrawal,
+				Bonus,
+				Turnover,
+				Winloss,
+				PlatFormFee,
+				OperationalFee,
+				BankingFee,
+				GrossWinloss,
+				NetWinloss,
+				ActivePlayer,
+				QualifiedMember,
+				QMTurnOver,
+				CommissionRate,
+				Commission,
+				SubAffCommission
+			)
+			EXEC dbo.Aff_Commission_UnCalc
+				@AffIds				= @AffIds,
+				@FromMonthDate		= @tempFromDate,
+				@ToMonthDate		= @tempToDate,
+				@ProductIds			= '0',
+				@IsSumAll			= 0,
+				@GetRowTotalOnly	= 1
 		
-		;WITH CTE_MonthDate AS
-		(
-			SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempFromDate) + 1, 0)) AS MonthDate
-			UNION ALL
-			SELECT DATEADD(DAY, -1, DATEADD(MONTH, 1, DATEADD(DAY, 1, MonthDate)))
-			FROM CTE_MonthDate
-			WHERE MonthDate < @tempToDate
-		)
-		INSERT INTO #tempData
-		(
-			MonthDate,
-			TransType,
-			Amount,
-			Status,
-			Description,
-			CalculatedType
-		)
-		SELECT
-			md.MonthDate,
-			t.TransType,
-			ISNULL(at.Amount, 0) AS Amount,
-			'Current' AS Status,
-			CASE WHEN md.MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current ' ELSE 'UnCalculated ' END + t.Description AS Description,
-			CASE WHEN md.MonthDate >= CONVERT(DATE, GETDATE()) THEN 0 ELSE 1 END AS CalculatedType
-		FROM CTE_MonthDate md
-			CROSS APPLY (
-				SELECT 201 AS TransType, 'Monthly Earning' AS Description
+			;WITH CTE_MonthDate AS
+			(
+				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempFromDate) + 1, 0)) AS MonthDate
 				UNION ALL
-				SELECT 204 AS TransType, 'Commission Bonus' AS Description
-			) t
-			OUTER APPLY (
-				SELECT CASE WHEN t.TransType = 201 THEN c.Commission ELSE c.SubAffCommission END AS Amount
-				FROM #TempCommission c
-				WHERE md.MonthDate = c.MonthDate
-			) at
-		OPTION (MAXRECURSION 0)
+				SELECT DATEADD(DAY, -1, DATEADD(MONTH, 1, DATEADD(DAY, 1, MonthDate)))
+				FROM CTE_MonthDate
+				WHERE MonthDate < @tempToDate
+			)
+			INSERT INTO #tempData
+			(
+				MonthDate,
+				TransType,
+				Amount,
+				Status,
+				Description,
+				CalculatedType
+			)
+			SELECT
+				md.MonthDate,
+				t.TransType,
+				ISNULL(at.Amount, 0) AS Amount,
+				'Current' AS Status,
+				CASE WHEN md.MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current ' ELSE 'UnCalculated ' END + t.Description AS Description,
+				CASE WHEN md.MonthDate >= CONVERT(DATE, GETDATE()) THEN 0 ELSE 1 END AS CalculatedType
+			FROM CTE_MonthDate md
+				CROSS APPLY (
+					SELECT 201 AS TransType, 'Monthly Earning' AS Description
+					UNION ALL
+					SELECT 204 AS TransType, 'Revenue Share' AS Description
+					WHERE @IsMaxSubLevel = 0
+				) t
+				OUTER APPLY (
+					SELECT CASE WHEN t.TransType = 201 THEN c.Commission ELSE c.SubAffCommission END AS Amount
+					FROM #TempCommission c
+					WHERE md.MonthDate = c.MonthDate
+				) at
+			OPTION (MAXRECURSION 0)
 
-		DROP TABLE #TempCommission
+			DROP TABLE #TempCommission
+		END
 	END
 
 	-- Return data

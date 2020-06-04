@@ -1,14 +1,14 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Deductions_Sel]
 AS
 
 /*
-	Created: 20180601@Percy
+	Created: 20200220@Percy
 	DB: DBAFFN88-Affiliate_N88
 	Task: Admin site - Add new commission group - Select deductions
 
 	Revisions:
-		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 */
 
 BEGIN

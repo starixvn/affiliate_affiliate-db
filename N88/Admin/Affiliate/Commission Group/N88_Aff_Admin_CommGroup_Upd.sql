@@ -1,24 +1,23 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Upd]
-	@UserId			INT,
-	@GroupId		INT,
-	@GroupName		NVARCHAR(100) = NULL,
-	@Description	NVARCHAR(100) = NULL,
-	@DeductionList	XML,
-	@TierList		XML,
-	@QMTurnover		MONEY,
-	@IP				NVARCHAR(20) = '',
-	@ErrCode		INT = 0 OUTPUT,
-	@ErrMsg			NVARCHAR(4000) = '' OUTPUT
+	@UserId			INT
+	,@GroupId		INT
+	,@GroupName		NVARCHAR(100) = NULL
+	,@Description	NVARCHAR(100) = NULL
+	,@DeductionList	XML
+	,@TierList		XML
+	,@IP			NVARCHAR(20) = ''
+	,@ErrCode		INT = 0 OUTPUT
+	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
-	Created: 20180601@Percy
+	Created: 20200220@Percy
 	DB: DBAFFN88-Affiliate_N88
 	Task: Admin site - Add new commission group
 
 	Revisions:
-		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 
 	Parameter's Explanation:
 		- @DeductionList:
@@ -44,7 +43,7 @@ BEGIN
 	-- Check permission
 	EXEC dbo.Aff_Con_CheckPermission
 		@CustId		= @UserId,
-		@FuncName	= '[CommissionGroup]',
+		@FuncName	= '[RevenueGroup]',
 		@ErrCode	= @ErrCode OUTPUT,
 		@ErrMsg		= @ErrMsg OUTPUT
 	
@@ -80,24 +79,20 @@ BEGIN
 	DECLARE @MonthDate SMALLDATETIME
 	SELECT  @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
 
-	-- QMTurnover
-	DECLARE @NextQMTurnover MONEY
-	SELECT  @NextQMTurnover = @QMTurnover -- update next only
-
 	-- Deductions
-	DECLARE @DeductionSetting TABLE (NextGroupProductId TINYINT, DeductionId TINYINT, ProductId INT, NextDeductedPercentage DECIMAL(9,8))
+	DECLARE @DeductionSetting TABLE (GroupProductId TINYINT, DeductionId TINYINT, ProductId INT, DeductedPercentage DECIMAL(9,8))
 	
 	;WITH CTE_DeductionSetting AS
 	(
 		SELECT
-			ROW_NUMBER() OVER(PARTITION BY t.c.value('@id', 'TINYINT') ORDER BY (SELECT NULL)) AS NextGroupProductId,
+			ROW_NUMBER() OVER(PARTITION BY t.c.value('@id', 'TINYINT') ORDER BY (SELECT NULL)) AS GroupProductId,
 			t.c.value('@id', 'TINYINT') AS DeductionId,
 			t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
-			t.c.value('@percent', 'DECIMAL(9,8)') AS NextDeductedPercentage
+			t.c.value('@percent', 'DECIMAL(9,8)') AS DeductedPercentage
 		FROM @DeductionList.nodes('/root/row') AS t(c)
 	)
-	INSERT INTO @DeductionSetting (NextGroupProductId, DeductionId, ProductId, NextDeductedPercentage)
-	SELECT ds.NextGroupProductId, ds.DeductionId, f.val, ds.NextDeductedPercentage
+	INSERT INTO @DeductionSetting (GroupProductId, DeductionId, ProductId, DeductedPercentage)
+	SELECT ds.GroupProductId, ds.DeductionId, f.val, ds.DeductedPercentage
 	FROM CTE_DeductionSetting ds
 		CROSS APPLY dbo.Aff_f_StringSplit(ds.ProductIds, ',') f
 	OPTION (OPTIMIZE FOR (@DeductionList = NULL), MAXRECURSION 0)
@@ -151,22 +146,24 @@ BEGIN
 	DECLARE @updateData TABLE
 	(
 		-- 1: general, 2: tier, 3: deduction
-		TypeId					TINYINT,
+		TypeId					TINYINT
 		-- General information
-		GroupName				NVARCHAR(100),
-		Description				NVARCHAR(100),
+		,GroupName				NVARCHAR(100)
+		,Description			NVARCHAR(100)
 		-- Tier List
-		TierId					TINYINT,
-		MinAmount				MONEY,
-		MaxAmount				MONEY,
-		MinAM					INT,
-		MaxAM					INT,
-		Commission				DECIMAL(9,8),
+		,TierId					TINYINT
+		,MinAmount				MONEY
+		,MaxAmount				MONEY
+		,MinAM					INT
+		,MaxAM					INT
+		,Commission				DECIMAL(9,8)
 		-- Deduction List
-		NextGroupProductId	TINYINT,
-		DeductionId				TINYINT,
-		ProductId				INT,
-		NextDeductedPercentage	DECIMAL(9,8)
+		,GroupProductId			TINYINT
+		,DeductionId			TINYINT
+		,ProductId				INT
+		,DeductedPercentage		DECIMAL(9,8)
+		,NextGroupProductId		TINYINT
+		,NextDeductedPercentage	DECIMAL(9,8)
 	)
 
 	-- General information
@@ -245,28 +242,21 @@ BEGIN
 
 	-- Deduction List
 	BEGIN TRY
-		MERGE dbo.DeductionSetting AS TARGET
-		USING @DeductionSetting AS SOURCE
-			ON		TARGET.GroupId			= @GroupId
-				AND TARGET.DeductionId		= SOURCE.DeductionId
-				AND TARGET.ProductId		= SOURCE.ProductId
-		WHEN MATCHED THEN
-			UPDATE SET
-				TARGET.NextDeductedPercentage	= SOURCE.NextDeductedPercentage,
-				TARGET.NextGroupProductId		= SOURCE.NextGroupProductId
-		WHEN NOT MATCHED BY TARGET THEN
-			INSERT
-			(
-				GroupId,DeductionId,ProductId,NextDeductedPercentage,NextGroupProductId
-			)
-			VALUES
-			(
-				@GroupId,SOURCE.DeductionId,SOURCE.ProductId,SOURCE.NextDeductedPercentage,SOURCE.NextGroupProductId
-			)
-		WHEN NOT MATCHED BY SOURCE AND TARGET.GroupId = @GroupId THEN
-			DELETE
-		OUTPUT DELETED.DeductionId,DELETED.ProductId,DELETED.NextDeductedPercentage,DELETED.NextGroupProductId,3
-		INTO @updateData (DeductionId,ProductId,NextDeductedPercentage,NextGroupProductId,TypeId);
+		DELETE dbo.DeductionSetting WITH (ROWLOCK, UPDLOCK)
+			OUTPUT DELETED.DeductionId,DELETED.ProductId,DELETED.DeductedPercentage,DELETED.GroupProductId,DELETED.NextDeductedPercentage,DELETED.NextGroupProductId,3
+			INTO @updateData (DeductionId,ProductId,DeductedPercentage,GroupProductId,NextDeductedPercentage,NextGroupProductId,TypeId)
+		WHERE GroupId = @GroupId
+
+		DELETE dbo.DeductionSettingHistory WITH (ROWLOCK, UPDLOCK)
+		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
+
+		INSERT INTO dbo.DeductionSetting (GroupId,DeductionId,ProductId,DeductedPercentage,GroupProductId,NextDeductedPercentage,NextGroupProductId)
+		SELECT @GroupId,DeductionId,ProductId,DeductedPercentage,GroupProductId,DeductedPercentage,GroupProductId
+		FROM @DeductionSetting
+
+		INSERT INTO dbo.DeductionSettingHistory(GroupId,MonthDate,DeductionId,ProductId,GroupProductId,DeductedPercentage)
+		SELECT @GroupId,@MonthDate,DeductionId,ProductId,GroupProductId,DeductedPercentage
+		FROM @DeductionSetting
 	END TRY
 	BEGIN CATCH
 		-- Rollback manually
@@ -292,6 +282,12 @@ BEGIN
 		SELECT @GroupId,@MonthDate,TierId,MinAmount,MaxAmount,MinAM,MaxAM,Commission
 		FROM @updateData
 		WHERE TypeId = 2
+
+		IF NOT EXISTS (SELECT 1 FROM dbo.DeductionSetting WITH (NOLOCK) WHERE GroupId = @GroupId)
+			INSERT INTO dbo.DeductionSetting (GroupId,DeductionId,ProductId,DeductedPercentage,GroupProductId,NextDeductedPercentage,NextGroupProductId)
+			SELECT @GroupId,DeductionId,ProductId,DeductedPercentage,GroupProductId,NextDeductedPercentage,NextGroupProductId
+			FROM @updateData
+			WHERE TypeId = 3
 
 		-- Failed to update group! Please try again!
 		SELECT @ErrCode = 105, @ErrMsg = dbo.Aff_f_GetMessageById(1007, @Language)
@@ -324,20 +320,20 @@ BEGIN
 	SELECT  @OldDeductionList = 
 		(
 			SELECT
-				DeductionId				AS '@id',
-				ProductIds				AS '@productids',
-				NextDeductedPercentage	AS '@nextpercent'
+				DeductionId			AS '@id',
+				ProductIds			AS '@productids',
+				DeductedPercentage	AS '@percent'
 			FROM
 			(
 				SELECT
 					DeductionId,
-					NextDeductedPercentage,
+					DeductedPercentage,
 					STUFF(
 						(SELECT	',' + CONVERT(VARCHAR(10), up.ProductId)
 							FROM @updateData up
 							WHERE up.DeductionId = ud.DeductionId
-								AND up.NextDeductedPercentage = ud.NextDeductedPercentage
-								AND up.NextGroupProductId = ud.NextGroupProductId
+								AND up.DeductedPercentage = ud.DeductedPercentage
+								AND up.GroupProductId = ud.GroupProductId
 							FOR XML PATH (''))
 							, 1, 1, '') AS ProductIds
 				FROM @updateData ud
