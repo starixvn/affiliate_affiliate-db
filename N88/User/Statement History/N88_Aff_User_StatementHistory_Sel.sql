@@ -36,6 +36,7 @@ BEGIN
 
 	CREATE TABLE #tempData
 	(
+		TransId			BIGINT,
 		MonthDate		SMALLDATETIME,
 		TransType		INT,
 		Amount			MONEY,
@@ -48,6 +49,7 @@ BEGIN
 	BEGIN
 		INSERT INTO #tempData
 		(
+			TransId,
 			MonthDate,
 			TransType,
 			Amount,
@@ -55,6 +57,7 @@ BEGIN
 			Description
 		)
 		SELECT
+			at.TransId,
 			at.TransDate,
 			at.TransType,
 			CASE WHEN at.TransType = 202 THEN ABS(at.Amount) ELSE at.Amount END AS Amount,
@@ -91,6 +94,7 @@ BEGIN
 			)
 			INSERT INTO #tempData
 			(
+				TransId,
 				MonthDate,
 				TransType,
 				Amount,
@@ -98,6 +102,7 @@ BEGIN
 				Description
 			)
 			SELECT
+				ISNULL(at.TransId, 0),
 				md.MonthDate,
 				t.TransType,
 				ISNULL(at.Amount, 0),
@@ -199,6 +204,7 @@ BEGIN
 			)
 			INSERT INTO #tempData
 			(
+				TransId,
 				MonthDate,
 				TransType,
 				Amount,
@@ -207,6 +213,7 @@ BEGIN
 				CalculatedType
 			)
 			SELECT
+				0 AS TransId,
 				md.MonthDate,
 				t.TransType,
 				ISNULL(at.Amount, 0) AS Amount,
@@ -255,7 +262,7 @@ BEGIN
 			Status,
 			Description,
 			CalculatedType,
-			DENSE_RANK() OVER(ORDER BY MonthDate DESC, CASE WHEN TransType IN (201, 204) THEN 0 ELSE TransType END DESC) AS RowNum
+			DENSE_RANK() OVER(ORDER BY MonthDate DESC, CASE WHEN TransType IN (201, 204) THEN 0 ELSE TransId END DESC) AS RowNum
 		FROM #tempData
 	) AS result
 	WHERE RowNum BETWEEN @RowStart AND @RowEnd
