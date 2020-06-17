@@ -1,5 +1,6 @@
 /*<info serverAlias="DBAFFN88-Affiliate_N88" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_BaseCurrency_Sel]
+	@AffId INT = 0
 AS
 
 /*
@@ -17,9 +18,26 @@ BEGIN
 	FROM dbo.SystemSettings WITH (NOLOCK)
 	WHERE SName = 'AFF_BaseCurrencies'
 
+	DECLARE @tblBaseCurrencies TABLE (ExchangeId INT, Code VARCHAR(5), OrderBy INT)
+
+	INSERT INTO @tblBaseCurrencies (ExchangeId, Code, OrderBy)
 	SELECT
-		t.c.value('@ID', 'INT') AS ExchangeId,
-		t.c.value('@Name', 'VARCHAR(5)') AS Code
+		t.c.value('@ID', 'INT'),
+		t.c.value('@Name', 'VARCHAR(5)'),
+		ROW_NUMBER() OVER(ORDER BY (SELECT NULL))
 	FROM @BaseCurrencies.nodes('/root/r') AS t(c)
+
+	IF @AffId <> 0
+	BEGIN
+		UPDATE t
+		SET t.OrderBy = 0
+		FROM @tblBaseCurrencies t
+			INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON t.ExchangeId = ai.DefaultCurrency
+		WHERE ai.AffId = @AffId
+	END
+
+	SELECT ExchangeId, Code
+	FROM @tblBaseCurrencies
+	ORDER BY OrderBy
 END
 GO

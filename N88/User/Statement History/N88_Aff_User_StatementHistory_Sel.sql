@@ -1,9 +1,10 @@
 /*<info serverAlias="DBAFFN88-Affiliate_N88" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_StatementHistory_Sel]
-	@AffId		INT,
-	@PageIndex	INT = 1,
-	@PageSize	INT = 50,
-	@NRows		INT = 0 OUTPUT
+	@AffId			INT
+	,@BaseCurrency	INT = 0
+	,@PageIndex		INT = 1
+	,@PageSize		INT = 50
+	,@NRows			INT = 0 OUTPUT
 AS
 
 /*
@@ -60,11 +61,12 @@ BEGIN
 			at.TransId,
 			at.TransDate,
 			at.TransType,
-			CASE WHEN at.TransType = 202 THEN ABS(at.Amount) ELSE at.Amount END AS Amount,
+			CASE WHEN at.TransType = 202 THEN ABS(at.Amount) ELSE at.Amount END * ISNULL(e.Rate, 1) AS Amount,
 			CASE WHEN at.TransType = 202 THEN at.Status ELSE 'B/F' END AS Status,
 			CASE at.TransType WHEN 202 THEN ap.AffDesc WHEN 203 THEN '' ELSE at.Description END AS Description
 		FROM dbo.AffTrans at WITH (NOLOCK)
 			LEFT JOIN dbo.AffPayout ap WITH (NOLOCK) ON at.RefID = ap.RefID AND at.TransType = 202
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, at.Currency, @BaseCurrency) e
 		WHERE at.AffId = @AffId
 			AND at.TransType IN (202, 203)
 	END
@@ -116,8 +118,9 @@ BEGIN
 					WHERE @IsMaxSubLevel = 0
 				) t
 				OUTER APPLY (
-					SELECT at.TransId, at.Amount
+					SELECT at.TransId, at.Amount * ISNULL(e.Rate, 1) AS Amount
 					FROM dbo.AffTrans at WITH (NOLOCK)
+						CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, at.Currency, @BaseCurrency) e
 					WHERE md.MonthDate = at.TransDate
 						AND at.AffId = @AffId
 						AND at.TransType = t.TransType
@@ -191,6 +194,7 @@ BEGIN
 				@FromMonthDate		= @tempFromDate,
 				@ToMonthDate		= @tempToDate,
 				@ProductIds			= '0',
+				@BaseCurrency		= @BaseCurrency,
 				@IsSumAll			= 0,
 				@GetRowTotalOnly	= 1
 		

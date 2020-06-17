@@ -4,16 +4,21 @@ ALTER PROCEDURE [dbo].[Aff_User_UserInfoSel]
 AS
 
 /*
-	Creator: 20180601@Percy
+	Creator: 20200220@Percy
 	DB: DBAFFN88-Affiliate_N88
 	Task: User - My Account - Select user info
 	
 	Revisions:
-		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20200220@Percy: Initialize SP [RedmineID: #87923]
 */
 
 BEGIN
 	SET NOCOUNT ON
+
+	DECLARE @AffCurrency INT, @AffCurrencyCode VARCHAR(5)
+	SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
+
+	SELECT  @AffCurrencyCode = Code FROM dbo.Exchange WITH (NOLOCK) WHERE ExchangeId = @AffCurrency
 
 	SELECT
 		ai.AffId,
@@ -32,7 +37,9 @@ BEGIN
 		ad.NoSiteDesc,
 		ad.PreferredLanguage,
 		ad.PreferredPayment,
-		ad.Player_Username AS PlayerUsername
+		ad.Player_Username AS PlayerUsername,
+		@AffCurrencyCode AS AffCurrency,
+		ai.DefaultCurrency AS DefaultBaseCurrency
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 	WHERE ai.AffId=@AffID

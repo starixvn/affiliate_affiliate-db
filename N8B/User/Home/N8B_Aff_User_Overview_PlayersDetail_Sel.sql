@@ -2,6 +2,7 @@
 ALTER PROCEDURE [dbo].[Aff_User_Overview_PlayersDetail_Sel]
 	@AffId			INT
 	,@MonthDate		SMALLDATETIME
+	,@BaseCurrency	INT = 0
 	,@SortById		TINYINT = 5 -- default
 	,@IsSortAsc		BIT = 0 -- default
 	,@PageIndex		INT = 1
@@ -10,12 +11,12 @@ ALTER PROCEDURE [dbo].[Aff_User_Overview_PlayersDetail_Sel]
 AS
 
 /*
-	Created: 20200220@Percy
+	Created: 20191210@Percy
 	DB: DBAFFN8B-Affiliate_N8B
 	Task: User site - Home - Account Overview - Detail
 
 	Revisions:
-		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20191210@Percy: Initialize SP [RedmineID: #121971]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -60,20 +61,21 @@ BEGIN
 		)
 		SELECT
 			r.CustId
-			,SUM(r.Deposit * r.AffExRate)
-			,SUM(r.Withdrawal * r.AffExRate)
-			,SUM(r.Turnover * r.AffExRate)
-			,SUM(r.Winloss * r.AffExRate)
-			,SUM(r.Bonus * r.AffExRate)
+			,SUM(r.Deposit * ISNULL(r.Rate, 1))
+			,SUM(r.Withdrawal * ISNULL(r.Rate, 1))
+			,SUM(r.Turnover * ISNULL(r.Rate, 1))
+			,SUM(r.Winloss * ISNULL(r.Rate, 1))
+			,SUM(r.Bonus * ISNULL(r.Rate, 1))
 		FROM CTE_WinlostDate wld
 			CROSS APPLY (
-				SELECT r.CustId, r.Deposit, r.Withdrawal, r.Turnover, r.Winloss, r.Bonus, r.AffExRate
+				SELECT r.CustId, r.Deposit, r.Withdrawal, r.Turnover, r.Winloss, r.Bonus, e.Rate
 				FROM dbo.rptMemberDaily r WITH (NOLOCK)
+					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (r.WinlostDate, r.Currency, @BaseCurrency) e
 				WHERE wld.WinlostDate = r.WinlostDate
 					AND r.AffId = @AffId
 			) r
 		GROUP BY r.CustId
-		HAVING SUM((r.Deposit + r.Withdrawal + r.Turnover + ABS(r.Winloss) + r.Bonus) * r.AffExRate) > 0.0
+		HAVING SUM((r.Deposit + r.Withdrawal + r.Turnover + ABS(r.Winloss) + r.Bonus) * r.Rate) > 0.0
 		OPTION (MAXRECURSION 0)
 	END
 
