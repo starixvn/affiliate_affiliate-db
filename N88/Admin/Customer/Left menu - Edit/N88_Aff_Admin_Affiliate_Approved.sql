@@ -50,10 +50,12 @@ BEGIN
 		Password_Del			VARCHAR(40),
 		Status_Del				VARCHAR(30),
 		ApprovedDate_Del		SMALLDATETIME,
+		ApprovedBy_Del			INT,
 		-- insert
 		Password_Ins			VARCHAR(40),
 		Status_Ins				VARCHAR(30),
-		ApprovedDate_Ins		SMALLDATETIME
+		ApprovedDate_Ins		SMALLDATETIME,
+		ApprovedBy_Ins			INT
 	)
 
 	-- Write log
@@ -114,11 +116,12 @@ BEGIN
 			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
 			SET Status = ISNULL(@Status, Status),
 				Password = ISNULL(@Password, Password),
-				ApprovedDate = CASE WHEN @Status IN ('Approved', 'Disapproved') THEN @CurrentDate ELSE NULL END
-			OUTPUT	DELETED.Status, DELETED.Password, DELETED.ApprovedDate,
-					INSERTED.Status, INSERTED.Password, INSERTED.ApprovedDate
-			INTO @UpdatedData (Status_Del, Password_Del, ApprovedDate_Del,
-								Status_Ins, Password_Ins, ApprovedDate_Ins)
+				ApprovedDate = CASE WHEN @Status IN ('Approved', 'Disapproved') THEN @CurrentDate ELSE NULL END,
+				ApprovedBy = @UserId
+			OUTPUT	DELETED.Status, DELETED.Password, DELETED.ApprovedDate, DELETED.ApprovedBy,
+					INSERTED.Status, INSERTED.Password, INSERTED.ApprovedDate, INSERTED.ApprovedBy
+			INTO @UpdatedData (Status_Del, Password_Del, ApprovedDate_Del, ApprovedBy_Del,
+								Status_Ins, Password_Ins, ApprovedDate_Ins, ApprovedBy_Ins)
 			WHERE AffId = @AffId
 		END TRY
 		BEGIN CATCH
@@ -131,12 +134,16 @@ BEGIN
 		SELECT	@OldData =
 					'Password='			+ ISNULL(Password_Del, '') + ',' +
 					'Status='			+ ISNULL(Status_Del, '') + ',' + 
-					'ApprovedDate='		+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Del, 120), ''),
+					'ApprovedDate='		+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Del, 120), '') + ',' +
+					'ApprovedBy='		+ ISNULL(u1.UserName, ''),
 				@NewData =
 					'Password='			+ ISNULL(Password_Ins, '') + ',' +
 					'Status='			+ ISNULL(Status_Ins, '') + ',' + 
-					'ApprovedDate='		+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Ins, 120), '')
-		FROM @UpdatedData
+					'ApprovedDate='		+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Ins, 120), '') + ',' +
+					'ApprovedBy='		+ ISNULL(u2.UserName, '')
+		FROM @UpdatedData ud
+			LEFT JOIN dbo.Affiliate_User u1 WITH (NOLOCK) ON ud.ApprovedBy_Del = u1.CustId
+			LEFT JOIN dbo.Affiliate_User u2 WITH (NOLOCK) ON ud.ApprovedBy_Ins = u2.CustId
 	END
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog

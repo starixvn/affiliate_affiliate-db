@@ -1,16 +1,17 @@
 /*<info serverAlias="DBAFFN8G-Affiliate_N8G" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_Overview_Summary_Sel]
-	@AffId		INT,
-	@MonthDate	SMALLDATETIME
+	@AffId			INT
+	,@MonthDate		SMALLDATETIME
+	,@BaseCurrency	INT = 0
 AS
 
 /*
-	Created: 20191210@Percy
+	Created: 20200220@Percy
 	DB: DBAFFN8G-Affiliate_N8G
 	Task: User site - Home - Account Overview - Summary
 
 	Revisions:
-		- 20191210@Percy: Initialize SP [RedmineID: #121971]
+		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 */
 
 BEGIN
@@ -113,6 +114,7 @@ BEGIN
 				@FromMonthDate		= @FromBeginMonth,
 				@ToMonthDate		= @FromBeginMonth,
 				@ProductIds			= '0',
+				@BaseCurrency		= @BaseCurrency,
 				@IsSumAll			= 1,
 				@GetRowTotalOnly	= 1
 		END
@@ -146,6 +148,7 @@ BEGIN
 				@FromMonthDate		= @FromBeginMonth,
 				@ToMonthDate		= @FromBeginMonth,
 				@ProductIds			= '0',
+				@BaseCurrency		= @BaseCurrency,
 				@IsSumAll			= 1,
 				@GetRowTotalOnly	= 1
 		END

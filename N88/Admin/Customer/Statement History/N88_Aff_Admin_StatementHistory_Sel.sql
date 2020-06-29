@@ -270,7 +270,7 @@ BEGIN
 			Creator,
 			Description,
 			CalculatedType,
-			DENSE_RANK() OVER(ORDER BY MonthDate DESC, CASE WHEN TransType IN (201, 204) THEN 0 ELSE TransType END DESC) AS RowNum
+			DENSE_RANK() OVER(ORDER BY MonthDate DESC, CASE WHEN TransType IN (201, 204) THEN 0 ELSE TransId END DESC) AS RowNum
 		FROM #tempData
 	) AS result
 	WHERE RowNum BETWEEN @RowStart AND @RowEnd

@@ -1,7 +1,8 @@
 /*<info serverAlias="DBAFFN8B-Affiliate_N8B" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_Overview_Detail_Sel]
-	@AffId		INT,
-	@MonthDate	SMALLDATETIME
+	@AffId			INT
+	,@MonthDate		SMALLDATETIME
+	,@BaseCurrency	INT = 0
 AS
 
 /*
@@ -70,11 +71,12 @@ BEGIN
 		FROM @tblWinlostDate wld
 			CROSS APPLY (
 				SELECT	r.WinlostDate, r.CustId
-						,r.Deposit		* r.AffExRate AS Deposit
-						,r.Withdrawal	* r.AffExRate AS Withdrawal
-						,r.Turnover		* r.AffExRate AS Turnover
-						,r.Winloss		* r.AffExRate AS Winloss
+						,r.Deposit		* ISNULL(e.Rate, 1) AS Deposit
+						,r.Withdrawal	* ISNULL(e.Rate, 1) AS Withdrawal
+						,r.Turnover		* ISNULL(e.Rate, 1) AS Turnover
+						,r.Winloss		* ISNULL(e.Rate, 1) AS Winloss
 				FROM dbo.rptMemberDaily r WITH (NOLOCK)
+					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (r.WinlostDate, r.Currency, @BaseCurrency) e
 				WHERE r.WinlostDate = wld.WinlostDate
 					AND r.AffId = @AffId
 					AND NOT EXISTS (

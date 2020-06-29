@@ -121,8 +121,8 @@ BEGIN
 	
 		-- AffInfo
 	BEGIN TRY
-		INSERT INTO dbo.AffInfo(UserName,FirstName,LastName,Status,IsClosed,Currency,CurrencyName,CurrencyCode,RegisteredDate,Email,Password,AffType,ParentAffId,AllParentAffId)
-		VALUES(@UserName,@FirstName,@LastName,'Pending',0,@AffCurrency,@AffCurrencyName,@AffCurrencyCode,GETDATE(),@Email,'',@AffType,@ParentAffId,@AllParentAffId)
+		INSERT INTO dbo.AffInfo(UserName,FirstName,LastName,Status,IsClosed,Currency,DefaultCurrency,CurrencyName,CurrencyCode,RegisteredDate,Email,Password,AffType,ParentAffId,AllParentAffId)
+		VALUES(@UserName,@FirstName,@LastName,'Pending',0,@AffCurrency,@AffCurrency,@AffCurrencyName,@AffCurrencyCode,GETDATE(),@Email,'',@AffType,@ParentAffId,@AllParentAffId)
 
 		SELECT @AffId = SCOPE_IDENTITY()
 

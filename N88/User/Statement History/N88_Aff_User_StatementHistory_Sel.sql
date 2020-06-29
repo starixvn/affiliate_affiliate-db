@@ -1,9 +1,10 @@
 /*<info serverAlias="DBAFFN88-Affiliate_N88" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_StatementHistory_Sel]
-	@AffId		INT,
-	@PageIndex	INT = 1,
-	@PageSize	INT = 50,
-	@NRows		INT = 0 OUTPUT
+	@AffId			INT
+	,@BaseCurrency	INT = 0
+	,@PageIndex		INT = 1
+	,@PageSize		INT = 50
+	,@NRows			INT = 0 OUTPUT
 AS
 
 /*
@@ -36,6 +37,7 @@ BEGIN
 
 	CREATE TABLE #tempData
 	(
+		TransId			BIGINT,
 		MonthDate		SMALLDATETIME,
 		TransType		INT,
 		Amount			MONEY,
@@ -48,6 +50,7 @@ BEGIN
 	BEGIN
 		INSERT INTO #tempData
 		(
+			TransId,
 			MonthDate,
 			TransType,
 			Amount,
@@ -55,13 +58,15 @@ BEGIN
 			Description
 		)
 		SELECT
+			at.TransId,
 			at.TransDate,
 			at.TransType,
-			CASE WHEN at.TransType = 202 THEN ABS(at.Amount) ELSE at.Amount END AS Amount,
+			CASE WHEN at.TransType = 202 THEN ABS(at.Amount) ELSE at.Amount END * ISNULL(e.Rate, 1) AS Amount,
 			CASE WHEN at.TransType = 202 THEN at.Status ELSE 'B/F' END AS Status,
 			CASE at.TransType WHEN 202 THEN ap.AffDesc WHEN 203 THEN '' ELSE at.Description END AS Description
 		FROM dbo.AffTrans at WITH (NOLOCK)
 			LEFT JOIN dbo.AffPayout ap WITH (NOLOCK) ON at.RefID = ap.RefID AND at.TransType = 202
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, at.Currency, @BaseCurrency) e
 		WHERE at.AffId = @AffId
 			AND at.TransType IN (202, 203)
 	END
@@ -91,6 +96,7 @@ BEGIN
 			)
 			INSERT INTO #tempData
 			(
+				TransId,
 				MonthDate,
 				TransType,
 				Amount,
@@ -98,6 +104,7 @@ BEGIN
 				Description
 			)
 			SELECT
+				ISNULL(at.TransId, 0),
 				md.MonthDate,
 				t.TransType,
 				ISNULL(at.Amount, 0),
@@ -111,8 +118,9 @@ BEGIN
 					WHERE @IsMaxSubLevel = 0
 				) t
 				OUTER APPLY (
-					SELECT at.TransId, at.Amount
+					SELECT at.TransId, at.Amount * ISNULL(e.Rate, 1) AS Amount
 					FROM dbo.AffTrans at WITH (NOLOCK)
+						CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, at.Currency, @BaseCurrency) e
 					WHERE md.MonthDate = at.TransDate
 						AND at.AffId = @AffId
 						AND at.TransType = t.TransType
@@ -186,6 +194,7 @@ BEGIN
 				@FromMonthDate		= @tempFromDate,
 				@ToMonthDate		= @tempToDate,
 				@ProductIds			= '0',
+				@BaseCurrency		= @BaseCurrency,
 				@IsSumAll			= 0,
 				@GetRowTotalOnly	= 1
 		
@@ -199,6 +208,7 @@ BEGIN
 			)
 			INSERT INTO #tempData
 			(
+				TransId,
 				MonthDate,
 				TransType,
 				Amount,
@@ -207,6 +217,7 @@ BEGIN
 				CalculatedType
 			)
 			SELECT
+				0 AS TransId,
 				md.MonthDate,
 				t.TransType,
 				ISNULL(at.Amount, 0) AS Amount,
@@ -255,7 +266,7 @@ BEGIN
 			Status,
 			Description,
 			CalculatedType,
-			DENSE_RANK() OVER(ORDER BY MonthDate DESC, CASE WHEN TransType IN (201, 204) THEN 0 ELSE TransType END DESC) AS RowNum
+			DENSE_RANK() OVER(ORDER BY MonthDate DESC, CASE WHEN TransType IN (201, 204) THEN 0 ELSE TransId END DESC) AS RowNum
 		FROM #tempData
 	) AS result
 	WHERE RowNum BETWEEN @RowStart AND @RowEnd

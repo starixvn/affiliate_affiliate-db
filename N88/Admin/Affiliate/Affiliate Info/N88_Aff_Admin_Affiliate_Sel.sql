@@ -85,6 +85,7 @@ BEGIN
 		Email,
 		RegisteredDate,
 		ApprovedDate,
+		ApprovedBy,
 		GroupName,
 		IsPrivate,
 		NoOfMember,
@@ -110,6 +111,7 @@ BEGIN
 			ai.Email,
 			ai.RegisteredDate,
 			ai.ApprovedDate,
+			ISNULL(u.UserName, '') AS ApprovedBy,
 			cg.GroupName,
 			cg.IsPrivate,
 			CASE WHEN ai.Status IN ('Pending', 'Disapproved') THEN NULL ELSE ISNULL(mi.NoOfMember, 0) END AS NoOfMember,
@@ -136,6 +138,7 @@ BEGIN
 			LEFT JOIN dbo.AffInfo p WITH (NOLOCK) ON p.AffId = ai.ParentAffId
 			LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ad.AffId = ai.AffId
 			LEFT JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.GroupId = ai.GroupId
+			LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON ai.ApprovedBy = u.CustId
 			LEFT JOIN dbo.AdminFavorite af WITH (NOLOCK) ON af.AffID = ai.AffId AND af.AdminId = @UserId
 			OUTER APPLY (
 				SELECT COUNT(1) AS NoOfSubAff

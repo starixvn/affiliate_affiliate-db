@@ -91,6 +91,7 @@ BEGIN
 		AffType_Del				TINYINT,
 		Status_Del				VARCHAR(30),
 		ApprovedDate_Del		SMALLDATETIME,
+		ApprovedBy_Del			INT,
 		Closed_Del				BIT,
 		FirstName_Del			NVARCHAR(50),
 		LastName_Del			NVARCHAR(50),
@@ -125,6 +126,7 @@ BEGIN
 		AffType_Ins				TINYINT,
 		Status_Ins				VARCHAR(30),
 		ApprovedDate_Ins		SMALLDATETIME,
+		ApprovedBy_Ins			INT,
 		Closed_Ins				BIT,
 		FirstName_Ins			NVARCHAR(50),
 		LastName_Ins			NVARCHAR(50),
@@ -282,11 +284,12 @@ BEGIN
 		BEGIN TRY
 			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
 			SET Status = ISNULL(@Status, Status),
-				ApprovedDate = CASE WHEN @Status IN ('Approved', 'Disapproved') THEN @CurrentDate ELSE NULL END
-			OUTPUT	DELETED.Status, DELETED.ApprovedDate,
-					INSERTED.Status, INSERTED.ApprovedDate
-			INTO @UpdatedData (Status_Del, ApprovedDate_Del,
-								Status_Ins, ApprovedDate_Ins)
+				ApprovedDate = CASE WHEN @Status IN ('Approved', 'Disapproved') THEN @CurrentDate ELSE NULL END,
+				ApprovedBy = @UserId
+			OUTPUT	DELETED.Status, DELETED.ApprovedDate, DELETED.ApprovedBy,
+					INSERTED.Status, INSERTED.ApprovedDate, INSERTED.ApprovedBy
+			INTO @UpdatedData (Status_Del, ApprovedDate_Del, ApprovedBy_Del,
+								Status_Ins, ApprovedDate_Ins, ApprovedBy_Ins)
 			WHERE AffId = @AffId
 		END TRY
 		BEGIN CATCH
@@ -297,11 +300,15 @@ BEGIN
 
 		SELECT	@OldData =
 					'Status='			+ ISNULL(Status_Del, '') + ',' + 
-					'ApprovedDate='		+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Del), ''),
+					'ApprovedDate='		+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Del), '') + ',' +
+					'ApprovedBy='		+ ISNULL(u1.UserName, ''),
 				@NewData =
 					'Status='			+ ISNULL(Status_Ins, '') + ',' + 
-					'ApprovedDate='		+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Ins), '')
-		FROM @UpdatedData
+					'ApprovedDate='		+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Ins), '') + ',' + 
+					'ApprovedBy='		+ ISNULL(u2.UserName, '')
+		FROM @UpdatedData ud
+			LEFT JOIN dbo.Affiliate_User u1 WITH (NOLOCK) ON ud.ApprovedBy_Del = u1.CustId
+			LEFT JOIN dbo.Affiliate_User u2 WITH (NOLOCK) ON ud.ApprovedBy_Ins = u2.CustId
 	END
 	-- Update Close only (Left menu)
 	ELSE IF @Closed IS NOT NULL

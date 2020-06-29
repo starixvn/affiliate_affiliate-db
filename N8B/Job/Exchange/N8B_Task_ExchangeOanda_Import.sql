@@ -33,6 +33,8 @@ BEGIN
 		,USD			FLOAT
 		,CNY			FLOAT
 		,MYR			FLOAT
+		,THB			FLOAT
+		,IDR			FLOAT
 		,ModifiedType	TINYINT -- 1 - insert, 2 - update
 	)
 
@@ -49,6 +51,8 @@ BEGIN
 			,e.USD			= o.USD
 			,e.CNY			= o.CNY
 			,e.MYR			= o.MYR
+			,e.THB			= o.THB
+			,e.IDR			= o.IDR
 		OUTPUT
 			INSERTED.ExchangeId, INSERTED.Code, INSERTED.ActualRate, INSERTED.VND, INSERTED.EUR, INSERTED.USD, INSERTED.CNY, INSERTED.MYR, 1 -- insert (default)
 		INTO @tblExchange
@@ -64,15 +68,17 @@ BEGIN
 				OR o.USD		<> e.USD
 				OR o.CNY		<> e.CNY
 				OR o.MYR		<> e.MYR
+				OR o.THB		<> e.THB
+				OR o.IDR		<> e.IDR
 			)
 
-		INSERT INTO dbo.Exchange (ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR)
+		INSERT INTO dbo.Exchange (ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR)
 		OUTPUT
-			INSERTED.ExchangeId, INSERTED.Code, INSERTED.ActualRate, INSERTED.VND, INSERTED.EUR, INSERTED.USD, INSERTED.CNY, INSERTED.MYR, 1 -- insert (default)
+			INSERTED.ExchangeId, INSERTED.Code, INSERTED.ActualRate, INSERTED.VND, INSERTED.EUR, INSERTED.USD, INSERTED.CNY, INSERTED.MYR, INSERTED.THB, INSERTED.IDR, 1 -- insert (default)
 		INTO @tblExchange
-			(ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, ModifiedType)
+			(ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR, ModifiedType)
 		SELECT
-			o.ExchangeId, o.Code, o.ActualRate, o.VND, o.EUR, o.USD, o.CNY, o.MYR
+			o.ExchangeId, o.Code, o.ActualRate, o.VND, o.EUR, o.USD, o.CNY, o.MYR, o.THB, o.IDR
 		FROM bodb02.dbo.ExchangeDailyOanda o WITH (NOLOCK)
 			LEFT JOIN dbo.Exchange e WITH (NOLOCK) ON e.ExchangeId = o.ExchangeId
 		WHERE o.ExchangeDate = @Yesterday
@@ -94,6 +100,8 @@ BEGIN
 				,e.USD			= t.USD
 				,e.CNY			= t.CNY
 				,e.MYR			= t.MYR
+				,e.THB			= t.THB
+				,e.IDR			= t.IDR
 			FROM dbo.ExchangeOanda e
 				INNER JOIN @tblExchange t ON e.ExchangeId = t.ExchangeId
 			WHERE e.ExchangeDate = @Yesterday
@@ -102,8 +110,8 @@ BEGIN
 
 		IF EXISTS (SELECT 1 FROM @tblExchange WHERE ModifiedType = 1)
 		BEGIN
-			INSERT INTO dbo.ExchangeOanda (ExchangeDate, ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR)
-			SELECT @Yesterday, ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR
+			INSERT INTO dbo.ExchangeOanda (ExchangeDate, ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR)
+			SELECT @Yesterday, ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR
 			FROM @tblExchange
 			WHERE ModifiedType = 1
 		END
@@ -123,20 +131,20 @@ BEGIN
 	BEGIN
 		DELETE @tblExchange
 
-		INSERT INTO @tblExchange (ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, ModifiedType)
+		INSERT INTO @tblExchange (ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR, ModifiedType)
 		SELECT
-			o.ExchangeId, o.Code, o.ActualRate, o.VND, o.EUR, o.USD, o.CNY, o.MYR
+			o.ExchangeId, o.Code, o.ActualRate, o.VND, o.EUR, o.USD, o.CNY, o.MYR, o.THB, o.IDR
 			,CASE
 				WHEN e1.ExchangeId IS NOT NULL
-					THEN CASE WHEN o.Code <> e1.Code OR o.ActualRate <> e1.ActualRate OR o.VND <> e1.VND OR o.EUR <> e1.EUR OR o.USD <> e1.USD OR o.CNY <> e1.CNY OR o.MYR <> e1.MYR
+					THEN CASE WHEN o.Code <> e1.Code OR o.ActualRate <> e1.ActualRate OR o.VND <> e1.VND OR o.EUR <> e1.EUR OR o.USD <> e1.USD OR o.CNY <> e1.CNY OR o.MYR <> e1.MYR OR o.THB <> e1.THB OR o.IDR <> e1.IDR
 						THEN 2 -- update
 						ELSE 0 END -- no action
 				WHEN e2.ExchangeId IS NOT NULL
-					THEN CASE WHEN o.Code <> e2.Code OR o.ActualRate <> e2.ActualRate OR o.VND <> e2.VND OR o.EUR <> e2.EUR OR o.USD <> e2.USD OR o.CNY <> e2.CNY OR o.MYR <> e2.MYR
+					THEN CASE WHEN o.Code <> e2.Code OR o.ActualRate <> e2.ActualRate OR o.VND <> e2.VND OR o.EUR <> e2.EUR OR o.USD <> e2.USD OR o.CNY <> e2.CNY OR o.MYR <> e2.MYR OR o.THB <> e2.THB OR o.IDR <> e2.IDR
 						THEN 1 -- insert
 						ELSE 0 END -- no action
 				WHEN e3.ExchangeId IS NOT NULL
-					THEN CASE WHEN o.Code <> e3.Code OR o.ActualRate <> e3.ActualRate OR o.VND <> e3.VND OR o.EUR <> e3.EUR OR o.USD <> e3.USD OR o.CNY <> e3.CNY OR o.MYR <> e3.MYR
+					THEN CASE WHEN o.Code <> e3.Code OR o.ActualRate <> e3.ActualRate OR o.VND <> e3.VND OR o.EUR <> e3.EUR OR o.USD <> e3.USD OR o.CNY <> e3.CNY OR o.MYR <> e3.MYR OR o.THB <> e3.THB OR o.IDR <> e3.IDR
 						THEN 1 -- insert
 						ELSE 0 END -- no action
 				ELSE 1 END -- insert (new currencies)
@@ -158,6 +166,8 @@ BEGIN
 				,e.USD			= t.USD
 				,e.CNY			= t.CNY
 				,e.MYR			= t.MYR
+				,e.THB			= t.THB
+				,e.IDR			= t.IDR
 			FROM dbo.ExchangeOanda e
 				INNER JOIN @tblExchange t ON e.ExchangeId = t.ExchangeId
 			WHERE e.ExchangeDate = @ImportedDate
@@ -166,8 +176,8 @@ BEGIN
 
 		IF EXISTS (SELECT 1 FROM @tblExchange WHERE ModifiedType = 1)
 		BEGIN
-			INSERT INTO dbo.ExchangeOanda (ExchangeDate, ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR)
-			SELECT @ImportedDate, ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR
+			INSERT INTO dbo.ExchangeOanda (ExchangeDate, ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR)
+			SELECT @ImportedDate, ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR
 			FROM @tblExchange
 			WHERE ModifiedType = 1
 		END

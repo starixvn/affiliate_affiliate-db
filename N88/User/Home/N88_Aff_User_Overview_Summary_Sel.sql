@@ -1,7 +1,8 @@
 /*<info serverAlias="DBAFFN88-Affiliate_N88" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_Overview_Summary_Sel]
-	@AffId		INT,
-	@MonthDate	SMALLDATETIME
+	@AffId			INT
+	,@MonthDate		SMALLDATETIME
+	,@BaseCurrency	INT = 0
 AS
 
 /*
@@ -113,6 +114,7 @@ BEGIN
 				@FromMonthDate		= @FromBeginMonth,
 				@ToMonthDate		= @FromBeginMonth,
 				@ProductIds			= '0',
+				@BaseCurrency		= @BaseCurrency,
 				@IsSumAll			= 1,
 				@GetRowTotalOnly	= 1
 		END
@@ -146,6 +148,7 @@ BEGIN
 				@FromMonthDate		= @FromBeginMonth,
 				@ToMonthDate		= @FromBeginMonth,
 				@ProductIds			= '0',
+				@BaseCurrency		= @BaseCurrency,
 				@IsSumAll			= 1,
 				@GetRowTotalOnly	= 1
 		END

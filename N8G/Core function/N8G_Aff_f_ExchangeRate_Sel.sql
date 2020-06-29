@@ -40,6 +40,8 @@ RETURN
 							WHEN 6 THEN e.EUR
 							WHEN 13 THEN e.CNY
 							WHEN 20 THEN 1 -- cheat code for UAT testing
+							WHEN 34 THEN e.IDR
+							WHEN 43 THEN e.THB
 							WHEN 51 THEN e.VND / 1000.0
 							ELSE 0 END AS Rate
 	FROM dbo.ExchangeOanda e WITH (NOLOCK)
