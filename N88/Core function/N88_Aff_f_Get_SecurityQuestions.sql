@@ -8,12 +8,12 @@ RETURNS TABLE
 AS
 
 /*
-	Created: 20190509@Percy
+	Created: 20200220@Percy
 	DB: DBAFFN88-Affiliate_N88
 	Task: Login function - Core function - Security Questions
 
 	Revisions:
-		- 20190509@Percy: Initiliaze function [RedmineID: #104884]
+		- 20200220@Percy: Initiliaze function [RedmineID: #128775]
 */
 
 RETURN
@@ -50,8 +50,7 @@ RETURN
 			ELSE QuestionNameEN END AS Question
 	FROM (
 		VALUES
-			(11,N'Name of the worst kid who bullied you?',N'欺负你的人的名字？',N'欺負你的人的名字？',N'Nama anak yang pernah melakukan bully terhadap saya ? ',N'Tên của đứa bạn thường hay bắt nạt bạn?',N'บอกชื่อเด็กที่ชอบแกล้งคุณบ่อยสุดในวัยเด็ก?',N'학창 시절 나를 괴롭히던 친구 이름?',N'Name of the worst kid who bullied you?',N'Name of the worst kid who bullied you?',N'Name of the worst kid who bullied you?',N'Name of the worst kid who bullied you?')
-			,(12,N'Name of your childhood bestfriend?',N'你儿时最好的朋友的名字？',N'你兒時最好的朋友的名字？',N'Nama teman baik saya ?',N'Tên người bạn thân nhất thời niên thiếu của bạn?',N'บอกชื่อเพื่อนที่คุณสนิทที่สุดในวัยเด็ก?',N'학창 시절 가장 친한 친구는?',N'Name of your childhood bestfriend?',N'Name of your childhood bestfriend?',N'Name of your childhood bestfriend?',N'Name of your childhood bestfriend?')
+			(12,N'Name of your childhood bestfriend?',N'你儿时最好的朋友的名字？',N'你兒時最好的朋友的名字？',N'Nama teman baik saya ?',N'Tên người bạn thân nhất thời niên thiếu của bạn?',N'บอกชื่อเพื่อนที่คุณสนิทที่สุดในวัยเด็ก?',N'학창 시절 가장 친한 친구는?',N'Name of your childhood bestfriend?',N'Name of your childhood bestfriend?',N'Name of your childhood bestfriend?',N'Name of your childhood bestfriend?')
 			,(13,N'Your childhood nickname?',N'你的童年外号？',N'你的童年外號？',N'Julukan nama waktu kecil ?',N'Tên thường gọi thời niên thiếu của bạn?',N'ชื่อเล่นของคุณในวัยเด็กคือ?',N'학창 시절 별명은?',N'Your childhood nickname?',N'Your childhood nickname?',N'Your childhood nickname?',N'Your childhood nickname?')
 			,(14,N'Name of the first girl you had a crush on?',N'你喜欢的第一个女孩的名字？',N'你喜歡的第一個女孩的名字？',N'Nama wanita pertama yang tidak saya suka ?',N'Tên bạn gái đầu tiên của bạn?',N'บอกชื่อคนที่คุณหลงรักครั้งแรกในชีวิต?',N'당신의 첫 사랑 이름은?',N'Name of the first girl you had a crush on?',N'Name of the first girl you had a crush on?',N'Name of the first girl you had a crush on?',N'Name of the first girl you had a crush on?')
 			,(15,N'Name of your most memorable teacher?',N'你最难忘的老师的名字？',N'你最難忘的老師的名字？',N'Nama guru kenangan saya?',N'Tên giáo viên bạn yêu quý nhất?',N'บอกชื่อคุณครูที่คุณจำได้แม่นยำที่สุด?',N'가장 기억에 남는 선생님은?',N'Name of your most memorable teacher?',N'Name of your most memorable teacher?',N'Name of your most memorable teacher?',N'Name of your most memorable teacher?')
