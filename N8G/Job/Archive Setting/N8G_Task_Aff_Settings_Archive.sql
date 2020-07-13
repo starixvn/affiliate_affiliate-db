@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN8G-Affiliate_N8G" executers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN8G-Affiliate_N8G" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Task_Aff_Settings_Archive]
 	@MonthDate SMALLDATETIME
 AS
@@ -51,19 +51,13 @@ BEGIN
 		FROM dbo.AffInfo WITH (NOLOCK)
 		WHERE ISNULL(GroupId, 0) > 0
 
-		INSERT INTO dbo.DeductionSettingHistory (GroupId,MonthDate,DeductionId,DeductedPercentage,ProductId,GroupProductId)
-		SELECT GroupId,@MonthDate,DeductionId,DeductedPercentage,ProductId,GroupProductId
+		INSERT INTO dbo.DeductionSettingHistory (GroupId,MonthDate,DeductionId,ProductId,GroupProductId,DeductedPercentage,DeductedAmount,IsDeductedPercent)
+		SELECT GroupId,@MonthDate,DeductionId,ProductId,GroupProductId,DeductedPercentage,DeductedAmount,IsDeductedPercent
 		FROM dbo.DeductionSetting ds WITH (NOLOCK)
 
-		INSERT INTO dbo.DeductionSettingHistory (GroupId,MonthDate,DeductionId,DeductedPercentage,ProductId,GroupProductId)
-		SELECT GroupId,@NextMonthDate,DeductionId,DeductedPercentage,ProductId,GroupProductId
+		INSERT INTO dbo.DeductionSettingHistory (GroupId,MonthDate,DeductionId,ProductId,GroupProductId,DeductedPercentage,DeductedAmount,IsDeductedPercent)
+		SELECT GroupId,@NextMonthDate,DeductionId,ProductId,GroupProductId,DeductedPercentage,DeductedAmount,IsDeductedPercent
 		FROM dbo.DeductionSetting ds WITH (NOLOCK)
-	END
-
-	-- Apply next value
-	BEGIN
-		UPDATE dbo.DeductionSetting WITH (ROWLOCK)
-		SET DeductedPercentage = NextDeductedPercentage, GroupProductId = NextGroupProductId
 	END
 END
 GO

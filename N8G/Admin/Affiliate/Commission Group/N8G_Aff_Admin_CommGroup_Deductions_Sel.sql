@@ -17,7 +17,7 @@ BEGIN
 	DECLARE @isTest BIT = 0
 	SELECT  @isTest = dbo.f_Aff_CheckSPVersion(@@PROCID)
 
-	SELECT DeductionId, DeductionName, DeductedPercentage
+	SELECT DeductionId, DeductionName, DeductedPercentage, DeductedAmount, IsDeductedPercent
 	FROM dbo.Deductions WITH (NOLOCK)
 	WHERE
 		IsTest <= @isTest

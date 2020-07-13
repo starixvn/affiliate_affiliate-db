@@ -198,8 +198,11 @@ BEGIN
 			,ProductId				INT
 			,GroupProductId			TINYINT
 			,PlatFormFee			DECIMAL(9,8) DEFAULT (0)
+			,PlatFormAmount			MONEY DEFAULT (0)
 			,OperationalFee			DECIMAL(9,8) DEFAULT (0)
+			,OperationalAmount		MONEY DEFAULT (0)
 			,BankingFee				DECIMAL(9,8) DEFAULT (0)
+			,BankingAmount			MONEY DEFAULT (0)
 		)
 	
 		INSERT INTO @Setting
@@ -209,8 +212,11 @@ BEGIN
 			ProductId,
 			GroupProductId,
 			PlatFormFee,
+			PlatFormAmount,
 			OperationalFee,
-			BankingFee
+			OperationalAmount,
+			BankingFee,
+			BankingAmount
 		)
 		SELECT
 			a.MonthDate,
@@ -218,16 +224,22 @@ BEGIN
 			ds.ProductId,
 			ds.GroupProductId,
 			ds.PlatFormFee,
+			ds.PlatFormAmount,
 			ds.OperationalFee,
-			ds.BankingFee
+			ds.OperationalAmount,
+			ds.BankingFee,
+			ds.BankingAmount
 		FROM @AffGroupInfo a
 			CROSS APPLY (
 				SELECT
 					dsh.ProductId,
 					dsh.GroupProductId,
 					SUM(CASE WHEN dsh.DeductionId = 10 THEN dsh.DeductedPercentage ELSE 0 END) AS PlatFormFee,
+					SUM(CASE WHEN dsh.DeductionId = 10 THEN dsh.DeductedAmount ELSE 0 END) AS PlatFormAmount,
 					SUM(CASE WHEN dsh.DeductionId = 11 THEN dsh.DeductedPercentage ELSE 0 END) AS OperationalFee,
-					SUM(CASE WHEN dsh.DeductionId = 12 THEN dsh.DeductedPercentage ELSE 0 END) AS BankingFee
+					SUM(CASE WHEN dsh.DeductionId = 11 THEN dsh.DeductedAmount ELSE 0 END) AS OperationalAmount,
+					SUM(CASE WHEN dsh.DeductionId = 12 THEN dsh.DeductedPercentage ELSE 0 END) AS BankingFee,
+					SUM(CASE WHEN dsh.DeductionId = 12 THEN dsh.DeductedAmount ELSE 0 END) AS BankingAmount
 				FROM dbo.DeductionSettingHistory dsh WITH (NOLOCK)
 				WHERE a.MonthDate = dsh.MonthDate AND a.GroupId = dsh.GroupId
 				GROUP BY
@@ -395,10 +407,9 @@ BEGIN
 			c.GroupProductId		= s.GroupProductId,
 			c.GrossWinloss			= -c.Winloss,
 			c.GrossWinloss_Base		= -c.Winloss_Base,
-			c.PlatFormFee			= -c.Winloss * s.PlatFormFee,
-			c.OperationalFee		= ABS(c.Winloss) * s.OperationalFee,
-			c.BankingFee			= (c.Deposit + c.Withdrawal) * s.BankingFee,
-			c.BankingFee_Base		= (c.Deposit_Base + c.Withdrawal_Base) * s.BankingFee
+			c.PlatFormFee			= -c.Winloss * s.PlatFormFee + s.PlatFormAmount,
+			c.OperationalFee		= ABS(c.Winloss) * s.OperationalFee + s.OperationalAmount,
+			c.BankingFee			= (c.Deposit + c.Withdrawal) * s.BankingFee + s.BankingAmount
 		FROM #Commission c
 			INNER JOIN @AffGroupInfo a ON c.AffId = a.AffId AND c.MonthDate = a.MonthDate
 			INNER JOIN @Setting s ON a.GroupId = s.GroupId AND c.MonthDate = s.MonthDate AND c.ProductId = s.ProductId
@@ -428,7 +439,7 @@ BEGIN
 				AffId
 		)
 		UPDATE c
-		SET c.PlatFormFee	= pf.PlatFormFee
+		SET c.PlatFormFee = pf.PlatFormFee
 		FROM #Commission c
 			INNER JOIN CTE_PlatFormFee pf ON c.MonthDate = pf.MonthDate AND c.AffId = pf.AffId
 		WHERE c.ProductId = 0
@@ -720,6 +731,7 @@ BEGIN
 			c.SubAffCommission_Base	= c.SubAffCommission * e.Rate,
 			c.PlatFormFee_Base		= c.PlatFormFee * e.Rate,
 			c.OperationalFee_Base	= c.OperationalFee * e.Rate,
+			c.BankingFee_Base		= c.BankingFee * e.Rate,
 			c.NetWinloss_Base		= c.NetWinloss * e.Rate
 		FROM #Commission c
 			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(c.MonthDate, @AffCurrency, @BaseCurrency) e

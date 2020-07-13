@@ -85,12 +85,20 @@ BEGIN
 		END
 
 		-- Get Banking Fee
-		DECLARE @BankingFee DECIMAL(9,8)
-		SELECT  @BankingFee = dsh.DeductedPercentage
+		DECLARE @BankingRate DECIMAL(9, 8) = 0, @BankingAmount MONEY = 0
+		SELECT  @BankingRate = ISNULL(dsh.DeductedPercentage, 0), @BankingAmount = ISNULL(dsh.DeductedAmount, 0)
 		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
 			INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.MonthDate = dsh.MonthDate AND agh.GroupId = dsh.GroupId
 		WHERE agh.AffId = @AffId AND agh.MonthDate = @EndOfMonth
 			AND dsh.DeductionID = 12 -- Banking Fee
+
+		IF @BaseCurrency <> 0
+		BEGIN
+			DECLARE @AffCurrency INT
+			SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
+
+			SELECT @BankingAmount = @BankingAmount * Rate FROM dbo.Aff_f_ExchangeRate_Sel(@EndOfMonth, @AffCurrency, @BaseCurrency)
+		END
 	END
 	
 	-- Return data
@@ -103,7 +111,7 @@ BEGIN
 			,SUM(ISNULL(Winloss, 0))	AS MemberWinlost
 			,SUM(ISNULL(Winloss, 0))	AS MemberWinlostFake
 			,SUM(ISNULL(Bonus, 0))		AS Bonus
-			,SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * ISNULL(@BankingFee, 0)) AS BankingFee
+			,SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * ISNULL(@BankingRate, 0) + ISNULL(@BankingAmount, 0)) AS BankingFee
 		FROM #Data
 		GROUP BY
 			WinlostDate
@@ -116,7 +124,7 @@ BEGIN
 			,SUM(ISNULL(Winloss, 0))	AS MemberWinlost
 			,SUM(ISNULL(Winloss, 0))	AS MemberWinlostFake
 			,SUM(ISNULL(Bonus, 0))		AS Bonus
-			,SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * ISNULL(@BankingFee, 0)) AS BankingFee
+			,SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * ISNULL(@BankingRate, 0) + + ISNULL(@BankingAmount, 0)) AS BankingFee
 		FROM #Data
 		HAVING SUM(ISNULL(Deposit, 0)) IS NOT NULL
 	END
