@@ -17,6 +17,7 @@ AS
 		- 20190322@Percy: Include more type of iSoftbet [RedmineID: #110638]
 		- 20191206@Percy: Integrate new products: 12Topaz, LB Keno, GPI lottery, VR Lottery [RedmineID: #117197]
 		- 20200228@Percy: Return if input wrong @ProductId [RedmineID: #129442]
+		- 20200707@Percy: Integrate new product: KY Gaming [RedmineID: #131437]
 */
 
 BEGIN
@@ -304,6 +305,36 @@ BEGIN
 					AND mi.IBCCustId = mr.IBCCustId
 			)
 			AND t.tranType IN ('GAME_BET', 'GAME_WIN')
+		GROUP BY
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency
+	END
+	-- KY Gaming
+	ELSE IF @ProductId = 24
+	BEGIN
+		INSERT INTO #tempData
+		(
+			AffId,
+			IBCCustId,
+			Currency,
+			Turnover,
+			Winloss
+		)
+		SELECT
+			mi.AffId,
+			mi.IBCCustId,
+			mi.currency,
+			SUM(k.CellScore) AS Turnover,
+			SUM(k.Profit) AS Winloss
+		FROM dbo.bettrans_KYGaming k WITH (NOLOCK)
+			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON k.IBCCustId = mi.IBCCustId
+		WHERE k.WinlostDate = @WinlostDate
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE mr.RemovedDate <= DATEADD(DAY, 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @WinlostDate) + 1, 0))
+					AND mi.IBCCustId = mr.IBCCustId
+			)
 		GROUP BY
 			mi.AffId,
 			mi.IBCCustId,
