@@ -23,15 +23,15 @@ AS
 	Parameter's Explanation:
 		- @DeductionList:
 			<root>
-				<row id="10" productids = "1,2,3" percent="0.17" />
-				<row id="10" productids = "4,5" percent="0.15" />
-				<row id="11" productids = "0" percent="0.07" />
-				<row id="12" productids = "0" percent="0.02" />
+				<row id="10" productids = "1,2,3" percent="0.17" amount="0" isdeductedpercent="1" />
+				<row id="10" productids = "4,5" percent="0.15" amount="0" isdeductedpercent="1" />
+				<row id="11" productids = "0" percent="0" amount="100" isdeductedpercent="0" />
+				<row id="12" productids = "0" percent="0.02" amount="0" isdeductedpercent="1" />
 			</root>
 		- @TierList:
 			<root>
-				<row id="1" minamount="0" maxamount="100" minqm="0" maxqm="5" commission="0.2" />
-				<row id="2" minamount="101" maxamount="100000000000000" minqm="6" maxqm="1000000000" commission="0.3" />
+				<row id="1" minamount="0" maxamount="100" minam="0" maxam="5" commission="0.2" />
+				<row id="2" minamount="101" maxamount="100000000000000" minam="6" maxam="1000000000" commission="0.3" />
 			</root>
 		- Note: Infinite value of MaxAmount is 100,000,000,000,000 and MaxAM is 1,000,000,000
 */
@@ -63,30 +63,6 @@ BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = dbo.Aff_f_GetMessageById(1001, @Language)
 		RETURN
 	END
-	
-	IF @IsPrivate = 1
-	BEGIN
-		DECLARE @ExistsGroupId INT
-		SELECT  @ExistsGroupId = GroupId FROM dbo.CommGroup WITH (NOLOCK) WHERE GroupName = @GroupName AND IsPrivate = 1
-		
-		IF @ExistsGroupId IS NOT NULL
-		BEGIN
-			DELETE dbo.CommGroup WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId
-
-			DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId
-
-			DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId AND MonthDate = @MonthDate
-
-			DELETE dbo.DeductionSetting WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId
-
-			DELETE dbo.DeductionSettingHistory WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId AND MonthDate = @MonthDate
-		END
-	END
 
 	IF EXISTS (SELECT 1 FROM dbo.CommGroup WITH (NOLOCK) WHERE GroupName = @GroupName AND IsDeleted = 0)
 	BEGIN
@@ -97,7 +73,7 @@ BEGIN
 	END
 
 	-- Deductions
-	DECLARE @DeductionSetting TABLE (GroupProductId TINYINT, DeductionId TINYINT, ProductId INT, DeductedPercentage DECIMAL(9,8))
+	DECLARE @DeductionSetting TABLE (GroupProductId TINYINT, DeductionId TINYINT, ProductId INT, DeductedPercentage DECIMAL(9,8), DeductedAmount MONEY, IsDeductedPercent BIT)
 	
 	;WITH CTE_DeductionSetting AS
 	(
@@ -105,14 +81,20 @@ BEGIN
 			ROW_NUMBER() OVER(PARTITION BY t.c.value('@id', 'TINYINT') ORDER BY (SELECT NULL)) AS GroupProductId,
 			t.c.value('@id', 'TINYINT') AS DeductionId,
 			t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
-			t.c.value('@percent', 'DECIMAL(9,8)') AS DeductedPercentage
+			t.c.value('@percent', 'DECIMAL(9,8)') AS DeductedPercentage,
+			t.c.value('@amount', 'MONEY') AS DeductedAmount,
+			t.c.value('@isdeductedpercent', 'BIT') AS IsDeductedPercent
 		FROM @DeductionList.nodes('/root/row') AS t(c)
 	)
-	INSERT INTO @DeductionSetting (GroupProductId, DeductionId, ProductId, DeductedPercentage)
-	SELECT GroupProductId, ds.DeductionId, f.val, ds.DeductedPercentage
+	INSERT INTO @DeductionSetting (GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
+	SELECT GroupProductId, ds.DeductionId, f.val, ISNULL(ds.DeductedPercentage, 0), ISNULL(ds.DeductedAmount, 0), ISNULL(ds.IsDeductedPercent, 0)
 	FROM CTE_DeductionSetting ds
 		CROSS APPLY dbo.Aff_f_StringSplit(ds.ProductIds, ',') f
 	OPTION (OPTIMIZE FOR (@DeductionList = NULL), MAXRECURSION 0)
+
+	UPDATE @DeductionSetting
+	SET DeductedPercentage	= CASE WHEN IsDeductedPercent = 0 THEN 0 ELSE ISNULL(DeductedPercentage, 0) END
+		,DeductedAmount		= CASE WHEN IsDeductedPercent = 1 THEN 0 ELSE ISNULL(DeductedAmount, 0) END
 
 	-- Tier Setting
 	DECLARE @TierSetting TABLE (TierID TINYINT, MinAmount MONEY, MaxAmount MONEY, MinAM INT, MaxAM INT, Commission DECIMAL(9,8))
@@ -122,8 +104,8 @@ BEGIN
 		t.c.value('@id', 'TINYINT'),
 		t.c.value('@minamount', 'MONEY'),
 		t.c.value('@maxamount', 'MONEY'),
-		t.c.value('@minqm', 'INT'),
-		t.c.value('@maxqm', 'INT'),
+		t.c.value('@minam', 'INT'),
+		t.c.value('@maxam', 'INT'),
 		t.c.value('@commission', 'DECIMAL(9,8)')
 	FROM @TierList.nodes('/root/row') AS t(c)
 	OPTION (OPTIMIZE FOR (@TierList = NULL))
@@ -158,6 +140,30 @@ BEGIN
 		SELECT @ErrCode = 104, @ErrMsg = dbo.Aff_f_GetMessageById(1004, @Language)
 
 		RETURN
+	END
+
+	IF @IsPrivate = 1
+	BEGIN
+		DECLARE @ExistsGroupId INT
+		SELECT  @ExistsGroupId = GroupId FROM dbo.CommGroup WITH (NOLOCK) WHERE GroupName = @GroupName AND IsPrivate = 1
+		
+		IF @ExistsGroupId IS NOT NULL
+		BEGIN
+			DELETE dbo.CommGroup WITH (ROWLOCK, UPDLOCK)
+			WHERE GroupId = @ExistsGroupId
+
+			DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
+			WHERE GroupId = @ExistsGroupId
+
+			DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK)
+			WHERE GroupId = @ExistsGroupId AND MonthDate = @MonthDate
+
+			DELETE dbo.DeductionSetting WITH (ROWLOCK, UPDLOCK)
+			WHERE GroupId = @ExistsGroupId
+
+			DELETE dbo.DeductionSettingHistory WITH (ROWLOCK, UPDLOCK)
+			WHERE GroupId = @ExistsGroupId AND MonthDate = @MonthDate
+		END
 	END
 
 	-- General information
@@ -205,8 +211,8 @@ BEGIN
 			TierId,
 			MinAmount,
 			MaxAmount,
-			MinAM AS MinQM,
-			MaxAM AS MaxQM,
+			MinAM,
+			MaxAM,
 			Commission
 		FROM @TierSetting
 
@@ -227,8 +233,8 @@ BEGIN
 			TierId,
 			MinAmount,
 			MaxAmount,
-			MinAM AS MinQM,
-			MaxAM AS MaxQM,
+			MinAM,
+			MaxAM,
 			Commission
 		FROM @TierSetting
 	END TRY
@@ -255,20 +261,20 @@ BEGIN
 		(
 			GroupId,
 			GroupProductId,
-			NextGroupProductId,
 			DeductionId,
 			ProductId,
 			DeductedPercentage,
-			NextDeductedPercentage
+			DeductedAmount,
+			IsDeductedPercent
 		)
 		SELECT
 			@GroupId,
 			GroupProductId,
-			GroupProductId, -- default of next = current
 			DeductionId,
 			ProductId,
 			DeductedPercentage,
-			DeductedPercentage -- default of next = current
+			DeductedAmount,
+			IsDeductedPercent
 		FROM @DeductionSetting
 
 		INSERT INTO dbo.DeductionSettingHistory
@@ -278,7 +284,9 @@ BEGIN
 			GroupProductId,
 			DeductionId,
 			ProductId,
-			DeductedPercentage
+			DeductedPercentage,
+			DeductedAmount,
+			IsDeductedPercent
 		)
 		SELECT
 			@GroupId,
@@ -286,7 +294,9 @@ BEGIN
 			GroupProductId,
 			DeductionId,
 			ProductId,
-			DeductedPercentage
+			DeductedPercentage,
+			DeductedAmount,
+			IsDeductedPercent
 		FROM @DeductionSetting
 	END TRY
 	BEGIN CATCH

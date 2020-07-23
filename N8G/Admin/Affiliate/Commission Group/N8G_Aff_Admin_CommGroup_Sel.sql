@@ -79,8 +79,8 @@ BEGIN
 		gs.TierId,
 		gs.MinAmount,
 		gs.MaxAmount,
-		gs.MinAM AS MinQM,
-		gs.MaxAM AS MaxQM,
+		gs.MinAM,
+		gs.MaxAM,
 		gs.Commission
 	FROM dbo.TierSetting gs WITH (NOLOCK)
 		INNER JOIN @Group g ON gs.GroupId = g.GroupId
@@ -99,10 +99,11 @@ BEGIN
 				WHERE ds.GroupId					= d.GroupId
 					AND ds.DeductionId				= d.DeductionId
 					AND ds.GroupProductId			= d.GroupProductId
-					AND ds.DeductedPercentage		= d.DeductedPercentage
 				FOR XML PATH (''))
 				, 1, 1, '') AS ProductIds,
-		ds.DeductedPercentage
+		ds.DeductedPercentage,
+		ds.DeductedAmount,
+		ds.IsDeductedPercent
 	FROM dbo.DeductionSetting ds WITH (NOLOCK)
 		INNER JOIN dbo.Deductions dt WITH (NOLOCK) ON ds.DeductionId = dt.DeductionId
 		INNER JOIN @Group g ON ds.GroupId = g.GroupId
@@ -112,6 +113,8 @@ BEGIN
 		ds.DeductionId,
 		dt.DeductionName,
 		ds.GroupProductId,
-		ds.DeductedPercentage
+		ds.DeductedPercentage,
+		ds.DeductedAmount,
+		ds.IsDeductedPercent
 END
 GO

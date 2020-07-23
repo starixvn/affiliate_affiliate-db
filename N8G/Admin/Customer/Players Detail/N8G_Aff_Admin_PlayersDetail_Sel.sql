@@ -92,12 +92,20 @@ BEGIN
 	IF @NRows = 0
 		RETURN
 
-	DECLARE @BankingFee DECIMAL(9, 8) = 0
-	SELECT  @BankingFee = ISNULL(dsh.DeductedPercentage, 0)
+	DECLARE @BankingRate DECIMAL(9, 8) = 0, @BankingAmount MONEY = 0
+	SELECT  @BankingRate = ISNULL(dsh.DeductedPercentage, 0), @BankingAmount = ISNULL(dsh.DeductedAmount, 0)
 	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
 		INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupID = dsh.GroupID AND agh.MonthDate = dsh.MonthDate
 	WHERE dsh.DeductionID = 12 AND agh.MonthDate = @ToEndMonth
 		AND agh.AffID = @AffId
+
+	IF @BaseCurrency <> 0
+	BEGIN
+		DECLARE @AffCurrency INT
+		SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
+
+		SELECT @BankingAmount = @BankingAmount * Rate FROM dbo.Aff_f_ExchangeRate_Sel(@ToEndMonth, @AffCurrency, @BaseCurrency)
+	END
 
 	-- Paging
 	DECLARE @RowStart INT, @RowEnd INT
@@ -120,7 +128,7 @@ BEGIN
 			,d.Turnover
 			,d.Winloss
 			,d.Bonus
-			,(d.Deposit + d.Withdrawal) * @BankingFee AS BankingFee
+			,(d.Deposit + d.Withdrawal) * ISNULL(@BankingRate, 0) + ISNULL(@BankingAmount, 0) AS BankingFee
 			,ROW_NUMBER() OVER(ORDER BY
 				 (CASE WHEN @IsSortAsc = 1 AND @SortById = 1 THEN m.UserName				END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 2 THEN m.RegisteredDate			END) ASC

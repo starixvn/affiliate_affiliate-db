@@ -27,12 +27,20 @@ BEGIN
 	-- Get Data
 	BEGIN
 		-- Get Banking Fee
-		DECLARE @BankingFee DECIMAL(9,8)
-		SELECT  @BankingFee = dsh.DeductedPercentage
+		DECLARE @BankingRate DECIMAL(9, 8) = 0, @BankingAmount MONEY = 0
+		SELECT  @BankingRate = ISNULL(dsh.DeductedPercentage, 0), @BankingAmount = ISNULL(dsh.DeductedAmount, 0)
 		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
 			INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.MonthDate = dsh.MonthDate AND agh.GroupId = dsh.GroupId
 		WHERE agh.AffId = @AffId AND agh.MonthDate = @EndOfMonth
 			AND dsh.DeductionID = 12 -- Banking Fee
+
+		IF @BaseCurrency <> 0
+		BEGIN
+			DECLARE @AffCurrency INT
+			SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
+
+			SELECT @BankingAmount = @BankingAmount * Rate FROM dbo.Aff_f_ExchangeRate_Sel(@EndOfMonth, @AffCurrency, @BaseCurrency)
+		END
 
 		-- rptMemberDaily
 		BEGIN
@@ -45,7 +53,7 @@ BEGIN
 				,r.Turnover
 				,r.Winloss		AS Winlost
 				,r.Bonus
-				,(r.Deposit + r.Withdrawal) * ISNULL(@BankingFee, 0) AS BankingFee
+				,(r.Deposit + r.Withdrawal) * ISNULL(@BankingRate, 0) + ISNULL(@BankingAmount, 0) AS BankingFee
 			FROM
 			(
 				SELECT

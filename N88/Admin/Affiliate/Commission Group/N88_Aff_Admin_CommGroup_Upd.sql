@@ -1,14 +1,14 @@
 /*<info serverAlias="DBAFFN88-Affiliate_N88" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Upd]
-	@UserId			INT
-	,@GroupId		INT
-	,@GroupName		NVARCHAR(100) = NULL
-	,@Description	NVARCHAR(100) = NULL
-	,@DeductionList	XML
-	,@TierList		XML
-	,@IP			NVARCHAR(20) = ''
-	,@ErrCode		INT = 0 OUTPUT
-	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+	@UserId				INT
+	,@GroupId			INT
+	,@GroupName			NVARCHAR(100) = NULL
+	,@Description		NVARCHAR(100) = NULL
+	,@DeductionList		XML
+	,@TierList			XML
+	,@IP				NVARCHAR(20) = ''
+	,@ErrCode			INT = 0 OUTPUT
+	,@ErrMsg			NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -22,15 +22,15 @@ AS
 	Parameter's Explanation:
 		- @DeductionList:
 			<root>
-				<row id="10" productids = "1,2,3" percent="0.17" />
-				<row id="10" productids = "4,5" percent="0.15" />
-				<row id="11" productids = "0" percent="0.07" />
-				<row id="12" productids = "0" percent="0.02" />
+				<row id="10" productids = "1,2,3" percent="0.17" amount="0" isdeductedpercent="1" />
+				<row id="10" productids = "4,5" percent="0.15" amount="0" isdeductedpercent="1" />
+				<row id="11" productids = "0" percent="0" amount="100" isdeductedpercent="0" />
+				<row id="12" productids = "0" percent="0.02" amount="0" isdeductedpercent="1" />
 			</root>
 		- @TierList:
 			<root>
-				<row id="1" minamount="0" maxamount="100" minqm="0" maxqm="5" commission="0.2" />
-				<row id="2" minamount="101" maxamount="100000000000000" minqm="6" maxqm="1000000000" commission="0.3" />
+				<row id="1" minamount="0" maxamount="100" minam="0" maxam="5" commission="0.2" />
+				<row id="2" minamount="101" maxamount="100000000000000" minam="6" maxam="1000000000" commission="0.3" />
 			</root>
 		- Note: Infinite value of MaxAmount is 100,000,000,000,000 and MaxQM is 1,000,000,000
 */
@@ -80,7 +80,7 @@ BEGIN
 	SELECT  @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
 
 	-- Deductions
-	DECLARE @DeductionSetting TABLE (GroupProductId TINYINT, DeductionId TINYINT, ProductId INT, DeductedPercentage DECIMAL(9,8))
+	DECLARE @DeductionSetting TABLE (GroupProductId TINYINT, DeductionId TINYINT, ProductId INT, DeductedPercentage DECIMAL(9,8), DeductedAmount MONEY, IsDeductedPercent BIT)
 	
 	;WITH CTE_DeductionSetting AS
 	(
@@ -88,25 +88,31 @@ BEGIN
 			ROW_NUMBER() OVER(PARTITION BY t.c.value('@id', 'TINYINT') ORDER BY (SELECT NULL)) AS GroupProductId,
 			t.c.value('@id', 'TINYINT') AS DeductionId,
 			t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
-			t.c.value('@percent', 'DECIMAL(9,8)') AS DeductedPercentage
+			t.c.value('@percent', 'DECIMAL(9,8)') AS DeductedPercentage,
+			t.c.value('@amount', 'MONEY') AS DeductedAmount,
+			t.c.value('@isdeductedpercent', 'BIT') AS IsDeductedPercent
 		FROM @DeductionList.nodes('/root/row') AS t(c)
 	)
-	INSERT INTO @DeductionSetting (GroupProductId, DeductionId, ProductId, DeductedPercentage)
-	SELECT ds.GroupProductId, ds.DeductionId, f.val, ds.DeductedPercentage
+	INSERT INTO @DeductionSetting (GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
+	SELECT ds.GroupProductId, ds.DeductionId, f.val, ISNULL(ds.DeductedPercentage, 0), ISNULL(ds.DeductedAmount, 0), ISNULL(ds.IsDeductedPercent, 0)
 	FROM CTE_DeductionSetting ds
 		CROSS APPLY dbo.Aff_f_StringSplit(ds.ProductIds, ',') f
 	OPTION (OPTIMIZE FOR (@DeductionList = NULL), MAXRECURSION 0)
 
+	UPDATE @DeductionSetting
+	SET DeductedPercentage	= CASE WHEN IsDeductedPercent = 0 THEN 0 ELSE ISNULL(DeductedPercentage, 0) END
+		,DeductedAmount		= CASE WHEN IsDeductedPercent = 1 THEN 0 ELSE ISNULL(DeductedAmount, 0) END
+
 	-- Tier Setting
-	DECLARE @TierSetting TABLE (TierID TINYINT, MinAmount MONEY, MaxAmount MONEY, MinQM INT, MaxQM INT, Commission DECIMAL(9,8))
+	DECLARE @TierSetting TABLE (TierID TINYINT, MinAmount MONEY, MaxAmount MONEY, MinAM INT, MaxAM INT, Commission DECIMAL(9,8))
 	
-	INSERT INTO @TierSetting (TierID, MinAmount, MaxAmount, MinQM, MaxQM, Commission)
+	INSERT INTO @TierSetting (TierID, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
 	SELECT
 		t.c.value('@id', 'TINYINT'),
 		t.c.value('@minamount', 'MONEY'),
 		t.c.value('@maxamount', 'MONEY'),
-		t.c.value('@minqm', 'INT'),
-		t.c.value('@maxqm', 'INT'),
+		t.c.value('@minam', 'INT'),
+		t.c.value('@maxam', 'INT'),
 		t.c.value('@commission', 'DECIMAL(9,8)')
 	FROM @TierList.nodes('/root/row') AS t(c)
 	OPTION (OPTIMIZE FOR (@TierList = NULL))
@@ -150,6 +156,7 @@ BEGIN
 		-- General information
 		,GroupName				NVARCHAR(100)
 		,Description			NVARCHAR(100)
+		,IsDeductedPercent		BIT
 		-- Tier List
 		,TierId					TINYINT
 		,MinAmount				MONEY
@@ -162,13 +169,12 @@ BEGIN
 		,DeductionId			TINYINT
 		,ProductId				INT
 		,DeductedPercentage		DECIMAL(9,8)
-		,NextGroupProductId		TINYINT
-		,NextDeductedPercentage	DECIMAL(9,8)
+		,DeductedAmount			MONEY
 	)
 
 	-- General information
 	BEGIN TRY
-		UPDATE dbo.CommGroup WITH (ROWLOCK, UPDLOCK)
+		UPDATE dbo.CommGroup WITH (ROWLOCK)
 		SET GroupName = @GroupName,
 			Description = @Description
 		OUTPUT DELETED.GroupName,DELETED.Description,1
@@ -177,9 +183,9 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		-- Rollback manually
-		UPDATE cg WITH (ROWLOCK, UPDLOCK)
-		SET GroupName		= up.GroupName,
-			Description		= up.Description
+		UPDATE cg WITH (ROWLOCK)
+		SET GroupName			= up.GroupName,
+			Description			= up.Description
 		FROM dbo.CommGroup cg
 			CROSS APPLY @updateData up
 		WHERE cg.GroupId = @GroupId
@@ -202,21 +208,22 @@ BEGIN
 		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
 		INSERT INTO dbo.TierSetting (GroupId,TierId,MinAmount,MaxAmount,MinAM,MaxAM,Commission)
-		SELECT @GroupId,TierId,MinAmount,MaxAmount,MinQM,MaxQM,Commission
+		SELECT @GroupId,TierId,MinAmount,MaxAmount,MinAM,MaxAM,Commission
 		FROM @TierSetting
 
 		INSERT INTO dbo.TierSettingHistory (GroupId,MonthDate,TierId,MinAmount,MaxAmount,MinAM,MaxAM,Commission)
-		SELECT @GroupId,@MonthDate,TierId,MinAmount,MaxAmount,MinQM,MaxQM,Commission
+		SELECT @GroupId,@MonthDate,TierId,MinAmount,MaxAmount,MinAM,MaxAM,Commission
 		FROM @TierSetting
 	END TRY
 	BEGIN CATCH
 		-- Rollback manually
-		UPDATE cg WITH (ROWLOCK, UPDLOCK)
-		SET Description = up.Description
+		UPDATE cg WITH (ROWLOCK)
+		SET GroupName			= up.GroupName,
+			Description			= up.Description
 		FROM dbo.CommGroup cg
 			CROSS APPLY @updateData up
 		WHERE cg.GroupId = @GroupId
-			AND up.TypeId = 1
+			AND TypeId = 1
 
 		DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
 		WHERE GroupId = @GroupId
@@ -243,29 +250,30 @@ BEGIN
 	-- Deduction List
 	BEGIN TRY
 		DELETE dbo.DeductionSetting WITH (ROWLOCK, UPDLOCK)
-			OUTPUT DELETED.DeductionId,DELETED.ProductId,DELETED.DeductedPercentage,DELETED.GroupProductId,DELETED.NextDeductedPercentage,DELETED.NextGroupProductId,3
-			INTO @updateData (DeductionId,ProductId,DeductedPercentage,GroupProductId,NextDeductedPercentage,NextGroupProductId,TypeId)
+			OUTPUT DELETED.DeductionId,DELETED.ProductId,DELETED.GroupProductId,DELETED.DeductedPercentage,DELETED.DeductedAmount,DELETED.IsDeductedPercent,3
+			INTO @updateData (DeductionId,ProductId,GroupProductId,DeductedPercentage,DeductedAmount,IsDeductedPercent,TypeId)
 		WHERE GroupId = @GroupId
 
 		DELETE dbo.DeductionSettingHistory WITH (ROWLOCK, UPDLOCK)
 		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
-		INSERT INTO dbo.DeductionSetting (GroupId,DeductionId,ProductId,DeductedPercentage,GroupProductId,NextDeductedPercentage,NextGroupProductId)
-		SELECT @GroupId,DeductionId,ProductId,DeductedPercentage,GroupProductId,DeductedPercentage,GroupProductId
+		INSERT INTO dbo.DeductionSetting (GroupId,DeductionId,ProductId,GroupProductId,DeductedPercentage,DeductedAmount,IsDeductedPercent)
+		SELECT @GroupId,DeductionId,ProductId,GroupProductId,DeductedPercentage,DeductedAmount,IsDeductedPercent
 		FROM @DeductionSetting
 
-		INSERT INTO dbo.DeductionSettingHistory(GroupId,MonthDate,DeductionId,ProductId,GroupProductId,DeductedPercentage)
-		SELECT @GroupId,@MonthDate,DeductionId,ProductId,GroupProductId,DeductedPercentage
+		INSERT INTO dbo.DeductionSettingHistory(GroupId,MonthDate,DeductionId,ProductId,GroupProductId,DeductedPercentage,DeductedAmount,IsDeductedPercent)
+		SELECT @GroupId,@MonthDate,DeductionId,ProductId,GroupProductId,DeductedPercentage,DeductedAmount,IsDeductedPercent
 		FROM @DeductionSetting
 	END TRY
 	BEGIN CATCH
 		-- Rollback manually
-		UPDATE cg WITH (ROWLOCK, UPDLOCK)
-		SET cg.Description = up.Description
+		UPDATE cg WITH (ROWLOCK)
+		SET GroupName			= up.GroupName,
+			Description			= up.Description
 		FROM dbo.CommGroup cg
 			CROSS APPLY @updateData up
 		WHERE cg.GroupId = @GroupId
-			AND up.TypeId = 1
+			AND TypeId = 1
 
 		DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
 		WHERE GroupId = @GroupId
@@ -284,8 +292,14 @@ BEGIN
 		WHERE TypeId = 2
 
 		IF NOT EXISTS (SELECT 1 FROM dbo.DeductionSetting WITH (NOLOCK) WHERE GroupId = @GroupId)
-			INSERT INTO dbo.DeductionSetting (GroupId,DeductionId,ProductId,DeductedPercentage,GroupProductId,NextDeductedPercentage,NextGroupProductId)
-			SELECT @GroupId,DeductionId,ProductId,DeductedPercentage,GroupProductId,NextDeductedPercentage,NextGroupProductId
+			INSERT INTO dbo.DeductionSetting (GroupId,DeductionId,ProductId,GroupProductId,DeductedPercentage,DeductedAmount,IsDeductedPercent)
+			SELECT @GroupId,DeductionId,ProductId,GroupProductId,DeductedPercentage,DeductedAmount,IsDeductedPercent
+			FROM @updateData
+			WHERE TypeId = 3
+
+		IF NOT EXISTS (SELECT 1 FROM dbo.DeductionSettingHistory WITH (NOLOCK) WHERE GroupId = @GroupId AND MonthDate = @MonthDate)
+			INSERT INTO dbo.DeductionSettingHistory (GroupId,MonthDate,DeductionId,ProductId,GroupProductId,DeductedPercentage,DeductedAmount,IsDeductedPercent)
+			SELECT @GroupId,@MonthDate,DeductionId,ProductId,GroupProductId,DeductedPercentage,DeductedAmount,IsDeductedPercent
 			FROM @updateData
 			WHERE TypeId = 3
 
@@ -322,18 +336,24 @@ BEGIN
 			SELECT
 				DeductionId			AS '@id',
 				ProductIds			AS '@productids',
-				DeductedPercentage	AS '@percent'
+				DeductedPercentage	AS '@percent',
+				DeductedAmount		AS '@amount',
+				IsDeductedPercent	AS '@isdeductedpercent'
 			FROM
 			(
 				SELECT
 					DeductionId,
 					DeductedPercentage,
+					DeductedAmount,
+					IsDeductedPercent,
 					STUFF(
 						(SELECT	',' + CONVERT(VARCHAR(10), up.ProductId)
 							FROM @updateData up
 							WHERE up.DeductionId = ud.DeductionId
 								AND up.DeductedPercentage = ud.DeductedPercentage
 								AND up.GroupProductId = ud.GroupProductId
+								AND up.DeductedAmount = ud.DeductedAmount
+								AND up.IsDeductedPercent = ud.IsDeductedPercent
 							FOR XML PATH (''))
 							, 1, 1, '') AS ProductIds
 				FROM @updateData ud
