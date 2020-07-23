@@ -11,12 +11,12 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateAdjustment_Ins]
 AS
 
 /*
-	Created: 20160614@Percy
+	Created: 20200220@Percy
 	DB: DBAFFN88-Affiliate_N88
 	Task: Admin - Customer - Adjustment - Insert adjustment amount
 
 	Revisions:
-		- 20190614@Percy: Initialize SP [RedmineID: #109008]
+		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 */
 
 BEGIN
@@ -46,13 +46,13 @@ BEGIN
 		RETURN
 	END
 
-	DECLARE @Currency	INT
-			,@AffExRate	FLOAT
-			,@Status	VARCHAR(30)
+	DECLARE @AffCurrency	INT
+			,@AffRate		FLOAT
+			,@Status		VARCHAR(30)
 
-	SELECT	@Currency	= ai.Currency
-			,@AffExRate	= e.Rate
-			,@Status	= ai.STATUS
+	SELECT	@AffCurrency	= ai.Currency
+			,@AffRate		= e.Rate
+			,@Status		= ai.STATUS
 	FROM AffInfo ai WITH (NOLOCK)
 		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@currentDate, ai.Currency, 0) e
 	WHERE ai.AffID = @AffID
@@ -72,8 +72,8 @@ BEGIN
 	END
 
 	BEGIN TRY
-		INSERT INTO dbo.AffTrans (AffID,TransDate,CompletedDate,Amount,Status,Description,Creator,Currency,TransType,AffExRate)
-			VALUES (@AffID,GETDATE(),GETDATE(),@Amount,'Completed',@Transdesc,@UserID,@Currency,203,@AffExRate)
+		INSERT INTO dbo.AffTrans (AffID,TransDate,CompletedDate,Amount,Status,Description,Creator,TransType,AffCurrency,AffRate)
+			VALUES (@AffID,GETDATE(),GETDATE(),@Amount,'Completed',@Transdesc,@UserID,203,@AffCurrency,@AffRate)
 	END TRY
 	BEGIN CATCH
 		-- This transaction is unsuccessful.

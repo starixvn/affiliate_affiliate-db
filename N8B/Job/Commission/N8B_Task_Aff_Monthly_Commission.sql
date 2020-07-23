@@ -132,8 +132,9 @@ BEGIN
 		WHERE TransDate = @LastDayOfMonth
 	END
 
-	DECLARE @AffCurrency INT
+	DECLARE @AffCurrency INT, @AffRate FLOAT
 	SELECT  @AffCurrency = CONVERT(INT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
+	SELECt  @AffRate = Rate FROM dbo.Aff_f_ExchangeRate_Sel(@LastDayOfMonth, @AffCurrency, 0)
 
 	INSERT INTO dbo.rptAffCommission
 	(
@@ -206,8 +207,9 @@ BEGIN
 		Status,
 		Description,
 		Creator,
-		Currency,
-		TransType
+		TransType,
+		AffCurrency,
+		AffRate
 	)
 	SELECT
 		c.AffID,
@@ -217,8 +219,9 @@ BEGIN
 		'Approved' AS Status,
 		'Monthly Earning' AS Description,
 		148 AS Creator,
+		t.TransType,
 		@AffCurrency,
-		t.TransType
+		@AffRate
 	FROM #TempCommission c
 		CROSS APPLY (
 			SELECT 201 AS TransType, Commission AS Amount
@@ -232,7 +235,7 @@ BEGIN
 
 	IF @IsForceUpdate = 0
 	BEGIN
-		SELECT  @LaunchDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'LaunchDate'
+		SELECT @LaunchDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'LaunchDate'
 
 		IF @LastDayOfMonth >= DATEADD(DAY, -1, @LaunchDate)
 		BEGIN

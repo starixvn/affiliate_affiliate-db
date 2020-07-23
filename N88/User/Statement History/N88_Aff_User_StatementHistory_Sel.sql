@@ -66,7 +66,7 @@ BEGIN
 			CASE at.TransType WHEN 202 THEN ap.AffDesc WHEN 203 THEN '' ELSE at.Description END AS Description
 		FROM dbo.AffTrans at WITH (NOLOCK)
 			LEFT JOIN dbo.AffPayout ap WITH (NOLOCK) ON at.RefID = ap.RefID AND at.TransType = 202
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, at.Currency, @BaseCurrency) e
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, at.AffCurrency, @BaseCurrency) e
 		WHERE at.AffId = @AffId
 			AND at.TransType IN (202, 203)
 	END
@@ -120,7 +120,7 @@ BEGIN
 				OUTER APPLY (
 					SELECT at.TransId, at.Amount * ISNULL(e.Rate, 1) AS Amount
 					FROM dbo.AffTrans at WITH (NOLOCK)
-						CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, at.Currency, @BaseCurrency) e
+						CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, at.AffCurrency, @BaseCurrency) e
 					WHERE md.MonthDate = at.TransDate
 						AND at.AffId = @AffId
 						AND at.TransType = t.TransType

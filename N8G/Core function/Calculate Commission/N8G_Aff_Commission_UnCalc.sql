@@ -191,6 +191,14 @@ BEGIN
 		FROM #Data d
 			INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON d.MonthDate = agh.MonthDate AND d.AffId = agh.AffId
 
+		INSERT INTO @AffGroupInfo (MonthDate, AffId, GroupId, QMTurnOver)
+		SELECT agh.MonthDate, agh.AffId, agh.GroupId, 0
+		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+		WHERE agh.MonthDate BETWEEN @FromMonthDate AND @ToMonthDate
+			AND (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), agh.AffId) + ',%')
+			AND EXISTS (SELECT 1 FROM dbo.DeductionSettingHistory dsh WITH (NOLOCK) WHERE dsh.MonthDate = agh.MonthDate AND dsh.GroupId = agh.GroupId AND dsh.DeductedAmount <> 0)
+			AND NOT EXISTS (SELECT 1 FROM @AffGroupInfo a WHERE a.AffId = agh.AffId AND a.MonthDate = agh.MonthDate)
+
 		DECLARE @Setting TABLE
 		(
 			MonthDate				SMALLDATETIME
@@ -204,7 +212,13 @@ BEGIN
 			,BankingFee				DECIMAL(9,8) DEFAULT (0)
 			,BankingAmount			MONEY DEFAULT (0)
 		)
-	
+
+		;WITH CTE_Group AS
+		(
+			SELECT MonthDate, GroupId
+			FROM @AffGroupInfo
+			GROUP BY MonthDate, GroupId
+		)
 		INSERT INTO @Setting
 		(
 			MonthDate,
@@ -229,7 +243,7 @@ BEGIN
 			ds.OperationalAmount,
 			ds.BankingFee,
 			ds.BankingAmount
-		FROM @AffGroupInfo a
+		FROM CTE_Group a
 			CROSS APPLY (
 				SELECT
 					dsh.ProductId,
@@ -402,17 +416,31 @@ BEGIN
 		GROUP BY MonthDate, AffId
 
 		-- Calculate fees
-		UPDATE c
-		SET c.GroupId				= s.GroupId,
-			c.GroupProductId		= s.GroupProductId,
-			c.GrossWinloss			= -c.Winloss,
-			c.GrossWinloss_Base		= -c.Winloss_Base,
-			c.PlatFormFee			= -c.Winloss * s.PlatFormFee + s.PlatFormAmount,
-			c.OperationalFee		= ABS(c.Winloss) * s.OperationalFee + s.OperationalAmount,
-			c.BankingFee			= (c.Deposit + c.Withdrawal) * s.BankingFee + s.BankingAmount
-		FROM #Commission c
-			INNER JOIN @AffGroupInfo a ON c.AffId = a.AffId AND c.MonthDate = a.MonthDate
-			INNER JOIN @Setting s ON a.GroupId = s.GroupId AND c.MonthDate = s.MonthDate AND c.ProductId = s.ProductId
+		;MERGE #Commission AS t
+		USING
+		(
+			SELECT a.AffId, a.GroupId, a.MonthDate, s.ProductId
+					,s.GroupProductId, s.PlatFormFee, s.PlatFormAmount
+					,s.OperationalFee, s.OperationalAmount
+					,s.BankingFee, s.BankingAmount
+			FROM @AffGroupInfo a
+				INNER JOIN @Setting s ON a.GroupId = s.GroupId AND a.MonthDate = s.MonthDate
+		) AS s
+			ON		t.AffId = s.AffId
+				AND t.MonthDate = s.MonthDate
+				AND t.ProductId = s.ProductId
+		WHEN MATCHED THEN UPDATE
+			SET t.GroupId				= s.GroupId,
+				t.GroupProductId		= s.GroupProductId,
+				t.GrossWinloss			= -t.Winloss,
+				t.GrossWinloss_Base		= -t.Winloss_Base,
+				t.PlatFormFee			= -t.Winloss * s.PlatFormFee + s.PlatFormAmount,
+				t.OperationalFee		= ABS(t.Winloss) * s.OperationalFee + s.OperationalAmount,
+				t.BankingFee			= (t.Deposit + t.Withdrawal) * s.BankingFee + s.BankingAmount
+		WHEN NOT MATCHED BY TARGET THEN INSERT
+			(MonthDate,AffId,GroupId,ProductId,GroupProductId,PlatFormFee,OperationalFee,BankingFee)
+			VALUES
+			(MonthDate,AffId,GroupId,ProductId,GroupProductId,PlatFormAmount,OperationalAmount,BankingAmount);
 
 		;WITH CTE_PlatFormFee AS
 		(
