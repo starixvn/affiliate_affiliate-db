@@ -19,6 +19,7 @@ AS
 		- 20190520@Percy: Ebet - Change way to get winlostdate: PayoutTime to CreateTime [RedmineID: #110638]
 		- 20191130@Percy: Add Playtech Casino [RedmineID: #124784]
 		- 20191206@Percy: Integrate new products: 12Topaz, LB Keno, GPI lottery, VR Lottery [RedmineID: #117197]
+		- 20200707@Percy: Integrate new product: KY Gaming [RedmineID: #131437]
 */
 
 BEGIN
@@ -652,6 +653,53 @@ BEGIN
 			END CATCH
 
 			DROP TABLE #Topaz
+		END
+		-- KY Gaming
+		ELSE IF @ProductId = 24
+		BEGIN
+			CREATE TABLE #KYGaming (GameID NVARCHAR(50), Accounts NVARCHAR(50), ServerID INT, KindID INT, TableID INT, ChairID INT, UserCount INT, CardValue NVARCHAR(MAX), CellScore FLOAT, AllBet FLOAT, Profit FLOAT, Revenue FLOAT, GameStartTime DATETIME, GameEndTime DATETIME, ChannelID INT, LineCode NVARCHAR(50))
+
+			BEGIN TRY
+				INSERT INTO #KYGaming (GameID, Accounts, ServerID, KindID, TableID, ChairID, UserCount, CardValue, CellScore, AllBet, Profit, Revenue, GameStartTime, GameEndTime, ChannelID, LineCode)
+				SELECT	t.c.value('(GameID/text())[1]', 'NVARCHAR(50)')		AS GameID,
+						t.c.value('(Accounts/text())[1]', 'NVARCHAR(50)')	AS Accounts,
+						t.c.value('(ServerID/text())[1]', 'INT')			AS ServerID,
+						t.c.value('(KindID/text())[1]', 'INT')				AS KindID,
+						t.c.value('(TableID/text())[1]', 'INT')				AS TableID,
+						t.c.value('(ChairID/text())[1]', 'INT')				AS ChairID,
+						t.c.value('(UserCount/text())[1]', 'INT')			AS UserCount,
+						t.c.value('(CardValue/text())[1]', 'NVARCHAR(MAX)') AS CardValue,
+						t.c.value('(CellScore/text())[1]', 'FLOAT')			AS CellScore,
+						t.c.value('(AllBet/text())[1]', 'FLOAT')			AS AllBet,
+						t.c.value('(Profit/text())[1]', 'FLOAT')			AS Profit,
+						t.c.value('(Revenue/text())[1]', 'FLOAT')			AS Revenue,
+						t.c.value('(GameStartTime/text())[1]', 'DATETIME')	AS GameStartTime,
+						t.c.value('(GameEndTime/text())[1]', 'DATETIME')	AS GameEndTime,
+						t.c.value('(ChannelID/text())[1]', 'INT')			AS ChannelID,
+						t.c.value('(LineCode/text())[1]', 'NVARCHAR(50)')	AS LineCode
+				FROM @XmlData.nodes('root/d/list') AS t(c)
+				OPTION (OPTIMIZE FOR (@XmlData = NULL))
+
+				DELETE bt WITH (ROWLOCK, UPDLOCK)
+				FROM dbo.bettrans_KYGaming bt
+				WHERE EXISTS (SELECT 1 FROM #KYGaming k WHERE bt.GameID = k.GameID)
+				
+				INSERT INTO dbo.bettrans_KYGaming (GameID, Accounts, ServerID, KindID, TableID, ChairID, UserCount, CardValue, CellScore, AllBet, Profit, Revenue, GameStartTime, GameEndTime, ChannelID, LineCode, IBCCustId, WinlostDate)
+				SELECT GameID, Accounts, ServerID, KindID, TableID, ChairID, UserCount, CardValue, CellScore, AllBet, Profit, Revenue, GameStartTime, GameEndTime, ChannelID, LineCode, m.IBCCustId, CONVERT(DATE, k.GameEndTime) AS WinlostDate
+				FROM #KYGaming k
+					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + REPLACE(k.Accounts, CONVERT(VARCHAR(30), ChannelID) + '_', '') = m.Username
+
+				SELECT @WinlostDate = MIN(CONVERT(DATE, GameEndTime)) FROM #KYGaming
+
+				SELECT @IsErr = 0
+			END TRY
+			BEGIN CATCH
+				UPDATE dbo.APIProduct_ImportQueue WITH (ROWLOCK, UPDLOCK)
+				SET FinishedTime = NULL, WinlostDate = NULL, LogDesc = 'Failed. Error Message = ' + ERROR_MESSAGE()
+				WHERE QueueId = @QueueId
+			END CATCH
+
+			DROP TABLE #KYGaming
 		END
 
 		IF @IsErr = 1
