@@ -139,7 +139,7 @@ BEGIN
 
 	DECLARE @NewData NVARCHAR(MAX)
 	SELECT  @NewData = 'RefId=' + CONVERT(VARCHAR(30), @RefId)
-					 + 'Amount=' + CONVERT(VARCHAR(30), @Amount)
+						+ ',' + 'Amount=' + CONVERT(VARCHAR(30), @Amount)
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @AffId,
