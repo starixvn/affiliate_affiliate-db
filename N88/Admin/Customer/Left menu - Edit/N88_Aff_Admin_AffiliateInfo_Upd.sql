@@ -20,7 +20,9 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateInfo_Upd]
 	-- Payment Information: Player, Neteller, Moneybookers, Bank Transfer
 	@PreferredPayment	VARCHAR(20) = NULL,
 		-- Player
-	@PlayerUsername		NVARCHAR(50) = NULL,
+	@Player_CustId		INT = NULL,
+	@Player_Username	NVARCHAR(50) = NULL,
+	@Player_Currency	INT = NULL,
 		-- Neteller
 	@NetellerAccountId	NVARCHAR(50) = NULL,
 		-- Moneybookers
@@ -47,14 +49,14 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateInfo_Upd]
 AS  
 
 /*
-	Creator: 20180601@Percy
+	Creator: 20200220@Percy
 	DB: DBAFFN88-Affiliate_N88
 	Task:
 		Admin site - Customer - Edit - Update Info (Exclude Preferrence Language and Password)
 		Admin site - Customer - Left menu - Update Preferrence Language / Password
 	
 	Revisions:
-		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 */
 
 BEGIN
@@ -62,9 +64,6 @@ BEGIN
 
 	DECLARE @CurrentDate SMALLDATETIME
 	SELECT  @CurrentDate = GETDATE()
-
-	DECLARE @SiteName VARCHAR(30)
-	SELECT  @SiteName = dbo.Aff_f_GetSetting('SiteName')
 
 	-- Check permission
 	EXEC dbo.Aff_Con_CheckPermission
@@ -110,8 +109,9 @@ BEGIN
 		MoreSiteURLs_Del		VARCHAR(1000),
 		NoSiteDesc_Del			NVARCHAR(1000),
 		PreferredPayment_Del	VARCHAR(20),
-		Player_IBCCustId_Del	INT,
+		Player_CustId_Del		INT,
 		Player_Username_Del		NVARCHAR(50),
+		Player_Currency_Del		INT,
 		Neteller_AccountId_Del	VARCHAR(50),
 		Moneybookers_Email_Del	NVARCHAR(50),
 		Wire_BankName_Del		NVARCHAR(100),
@@ -145,8 +145,9 @@ BEGIN
 		MoreSiteURLs_Ins		VARCHAR(1000),
 		NoSiteDesc_Ins			NVARCHAR(1000),
 		PreferredPayment_Ins	VARCHAR(20),
-		Player_IBCCustId_Ins	INT,
+		Player_CustId_Ins		INT,
 		Player_Username_Ins		NVARCHAR(50),
+		Player_Currency_Ins		INT,
 		Neteller_AccountId_Ins	VARCHAR(50),
 		Moneybookers_Email_Ins	NVARCHAR(50),
 		Wire_BankName_Ins		NVARCHAR(100),
@@ -366,12 +367,21 @@ BEGIN
 	ELSE
 	BEGIN
 		-- Check if change player_username
-		IF EXISTS (SELECT 1 FROM dbo.AffDetail WITH (NOLOCK) WHERE AffID = @AffId AND Player_Username <> @PlayerUsername)
+		IF EXISTS (SELECT 1 FROM dbo.AffDetail WITH (NOLOCK) WHERE AffID = @AffId AND Player_Username <> @Player_Username)
 		BEGIN
 			IF EXISTS (SELECT 1 FROM dbo.AffPayout WITH (NOLOCK) WHERE AffID = @AffId AND Status = 'Pending')
 			BEGIN
 				-- Oops, this account is having 1 pending pay out request, please update this transaction first!
 				SELECT @ErrCode = 1001, @ErrMsg = dbo.Aff_f_GetMessageById(301, @Language)
+				RETURN
+			END
+
+			-- Check exists player_username
+			IF EXISTS (SELECT 1 FROM dbo.AffDetail WITH (NOLOCK) WHERE Player_Username = @Player_UserName AND AffID <> @AffId)
+			BEGIN
+				-- Player Username has been used. Please choose another one!
+				SELECT @ErrCode = 1002, @ErrMsg = dbo.Aff_f_GetMessageById(3, @Language)
+
 				RETURN
 			END
 		END
@@ -384,13 +394,8 @@ BEGIN
 			RETURN
 		END
 
-		DECLARE @Player_IBCCustId INT, @Player_Currency INT, @Player_CurrencyName NVARCHAR(50)
-		
-		SELECT  @Player_IBCCustId = custid, @Player_Currency = currency
-		FROM bodb02.dbo.Customer WITH (NOLOCK)
-		WHERE username2 = @SiteName + '$' + @PlayerUsername
-
-		SELECT @Player_CurrencyName = currency
+		DECLARE @Player_CurrencyName NVARCHAR(50), @Player_CurrencyCode VARCHAR(3)
+		SELECT  @Player_CurrencyName = currency, @Player_CurrencyCode = CASE WHEN ExchangeId = 20 THEN 'UUS' ELSE Code END
 		FROM bodb02.dbo.Exchange WITH (NOLOCK)
 		WHERE ExchangeId = @Player_Currency
 
@@ -426,44 +431,26 @@ BEGIN
 				NoSiteDesc = ISNULL(@NoSiteDesc, NoSiteDesc),
 				PreferredLanguage = ISNULL(@PreferredLanguage, PreferredLanguage),
 				PreferredPayment = @PreferredPayment,
-				Player_IBCCustId = ISNULL(@Player_IBCCustId, Player_IBCCustId),
-				Player_Username = ISNULL(@PlayerUsername, Player_Username),
+				Player_CustId = ISNULL(@Player_CustId, Player_CustId),
+				Player_Username = ISNULL(@Player_Username, Player_Username),
 				Player_Currency = ISNULL(@Player_Currency, Player_Currency),
 				Player_CurrencyName = ISNULL(@Player_CurrencyName, Player_CurrencyName),
-				Neteller_AccountId = ISNULL(@NetellerAccountId, Neteller_AccountId),
-				Moneybookers_Email = ISNULL(@MoneybookersEmail, Moneybookers_Email),
-				Wire_BankName = ISNULL(@BankName, Wire_BankName),
-				Wire_BankAddress = ISNULL(@BankAddress, Wire_BankAddress),
-				Wire_SwiftCode = ISNULL(@BankSwiftCode, Wire_SwiftCode),
-				Wire_AccountName = ISNULL(@BankAccountName, Wire_AccountName),
-				Wire_AccountNo = ISNULL(@BankAccountNo, Wire_AccountNo),
+				Player_CurrencyCode = ISNULL(@Player_CurrencyCode, Player_CurrencyCode),
 				MailOption = ISNULL(@MailOption, MailOption)
-			OUTPUT	DELETED.Gender,DELETED.Country,DELETED.Phone,DELETED.ContactApps,
-					DELETED.Address,DELETED.City,DELETED.State,DELETED.Postal,
-					DELETED.SiteURL,DELETED.MoreSiteURLs,DELETED.NoSiteDesc,DELETED.PreferredPayment,
-					DELETED.Player_IBCCustId,DELETED.Player_Username,DELETED.Neteller_AccountId,DELETED.Moneybookers_Email,
-					DELETED.Wire_BankName,DELETED.Wire_BankAddress,DELETED.Wire_SwiftCode,DELETED.Wire_AccountName,
-					DELETED.Wire_AccountNo,DELETED.MailOption,
-					INSERTED.Gender,INSERTED.Country,INSERTED.Phone,INSERTED.ContactApps,
-					INSERTED.Address,INSERTED.City,INSERTED.State,INSERTED.Postal,
-					INSERTED.SiteURL,INSERTED.MoreSiteURLs,INSERTED.NoSiteDesc,INSERTED.PreferredPayment,
-					INSERTED.Player_IBCCustId,INSERTED.Player_Username,INSERTED.Neteller_AccountId,INSERTED.Moneybookers_Email,
-					INSERTED.Wire_BankName,INSERTED.Wire_BankAddress,INSERTED.Wire_SwiftCode,INSERTED.Wire_AccountName,
-					INSERTED.Wire_AccountNo,INSERTED.MailOption
+			OUTPUT	DELETED.Gender,DELETED.Country,DELETED.Phone,DELETED.ContactApps,DELETED.Address,DELETED.City,DELETED.State,DELETED.Postal,
+					DELETED.SiteURL,DELETED.MoreSiteURLs,DELETED.NoSiteDesc,DELETED.PreferredLanguage,DELETED.PreferredPayment,
+					DELETED.Player_CustId,DELETED.Player_Username,DELETED.Player_Currency,DELETED.MailOption,
+					INSERTED.Gender,INSERTED.Country,INSERTED.Phone,INSERTED.ContactApps,INSERTED.Address,INSERTED.City,INSERTED.State,INSERTED.Postal,
+					INSERTED.SiteURL,INSERTED.MoreSiteURLs,INSERTED.NoSiteDesc,INSERTED.PreferredLanguage,INSERTED.PreferredPayment,
+					INSERTED.Player_CustId,INSERTED.Player_Username,INSERTED.Player_Currency,INSERTED.MailOption
 			INTO @UpdatedData
 			(
-					Gender_Del,Country_Del,Phone_Del,ContactApps_Del,
-					Address_Del,City_Del,State_Del,Postal_Del,
-					SiteURL_Del,MoreSiteURLs_Del,NoSiteDesc_Del,PreferredPayment_Del,
-					Player_IBCCustId_Del,Player_Username_Del,Neteller_AccountId_Del,Moneybookers_Email_Del,
-					Wire_BankName_Del,Wire_BankAddress_Del,Wire_SwiftCode_Del,Wire_AccountName_Del,
-					Wire_AccountNo_Del,MailOption_Del,
-					Gender_Ins,Country_Ins,Phone_Ins,ContactApps_Ins,
-					Address_Ins,City_Ins,State_Ins,Postal_Ins,
-					SiteURL_Ins,MoreSiteURLs_Ins,NoSiteDesc_Ins,PreferredPayment_Ins,
-					Player_IBCCustId_Ins,Player_Username_Ins,Neteller_AccountId_Ins,Moneybookers_Email_Ins,
-					Wire_BankName_Ins,Wire_BankAddress_Ins,Wire_SwiftCode_Ins,Wire_AccountName_Ins,
-					Wire_AccountNo_Ins,MailOption_Ins
+					Gender_Del,Country_Del,Phone_Del,ContactApps_Del,Address_Del,City_Del,State_Del,Postal_Del,
+					SiteURL_Del,MoreSiteURLs_Del,NoSiteDesc_Del,PreferredLanguage_Del,PreferredPayment_Del,
+					Player_CustId_Del,Player_Username_Del,Player_Currency_Del,MailOption_Del,
+					Gender_Ins,Country_Ins,Phone_Ins,ContactApps_Ins,Address_Ins,City_Ins,State_Ins,Postal_Ins,
+					SiteURL_Ins,MoreSiteURLs_Ins,NoSiteDesc_Ins,PreferredLanguage_Ins,PreferredPayment_Ins,
+					Player_CustId_Ins,Player_Username_Ins,Player_Currency_Ins,MailOption_Ins
 			)
 			WHERE AffId = @AffId
 		END TRY
@@ -502,15 +489,10 @@ BEGIN
 					'MoreSiteURLs='			+ ISNULL(MoreSiteURLs_Del, '') + ',' +
 					'NoSiteDesc='			+ ISNULL(NoSiteDesc_Del, '') + ',' +
 					'PreferredPayment='		+ ISNULL(PreferredPayment_Del, '') + ',' +
-					'Player_IBCCustId='		+ ISNULL(CONVERT(VARCHAR(15), Player_IBCCustId_Del), '') + ',' +
+					'PreferredLanguage='	+ ISNULL(PreferredLanguage_Del, '') + ',' +
+					'Player_CustId='		+ ISNULL(CONVERT(VARCHAR(15), Player_CustId_Del), '') + ',' +
 					'Player_Username='		+ ISNULL(Player_Username_Del, '') + ',' +
-					'Neteller_AccountId='	+ ISNULL(Neteller_AccountId_Del, '') + ',' +
-					'Moneybookers_Email='	+ ISNULL(Moneybookers_Email_Del, '') + ',' +
-					'Wire_BankName='		+ ISNULL(Wire_BankName_Del, '') + ',' +
-					'Wire_BankAddress='		+ ISNULL(Wire_BankAddress_Del, '') + ',' +
-					'Wire_SwiftCode='		+ ISNULL(Wire_SwiftCode_Del, '') + ',' +
-					'Wire_AccountName='		+ ISNULL(Wire_AccountName_Del, '') + ',' +
-					'Wire_AccountNo='		+ ISNULL(Wire_AccountNo_Del, '') + ',' +
+					'Player_Currency='		+ ISNULL(CONVERT(VARCHAR(10), Player_Currency_Del), '') + ',' +
 					'MailOption='			+ ISNULL(CONVERT(VARCHAR(1), MailOption_Del), ''),
 				@NewData =
 					'FirstName='			+ ISNULL(FirstName_Ins, '') + ',' +
@@ -530,15 +512,10 @@ BEGIN
 					'MoreSiteURLs='			+ ISNULL(MoreSiteURLs_Ins, '') + ',' +
 					'NoSiteDesc='			+ ISNULL(NoSiteDesc_Ins, '') + ',' +
 					'PreferredPayment='		+ ISNULL(PreferredPayment_Ins, '') + ',' +
-					'Player_IBCCustId='		+ ISNULL(CONVERT(VARCHAR(15), Player_IBCCustId_Ins), '') + ',' +
+					'PreferredLanguage='	+ ISNULL(PreferredLanguage_Ins, '') + ',' +
+					'Player_CustId='		+ ISNULL(CONVERT(VARCHAR(15), Player_CustId_Ins), '') + ',' +
 					'Player_Username='		+ ISNULL(Player_Username_Ins, '') + ',' +
-					'Neteller_AccountId='	+ ISNULL(Neteller_AccountId_Ins, '') + ',' +
-					'Moneybookers_Email='	+ ISNULL(Moneybookers_Email_Ins, '') + ',' +
-					'Wire_BankName='		+ ISNULL(Wire_BankName_Ins, '') + ',' +
-					'Wire_BankAddress='		+ ISNULL(Wire_BankAddress_Ins, '') + ',' +
-					'Wire_SwiftCode='		+ ISNULL(Wire_SwiftCode_Ins, '') + ',' +
-					'Wire_AccountName='		+ ISNULL(Wire_AccountName_Ins, '') + ',' +
-					'Wire_AccountNo='		+ ISNULL(Wire_AccountNo_Ins, '') + ',' +
+					'Player_Currency='		+ ISNULL(CONVERT(VARCHAR(10), Player_Currency_Ins), '') + ',' +
 					'MailOption='			+ ISNULL(CONVERT(VARCHAR(1), MailOption_Ins), '')
 		FROM @UpdatedData
 	END

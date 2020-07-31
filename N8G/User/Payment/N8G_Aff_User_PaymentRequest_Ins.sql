@@ -24,9 +24,6 @@ BEGIN
 	DECLARE @currentDate SMALLDATETIME
 	SELECT  @currentDate = CONVERT(DATE, GETDATE())
 
-	DECLARE @SiteName VARCHAR(30)
-	SELECT  @SiteName = dbo.Aff_f_GetSetting('SiteName')
-
 	IF ISNULL(@Amount, 0) < 0
 	BEGIN
 		-- Sorry, amount is invalid.
@@ -62,26 +59,28 @@ BEGIN
 	DECLARE
 		@AffUserName			VARCHAR(30)
 		,@PreferredPayment		VARCHAR(20)
-		,@Player_IBCCustId		INT
-		,@Player_IBCUserName	VARCHAR(30)
+		,@Player_CustId			INT
 		,@Player_Username		VARCHAR(30)
 		,@Player_Currency		INT
 		,@Player_CurrencyName	NVARCHAR(50)
 		,@Player_CurrencyCode	VARCHAR(3)
-		,@AffCurrencyName		VARCHAR(50)
 		,@AffCurrency			INT
-		,@Player_ExRate			FLOAT
-		,@Aff_ExRate			FLOAT
+		,@AffCurrencyName		VARCHAR(50)
+		,@AffRate				FLOAT
 		,@MinAmount				MONEY
 		,@AffPayout				MONEY
 
 	SELECT
-		@AffUserName		= ai.UserName
-		,@PreferredPayment	= ad.PreferredPayment
-		,@Player_Username	= ad.Player_Username
-		,@AffCurrency		= ai.Currency
-		,@AffCurrencyName	= ai.CurrencyName
-		,@Aff_ExRate		= e.Rate
+		@AffUserName			= ai.UserName
+		,@PreferredPayment		= ad.PreferredPayment
+		,@Player_CustId			= ad.Player_CustID
+		,@Player_Username		= ad.Player_Username
+		,@Player_Currency		= ad.Player_Currency
+		,@Player_CurrencyName	= ad.Player_CurrencyName
+		,@Player_CurrencyCode	= ad.Player_CurrencyCode
+		,@AffCurrency			= ai.Currency
+		,@AffCurrencyName		= ai.CurrencyName
+		,@AffRate				= e.Rate
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@currentDate, ai.Currency, 0) e
@@ -94,27 +93,7 @@ BEGIN
 		RETURN
 	END
 
-	SELECT
-		@Player_IBCCustId		= c.custid
-		,@Player_IBCUserName	= c.username
-		,@Player_Currency		= c.currency
-		,@Player_CurrencyName	= e.currency
-		,@Player_CurrencyCode	= e.Code
-		,@Player_ExRate			= e.ActualRate
-	FROM bodb02.dbo.Customer c WITH (NOLOCK)
-		INNER JOIN bodb02.dbo.Exchange e WITH (NOLOCK) ON c.Currency = e.ExchangeId
-	WHERE c.username2 = @SiteName + '$' + @Player_Username
-
-	IF @@ROWCOUNT = 0
-	BEGIN
-		-- Sorry, this affiliate does not have Player Account. Please contact your Administrator.
-		SELECT @ErrCode = 105, @ErrMsg = dbo.Aff_f_GetMessageById(508, @Language)
-		RETURN
-	END
-
-	SELECT @MinAmount = CONVERT(MONEY, SValue)
-	FROM dbo.SystemSettings WITH (NOLOCK)
-	WHERE SName = 'Payment_MinAmount'
+	SELECT @MinAmount = CONVERT(MONEY, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'Payment_MinAmount'
 
 	IF @MinAmount IS NOT NULL AND @Amount < @MinAmount
 	BEGIN
@@ -134,16 +113,14 @@ BEGIN
 		SELECT @AffPayout = CASE WHEN Rate = 0 THEN 0 ELSE @Amount / Rate END
 		FROM dbo.Aff_f_ExchangeRate_Sel(@currentDate, @Player_Currency, @AffCurrency)
 
-	SELECT @AffPayout = ISNULL(@AffPayout, 0)
-
 	BEGIN TRY
-		INSERT INTO dbo.AffPayout(AffId,IBCCustId,UserName,IBCUserName,Amount,AffPayout,AffCurrency,AffExRate,MemberCurrency,MemberExRate,TransDate,CompletedDate,Status,PreferredPayment,Player_Username,Player_Currency,Player_CurrencyName,Player_CurrencyCode)
-		VALUES (@AffId,@Player_IBCCustId,@AffUserName,@Player_IBCUserName,-@Amount,-@AffPayout,@AffCurrency,@Aff_ExRate,@Player_Currency,@Player_ExRate,@TransDate,@TransDate,'Pending',@PreferredPayment,@Player_Username,@Player_Currency,@Player_CurrencyName,@Player_CurrencyCode)
+		INSERT INTO dbo.AffPayout(AffId,TransDate,Status,Amount,AffPayout,AffCurrency,AffRate,PreferredPayment,Player_CustId,Player_Username,Player_Currency,Player_CurrencyName,Player_CurrencyCode)
+		VALUES (@AffId,@TransDate,'Pending',-@Amount,-@AffPayout,@AffCurrency,@AffRate,@PreferredPayment,@Player_CustId,@Player_Username,@Player_Currency,@Player_CurrencyName,@Player_CurrencyCode)
 
 		SELECT @RefId = SCOPE_IDENTITY()
 
-		INSERT INTO dbo.AffTrans (AffId, TransDate, Amount, Status, Description, Creator, Currency, ActualRate, TransType, RefId, AffExRate, CompletedDate)
-		VALUES (@AffId, @TransDate, -@Amount, 'Pending', 'Request payout', @AffId, @AffCurrency, @Player_ExRate, 202, @RefId, @Aff_ExRate, @TransDate)
+		INSERT INTO dbo.AffTrans (AffId,TransType,TransDate,Amount,Status,Description,Creator,AffCurrency,AffRate,RefId)
+		VALUES (@AffId,202,@TransDate,-@Amount,'Pending','Request payout',@AffId,@AffCurrency,@AffRate,@RefId)
 
 		SELECT @TransId = SCOPE_IDENTITY()
 	END TRY
@@ -161,7 +138,8 @@ BEGIN
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
 	DECLARE @NewData NVARCHAR(MAX)
-	SELECT  @NewData = 'Amount=' + CONVERT(VARCHAR(30), @Amount)
+	SELECT  @NewData = 'RefId=' + CONVERT(VARCHAR(30), @RefId)
+					 + 'Amount=' + CONVERT(VARCHAR(30), @Amount)
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @AffId,

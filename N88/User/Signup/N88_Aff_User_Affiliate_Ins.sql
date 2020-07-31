@@ -26,7 +26,9 @@ ALTER PROCEDURE [dbo].[Aff_User_Affiliate_Ins]
 	@Answer				NVARCHAR(300),
 	-- Payment Information
 	@PreferredPayment	VARCHAR(20) = 'Player',
+	@Player_CustId		INT,
 	@Player_UserName	VARCHAR(30),
+	@Player_Currency	INT,
 	-- Output
 	@ErrCode			INT = 0 OUTPUT,
 	@ErrMsg				NVARCHAR(4000) = '' OUTPUT,
@@ -48,7 +50,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @AffId INT, @Player_IBCCustId INT, @MonthDate SMALLDATETIME
+	DECLARE @AffId INT, @MonthDate SMALLDATETIME
 
 	-- Check exists email
 	IF EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE Email = @Email)
@@ -101,13 +103,12 @@ BEGIN
 	END
 
 	DECLARE @SiteName VARCHAR(30), @AffCurrency INT, @AffCurrencyName NVARCHAR(50), @AffCurrencyCode VARCHAR(3)
-			,@Player_Currency INT, @Player_CurrencyName NVARCHAR(50), @Player_CurrencyCode VARCHAR(3)
+			,@Player_CurrencyName NVARCHAR(50), @Player_CurrencyCode VARCHAR(3)
 
 	SELECT  @SiteName = dbo.Aff_f_GetSetting('SiteName')
 			,@AffCurrency = dbo.Aff_f_GetSetting('AffCurrency')
 
 	-- Get Player_IBCCustId from Player_Username
-	SELECT @Player_IBCCustId = CustId, @Player_Currency = currency FROM bodb02.dbo.Customer WITH (NOLOCK) WHERE Username2 = @SiteName + '$' + @Player_UserName
 	SELECT @AffCurrencyName = Currency, @AffCurrencyCode = Code FROM bodb02.dbo.Exchange WITH (NOLOCK) WHERE ExchangeId = @AffCurrency
 	SELECT @Player_CurrencyName = Currency, @Player_CurrencyCode = Code FROM bodb02.dbo.Exchange WITH (NOLOCK) WHERE ExchangeId = @Player_Currency
 
@@ -162,7 +163,7 @@ BEGIN
 			-- Preferrence
 			PreferredLanguage,QuestionID,Answer,
 			-- Payment Information
-			PreferredPayment,Player_IBCCustID,Player_UserName,Player_Currency,Player_CurrencyName,Player_CurrencyCode
+			PreferredPayment,Player_CustID,Player_UserName,Player_Currency,Player_CurrencyName,Player_CurrencyCode
 		)
 		VALUES
 		(
@@ -176,7 +177,7 @@ BEGIN
 			-- Preferrence
 			@PreferredLanguage,@QuestionID,@Answer,
 			-- Payment Information
-			@PreferredPayment,@Player_IBCCustId,@Player_UserName,@Player_Currency,@Player_CurrencyName,@Player_CurrencyCode
+			@PreferredPayment,@Player_CustId,@Player_UserName,@Player_Currency,@Player_CurrencyName,@Player_CurrencyCode
 		)
 	END TRY
 	BEGIN CATCH
@@ -225,7 +226,8 @@ BEGIN
 			'QuestionID='			+ ISNULL(CONVERT(VARCHAR(5), @QuestionID), '') + ',' +
 			'Answer='				+ ISNULL(@Answer, '') + ',' +
 			'PreferredPayment='		+ ISNULL(@PreferredPayment, '') + ',' +
-			'Player_UserName='		+ ISNULL(@Player_UserName, '')
+			'Player_UserName='		+ ISNULL(@Player_UserName, '') + ',' +
+			'Player_CustId='		+ ISNULL(CONVERT(VARCHAR(20), @Player_CustId), '')
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @AffId,

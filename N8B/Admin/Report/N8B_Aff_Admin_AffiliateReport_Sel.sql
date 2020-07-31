@@ -492,7 +492,7 @@ BEGIN
 				SUM(CASE WHEN at.TransType = 203 AND at.TransDate >= @FromDate THEN at.Amount * e.Rate ELSE 0 END) AS AffAdjustment,
 				SUM(at.Amount * e.Rate) AS BFF
 			FROM dbo.AffTrans at WITH (NOLOCK)
-				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, at.Currency, @BaseCurrency) e
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, at.AffCurrency, @BaseCurrency) e
 			WHERE a.AffId = at.AffId
 				AND at.TransDate < DATEADD(DAY, 1, @ToDate)
 				AND at.Status IN ('Pending', 'Approved', 'Completed')
@@ -557,7 +557,7 @@ BEGIN
 				SUM(CASE WHEN at.TransType = 203 AND at.TransDate >= @FromDate THEN at.Amount * e.Rate ELSE 0 END) AS AffAdjustment,
 				SUM(at.Amount * e.Rate) AS BFF
 			FROM dbo.AffTrans at WITH (NOLOCK)
-				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, at.Currency, @BaseCurrency) e
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, at.AffCurrency, @BaseCurrency) e
 			WHERE a.AffId = at.AffId
 				AND at.TransDate < DATEADD(DAY, 1, @ToDate)
 				AND at.Status IN ('Pending', 'Approved', 'Completed')
