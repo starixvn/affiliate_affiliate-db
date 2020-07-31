@@ -16,6 +16,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 */
 
 BEGIN
@@ -23,8 +24,8 @@ BEGIN
 
 	SELECT @ErrCode = 0, @ErrMsg = ''
 
-	DECLARE @username VARCHAR(30)
-	SELECT  @username = username FROM dbo.Affiliate_User WITH (NOLOCK) WHERE CustId = @CustId
+	DECLARE @username VARCHAR(50)
+	SELECT  @username = username FROM dbo.Users WITH (NOLOCK) WHERE CustId = @CustId
 
 	IF @username IS NULL
 	BEGIN
@@ -34,7 +35,7 @@ BEGIN
 
 	IF @OldPwd IS NOT NULL -- @UserId = @CustId -- Update owner
 	BEGIN
-		IF NOT EXISTS (SELECT 1 FROM dbo.Affiliate_User WITH (NOLOCK) WHERE CustId = @CustId AND UserPwd = @OldPwd)
+		IF NOT EXISTS (SELECT 1 FROM dbo.Users WITH (NOLOCK) WHERE CustId = @CustId AND UserPwd = @OldPwd)
 		BEGIN
 			SELECT @ErrCode = 101, @ErrMsg = 'Old password is incorrect!'
 			RETURN
@@ -48,10 +49,10 @@ BEGIN
 	END
 	ELSE
 	BEGIN
-		EXEC dbo.Aff_Con_CheckPermission
+		-- Check permission
+		EXEC dbo.Aff_CheckPermission
 			@CustId		= @UserId
 			,@FuncName	= '[UserControl]'
-			,@System	= 'AFFILIATE'
 			,@ErrCode	= @ErrCode OUTPUT
 			,@ErrMsg	= @ErrMsg OUTPUT
     
@@ -60,7 +61,7 @@ BEGIN
 	END
 
 	BEGIN TRY
-		UPDATE dbo.Affiliate_User WITH (ROWLOCK)
+		UPDATE dbo.Users WITH (ROWLOCK)
 		SET UserPwd = @NewPwd
 			,PwdExpiry = DATEADD(DAY, 30, GETDATE())
 		WHERE CustId = @CustId

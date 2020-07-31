@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Aff_Admin_LandingPage_Ins]
 	@UserId		INT,
 	@PageName	NVARCHAR(200),
@@ -18,6 +15,7 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102399]
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 */
 
 BEGIN
@@ -26,12 +24,11 @@ BEGIN
 	DECLARE @Language VARCHAR(10) = 'en-US'
 
 	-- Check permission
-	EXEC dbo.Aff_Con_CheckPermission
-		@CustId		= @UserId,
-		@FuncName	= '[MEDIA]',
-		@System		= 'AFFILIATE',
-		@ErrCode	= @ErrCode OUTPUT,
-		@ErrMsg		= @ErrMsg OUTPUT
+	EXEC dbo.Aff_CheckPermission
+		@CustId		= @UserId
+		,@FuncName	= '[MediaGallery]'
+		,@ErrCode	= @ErrCode OUTPUT
+		,@ErrMsg	= @ErrMsg OUTPUT
 
 	IF @ErrCode <> 0
 		RETURN

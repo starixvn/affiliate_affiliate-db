@@ -1,0 +1,37 @@
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[Aff_Admin_AdminUser_Detail_Sel]
+	@CustId INT
+AS
+
+/*
+	Created: 20200731@Percy
+	DB: DBAFF12BET-Affiliate_12BET
+	Task: Admin - Admin Role - User detail
+	Revisions:
+		- 20200731@Percy: Initialize SP [RedmineID: #121975]
+*/
+
+BEGIN
+	SET NOCOUNT ON
+
+	DECLARE @RoleId SMALLINT
+	SELECT  @RoleId = RoleId FROM dbo.Users u WITH (NOLOCK) WHERE CustId = @CustId
+
+	-- General
+	SELECT u.CustId,u.UserName,u.FirstName,u.LastName,u.Closed,r.RoleId,r.RoleName
+	FROM dbo.Users u WITH (NOLOCK)
+		INNER JOIN dbo.Roles r WITH (NOLOCK) ON u.RoleId = r.RoleId
+	WHERE CustId = @CustId
+
+	-- Language
+	SELECT m.MarketId, m.MarketName, CASE WHEN um.MarketId IS NULL THEN 0 ELSE 1 END AS Status
+	FROM dbo.Market m WITH (NOLOCK)
+		LEFT JOIN dbo.UserMarket um WITH (NOLOCK) ON m.MarketId = um.MarketId AND um.CustId = @CustId
+
+	-- Function
+	SELECT f.AllParentIds, f.ParentId, f.FuncId, f.FuncName, ISNULL(rf.Policy, 0) AS RolePolicy, ISNULL(uf.Policy, 0) AS UserPolicy
+	FROM dbo.Functions f WITH (NOLOCK)
+		LEFT JOIN dbo.UserFunction uf WITH (NOLOCK) ON f.FuncId = uf.FuncId AND uf.CustId = @CustId
+		LEFT JOIN dbo.RoleFunction rf WITH (NOLOCK) ON f.FuncId = rf.FuncId AND rf.RoleId = @RoleId
+END
+GO

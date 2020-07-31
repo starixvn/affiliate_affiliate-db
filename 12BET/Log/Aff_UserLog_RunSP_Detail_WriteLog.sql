@@ -1,15 +1,12 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbAdminNet,bodbDownlineNet" isFunction="0" isNested="1"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Aff_UserLog_RunSP_Detail_WriteLog]
 	@SPName		VARCHAR(200),
 	@UserId		INT,
-	@AffId		INT,
+	@AffId		INT = 0,
 	@OldData	NVARCHAR(MAX) = NULL,
 	@NewData	NVARCHAR(MAX) = NULL,
 	@IP			VARCHAR(50) = '',
-	@Language	VARCHAR(20) = ''
+	@Language	VARCHAR(20) = 'en-US'
 AS
 
 /*
@@ -19,6 +16,7 @@ AS
 	
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20200731@Percy: Set default param value [RedmineID: #121975]
 */
 
 BEGIN

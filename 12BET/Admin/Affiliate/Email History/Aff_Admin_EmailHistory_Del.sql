@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Aff_Admin_EmailHistory_Del]
 	@MIDs VARCHAR(4000) = NULL
 	,@UserID	INT
@@ -17,6 +14,7 @@ AS
 
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 
 	Param's Explanation:
 		- @MIDs: List of Mail ID
@@ -36,10 +34,9 @@ BEGIN
 	END
 
 	-- Check permission
-	EXEC dbo.Aff_Con_CheckPermission
-		@CustID		= @UserID
+	EXEC dbo.Aff_CheckPermission
+		@CustId		= @UserId
 		,@FuncName	= '[Affiliate]'
-		,@System	= 'AFFILIATE'
 		,@ErrCode	= @ErrCode OUTPUT
 		,@ErrMsg	= @ErrMsg OUTPUT
 
