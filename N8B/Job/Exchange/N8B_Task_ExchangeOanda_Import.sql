@@ -53,12 +53,14 @@ BEGIN
 			,e.MYR			= o.MYR
 			,e.THB			= o.THB
 			,e.IDR			= o.IDR
+			,e.MultipliedBy	= ee.MultipliedBy
 		OUTPUT
 			INSERTED.ExchangeId, INSERTED.Code, INSERTED.ActualRate, INSERTED.VND, INSERTED.EUR, INSERTED.USD, INSERTED.CNY, INSERTED.MYR, 1 -- insert (default)
 		INTO @tblExchange
 			(ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, ModifiedType)
 		FROM dbo.Exchange e
 			INNER JOIN bodb02.dbo.ExchangeDailyOanda o WITH (NOLOCK) ON o.ExchangeId = e.ExchangeId
+			INNER JOIN bodb02.dbo.Exchange ee WITH (NOLOCK) ON ee.ExchangeId = e.ExchangeId
 		WHERE o.ExchangeDate = @Yesterday
 			AND (
 				o.Code			<> e.Code
@@ -72,14 +74,15 @@ BEGIN
 				OR o.IDR		<> e.IDR
 			)
 
-		INSERT INTO dbo.Exchange (ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR)
+		INSERT INTO dbo.Exchange (ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR, MultipliedBy)
 		OUTPUT
 			INSERTED.ExchangeId, INSERTED.Code, INSERTED.ActualRate, INSERTED.VND, INSERTED.EUR, INSERTED.USD, INSERTED.CNY, INSERTED.MYR, INSERTED.THB, INSERTED.IDR, 1 -- insert (default)
 		INTO @tblExchange
 			(ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR, ModifiedType)
 		SELECT
-			o.ExchangeId, o.Code, o.ActualRate, o.VND, o.EUR, o.USD, o.CNY, o.MYR, o.THB, o.IDR
+			o.ExchangeId, o.Code, o.ActualRate, o.VND, o.EUR, o.USD, o.CNY, o.MYR, o.THB, o.IDR, ee.MultipliedBy
 		FROM bodb02.dbo.ExchangeDailyOanda o WITH (NOLOCK)
+			INNER JOIN bodb02.dbo.Exchange ee WITH (NOLOCK) ON ee.ExchangeId = o.ExchangeId
 			LEFT JOIN dbo.Exchange e WITH (NOLOCK) ON e.ExchangeId = o.ExchangeId
 		WHERE o.ExchangeDate = @Yesterday
 			AND e.ExchangeId IS NULL
