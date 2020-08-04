@@ -490,21 +490,22 @@ BEGIN
 	
 		-- Commission
 		UPDATE c
-		SET c.CommissionRate	= ISNULL(ISNULL(s.Commission, t.Commission), 0),
-			c.Commission		= ISNULL(ISNULL(s.Commission, t.Commission), 0) * (c.NetWinloss - c.Bonus)
+		SET c.CommissionRate	= ISNULL(s.Commission, 0),
+			c.Commission		= ISNULL(s.Commission, 0) * (c.NetWinloss - c.Bonus)
 		FROM #Commission c
 			CROSS APPLY (
-				SELECT gsh.TierId, gsh.Commission
+				SELECT gsh.TierId
 				FROM dbo.TierSettingHistory gsh WITH (NOLOCK)
 				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId
 					AND FLOOR(ABS(c.NetWinloss)) BETWEEN gsh.MinAmount AND gsh.MaxAmount
 			) AS t
 			CROSS APPLY (
-				SELECT MAX(gsh.Commission) AS Commission
+				SELECT TOP 1 c.Commission
 				FROM dbo.TierSettingHistory gsh WITH (NOLOCK)
 				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId
 					AND c.QualifiedMember BETWEEN gsh.MinAM AND gsh.MaxAM
 					AND gsh.TierId <= t.TierId
+				ORDER BY gsh.TierId DESC
 			) AS s
 		WHERE c.ProductId = 0
 
