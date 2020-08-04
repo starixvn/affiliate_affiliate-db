@@ -500,7 +500,7 @@ BEGIN
 					AND FLOOR(ABS(c.NetWinloss)) BETWEEN gsh.MinAmount AND gsh.MaxAmount
 			) AS t
 			CROSS APPLY (
-				SELECT TOP 1 c.Commission
+				SELECT TOP 1 gsh.Commission
 				FROM dbo.TierSettingHistory gsh WITH (NOLOCK)
 				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId
 					AND c.QualifiedMember BETWEEN gsh.MinAM AND gsh.MaxAM
