@@ -20,172 +20,65 @@ BEGIN
 	IF DATEDIFF(HOUR, @LastImportedTime, GETDATE()) < 6
 		RETURN
 
-	DECLARE @CurrentDate SMALLDATETIME
-	SELECT  @CurrentDate = CONVERT(DATE, GETDATE())
+	DECLARE @CurrentDate SMALLDATETIME, @Yesterday SMALLDATETIME
+	SELECT  @CurrentDate	= CONVERT(DATE, GETDATE())
+	SELECT  @Yesterday		= DATEADD(DAY, -1, @CurrentDate)
 
-	DECLARE @tblExchange TABLE
-	(
-		ExchangeId		INT
-		,Code			VARCHAR(5)
-		,ActualRate		FLOAT
-		,VND			FLOAT
-		,EUR			FLOAT
-		,USD			FLOAT
-		,CNY			FLOAT
-		,MYR			FLOAT
-		,THB			FLOAT
-		,IDR			FLOAT
-		,ModifiedType	TINYINT -- 1 - insert, 2 - update
-	)
-
-	-- Yesterday data
-	DECLARE @Yesterday SMALLDATETIME
-	SELECT  @Yesterday = DATEADD(DAY, -1, @CurrentDate)
+	DECLARE @tblExchange TABLE (ExchangeDate SMALLDATETIME, ExchangeId INT, Code VARCHAR(5), ActualRate FLOAT, VND FLOAT, EUR FLOAT, USD FLOAT, CNY FLOAT, MYR FLOAT, THB FLOAT, IDR FLOAT, MultipliedBy INT)
 	
-	BEGIN
-		UPDATE e WITH (ROWLOCK)
-		SET e.Code			= o.Code
-			,e.ActualRate	= o.ActualRate
-			,e.VND			= o.VND
-			,e.EUR			= o.EUR
-			,e.USD			= o.USD
-			,e.CNY			= o.CNY
-			,e.MYR			= o.MYR
-			,e.THB			= o.THB
-			,e.IDR			= o.IDR
-			,e.MultipliedBy	= ee.MultipliedBy
-		OUTPUT
-			INSERTED.ExchangeId, INSERTED.Code, INSERTED.ActualRate, INSERTED.VND, INSERTED.EUR, INSERTED.USD, INSERTED.CNY, INSERTED.MYR, 1 -- insert (default)
-		INTO @tblExchange
-			(ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, ModifiedType)
-		FROM dbo.Exchange e
-			INNER JOIN bodb02.dbo.ExchangeDailyOanda o WITH (NOLOCK) ON o.ExchangeId = e.ExchangeId
-			INNER JOIN bodb02.dbo.Exchange ee WITH (NOLOCK) ON ee.ExchangeId = e.ExchangeId
-		WHERE o.ExchangeDate = @Yesterday
-			AND (
-				o.Code			<> e.Code
-				OR o.ActualRate <> e.ActualRate
-				OR o.VND		<> e.VND
-				OR o.EUR		<> e.EUR
-				OR o.USD		<> e.USD
-				OR o.CNY		<> e.CNY
-				OR o.MYR		<> e.MYR
-				OR o.THB		<> e.THB
-				OR o.IDR		<> e.IDR
-			)
-
-		INSERT INTO dbo.Exchange (ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR, MultipliedBy)
-		OUTPUT
-			INSERTED.ExchangeId, INSERTED.Code, INSERTED.ActualRate, INSERTED.VND, INSERTED.EUR, INSERTED.USD, INSERTED.CNY, INSERTED.MYR, INSERTED.THB, INSERTED.IDR, 1 -- insert (default)
-		INTO @tblExchange
-			(ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR, ModifiedType)
-		SELECT
-			o.ExchangeId, o.Code, o.ActualRate, o.VND, o.EUR, o.USD, o.CNY, o.MYR, o.THB, o.IDR, ee.MultipliedBy
-		FROM bodb02.dbo.ExchangeDailyOanda o WITH (NOLOCK)
-			INNER JOIN bodb02.dbo.Exchange ee WITH (NOLOCK) ON ee.ExchangeId = o.ExchangeId
-			LEFT JOIN dbo.Exchange e WITH (NOLOCK) ON e.ExchangeId = o.ExchangeId
-		WHERE o.ExchangeDate = @Yesterday
-			AND e.ExchangeId IS NULL
-
-		UPDATE t
-		SET t.ModifiedType = 2 -- update due to exists
-		FROM @tblExchange t
-			INNER JOIN dbo.ExchangeOanda e WITH (NOLOCK) ON t.ExchangeId = e.ExchangeId
-		WHERE e.ExchangeDate = @Yesterday
-
-		IF EXISTS (SELECT 1 FROM @tblExchange WHERE ModifiedType = 2)
-		BEGIN
-			UPDATE e WITH (ROWLOCK)
-			SET e.Code			= t.Code
-				,e.ActualRate	= t.ActualRate
-				,e.VND			= t.VND
-				,e.EUR			= t.EUR
-				,e.USD			= t.USD
-				,e.CNY			= t.CNY
-				,e.MYR			= t.MYR
-				,e.THB			= t.THB
-				,e.IDR			= t.IDR
-			FROM dbo.ExchangeOanda e
-				INNER JOIN @tblExchange t ON e.ExchangeId = t.ExchangeId
-			WHERE e.ExchangeDate = @Yesterday
-				AND t.ModifiedType = 2
-		END
-
-		IF EXISTS (SELECT 1 FROM @tblExchange WHERE ModifiedType = 1)
-		BEGIN
-			INSERT INTO dbo.ExchangeOanda (ExchangeDate, ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR)
-			SELECT @Yesterday, ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR
-			FROM @tblExchange
-			WHERE ModifiedType = 1
-		END
-
-		IF EXISTS (SELECT 1 FROM @tblExchange)
-		BEGIN
-			DELETE dbo.ExchangeOanda WITH (ROWLOCK, UPDLOCK)
-			WHERE ExchangeDate > @Yesterday
-		END
-	END
-
-	-- Today & Tomorrow data
-	DECLARE @ImportedDate SMALLDATETIME
-	SELECT  @ImportedDate = DATEADD(DAY, 1, @Yesterday)
-
-	WHILE @ImportedDate <= DATEADD(DAY, 2, @Yesterday)
+	-- Exchange: keep yesterday data
 	BEGIN
 		DELETE @tblExchange
 
-		INSERT INTO @tblExchange (ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR, ModifiedType)
-		SELECT
-			o.ExchangeId, o.Code, o.ActualRate, o.VND, o.EUR, o.USD, o.CNY, o.MYR, o.THB, o.IDR
-			,CASE
-				WHEN e1.ExchangeId IS NOT NULL
-					THEN CASE WHEN o.Code <> e1.Code OR o.ActualRate <> e1.ActualRate OR o.VND <> e1.VND OR o.EUR <> e1.EUR OR o.USD <> e1.USD OR o.CNY <> e1.CNY OR o.MYR <> e1.MYR OR o.THB <> e1.THB OR o.IDR <> e1.IDR
-						THEN 2 -- update
-						ELSE 0 END -- no action
-				WHEN e2.ExchangeId IS NOT NULL
-					THEN CASE WHEN o.Code <> e2.Code OR o.ActualRate <> e2.ActualRate OR o.VND <> e2.VND OR o.EUR <> e2.EUR OR o.USD <> e2.USD OR o.CNY <> e2.CNY OR o.MYR <> e2.MYR OR o.THB <> e2.THB OR o.IDR <> e2.IDR
-						THEN 1 -- insert
-						ELSE 0 END -- no action
-				WHEN e3.ExchangeId IS NOT NULL
-					THEN CASE WHEN o.Code <> e3.Code OR o.ActualRate <> e3.ActualRate OR o.VND <> e3.VND OR o.EUR <> e3.EUR OR o.USD <> e3.USD OR o.CNY <> e3.CNY OR o.MYR <> e3.MYR OR o.THB <> e3.THB OR o.IDR <> e3.IDR
-						THEN 1 -- insert
-						ELSE 0 END -- no action
-				ELSE 1 END -- insert (new currencies)
+		INSERT INTO @tblExchange (ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR, MultipliedBy)
+		SELECT o.ExchangeId, o.Code, o.ActualRate, o.VND, o.EUR, o.USD, o.CNY, o.MYR, o.THB, o.IDR, e.MultipliedBy
 		FROM bodb02.dbo.ExchangeDailyOanda o WITH (NOLOCK)
-			LEFT JOIN dbo.ExchangeOanda e1 WITH (NOLOCK) ON o.ExchangeDate = e1.ExchangeDate AND o.ExchangeId = e1.ExchangeId
-			LEFT JOIN dbo.ExchangeOanda e2 WITH (NOLOCK) ON e2.ExchangeDate = @CurrentDate AND o.ExchangeId = e2.ExchangeId AND @ImportedDate <> @CurrentDate
-			LEFT JOIN dbo.Exchange e3 WITH (NOLOCK) ON o.ExchangeId = e3.ExchangeId
-		WHERE o.ExchangeDate = @ImportedDate
+			INNER JOIN bodb02.dbo.Exchange e WITH (NOLOCK) ON o.ExchangeId = e.ExchangeId
+		WHERE o.ExchangeDate = @Yesterday
 
-		DELETE @tblExchange WHERE ModifiedType = 0
+		MERGE dbo.Exchange AS t
+		USING @tblExchange AS s
+			ON t.ExchangeId = s.ExchangeId
+		WHEN MATCHED THEN UPDATE
+			SET  t.Code			= s.Code
+				,t.ActualRate	= s.ActualRate
+				,t.VND			= s.VND
+				,t.EUR			= s.EUR
+				,t.USD			= s.USD
+				,t.CNY			= s.CNY
+				,t.MYR			= s.MYR
+				,t.THB			= s.THB
+				,t.IDR			= s.IDR
+				,t.MultipliedBy	= s.MultipliedBy
+		WHEN NOT MATCHED BY TARGET THEN INSERT
+			(ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR, MultipliedBy)
+			VALUES
+			(ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR, MultipliedBy)
+		WHEN NOT MATCHED BY SOURCE THEN DELETE;
+	END
 
-		IF EXISTS (SELECT 1 FROM @tblExchange WHERE ModifiedType = 2)
-		BEGIN
-			UPDATE e WITH (ROWLOCK)
-			SET e.Code			= t.Code
-				,e.ActualRate	= t.ActualRate
-				,e.VND			= t.VND
-				,e.EUR			= t.EUR
-				,e.USD			= t.USD
-				,e.CNY			= t.CNY
-				,e.MYR			= t.MYR
-				,e.THB			= t.THB
-				,e.IDR			= t.IDR
-			FROM dbo.ExchangeOanda e
-				INNER JOIN @tblExchange t ON e.ExchangeId = t.ExchangeId
-			WHERE e.ExchangeDate = @ImportedDate
-				AND t.ModifiedType = 2
-		END
+	-- ExchangeOanda
+	BEGIN
+		-- Today & Tomorrow data
+		DELETE dbo.ExchangeOanda WITH (ROWLOCK, UPDLOCK) WHERE ExchangeDate >= @CurrentDate
 
-		IF EXISTS (SELECT 1 FROM @tblExchange WHERE ModifiedType = 1)
-		BEGIN
-			INSERT INTO dbo.ExchangeOanda (ExchangeDate, ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR)
-			SELECT @ImportedDate, ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR
-			FROM @tblExchange
-			WHERE ModifiedType = 1
-		END
-
-		SELECT @ImportedDate = DATEADD(DAY, 1, @ImportedDate)
+		INSERT INTO dbo.ExchangeOanda (ExchangeDate, ExchangeId, Code, ActualRate, VND, EUR, USD, CNY, MYR, THB, IDR)
+		SELECT o.ExchangeDate, o.ExchangeId, o.Code, o.ActualRate, o.VND, o.EUR, o.USD, o.CNY, o.MYR, o.THB, o.IDR
+		FROM bodb02.dbo.ExchangeDailyOanda o WITH (NOLOCK)
+			LEFT JOIN dbo.Exchange e WITH (NOLOCK) ON o.ExchangeId = e.ExchangeId
+		WHERE o.ExchangeDate >= @CurrentDate
+			AND (
+				e.ExchangeId IS NULL
+				OR ISNULL(o.Code, '')		<> ISNULL(e.Code, '')
+				OR ISNULL(o.ActualRate, 0)	<> ISNULL(e.ActualRate, 0)
+				OR ISNULL(o.VND, 0)			<> ISNULL(e.VND, 0)
+				OR ISNULL(o.EUR, 0)			<> ISNULL(e.EUR, 0)
+				OR ISNULL(o.USD, 0)			<> ISNULL(e.USD, 0)
+				OR ISNULL(o.CNY, 0)			<> ISNULL(e.CNY, 0)
+				OR ISNULL(o.MYR, 0)			<> ISNULL(e.MYR, 0)
+				OR ISNULL(o.THB, 0)			<> ISNULL(e.THB, 0)
+				OR ISNULL(o.IDR, 0)			<> ISNULL(e.IDR, 0)
+			)
 	END
 
 	-- Update SystemSettings
