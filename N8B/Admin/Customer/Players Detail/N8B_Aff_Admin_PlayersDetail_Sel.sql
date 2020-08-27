@@ -31,8 +31,9 @@ AS
 						5 = Turnover
 						6 = Winloss
 						7 = Bonus
-						8 = Banking Fee
-						9 = IBCUsername
+						8 = Deposit Fee
+						9 = Withdrawal Fee
+						10 = IBCUsername
 		- @IsSortAsc:	0 = DESC
 						1 = ASC
 */
@@ -92,19 +93,31 @@ BEGIN
 	IF @NRows = 0
 		RETURN
 
-	DECLARE @BankingRate DECIMAL(9, 8) = 0, @BankingAmount MONEY = 0
-	SELECT  @BankingRate = ISNULL(dsh.DeductedPercentage, 0), @BankingAmount = ISNULL(dsh.DeductedAmount, 0)
+	-- Get Banking Fee
+	DECLARE @DepositRate DECIMAL(9, 8) = 0, @DepositAmount MONEY = 0
+			,@WithdrawalRate DECIMAL(9, 8) = 0, @WithdrawalAmount MONEY = 0
+	
+	SELECT  @DepositRate = CASE WHEN DeductionID = 13 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE @DepositRate END
+			,@DepositAmount = CASE WHEN DeductionID = 13 THEN ISNULL(dsh.DeductedAmount, 0) ELSE @DepositAmount END
+			,@WithdrawalRate = CASE WHEN DeductionID = 14 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE @WithdrawalRate END
+			,@WithdrawalAmount = CASE WHEN DeductionID = 14 THEN ISNULL(dsh.DeductedAmount, 0) ELSE @WithdrawalAmount END
 	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
 		INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupID = dsh.GroupID AND agh.MonthDate = dsh.MonthDate
-	WHERE dsh.DeductionID = 12 AND agh.MonthDate = @ToEndMonth
+	WHERE dsh.DeductionID IN (13, 14)
+		AND agh.MonthDate = @ToEndMonth
 		AND agh.AffID = @AffId
+
+	SELECT @DepositRate = ISNULL(@DepositRate, 0), @DepositAmount = ISNULL(@DepositAmount, 0)
+			,@WithdrawalRate = ISNULL(@WithdrawalRate, 0), @WithdrawalAmount = ISNULL(@WithdrawalAmount, 0)
 
 	IF @BaseCurrency <> 0
 	BEGIN
-		DECLARE @AffCurrency INT
+		DECLARE @AffCurrency INT, @Rate FLOAT
 		SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
+		SELECT  @Rate = Rate FROM dbo.Aff_f_ExchangeRate_Sel(@ToEndMonth, @AffCurrency, @BaseCurrency)
 
-		SELECT @BankingAmount = @BankingAmount * Rate FROM dbo.Aff_f_ExchangeRate_Sel(@ToEndMonth, @AffCurrency, @BaseCurrency)
+		SELECT  @DepositAmount = @DepositAmount * @Rate
+				,@WithdrawalAmount = @WithdrawalAmount * @Rate
 	END
 
 	-- Paging
@@ -115,7 +128,7 @@ BEGIN
 	ELSE
 		SELECT @RowStart =  1, @RowEnd = @NRows
 
-	SELECT CustId, UserName, IBCUserName, RegisteredDate, Deposit, Withdrawal, Turnover, Winloss, Bonus, BankingFee
+	SELECT CustId, UserName, IBCUserName, RegisteredDate, Deposit, Withdrawal, Turnover, Winloss, Bonus, DepositFee, WithdrawalFee
 	FROM
 	(
 		SELECT
@@ -128,27 +141,30 @@ BEGIN
 			,d.Turnover
 			,d.Winloss
 			,d.Bonus
-			,(d.Deposit + d.Withdrawal) * ISNULL(@BankingRate, 0) + ISNULL(@BankingAmount, 0) AS BankingFee
+			,d.Deposit * @DepositRate + @DepositAmount AS DepositFee
+			,d.Withdrawal * @WithdrawalRate + @WithdrawalAmount AS WithdrawalFee
 			,ROW_NUMBER() OVER(ORDER BY
-				 (CASE WHEN @IsSortAsc = 1 AND @SortById = 1 THEN m.UserName				END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 2 THEN m.RegisteredDate			END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 3 THEN d.Deposit					END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 4 THEN d.Withdrawal				END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 5 THEN d.Turnover				END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 6 THEN d.Winloss					END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 7 THEN d.Bonus					END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 8 THEN d.Deposit + d.Withdrawal	END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 9 THEN m.IBCUserName				END) ASC
+				 (CASE WHEN @IsSortAsc = 1 AND @SortById =  1 THEN m.UserName		END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  2 THEN m.RegisteredDate	END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  3 THEN d.Deposit		END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  4 THEN d.Withdrawal		END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  5 THEN d.Turnover		END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  6 THEN d.Winloss		END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  7 THEN d.Bonus			END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  8 THEN d.Deposit		END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  9 THEN d.Deposit		END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 10 THEN m.IBCUserName	END) ASC
 				
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 1 THEN m.UserName				END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 2 THEN m.RegisteredDate			END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 3 THEN d.Deposit					END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 4 THEN d.Withdrawal				END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 5 THEN d.Turnover				END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 6 THEN d.Winloss					END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 7 THEN d.Bonus					END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 8 THEN d.Deposit + d.Withdrawal	END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 9 THEN m.IBCUserName				END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  1 THEN m.UserName		END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  2 THEN m.RegisteredDate	END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  3 THEN d.Deposit		END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  4 THEN d.Withdrawal		END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  5 THEN d.Turnover		END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  6 THEN d.Winloss		END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  7 THEN d.Bonus			END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  8 THEN d.Deposit		END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  9 THEN d.Withdrawal		END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 10 THEN m.IBCUserName	END) DESC
 			) AS RN
 		FROM #tmpData d
 			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId

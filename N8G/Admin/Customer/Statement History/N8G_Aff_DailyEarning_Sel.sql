@@ -85,19 +85,30 @@ BEGIN
 		END
 
 		-- Get Banking Fee
-		DECLARE @BankingRate DECIMAL(9, 8) = 0, @BankingAmount MONEY = 0
-		SELECT  @BankingRate = ISNULL(dsh.DeductedPercentage, 0), @BankingAmount = ISNULL(dsh.DeductedAmount, 0)
+		DECLARE @DepositRate DECIMAL(9, 8) = 0, @DepositAmount MONEY = 0
+				,@WithdrawalRate DECIMAL(9, 8) = 0, @WithdrawalAmount MONEY = 0
+	
+		SELECT  @DepositRate = CASE WHEN DeductionID = 13 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE @DepositRate END
+				,@DepositAmount = CASE WHEN DeductionID = 13 THEN ISNULL(dsh.DeductedAmount, 0) ELSE @DepositAmount END
+				,@WithdrawalRate = CASE WHEN DeductionID = 14 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE @WithdrawalRate END
+				,@WithdrawalAmount = CASE WHEN DeductionID = 14 THEN ISNULL(dsh.DeductedAmount, 0) ELSE @WithdrawalAmount END
 		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-			INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.MonthDate = dsh.MonthDate AND agh.GroupId = dsh.GroupId
-		WHERE agh.AffId = @AffId AND agh.MonthDate = @EndOfMonth
-			AND dsh.DeductionID = 12 -- Banking Fee
+			INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupID = dsh.GroupID AND agh.MonthDate = dsh.MonthDate
+		WHERE dsh.DeductionID IN (13, 14)
+			AND agh.MonthDate = @EndOfMonth
+			AND agh.AffID = @AffId
+
+		SELECT @DepositRate = ISNULL(@DepositRate, 0), @DepositAmount = ISNULL(@DepositAmount, 0)
+				,@WithdrawalRate = ISNULL(@WithdrawalRate, 0), @WithdrawalAmount = ISNULL(@WithdrawalAmount, 0)
 
 		IF @BaseCurrency <> 0
 		BEGIN
-			DECLARE @AffCurrency INT
+			DECLARE @AffCurrency INT, @Rate FLOAT
 			SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
+			SELECT  @Rate = Rate FROM dbo.Aff_f_ExchangeRate_Sel(@EndOfMonth, @AffCurrency, @BaseCurrency)
 
-			SELECT @BankingAmount = @BankingAmount * Rate FROM dbo.Aff_f_ExchangeRate_Sel(@EndOfMonth, @AffCurrency, @BaseCurrency)
+			SELECT  @DepositAmount = @DepositAmount * @Rate
+					,@WithdrawalAmount = @WithdrawalAmount * @Rate
 		END
 	END
 	
@@ -111,7 +122,8 @@ BEGIN
 			,SUM(ISNULL(Winloss, 0))	AS MemberWinlost
 			,SUM(ISNULL(Winloss, 0))	AS MemberWinlostFake
 			,SUM(ISNULL(Bonus, 0))		AS Bonus
-			,SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * ISNULL(@BankingRate, 0) + ISNULL(@BankingAmount, 0)) AS BankingFee
+			,SUM(ISNULL(Deposit, 0) * @DepositRate + @DepositAmount) AS DepositFee
+			,SUM(ISNULL(Withdrawal, 0) * @WithdrawalRate + @WithdrawalAmount) AS WithdrawalFee
 		FROM #Data
 		GROUP BY
 			WinlostDate
@@ -124,7 +136,8 @@ BEGIN
 			,SUM(ISNULL(Winloss, 0))	AS MemberWinlost
 			,SUM(ISNULL(Winloss, 0))	AS MemberWinlostFake
 			,SUM(ISNULL(Bonus, 0))		AS Bonus
-			,SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * ISNULL(@BankingRate, 0) + + ISNULL(@BankingAmount, 0)) AS BankingFee
+			,SUM(ISNULL(Deposit, 0) * @DepositRate + @DepositAmount) AS DepositFee
+			,SUM(ISNULL(Withdrawal, 0) * @WithdrawalRate + @WithdrawalAmount) AS WithdrawalFee
 		FROM #Data
 		HAVING SUM(ISNULL(Deposit, 0)) IS NOT NULL
 	END
