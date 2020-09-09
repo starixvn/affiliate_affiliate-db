@@ -66,7 +66,6 @@ BEGIN
 		UPDATE dbo.AffDomain WITH (ROWLOCK)
 		SET ModifyDate	= GETDATE()
 			,DomainName = @DomainName
-			,Creator	= @UserId
 			,IsSSL		= @IsSSL
 		WHERE DomainId	= @DomainId
 	END TRY
