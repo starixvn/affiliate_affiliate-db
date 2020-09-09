@@ -20,6 +20,7 @@ AS
 		- 20191130@Percy: Add Playtech Casino [RedmineID: #124784]
 		- 20191206@Percy: Integrate new products: 12Topaz, LB Keno, GPI lottery, VR Lottery [RedmineID: #117197]
 		- 20200707@Percy: Integrate new product: KY Gaming [RedmineID: #131437]
+		- 20200827@Percy: Re-Integrate 12Topaz due to API's change [RedmineID: #139043]
 */
 
 BEGIN
@@ -611,38 +612,35 @@ BEGIN
 		-- 12 Topaz
 		ELSE IF @ProductId = 23
 		BEGIN
-			CREATE TABLE #Topaz (id BIGINT, partyId INT, userId VARCHAR(50), gameInfoId INT, gameTranId VARCHAR(100), platformCode VARCHAR(20), platformTranId VARCHAR(50), gameId VARCHAR(20), tranType VARCHAR(20), dateTime DATETIME, amount MONEY, currency VARCHAR(3), balance MONEY, rollbackTranId BIGINT, rollbackTranType VARCHAR(20))
+			CREATE TABLE #Topaz (id	BIGINT, betcount INT, wager MONEY, payout MONEY, revenue MONEY, account_id BIGINT, account_ext_ref VARCHAR(50), currency_unit VARCHAR(5), transaction_time DATETIME, created DATETIME, category VARCHAR(50))
 
 			BEGIN TRY
-				INSERT INTO #Topaz (id, partyId, userId, gameInfoId, gameTranId, platformCode, platformTranId, gameId, tranType, dateTime, amount, currency, balance, rollbackTranId, rollbackTranType)
-				SELECT	t.c.value('(id/text())[1]', 'BIGINT')						AS id,
-						t.c.value('(partyId/text())[1]', 'INT')						AS partyId,
-						t.c.value('(userId/text())[1]', 'VARCHAR(50)')				AS userId,
-						t.c.value('(gameInfoId/text())[1]', 'INT')					AS gameInfoId,
-						t.c.value('(gameTranId/text())[1]', 'VARCHAR(100)')			AS gameTranId,
-						t.c.value('(platformCode/text())[1]', 'VARCHAR(20)')		AS platformCode,
-						t.c.value('(platformTranId/text())[1]', 'VARCHAR(50)')		AS platformTranId,
-						t.c.value('(gameId/text())[1]', 'VARCHAR(20)')				AS gameId,
-						t.c.value('(tranType/text())[1]', 'VARCHAR(20)')			AS tranType,
-						t.c.value('(dateTime/text())[1]', 'DATETIME')				AS dateTime,
-						t.c.value('(amount/text())[1]', 'MONEY')					AS amount,
-						t.c.value('(currency/text())[1]', 'VARCHAR(3)')				AS currency,
-						t.c.value('(balance/text())[1]', 'MONEY')					AS balance,
-						t.c.value('(rollbackTranId/text())[1]', 'BIGINT')			AS rollbackTranId,
-						t.c.value('(rollbackTranType/text())[1]', 'VARCHAR(20)')	AS rollbackTranType
-				FROM @XmlData.nodes('root/transactions') AS t(c)
+				INSERT INTO #Topaz (id, betcount, wager, payout, revenue, account_id, account_ext_ref, currency_unit, transaction_time, created, category)
+				SELECT	t.c.value('(id/text())[1]', 'BIGINT')					AS id,
+						t.c.value('(num_of_wager/text())[1]', 'INT')			AS betcount,
+						t.c.value('(sum_of_wager/text())[1]', 'MONEY')			AS wager,
+						t.c.value('(sum_of_payout/text())[1]', 'MONEY')			AS payout,
+						t.c.value('(revenue/text())[1]', 'MONEY')				AS revenue,
+						t.c.value('(account_id/text())[1]', 'BIGINT')			AS account_id,
+						t.c.value('(account_ext_ref/text())[1]', 'VARCHAR(50)')	AS account_ext_ref,
+						t.c.value('(currency_unit/text())[1]', 'VARCHAR(5)')	AS currency_unit,
+						t.c.value('(transaction_time/text())[1]', 'DATETIME')	AS transaction_time,
+						t.c.value('(created/text())[1]', 'DATETIME')			AS created,
+						t.c.value('(category/text())[1]', 'VARCHAR(50)')		AS category
+				FROM @XmlData.nodes('root/data') AS t(c)
+				WHERE t.c.value('(category/text())[1]', 'VARCHAR(50)') = 'ENDROUND'
 				OPTION (OPTIMIZE FOR (@XmlData = NULL))
 
 				DELETE bt WITH (ROWLOCK, UPDLOCK)
-				FROM dbo.bettrans_Topaz bt
+				FROM dbo.bettrans_Topaz2 bt
 				WHERE EXISTS (SELECT 1 FROM #Topaz t WHERE bt.id = t.id)
 				
-				INSERT INTO dbo.bettrans_Topaz (id, partyId, userId, gameInfoId, gameTranId, platformCode, platformTranId, gameId, tranType, dateTime, amount, currency, balance, rollbackTranId, rollbackTranType, IBCCustId, WinlostDate)
-				SELECT t.id, t.partyId, t.userId, t.gameInfoId, t.gameTranId, t.platformCode, t.platformTranId, t.gameId, t.tranType, t.dateTime, t.amount, t.currency, t.balance, t.rollbackTranId, t.rollbackTranType, m.IBCCustId, CONVERT(DATE, t.dateTime) AS WinlostDate
+				INSERT INTO dbo.bettrans_Topaz2 (id, betcount, wager, payout, revenue, account_id, account_ext_ref, currency_unit, transaction_time, created, category, IBCCustId, WinlostDate)
+				SELECT t.id, t.betcount, t.wager, t.payout, t.revenue, t.account_id, t.account_ext_ref, t.currency_unit, t.transaction_time, t.created, t.category, m.IBCCustId, CONVERT(DATE, t.transaction_time) AS WinlostDate
 				FROM #Topaz t
-					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON '12BET$' + t.userId = m.Username
+					INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON t.account_ext_ref = m.Username
 
-				SELECT @WinlostDate = MIN(CONVERT(DATE, dateTime)) FROM #Topaz
+				SELECT @WinlostDate = MIN(CONVERT(DATE, transaction_time)) FROM #Topaz
 
 				SELECT @IsErr = 0
 			END TRY
