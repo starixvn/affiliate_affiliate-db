@@ -33,7 +33,7 @@ AS
 				<row id="1" minamount="0" maxamount="100" minam="0" maxam="5" commission="0.2" />
 				<row id="2" minamount="101" maxamount="100000000000000" minam="6" maxam="1000000000" commission="0.3" />
 			</root>
-		- Note: Infinite value of MaxAmount is 100,000,000,000,000 and MaxAM is 1,000,000,000
+		- Note: Infinite value of MaxAmount is 100,000,000,000 and MaxAM is 1,000,000,000
 */
 
 BEGIN
@@ -119,7 +119,7 @@ BEGIN
 		RETURN
 	END
 
-	DECLARE @Infinity_Amount MONEY = 100000000000000, @Inifinity_QM INT = 1000000000
+	DECLARE @Infinity_Amount MONEY = 100000000000, @Inifinity_QM INT = 1000000000
 	IF EXISTS
 		(
 			SELECT 1

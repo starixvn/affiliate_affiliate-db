@@ -74,7 +74,8 @@ BEGIN
 			-- Fees
 			PlatFormFee			MONEY,
 			OperationalFee		MONEY,
-			BankingFee			MONEY,
+			DepositFee			MONEY,
+			WithdrawalFee		MONEY,
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
@@ -99,7 +100,8 @@ BEGIN
 			Winloss,
 			PlatFormFee,
 			OperationalFee,
-			BankingFee,
+			DepositFee,
+			WithdrawalFee,
 			GrossWinloss,
 			NetWinloss,
 			ActivePlayer,

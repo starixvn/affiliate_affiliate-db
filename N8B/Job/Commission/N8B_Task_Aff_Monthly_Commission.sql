@@ -67,7 +67,8 @@ BEGIN
 			-- Fees
 			PlatFormFee			MONEY,
 			OperationalFee		MONEY,
-			BankingFee			MONEY,
+			DepositFee			MONEY,
+			WithdrawalFee		MONEY,
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
@@ -93,7 +94,8 @@ BEGIN
 			Winloss,
 			PlatFormFee,
 			OperationalFee,
-			BankingFee,
+			DepositFee,
+			WithdrawalFee,
 			GrossWinloss,
 			NetWinloss,
 			ActivePlayer,
@@ -193,7 +195,8 @@ BEGIN
 		dsh.DeductionId,
 		CASE dsh.DeductionId	WHEN 10 THEN tc.PlatFormFee
 								WHEN 11 THEN tc.OperationalFee
-								WHEN 12 THEN tc.BankingFee
+								WHEN 13 THEN tc.DepositFee
+								WHEN 14 THEN tc.WithdrawalFee
 								END AS Amount
 	FROM #TempCommission tc
 		INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON tc.MonthDate = dsh.MonthDate AND tc.GroupId = dsh.GroupId AND tc.ProductId = dsh.ProductId

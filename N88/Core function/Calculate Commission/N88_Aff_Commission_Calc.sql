@@ -33,26 +33,27 @@ BEGIN
 
 	CREATE TABLE #AffCommission
 	(
-		MonthDate				SMALLDATETIME,
-		AffId					INT,
-		GroupId					INT,
-		ProductId				INT,
-		Deposit					MONEY,
-		Withdrawal				MONEY,
-		Bonus					MONEY,
-		Turnover				MONEY,
-		Winloss					MONEY,
-		GrossWinloss			MONEY,
-		NetWinloss				MONEY,
-		PlatFormFee				MONEY,
-		OperationalFee			MONEY,
-		BankingFee				MONEY,
-		ActivePlayer			INT,
-		QualifiedMember			INT,
-		QMTurnover				MONEY,
-		CommissionRate			DECIMAL(9,8),
-		Commission				MONEY,
-		SubAffCommission		MONEY
+		MonthDate			SMALLDATETIME,
+		AffId				INT,
+		GroupId				INT,
+		ProductId			INT,
+		Deposit				MONEY,
+		Withdrawal			MONEY,
+		Bonus				MONEY,
+		Turnover			MONEY,
+		Winloss				MONEY,
+		GrossWinloss		MONEY,
+		NetWinloss			MONEY,
+		PlatFormFee			MONEY,
+		OperationalFee		MONEY,
+		DepositFee			MONEY,
+		WithdrawalFee		MONEY,
+		ActivePlayer		INT,
+		QualifiedMember		INT,
+		QMTurnover			MONEY,
+		CommissionRate		DECIMAL(9,8),
+		Commission			MONEY,
+		SubAffCommission	MONEY
 	)
 
 	BEGIN
@@ -115,9 +116,10 @@ BEGIN
 				SELECT
 					MonthDate,
 					AffId,
-					SUM(ABS(PlatFormFee))		AS PlatFormFee,
-					SUM(OperationalFee)			AS OperationalFee,
-					SUM(BankingFee)				AS BankingFee
+					SUM(ABS(PlatFormFee))	AS PlatFormFee,
+					SUM(OperationalFee)		AS OperationalFee,
+					SUM(DepositFee)			AS DepositFee,
+					SUM(WithdrawalFee)		AS WithdrawalFee
 				FROM
 				(
 					SELECT
@@ -126,7 +128,8 @@ BEGIN
 						ad.GroupProductId,
 						SUM(CASE WHEN ad.DeductionId = 10 THEN ad.Amount ELSE 0 END) AS PlatFormFee,
 						SUM(CASE WHEN ad.DeductionId = 11 THEN ad.Amount ELSE 0 END) AS OperationalFee,
-						SUM(CASE WHEN ad.DeductionId = 12 THEN ad.Amount ELSE 0 END) AS BankingFee
+						SUM(CASE WHEN ad.DeductionId = 13 THEN ad.Amount ELSE 0 END) AS DepositFee,
+						SUM(CASE WHEN ad.DeductionId = 14 THEN ad.Amount ELSE 0 END) AS WithdrawalFee
 					FROM @MonthDate md
 						CROSS APPLY dbo.rptAffDeduction ad WITH (NOLOCK)
 					WHERE md.MonthDate = ad.MonthDate
@@ -140,9 +143,10 @@ BEGIN
 					AffId
 			)
 			UPDATE d
-			SET d.PlatFormFee			= f.PlatFormFee,
-				d.OperationalFee		= f.OperationalFee,
-				d.BankingFee			= f.BankingFee
+			SET d.PlatFormFee		= f.PlatFormFee,
+				d.OperationalFee	= f.OperationalFee,
+				d.DepositFee		= f.DepositFee,
+				d.WithdrawalFee		= f.WithdrawalFee
 			FROM #AffCommission d
 				INNER JOIN CTE_Fees f ON d.MonthDate = f.MonthDate AND d.AffId = f.AffId
 			WHERE d.ProductId = 0
@@ -205,9 +209,10 @@ BEGIN
 				SELECT
 					MonthDate,
 					AffId,
-					SUM(ABS(PlatFormFee))		AS PlatFormFee,
-					SUM(OperationalFee)			AS OperationalFee,
-					SUM(BankingFee)				AS BankingFee
+					SUM(ABS(PlatFormFee))	AS PlatFormFee,
+					SUM(OperationalFee)		AS OperationalFee,
+					SUM(DepositFee)			AS DepositFee,
+					SUM(WithdrawalFee)		AS WithdrawalFee
 				FROM
 				(
 					SELECT
@@ -216,7 +221,8 @@ BEGIN
 						ad.GroupProductId,
 						SUM(CASE WHEN ad.DeductionId = 10 THEN ad.Amount ELSE 0 END) AS PlatFormFee,
 						SUM(CASE WHEN ad.DeductionId = 11 THEN ad.Amount ELSE 0 END) AS OperationalFee,
-						SUM(CASE WHEN ad.DeductionId = 12 THEN ad.Amount ELSE 0 END) AS BankingFee
+						SUM(CASE WHEN ad.DeductionId = 13 THEN ad.Amount ELSE 0 END) AS DepositFee,
+						SUM(CASE WHEN ad.DeductionId = 14 THEN ad.Amount ELSE 0 END) AS WithdrawalFee
 					FROM @MonthDate md
 						CROSS APPLY dbo.rptAffDeduction ad WITH (NOLOCK)
 					WHERE md.MonthDate = ad.MonthDate AND md.AffId = ad.AffId
@@ -230,9 +236,10 @@ BEGIN
 					AffId
 			)
 			UPDATE d
-			SET d.PlatFormFee			= f.PlatFormFee,
-				d.OperationalFee		= f.OperationalFee,
-				d.BankingFee			= f.BankingFee
+			SET d.PlatFormFee		= f.PlatFormFee,
+				d.OperationalFee	= f.OperationalFee,
+				d.DepositFee		= f.DepositFee,
+				d.WithdrawalFee		= f.WithdrawalFee
 			FROM #AffCommission d
 				INNER JOIN CTE_Fees f ON d.MonthDate = f.MonthDate AND d.AffId = f.AffId
 			WHERE d.ProductId = 0
@@ -252,7 +259,8 @@ BEGIN
 			c.Winloss			= c.Winloss * e.Rate,
 			c.PlatFormFee		= c.PlatFormFee * e.Rate,
 			c.OperationalFee	= c.OperationalFee * e.Rate,
-			c.BankingFee		= c.BankingFee * e.Rate,
+			c.DepositFee		= c.DepositFee * e.Rate,
+			c.WithdrawalFee		= c.WithdrawalFee * e.Rate,
 			c.GrossWinloss		= c.GrossWinloss * e.Rate,
 			c.NetWinloss		= c.NetWinloss * e.Rate,
 			c.Commission		= c.Commission * e.Rate,
@@ -307,9 +315,10 @@ BEGIN
 			SUM(Bonus)		AS Bonus,
 			SUM(Turnover)	AS Turnover,
 			SUM(Winloss)	AS Winloss,
-			SUM(ISNULL(PlatFormFee, 0))				AS PlatFormFee,
-			SUM(ISNULL(OperationalFee, 0))			AS OperationalFee,
-			SUM(ISNULL(BankingFee, 0))				AS BankingFee,
+			SUM(ISNULL(PlatFormFee, 0))		AS PlatFormFee,
+			SUM(ISNULL(OperationalFee, 0))	AS OperationalFee,
+			SUM(ISNULL(DepositFee, 0))		AS DepositFee,
+			SUM(ISNULL(WithdrawalFee, 0))	AS WithdrawalFee,
 			SUM(GrossWinloss)		AS GrossWinloss,
 			SUM(NetWinloss)			AS NetWinloss,
 			SUM(ActivePlayer)		AS ActivePlayer,
@@ -336,9 +345,10 @@ BEGIN
 			Bonus,
 			Turnover,
 			Winloss,
-			ISNULL(PlatFormFee, 0)			AS PlatFormFee,
-			ISNULL(OperationalFee, 0)		AS OperationalFee,
-			ISNULL(BankingFee, 0)			AS BankingFee,
+			ISNULL(PlatFormFee, 0)		AS PlatFormFee,
+			ISNULL(OperationalFee, 0)	AS OperationalFee,
+			ISNULL(DepositFee, 0)		AS DepositFee,
+			ISNULL(WithdrawalFee, 0)	AS WithdrawalFee,
 			GrossWinloss,
 			NetWinloss,
 			ActivePlayer,

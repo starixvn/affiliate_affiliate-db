@@ -19,18 +19,27 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @AffId INT
-	SELECT  @AffId = AffId FROM dbo.AffInfo WITH (NOLOCK) WHERE UserName = @UserName
+	DECLARE @AffId INT, @GroupId INT
+	SELECT  @AffId = AffId, @GroupId = GroupId FROM dbo.AffInfo WITH (NOLOCK) WHERE UserName = @UserName
 
 	IF @@ROWCOUNT = 0
 		RETURN
 
+	-- Get max sub affiliate level
 	DECLARE @MaxSubLevel SMALLINT
 	SELECT  @MaxSubLevel = CONVERT(SMALLINT, SValue)
 	FROM dbo.SystemSettings WITH (NOLOCK)
 	WHERE SName = 'MaxSubLevel'
 
 	SELECT @MaxSubLevel = ISNULL(@MaxSubLevel, 0)
+
+	-- Get deposit & withdrawal fee setting
+	DECLARE @Dep_IsDeductedPercent BIT, @Wit_IsDeductedPercent BIT
+	SELECT  @Dep_IsDeductedPercent = CASE WHEN DeductionId = 13 THEN IsDeductedPercent ELSE @Dep_IsDeductedPercent END
+			,@Wit_IsDeductedPercent = CASE WHEN DeductionId = 14 THEN IsDeductedPercent ELSE @Wit_IsDeductedPercent END
+	FROM dbo.DeductionSetting WITH (NOLOCK)
+	WHERE GroupId = @GroupId
+		AND DeductionId IN (13, 14)
 
 	SELECT
 		ai.AffID
@@ -42,6 +51,8 @@ BEGIN
 		,ai.Status
 		,ad.PreferredLanguage
 		,CASE WHEN l.SubLevel >= @MaxSubLevel THEN 1 ELSE 0 END AS IsMaxSubLevel
+		,ISNULL(@Dep_IsDeductedPercent, 0) AS Dep_IsDeductedPercent
+		,ISNULL(@Wit_IsDeductedPercent, 0) AS Wit_IsDeductedPercent
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffID = ad.AffID
 		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupID = cg.GroupID
