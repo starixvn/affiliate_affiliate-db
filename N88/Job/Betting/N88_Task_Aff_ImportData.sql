@@ -6,7 +6,7 @@ AS
 /*
 	Created: 20200220@Percy
 	DB: DBAFFN88-Affiliate_N88
-	Task: Job - Import data of IBC's Products
+	Task: Job - Import data
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
@@ -15,71 +15,33 @@ AS
 BEGIN 
 	SET NOCOUNT ON
 
-	DECLARE @MoveBetsDay SMALLDATETIME
-	SELECT  @MoveBetsDay = MAX(eventdate) FROM bodb02.dbo.match14 WITH (NOLOCK)
-
-	IF @WinlostDate IS NULL OR @WinlostDate <= @MoveBetsDay
-		RETURN
+	-- Update product list
+	BEGIN
+		BEGIN TRY
+			INSERT INTO dbo.Products (ProductId,ProductName,ProductPrefix,IsIBC,Enabled,IsTest,ReleasedDate,RefProductId,DataSource)
+			SELECT g.Type, g.TypeName, '', 0, 1, 0, CONVERT(DATE, GETDATE()), g.Type, 'TpBetRecord'
+			FROM bodb_N88.dbo.TpGameType g WITH (NOLOCK)
+				LEFT JOIN dbo.Products p WITH (NOLOCK) ON g.Type = p.RefProductId
+			WHERE p.RefProductId IS NULL
+		END TRY
+		BEGIN CATCH
+			PRINT 'Invalid import new product!'
+		END CATCH
+	END
 
 	-- Get data
 	BEGIN
-		CREATE TABLE #_bettype (ProductId INT, bettype SMALLINT)
-		INSERT INTO #_bettype (ProductId, bettype)
-		SELECT DISTINCT p.ProductId, s.bettype -- bet types of bet tickets
+		DECLARE @TimeZone SMALLINT
+		SELECT  @TimeZone = CONVERT(SMALLINT, SValue)
+		FROM dbo.SystemSettings WITH (NOLOCK)
+		WHERE SName = 'TimeZone'
+
+		DECLARE @Products TABLE (ProductId INT, RefProductId INT)
+		INSERT INTO @Products (ProductId, RefProductId)
+		SELECT ProductId, RefProductId
 		FROM dbo.Products p WITH (NOLOCK)
-			INNER JOIN bodb02.dbo.Products ps WITH (NOLOCK) ON p.ProductPrefix = ps.ProductPrefix
-			INNER JOIN bodb02.dbo.SportBettypeMatrix s WITH (NOLOCK) ON ps.ProductID = s.ProductID
-		WHERE p.IsIBC = 1
-			AND p.Enabled = 1
-
-		UNION ALL -- bet types of transfer tickets
-		SELECT bt.ProductId, bt.Bettype
-		FROM (
-			VALUES
-				-- -1: Deposit
-				(-1, 22001),
-				-- -2: Withdrawal
-				(-2, 22002), (-2, 22003),
-				-- -3: Bonus
-				(-3, 22004), (-3, 22200),
-				-- -4: Adjustment
-				(-4, 21001), (-4, 21002), (-4, 21003), (-4, 21004), (-4, 21005),
-				(-4, 22005), (-4, 22201)
-		) AS bt (ProductId, Bettype)
-
-		CREATE TABLE #_recommend (recommend INT)
-		INSERT INTO #_recommend (recommend)
-		SELECT DISTINCT recommend
-		FROM dbo.MemberInfo WITH (NOLOCK)
-
-		CREATE TABLE #tmpBettrans
-		(
-			winlostdate	SMALLDATETIME
-			,custid		INT
-			,ProductId	INT
-			,Deposit	MONEY
-			,Withdrawal	MONEY
-			,Bonus		MONEY
-			,Adjustment	MONEY
-			,Turnover	MONEY
-			,Winloss	MONEY
-		)
-		INSERT INTO #tmpBettrans (custid, winlostdate, ProductId, Deposit, Withdrawal, Bonus, Adjustment, Turnover, Winloss)
-		SELECT b.custid, b.winlostdate, CASE WHEN bt.ProductId < 0 THEN -1 ELSE bt.ProductId END AS ProductId
-			,SUM(CASE WHEN bt.ProductId = -1 THEN b.winlost-b.actual_stake		ELSE 0 END) AS Deposit
-			,SUM(CASE WHEN bt.ProductId = -2 THEN -(b.winlost-b.actual_stake)	ELSE 0 END) AS Withdrawal
-			,SUM(CASE WHEN bt.ProductId = -3 THEN b.winlost-b.actual_stake		ELSE 0 END) AS Bonus
-			,SUM(CASE WHEN bt.ProductId = -4 THEN b.winlost-b.actual_stake		ELSE 0 END) AS Adjustment
-			,SUM(CASE WHEN bt.ProductId > 0 AND b.bettype <> 911 THEN b.stake	ELSE 0 END) AS Turnover
-			,SUM(CASE WHEN bt.ProductId > 0 THEN b.winlost-b.actual_stake+b.playercomm ELSE 0 END) AS Winloss
-		FROM bodb02.dbo.bettrans b WITH (NOLOCK)
-			INNER JOIN #_recommend r ON b.recommend = r.recommend
-			INNER JOIN #_bettype bt ON b.bettype = bt.bettype
-		WHERE b.winlostdate = @WinlostDate
-			AND b.statusID NOT IN (0, 1, 101, 102, 103)
-		GROUP BY b.custid, b.winlostdate, CASE WHEN bt.ProductId < 0 THEN -1 ELSE bt.ProductId END
-
-		DROP TABLE #_recommend
+		WHERE IsIBC = 0
+			AND DataSource = 'TpBetRecord'
 
 		CREATE TABLE #rptMemberDaily
 		(
@@ -87,24 +49,22 @@ BEGIN
 			,Currency		INT
 			,AffId			INT
 			,ProductId		INT
-			,Deposit		MONEY
-			,Withdrawal		MONEY
-			,Bonus			MONEY
-			,Adjustment		MONEY
-			,Turnover		MONEY
-			,Winloss		MONEY
+			,Deposit		MONEY DEFAULT (0)
+			,Withdrawal		MONEY DEFAULT (0)
+			,Bonus			MONEY DEFAULT (0)
+			,Adjustment		MONEY DEFAULT (0)
+			,Turnover		MONEY DEFAULT (0)
+			,Winloss		MONEY DEFAULT (0)
 			,AffExRate		FLOAT
 		)
+
+		-- Bet tickets
 		INSERT INTO #rptMemberDaily
 		(
 			CustId
 			,Currency
 			,AffId
 			,ProductId
-			,Deposit
-			,Withdrawal
-			,Bonus
-			,Adjustment
 			,Turnover
 			,Winloss
 			,AffExRate
@@ -113,30 +73,89 @@ BEGIN
 			mi.CustId
 			,mi.Currency
 			,mi.AffId
-			,b.ProductId
-			,SUM(ISNULL(b.Deposit, 0)) AS Deposit
-			,SUM(ISNULL(b.Withdrawal, 0)) AS Withdrawal
-			,SUM(ISNULL(b.Bonus, 0)) AS Bonus
-			,SUM(ISNULL(b.Adjustment, 0)) AS Adjustment
-			,SUM(ISNULL(b.Turnover, 0)) AS Turnover
-			,SUM(ISNULL(b.Winloss, 0)) AS Winloss
+			,p.ProductId
+			,SUM(b.Stake * 1.0 / CASE WHEN e.Code IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END)			AS Turnover
+			,SUM(b.WinlostAmount * 1.0 / CASE WHEN e.Code IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END)	AS Winloss
 			,e.Rate
-		FROM #tmpBettrans b
-			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON b.custid = mi.IBCCustId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(b.winlostdate, mi.currency, 0) e
-		WHERE NOT EXISTS (
-				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-				WHERE mr.RemovedDate < DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, b.WinlostDate) + 1, 0))
-					AND mr.CustId = mi.CustId
-				)
+		FROM bodb_N88.dbo.TpBetRecord b WITH (NOLOCK)
+			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON b.CustId = mi.CustId
+			INNER JOIN @Products p ON b.GameType = p.RefProductId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@WinlostDate, mi.currency, 0) e
+		WHERE b.WinlostDate BETWEEN DATEADD(DAY, -1, @WinlostDate) AND DATEADD(DAY, 1, @WinlostDate)
+			AND b.TicketStatus IN (1, 2, 4) -- Won/Lose/Draw
+			AND CONVERT(DATE, DATEADD(HOUR, @TimeZone, b.SettledTime)) = @WinlostDate
 		GROUP BY
 			mi.CustId
 			,mi.Currency
 			,mi.AffId
-			,b.ProductId
+			,p.ProductId
 			,e.Rate
 
-		DROP TABLE #tmpBettrans
+		-- Deposit & Withdrawal
+		INSERT INTO #rptMemberDaily
+		(
+			CustId
+			,Currency
+			,AffId
+			,ProductId
+			,Deposit
+			,Withdrawal
+			,AffExRate
+		)
+		SELECT
+			CustId
+			,Currency
+			,AffId
+			,-1 AS ProductId
+			,SUM(Deposit)
+			,SUM(Withdrawal)
+			,Rate
+		FROM
+		(
+			SELECT
+				mi.CustId
+				,mi.Currency
+				,mi.AffId
+				,SUM(d.Amount) AS Deposit
+				,0 AS Withdrawal
+				,e.Rate
+			FROM bodb_N88.dbo.DepositInfo d WITH (NOLOCK)
+				INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@WinlostDate, mi.currency, 0) e
+			WHERE d.WinlostDate BETWEEN DATEADD(DAY, -1, @WinlostDate) AND DATEADD(DAY, 1, @WinlostDate)
+				AND d.Status = 3 -- Approved
+				AND CONVERT(DATE, DATEADD(HOUR, @TimeZone, d.CreateTime)) = @WinlostDate
+			GROUP BY
+				mi.CustId
+				,mi.Currency
+				,mi.AffId
+				,e.Rate
+
+			UNION ALL
+			SELECT
+				mi.CustId
+				,mi.Currency
+				,mi.AffId
+				,0 AS Deposit
+				,SUM(d.Amount) AS Withdrawal
+				,e.Rate
+			FROM bodb_N88.dbo.WithdrawalInfo d WITH (NOLOCK)
+				INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@WinlostDate, mi.currency, 0) e
+			WHERE d.WinlostDate BETWEEN DATEADD(DAY, -1, @WinlostDate) AND DATEADD(DAY, 1, @WinlostDate)
+				AND d.Status = 3 -- Approved
+				AND CONVERT(DATE, DATEADD(HOUR, @TimeZone, d.CreateTime)) = @WinlostDate
+			GROUP BY
+				mi.CustId
+				,mi.Currency
+				,mi.AffId
+				,e.Rate
+		) t
+		GROUP BY
+			CustId
+			,Currency
+			,AffId
+			,Rate
 	END
 
 	-- Gen data into rptMemberDaily
@@ -161,7 +180,7 @@ BEGIN
 			SELECT AffId,CustId,ProductId,Deposit,Withdrawal,Bonus,Adjustment,Turnover,Winloss,Currency,AffExRate
 			FROM dbo.rptMemberDaily WITH (NOLOCK)
 			WHERE winlostdate = @WinlostDate
-				AND ProductId IN (SELECT ProductId FROM #_bettype)
+				AND ProductId IN (SELECT ProductId FROM @Products)
 		)
 		INSERT INTO #_CheckData (ModifiedType, CustId, ProductId, AffId, Currency, AffExRate, Bonus, Turnover, Winloss, Deposit, Withdrawal, Adjustment)
 		SELECT
@@ -227,7 +246,6 @@ BEGIN
 		END
 	END
 
-	DROP TABLE #_bettype
 	DROP TABLE #_CheckData
 	DROP TABLE #rptMemberDaily
 END
