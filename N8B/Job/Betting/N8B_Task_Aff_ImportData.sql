@@ -43,6 +43,10 @@ BEGIN
 		WHERE IsIBC = 0
 			AND DataSource = 'TpBetRecord'
 
+		-- Deposit & Withdrawal
+		INSERT INTO @Products (ProductId, RefProductId)
+		VALUES (-1, -1)
+
 		CREATE TABLE #rptMemberDaily
 		(
 			CustId			INT
@@ -116,7 +120,7 @@ BEGIN
 				mi.CustId
 				,mi.Currency
 				,mi.AffId
-				,SUM(d.Amount) AS Deposit
+				,SUM(d.Amount * 1.0 / CASE WHEN e.Code IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END) AS Deposit
 				,0 AS Withdrawal
 				,e.Rate
 			FROM bodb_N88.dbo.DepositInfo d WITH (NOLOCK)
@@ -137,7 +141,7 @@ BEGIN
 				,mi.Currency
 				,mi.AffId
 				,0 AS Deposit
-				,SUM(d.Amount) AS Withdrawal
+				,SUM(d.Amount * 1.0 / CASE WHEN e.Code IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END) AS Withdrawal
 				,e.Rate
 			FROM bodb_N88.dbo.WithdrawalInfo d WITH (NOLOCK)
 				INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
