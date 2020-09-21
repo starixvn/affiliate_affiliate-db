@@ -59,12 +59,14 @@ BEGIN
 			Deposit			MONEY,
 			Withdrawal		MONEY,
 			Bonus			MONEY,
+			Rebate			MONEY,
 			Turnover		MONEY,
 			Winloss			MONEY,
 
 			Deposit_Base	MONEY,
 			Withdrawal_Base	MONEY,
 			Bonus_Base		MONEY,
+			Rebate_Base		MONEY,
 			Turnover_Base	MONEY,
 			Winloss_Base	MONEY,
 
@@ -82,12 +84,14 @@ BEGIN
 			Deposit,
 			Withdrawal,
 			Bonus,
+			Rebate,
 			Turnover,
 			Winloss,
 
 			Deposit_Base,
 			Withdrawal_Base,
 			Bonus_Base,
+			Rebate_Base,
 			Turnover_Base,
 			Winloss_Base
 		)
@@ -101,12 +105,14 @@ BEGIN
 			,SUM(ISNULL(md.Deposit, 0)		* ISNULL(md.AffExRate, 1)) AS Deposit
 			,SUM(ISNULL(md.Withdrawal, 0)	* ISNULL(md.AffExRate, 1)) AS Withdrawal
 			,SUM(ISNULL(md.Bonus, 0)		* ISNULL(md.AffExRate, 1)) AS Bonus
+			,SUM(ISNULL(md.Rebate, 0)		* ISNULL(md.AffExRate, 1)) AS Rebate
 			,SUM(ISNULL(md.Turnover, 0)		* ISNULL(md.AffExRate, 1)) AS Turnover
 			,SUM(ISNULL(md.Winloss, 0)		* ISNULL(md.AffExRate, 1)) AS Winloss
 
 			,SUM(ISNULL(md.Deposit, 0)		* ISNULL(e.Rate, 1)) AS Deposit_Base
 			,SUM(ISNULL(md.Withdrawal, 0)	* ISNULL(e.Rate, 1)) AS Withdrawal_Base
 			,SUM(ISNULL(md.Bonus, 0)		* ISNULL(e.Rate, 1)) AS Bonus_Base
+			,SUM(ISNULL(md.Rebate, 0)		* ISNULL(e.Rate, 1)) AS Rebate_Base
 			,SUM(ISNULL(md.Turnover, 0)		* ISNULL(e.Rate, 1)) AS Turnover_Base
 			,SUM(ISNULL(md.Winloss, 0)		* ISNULL(e.Rate, 1)) AS Winloss_Base
 		FROM dbo.rptMemberDaily md WITH (NOLOCK)
@@ -141,12 +147,14 @@ BEGIN
 				Deposit,
 				Withdrawal,
 				Bonus,
+				Rebate,
 				Turnover,
 				Winloss,
 
 				Deposit_Base,
 				Withdrawal_Base,
 				Bonus_Base,
+				Rebate_Base,
 				Turnover_Base,
 				Winloss_Base,
 
@@ -162,12 +170,14 @@ BEGIN
 				Deposit,
 				Withdrawal,
 				Bonus,
+				Rebate,
 				Turnover,
 				Winloss,
 
 				Deposit_Base,
 				Withdrawal_Base,
 				Bonus_Base,
+				Rebate_Base,
 				Turnover_Base,
 				Winloss_Base,
 
@@ -282,6 +292,7 @@ BEGIN
 			Deposit					MONEY DEFAULT (0),
 			Withdrawal				MONEY DEFAULT (0),
 			Bonus					MONEY DEFAULT (0),
+			Rebate					MONEY DEFAULT (0),
 			Turnover				MONEY DEFAULT (0),
 			Winloss					MONEY DEFAULT (0),
 			-- Fees
@@ -302,6 +313,7 @@ BEGIN
 			Deposit_Base			MONEY DEFAULT (0),
 			Withdrawal_Base			MONEY DEFAULT (0),
 			Bonus_Base				MONEY DEFAULT (0),
+			Rebate_Base				MONEY DEFAULT (0),
 			Turnover_Base			MONEY DEFAULT (0),
 			Winloss_Base			MONEY DEFAULT (0),
 			PlatFormFee_Base		MONEY DEFAULT (0),
@@ -356,12 +368,14 @@ BEGIN
 			Deposit,
 			Withdrawal,
 			Bonus,
+			Rebate,
 			Turnover,
 			Winloss,
 
 			Deposit_Base,
 			Withdrawal_Base,
 			Bonus_Base,
+			Rebate_Base,
 			Turnover_Base,
 			Winloss_Base,
 
@@ -373,12 +387,14 @@ BEGIN
 			SUM(Deposit)			AS Deposit,
 			SUM(Withdrawal)			AS Withdrawal,
 			SUM(Bonus)				AS Bonus,
+			SUM(Rebate)				AS Rebate,
 			SUM(Turnover)			AS Turnover,
 			SUM(Winloss)			AS Winloss,
 
 			SUM(Deposit_Base)		AS Deposit_Base,
 			SUM(Withdrawal_Base)	AS Withdrawal_Base,
 			SUM(Bonus_Base)			AS Bonus_Base,
+			SUM(Rebate_Base)		AS Rebate_Base,
 			SUM(Turnover_Base)		AS Turnover_Base,
 			SUM(Winloss_Base)		AS Winloss_Base,
 
@@ -391,12 +407,14 @@ BEGIN
 				,0 AS Deposit
 				,0 AS Withdrawal
 				,0 AS Bonus
+				,0 AS Rebate
 				,0 AS Turnover
 				,0 AS Winloss
 
 				,0 AS Deposit_Base
 				,0 AS Withdrawal_Base
 				,0 AS Bonus_Base
+				,0 AS Rebate_Base
 				,0 AS Turnover_Base
 				,0 AS Winloss_Base
 
@@ -410,12 +428,14 @@ BEGIN
 				,SUM(Deposit)			AS Deposit
 				,SUM(Withdrawal)		AS Withdrawal
 				,SUM(Bonus)				AS Bonus
+				,SUM(Rebate)			AS Rebate
 				,SUM(Turnover)			AS Turnover
 				,SUM(Winloss)			AS Winloss
 
 				,SUM(Deposit_Base)		AS Deposit_Base
 				,SUM(Withdrawal_Base)	AS Withdrawal_Base
 				,SUM(Bonus_Base)		AS Bonus_Base
+				,SUM(Rebate_Base)		AS Rebate_Base
 				,SUM(Turnover_Base)		AS Turnover_Base
 				,SUM(Winloss_Base)		AS Winloss_Base
 
@@ -488,7 +508,7 @@ BEGIN
 		UPDATE c
 		SET c.GrossWinloss			= e.GrossWinloss,
 			c.GrossWinloss_Base		= e.GrossWinloss_Base,
-			c.NetWinloss			= e.GrossWinloss - (c.PlatFormFee + c.OperationalFee + c.DepositFee + c.WithdrawalFee)
+			c.NetWinloss			= e.GrossWinloss - (c.PlatFormFee + c.OperationalFee + c.DepositFee + c.WithdrawalFee) - (c.Bonus + c.Rebate)
 		FROM #Commission c
 			CROSS APPLY (
 				SELECT
@@ -503,7 +523,7 @@ BEGIN
 		-- Commission
 		UPDATE c
 		SET c.CommissionRate	= ISNULL(s.Commission, 0),
-			c.Commission		= ISNULL(s.Commission, 0) * (c.NetWinloss - c.Bonus)
+			c.Commission		= ISNULL(s.Commission, 0) * c.NetWinloss
 		FROM #Commission c
 			CROSS APPLY (
 				SELECT gsh.TierId
@@ -665,7 +685,7 @@ BEGIN
 			SELECT
 				c.MonthDate
 				,f.val AS AffId
-				,SUM(POWER(@SubAffCommRate, f.Id) * (c.NetWinloss - c.Bonus) * c.CommissionRate) AS SubAffCommission
+				,SUM(POWER(@SubAffCommRate, f.Id) * c.NetWinloss * c.CommissionRate) AS SubAffCommission
 			FROM #Commission c
 				INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON agh.MonthDate = c.MonthDate AND agh.AffId = c.AffId
 				CROSS APPLY dbo.Aff_f_StringSplit(agh.AllParentAffId, ',') f
@@ -709,11 +729,13 @@ BEGIN
 		SET c.Deposit			= ISNULL(d.Deposit, 0),
 			c.Withdrawal		= ISNULL(d.Withdrawal, 0),
 			c.Bonus				= ISNULL(d.Bonus, 0),
+			c.Rebate			= ISNULL(d.Rebate, 0),
 			c.Turnover			= ISNULL(d.Turnover, 0),
 			c.Winloss			= ISNULL(d.Winloss, 0),
 			c.Deposit_Base		= ISNULL(d.Deposit_Base, 0),
 			c.Withdrawal_Base	= ISNULL(d.Withdrawal_Base, 0),
 			c.Bonus_Base		= ISNULL(d.Bonus_Base, 0),
+			c.Rebate_Base		= ISNULL(d.Rebate_Base, 0),
 			c.Turnover_Base		= ISNULL(d.Turnover_Base, 0),
 			c.Winloss_Base		= ISNULL(d.Winloss_Base, 0),
 			c.GrossWinloss		= ISNULL(-d.Winloss, 0)
@@ -723,11 +745,13 @@ BEGIN
 					SUM(d.Deposit)			AS Deposit,
 					SUM(d.Withdrawal)		AS Withdrawal,
 					SUM(d.Bonus)			AS Bonus,
+					SUM(d.Rebate)			AS Rebate,
 					SUM(d.Turnover)			AS Turnover,
 					SUM(d.Winloss)			AS Winloss,
 					SUM(d.Deposit_Base)		AS Deposit_Base,
 					SUM(d.Withdrawal_Base)	AS Withdrawal_Base,
 					SUM(d.Bonus_Base)		AS Bonus_Base,
+					SUM(d.Rebate_Base)		AS Rebate_Base,
 					SUM(d.Turnover_Base)	AS Turnover_Base,
 					SUM(d.Winloss_Base)		AS Winloss_Base
 				FROM #Data d
@@ -786,6 +810,7 @@ BEGIN
 		SET Deposit				= Deposit_Base,
 			Withdrawal			= Withdrawal_Base,
 			Bonus				= Bonus_Base,
+			Rebate				= Rebate_Base,
 			Turnover			= Turnover_Base,
 			Winloss				= Winloss_Base,
 			PlatFormFee			= PlatFormFee_Base,
@@ -809,6 +834,7 @@ BEGIN
 			SUM(c.Deposit)			AS Deposit,
 			SUM(c.Withdrawal)		AS Withdrawal,
 			SUM(c.Bonus)			AS Bonus,
+			SUM(c.Rebate)			AS Rebate,
 			SUM(c.Turnover)			AS Turnover,
 			SUM(c.Winloss)			AS Winloss,
 			SUM(c.PlatFormFee)		AS PlatFormFee,
@@ -840,6 +866,7 @@ BEGIN
 			c.Deposit,
 			c.Withdrawal,
 			c.Bonus,
+			c.Rebate,
 			c.Turnover,
 			c.Winloss,
 			c.PlatFormFee,

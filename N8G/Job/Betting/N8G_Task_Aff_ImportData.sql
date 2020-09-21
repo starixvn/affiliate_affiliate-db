@@ -56,6 +56,7 @@ BEGIN
 			,Deposit		MONEY DEFAULT (0)
 			,Withdrawal		MONEY DEFAULT (0)
 			,Bonus			MONEY DEFAULT (0)
+			,Rebate			MONEY DEFAULT (0)
 			,Adjustment		MONEY DEFAULT (0)
 			,Turnover		MONEY DEFAULT (0)
 			,Winloss		MONEY DEFAULT (0)
@@ -95,7 +96,7 @@ BEGIN
 			,p.ProductId
 			,e.Rate
 
-		-- Deposit & Withdrawal
+		-- Deposit, Withdrawal, Bonus
 		INSERT INTO #rptMemberDaily
 		(
 			CustId
@@ -104,6 +105,7 @@ BEGIN
 			,ProductId
 			,Deposit
 			,Withdrawal
+			,Bonus
 			,AffExRate
 		)
 		SELECT
@@ -113,6 +115,7 @@ BEGIN
 			,-1 AS ProductId
 			,SUM(Deposit)
 			,SUM(Withdrawal)
+			,SUM(Bonus)
 			,Rate
 		FROM
 		(
@@ -122,6 +125,7 @@ BEGIN
 				,mi.AffId
 				,SUM(d.Amount * 1.0 / CASE WHEN e.Code IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END) AS Deposit
 				,0 AS Withdrawal
+				,0 AS Bonus
 				,e.Rate
 			FROM bodb_N88.dbo.DepositInfo d WITH (NOLOCK)
 				INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
@@ -142,12 +146,33 @@ BEGIN
 				,mi.AffId
 				,0 AS Deposit
 				,SUM(d.Amount * 1.0 / CASE WHEN e.Code IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END) AS Withdrawal
+				,0 AS Bonus
 				,e.Rate
 			FROM bodb_N88.dbo.WithdrawalInfo d WITH (NOLOCK)
 				INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
 				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@WinlostDate, mi.currency, 0) e
 			WHERE d.WinlostDate BETWEEN DATEADD(DAY, -1, @WinlostDate) AND DATEADD(DAY, 1, @WinlostDate)
 				AND d.Status = 6 -- Approved
+				AND CONVERT(DATE, DATEADD(HOUR, @TimeZone, d.CreateTime)) = @WinlostDate
+			GROUP BY
+				mi.CustId
+				,mi.Currency
+				,mi.AffId
+				,e.Rate
+
+			UNION ALL
+			SELECT
+				mi.CustId
+				,mi.Currency
+				,mi.AffId
+				,0 AS Deposit
+				,0 AS Withdrawal
+				,SUM(d.BonusAmount * 1.0 / CASE WHEN e.Code IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END) AS Bonus
+				,e.Rate
+			FROM bodb_N88.dbo.BonusInfo d WITH (NOLOCK)
+				INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@WinlostDate, mi.currency, 0) e
+			WHERE d.WinlostDate BETWEEN DATEADD(DAY, -1, @WinlostDate) AND DATEADD(DAY, 1, @WinlostDate)
 				AND CONVERT(DATE, DATEADD(HOUR, @TimeZone, d.CreateTime)) = @WinlostDate
 			GROUP BY
 				mi.CustId
@@ -173,6 +198,7 @@ BEGIN
 			,Currency		INT
 			,AffExRate		FLOAT
 			,Bonus			MONEY
+			,Rebate			MONEY
 			,Turnover		MONEY
 			,Winloss		MONEY
 			,Deposit		MONEY
@@ -181,19 +207,19 @@ BEGIN
 		)
 		;WITH CTE_rptMemberDaily AS
 		(
-			SELECT AffId,CustId,ProductId,Deposit,Withdrawal,Bonus,Adjustment,Turnover,Winloss,Currency,AffExRate
+			SELECT AffId,CustId,ProductId,Deposit,Withdrawal,Bonus,Rebate,Adjustment,Turnover,Winloss,Currency,AffExRate
 			FROM dbo.rptMemberDaily WITH (NOLOCK)
 			WHERE winlostdate = @WinlostDate
 				AND ProductId IN (SELECT ProductId FROM @Products)
 		)
-		INSERT INTO #_CheckData (ModifiedType, CustId, ProductId, AffId, Currency, AffExRate, Bonus, Turnover, Winloss, Deposit, Withdrawal, Adjustment)
+		INSERT INTO #_CheckData (ModifiedType, CustId, ProductId, AffId, Currency, AffExRate, Bonus, Rebate, Turnover, Winloss, Deposit, Withdrawal, Adjustment)
 		SELECT
 			CASE	WHEN t.CustId IS NULL THEN -1 -- delete
 					WHEN r.CustId IS NULL THEN 1 -- insert
 					ELSE 0 END AS ModifiedType -- update
 			,ISNULL(t.CustId, r.CustId) AS CustId
 			,ISNULL(t.ProductId, r.ProductId) AS ProductId
-			,t.AffId, t.Currency, t.AffExRate, t.Bonus, t.Turnover, t.Winloss
+			,t.AffId, t.Currency, t.AffExRate, t.Bonus, t.Rebate, t.Turnover, t.Winloss
 			,t.Deposit, t.Withdrawal, t.Adjustment
 		FROM #rptMemberDaily t
 			FULL OUTER JOIN CTE_rptMemberDaily r ON t.CustId = r.CustId AND t.ProductId = r.ProductId
@@ -214,9 +240,9 @@ BEGIN
 		BEGIN
 			DELETE #_CheckData
 			OUTPUT @WinlostDate,DELETED.AffId,DELETED.CustId,DELETED.ProductId
-					,DELETED.Deposit,DELETED.Withdrawal,DELETED.Bonus,DELETED.Adjustment,DELETED.Turnover,DELETED.Winloss
+					,DELETED.Deposit,DELETED.Withdrawal,DELETED.Bonus,DELETED.Rebate,DELETED.Adjustment,DELETED.Turnover,DELETED.Winloss
 					,DELETED.Currency,DELETED.AffExRate
-			INTO dbo.rptMemberDaily(WinlostDate,AffId,CustId,ProductId,Deposit,Withdrawal,Bonus,Adjustment,Turnover,Winloss,Currency,AffExRate)
+			INTO dbo.rptMemberDaily(WinlostDate,AffId,CustId,ProductId,Deposit,Withdrawal,Bonus,Rebate,Adjustment,Turnover,Winloss,Currency,AffExRate)
 			WHERE ModifiedType = 1
 		END
 
@@ -228,6 +254,7 @@ BEGIN
 				,r.Deposit = d.Deposit
 				,r.Withdrawal = d.Withdrawal
 				,r.Bonus = d.Bonus
+				,r.Rebate = d.Rebate
 				,r.Adjustment = d.Adjustment
 				,r.Turnover = d.Turnover
 				,r.Winloss = d.Winloss
@@ -239,6 +266,7 @@ BEGIN
 				AND (
 					r.AffId						<> d.AffId
 					OR ISNULL(r.Bonus, 0)		<> ISNULL(d.Bonus, 0)
+					OR ISNULL(r.Rebate, 0)		<> ISNULL(d.Rebate, 0)
 					OR ISNULL(r.Turnover, 0)	<> ISNULL(d.Turnover, 0)
 					OR ISNULL(r.Winloss, 0)		<> ISNULL(d.Winloss, 0)
 					OR ISNULL(r.Deposit, 0)		<> ISNULL(d.Deposit, 0)

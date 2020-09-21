@@ -26,33 +26,6 @@ BEGIN
 
 	-- Get Data
 	BEGIN
-		-- Get Banking Fee
-		DECLARE @DepositRate DECIMAL(9, 8) = 0, @DepositAmount MONEY = 0
-				,@WithdrawalRate DECIMAL(9, 8) = 0, @WithdrawalAmount MONEY = 0
-	
-		SELECT  @DepositRate = CASE WHEN DeductionID = 13 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE @DepositRate END
-				,@DepositAmount = CASE WHEN DeductionID = 13 THEN ISNULL(dsh.DeductedAmount, 0) ELSE @DepositAmount END
-				,@WithdrawalRate = CASE WHEN DeductionID = 14 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE @WithdrawalRate END
-				,@WithdrawalAmount = CASE WHEN DeductionID = 14 THEN ISNULL(dsh.DeductedAmount, 0) ELSE @WithdrawalAmount END
-		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-			INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupID = dsh.GroupID AND agh.MonthDate = dsh.MonthDate
-		WHERE dsh.DeductionID IN (13, 14)
-			AND agh.MonthDate = @EndOfMonth
-			AND agh.AffID = @AffId
-
-		SELECT @DepositRate = ISNULL(@DepositRate, 0), @DepositAmount = ISNULL(@DepositAmount, 0)
-				,@WithdrawalRate = ISNULL(@WithdrawalRate, 0), @WithdrawalAmount = ISNULL(@WithdrawalAmount, 0)
-
-		IF @BaseCurrency <> 0
-		BEGIN
-			DECLARE @AffCurrency INT, @Rate FLOAT
-			SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
-			SELECT  @Rate = Rate FROM dbo.Aff_f_ExchangeRate_Sel(@EndOfMonth, @AffCurrency, @BaseCurrency)
-
-			SELECT  @DepositAmount = @DepositAmount * @Rate
-					,@WithdrawalAmount = @WithdrawalAmount * @Rate
-		END
-
 		-- rptMemberDaily
 		BEGIN
 			SELECT
@@ -64,17 +37,17 @@ BEGIN
 				,r.Turnover
 				,r.Winloss AS Winlost
 				,r.Bonus
-				,r.Deposit * @DepositRate + @DepositAmount AS DepositFee
-				,r.Withdrawal * @WithdrawalRate + @WithdrawalAmount AS WithdrawalFee
+				,r.Rebate
 			FROM
 			(
 				SELECT
 					r.CustId
-					,SUM(r.Deposit * e.Rate)	AS Deposit
-					,SUM(r.Withdrawal * e.Rate)	AS Withdrawal
-					,SUM(r.Turnover * e.Rate)	AS Turnover
-					,SUM(r.Winloss * e.Rate)	AS Winloss
-					,SUM(r.Bonus * e.Rate)		AS Bonus
+					,SUM(r.Deposit * e.Rate)			AS Deposit
+					,SUM(r.Withdrawal * e.Rate)			AS Withdrawal
+					,SUM(r.Turnover * e.Rate)			AS Turnover
+					,SUM(r.Winloss * e.Rate)			AS Winloss
+					,SUM(r.Bonus * e.Rate)				AS Bonus
+					,SUM(ISNULL(r.Rebate, 0) * e.Rate)	AS Rebate
 				FROM dbo.rptMemberDaily r WITH (NOLOCK)
 					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, r.Currency, @BaseCurrency) e
 				WHERE r.WinlostDate = @MonthDate

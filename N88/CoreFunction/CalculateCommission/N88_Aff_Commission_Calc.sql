@@ -40,6 +40,7 @@ BEGIN
 		Deposit				MONEY,
 		Withdrawal			MONEY,
 		Bonus				MONEY,
+		Rebate				MONEY,
 		Turnover			MONEY,
 		Winloss				MONEY,
 		GrossWinloss		MONEY,
@@ -75,16 +76,16 @@ BEGIN
 
 			INSERT INTO #AffCommission
 			(
-				MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,
+				MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Rebate,Turnover,Winloss,
 				GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission,SubAffCommission
 			)
 			SELECT
-				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Turnover,dt.Winloss,
+				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Rebate,dt.Turnover,dt.Winloss,
 				dt.GrossWinloss,dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,0,0
 			FROM @MonthDate md
 				CROSS APPLY (
 					SELECT
-						MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,
+						MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,ISNULL(Rebate, 0) AS Rebate,Turnover,Winloss,
 						GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate
 					FROM dbo.rptAffCommission ac WITH (NOLOCK)
 					WHERE ac.MonthDate = md.MonthDate
@@ -167,16 +168,16 @@ BEGIN
 
 			INSERT INTO #AffCommission
 			(
-				MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,
+				MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Rebate,Turnover,Winloss,
 				GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission,SubAffCommission
 			)
 			SELECT
-				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Turnover,dt.Winloss,
+				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Rebate,dt.Turnover,dt.Winloss,
 				dt.GrossWinloss,dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,0,0
 			FROM @MonthDate md
 				CROSS APPLY (
 					SELECT
-						MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,
+						MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,ISNULL(Rebate, 0) AS Rebate,Turnover,Winloss,
 						GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate
 					FROM dbo.rptAffCommission ac WITH (NOLOCK)
 					WHERE ac.MonthDate = md.MonthDate
@@ -255,6 +256,7 @@ BEGIN
 		SET c.Deposit			= c.Deposit * e.Rate,
 			c.Withdrawal		= c.Withdrawal * e.Rate,
 			c.Bonus				= c.Bonus * e.Rate,
+			c.Rebate			= c.Rebate * e.Rate,
 			c.Turnover			= c.Turnover * e.Rate,
 			c.Winloss			= c.Winloss * e.Rate,
 			c.PlatFormFee		= c.PlatFormFee * e.Rate,
@@ -313,6 +315,7 @@ BEGIN
 			SUM(Deposit)	AS Deposit,
 			SUM(Withdrawal) AS Withdrawal,
 			SUM(Bonus)		AS Bonus,
+			SUM(Rebate)		AS Rebate,
 			SUM(Turnover)	AS Turnover,
 			SUM(Winloss)	AS Winloss,
 			SUM(ISNULL(PlatFormFee, 0))		AS PlatFormFee,
@@ -343,6 +346,7 @@ BEGIN
 			Deposit,
 			Withdrawal,
 			Bonus,
+			Rebate,
 			Turnover,
 			Winloss,
 			ISNULL(PlatFormFee, 0)		AS PlatFormFee,
