@@ -31,9 +31,10 @@ AS
 						5 = Turnover
 						6 = Winloss
 						7 = Bonus
-						8 = Deposit Fee
-						9 = Withdrawal Fee
-						10 = IBCUsername
+						8 = Rebate
+						9 = Deposit Fee
+					   10 = Withdrawal Fee
+					   11 = IBCUsername
 		- @IsSortAsc:	0 = DESC
 						1 = ASC
 */
@@ -46,7 +47,7 @@ BEGIN
 	SELECT  @FromBeginMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT  @ToEndMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @FromBeginMonth))
 
-	CREATE TABLE #tmpData (CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, Winloss MONEY, Bonus MONEY)
+	CREATE TABLE #tmpData (CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, Winloss MONEY, Bonus MONEY, Rebate MONEY)
 
 	-- rptMemberDaily
 	BEGIN
@@ -65,6 +66,7 @@ BEGIN
 			,Turnover
 			,Winloss
 			,Bonus
+			,Rebate
 		)
 		SELECT
 			r.CustId
@@ -73,9 +75,10 @@ BEGIN
 			,SUM(r.Turnover * r.Rate)
 			,SUM(r.Winloss * r.Rate)
 			,SUM(r.Bonus * r.Rate)
+			,SUM(r.Rebate * r.Rate)
 		FROM CTE_WinlostDate wld
 			CROSS APPLY (
-				SELECT r.CustId, r.Deposit, r.Withdrawal, r.Turnover, r.Winloss, r.Bonus, e.Rate
+				SELECT r.CustId, r.Deposit, r.Withdrawal, r.Turnover, r.Winloss, r.Bonus, ISNULL(r.Rebate, 0) AS Rebate, e.Rate
 				FROM dbo.rptMemberDaily r WITH (NOLOCK)
 					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, r.Currency, @BaseCurrency) e
 				WHERE wld.WinlostDate = r.WinlostDate
@@ -84,7 +87,7 @@ BEGIN
 					AND (@Currencies = '' OR ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
 			) r
 		GROUP BY r.CustId
-		HAVING SUM((r.Deposit + r.Withdrawal + r.Turnover + ABS(r.Winloss) + r.Bonus) * r.Rate) > 0.0
+		HAVING SUM((r.Deposit + r.Withdrawal + r.Turnover + ABS(r.Winloss) + r.Bonus + r.Rebate) * r.Rate) > 0.0
 		OPTION (MAXRECURSION 0)
 	END
 
@@ -128,7 +131,7 @@ BEGIN
 	ELSE
 		SELECT @RowStart =  1, @RowEnd = @NRows
 
-	SELECT CustId, UserName, IBCUserName, RegisteredDate, Deposit, Withdrawal, Turnover, Winloss, Bonus, DepositFee, WithdrawalFee
+	SELECT CustId, UserName, IBCUserName, RegisteredDate, Deposit, Withdrawal, Turnover, Winloss, Bonus, Rebate, DepositFee, WithdrawalFee
 	FROM
 	(
 		SELECT
@@ -141,6 +144,7 @@ BEGIN
 			,d.Turnover
 			,d.Winloss
 			,d.Bonus
+			,d.Rebate
 			,d.Deposit * @DepositRate + @DepositAmount AS DepositFee
 			,d.Withdrawal * @WithdrawalRate + @WithdrawalAmount AS WithdrawalFee
 			,ROW_NUMBER() OVER(ORDER BY
@@ -151,9 +155,10 @@ BEGIN
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  5 THEN d.Turnover		END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  6 THEN d.Winloss		END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  7 THEN d.Bonus			END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  8 THEN d.Deposit		END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  8 THEN d.Rebate			END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  9 THEN d.Deposit		END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 10 THEN m.IBCUserName	END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 10 THEN d.Withdrawal		END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 11 THEN m.IBCUserName	END) ASC
 				
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  1 THEN m.UserName		END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  2 THEN m.RegisteredDate	END) DESC
@@ -162,9 +167,10 @@ BEGIN
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  5 THEN d.Turnover		END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  6 THEN d.Winloss		END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  7 THEN d.Bonus			END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  8 THEN d.Deposit		END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  9 THEN d.Withdrawal		END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 10 THEN m.IBCUserName	END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  8 THEN d.Rebate			END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  9 THEN d.Deposit		END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 10 THEN d.Withdrawal		END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 11 THEN m.IBCUserName	END) DESC
 			) AS RN
 		FROM #tmpData d
 			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId

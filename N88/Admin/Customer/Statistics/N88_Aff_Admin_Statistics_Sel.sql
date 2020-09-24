@@ -60,6 +60,7 @@ BEGIN
 			Deposit				MONEY,
 			Withdrawal			MONEY,
 			Bonus				MONEY,
+			Rebate				MONEY,
 			Turnover			MONEY,
 			Winloss				MONEY,
 			-- Fees
@@ -94,6 +95,7 @@ BEGIN
 				Deposit,
 				Withdrawal,
 				Bonus,
+				Rebate,
 				Turnover,
 				Winloss,
 				PlatFormFee,
@@ -134,6 +136,7 @@ BEGIN
 				Deposit,
 				Withdrawal,
 				Bonus,
+				Rebate,
 				Turnover,
 				Winloss,
 				PlatFormFee,

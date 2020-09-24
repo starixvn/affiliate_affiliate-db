@@ -44,6 +44,7 @@ BEGIN
 			,Withdrawal	MONEY
 			,Winloss	MONEY
 			,Bonus		MONEY
+			,Rebate		MONEY
 		)
 
 		DECLARE @tblWinlostDate TABLE (WinlostDate SMALLDATETIME)
@@ -60,15 +61,16 @@ BEGIN
 
 		-- rptMemberDaily
 		BEGIN
-			INSERT INTO #Data (WinlostDate, Deposit, Withdrawal, Winloss, Bonus)
-			SELECT r.WinlostDate, SUM(r.Deposit), SUM(r.Withdrawal), SUM(r.Winloss), SUM(r.Bonus)
+			INSERT INTO #Data (WinlostDate, Deposit, Withdrawal, Winloss, Bonus, Rebate)
+			SELECT r.WinlostDate, SUM(r.Deposit), SUM(r.Withdrawal), SUM(r.Winloss), SUM(r.Bonus), SUM(r.Rebate)
 			FROM @tblWinlostDate wld
 				CROSS APPLY (
 					SELECT	r.WinlostDate
-							,r.Deposit * e.Rate		AS Deposit
-							,r.Withdrawal * e.Rate	AS Withdrawal
-							,r.Winloss * e.Rate		AS Winloss
-							,r.Bonus * e.Rate		AS Bonus
+							,r.Deposit * e.Rate				AS Deposit
+							,r.Withdrawal * e.Rate			AS Withdrawal
+							,r.Winloss * e.Rate				AS Winloss
+							,r.Bonus * e.Rate				AS Bonus
+							,ISNULL(r.Rebate, 0) * e.Rate	AS Rebate
 					FROM dbo.rptMemberDaily r WITH (NOLOCK)
 						CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, r.Currency, @BaseCurrency) e
 					WHERE r.WinlostDate = wld.WinlostDate
@@ -83,33 +85,6 @@ BEGIN
 				) r
 			GROUP BY r.WinlostDate
 		END
-
-		-- Get Banking Fee
-		DECLARE @DepositRate DECIMAL(9, 8) = 0, @DepositAmount MONEY = 0
-				,@WithdrawalRate DECIMAL(9, 8) = 0, @WithdrawalAmount MONEY = 0
-	
-		SELECT  @DepositRate = CASE WHEN DeductionID = 13 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE @DepositRate END
-				,@DepositAmount = CASE WHEN DeductionID = 13 THEN ISNULL(dsh.DeductedAmount, 0) ELSE @DepositAmount END
-				,@WithdrawalRate = CASE WHEN DeductionID = 14 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE @WithdrawalRate END
-				,@WithdrawalAmount = CASE WHEN DeductionID = 14 THEN ISNULL(dsh.DeductedAmount, 0) ELSE @WithdrawalAmount END
-		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-			INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupID = dsh.GroupID AND agh.MonthDate = dsh.MonthDate
-		WHERE dsh.DeductionID IN (13, 14)
-			AND agh.MonthDate = @EndOfMonth
-			AND agh.AffID = @AffId
-
-		SELECT @DepositRate = ISNULL(@DepositRate, 0), @DepositAmount = ISNULL(@DepositAmount, 0)
-				,@WithdrawalRate = ISNULL(@WithdrawalRate, 0), @WithdrawalAmount = ISNULL(@WithdrawalAmount, 0)
-
-		IF @BaseCurrency <> 0
-		BEGIN
-			DECLARE @AffCurrency INT, @Rate FLOAT
-			SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
-			SELECT  @Rate = Rate FROM dbo.Aff_f_ExchangeRate_Sel(@EndOfMonth, @AffCurrency, @BaseCurrency)
-
-			SELECT  @DepositAmount = @DepositAmount * @Rate
-					,@WithdrawalAmount = @WithdrawalAmount * @Rate
-		END
 	END
 	
 	-- Return data
@@ -122,8 +97,7 @@ BEGIN
 			,SUM(ISNULL(Winloss, 0))	AS MemberWinlost
 			,SUM(ISNULL(Winloss, 0))	AS MemberWinlostFake
 			,SUM(ISNULL(Bonus, 0))		AS Bonus
-			,SUM(ISNULL(Deposit, 0) * @DepositRate + @DepositAmount) AS DepositFee
-			,SUM(ISNULL(Withdrawal, 0) * @WithdrawalRate + @WithdrawalAmount) AS WithdrawalFee
+			,SUM(ISNULL(Rebate, 0))		AS Rebate
 		FROM #Data
 		GROUP BY
 			WinlostDate
@@ -136,8 +110,7 @@ BEGIN
 			,SUM(ISNULL(Winloss, 0))	AS MemberWinlost
 			,SUM(ISNULL(Winloss, 0))	AS MemberWinlostFake
 			,SUM(ISNULL(Bonus, 0))		AS Bonus
-			,SUM(ISNULL(Deposit, 0) * @DepositRate + @DepositAmount) AS DepositFee
-			,SUM(ISNULL(Withdrawal, 0) * @WithdrawalRate + @WithdrawalAmount) AS WithdrawalFee
+			,SUM(ISNULL(Rebate, 0))		AS Rebate
 		FROM #Data
 		HAVING SUM(ISNULL(Deposit, 0)) IS NOT NULL
 	END
