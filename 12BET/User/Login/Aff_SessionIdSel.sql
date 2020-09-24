@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Aff_SessionIdSel]
 	@OnUserId INT
 AS
@@ -13,13 +10,14 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20200925@Percy: Return column CustId (UserId) for internal login [RedmineID: #142235]
 */
 
 BEGIN
 	SET NOCOUNT ON
 	
-	SELECT NetSessionID
-	FROM dbo.On_User WITH (NOLOCK) 
+	SELECT NetSessionID, CustId
+	FROM dbo.On_User ou WITH (NOLOCK)
 	WHERE On_UserID = @OnUserId
 END
 GO
