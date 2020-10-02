@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateLog_Sel]
 	@AffID		INT,
 	@LogType	INT = 0,
@@ -19,6 +16,7 @@ AS
 
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 */
 
 BEGIN
@@ -57,13 +55,13 @@ BEGIN
 			SELECT
 				ul.RefNo			AS LogId
 				,ul.LoggedDate		AS [Date]
-				,au.Username		AS UpdatedName
+				,u.UserName			AS UpdatedName
 				,lt.[Description]	AS [Action]
 				,ul.Details			AS [Description]
 				,ul.[IP]
 			FROM dbo.UserLog ul WITH (NOLOCK)
 				INNER JOIN dbo.LogType lt WITH (NOLOCK) ON ul.TypeID = lt.TypeID
-				LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON ul.Creator = au.custid
+				LEFT JOIN dbo.Users u WITH (NOLOCK) ON ul.Creator = u.CustId
 			WHERE ul.LoggedDate >= @FromDate AND ul.LoggedDate < DATEADD(DAY, 1, @ToDate)
 				AND ul.AffID = @AffID
 				AND (@LogType = 0 OR ul.TypeID = @LogType)
@@ -72,13 +70,13 @@ BEGIN
 			SELECT
 				ul.LogId			AS LogId
 				,ul.LogDate			AS [Date]
-				,au.Username		AS UpdatedName
+				,u.UserName			AS UpdatedName
 				,lt.[Description]	AS [Action]
 				,ISNULL(ul.OldData, '') + ISNULL(ul.NewData, '') AS [Description]
 				,ul.[IP]
 			FROM dbo.UserLog_RunSP_Detail ul WITH (NOLOCK)
 				INNER JOIN dbo.LogType lt WITH (NOLOCK) ON ul.LogTypeID = lt.TypeID
-				LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON ul.UserId = au.custid
+				LEFT JOIN dbo.Users u WITH (NOLOCK) ON ul.UserId = u.CustId
 			WHERE ul.LogDate >= @FromDate AND ul.LogDate < DATEADD(DAY, 1, @ToDate)
 				AND ul.AffID = @AffID
 				AND (@LogType = 0 OR ul.LogTypeID = @LogType)

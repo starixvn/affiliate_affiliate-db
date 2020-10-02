@@ -19,7 +19,7 @@ GO
 -- 1. New tables
 CREATE TABLE dbo.Users
 (
-	CustId				INT IDENTITY (1,1) NOT NULL
+	CustId				INT IDENTITY (10000000, 1) NOT NULL
 	,UserName			VARCHAR(50) NOT NULL
 	,RoleId				TINYINT
 	,FirstName			NVARCHAR(50)
@@ -147,6 +147,7 @@ GO
 INSERT INTO dbo.Functions (FuncName,Description)
 VALUES ('[Home]', 'Home')
 		,('[Customer]', 'Customer')
+		,('[AffMemberName]', 'Customer')
 		,('[Affiliate]', 'Affiliate')
 		,('[AffReport]', 'Affiliate Report')
 		,('[Media]', 'Media')
@@ -156,6 +157,7 @@ VALUES ('[Home]', 'Home')
 		,('[UserControl]', 'User Control')
 		,('[Payment]', 'Payment')
 		,('[CommissionGroup]', 'Commission Group')
+		,('[AssignCommGroup]', 'Assign Affiliate into Commission Group')
 		,('[Note]', 'Manage Notes')
 		,('[SecurityQA]', 'Security Q&A')
 		,('[MemberEmail]', 'Member''s Email')
@@ -172,6 +174,7 @@ VALUES ('[Home]', 'Home')
 		,('[AffMemberDetail]', 'Member')
 		,('[ActiveMembers]', 'Member')
 		,('[ExportExcel]', 'Export Excel')
+		,('[AffPassword]', 'Affiliate Password')
 GO
 
 UPDATE dbo.Functions WITH (ROWLOCK)
@@ -186,7 +189,7 @@ FROM dbo.Functions c WITH (ROWLOCK)
 GO
 
 UPDATE dbo.Functions WITH (ROWLOCK)
-SET AllParentIds = CONVERT(VARCHAR(1000), FuncId)
+SET AllParentIds = CONVERT(VARCHAR(1000), ParentId)
 GO
 
 INSERT INTO dbo.RoleFunction (RoleId,FuncId,Policy)
@@ -196,26 +199,32 @@ FROM Roles r WITH (NOLOCK)
 GO
 
 INSERT INTO dbo.Users (UserName,RoleId,FirstName,LastName,UserPwd)
-VALUES ('pgmPercy'		,1,'Percy','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
+VALUES ('sa'			,1,'',''			,'56E8A2D78170E87C928E480797CC73')
+		,('pgmPercy'	,1,'Percy','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
 		,('AAHubert'	,1,'Hubert','Duong'	,'56E8A2D78170E87C928E480797CC73')
 		,('AASteve'		,1,'Steve','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
 		,('AAMaia'		,1,'Maia','Le'		,'56E8A2D78170E87C928E480797CC73')
+		,('AAKevin'		,1,'Kevin','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
 
 		,('AAHubert01'	,2,'Hubert','Duong'	,'56E8A2D78170E87C928E480797CC73')
 		,('AASteve01'	,2,'Steve','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
 		,('AAMaia01'	,2,'Maia','Le'		,'56E8A2D78170E87C928E480797CC73')
+		,('AAKevin01'	,2,'Kevin','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
 
 		,('AAHubert02'	,3,'Hubert','Duong'	,'56E8A2D78170E87C928E480797CC73')
 		,('AASteve02'	,3,'Steve','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
 		,('AAMaia02'	,3,'Maia','Le'		,'56E8A2D78170E87C928E480797CC73')
+		,('AAKevin02'	,3,'Kevin','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
 
 		,('AAHubert03'	,4,'Hubert','Duong'	,'56E8A2D78170E87C928E480797CC73')
 		,('AASteve03'	,4,'Steve','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
 		,('AAMaia03'	,4,'Maia','Le'		,'56E8A2D78170E87C928E480797CC73')
+		,('AAKevin03'	,4,'Kevin','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
 
 		,('AAHubert04'	,5,'Hubert','Duong'	,'56E8A2D78170E87C928E480797CC73')
 		,('AASteve04'	,5,'Steve','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
 		,('AAMaia04'	,5,'Maia','Le'		,'56E8A2D78170E87C928E480797CC73')
+		,('AAKevin04'	,5,'Kevin','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
 GO
 
 INSERT INTO dbo.UserFunction (CustId,FuncId,Policy)

@@ -28,7 +28,7 @@ BEGIN
 
 	EXEC dbo.Aff_CheckPermission
 		@CustId		= @UserId
-		,@FuncName	= '[Affiliate]'
+		,@FuncName	= '[AffPassword]'
 		,@ErrCode	= @ErrCode OUTPUT
 		,@ErrMsg	= @ErrMsg OUTPUT
     

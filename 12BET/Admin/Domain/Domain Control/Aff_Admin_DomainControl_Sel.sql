@@ -11,6 +11,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 */
 
 BEGIN
@@ -25,14 +26,14 @@ BEGIN
 			,b.DomainName	AS AffDomain
 			,c.DomainId		AS RedirectDomainId
 			,c.DomainName	AS RedirectDomain
-			,e.Username		AS Creator
+			,e.UserName		AS Creator
 			,a.CreateDate	AS CreatedDate
 			,a.Status
 		FROM dbo.AffDomainControl a WITH (NOLOCK)
 			INNER JOIN dbo.AffDomain b WITH (NOLOCK) ON a.AffDomainId = b.DomainId
 			INNER JOIN dbo.[12BetDomain] c WITH (NOLOCK) ON a.[12BetDomainId] = c.DomainId
 			INNER JOIN Market d WITH (NOLOCK) ON a.MarketId = d.MarketId
-			INNER JOIN Affiliate_User e WITH (NOLOCK) ON a.Creator = e.CustId
+			LEFT JOIN Users e WITH (NOLOCK) ON a.Creator = e.CustId
 		WHERE a.Id = @DomainControlId
 			AND a.IsDeleted = 0
 	ELSE
@@ -44,14 +45,14 @@ BEGIN
 			,b.DomainName	AS AffDomain
 			,c.DomainId		AS RedirectDomainId
 			,c.DomainName	AS RedirectDomain
-			,e.Username		AS Creator
+			,e.UserName		AS Creator
 			,a.CreateDate	AS CreatedDate
 			,a.Status
 		FROM dbo.AffDomainControl a WITH (NOLOCK)
 			INNER JOIN dbo.AffDomain b WITH (NOLOCK) ON a.AffDomainId = b.DomainId
 			INNER JOIN dbo.[12BetDomain] c WITH (NOLOCK) ON a.[12BetDomainId] = c.DomainId
 			INNER JOIN Market d WITH (NOLOCK) ON a.MarketId = d.MarketId
-			INNER JOIN Affiliate_User e WITH (NOLOCK) ON a.Creator = e.CustId
+			LEFT JOIN Users e WITH (NOLOCK) ON a.Creator = e.CustId
 		WHERE (ISNULL(@MarketId, '') = '' OR a.MarketID = @MarketId)
 			AND a.IsDeleted = 0
 		ORDER BY

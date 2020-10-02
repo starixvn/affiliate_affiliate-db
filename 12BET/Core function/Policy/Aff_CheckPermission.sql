@@ -4,6 +4,7 @@ ALTER PROCEDURE [dbo].[Aff_CheckPermission]
 	,@FuncId	INT = NULL
 	,@FuncName	VARCHAR(100) = ''
 	,@Language	VARCHAR(10) = 'en-US'
+	,@Policy	TINYINT = 0 OUTPUT
 	,@ErrCode	INT = 0 OUTPUT
 	,@ErrMsg	NVARCHAR(4000) = '' OUTPUT
 AS
@@ -25,8 +26,6 @@ BEGIN
 	IF @FuncId IS NULL
 		SELECT @FuncId = FuncId FROM dbo.Functions WITH (NOLOCK) WHERE FuncName = @FuncName
 
-	DECLARE @Policy TINYINT = 0
-
 	IF EXISTS (SELECT 1 FROM dbo.Users WITH (NOLOCK) WHERE CustId = @CustId)
 		SELECT @Policy = uf.Policy
 		FROM dbo.Users u WITH (NOLOCK)
@@ -38,7 +37,9 @@ BEGIN
 	ELSE IF EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @CustId)
 		SELECT @Policy = 3
 
-	IF ISNULL(@Policy, 0) < 3
+	SELECT @Policy = ISNULL(@Policy, 0)
+
+	IF @Policy < 3
 		SELECT @ErrCode = 500, @ErrMsg = dbo.Aff_f_GetMessageById(1401, @Language)
 END
 GO

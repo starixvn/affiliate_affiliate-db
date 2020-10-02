@@ -38,6 +38,8 @@ BEGIN
 			,@FailedCount = ISNULL(FailedLoginCount, 0)
 	FROM dbo.Users WITH (NOLOCK)
 	WHERE Username = @UserName
+		AND Closed = 0
+		AND IsDeleted = 0
 
 	IF ISNULL(@UserId, 0) = 0
 	BEGIN

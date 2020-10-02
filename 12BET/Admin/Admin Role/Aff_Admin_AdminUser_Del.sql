@@ -31,7 +31,7 @@ BEGIN
 
 	DECLARE @Users TABLE (CustId INT)
 	INSERT INTO @Users (CustId)
-	SELECT val FROM dbo.Aff_f_StringSplit(@UserId, ',')
+	SELECT val FROM dbo.Aff_f_StringSplit(@CustIds, ',')
 
 	-- Update process
 	BEGIN TRY

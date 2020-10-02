@@ -1,56 +1,32 @@
-﻿Alter PROCEDURE [dbo].[Aff_HotNewsDetail]
-	@MsgID int=null
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[Aff_HotNewsDetail]
+	@MsgId INT = NULL
 AS
+
 /*
-Created: 20090310@TrangLe
-Task : Select affiliate hot news by message id or latest messageid
-DB: DB052.Affiliate_12BET
-Original:
+	Created: 20090310@TrangLe
+	DB: DBAFF12BET-Affiliate_12BET
+	Task: Select affiliate hot news by message id or latest messageid
 
-Revisions:
-- 20090317@DungTong: allow to get latest message id
-- 20090819@DungTong : Add new Spanish language
-- 20090920@DungTong : Add new Vietnamese and Indonesia Language
-- 20130218@LongLuu : Add Korean Language http://ccs.nexcel.vn/viewtopic.php?f=6&t=8460&start=0&st=0&sk=t&sd=a#p36106
-Param's Explanation:
-• @MsgID : >0 message id selected
-		   null: select the latest message
-
+	Revisions:
+		- 20090317@DungTong: allow to get latest message id
+		- 20090819@DungTong : Add new Spanish language
+		- 20090920@DungTong : Add new Vietnamese and Indonesia Language
+		- 20130218@LongLuu : Add Korean Language
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 */
-SET NOCOUNT ON
-if(coalesce(@MsgID,-1)=-1) -- get the latest message
-  begin
-		select  @MsgID=max(msgid) 
-		from News with (nolock)     
-  end
-	
-	SELECT [message_en]
-		  ,[message_cn]
-		  ,[message_tw]
-		  ,[message_es]
-		  ,[message_th]
-		  ,[message_vi]
-		  ,[message_id]
-		  ,[message_kr]
-		  ,n.creator
-		  ,[posteddate]
-		  ,[msgid]
-		  ,[important]
-		  ,c.username as creatorname
-	  FROM News n with (nolock)
-			LEFT JOIN Affiliate_User c WITH (NOLOCK) ON c.custid=n.creator
-	  WHERE 
-			msgid=@MsgID
 
+BEGIN
+	SET NOCOUNT ON
 
+	IF ISNULL(@MsgId, -1) = -1
+		SELECT @MsgId = MAX(MsgId) FROM dbo.News WITH (NOLOCK)
 
+	SELECT
+		message_en,message_cn,message_tw,message_es,message_th,message_vi,message_id,message_kr
+		,n.creator,posteddate,msgid,important,u.UserName as creatorname
+	FROM dbo.News n WITH (NOLOCK)
+		LEFT JOIN dbo.Users u WITH (NOLOCK) ON n.Creator = u.CustId
+	WHERE n.MsgId = @MsgId
+END
 GO
-GRANT EXECUTE ON [dbo].[Aff_HotNewsDetail] TO [bodbAdminNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_HotNewsDetail] TO [bodbDownlineNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_HotNewsDetail] TO [bodbDownlineNetView]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Aff_HotNewsDetail] TO [vnteam]
-GO
-

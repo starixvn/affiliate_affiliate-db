@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 
 	Param Explanation:
 		- @MessageId:
@@ -51,11 +52,11 @@ BEGIN
 			,m.PostedDate
 			,m.Important
 			,m.UpdatedDate
-			,ISNULL(c.Username, '') AS CreatorName
-			,ISNULL(u.Username, '') AS UpdatedName
+			,ISNULL(c.UserName, '') AS CreatorName
+			,ISNULL(u.UserName, '') AS UpdatedName
 		FROM dbo.News m WITH (NOLOCK)
-			LEFT JOIN dbo.Affiliate_User c WITH (NOLOCK) ON m.Creator = c.custid
-			LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON m.UpdatedBy = u.custid
+			LEFT JOIN dbo.Users c WITH (NOLOCK) ON m.Creator = c.custid
+			LEFT JOIN dbo.Users u WITH (NOLOCK) ON m.UpdatedBy = u.custid
 		WHERE m.MsgID = @MessageId
 	END
 	ELSE
@@ -99,12 +100,12 @@ BEGIN
 				,m.PostedDate
 				,m.Important
 				,m.UpdatedDate
-				,ISNULL(c.Username, '') AS CreatorName
-				,ISNULL(u.Username, '') AS UpdatedName
+				,ISNULL(c.UserName, '') AS CreatorName
+				,ISNULL(u.UserName, '') AS UpdatedName
 				,ROW_NUMBER() OVER (ORDER BY m.MsgId DESC) AS RowNum
 			FROM dbo.News m WITH (NOLOCK)
-				LEFT JOIN dbo.Affiliate_User c WITH (NOLOCK) ON m.Creator = c.custid
-				LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON m.UpdatedBy = u.custid
+				LEFT JOIN dbo.Users c WITH (NOLOCK) ON m.Creator = c.custid
+				LEFT JOIN dbo.Users u WITH (NOLOCK) ON m.UpdatedBy = u.custid
 			WHERE
 				(
 					@SearchById = 0

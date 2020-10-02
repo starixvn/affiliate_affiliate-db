@@ -1,48 +1,57 @@
-﻿ALTER PROCEDURE [dbo].[Aff_UserOnlineList] 
-	@PageSize int=50,  
-	@PageIndex int=1,  
-	@TotalPages int=0 OUTPUT,  
-	@NRows int=0 OUTPUT
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[Aff_UserOnlineList]
+	@PageSize	INT = 50
+	,@PageIndex	INT = 1
+	,@NRows		INT = 0 OUTPUT
 AS
-/*Created: 20090828@Bryan
-Task : Select all affs and admins currently logging on affliate system
-DB: DB052.Affiliate_12Bet
 
-Revisions:- 20090829@Bryan initialize
-
-	- 20110610@Johnny: move  to db Affiliate_12BET
-Param's Explanation:
-	- PageSize: the selected page size on webpage
-	- PageIndex: the index of selected page in paging structure
-	- TotalPages: the number of pages with the pagesize returned from DB
-	- NRows: total records found
+/*
+	Created: 20090828@Bryan
+	DB: DBAFF12BET-Affiliate_12BET
+	Task: Select all affs and admins currently logging on affliate system
+	
+	Revisions:
+		- 20090829@Bryan: initialize
+		- 20110610@Johnny: move to db Affiliate_12BET
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 */
+
 BEGIN		
 	SET NOCOUNT ON
-	declare @startNum int, @endNum int 
-	declare @Table table([No] int IDENTITY(1,1), UserName varchar(50),LoggedIn datetime,LastRequest datetime,IP varchar(20),RoleName varchar(20)) 
-	insert into @Table(UserName,LoggedIn,LastRequest,IP,RoleName) 
-		select UserName,LoggedIn,LastRequest,IP,RoleName
-		from
-		 (
-			(select au.username as UserName, au.lastlogged as LoggedIn, o.reload_time as LastRequest, o.IP as IP, 'Admin' as RoleName 
-			   from ON_USER o with(nolock)				   
-				   inner join Affiliate_User au with(nolock) on au.custid=o.custid  and o.iskickedout=0 )
-			union all 
-			(select aff.username as UserName, aff.lastlogindate as LoggedIn, o.reload_time as LastRequest, o.IP as IP, 'Aff' as RoleName
-			from ON_USER o with(nolock)
-				inner join affdetail aff with(nolock) on aff.affid=o.custid  and o.iskickedout=0)
-		 )x    
-	order by LastRequest asc  
-	select @NRows=@@ROWCOUNT
-	select @endNum = (@PageIndex)*@PageSize;
-	select @startNum = @endNum - @PageSize + 1;
-	select * from @table where [no] between @startNum and @endNum order by RoleName,UserName
-	SELECT @TotalPages=@NRows/@PageSize + case when @NRows%@PageSize>0 then 1 else 0 end
+
+	DECLARE @On_Users TABLE
+	(
+		RowId			INT IDENTITY (1, 1)
+		,UserName		VARCHAR(50)
+		,LoggedIn		DATETIME
+		,LastRequest	DATETIME
+		,IP				VARCHAR(20)
+		,RoleName		VARCHAR(20)
+	)
+	INSERT INTO @On_Users (UserName, LoggedIn, LastRequest, IP, RoleName) 
+	SELECT u.UserName, u.LastLoginDate, o.reload_time, o.IP, u.RoleName
+	FROM dbo.On_User o WITH (NOLOCK)
+		CROSS APPLY (
+			SELECT u.UserName, u.LastLoginDate, 'Admin' AS RoleName
+			FROM dbo.Users u WITH (NOLOCK)
+			WHERE u.CustId = o.CustId
+			UNION ALL
+			SELECT a.UserName, a.LastLoginDate, 'Aff' AS RoleName
+			FROM dbo.AffDetail a WITH (NOLOCK)
+			WHERE a.AffId = o.CustId
+		) u
+	WHERE o.IsKickedOut = 0
+	ORDER BY o.reload_time DESC
+
+	SELECT @NRows = @@ROWCOUNT
+
+	DECLARE @RowStart INT, @RowEnd INT
+	SELECT  @RowEnd = @PageIndex * @PageSize
+	SELECT  @RowStart = @RowEnd - @PageSize + 1
+
+	SELECT RowId, UserName, LoggedIn, LastRequest, IP, RoleName
+	FROM @On_Users
+	WHERE RowId BETWEEN @RowStart AND @RowEnd
+	ORDER BY RowId
 END
-
-
 GO
-GRANT EXECUTE ON [dbo].[Aff_UserOnlineList] TO [bodbAdminNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_UserOnlineList] TO [vnteam]

@@ -26,7 +26,7 @@ BEGIN
 
 	EXEC dbo.Aff_CheckPermission
 		@CustId		= @UserId
-		,@FuncName	= '[CommissionGroup]'
+		,@FuncName	= '[AssignCommGroup]'
 		,@ErrCode	= @ErrCode OUTPUT
 		,@ErrMsg	= @ErrMsg OUTPUT
 

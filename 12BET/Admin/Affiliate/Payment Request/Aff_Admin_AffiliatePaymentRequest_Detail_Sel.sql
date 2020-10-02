@@ -1,9 +1,6 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliatePaymentRequest_Detail_Sel]
-	@TransID BIGINT
+	@TransId BIGINT
 AS
 
 /*
@@ -13,17 +10,18 @@ AS
 
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	SELECT
-		a.TransID
-		,a.AffID
+		a.TransId
+		,a.AffId
 		,a.TransDate
 		,a.CompletedDate
-		,a.RefID
+		,a.RefId
 		,a.Status
 		,a.Description AS TransDesc
 		,ai.UserName
@@ -36,7 +34,7 @@ BEGIN
 		,ai.Email
 		,ai.FirstName
 		,ai.LastName
-		,ad.neteller_accountID
+		,ad.neteller_accountId
 		,ad.moneybookers_email
 		,ad.wire_bankname
 		,ad.wire_bankaddress
@@ -49,12 +47,12 @@ BEGIN
 		,ad.cheque_state
 		,ad.cheque_postal
 		,ad.cheque_country
-		,au.username AS AdminName
+		,u.UserName AS AdminName
 	FROM dbo.AffTrans a WITH (NOLOCK)
 		INNER JOIN dbo.AffPayout ap WITH (NOLOCK) ON a.RefID = ap.RefID
 		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON a.AffID = ai.AffID
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffID = ad.AffID
-		LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON a.creator = au.custid
-	WHERE a.TransID = @TransID
+		LEFT JOIN dbo.Users u WITH (NOLOCK) ON a.Creator = u.CustId
+	WHERE a.TransID = @TransId
 END
 GO

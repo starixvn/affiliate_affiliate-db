@@ -24,7 +24,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @ErrCode INT = 0
+	DECLARE @Policy TINYINT = 0
 
 	DECLARE @tblTransType TABLE (TransType INT)
 	INSERT INTO @tblTransType (TransType)
@@ -33,23 +33,23 @@ BEGIN
 	IF ISNULL(@UserId, 0) <> 0
 	BEGIN
 		-- Payment
-		SET @ErrCode = 0
+		SET @Policy = 0
 		EXEC dbo.Aff_CheckPermission
 			@CustId		= @UserId
-			,@FuncName	= '[AffPaymentInfo]'
-			,@ErrCode	= @ErrCode OUTPUT
+			,@FuncName	= '[Payment]'
+			,@Policy	= @Policy OUTPUT
 
-		IF @ErrCode > 0
+		IF @Policy = 0
 			DELETE @tblTransType WHERE TransType = 202
 			
 		-- Adjustment
-		SET @ErrCode = 0
+		SET @Policy = 0
 		EXEC dbo.Aff_CheckPermission
 			@CustId		= @UserId
 			,@FuncName	= '[AffAdjustment]'
-			,@ErrCode	= @ErrCode OUTPUT
+			,@Policy	= @Policy OUTPUT
 
-		IF @ErrCode > 0
+		IF @Policy = 0
 			DELETE @tblTransType WHERE TransType = 203
 	END
 

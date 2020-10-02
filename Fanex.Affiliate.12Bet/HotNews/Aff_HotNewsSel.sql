@@ -1,148 +1,87 @@
-﻿Alter PROCEDURE [dbo].[Aff_HotNewsSel]
-	@fromdate smalldatetime=null,
-	@todate smalldatetime=null,
-	@Important bit=null,
-	@language	varchar(11) = null,
-	@PageSize int=50,
-	@PageIndex int=1,
-	@TotalPages int=0 OUTPUT,
-	@NRows int=0 OUTPUT
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[Aff_HotNewsSel]
+	@fromdate	DATETIME = NULL
+	,@todate	DATETIME = NULL
+	,@Important BIT = NULL
+	,@language	VARCHAR(11) = NULL
+	,@PageSize	INT = 50
+	,@PageIndex INT = 1
+	,@NRows		INT = 0 OUTPUT
 AS
+
 /*
-Created: 20090317@DungTong
-Task : Search message hot news and paging
-DB: DB052.Affiliate_12BET
-Original:
+	Created: 20090317@DungTong
+	DB: DBAFF12BET-Affiliate_12BET
+	Task: Search message hot news and paging
 
-Revisions:
-- 20090819@DungTong : Add new Spanish language
-- 20090920@DungTong : Add new Vietnamese and Indonesia Language
-- 20130218@LongLuu : Add Korean Language http://ccs.nexcel.vn/viewtopic.php?f=6&t=8460&start=0&st=0&sk=t&sd=a#p36106
-
-Param's Explanation:
-• @fromdate : <> null: from postdate
-				null: select all
-• @todate : <> null: to postdate
-				null: select all
-• @Important : select message is important or not
-• @PageSize : Number of rows should be returned per each page
-• @PageIndex : Current page 
-• @TotalPages OUTPUT : total of pages for this search
-
-• @NRows OUTPUT,--total of rows
-				
-
+	Revisions:
+		- 20090819@DungTong : Add new Spanish language
+		- 20090920@DungTong : Add new Vietnamese and Indonesia Language
+		- 20130218@LongLuu : Add Korean Language
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 */
-SET NOCOUNT ON
 
-DECLARE @RowStart int, @RowEnd int,@AffiliateID int
+BEGIN
+	SET NOCOUNT ON
 
-select @Nrows=count(1)
-from News with (nolock)
-where important=coalesce(@Important,important)
-	  and (
-		  case when @fromdate is null or @todate is null then 1
-				when posteddate between @fromdate and @todate then 1
-				else 0
-		  end     
-	  )=1
-	  
- if(isnull(@NRows,0)=0)
-   return	
+	SELECT @NRows = COUNT(1)
+	FROM dbo.News WITH (NOLOCK)
+	WHERE Important = ISNULL(@Important, Important)
+		AND 1 = CASE
+					WHEN @fromdate IS NULL OR @todate IS NULL THEN 1
+					WHEN PostedDate BETWEEN @fromdate AND @todate THEN 1
+					ELSE 0 END
 
-SELECT @TotalPages=@NRows/@PageSize + case when @NRows%@PageSize>0 then 1 else 0 end,
-	   @PageIndex = @PageIndex - 1, @RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1   
-	   
-if(@language is null)--select all column
-begin
-   
-	select [message_en]
-		  ,[message_cn]
-		  ,[message_tw]
-		  ,[message_es]
-		  ,[message_th]
-		  ,[message_vi]
-		  ,[message_id]
-		  ,[message_kr]
-		  ,[creator]
-		  ,[posteddate]
-		  ,[msgid]
-		  ,[important]
-		  ,[creatorname]
-		  ,[updatename]
-		  ,[updateddate]
-	from (
-	 SELECT [message_en]
-		  ,[message_cn]
-		  ,[message_tw]
-		  ,[message_es]
-		  ,[message_th]
-		  ,[message_vi]
-		  ,[message_id]
-		  ,[message_kr]
-		  ,n.creator
-		  ,[posteddate]
-		  ,[msgid]
-		  ,[important]
-		  ,C.username as creatorname
-		  ,u.username as updatename
-		  ,[updateddate]
-		  ,ROW_NUMBER() OVER(ORDER BY msgid desc) AS TheCount
-	  FROM News n with (nolock)
-			LEFT JOIN Affiliate_User C  WITH (NOLOCK) ON C.CUSTID=n.creator
-			LEFT JOIN Affiliate_User u  WITH (NOLOCK) ON u.CUSTID=[updatedby]
-	  WHERE important=coalesce(@Important,important)
-		   and (case when @fromdate is null or @todate is null then 1
-					when posteddate between @fromdate and @todate then 1
-					 else 0
-			   end     
-			)=1
-	 ) x
-	 where x.TheCount between @RowStart and @RowEnd
-end
-else --select for specific language
- begin
-  
-	 select message		  
-		  ,[posteddate]
-		  ,[msgid]	
-		  ,[important]  	  
-	from (
-	 SELECT  case @language
-					when 'en_US' then message_en	
-					when 'zh-TW' then coalesce(message_tw,message_en)
-					when 'zh-CN' then coalesce(message_cn,message_en)
-					when 'es-ES' then coalesce(message_es,message_en)
-					when 'th-TH' then coalesce(message_th,message_en)
-					when 'vi-VN' then coalesce(message_vi,message_en)
-					when 'id-ID' then coalesce(message_id,message_en)
-					when 'ko-KR' then coalesce(message_kr,message_en)
-					else message_en				
-					end as [message]
-			,[posteddate]
-			,[msgid]
-			,[important]
-			,ROW_NUMBER() OVER(ORDER BY msgid desc) AS TheCount		  
-	  FROM News with (nolock)			
-	  WHERE important=coalesce(@Important,important)
-		   and (case when @fromdate is null or @todate is null then 1
-					when posteddate between @fromdate and @todate then 1
-					 else 0
-			   end     
-			)=1
-	 ) x
-	 where x.TheCount between @RowStart and @RowEnd
- end
+	IF @NRows = 0
+		RETURN
 
+	DECLARE @RowStart INT, @RowEnd INT
+	SELECT  @RowEnd = @PageSize * @PageIndex
+	SELECT  @RowStart = @RowEnd - @PageSize + 1
 
-
- GO
-GRANT EXECUTE ON [dbo].[Aff_HotNewsSel] TO [bodbAdminNet]
+	IF @language IS NULL -- all column
+		SELECT
+			message_en,message_cn,message_tw,message_es,message_th,message_vi,message_id,message_kr
+			,creator,posteddate,msgid,important,creatorname,updatename,updateddate
+		FROM (
+			SELECT
+				message_en,message_cn,message_tw,message_es,message_th,message_vi,message_id,message_kr
+				,n.creator,posteddate,msgid,important,C.username AS creatorname,u.username AS updatename
+				,updateddate,ROW_NUMBER() OVER(ORDER BY msgid DESC) AS RowId
+			FROM News n WITH (NOLOCK)
+				LEFT JOIN Users c WITH (NOLOCK) ON c.CustId = n.Creator
+				LEFT JOIN Users u WITH (NOLOCK) ON u.CustId = n.UpdatedBy
+			WHERE Important = ISNULL(@Important, Important)
+				AND 1 = CASE
+							WHEN @fromdate IS NULL OR @todate IS NULL THEN 1
+							WHEN PostedDate BETWEEN @fromdate AND @todate THEN 1
+							ELSE 0 END
+		) n
+		WHERE RowId BETWEEN @RowStart AND @RowEnd
+	ELSE -- specific language
+		SELECT
+			[message],posteddate,msgid,important
+		FROM (
+			SELECT
+				CASE @language
+					WHEN 'en_US' THEN message_en	
+					WHEN 'zh-TW' THEN ISNULL(message_tw,message_en)
+					WHEN 'zh-CN' THEN ISNULL(message_cn,message_en)
+					WHEN 'es-ES' THEN ISNULL(message_es,message_en)
+					WHEN 'th-TH' THEN ISNULL(message_th,message_en)
+					WHEN 'vi-VN' THEN ISNULL(message_vi,message_en)
+					WHEN 'id-ID' THEN ISNULL(message_id,message_en)
+					WHEN 'ko-KR' THEN ISNULL(message_kr,message_en)
+					ELSE message_en END AS [message]
+				,posteddate,msgid,important
+				,ROW_NUMBER() OVER(ORDER BY msgid DESC) AS RowId
+			FROM News WITH (NOLOCK)
+			WHERE Important = ISNULL(@Important, Important)
+				AND 1 = CASE
+							WHEN @fromdate IS NULL OR @todate IS NULL THEN 1
+							WHEN PostedDate BETWEEN @fromdate AND @todate THEN 1
+							ELSE 0 END
+		) n
+		WHERE RowId BETWEEN @RowStart AND @RowEnd
+END
 GO
-GRANT EXECUTE ON [dbo].[Aff_HotNewsSel] TO [bodbDownlineNet]
-GO
-GRANT EXECUTE ON [dbo].[Aff_HotNewsSel] TO [bodbDownlineNetView]
-GO  
-GRANT VIEW DEFINITION ON [dbo].[Aff_HotNewsSel] TO [vnteam]
-GO
-

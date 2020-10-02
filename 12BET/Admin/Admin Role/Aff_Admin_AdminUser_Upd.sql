@@ -164,11 +164,12 @@ BEGIN
 				FOR XML PATH('row'), ROOT('root')
 			)
 
-			UPDATE uf WITH (ROWLOCK)
-			SET uf.Policy = ISNULL(t.Policy, 0)
-			FROM dbo.UserFunction uf
-				LEFT JOIN @UserFunction t ON uf.FuncId = t.FuncId
-			WHERE uf.CustId = @CustId
+			DELETE dbo.UserFunction WITH (ROWLOCK, UPDLOCK) WHERE CustId = @CustId
+
+			INSERT INTO dbo.UserFunction (CustId,FuncId,Policy,Creator)
+			SELECT @CustId,f.FuncId,ISNULL(t.Policy, 0),@UserId
+			FROM dbo.Functions f WITH (NOLOCK)
+				LEFT JOIN @UserFunction t ON f.FuncId = t.FuncId
 
 			SELECT @NewFunction = (
 				SELECT
