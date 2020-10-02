@@ -18,7 +18,7 @@ BEGIN
 	SELECT  @RoleId = RoleId FROM dbo.Users u WITH (NOLOCK) WHERE CustId = @CustId
 
 	-- General
-	SELECT u.CustId,u.UserName,u.FirstName,u.LastName,u.Closed,r.RoleId,r.RoleName
+	SELECT u.CustId,u.UserName,u.FirstName,u.LastName,u.Closed,r.RoleId,r.RoleName,u.IsRoleFunctionDefault,u.IsRoleMarketDefault
 	FROM dbo.Users u WITH (NOLOCK)
 		INNER JOIN dbo.Roles r WITH (NOLOCK) ON u.RoleId = r.RoleId
 	WHERE CustId = @CustId

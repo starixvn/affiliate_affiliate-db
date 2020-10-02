@@ -1,37 +1,60 @@
-﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
-USE [Affiliate_12BET]
-GO
-
-ALTER PROCEDURE [dbo].[Aff_ClickStatisticsSelByPage] 
-	@AffID INT
-	,@FromDate DATETIME
-	,@ToDate DATETIME
-	,@SportCode VARCHAR(50) = NULL
-	,@LanguageCode VARCHAR(10) = NULL
-	,@DeviceType TINYINT = 0
-	,@TotalSignUps INT = 0 OUTPUT
-	,@TotalFDMs INT = 0 OUTPUT
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[Aff_ClickStatisticsSelByPage]
+	@UserId			INT = 0
+	,@AffID			INT
+	,@FromDate		DATETIME
+	,@ToDate		DATETIME
+	,@SportCode		VARCHAR(50) = NULL
+	,@LanguageCode	VARCHAR(10) = NULL
+	,@DeviceType	TINYINT = 0
+	,@TotalSignUps	INT = 0 OUTPUT
+	,@TotalFDMs		INT = 0 OUTPUT
 AS
 
 /*  
-Created: 20111005@Johnny  
-Task :   Report click statistics by Landing page and language of landing page
-DB: DBAFF12BET.Affiliate_12BET  
-Original:  
-  
-Revisions:  
-	- 20140708@Bobby : Apply Device type info
-	- 20140805@Bobby : Support sum TotalSignUps & TotalFDMs
-	- 20141103@Bobby : Change FromDate & ToDate to DATETIME
-	- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
-	- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
+	Created: 20111005@Johnny
+	DB: DBAFF12BET.Affiliate_12BET
+	Task: Report click statistics by Landing page and language of landing page
+	
+	Revisions:  
+		- 20140708@Bobby : Apply Device type info
+		- 20140805@Bobby : Support sum TotalSignUps & TotalFDMs
+		- 20141103@Bobby : Change FromDate & ToDate to DATETIME
+		- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
+		- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
+		- 20200731@Percy: Check permission market (language) by user login [RedmineID: #121975]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	IF (@FromDate > @ToDate) RETURN
+	IF @FromDate > @ToDate
+		RETURN
+
+	SELECT @UserId = ISNULL(@UserId, 0)
+
+	DECLARE @tblMarket TABLE (MarketId NVARCHAR(10))
+	IF @UserId <> 0
+		INSERT INTO @tblMarket (MarketId)
+		SELECT um.MarketId
+		FROM dbo.UserMarket um WITH (NOLOCK)
+		WHERE um.CustId = @UserId
+			AND (
+				@LanguageCode IS NULL
+				OR um.MarketId = @LanguageCode
+			)
+	ELSE
+		INSERT INTO @tblMarket (MarketId)
+		SELECT m.MarketId
+		FROM dbo.Market m WITH (NOLOCK)
+		WHERE (
+				@LanguageCode IS NULL
+				OR m.MarketId = @LanguageCode
+			)
+
+	IF @LanguageCode = 'none'
+		INSERT INTO @tblMarket (MarketId)
+		VALUES (@LanguageCode)
 
 	CREATE TABLE #tmpResult
 	(
@@ -153,30 +176,30 @@ BEGIN
 		WHERE [Date] BETWEEN @FromDate AND @ToDate
 			AND AffId = @AffID
 			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
+			AND EXISTS (SELECT 1 FROM @tblMarket m WHERE c.LanguageCode = m.MarketId)
 		GROUP BY SportCode, LanguageCode, DeviceType, [Date]
 	END
 	ELSE IF (@LastDateSum > @ToDate) --get from summary table
 	BEGIN
 		INSERT INTO @Result
 		SELECT SportCode, LanguageCode, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
-		FROM ClickStatistics1Sum WITH (NOLOCK)
+		FROM ClickStatistics1Sum c WITH (NOLOCK)
 		WHERE [Date] BETWEEN @FromDate AND @ToDate
 			AND AffId = @AffID
 			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
+			AND EXISTS (SELECT 1 FROM @tblMarket m WHERE c.LanguageCode = m.MarketId)
 		GROUP BY SportCode, LanguageCode, DeviceType
 	END
 	ELSE --@fromdate < @LastDateSum < @ToDate
 	BEGIN
 		INSERT INTO @Result
 		SELECT SportCode, LanguageCode, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
-		FROM ClickStatistics1Sum WITH (NOLOCK)
+		FROM ClickStatistics1Sum c WITH (NOLOCK)
 		WHERE [Date] BETWEEN @FromDate
 				AND @LastDateSum
 			AND AffId = @AffID
 			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
+			AND EXISTS (SELECT 1 FROM @tblMarket m WHERE c.LanguageCode = m.MarketId)
 		GROUP BY SportCode, LanguageCode, DeviceType, [Date]
 			
 		UNION ALL
@@ -186,7 +209,7 @@ BEGIN
 		WHERE [Date] BETWEEN @LastDateSum AND @ToDate
 			AND AffId = @AffID
 			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
+			AND EXISTS (SELECT 1 FROM @tblMarket m WHERE c.LanguageCode = m.MarketId)
 		GROUP BY SportCode, LanguageCode, DeviceType, [Date]
 	END
 		-- End New --
@@ -214,7 +237,7 @@ BEGIN
 	WHERE mi.CreatedDate BETWEEN @FromDate AND @ToDate
 		AND mi.AffId = @AffID
 		AND (@SportCode IS NULL OR ISNULL(SportCode, 'none') = @SportCode)
-		AND (@LanguageCode IS NULL OR ISNULL(LanguageCode, 'none') = @LanguageCode)
+		AND EXISTS (SELECT 1 FROM @tblMarket m WHERE md.LanguageCode = m.MarketId)
 		AND NOT EXISTS (
 			SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 			WHERE
@@ -245,7 +268,7 @@ BEGIN
 	FROM @tmp tmp
 		LEFT JOIN dbo.ClickStatistics1 c WITH (NOLOCK) ON tmp.ClickID = c.ClickID
 	WHERE (@SportCode IS NULL OR ISNULL(SportCode, 'none') = @SportCode)
-		AND (@LanguageCode IS NULL OR ISNULL(LanguageCode, 'none') = @LanguageCode)
+		AND EXISTS (SELECT 1 FROM @tblMarket m WHERE c.LanguageCode = m.MarketId)
 	GROUP BY
 		ISNULL(SportCode, 'none'),
 		ISNULL(LanguageCode, 'none'),

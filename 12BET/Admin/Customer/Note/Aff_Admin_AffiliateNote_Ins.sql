@@ -28,7 +28,7 @@ BEGIN
 	-- Check permisison
 	EXEC dbo.Aff_CheckPermission
 		@CustId		= @UserId
-		,@FuncName	= '[Affiliate]'
+		,@FuncName	= '[Note]'
 		,@ErrCode	= @ErrCode OUTPUT
 		,@ErrMsg	= @ErrMsg OUTPUT
 

@@ -30,7 +30,7 @@ BEGIN
 	-- Check permisison
 	EXEC dbo.Aff_CheckPermission
 		@CustId		= @UserId
-		,@FuncName	= '[Payment]'
+		,@FuncName	= '[AffAdjustment]'
 		,@ErrCode	= @ErrCode OUTPUT
 		,@ErrMsg	= @ErrMsg OUTPUT
 

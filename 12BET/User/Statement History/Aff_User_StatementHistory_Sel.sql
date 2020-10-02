@@ -1,5 +1,6 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_StatementHistory_Sel]
+	@UserId		INT = NULL, -- for internal login
 	@AffId		INT,
 	@PageIndex	INT = 1,
 	@PageSize	INT = 50,
@@ -17,10 +18,40 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
+		- 20200731@Percy: Check permission payment/adjustment info by user login [RedmineID: #121975]
 */
 
 BEGIN
 	SET NOCOUNT ON
+
+	DECLARE @ErrCode INT = 0
+
+	DECLARE @tblTransType TABLE (TransType INT)
+	INSERT INTO @tblTransType (TransType)
+	VALUES (202), (203) -- Payment, Adjustment
+
+	IF ISNULL(@UserId, 0) <> 0
+	BEGIN
+		-- Payment
+		SET @ErrCode = 0
+		EXEC dbo.Aff_CheckPermission
+			@CustId		= @UserId
+			,@FuncName	= '[AffPaymentInfo]'
+			,@ErrCode	= @ErrCode OUTPUT
+
+		IF @ErrCode > 0
+			DELETE @tblTransType WHERE TransType = 202
+			
+		-- Adjustment
+		SET @ErrCode = 0
+		EXEC dbo.Aff_CheckPermission
+			@CustId		= @UserId
+			,@FuncName	= '[AffAdjustment]'
+			,@ErrCode	= @ErrCode OUTPUT
+
+		IF @ErrCode > 0
+			DELETE @tblTransType WHERE TransType = 203
+	END
 
 	CREATE TABLE #tempData
 	(
@@ -32,6 +63,7 @@ BEGIN
 	)
 
 	-- Payment, Adjustment info (TransType = 202, 203)
+	IF EXISTS (SELECT 1 FROM @tblTransType)
 	BEGIN
 		INSERT INTO #tempData
 		(
@@ -50,7 +82,7 @@ BEGIN
 		FROM dbo.AffTrans at WITH (NOLOCK)
 			LEFT JOIN dbo.AffPayout ap WITH (NOLOCK) ON at.RefID = ap.RefID AND at.TransType = 202
 		WHERE at.AffId = @AffId
-			AND at.TransType IN (202, 203)
+			AND EXISTS (SELECT 1 FROM @tblTransType t WHERE at.TransType = t.TransType)
 	END
 
 	-- Commission info

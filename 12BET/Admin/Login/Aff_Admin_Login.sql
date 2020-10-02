@@ -3,7 +3,6 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Login]
 	@UserId			INT = 0 OUTPUT
 	,@UserName		VARCHAR(50)
 	,@UserPwd		VARCHAR(100)
-	,@UserSalt		VARCHAR(100)
 	,@HostName		NVARCHAR(200)
 	,@IP			VARCHAR(50)
 	,@ErrCode		INT = 0 OUTPUT
@@ -26,14 +25,14 @@ BEGIN
 	DECLARE @LogData NVARCHAR(MAX)
 	DECLARE @FailedCount INT
 
-	IF ISNULL(@UserName, '') = '' OR ISNULL(@UserPwd, '') = '' OR ISNULL(@UserSalt, '') = ''
+	IF ISNULL(@UserName, '') = '' OR ISNULL(@UserPwd, '') = ''
 	BEGIN
 		SELECT @LogData = @LogData + 'Failed(User_Not_Found)'
 	END
 
 	SELECT	@UserId = custid
 			,@LogData = CASE
-							WHEN UserPwd <> @UserPwd OR UserSalt <> @UserSalt THEN 'Failed(Password)'
+							WHEN UserPwd <> @UserPwd THEN 'Failed(Password)'
 							WHEN Closed = 1 THEN 'Failed(A/C_Closed)'
 							END
 			,@FailedCount = ISNULL(FailedLoginCount, 0)

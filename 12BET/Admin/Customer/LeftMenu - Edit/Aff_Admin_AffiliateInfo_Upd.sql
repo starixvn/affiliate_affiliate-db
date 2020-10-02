@@ -13,6 +13,8 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateInfo_Upd]
 	@State				NVARCHAR(50) = NULL,
 	@Postal				NVARCHAR(50) = NULL,
 	@Country			NVARCHAR(50) = NULL,
+	@QuestionId			TINYINT = NULL,
+	@Answer				NVARCHAR(300) = NULL,
 	@MailOption			BIT = NULL,
 	@SiteURL			VARCHAR(100) = NULL,
 	@MoreSiteURLs		VARCHAR(1000) = NULL,
@@ -118,6 +120,8 @@ BEGIN
 		Wire_AccountName_Del	NVARCHAR(100),
 		Wire_AccountNo_Del		VARCHAR(100),
 		MailOption_Del			BIT,
+		QuestionId_Del			TINYINT,
+		Answer_Del				NVARCHAR(300),
 		-- insert
 		PreferredLanguage_Ins	VARCHAR(20),
 		Password_Ins			VARCHAR(40),
@@ -152,7 +156,9 @@ BEGIN
 		Wire_SwiftCode_Ins		NVARCHAR(50),
 		Wire_AccountName_Ins	NVARCHAR(100),
 		Wire_AccountNo_Ins		VARCHAR(100),
-		MailOption_Ins			BIT
+		MailOption_Ins			BIT,
+		QuestionId_Ins			TINYINT,
+		Answer_Ins				NVARCHAR(300)
 	)
 
 	-- Write log
@@ -418,7 +424,7 @@ BEGIN
 				MoreSiteURLs = ISNULL(@MoreSiteURLs, MoreSiteURLs),
 				NoSiteDesc = ISNULL(@NoSiteDesc, NoSiteDesc),
 				PreferredLanguage = ISNULL(@PreferredLanguage, PreferredLanguage),
-				PreferredPayment = @PreferredPayment,
+				PreferredPayment = ISNULL(@PreferredPayment, PreferredPayment),
 				Player_IBCCustId = ISNULL(@Player_IBCCustId, Player_IBCCustId),
 				Player_Username = ISNULL(@PlayerUsername, Player_Username),
 				Neteller_AccountId = ISNULL(@NetellerAccountId, Neteller_AccountId),
@@ -428,19 +434,21 @@ BEGIN
 				Wire_SwiftCode = ISNULL(@BankSwiftCode, Wire_SwiftCode),
 				Wire_AccountName = ISNULL(@BankAccountName, Wire_AccountName),
 				Wire_AccountNo = ISNULL(@BankAccountNo, Wire_AccountNo),
-				MailOption = ISNULL(@MailOption, MailOption)
+				MailOption = ISNULL(@MailOption, MailOption),
+				QuestionId = ISNULL(@QuestionId, QuestionId),
+				Answer = ISNULL(@Answer, Answer)
 			OUTPUT	DELETED.Gender,DELETED.Country,DELETED.Phone,DELETED.ContactApps,
 					DELETED.Address,DELETED.City,DELETED.State,DELETED.Postal,
 					DELETED.SiteURL,DELETED.MoreSiteURLs,DELETED.NoSiteDesc,DELETED.PreferredPayment,
 					DELETED.Player_IBCCustId,DELETED.Player_Username,DELETED.Neteller_AccountId,DELETED.Moneybookers_Email,
 					DELETED.Wire_BankName,DELETED.Wire_BankAddress,DELETED.Wire_SwiftCode,DELETED.Wire_AccountName,
-					DELETED.Wire_AccountNo,DELETED.MailOption,
+					DELETED.Wire_AccountNo,DELETED.MailOption,DELETED.QuestionId,DELETED.Answer,
 					INSERTED.Gender,INSERTED.Country,INSERTED.Phone,INSERTED.ContactApps,
 					INSERTED.Address,INSERTED.City,INSERTED.State,INSERTED.Postal,
 					INSERTED.SiteURL,INSERTED.MoreSiteURLs,INSERTED.NoSiteDesc,INSERTED.PreferredPayment,
 					INSERTED.Player_IBCCustId,INSERTED.Player_Username,INSERTED.Neteller_AccountId,INSERTED.Moneybookers_Email,
 					INSERTED.Wire_BankName,INSERTED.Wire_BankAddress,INSERTED.Wire_SwiftCode,INSERTED.Wire_AccountName,
-					INSERTED.Wire_AccountNo,INSERTED.MailOption
+					INSERTED.Wire_AccountNo,INSERTED.MailOption,INSERTED.QuestionId,INSERTED.Answer
 			INTO @UpdatedData
 			(
 					Gender_Del,Country_Del,Phone_Del,ContactApps_Del,
@@ -448,13 +456,13 @@ BEGIN
 					SiteURL_Del,MoreSiteURLs_Del,NoSiteDesc_Del,PreferredPayment_Del,
 					Player_IBCCustId_Del,Player_Username_Del,Neteller_AccountId_Del,Moneybookers_Email_Del,
 					Wire_BankName_Del,Wire_BankAddress_Del,Wire_SwiftCode_Del,Wire_AccountName_Del,
-					Wire_AccountNo_Del,MailOption_Del,
+					Wire_AccountNo_Del,MailOption_Del,QuestionId_Del,Answer_Del,
 					Gender_Ins,Country_Ins,Phone_Ins,ContactApps_Ins,
 					Address_Ins,City_Ins,State_Ins,Postal_Ins,
 					SiteURL_Ins,MoreSiteURLs_Ins,NoSiteDesc_Ins,PreferredPayment_Ins,
 					Player_IBCCustId_Ins,Player_Username_Ins,Neteller_AccountId_Ins,Moneybookers_Email_Ins,
 					Wire_BankName_Ins,Wire_BankAddress_Ins,Wire_SwiftCode_Ins,Wire_AccountName_Ins,
-					Wire_AccountNo_Ins,MailOption_Ins
+					Wire_AccountNo_Ins,MailOption_Ins,QuestionId_Ins,Answer_Ins
 			)
 			WHERE AffId = @AffId
 		END TRY
@@ -502,7 +510,9 @@ BEGIN
 					'Wire_SwiftCode='		+ ISNULL(Wire_SwiftCode_Del, '') + ',' +
 					'Wire_AccountName='		+ ISNULL(Wire_AccountName_Del, '') + ',' +
 					'Wire_AccountNo='		+ ISNULL(Wire_AccountNo_Del, '') + ',' +
-					'MailOption='			+ ISNULL(CONVERT(VARCHAR(1), MailOption_Del), ''),
+					'MailOption='			+ ISNULL(CONVERT(VARCHAR(1), MailOption_Del), '') + ',' +
+					'QuestionId='			+ ISNULL(CONVERT(VARCHAR(3), QuestionId_Del), '') + ',' +
+					'Answer='				+ ISNULL(Answer_Del, ''),
 				@NewData =
 					'FirstName='			+ ISNULL(FirstName_Ins, '') + ',' +
 					'LastName='				+ ISNULL(LastName_Ins, '') + ',' +
@@ -530,7 +540,9 @@ BEGIN
 					'Wire_SwiftCode='		+ ISNULL(Wire_SwiftCode_Ins, '') + ',' +
 					'Wire_AccountName='		+ ISNULL(Wire_AccountName_Ins, '') + ',' +
 					'Wire_AccountNo='		+ ISNULL(Wire_AccountNo_Ins, '') + ',' +
-					'MailOption='			+ ISNULL(CONVERT(VARCHAR(1), MailOption_Ins), '')
+					'MailOption='			+ ISNULL(CONVERT(VARCHAR(1), MailOption_Ins), '') + ',' +
+					'QuestionId='			+ ISNULL(CONVERT(VARCHAR(3), QuestionId_Ins), '') + ',' +
+					'Answer='				+ ISNULL(Answer_Ins, '')
 		FROM @UpdatedData
 	END
 	

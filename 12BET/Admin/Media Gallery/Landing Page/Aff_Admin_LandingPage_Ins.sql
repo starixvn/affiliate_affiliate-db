@@ -26,7 +26,7 @@ BEGIN
 	-- Check permission
 	EXEC dbo.Aff_CheckPermission
 		@CustId		= @UserId
-		,@FuncName	= '[MediaGallery]'
+		,@FuncName	= '[Media]'
 		,@ErrCode	= @ErrCode OUTPUT
 		,@ErrMsg	= @ErrMsg OUTPUT
 

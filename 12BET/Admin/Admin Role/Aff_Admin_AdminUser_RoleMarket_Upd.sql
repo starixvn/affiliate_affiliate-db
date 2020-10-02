@@ -29,7 +29,7 @@ BEGIN
 	-- Check permission
 	EXEC dbo.Aff_CheckPermission
 		@CustId		= @UserId
-		,@FuncName	= '[AdminRole]'
+		,@FuncName	= '[UserControl]'
 		,@ErrCode	= @ErrCode OUTPUT
 		,@ErrMsg	= @ErrMsg OUTPUT
 
@@ -48,6 +48,37 @@ BEGIN
 		RETURN
 
 	-- Update process
+	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
+	SELECT  @OldData = CONVERT(NVARCHAR(MAX), (
+				SELECT	r.RoleId AS '@RoleId'
+						,r.RoleName AS '@RoleName'
+						,m.MarketId AS '@MarketId'
+						,m.MarketName AS '@MarketName'
+						,m.DisplayName AS '@DisplayName'
+						,CASE WHEN rm.RoleId IS NULL THEN 0 ELSE 1 END AS '@Status'
+				FROM dbo.Market m WITH (NOLOCK)
+					CROSS JOIN dbo.Roles r WITH (NOLOCK)
+					LEFT JOIN dbo.RoleMarket rm WITH (NOLOCK) ON rm.MarketId = m.MarketId AND rm.RoleId = r.RoleId
+				ORDER BY r.RoleId, m.MarketId
+				FOR XML PATH('row'), ROOT('root')
+			))
+			,@NewData = CONVERT(NVARCHAR(MAX), (
+				SELECT	r.RoleId AS '@RoleId'
+						,r.RoleName AS '@RoleName'
+						,m.MarketId AS '@MarketId'
+						,m.MarketName AS '@MarketName'
+						,m.DisplayName AS '@DisplayName'
+						,CASE WHEN rm.RoleId IS NULL THEN 0 ELSE 1 END AS '@Status'
+				FROM dbo.Market m WITH (NOLOCK)
+					CROSS JOIN dbo.Roles r WITH (NOLOCK)
+					LEFT JOIN @RoleMarket rm ON rm.MarketId = m.MarketId AND rm.RoleId = r.RoleId
+				ORDER BY r.RoleId, m.MarketId
+				FOR XML PATH('row'), ROOT('root')
+			))
+
+	IF ISNULL(@OldData, '') = ISNULL(@NewData, '')
+		RETURN
+
 	BEGIN TRY
 		DELETE dbo.RoleMarket WITH (ROWLOCK, UPDLOCK)
 		WHERE RoleId IN (SELECT RoleId FROM @RoleMarket)

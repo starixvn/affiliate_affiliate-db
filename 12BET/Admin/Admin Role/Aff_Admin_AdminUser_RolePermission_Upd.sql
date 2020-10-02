@@ -31,7 +31,7 @@ BEGIN
 	-- Check permission
 	EXEC dbo.Aff_CheckPermission
 		@CustId		= @UserId
-		,@FuncName	= '[AdminRole]'
+		,@FuncName	= '[UserControl]'
 		,@ErrCode	= @ErrCode OUTPUT
 		,@ErrMsg	= @ErrMsg OUTPUT
 
@@ -56,15 +56,32 @@ BEGIN
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 	SELECT  @OldData = CONVERT(NVARCHAR(MAX),
 			(
-				SELECT rf.RoleId AS '@RoleId', rf.FuncId AS '@FuncId', rf.Policy AS '@Policy'
+				SELECT
+					r.RoleId	AS '@RoleId'
+					,r.RoleName AS '@RoleName'
+					,f.FuncId	AS '@FuncId'
+					,f.FuncName	AS '@FuncName'
+					,rf.Policy	AS '@Policy'
 				FROM dbo.RoleFunction rf WITH (NOLOCK)
 					INNER JOIN @tblPermission p ON rf.FuncId = p.FuncId AND rf.RoleId = p.RoleId
+					INNER JOIN dbo.Functions f WITH (NOLOCK) ON rf.FuncId = f.FuncId
+					INNER JOIN dbo.Roles r WITH (NOLOCK) ON r.RoleId = rf.RoleId
+				ORDER BY r.RoleId, f.FuncId
 				FOR XML PATH('row'), ROOT('root')
 			))
 			,@NewData = CONVERT(NVARCHAR(MAX),
 			(
-				SELECT RoleId AS '@RoleId', FuncId AS '@FuncId', Policy AS '@Policy'
-				FROM @tblPermission
+				SELECT
+					r.RoleId	AS '@RoleId'
+					,r.RoleName AS '@RoleName'
+					,f.FuncId	AS '@FuncId'
+					,f.FuncName	AS '@FuncName'
+					,p.Policy	AS '@Policy'
+				FROM dbo.RoleFunction rf WITH (NOLOCK)
+					INNER JOIN @tblPermission p ON rf.FuncId = p.FuncId AND rf.RoleId = p.RoleId
+					INNER JOIN dbo.Functions f WITH (NOLOCK) ON rf.FuncId = f.FuncId
+					INNER JOIN dbo.Roles r WITH (NOLOCK) ON r.RoleId = rf.RoleId
+				ORDER BY r.RoleId, f.FuncId
 				FOR XML PATH('row'), ROOT('root')
 			))
 

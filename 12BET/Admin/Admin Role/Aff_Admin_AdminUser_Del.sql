@@ -22,7 +22,7 @@ BEGIN
 	-- Check permission
 	EXEC dbo.Aff_CheckPermission
 		@CustId		= @UserId
-		,@FuncName	= '[AdminRole]'
+		,@FuncName	= '[UserControl]'
 		,@ErrCode	= @ErrCode OUTPUT
 		,@ErrMsg	= @ErrMsg OUTPUT
 
@@ -46,14 +46,30 @@ BEGIN
 	END CATCH
 
 	-- Write log
-	DECLARE @SPName VARCHAR(200)
+	DECLARE @SPName VARCHAR(200), @OldData NVARCHAR(MAX)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
+
+	SELECT  @OldData = CONVERT(NVARCHAR(MAX), (
+				SELECT
+					u.CustId		AS '@CustId'
+					,u.UserName		AS '@UserName'
+					,u.FirstName	AS '@FirstName'
+					,u.LastName		AS '@LastName'
+					,r.RoleId		AS '@RoleId'
+					,r.RoleName		AS '@RoleName'
+					,u.Closed		AS '@Closed'
+				FROM dbo.Users u WITH (NOLOCK)
+					INNER JOIN @Users t ON u.CustId = t.CustId
+					INNER JOIN dbo.Roles r WITH (NOLOCK) ON u.RoleId = r.RoleId
+				WHERE u.IsDeleted = 1
+				ORDER BY u.CustId, r.RoleId
+				FOR XML PATH('row'), ROOT('root')
+			))
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId
 		,@SPName	= @SPName
 		,@OldData	= @OldData
-		,@NewData	= @NewData
 		,@IP		= @IP
 END
 GO

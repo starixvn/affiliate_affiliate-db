@@ -1,8 +1,6 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateInfo_Sel]
+	@UserId		INT = 0,
 	@AffId		INT = NULL,
 	@Username	NVARCHAR(50) = NULL
 AS
@@ -18,6 +16,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20190509@Percy: Enhance Security Questions [RedmineID: #104884]
 		- 20190614@Percy: Remove IsCasino [RedmineID: #109008]
+		- 20200731@Percy: Check permission market (language) by user login [RedmineID: #121975]
 */
 
 BEGIN
@@ -34,6 +33,15 @@ BEGIN
 
 		-- Still not found
 		IF @AffId IS NULL
+			RETURN
+	END
+
+	DECLARE @PreferredLanguage VARCHAR(11)
+	SELECT  @PreferredLanguage = PreferredLanguage FROM dbo.AffDetail WITH (NOLOCK) WHERE AffId = @AffId
+
+	IF ISNULL(@UserId, 0) <> 0 AND ISNULL(@PreferredLanguage, '') <> ''
+	BEGIN
+		IF NOT EXISTS (SELECT 1 FROM dbo.UserMarket WITH (NOLOCK) WHERE CustId = @UserId AND MarketId = @PreferredLanguage)
 			RETURN
 	END
 
@@ -60,6 +68,7 @@ BEGIN
 		ad.State,
 		ad.Postal,
 		ad.Country,
+		ad.QuestionId,
 		ISNULL(q.Question, ad.Question) AS Question,
 		ad.Answer,
 		-- Email Format Preference

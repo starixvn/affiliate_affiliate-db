@@ -18,19 +18,12 @@ BEGIN
 
 	SELECT FuncId, FuncName, CASE WHEN Policy = 3 THEN 1 ELSE 0 END AS Host
 	FROM (
-		SELECT f.FuncId, f.FuncName, uf.Policy | rf.Policy AS Policy
+		SELECT f.FuncId, f.FuncName, uf.Policy
 		FROM dbo.Users u WITH (NOLOCK)
 			INNER JOIN dbo.UserFunction uf WITH (NOLOCK) ON u.CustId = uf.CustId
-			INNER JOIN dbo.RoleFunction rf WITH (NOLOCK) ON uf.FuncId = rf.FuncId AND u.RoleId = rf.RoleId
 			INNER JOIN dbo.Functions f WITH (NOLOCK) ON uf.FuncId = f.FuncId
 		WHERE u.CustId = @UserId
 	) t
 	WHERE Policy > 0
-
-	SELECT m.MarketId, m.MarketName, m.DisplayName, um.Policy
-	FROM dbo.UserMarket um WITH (NOLOCK)
-		INNER JOIN dbo.Market m WITH (NOLOCK) ON um.MarketId = m.MarketId
-	WHERE CustId = @UserId
-		AND Policy > 0
 END
 GO

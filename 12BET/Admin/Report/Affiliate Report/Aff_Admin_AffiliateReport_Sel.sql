@@ -3,7 +3,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	@Username			NVARCHAR(50) = NULL,
 	@FromDate			SMALLDATETIME,
 	@ToDate				SMALLDATETIME,
-	@PreferredLanguage	VARCHAR(11) = NULL,
+	@PreferredLanguages	VARCHAR(MAX),
 	@ProductIds			VARCHAR(MAX) = '0',
 	@SortType			TINYINT = 1,
 	@SortDirectionType	BIT = 0,
@@ -23,6 +23,7 @@ AS
 		- 20181001@Percy: Support export excel [RedmineID: #102322]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 		- 20191101@Percy: Fix wrong FDM value [RedmineID: #123134]
+		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -36,10 +37,7 @@ BEGIN
 	IF @FromDate IS NULL OR @ToDate IS NULL
 		RETURN
 
-	SELECT  @Username = ISNULL(LTRIM(RTRIM(@Username)), ''), @PreferredLanguage = ISNULL(@PreferredLanguage, '')
-
-	DECLARE @IsFiltered BIT
-	SELECT  @IsFiltered = CASE WHEN @Username <> '' OR @PreferredLanguage <> '' THEN 1 ELSE 0 END
+	SELECT  @Username = ISNULL(LTRIM(RTRIM(@Username)), ''), @PreferredLanguages = ISNULL(@PreferredLanguages, '')
 
 	SELECT  @FromDate		= DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0) -- Begin Of Month
 	SELECT  @ToDate			= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0)) -- End Of Month
@@ -69,7 +67,7 @@ BEGIN
 		LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 	WHERE ai.Status = 'Approved'
 		AND ai.Username LIKE '%' + @Username + '%'
-		AND (@PreferredLanguage = '' OR ad.PreferredLanguage = @PreferredLanguage)
+		AND ',' + @PreferredLanguages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
 
 	SELECT @NRows = @@ROWCOUNT
 
@@ -273,8 +271,12 @@ BEGIN
 													WHERE creatdate >= ''''' + CONVERT(VARCHAR(10), @FromDate, 120) + ''''' AND
 														creatdate < ''''' + + CONVERT(VARCHAR(10), DATEADD(DAY, 1, @ToDate), 120) + '''''
 													GROUP BY AffiliateId'') AS a'
-		INSERT INTO #Signup (AffId, Signup)
-		EXEC (@sql)
+		BEGIN TRY
+			INSERT INTO #Signup (AffId, Signup)
+			EXEC (@sql)
+		END TRY
+		BEGIN CATCH
+		END CATCH
 	END
 	
 	/*
@@ -383,7 +385,7 @@ BEGIN
 				LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 			WHERE ai.Status = 'Approved'
 				AND ai.Username LIKE '%' + @Username + '%'
-				AND (@PreferredLanguage = '' OR ad.PreferredLanguage = @PreferredLanguage)
+				AND ',' + @PreferredLanguages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
 			) AS aff
 		WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 

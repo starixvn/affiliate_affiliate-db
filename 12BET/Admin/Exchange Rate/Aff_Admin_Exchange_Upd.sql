@@ -33,7 +33,7 @@ BEGIN
 	-- Check permission
 	EXEC dbo.Aff_CheckPermission
 		@CustId		= @UserId
-		,@FuncName	= '[ExRate]'
+		,@FuncName	= '[AffEx.Rate]'
 		,@ErrCode	= @ErrCode OUTPUT
 		,@ErrMsg	= @ErrMsg OUTPUT
 

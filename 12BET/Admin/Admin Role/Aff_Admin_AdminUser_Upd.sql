@@ -1,19 +1,20 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AdminUser_Upd]
-	@UserId		INT
-	,@CustId	INT
-	,@UserName	VARCHAR(50) = NULL
-	,@FirstName	NVARCHAR(50) = NULL
-	,@LastName	NVARCHAR(50) = NULL
-	,@UserPwd	VARCHAR(100) = NULL
-	,@UserSalt	VARCHAR(100) = NULL
-	,@RoleId	TINYINT = NULL
-	,@Closed	BIT = NULL
-	,@Function	XML = NULL
-	,@Market	XML = NULL
-	,@IP		VARCHAR(50) = ''
-	,@ErrCode	INT = 0 OUTPUT
-	,@ErrMsg	NVARCHAR(4000) = '' OUTPUT
+	@UserId					INT
+	,@CustId				INT
+	,@UserName				VARCHAR(50) = NULL
+	,@FirstName				NVARCHAR(50) = NULL
+	,@LastName				NVARCHAR(50) = NULL
+	,@UserPwd				VARCHAR(100) = NULL
+	,@RoleId				TINYINT = NULL
+	,@Closed				BIT = NULL
+	,@IsRoleFunctionDefault BIT = 0
+	,@Function				XML = NULL
+	,@IsRoleMarketDefault	BIT = 0
+	,@Market				XML = NULL
+	,@IP					VARCHAR(50) = ''
+	,@ErrCode				INT = 0 OUTPUT
+	,@ErrMsg				NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -40,27 +41,51 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
+	SELECT @IsRoleFunctionDefault = ISNULL(@IsRoleFunctionDefault, 0)
+			,@IsRoleMarketDefault = ISNULL(@IsRoleMarketDefault, 0)
+
 	-- Check permission
 	EXEC dbo.Aff_CheckPermission
 		@CustId		= @UserId
-		,@FuncName	= '[AdminRole]'
+		,@FuncName	= '[UserControl]'
 		,@ErrCode	= @ErrCode OUTPUT
 		,@ErrMsg	= @ErrMsg OUTPUT
 
 	IF @ErrCode <> 0
 		RETURN
 
-	-- Check exists username
-	IF EXISTS (SELECT 1 FROM dbo.Users WITH (NOLOCK) WHERE UserName = @UserName AND CustId <> @CustId AND IsDeleted = 0)
+	IF ISNULL(@RoleId, 0) = 0
 	BEGIN
-		SELECT @ErrCode = 100, @ErrMsg = 'This username is already exists!'
-		RETURN
+		SELECT @RoleId = RoleId FROM dbo.Users WITH (NOLOCK) WHERE CustId = @CustId
+
+		IF @@ROWCOUNT = 0
+		BEGIN
+			SELECT @ErrCode = 100, @ErrMsg = 'This user doesn''t exist!'
+			RETURN
+		END
+	END
+
+	-- Check exists username
+	IF ISNULL(@Username, '') <> ''
+	BEGIN
+		IF EXISTS (SELECT 1 FROM dbo.Users WITH (NOLOCK) WHERE UserName = @UserName AND CustId <> @CustId AND IsDeleted = 0)
+		BEGIN
+			SELECT @ErrCode = 100, @ErrMsg = 'This username is already exist!'
+			RETURN
+		END
 	END
 
 	DECLARE @UserFunction TABLE (FuncId SMALLINT, Policy TINYINT)
 	DECLARE @UserMarket TABLE (MarketId NVARCHAR(10), Status BIT)
 
-	IF @Function IS NOT NULL
+	IF @IsRoleFunctionDefault = 1
+	BEGIN
+		INSERT INTO @UserFunction (FuncId, Policy)
+		SELECT FuncId, Policy
+		FROM dbo.RoleFunction WITH (NOLOCK)
+		WHERE RoleId = @RoleId
+	END
+	ELSE IF @Function IS NOT NULL
 	BEGIN
 		INSERT INTO @UserFunction (FuncId, Policy)
 		SELECT t.c.value('@FuncId', 'SMALLINT') AS FuncId
@@ -75,7 +100,14 @@ BEGIN
 		END
 	END
 
-	IF @Market IS NOT NULL
+	IF @IsRoleMarketDefault = 1
+	BEGIN
+		INSERT INTO @UserMarket (MarketId, Status)
+		SELECT MarketId, 1
+		FROM dbo.RoleMarket WITH (NOLOCK)
+		WHERE RoleId = @RoleId
+	END
+	ELSE IF @Market IS NOT NULL
 	BEGIN
 		INSERT INTO @UserMarket (MarketId, Status)
 		SELECT t.c.value('@MarketId', 'NVARCHAR(10)') AS MarketId
@@ -86,36 +118,49 @@ BEGIN
 
 	-- Update process
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
-	SELECT  @OldData =
-		'UserId='	+ CONVERT(VARCHAR(15), CustId) + ',' +
-		'UserName='	+ UserName + ',' +
-		'FirstName='+ ISNULL(FirstName, '') + ',' +
-		'LastName='	+ ISNULL(LastName, '') + ',' +
-		'RoleId='	+ CONVERT(VARCHAR(5), RoleId) + ',' +
-		'Closed='	+ CONVERT(VARCHAR(1), Closed)
-	FROM dbo.Users WITH (NOLOCK)
-	WHERE CustId = @CustId AND IsDeleted = 0
+	SELECT  @OldData = CONVERT(NVARCHAR(MAX), (
+				SELECT
+					u.CustId					AS '@CustId'
+					,u.UserName					AS '@UserName'
+					,u.FirstName				AS '@FirstName'
+					,u.LastName					AS '@LastName'
+					,r.RoleId					AS '@RoleId'
+					,r.RoleName					AS '@RoleName'
+					,u.Closed					AS '@Closed'
+					,u.IsRoleFunctionDefault	AS '@IsRoleFunctionDefault'
+					,u.IsRoleMarketDefault		AS '@IsRoleMarketDefault'
+				FROM dbo.Users u WITH (NOLOCK)
+					INNER JOIN dbo.Roles r WITH (NOLOCK) ON u.RoleId = r.RoleId
+				WHERE u.CustId = @CustId AND u.IsDeleted = 0
+				FOR XML PATH('row'), ROOT('root')
+			))
 
 	DECLARE @OldFunction XML, @OldMarket XML
 			,@NewFunction XML, @NewMarket XML
 
 	BEGIN TRY
 		UPDATE dbo.Users WITH (ROWLOCK)
-		SET UserName	= ISNULL(@UserName, UserName)
-			,FirstName	= ISNULL(@FirstName, FirstName)
-			,LastName	= ISNULL(@LastName, LastName)
-			,UserPwd	= ISNULL(@UserPwd, UserPwd)
-			,UserSalt	= ISNULL(@UserSalt, UserSalt)
-			,RoleId		= ISNULL(@RoleId, RoleId)
-			,Closed		= ISNULL(@Closed, Closed)
+		SET UserName				= ISNULL(@UserName, UserName)
+			,FirstName				= ISNULL(@FirstName, FirstName)
+			,LastName				= ISNULL(@LastName, LastName)
+			,UserPwd				= ISNULL(@UserPwd, UserPwd)
+			,RoleId					= ISNULL(@RoleId, RoleId)
+			,Closed					= ISNULL(@Closed, Closed)
+			,IsRoleFunctionDefault	= ISNULL(@IsRoleFunctionDefault, IsRoleFunctionDefault)
+			,IsRoleMarketDefault	= ISNULL(@IsRoleMarketDefault, IsRoleMarketDefault)
 		WHERE CustId	= @CustId
 
 		IF @Function IS NOT NULL
 		BEGIN
 			SELECT @OldFunction = (
-				SELECT FuncId AS '@FuncId', Policy AS '@Policy'
-				FROM dbo.UserFunction WITH (NOLOCK)
+				SELECT
+					f.FuncId	AS '@FuncId'
+					,f.FuncName AS '@FuncName'
+					,uf.Policy	AS '@Policy'
+				FROM dbo.UserFunction uf WITH (NOLOCK)
+					INNER JOIN dbo.Functions f WITH (NOLOCK) ON uf.FuncId = f.FuncId
 				WHERE CustId = @CustId
+				ORDER BY f.FuncId
 				FOR XML PATH('row'), ROOT('root')
 			)
 
@@ -126,9 +171,14 @@ BEGIN
 			WHERE uf.CustId = @CustId
 
 			SELECT @NewFunction = (
-				SELECT FuncId AS '@FuncId', Policy AS '@Policy'
-				FROM dbo.UserFunction WITH (NOLOCK)
+				SELECT
+					f.FuncId	AS '@FuncId'
+					,f.FuncName AS '@FuncName'
+					,uf.Policy	AS '@Policy'
+				FROM dbo.UserFunction uf WITH (NOLOCK)
+					INNER JOIN dbo.Functions f WITH (NOLOCK) ON uf.FuncId = f.FuncId
 				WHERE CustId = @CustId
+				ORDER BY f.FuncId
 				FOR XML PATH('row'), ROOT('root')
 			)
 		END
@@ -136,12 +186,14 @@ BEGIN
 		IF @Market IS NOT NULL
 		BEGIN
 			SELECT @OldMarket = (
-				SELECT	m.MarketId AS '@MarketId'
-						,m.MarketName AS '@MarketName'
-						,m.DisplayName AS '@DisplayName'
-						,CASE WHEN um.MarketId IS NULL THEN 0 ELSE 1 END AS '@Status'
+				SELECT
+					m.MarketId AS '@MarketId'
+					,m.MarketName AS '@MarketName'
+					,m.DisplayName AS '@DisplayName'
+					,CASE WHEN um.MarketId IS NULL THEN 0 ELSE 1 END AS '@Status'
 				FROM dbo.Market m WITH (NOLOCK)
 					LEFT JOIN dbo.UserMarket um WITH (NOLOCK) ON um.MarketId = m.MarketId AND um.CustId = @CustId
+				ORDER BY m.MarketId
 				FOR XML PATH('row'), ROOT('root')
 			)
 
@@ -153,12 +205,14 @@ BEGIN
 			WHERE Status = 1
 
 			SELECT @NewMarket = (
-				SELECT	m.MarketId AS '@MarketId'
-						,m.MarketName AS '@MarketName'
-						,m.DisplayName AS '@DisplayName'
-						,CASE WHEN um.MarketId IS NULL THEN 0 ELSE 1 END AS '@Status'
+				SELECT
+					m.MarketId AS '@MarketId'
+					,m.MarketName AS '@MarketName'
+					,m.DisplayName AS '@DisplayName'
+					,CASE WHEN um.MarketId IS NULL THEN 0 ELSE 1 END AS '@Status'
 				FROM dbo.Market m WITH (NOLOCK)
 					LEFT JOIN dbo.UserMarket um WITH (NOLOCK) ON um.MarketId = m.MarketId AND um.CustId = @CustId
+				ORDER BY m.MarketId
 				FOR XML PATH('row'), ROOT('root')
 			)
 		END
@@ -172,15 +226,22 @@ BEGIN
 	DECLARE @SPName VARCHAR(200)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
-	SELECT  @NewData =
-		'UserId='	+ CONVERT(VARCHAR(15), CustId) + ',' +
-		'UserName='	+ UserName + ',' +
-		'FirstName='+ ISNULL(FirstName, '') + ',' +
-		'LastName='	+ ISNULL(LastName, '') + ',' +
-		'RoleId='	+ CONVERT(VARCHAR(5), RoleId) + ',' +
-		'Closed='	+ CONVERT(VARCHAR(1), Closed)
-	FROM dbo.Users WITH (NOLOCK)
-	WHERE CustId = @CustId AND IsDeleted = 0
+	SELECT  @NewData = CONVERT(NVARCHAR(MAX), (
+				SELECT
+					u.CustId					AS '@CustId'
+					,u.UserName					AS '@UserName'
+					,u.FirstName				AS '@FirstName'
+					,u.LastName					AS '@LastName'
+					,r.RoleId					AS '@RoleId'
+					,r.RoleName					AS '@RoleName'
+					,u.Closed					AS '@Closed'
+					,u.IsRoleFunctionDefault	AS '@IsRoleFunctionDefault'
+					,u.IsRoleMarketDefault		AS '@IsRoleMarketDefault'
+				FROM dbo.Users u WITH (NOLOCK)
+					INNER JOIN dbo.Roles r WITH (NOLOCK) ON u.RoleId = r.RoleId
+				WHERE u.CustId = @CustId AND u.IsDeleted = 0
+				FOR XML PATH('row'), ROOT('root')
+			))
 
 	IF @OldData = @NewData
 		SELECT @OldData = NULL, @NewData = NULL

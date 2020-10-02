@@ -25,7 +25,6 @@ CREATE TABLE dbo.Users
 	,FirstName			NVARCHAR(50)
 	,LastName			NVARCHAR(50)
 	,UserPwd			VARCHAR(100)
-	,UserSalt			VARCHAR(100)
 	,PwdExpiry			DATETIME
 	,CreatedDate		DATETIME CONSTRAINT DF_Users_CreatedDate DEFAULT (GETDATE())
 	,Creator			INT
@@ -34,6 +33,8 @@ CREATE TABLE dbo.Users
 	,FailedLoginCount	TINYINT CONSTRAINT DF_Users_FailedLoginCount DEFAULT ((0))
 	,Closed				BIT CONSTRAINT DF_Users_Closed DEFAULT ((0))
 	,IsDeleted			BIT CONSTRAINT DF_Users_IsDeleted DEFAULT ((0))
+	,IsRoleFunctionDefault	BIT CONSTRAINT DF_Users_IsRoleFunctionDefault DEFAULT ((0))
+	,IsRoleMarketDefault	BIT CONSTRAINT DF_Users_IsRoleMarketDefault DEFAULT ((0))
 	,CONSTRAINT PK_Users PRIMARY KEY
 	(
 		CustId ASC
@@ -112,7 +113,6 @@ CREATE TABLE dbo.RoleMarket
 (
 	RoleId			SMALLINT NOT NULL
 	,MarketId		NVARCHAR(10) NOT NULL
-	,Policy			TINYINT
 	,CreatedDate	DATETIME CONSTRAINT DF_RoleMarket_CreatedDate DEFAULT (GETDATE())
 	,UpdatedDate	DATETIME CONSTRAINT DF_RoleMarket_UpdatedDate DEFAULT (GETDATE())
 	,Creator		INT
@@ -128,7 +128,6 @@ CREATE TABLE dbo.UserMarket
 (
 	CustId			INT NOT NULL
 	,MarketId		NVARCHAR(10) NOT NULL
-	,Policy			TINYINT
 	,CreatedDate	DATETIME CONSTRAINT DF_UserMarket_CreatedDate DEFAULT (GETDATE())
 	,UpdatedDate	DATETIME CONSTRAINT DF_UserMarket_UpdatedDate DEFAULT (GETDATE())
 	,Creator		INT
@@ -149,13 +148,45 @@ INSERT INTO dbo.Functions (FuncName,Description)
 VALUES ('[Home]', 'Home')
 		,('[Customer]', 'Customer')
 		,('[Affiliate]', 'Affiliate')
-		,('[Member]', 'Member')
-		,('[Report]', 'Report')
-		,('[MediaGallery]', 'Media Gallery')
-		,('[Message]', 'Message')
-		,('[ExRate]', 'Ex.Rate')
+		,('[AffReport]', 'Affiliate Report')
+		,('[Media]', 'Media')
+		,('[HotNews]', 'Message')
+		,('[AffEx.Rate]', 'Ex.Rate')
 		,('[Domain]', 'Domain')
-		,('[AdminRole]', 'Admin Role')
+		,('[UserControl]', 'User Control')
+		,('[Payment]', 'Payment')
+		,('[CommissionGroup]', 'Commission Group')
+		,('[Note]', 'Manage Notes')
+		,('[SecurityQA]', 'Security Q&A')
+		,('[MemberEmail]', 'Member''s Email')
+		,('[AffPhone]', 'Affiliate Phone Number')
+		,('[AffEmail]', 'Affiliate Email')
+		,('[AffPaymentInfo]', 'Affiliate Payment Information')
+		,('[AffWebURL]', 'Affiliate Website URL')
+		,('[AffMarket]', 'Affiliate Market')
+		,('[AffTurnover]', 'Affiliate Turnover')
+		,('[AffAdjustment]', 'Affiliate Adjustment')
+		,('[AffAccountStatus]', 'Affiliate Account Status')
+		,('[AffPlayerDetail]', 'Affiliate Players Detail')
+		,('[AffMember]', 'Member')
+		,('[AffMemberDetail]', 'Member')
+		,('[ActiveMembers]', 'Member')
+		,('[ExportExcel]', 'Export Excel')
+GO
+
+UPDATE dbo.Functions WITH (ROWLOCK)
+SET ParentId = FuncId
+GO
+
+UPDATE c
+SET c.ParentId = p.FuncId
+FROM dbo.Functions c WITH (ROWLOCK)
+	INNER JOIN dbo.Functions p WITH (NOLOCK)
+		ON c.FuncName IN ('[AffMemberDetail]', '[ActiveMembers]') AND p.FuncName = '[AffMember]'
+GO
+
+UPDATE dbo.Functions WITH (ROWLOCK)
+SET AllParentIds = CONVERT(VARCHAR(1000), FuncId)
 GO
 
 INSERT INTO dbo.RoleFunction (RoleId,FuncId,Policy)
@@ -164,27 +195,27 @@ FROM Roles r WITH (NOLOCK)
 	CROSS JOIN Functions f WITH (NOLOCK)
 GO
 
-INSERT INTO dbo.Users (UserName,RoleId,FirstName,LastName,UserPwd, UserSalt)
-VALUES ('pgmPercy',1,'Percy','Nguyen','56E8A2D78170E87C928E480797CC73', 'SIymwTYtl4dVMSRM5w==')
-		,('AAHubert',1,'Hubert','Duong','56E8A2D78170E87C928E480797CC73', 'SIymwTYtl4dVMSRM5w==')
-		,('AASteve',1,'Steve','Nguyen','56E8A2D78170E87C928E480797CC73', 'SIymwTYtl4dVMSRM5w==')
-		,('AAMaia',1,'Maia','Le','56E8A2D78170E87C928E480797CC73', 'SIymwTYtl4dVMSRM5w==')
+INSERT INTO dbo.Users (UserName,RoleId,FirstName,LastName,UserPwd)
+VALUES ('pgmPercy'		,1,'Percy','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
+		,('AAHubert'	,1,'Hubert','Duong'	,'56E8A2D78170E87C928E480797CC73')
+		,('AASteve'		,1,'Steve','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
+		,('AAMaia'		,1,'Maia','Le'		,'56E8A2D78170E87C928E480797CC73')
 
-		,('AAHubert01',2,'Hubert','Duong','56E8A2D78170E87C928E480797CC73', 'SIymwTYtl4dVMSRM5w==')
-		,('AASteve01',2,'Steve','Nguyen','56E8A2D78170E87C928E480797CC73', 'SIymwTYtl4dVMSRM5w==')
-		,('AAMaia01',2,'Maia','Le','56E8A2D78170E87C928E480797CC73', 'SIymwTYtl4dVMSRM5w==')
+		,('AAHubert01'	,2,'Hubert','Duong'	,'56E8A2D78170E87C928E480797CC73')
+		,('AASteve01'	,2,'Steve','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
+		,('AAMaia01'	,2,'Maia','Le'		,'56E8A2D78170E87C928E480797CC73')
 
-		,('AAHubert02',3,'Hubert','Duong','56E8A2D78170E87C928E480797CC73', 'SIymwTYtl4dVMSRM5w==')
-		,('AASteve02',3,'Steve','Nguyen','56E8A2D78170E87C928E480797CC73', 'SIymwTYtl4dVMSRM5w==')
-		,('AAMaia02',3,'Maia','Le','56E8A2D78170E87C928E480797CC73', 'SIymwTYtl4dVMSRM5w==')
+		,('AAHubert02'	,3,'Hubert','Duong'	,'56E8A2D78170E87C928E480797CC73')
+		,('AASteve02'	,3,'Steve','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
+		,('AAMaia02'	,3,'Maia','Le'		,'56E8A2D78170E87C928E480797CC73')
 
-		,('AAHubert03',4,'Hubert','Duong','56E8A2D78170E87C928E480797CC73', 'SIymwTYtl4dVMSRM5w==')
-		,('AASteve03',4,'Steve','Nguyen','56E8A2D78170E87C928E480797CC73', 'SIymwTYtl4dVMSRM5w==')
-		,('AAMaia03',4,'Maia','Le','56E8A2D78170E87C928E480797CC73', 'SIymwTYtl4dVMSRM5w==')
+		,('AAHubert03'	,4,'Hubert','Duong'	,'56E8A2D78170E87C928E480797CC73')
+		,('AASteve03'	,4,'Steve','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
+		,('AAMaia03'	,4,'Maia','Le'		,'56E8A2D78170E87C928E480797CC73')
 
-		,('AAHubert04',5,'Hubert','Duong','56E8A2D78170E87C928E480797CC73', 'SIymwTYtl4dVMSRM5w==')
-		,('AASteve04',5,'Steve','Nguyen','56E8A2D78170E87C928E480797CC73', 'SIymwTYtl4dVMSRM5w==')
-		,('AAMaia04',5,'Maia','Le','56E8A2D78170E87C928E480797CC73', 'SIymwTYtl4dVMSRM5w==')
+		,('AAHubert04'	,5,'Hubert','Duong'	,'56E8A2D78170E87C928E480797CC73')
+		,('AASteve04'	,5,'Steve','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
+		,('AAMaia04'	,5,'Maia','Le'		,'56E8A2D78170E87C928E480797CC73')
 GO
 
 INSERT INTO dbo.UserFunction (CustId,FuncId,Policy)
@@ -193,14 +224,14 @@ FROM Users u WITH (NOLOCK)
 	CROSS JOIN dbo.Functions f WITH (NOLOCK)
 GO
 
-INSERT INTO dbo.RoleMarket (RoleId,MarketId,Policy)
-SELECT RoleId, MarketId, 3
+INSERT INTO dbo.RoleMarket (RoleId,MarketId)
+SELECT RoleId, MarketId
 FROM Roles r WITH (NOLOCK)
 	CROSS JOIN dbo.Market m WITH (NOLOCK)
 GO
 
-INSERT INTO dbo.UserMarket (CustId,MarketId,Policy)
-SELECT CustId, MarketId, 3
+INSERT INTO dbo.UserMarket (CustId,MarketId)
+SELECT CustId, MarketId
 FROM Users u WITH (NOLOCK)
 	CROSS JOIN dbo.Market m WITH (NOLOCK)
 GO

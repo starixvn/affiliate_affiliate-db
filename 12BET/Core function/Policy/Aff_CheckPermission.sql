@@ -28,15 +28,17 @@ BEGIN
 	DECLARE @Policy TINYINT = 0
 
 	IF EXISTS (SELECT 1 FROM dbo.Users WITH (NOLOCK) WHERE CustId = @CustId)
-		SELECT @Policy = uf.Policy | rf.Policy
+		SELECT @Policy = uf.Policy
 		FROM dbo.Users u WITH (NOLOCK)
 			INNER JOIN dbo.UserFunction uf WITH (NOLOCK) ON u.CustId = uf.CustId
-			INNER JOIN dbo.RoleFunction rf WITH (NOLOCK) ON uf.FuncId = rf.FuncId AND u.RoleId = rf.RoleId
-		WHERE u.CustId = @CustId AND u.Closed = 0 AND u.IsDeleted = 0
+		WHERE u.CustId = @CustId
+			AND u.Closed = 0
+			AND u.IsDeleted = 0
+			AND uf.FuncId = @FuncId
 	ELSE IF EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @CustId)
 		SELECT @Policy = 3
 
 	IF ISNULL(@Policy, 0) < 3
-		SELECT @ErrCode = 0, @ErrMsg = dbo.Aff_f_GetMessageById(1401, @Language)
+		SELECT @ErrCode = 500, @ErrMsg = dbo.Aff_f_GetMessageById(1401, @Language)
 END
 GO

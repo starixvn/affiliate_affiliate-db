@@ -22,7 +22,7 @@ BEGIN
 	-- Check permission
 	EXEC dbo.Aff_CheckPermission
 		@CustId		= @UserId
-		,@FuncName	= '[AdminRole]'
+		,@FuncName	= '[UserControl]'
 		,@ErrCode	= @ErrCode OUTPUT
 		,@ErrMsg	= @ErrMsg OUTPUT
 
@@ -30,7 +30,10 @@ BEGIN
 		RETURN
 
 	-- Check exists role
-	IF NOT EXISTS (SELECT 1 FROM dbo.Roles WITH (NOLOCK) WHERE RoleId = @RoleId)
+	DECLARE @RoleName VARCHAR(100)
+	SELECT  @RoleName = RoleName FROM dbo.Roles WITH (NOLOCK) WHERE RoleId = @RoleId
+	
+	IF @@ROWCOUNT = 0
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'This role does not exist!'
 		RETURN
@@ -42,10 +45,14 @@ BEGIN
 			'RoleName=' + @RoleName + ',' +
 			'FunctionPolicy='	+ CONVERT(NVARCHAR(MAX),
 									(
-										SELECT rf.FuncId AS '@FuncId', rf.Policy AS '@Policy'
+										SELECT
+											f.FuncId	AS '@FuncId'
+											,f.FuncName	AS '@FuncName'
+											,rf.Policy	AS '@Policy'
 										FROM dbo.RoleFunction rf WITH (NOLOCK)
 											INNER JOIN dbo.Functions f WITH (NOLOCK) ON rf.FuncId = f.FuncId
 										WHERE rf.RoleId = @RoleId
+										ORDER BY f.FuncId
 										FOR XML PATH('row'), ROOT('root')
 									))
 
@@ -70,7 +77,6 @@ BEGIN
 		@UserId		= @UserId
 		,@SPName	= @SPName
 		,@OldData	= @OldData
-		,@NewData	= @NewData
 		,@IP		= @IP
 END
 GO
