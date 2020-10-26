@@ -11,6 +11,7 @@ AS
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 		- 20191010@Percy: Clean old data (keep 1 month) [RedmineID: #121795]
 		- 20191206@Percy: Update send mail part [RedmineID: #117197]
+		- 20201012@Malcolm :  Change email Starixsoft.com to starixvn.com [RedmineId : #143312]
 */
 
 BEGIN
@@ -77,10 +78,10 @@ BEGIN
 	BEGIN
 		SELECT @Subject = 'SQL Server Job System: ''Affiliate_12BET: Generate Queue Data'' failed on ' + @@SERVERNAME
 
-		SELECT @recipients = 'percy.nguyen@starixsoft.com'
+		SELECT @recipients = 'dba_local@starixvn.com'
 		
 		IF @@SERVERNAME IN ('DB052', 'DB053')
-			SELECT @recipients = @recipients + ';pontus@starixsoft.com'
+			SELECT @recipients = 'percy.nguyen@starixvn.com;pontus@starixvn.com'
 
 		SELECT @Msg = '<H3>List of products have wrong data</H3>'
 						+ '<table border="1"> '
