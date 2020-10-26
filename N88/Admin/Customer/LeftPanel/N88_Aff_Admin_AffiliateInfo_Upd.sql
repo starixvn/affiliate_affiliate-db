@@ -57,6 +57,7 @@ AS
 	
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20201026@Percy: Add AffCode - auto generate code when affiliate was approved [RedmineID: #143852]
 */
 
 BEGIN
@@ -64,6 +65,8 @@ BEGIN
 
 	DECLARE @CurrentDate SMALLDATETIME
 	SELECT  @CurrentDate = GETDATE()
+
+	DECLARE @AffCode VARCHAR(20)
 
 	-- Check permission
 	EXEC dbo.Aff_Con_CheckPermission
@@ -280,13 +283,25 @@ BEGIN
 				SELECT @ErrCode = 1007, @ErrMsg = dbo.Aff_f_GetMessageById(601, @Language)
 				RETURN
 			END
+
+			;WITH CTE_AffCode AS
+			(
+				SELECT TOP 1 * FROM dbo.AffiliateCode WITH (ROWLOCK)
+				WHERE AffId IS NULL
+				ORDER BY NEWID() -- random
+			)
+			UPDATE CTE_AffCode
+			SET AffId = @AffId
+
+			SELECT @AffCode = AffCode FROM dbo.AffiliateCode WITH (NOLOCK) WHERE AffId = @AffId
 		END
 
 		BEGIN TRY
 			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
 			SET Status = ISNULL(@Status, Status),
 				ApprovedDate = CASE WHEN @Status IN ('Approved', 'Disapproved') THEN @CurrentDate ELSE NULL END,
-				ApprovedBy = @UserId
+				ApprovedBy = @UserId,
+				AffCode = ISNULL(@AffCode, AffCode)
 			OUTPUT	DELETED.Status, DELETED.ApprovedDate, DELETED.ApprovedBy,
 					INSERTED.Status, INSERTED.ApprovedDate, INSERTED.ApprovedBy
 			INTO @UpdatedData (Status_Del, ApprovedDate_Del, ApprovedBy_Del,

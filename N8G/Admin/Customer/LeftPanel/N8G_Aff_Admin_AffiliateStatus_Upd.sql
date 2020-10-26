@@ -16,12 +16,14 @@ AS
 
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
+		- 20201026@Percy: Add AffCode - auto generate code when affiliate was approved [RedmineID: #143852]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @Language VARCHAR(10) = 'en-US'
+	DECLARE @AffCode VARCHAR(20)
 
 	SELECT @ErrCode = 0, @ErrMsg = '', @Status = ISNULL(@Status, '')
 
@@ -81,6 +83,17 @@ BEGIN
 			SELECT @ErrCode = 1008, @ErrMsg = dbo.Aff_f_GetMessageById(1006, @Language)
 			RETURN
 		END
+
+		;WITH CTE_AffCode AS
+		(
+			SELECT TOP 1 * FROM dbo.AffiliateCode WITH (ROWLOCK)
+			WHERE AffId IS NULL
+			ORDER BY NEWID() -- random
+		)
+		UPDATE CTE_AffCode
+		SET AffId = @AffId
+
+		SELECT @AffCode = AffCode FROM dbo.AffiliateCode WITH (NOLOCK) WHERE AffId = @AffId
 	END
 
 	BEGIN TRY
@@ -88,6 +101,7 @@ BEGIN
 		SET	Status = @Status
 			,GroupID = ISNULL(@GroupID, GroupID)
 			,ApprovedDate = CASE WHEN @Status IN ('Approved', 'Disapproved') THEN GETDATE() ELSE NULL END
+			,AffCode = ISNULL(@AffCode, AffCode)
 		WHERE AffID = @AffID
 	END TRY
 	BEGIN CATCH

@@ -13,6 +13,7 @@ AS
 	
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20201026@Percy: Add AffCode [RedmineID: #143852]
 */
 
 BEGIN
@@ -36,6 +37,7 @@ BEGIN
 		p.AffId AS ParentAffId,
 		p.UserName AS ParentAffName,
 		ai.AffId,
+		ai.AffCode,
 		ai.AffType,
 		ai.Status,
 		ai.IsClosed AS Closed,

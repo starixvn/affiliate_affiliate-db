@@ -5,6 +5,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Affiliate_Approved]
 	@Password	NVARCHAR(40) = NULL,
 	@Status		VARCHAR(30) = NULL,
 	@IP			VARCHAR(50),
+	@AffCode	VARCHAR(20) = '' OUTPUT,
 	@ErrCode	INT = 0 OUTPUT,
 	@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS  
@@ -16,6 +17,7 @@ AS
 	
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20201026@Percy: Add AffCode - auto generate code when affiliate was approved [RedmineID: #143852]
 */
 
 BEGIN
@@ -111,13 +113,25 @@ BEGIN
 
 			RETURN
 		END
+
+		;WITH CTE_AffCode AS
+		(
+			SELECT TOP 1 * FROM dbo.AffiliateCode WITH (ROWLOCK)
+			WHERE AffId IS NULL
+			ORDER BY NEWID() -- random
+		)
+		UPDATE CTE_AffCode
+		SET AffId = @AffId
+
+		SELECT @AffCode = AffCode FROM dbo.AffiliateCode WITH (NOLOCK) WHERE AffId = @AffId
 		
 		BEGIN TRY
 			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
 			SET Status = ISNULL(@Status, Status),
 				Password = ISNULL(@Password, Password),
 				ApprovedDate = CASE WHEN @Status IN ('Approved', 'Disapproved') THEN @CurrentDate ELSE NULL END,
-				ApprovedBy = @UserId
+				ApprovedBy = @UserId,
+				AffCode = ISNULL(@AffCode, AffCode)
 			OUTPUT	DELETED.Status, DELETED.Password, DELETED.ApprovedDate, DELETED.ApprovedBy,
 					INSERTED.Status, INSERTED.Password, INSERTED.ApprovedDate, INSERTED.ApprovedBy
 			INTO @UpdatedData (Status_Del, Password_Del, ApprovedDate_Del, ApprovedBy_Del,

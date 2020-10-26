@@ -1,7 +1,7 @@
 /*<info serverAlias="DBAFFN8G-Affiliate_N8G" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_Affiliate_Ins]
 	-- Type of affiliate: Asian, Euro, Media
-	@ParentAffId		INT = 0,
+	@AffParentCode		VARCHAR(20) = '',
 	@AffType			INT = 0,
 	-- Contact Information
 	@FirstName			NVARCHAR(50),
@@ -45,6 +45,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [Redmine: #128775]
+		- 20201026@Percy: Support AffCode to get ParentAffId [RedmineID: #143852]
 */
 
 BEGIN
@@ -71,10 +72,20 @@ BEGIN
 	END
 
 	DECLARE @MaxSubLevel SMALLINT
-	DECLARE @AllParentAffId VARCHAR(MAX)
+	DECLARE @ParentAffId INT, @AllParentAffId VARCHAR(MAX)
 
-	IF ISNULL(@ParentAffId, 0) <> 0
+	IF ISNULL(@AffParentCode, '') <> ''
 	BEGIN
+		SELECT @ParentAffId = AffId FROM dbo.AffiliateCode WITH (NOLOCK) WHERE AffCode = @AffParentCode
+
+		IF @@ROWCOUNT = 0
+		BEGIN
+			-- The information you have entered is invalid. Please check again.
+			SELECT @ErrCode = 102, @ErrMsg = dbo.Aff_f_GetMessageById(105, @Language)
+
+			RETURN
+		END
+
 		SELECT @AllParentAffId = AllParentAffId FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @ParentAffId
 
 		IF @@ROWCOUNT = 0

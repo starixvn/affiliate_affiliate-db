@@ -10,6 +10,7 @@ AS
 	
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #87923]
+		- 20201026@Percy: Add AffCode [RedmineID: #143852]
 */
 
 BEGIN
@@ -39,7 +40,8 @@ BEGIN
 		ad.PreferredPayment,
 		ad.Player_Username AS PlayerUsername,
 		@AffCurrencyCode AS AffCurrency,
-		ai.DefaultCurrency AS DefaultBaseCurrency
+		ai.DefaultCurrency AS DefaultBaseCurrency,
+		ai.AffCode
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 	WHERE ai.AffId=@AffID

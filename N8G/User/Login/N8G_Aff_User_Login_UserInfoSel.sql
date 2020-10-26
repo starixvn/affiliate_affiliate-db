@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initiliaze SP [RedmineID: #128775]
+		- 20201026@Percy: Add AffCode [RedmineID: #143852]
 
 	Parameter's Explanation:
 		- @UserName: username
@@ -44,6 +45,7 @@ BEGIN
 	SELECT
 		ai.AffID
 		,ai.UserName
+		,ai.AffCode
 		,ai.Password
 		,cg.GroupName
 		,ai.AffType
