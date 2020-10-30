@@ -13,6 +13,7 @@ AS
 		- 20190117@Percy: Using core table for 3rd Products [RedmineID: #106503]
 		- 20190322@Percy: Missing break loop [RedmineID: #110638]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
+		- 20201012@Malcolm :  Change email Starixsoft.com to starixvn.com [RedmineId : #143312]
 */
 
 BEGIN
@@ -194,7 +195,7 @@ BEGIN
 								) AS NVARCHAR(MAX)) + N'</table>'
 			
 		EXEC msdb.dbo.sp_send_dbmail
-			@recipients		= 'percy.nguyen@starixsoft.com;pontus@starixsoft.com',
+			@recipients		= 'percy.nguyen@starixvn.com;pontus@starixvn.com',
 			@subject		= @subject,
 			@body			= @Msg,
 			@body_format	= 'HTML'
