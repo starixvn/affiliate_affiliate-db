@@ -12,6 +12,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20201109@Percy: Convert timezone [RedmineID: #145020]
 */
 
 BEGIN
@@ -19,8 +20,8 @@ BEGIN
 
 	SELECT @ErrCode = 0, @ErrMsg = ''
 
-	DECLARE @SiteName VARCHAR(30), @BrandName VARCHAR(30)
-	SELECT  @SiteName = dbo.Aff_f_GetSetting('SiteName'), @BrandName = dbo.Aff_f_GetSetting('BrandName')
+	DECLARE @SiteName VARCHAR(30), @BrandName VARCHAR(30), @TimeZone INT
+	SELECT  @SiteName = dbo.Aff_f_GetSetting('SiteName'), @BrandName = dbo.Aff_f_GetSetting('BrandName'), @TimeZone = dbo.Aff_f_GetSetting('TimeZone')
 
 	CREATE TABLE #Customer
 	(
@@ -73,8 +74,8 @@ BEGIN
 			,CurrencyId			= t.c.value('@currencyid', 'INT')
 			,ActStatus			= t.c.value('@actstatus', 'TINYINT')
 			,AffId				= t.c.value('@affid', 'INT')
-			,RegTime			= NULLIF(t.c.value('@regtime', 'DATETIME'), '')
-			,FirstDepositDate	= NULLIF(t.c.value('@firstdepositdate', 'DATETIME'), '')
+			,RegTime			= DATEADD(HOUR, @TimeZone, CONVERT(DATETIME, NULLIF(t.c.value('@regtime', 'DATETIME'), '')))
+			,FirstDepositDate	= DATEADD(HOUR, @TimeZone, CONVERT(DATETIME, NULLIF(t.c.value('@firstdepositdate', 'DATETIME'), '')))
 			,Status				= t.c.value('@status', 'TINYINT')
 			,IsTest				= t.c.value('@istest', 'BIT')
 		FROM @XmlData.nodes('root/row') AS t(c)
@@ -196,7 +197,7 @@ BEGIN
 
 	DECLARE @MemberInfoLastImportedTime DATETIME
 	SELECT  @MemberInfoLastImportedTime = CASE WHEN @MaxRegisteredDate > @MaxCreatedDate THEN @MaxRegisteredDate ELSE @MaxCreatedDate END
-	SELECT  @MemberInfoLastImportedTime = DATEADD(HOUR, 1, @MemberInfoLastImportedTime)
+	SELECT  @MemberInfoLastImportedTime = DATEADD(HOUR, -(1 + @TimeZone), @MemberInfoLastImportedTime)
 
 	IF @MemberInfoLastImportedTime IS NOT NULL
 		UPDATE dbo.SystemSettings WITH (ROWLOCK)

@@ -12,6 +12,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 */
 
 BEGIN
@@ -43,11 +44,11 @@ BEGIN
 		GROUP BY CONVERT(DATE, RegisteredDate)
 
 		INSERT INTO @Signups (WinlostDate, DepositedMembers)
-		SELECT CONVERT(DATE, CreatedDate) AS WinlostDate, COUNT(1) AS DepositedMembers
+		SELECT CONVERT(DATE, FirstDepositDate) AS WinlostDate, COUNT(1) AS DepositedMembers
 		FROM dbo.MemberInfo WITH (NOLOCK)
 		WHERE AffId = @AffId
-			AND CreatedDate >= @FromBeginMonth AND CreatedDate < @ToNextMonth
-		GROUP BY CONVERT(DATE, CreatedDate)
+			AND FirstDepositDate >= @FromBeginMonth AND FirstDepositDate < @ToNextMonth
+		GROUP BY CONVERT(DATE, FirstDepositDate)
 	END
 
 	-- Turnover, Winloss, Deposit, Withdrawl, Active Members, Qualified Active Members
