@@ -4,7 +4,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Affiliate_Sel]
 	@GroupID 			INT				= 0,
 	@PreferredLanguage	VARCHAR(10)		= '',
 	@ParentAffName		NVARCHAR(50)	= '',
-	@AffId				INT				= 0,
+	@AffCode			VARCHAR(20)		= '',
 	@UserName 			NVARCHAR(50) 	= '',
 	@Status				VARCHAR(30)		= '',
 	@Email 				NVARCHAR(50) 	= '',
@@ -23,6 +23,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20201026@Percy: Change search by AffId to AffCode [RedmineID: #143852]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
@@ -40,7 +41,7 @@ BEGIN
 		LEFT JOIN dbo.AdminFavorite af WITH (NOLOCK) ON ai.AffID = af.AffId AND af.AdminId = @UserId
 	WHERE
 		(ISNULL(@ParentAffName, '') = '' OR p.Username LIKE '%' + @ParentAffName + '%')
-		AND (ISNULL(@AffId, 0) = 0 OR ai.AffId = @AffId)
+		AND (ISNULL(@AffCode, '') = '' OR ai.AffCode = @AffCode)
 		AND (ISNULL(@Username, '') = '' OR ai.Username LIKE '%' + @Username + '%')
 		AND (ISNULL(@Email, '') = '' OR ai.Email LIKE '%' + @Email + '%')
 		AND ai.Status = CASE
@@ -162,7 +163,7 @@ BEGIN
 			) at
 		WHERE
 			(ISNULL(@ParentAffName, '') = '' OR p.Username LIKE '%' + @ParentAffName + '%')
-			AND (ISNULL(@AffId, 0) = 0 OR ai.AffId = @AffId)
+			AND (ISNULL(@AffCode, '') = '' OR ai.AffCode = @AffCode)
 			AND (ISNULL(@Username, '') = '' OR ai.Username LIKE '%' + @Username + '%')
 			AND (ISNULL(@Email, '') = '' OR ai.Email LIKE '%' + @Email + '%')
 			AND ai.Status = CASE
