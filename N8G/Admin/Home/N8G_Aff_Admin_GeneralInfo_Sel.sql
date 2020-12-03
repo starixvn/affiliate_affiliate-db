@@ -9,6 +9,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 */
 
 BEGIN
@@ -238,12 +239,12 @@ BEGIN
 		(
 			SELECT
 				COUNT(1)			AS MemAllNum,
-				COUNT(CreatedDate)	AS DepositMemAllNum,
+				COUNT(FirstDepositDate)	AS DepositMemAllNum,
 
 				COUNT(CASE WHEN RegisteredDate >= @BeginOfCurrentMonth AND RegisteredDate < DATEADD(DAY, 1, @LastOfCurrentMonth)
-								OR CreatedDate >= @BeginOfCurrentMonth AND CreatedDate < DATEADD(DAY, 1, @LastOfCurrentMonth)
+								OR FirstDepositDate >= @BeginOfCurrentMonth AND FirstDepositDate < DATEADD(DAY, 1, @LastOfCurrentMonth)
 							THEN 1 ELSE NULL END) AS MemMonthNum,
-				COUNT(CASE WHEN CreatedDate >= @BeginOfCurrentMonth AND CreatedDate < DATEADD(DAY, 1, @LastOfCurrentMonth)
+				COUNT(CASE WHEN FirstDepositDate >= @BeginOfCurrentMonth AND FirstDepositDate < DATEADD(DAY, 1, @LastOfCurrentMonth)
 							THEN 1 ELSE NULL END) AS DepositMemMonthNum
 			FROM dbo.MemberInfo WITH (NOLOCK)
 			WHERE IsRemoved = 0

@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 	
 	Param's Explanation:
 		@MemberType:
@@ -48,14 +49,14 @@ BEGIN
 		AND IsRemoved = 0
 		AND 1 = CASE @MemberType
 					WHEN 0 THEN 1
-					WHEN 1 THEN CASE WHEN CreatedDate IS NULL THEN 1 ELSE 0 END
-					WHEN 2 THEN CASE WHEN CreatedDate IS NULL THEN 0 ELSE 1 END
+					WHEN 1 THEN CASE WHEN FirstDepositDate IS NULL THEN 1 ELSE 0 END
+					WHEN 2 THEN CASE WHEN FirstDepositDate IS NULL THEN 0 ELSE 1 END
 					ELSE 0 END
 		AND 1 = CASE @IsGetAll
 					WHEN 0 THEN CASE @MemberType
-									WHEN 0 THEN CASE WHEN RegisteredDate >= @FromDate AND RegisteredDate < DATEADD(DAY, 1, @ToDate) OR CreatedDate >= @FromDate AND CreatedDate < DATEADD(DAY, 1, @ToDate) THEN 1 ELSE 0 END
+									WHEN 0 THEN CASE WHEN RegisteredDate >= @FromDate AND RegisteredDate < DATEADD(DAY, 1, @ToDate) OR FirstDepositDate >= @FromDate AND FirstDepositDate < DATEADD(DAY, 1, @ToDate) THEN 1 ELSE 0 END
 									WHEN 1 THEN CASE WHEN RegisteredDate >= @FromDate AND RegisteredDate < DATEADD(DAY, 1, @ToDate) THEN 1 ELSE 0 END
-									WHEN 2 THEN CASE WHEN CreatedDate >= @FromDate AND CreatedDate < DATEADD(DAY, 1, @ToDate) THEN 1 ELSE 0 END
+									WHEN 2 THEN CASE WHEN FirstDepositDate >= @FromDate AND FirstDepositDate < DATEADD(DAY, 1, @ToDate) THEN 1 ELSE 0 END
 									ELSE 0 END
 					WHEN 1 THEN 1
 					ELSE 0 END

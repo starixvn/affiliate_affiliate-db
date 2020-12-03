@@ -12,6 +12,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 */
 
 BEGIN
@@ -27,7 +28,7 @@ BEGIN
 		DECLARE @Signups INT, @DepositedMembers INT
 		
 		SELECT  @Signups = COUNT(CASE WHEN RegisteredDate >= @FromBeginMonth AND RegisteredDate < @ToNextMonth THEN 1 ELSE NULL END)
-				,@DepositedMembers = COUNT(CASE WHEN CreatedDate >= @FromBeginMonth AND CreatedDate < @ToNextMonth THEN 1 ELSE NULL END)
+				,@DepositedMembers = COUNT(CASE WHEN FirstDepositDate >= @FromBeginMonth AND FirstDepositDate < @ToNextMonth THEN 1 ELSE NULL END)
 		FROM dbo.MemberInfo WITH (NOLOCK)
 		WHERE AffId = @AffId
 	END

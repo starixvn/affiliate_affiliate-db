@@ -22,6 +22,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -330,16 +331,16 @@ BEGIN
 	GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, RegisteredDate) + 1, 0))
 
 	INSERT INTO @MemberStatistics (MonthDate, FDM)
-	SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, CreatedDate) + 1, 0)), COUNT(1)
+	SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, FirstDepositDate) + 1, 0)), COUNT(1)
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
 	WHERE mi.AffId = @AffId
-		AND mi.CreatedDate >= @FromDate AND mi.CreatedDate < DATEADD(DAY, 1, @ToDate)
+		AND mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
 		AND NOT EXISTS (
 			SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 			WHERE mi.CustId = mr.CustId
 				AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
 		)
-	GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, CreatedDate) + 1, 0))
+	GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, FirstDepositDate) + 1, 0))
 
 	DECLARE @tblSubAff TABLE (MonthDate SMALLDATETIME, NoOfSubAff INT)
 	INSERT INTO @tblSubAff (MonthDate, NoOfSubAff)

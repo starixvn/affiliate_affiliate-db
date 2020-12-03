@@ -20,6 +20,7 @@ AS
 
 	Revisions:  
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 */
 
 BEGIN
@@ -106,7 +107,7 @@ BEGIN
 			ISNULL(md.URLReferrer, 'none') AS URLReferrer,
 			ISNULL(md.DeviceType, 0) AS DeviceType,
 			COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
-			COUNT(CASE WHEN mi.CreatedDate >= @FromDate AND mi.CreatedDate < @ToDate THEN 1 ELSE NULL END) AS FDM
+			COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
 			LEFT JOIN dbo.MemberClickDetail md WITH (NOLOCK) ON md.CustId = mi.CustId
 		WHERE mi.AffId = @AffID
