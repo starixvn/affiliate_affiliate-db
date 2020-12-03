@@ -29,9 +29,10 @@ BEGIN
 		LEFT JOIN dbo.UserMarket um WITH (NOLOCK) ON m.MarketId = um.MarketId AND um.CustId = @CustId
 
 	-- Function
-	SELECT f.AllParentIds, f.ParentId, f.FuncId, f.FuncName, ISNULL(rf.Policy, 0) AS RolePolicy, ISNULL(uf.Policy, 0) AS UserPolicy
+	SELECT f.AllParentIds, f.ParentId, f.FuncId, f.FuncName, f.DisplayName, ISNULL(rf.Policy, 0) AS RolePolicy, ISNULL(uf.Policy, 0) AS UserPolicy
 	FROM dbo.Functions f WITH (NOLOCK)
 		LEFT JOIN dbo.UserFunction uf WITH (NOLOCK) ON f.FuncId = uf.FuncId AND uf.CustId = @CustId
 		LEFT JOIN dbo.RoleFunction rf WITH (NOLOCK) ON f.FuncId = rf.FuncId AND rf.RoleId = @RoleId
+	ORDER BY f.OrderId
 END
 GO

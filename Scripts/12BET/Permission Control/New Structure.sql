@@ -1,19 +1,10 @@
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET"></info>*/
+/*
+	Created: 20201201@Percy
+	DB: DBAFF12BET-Affiliate_12BET
+	Task: New structure: user permission control
+*/
 USE Affiliate_12BET
-GO
-
-DROP TABLE dbo.Users
-GO
-DROP TABLE dbo.Roles
-GO
-DROP TABLE dbo.Functions
-GO
-DROP TABLE dbo.RoleFunction
-GO
-DROP TABLE dbo.UserFunction
-GO
-DROP TABLE dbo.RoleMarket
-GO
-DROP TABLE dbo.UserMarket
 GO
 
 -- 1. New tables
@@ -64,12 +55,14 @@ CREATE TABLE dbo.Functions
 (
 	FuncId			SMALLINT IDENTITY (1,1) NOT NULL
 	,FuncName		VARCHAR(100) NOT NULL
+	,DisplayName	NVARCHAR(500)
 	,Description	NVARCHAR(1000)
 	,ParentId		SMALLINT
 	,AllParentIds	VARCHAR(1000)
 	,CreatedDate	DATETIME CONSTRAINT DF_Functions_CreatedDate DEFAULT (GETDATE())
 	,UpdatedDate	DATETIME CONSTRAINT DF_Functions_UpdatedDate DEFAULT (GETDATE())
 	,Creator		INT
+	,OrderId		SMALLINT
 	,CONSTRAINT PK_Functions PRIMARY KEY
 	(
 		FuncId ASC
@@ -82,8 +75,6 @@ CREATE TABLE dbo.RoleFunction
 	RoleId			SMALLINT NOT NULL
 	,FuncId			SMALLINT NOT NULL
 	,Policy			TINYINT
-	,CreatedDate	DATETIME CONSTRAINT DF_RoleFunction_CreatedDate DEFAULT (GETDATE())
-	,UpdatedDate	DATETIME CONSTRAINT DF_RoleFunction_UpdatedDate DEFAULT (GETDATE())
 	,Creator		INT
 	,CONSTRAINT PK_RoleFunction PRIMARY KEY
 	(
@@ -98,8 +89,6 @@ CREATE TABLE dbo.UserFunction
 	CustId			INT NOT NULL
 	,FuncId			SMALLINT NOT NULL
 	,Policy			TINYINT
-	,CreatedDate	DATETIME CONSTRAINT DF_UserFunction_CreatedDate DEFAULT (GETDATE())
-	,UpdatedDate	DATETIME CONSTRAINT DF_UserFunction_UpdatedDate DEFAULT (GETDATE())
 	,Creator		INT
 	,CONSTRAINT PK_UserFunction PRIMARY KEY
 	(
@@ -113,8 +102,6 @@ CREATE TABLE dbo.RoleMarket
 (
 	RoleId			SMALLINT NOT NULL
 	,MarketId		NVARCHAR(10) NOT NULL
-	,CreatedDate	DATETIME CONSTRAINT DF_RoleMarket_CreatedDate DEFAULT (GETDATE())
-	,UpdatedDate	DATETIME CONSTRAINT DF_RoleMarket_UpdatedDate DEFAULT (GETDATE())
 	,Creator		INT
 	,CONSTRAINT PK_RoleMarket PRIMARY KEY
 	(
@@ -128,8 +115,6 @@ CREATE TABLE dbo.UserMarket
 (
 	CustId			INT NOT NULL
 	,MarketId		NVARCHAR(10) NOT NULL
-	,CreatedDate	DATETIME CONSTRAINT DF_UserMarket_CreatedDate DEFAULT (GETDATE())
-	,UpdatedDate	DATETIME CONSTRAINT DF_UserMarket_UpdatedDate DEFAULT (GETDATE())
 	,Creator		INT
 	,CONSTRAINT PK_UserMarket PRIMARY KEY
 	(
@@ -141,40 +126,39 @@ GO
 
 -- 2. Intialize data
 INSERT INTO dbo.Roles (RoleName)
-VALUES ('Management'),('Exe. Settlement'),('Exe. Risk Team'),('Exe. Marketing'),('Ast. Marketing')
+VALUES ('Management'),('Exe. Settlement'),('Exe. Risk Team'),('Exe. Marketing'),('Asst. Marketing'),('IT User')
 GO
 
-INSERT INTO dbo.Functions (FuncName,Description)
-VALUES ('[Home]', 'Home')
-		,('[Customer]', 'Customer')
-		,('[AffMemberName]', 'Customer')
-		,('[Affiliate]', 'Affiliate')
-		,('[AffReport]', 'Affiliate Report')
-		,('[Media]', 'Media')
-		,('[HotNews]', 'Message')
-		,('[AffEx.Rate]', 'Ex.Rate')
-		,('[Domain]', 'Domain')
-		,('[UserControl]', 'User Control')
-		,('[Payment]', 'Payment')
-		,('[CommissionGroup]', 'Commission Group')
-		,('[AssignCommGroup]', 'Assign Affiliate into Commission Group')
-		,('[Note]', 'Manage Notes')
-		,('[SecurityQA]', 'Security Q&A')
-		,('[MemberEmail]', 'Member''s Email')
-		,('[AffPhone]', 'Affiliate Phone Number')
-		,('[AffEmail]', 'Affiliate Email')
-		,('[AffPaymentInfo]', 'Affiliate Payment Information')
-		,('[AffWebURL]', 'Affiliate Website URL')
-		,('[AffMarket]', 'Affiliate Market')
-		,('[AffTurnover]', 'Affiliate Turnover')
-		,('[AffAdjustment]', 'Affiliate Adjustment')
-		,('[AffAccountStatus]', 'Affiliate Account Status')
-		,('[AffPlayerDetail]', 'Affiliate Players Detail')
-		,('[AffMember]', 'Member')
-		,('[AffMemberDetail]', 'Member')
-		,('[ActiveMembers]', 'Member')
-		,('[ExportExcel]', 'Export Excel')
-		,('[AffPassword]', 'Affiliate Password')
+INSERT INTO dbo.Functions (FuncName,OrderId,DisplayName,Description)
+VALUES ('[Home]'				,  1, 'Home page', 'Home')
+		,('[Customer]'			,  2, 'Customer page', 'Customer')
+		,('[AffAccountStatus]'	,  3, 'Account Status', 'Affiliate Account Status')
+		,('[AffPassword]'		,  4, 'Affiliate Password', 'Affiliate Password')
+		,('[SecurityQA]'		,  5, 'Security Question and Answer', 'Security Q&A')
+		,('[AffPhone]'			,  6, 'Phone Number', 'Affiliate Phone Number')
+		,('[AffEmail]'			,  7, 'Email Address', 'Affiliate Email')
+		,('[AffMarket]'			,  8, 'Language Admendment', 'Affiliate Market')
+		,('[AffPaymentInfo]'	,  9, '12BET Player Account', 'Affiliate Payment Information')
+		,('[AffWebURL]'			, 10, 'Website URL', 'Affiliate Website URL')
+		,('[AffPlayerDetail]'	, 11, 'Active Player Detail', 'Affiliate Players Detail')
+		,('[AffTurnover]'		, 12, 'Turnover', 'Affiliate Turnover')
+		,('[AffAdjustment]'		, 13, 'Adjustment', 'Affiliate Adjustment')
+		,('[Note]'				, 14, 'Note', 'Manage Notes')
+		,('[AssignCommGroup]'	, 15, 'Commission Group', 'Assign Affiliate into Commission Group')
+		,('[CommissionGroup]'	, 16, 'Commission Group Setting', 'Commission Group')
+		,('[AffMemberName]'		, 17, 'Signup Members', 'Customer')
+		,('[AffReport]'			, 18, 'Affiliate Report', 'Affiliate Report')
+		,('[ExportExcel]'		, 19, 'Export Excel Report', 'Export Excel')
+		,('[Affiliate]'			, 20, 'Affiliate Info', 'Affiliate')
+		,('[Payment]'			, 21, 'Payment Request', 'Payment')
+		,('[AffMember]'			, 22, 'Member Menu', 'Member')
+		,('[AffMemberDetail]'	, 23, 'Member', 'Member')
+		,('[ActiveMembers]'		, 24, 'Active member', 'Member')
+		,('[Media]'				, 25, 'Media Gallery', 'Media')
+		,('[HotNews]'			, 26, 'Hot News', 'Message')
+		,('[AffEx.Rate]'		, 27, 'Ex. Rate', 'Ex.Rate')
+		,('[Domain]'			, 28, 'Domain Control', 'Domain')
+		,('[UserControl]'		, 29, 'Admin Role', 'User Control')
 GO
 
 UPDATE dbo.Functions WITH (ROWLOCK)
@@ -192,63 +176,84 @@ UPDATE dbo.Functions WITH (ROWLOCK)
 SET AllParentIds = CONVERT(VARCHAR(1000), ParentId)
 GO
 
-INSERT INTO dbo.RoleFunction (RoleId,FuncId,Policy)
-SELECT RoleId, FuncId, 3
-FROM Roles r WITH (NOLOCK)
-	CROSS JOIN Functions f WITH (NOLOCK)
+DECLARE @FunctionPermission TABLE (FuncName VARCHAR(100), Management TINYINT, Settlement TINYINT, Risk TINYINT, Marketing TINYINT, AsstMarketing TINYINT, ITUser TINYINT)
+INSERT INTO @FunctionPermission (FuncName, Management, Settlement, Risk, Marketing, AsstMarketing, ITUser)
+VALUES
+('[SecurityQA]'			, 3, 0, 0, 0, 0, 1)
+,('[AffPhone]'			, 3, 0, 0, 1, 0, 1)
+,('[AffEmail]'			, 3, 0, 0, 1, 0, 1)
+,('[AffPaymentInfo]'	, 3, 0, 1, 0, 0, 1)
+,('[AffWebURL]'			, 3, 0, 0, 1, 1, 1)
+,('[AssignCommGroup]'	, 3, 0, 1, 1, 0, 1)
+,('[AffMarket]'			, 3, 0, 1, 1, 0, 1)
+,('[AffTurnover]'		, 3, 0, 0, 0, 0, 1)
+,('[Note]'				, 3, 1, 1, 1, 0, 1)
+,('[AffAdjustment]'		, 3, 1, 1, 1, 0, 1)
+,('[AffAccountStatus]'	, 3, 1, 1, 1, 0, 1)
+,('[AffReport]'			, 3, 0, 1, 1, 0, 1)
+,('[ExportExcel]'		, 3, 0, 1, 0, 0, 1)
+,('[AffPlayerDetail]'	, 3, 1, 1, 1, 0, 1)
+,('[AffMemberName]'		, 3, 1, 1, 1, 0, 1)
+,('[AffPassword]'		, 3, 0, 0, 0, 0, 1)
+,('[Affiliate]'			, 3, 1, 1, 1, 1, 1)
+,('[Payment]'			, 3, 3, 1, 1, 1, 1)
+,('[CommissionGroup]'	, 3, 1, 1, 1, 0, 1)
+,('[AffMember]'			, 3, 1, 1, 1, 0, 1)
+,('[AffMemberDetail]'	, 3, 1, 1, 1, 0, 1)
+,('[ActiveMembers]'		, 3, 1, 1, 1, 0, 1)
+,('[AffEx.Rate]'		, 3, 1, 1, 1, 1, 1)
+,('[HotNews]'			, 3, 1, 1, 3, 1, 1)
+,('[Domain]'			, 3, 1, 3, 1, 1, 1)
+,('[UserControl]'		, 3, 0, 0, 0, 0, 1)
+,('[Home]'				, 3, 3, 3, 3, 3, 1)
+,('[Customer]'			, 3, 3, 3, 3, 3, 1)
+,('[Media]'				, 3, 1, 1, 1, 1, 1)
 GO
 
-INSERT INTO dbo.Users (UserName,RoleId,FirstName,LastName,UserPwd)
-VALUES ('sa'			,1,'',''			,'56E8A2D78170E87C928E480797CC73')
-		,('pgmPercy'	,1,'Percy','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
-		,('AAHubert'	,1,'Hubert','Duong'	,'56E8A2D78170E87C928E480797CC73')
-		,('AASteve'		,1,'Steve','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
-		,('AAMaia'		,1,'Maia','Le'		,'56E8A2D78170E87C928E480797CC73')
-		,('AAKevin'		,1,'Kevin','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
-
-		,('AAHubert01'	,2,'Hubert','Duong'	,'56E8A2D78170E87C928E480797CC73')
-		,('AASteve01'	,2,'Steve','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
-		,('AAMaia01'	,2,'Maia','Le'		,'56E8A2D78170E87C928E480797CC73')
-		,('AAKevin01'	,2,'Kevin','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
-
-		,('AAHubert02'	,3,'Hubert','Duong'	,'56E8A2D78170E87C928E480797CC73')
-		,('AASteve02'	,3,'Steve','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
-		,('AAMaia02'	,3,'Maia','Le'		,'56E8A2D78170E87C928E480797CC73')
-		,('AAKevin02'	,3,'Kevin','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
-
-		,('AAHubert03'	,4,'Hubert','Duong'	,'56E8A2D78170E87C928E480797CC73')
-		,('AASteve03'	,4,'Steve','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
-		,('AAMaia03'	,4,'Maia','Le'		,'56E8A2D78170E87C928E480797CC73')
-		,('AAKevin03'	,4,'Kevin','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
-
-		,('AAHubert04'	,5,'Hubert','Duong'	,'56E8A2D78170E87C928E480797CC73')
-		,('AASteve04'	,5,'Steve','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
-		,('AAMaia04'	,5,'Maia','Le'		,'56E8A2D78170E87C928E480797CC73')
-		,('AAKevin04'	,5,'Kevin','Nguyen'	,'56E8A2D78170E87C928E480797CC73')
-GO
-
-INSERT INTO dbo.UserFunction (CustId,FuncId,Policy)
-SELECT CustId, FuncId, 3
-FROM Users u WITH (NOLOCK)
-	CROSS JOIN dbo.Functions f WITH (NOLOCK)
+INSERT INTO dbo.RoleFunction (RoleId, FuncId, Policy)
+SELECT r.RoleId, f.FuncId, t.Policy
+FROM @FunctionPermission fp
+	INNER JOIN dbo.Functions f WITH (NOLOCK) ON fp.FuncName = f.FuncName
+	CROSS APPLY (
+		SELECT 'Management' AS RoleName, fp.Management AS Policy
+		UNION ALL SELECT 'Exe. Settlement', fp.Settlement
+		UNION ALL SELECT 'Exe. Risk Team', fp.Risk
+		UNION ALL SELECT 'Exe. Marketing', fp.Marketing
+		UNION ALL SELECT 'Asst. Marketing', fp.AsstMarketing
+		UNION ALL SELECT 'IT User', fp.ITUser
+	) t
+	INNER JOIN dbo.Roles r WITH (NOLOCK) ON t.RoleName = r.RoleName
+ORDER BY r.RoleId, f.FuncId
 GO
 
 INSERT INTO dbo.RoleMarket (RoleId,MarketId)
-SELECT RoleId, MarketId
-FROM Roles r WITH (NOLOCK)
+SELECT r.RoleId, m.MarketId
+FROM dbo.Roles r WITH (NOLOCK)
 	CROSS JOIN dbo.Market m WITH (NOLOCK)
+WHERE r.RoleName <> 'Asst. Marketing'
+	AND m.MarketId NOT IN ('es-ES', 'ja-JP')
+ORDER BY r.RoleId, m.MarketId
+GO
+
+INSERT INTO dbo.Users (UserName,RoleId,FirstName,LastName,UserPwd)
+VALUES ('AAstarix01',1,'Starix01','','56E8A2D78170E87C928E480797CC73')
+		,('AAstarix02',1,'Starix02','','56E8A2D78170E87C928E480797CC73')
+GO
+
+INSERT INTO dbo.UserFunction (CustId,FuncId,Policy)
+SELECT u.CustId, rf.FuncId, rf.Policy
+FROM Users u WITH (NOLOCK)
+	INNER JOIN dbo.RoleFunction rf WITH (NOLOCK) ON u.RoleId = rf.RoleId
 GO
 
 INSERT INTO dbo.UserMarket (CustId,MarketId)
-SELECT CustId, MarketId
+SELECT u.CustId, rm.MarketId
 FROM Users u WITH (NOLOCK)
-	CROSS JOIN dbo.Market m WITH (NOLOCK)
+	INNER JOIN dbo.RoleMarket rm WITH (NOLOCK) ON u.RoleId = rm.RoleId
 GO
 
-/*
 DECLARE @MessageContent NVARCHAR(2000)
 SELECT  @MessageContent = N'You are not authorized on this function!'
 INSERT INTO dbo.Messages (MessageId,MessageTypeId,Description,MessageContentEN,MessageContentCS,MessageContentCH,MessageContentID,MessageContentVN,MessageContentTH,MessageContentKO,MessageContentES,MessageContentJP,MessageContentHIEN,MessageContentENEURO)
-VALUES (1401, 14, '', @MessageContent,@MessageContent,@MessageContent,@MessageContent,@MessageContent,@MessageContent,@MessageContent,@MessageContent,@MessageContent,@MessageContent,@MessageContent)
+VALUES (1401, 14, @MessageContent, @MessageContent,@MessageContent,@MessageContent,@MessageContent,@MessageContent,@MessageContent,@MessageContent,@MessageContent,@MessageContent,@MessageContent,@MessageContent)
 GO
-*/

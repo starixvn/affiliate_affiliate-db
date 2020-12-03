@@ -8,9 +8,9 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AdminUser_Upd]
 	,@UserPwd				VARCHAR(100) = NULL
 	,@RoleId				TINYINT = NULL
 	,@Closed				BIT = NULL
-	,@IsRoleFunctionDefault BIT = 0
+	,@IsRoleFunctionDefault BIT = NULL
 	,@Function				XML = NULL
-	,@IsRoleMarketDefault	BIT = 0
+	,@IsRoleMarketDefault	BIT = NULL
 	,@Market				XML = NULL
 	,@IP					VARCHAR(50) = ''
 	,@ErrCode				INT = 0 OUTPUT
@@ -40,9 +40,6 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
-
-	SELECT @IsRoleFunctionDefault = ISNULL(@IsRoleFunctionDefault, 0)
-			,@IsRoleMarketDefault = ISNULL(@IsRoleMarketDefault, 0)
 
 	-- Check permission
 	EXEC dbo.Aff_CheckPermission

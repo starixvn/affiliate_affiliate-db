@@ -1,5 +1,6 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_GeneralInfo_Sel]
+	@Languages VARCHAR(MAX)
 AS
 
 /*
@@ -11,6 +12,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
+		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
 */
 
 BEGIN
@@ -135,120 +137,124 @@ BEGIN
 				@IsSumAll			= 1,
 				@GetRowTotalOnly	= 1
 		END
+
+		DECLARE @DepositAll MONEY, @WinlostAll MONEY, @BonusAll MONEY, @PSPFeeAll MONEY, @NetWinlostAll MONEY
+				,@DepositMonth MONEY, @WinlostMonth MONEY, @BonusMonth MONEY, @PSPFeeMonth MONEY, @NetWinlostMonth MONEY
+
+		SELECT
+			@DepositAll			= SUM(ISNULL(Deposit, 0))
+			,@WinlostAll		= SUM(ISNULL(Winloss, 0))
+			,@BonusAll			= SUM(ISNULL(Bonus, 0))
+			,@PSPFeeAll			= SUM(ISNULL(BankingFee, 0))
+			,@NetWinlostAll		= SUM(ISNULL(NetWinloss, 0))
+			,@DepositMonth		= SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Deposit, 0) ELSE 0 END)
+			,@WinlostMonth		= SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Winloss, 0) ELSE 0 END)
+			,@BonusMonth		= SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Bonus, 0) ELSE 0 END)
+			,@PSPFeeMonth		= SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(BankingFee, 0) ELSE 0 END)
+			,@NetWinlostMonth	= SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(NetWinloss, 0) ELSE 0 END)
+		FROM #TempCommission t
+			INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON t.AffId = ad.AffId AND ',' + @Languages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
+
+		DROP TABLE #TempCommission
 	END
 
+	-- deposit members
+	BEGIN
+		DECLARE @DepositMemAllNum INT, @DepositMemMonthNum INT
+		SELECT
+			@DepositMemAllNum		= SUM(1)
+			,@DepositMemMonthNum	= SUM(CASE WHEN CreatedDate < @BeginOfCurrentMonth THEN 0 ELSE 1 END)
+		FROM dbo.MemberInfo mi WITH (NOLOCK)
+			INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON mi.AffId = ad.AffId AND ',' + @Languages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
+		WHERE mi.IsRemoved = 0
+	END
+
+	-- affiliate
+	BEGIN
+		DECLARE @AffInProAllNum INT, @PendingAllNum INT, @ApprovedAllNum INT, @DisapprovedAllNum INT, @ClosedAllNum INT
+				,@AffInProMonthNum INT, @PendingMonthNum INT, @ApprovedMonthNum INT, @DisapprovedMonthNum INT, @ClosedMonthNum INT
+		SELECT
+			-- total
+			@AffInProAllNum		= SUM(Total)
+			,@PendingAllNum		= SUM(Pending)
+			,@ApprovedAllNum	= SUM(Approved)
+			,@DisapprovedAllNum	= SUM(Disapproved)
+			,@ClosedAllNum		= SUM(Closed)
+			-- current month
+			,@AffInProMonthNum		= SUM(Total * CurrentMonth)
+			,@PendingMonthNum		= SUM(Pending * CurrentMonth)
+			,@ApprovedMonthNum		= SUM(Approved * CurrentMonth)
+			,@DisapprovedMonthNum	= SUM(Disapproved * CurrentMonth)
+			,@ClosedMonthNum		= SUM(Closed * CurrentMonth)
+		FROM
+		(
+			SELECT CASE WHEN RegisteredDate < @BeginOfCurrentMonth THEN 0 ELSE 1 END AS CurrentMonth,
+				SUM(1) AS Total,
+				SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS Pending,
+				SUM(CASE WHEN status = 'Approved' AND IsClosed = 0 THEN 1 ELSE 0 END) AS Approved,
+				SUM(CASE WHEN status = 'Disapproved' THEN 1 ELSE 0 END) AS Disapproved,
+				SUM(CASE WHEN status = 'Approved' AND IsClosed = 1 THEN 1 ELSE 0 END) AS Closed
+			FROM dbo.AffInfo ai WITH (NOLOCK)
+				INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId AND ',' + @Languages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
+			GROUP BY CASE WHEN RegisteredDate < @BeginOfCurrentMonth THEN 0 ELSE 1 END
+		) AS a
+	END
+
+	-- payment requests
+	BEGIN
+		DECLARE @PaymentReqNum INT
+		SELECT @PaymentReqNum = SUM(1)
+		FROM dbo.AffTrans at WITH (NOLOCK)
+			INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON at.AffId = ad.AffId AND ',' + @Languages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
+		WHERE at.TransType = 202 AND at.Status = 'Pending'
+	END
+
+	-- banner statistics
+	BEGIN
+		DECLARE @BannerNum INT, @ImageBannerNum INT, @FlashBannerNum INT, @TextBannerNum INT
+		SELECT
+			@BannerNum			= SUM(CASE WHEN ImageType <> 'Text' THEN 1 ELSE 0 END)
+			,@ImageBannerNum	= SUM(CASE WHEN ImageType = 'Image' THEN 1 ELSE 0 END)
+			,@FlashBannerNum	= SUM(CASE WHEN ImageType = 'Flash' THEN 1 ELSE 0 END)
+			,@TextBannerNum		= SUM(CASE WHEN ImageType = 'Text' THEN 1 ELSE 0 END)
+		FROM dbo.Banners WITH (NOLOCK)
+		WHERE ',' + @Languages + ',' LIKE '%,' + Language + ',%'
+	END
+
+	-- return
 	SELECT
 		-- payment
-		PaymentReqNum,
+		@PaymentReqNum		AS PaymentReqNum
 		-- banner
-		BannerNum,
-		ImageBannerNum,
-		FlashBannerNum,
-		TextBannerNum,
+		,@BannerNum			AS BannerNum
+		,@ImageBannerNum	AS ImageBannerNum
+		,@FlashBannerNum	AS FlashBannerNum
+		,@TextBannerNum		AS TextBannerNum
 		-- all
-		AffInProAllNum,
-		PendingAllNum,
-		ApprovedAllNum,
-		DisapprovedAllNum,
-		DepositMemAllNum,
-		ClosedAllNum,
-		DepositAll,
-		WinlostAll,
-		BonusAll,
-		PSPFeeAll,
-		AdjustmentAll,
-		NetWinlostAll,
+		,@AffInProAllNum	AS AffInProAllNum
+		,@PendingAllNum		AS PendingAllNum
+		,@ApprovedAllNum	AS ApprovedAllNum
+		,@DisapprovedAllNum	AS DisapprovedAllNum
+		,@DepositMemAllNum	AS DepositMemAllNum
+		,@ClosedAllNum		AS ClosedAllNum
+		,@DepositAll		AS DepositAll
+		,@WinlostAll		AS WinlostAll
+		,@BonusAll			AS BonusAll
+		,@PSPFeeAll			AS PSPFeeAll
+		,0					AS AdjustmentAll
+		,@NetWinlostAll		AS NetWinlostAll
 		-- current month
-		AffInProMonthNum,
-		PendingMonthNum,
-		ApprovedMonthNum,
-		DisapprovedMonthNum,
-		DepositMemMonthNum,
-		ClosedMonthNum,
-		DepositMonth,
-		WinlostMonth,
-		BonusMonth,
-		PSPFeeMonth,
-		AdjustmentMonth,
-		NetWinlostMonth
-	FROM
-	(
-		SELECT
-			SUM(ISNULL(Deposit, 0))		AS DepositAll,
-			SUM(ISNULL(Winloss, 0))		AS WinlostAll,
-			SUM(ISNULL(Bonus, 0))		AS BonusAll,
-			SUM(ISNULL(BankingFee, 0))	AS PSPFeeAll,
-			0 AS AdjustmentAll,
-			SUM(ISNULL(NetWinloss, 0))	AS NetWinlostAll,
-			SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Deposit, 0) ELSE 0 END)		AS DepositMonth,
-			SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Winloss, 0) ELSE 0 END)		AS WinlostMonth,
-			SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Bonus, 0) ELSE 0 END)			AS BonusMonth,
-			SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(BankingFee, 0) ELSE 0 END)	AS PSPFeeMonth,
-			0 AS AdjustmentMonth,
-			SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(NetWinloss, 0) ELSE 0 END)	AS NetWinlostMonth
-		FROM #TempCommission
-	) AS memberStatistics
-
-		-- banner statistics
-		CROSS JOIN 
-		(
-			SELECT
-				SUM(CASE WHEN ImageType <> 'Text' THEN 1 ELSE 0 END)	AS BannerNum,
-				SUM(CASE WHEN ImageType = 'Image' THEN 1 ELSE 0 END)	AS ImageBannerNum,
-				SUM(CASE WHEN ImageType = 'Flash' THEN 1 ELSE 0 END)	AS FlashBannerNum,
-				SUM(CASE WHEN ImageType = 'Text' THEN 1 ELSE 0 END)		AS TextBannerNum
-			FROM dbo.Banners WITH (NOLOCK)
-		) AS bannerStatistics
-		
-		-- affiliate statistics
-		CROSS JOIN
-		(
-			SELECT
-				-- total
-				SUM(Total)			AS AffInProAllNum,
-				SUM(Pending)		AS PendingAllNum,
-				SUM(Approved)		AS ApprovedAllNum,
-				SUM(Disapproved)	AS DisapprovedAllNum,
-				SUM(Closed)			AS ClosedAllNum,
-				-- current month
-				SUM(CASE WHEN CurrentMonth = 1 THEN Total		ELSE 0 END) AS AffInProMonthNum,
-				SUM(CASE WHEN CurrentMonth = 1 THEN Pending		ELSE 0 END) AS PendingMonthNum,
-				SUM(CASE WHEN CurrentMonth = 1 THEN Approved	ELSE 0 END) AS ApprovedMonthNum,
-				SUM(CASE WHEN CurrentMonth = 1 THEN Disapproved ELSE 0 END) AS DisapprovedMonthNum,
-				SUM(CASE WHEN CurrentMonth = 1 THEN Closed		ELSE 0 END) AS ClosedMonthNum
-			FROM
-			(
-				SELECT
-					CASE WHEN RegisteredDate < @BeginOfCurrentMonth THEN 0 ELSE 1 END AS CurrentMonth,
-					SUM(1) AS Total,
-					SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS Pending,
-					SUM(CASE WHEN status = 'Approved' AND IsClosed = 0 THEN 1 ELSE 0 END) AS Approved,
-					SUM(CASE WHEN status = 'Disapproved' THEN 1 ELSE 0 END) AS Disapproved,
-					SUM(CASE WHEN status = 'Approved' AND IsClosed = 1 THEN 1 ELSE 0 END) AS Closed
-				FROM dbo.AffInfo WITH (NOLOCK)
-				GROUP BY
-					CASE WHEN RegisteredDate < @BeginOfCurrentMonth THEN 0 ELSE 1 END
-			) AS a
-		) AS affiliateStatistics
-
-		-- deposit members
-		CROSS JOIN
-		(
-			SELECT
-				SUM(1) AS DepositMemAllNum,
-				SUM(CASE WHEN CreatedDate < @BeginOfCurrentMonth THEN 0 ELSE 1 END) AS DepositMemMonthNum
-			FROM dbo.MemberInfo WITH (NOLOCK)
-			WHERE IsRemoved = 0
-		) AS depositMembers
-
-		-- payment requests
-		CROSS JOIN
-		(
-			SELECT SUM(1) AS PaymentReqNum
-			FROM dbo.AffTrans WITH (NOLOCK)
-			WHERE TransType = 202 AND Status = 'Pending'
-		) AS paymentRequests
-
-	DROP TABLE #TempCommission
+		,@AffInProMonthNum		AS AffInProMonthNum
+		,@PendingMonthNum		AS PendingMonthNum
+		,@ApprovedMonthNum		AS ApprovedMonthNum
+		,@DisapprovedMonthNum	AS DisapprovedMonthNum
+		,@DepositMemMonthNum	AS DepositMemMonthNum
+		,@ClosedMonthNum		AS ClosedMonthNum
+		,@DepositMonth			AS DepositMonth
+		,@WinlostMonth			AS WinlostMonth
+		,@BonusMonth			AS BonusMonth
+		,@PSPFeeMonth			AS PSPFeeMonth
+		,0						AS AdjustmentMonth
+		,@NetWinlostMonth		AS NetWinlostMonth
 END
 GO

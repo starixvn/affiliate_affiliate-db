@@ -111,8 +111,8 @@ BEGIN
 
 		SELECT @CustId = SCOPE_IDENTITY()
 
-		INSERT INTO dbo.UserFunction (CustId,FuncId,Policy,CreatedDate,UpdatedDate,Creator)
-		SELECT @CustId,FuncId,Policy,GETDATE(),GETDATE(),@UserId
+		INSERT INTO dbo.UserFunction (CustId,FuncId,Policy,Creator)
+		SELECT @CustId,FuncId,Policy,@UserId
 		FROM @UserFunction
 
 		INSERT INTO dbo.UserMarket (CustId,MarketId,Creator)

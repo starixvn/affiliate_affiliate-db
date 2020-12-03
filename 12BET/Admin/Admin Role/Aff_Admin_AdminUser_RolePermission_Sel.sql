@@ -16,11 +16,11 @@ BEGIN
 	SET NOCOUNT ON
 
 	-- Policy: 0: Not allow, 1: Read, 3: Host
-	SELECT r.RoleId,r.RoleName,f.AllParentIds,f.ParentId,f.FuncId,f.FuncName,rf.Policy
+	SELECT r.RoleId,r.RoleName,f.AllParentIds,f.ParentId,f.FuncId,f.FuncName,f.DisplayName,rf.Policy
 	FROM dbo.Roles r WITH (NOLOCK)
 		INNER JOIN dbo.RoleFunction rf WITH (NOLOCK) ON r.RoleId = rf.RoleId
 		INNER JOIN dbo.Functions f WITH (NOLOCK) ON rf.FuncId = f.FuncId
 	WHERE ISNULL(@RoleId, 0) = 0 OR r.RoleId = @RoleId
-	ORDER BY r.RoleId,f.ParentId,f.FuncId
+	ORDER BY r.RoleId,f.OrderId
 END
 GO

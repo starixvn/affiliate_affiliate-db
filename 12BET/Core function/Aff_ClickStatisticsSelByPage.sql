@@ -1,11 +1,10 @@
 ﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_ClickStatisticsSelByPage]
-	@UserId			INT = 0
-	,@AffID			INT
+	@AffId			INT
 	,@FromDate		DATETIME
 	,@ToDate		DATETIME
 	,@SportCode		VARCHAR(50) = NULL
-	,@LanguageCode	VARCHAR(10) = NULL
+	,@LanguageCodes	VARCHAR(MAX)
 	,@DeviceType	TINYINT = 0
 	,@TotalSignUps	INT = 0 OUTPUT
 	,@TotalFDMs		INT = 0 OUTPUT
@@ -30,31 +29,6 @@ BEGIN
 
 	IF @FromDate > @ToDate
 		RETURN
-
-	SELECT @UserId = ISNULL(@UserId, 0)
-
-	DECLARE @tblMarket TABLE (MarketId NVARCHAR(10))
-	IF @UserId <> 0
-		INSERT INTO @tblMarket (MarketId)
-		SELECT um.MarketId
-		FROM dbo.UserMarket um WITH (NOLOCK)
-		WHERE um.CustId = @UserId
-			AND (
-				@LanguageCode IS NULL
-				OR um.MarketId = @LanguageCode
-			)
-	ELSE
-		INSERT INTO @tblMarket (MarketId)
-		SELECT m.MarketId
-		FROM dbo.Market m WITH (NOLOCK)
-		WHERE (
-				@LanguageCode IS NULL
-				OR m.MarketId = @LanguageCode
-			)
-
-	IF @LanguageCode = 'none'
-		INSERT INTO @tblMarket (MarketId)
-		VALUES (@LanguageCode)
 
 	CREATE TABLE #tmpResult
 	(
@@ -176,7 +150,7 @@ BEGIN
 		WHERE [Date] BETWEEN @FromDate AND @ToDate
 			AND AffId = @AffID
 			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND EXISTS (SELECT 1 FROM @tblMarket m WHERE c.LanguageCode = m.MarketId)
+			AND ',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'
 		GROUP BY SportCode, LanguageCode, DeviceType, [Date]
 	END
 	ELSE IF (@LastDateSum > @ToDate) --get from summary table
@@ -187,7 +161,7 @@ BEGIN
 		WHERE [Date] BETWEEN @FromDate AND @ToDate
 			AND AffId = @AffID
 			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND EXISTS (SELECT 1 FROM @tblMarket m WHERE c.LanguageCode = m.MarketId)
+			AND ',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'
 		GROUP BY SportCode, LanguageCode, DeviceType
 	END
 	ELSE --@fromdate < @LastDateSum < @ToDate
@@ -199,7 +173,7 @@ BEGIN
 				AND @LastDateSum
 			AND AffId = @AffID
 			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND EXISTS (SELECT 1 FROM @tblMarket m WHERE c.LanguageCode = m.MarketId)
+			AND ',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'
 		GROUP BY SportCode, LanguageCode, DeviceType, [Date]
 			
 		UNION ALL
@@ -209,7 +183,7 @@ BEGIN
 		WHERE [Date] BETWEEN @LastDateSum AND @ToDate
 			AND AffId = @AffID
 			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND EXISTS (SELECT 1 FROM @tblMarket m WHERE c.LanguageCode = m.MarketId)
+			AND ',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'
 		GROUP BY SportCode, LanguageCode, DeviceType, [Date]
 	END
 		-- End New --
@@ -237,7 +211,7 @@ BEGIN
 	WHERE mi.CreatedDate BETWEEN @FromDate AND @ToDate
 		AND mi.AffId = @AffID
 		AND (@SportCode IS NULL OR ISNULL(SportCode, 'none') = @SportCode)
-		AND EXISTS (SELECT 1 FROM @tblMarket m WHERE md.LanguageCode = m.MarketId)
+		AND ',' + @LanguageCodes + ',' LIKE '%,' + md.LanguageCode + ',%'
 		AND NOT EXISTS (
 			SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 			WHERE
@@ -268,7 +242,7 @@ BEGIN
 	FROM @tmp tmp
 		LEFT JOIN dbo.ClickStatistics1 c WITH (NOLOCK) ON tmp.ClickID = c.ClickID
 	WHERE (@SportCode IS NULL OR ISNULL(SportCode, 'none') = @SportCode)
-		AND EXISTS (SELECT 1 FROM @tblMarket m WHERE c.LanguageCode = m.MarketId)
+		AND ',' + @LanguageCodes + ',' LIKE '%,' + c.LanguageCode + ',%'
 	GROUP BY
 		ISNULL(SportCode, 'none'),
 		ISNULL(LanguageCode, 'none'),

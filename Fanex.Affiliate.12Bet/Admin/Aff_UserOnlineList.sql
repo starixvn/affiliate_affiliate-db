@@ -1,8 +1,9 @@
 ﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_UserOnlineList]
-	@PageSize	INT = 50
-	,@PageIndex	INT = 1
-	,@NRows		INT = 0 OUTPUT
+	@LanguageCodes	VARCHAR(MAX)
+	,@PageSize		INT = 50
+	,@PageIndex		INT = 1
+	,@NRows			INT = 0 OUTPUT
 AS
 
 /*
@@ -32,13 +33,15 @@ BEGIN
 	SELECT u.UserName, u.LastLoginDate, o.reload_time, o.IP, u.RoleName
 	FROM dbo.On_User o WITH (NOLOCK)
 		CROSS APPLY (
-			SELECT u.UserName, u.LastLoginDate, 'Admin' AS RoleName
+			SELECT u.UserName, u.LastLoginDate, r.RoleName
 			FROM dbo.Users u WITH (NOLOCK)
+				INNER JOIN dbo.Roles r WITH (NOLOCK) ON r.RoleId = u.RoleId
 			WHERE u.CustId = o.CustId
 			UNION ALL
-			SELECT a.UserName, a.LastLoginDate, 'Aff' AS RoleName
+			SELECT a.UserName, a.LastLoginDate, 'Affiliate' AS RoleName
 			FROM dbo.AffDetail a WITH (NOLOCK)
 			WHERE a.AffId = o.CustId
+				AND ',' + @LanguageCodes + ',' LIKE '%,' + a.PreferredLanguage + ',%'
 		) u
 	WHERE o.IsKickedOut = 0
 	ORDER BY o.reload_time DESC
