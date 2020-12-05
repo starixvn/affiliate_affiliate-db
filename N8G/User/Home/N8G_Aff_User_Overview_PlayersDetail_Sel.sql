@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20191210@Percy: Initialize SP [RedmineID: #121971]
+		- 20201203@Percy: Return DepositFee, WithdrawalFee columns [RedmineID: #146598]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -119,7 +120,7 @@ BEGIN
 	DECLARE @RowStart INT, @RowEnd INT
 	SELECT  @RowStart = @PageSize * (@PageIndex - 1) + 1, @RowEnd = @RowStart + @PageSize - 1
 
-	SELECT CustId, UserName, RegisteredDate, Deposit, Withdrawal, Turnover, Winloss, Bonus, Rebate
+	SELECT CustId, UserName, RegisteredDate, Deposit, Withdrawal, Turnover, Winloss, Bonus, Rebate, DepositFee, WithdrawalFee
 	FROM
 	(
 		SELECT
