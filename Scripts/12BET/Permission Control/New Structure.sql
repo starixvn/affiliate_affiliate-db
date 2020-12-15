@@ -208,7 +208,6 @@ VALUES
 ,('[Home]'				, 3, 3, 3, 3, 3, 1)
 ,('[Customer]'			, 3, 3, 3, 3, 3, 1)
 ,('[Media]'				, 3, 1, 1, 1, 1, 1)
-GO
 
 INSERT INTO dbo.RoleFunction (RoleId, FuncId, Policy)
 SELECT r.RoleId, f.FuncId, t.Policy
