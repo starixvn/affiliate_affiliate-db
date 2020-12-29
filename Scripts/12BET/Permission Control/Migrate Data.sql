@@ -63,7 +63,7 @@ from dbo.RoleFunction r with (rowlock)
 declare @starixId int = 10000000
 
 declare @user table (Old_CustId int, New_CustId int, RoleId smallint, UserName varchar(50), FirstName nvarchar(50), LastName nvarchar(50), RoleName varchar(100))
-insert into @user
+insert into @user (UserName, FirstName, LastName, RoleName)
 select 'AAabhi','Abhinav','Marketing','exe. Marketing' union all
 select 'AAAnnie','Nguyen Thi','Marketing','asst. marketing' union all
 select 'AAfraud','Risk','Fraud Dept','exe. Risk team' union all
@@ -100,12 +100,12 @@ from @user t
 insert into dbo.UserFunction (CustId, FuncId, Policy)
 select u.New_CustId, rf.FuncId, rf.Policy
 from @user u
-	INNER JOIN dbo.RoleFunction rf with (nolock) on u.RoleId = rf.RoleId
+	inner join dbo.RoleFunction rf with (nolock) on u.RoleId = rf.RoleId
 
-INSERT INTO dbo.UserMarket (CustId, MarketId)
-SELECT u.New_CustId, rm.MarketId
-FROM @user u
-	INNER JOIN dbo.RoleMarket rm with (nolock) on u.RoleId = rm.RoleId
+insert into dbo.UserMarket (CustId, MarketId)
+select u.New_CustId, rm.MarketId
+from @user u
+	inner join dbo.RoleMarket rm with (nolock) on u.RoleId = rm.RoleId
 
 update d with (rowlock)
 set d.Creator = isnull(t.New_CustId, @starixId)
