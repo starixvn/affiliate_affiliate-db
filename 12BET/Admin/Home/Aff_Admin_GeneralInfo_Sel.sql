@@ -210,6 +210,10 @@ BEGIN
 	END
 
 	-- banner statistics
+	DECLARE @LanguageNames VARCHAR(MAX)
+	SELECT  @LanguageNames = COALESCE(@LanguageNames + ',', '') + MarketName FROM dbo.Market WITH (NOLOCK)
+	WHERE ',' + @Languages + ',' LIKE '%,' + MarketId + ',%'
+	
 	BEGIN
 		DECLARE @BannerNum INT, @ImageBannerNum INT, @FlashBannerNum INT, @TextBannerNum INT
 		SELECT
@@ -218,7 +222,7 @@ BEGIN
 			,@FlashBannerNum	= SUM(CASE WHEN ImageType = 'Flash' THEN 1 ELSE 0 END)
 			,@TextBannerNum		= SUM(CASE WHEN ImageType = 'Text' THEN 1 ELSE 0 END)
 		FROM dbo.Banners WITH (NOLOCK)
-		WHERE ',' + @Languages + ',' LIKE '%,' + Language + ',%'
+		WHERE ',' + @LanguageNames + ',' LIKE '%,' + Language + ',%'
 	END
 
 	-- return
