@@ -1,7 +1,7 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Banner_Sel]
 	@BannerId		INT = 0
-	,@Language		VARCHAR(100) = NULL
+	,@Languages		VARCHAR(MAX)
 	,@Category		VARCHAR(50) = NULL
 	,@SubCategory	VARCHAR(50) = NULL
 	,@Currency		VARCHAR(10) = NULL
@@ -23,6 +23,7 @@ AS
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200120@Percy: Return more field: LastUpdate [RedmineID: #127345]
 		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
+		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
 */
 
 BEGIN
@@ -36,6 +37,8 @@ BEGIN
 	END
 	ELSE
 	BEGIN
+		SELECT @Languages = ISNULL(@Languages, '')
+
 		DECLARE @RowStart INT, @RowEnd INT
 		SELECT  @RowStart	= @PageSize * (@PageIndex - 1) + 1
 				,@RowEnd	= @RowStart + @PageSize - 1
@@ -43,7 +46,7 @@ BEGIN
 		SELECT @NRows = COUNT(1)
 		FROM dbo.Banners b WITH (NOLOCK)
 		WHERE ImageType <> 'Text'
-			AND (@Language IS NULL OR Language = @Language)
+			AND ',' + @Languages + ',' LIKE '%,' + b.Language + ',%'
 			AND (@ImageType IS NULL OR ImageType = @ImageType)
 			AND (@Category IS NULL OR ',' + Categories + ',' LIKE '%,' + @Category + ',%')
 			AND (@SubCategory IS NULL OR ',' + SubCategories + ',' LIKE '%,' + @SubCategory + ',%')
@@ -58,9 +61,9 @@ BEGIN
 		FROM (
 			SELECT BannerId,FileName,ImageType,Size,Categories,SubCategories,Language,Currencies,AffTypes,DeviceTypes,UpdatedDate
 				,ROW_NUMBER() OVER(ORDER BY BannerId DESC) AS RowNum
-			FROM dbo.Banners WITH (NOLOCK)
+			FROM dbo.Banners b WITH (NOLOCK)
 			WHERE ImageType <> 'Text'
-				AND (@Language IS NULL OR Language = @Language)
+				AND ',' + @Languages + ',' LIKE '%,' + b.Language + ',%'
 				AND (@ImageType IS NULL OR ImageType = @ImageType)
 				AND (@Category IS NULL OR ',' + Categories + ',' LIKE '%,' + @Category + ',%')
 				AND (@SubCategory IS NULL OR ',' + SubCategories + ',' LIKE '%,' + @SubCategory + ',%')

@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 */
 
 BEGIN
@@ -42,7 +43,6 @@ BEGIN
 	(
 		SELECT ROW_NUMBER() OVER(ORDER BY cg.GroupId ASC) AS RowIDX, cg.GroupId, COUNT(1) OVER() AS NRows
 		FROM dbo.CommGroup cg WITH (NOLOCK)
-			LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON cg.Creator = au.custid
 		WHERE (@GroupId = 0 OR cg.GroupId = @GroupId) AND cg.IsDeleted = 0
 			AND cg.GroupName LIKE '%' + ISNULL(@GroupName, '') + '%'
 			AND EXISTS (SELECT 1 FROM dbo.TierSetting t WITH (NOLOCK) WHERE cg.GroupId = t.GroupId)
@@ -62,14 +62,14 @@ BEGIN
 		g.GroupId,
 		cg.GroupName,
 		cg.CreatedDate,
-		au.Username AS Creator,
+		u.Username AS Creator,
 		cg.Description,
 		cg.QMTurnover,
 		cg.NextQMTurnover,
 		ISNULL(n.NoAffs, 0) AS NoAffs
 	FROM dbo.CommGroup cg WITH (NOLOCK)
 		INNER JOIN @Group g ON cg.GroupId = g.GroupId
-		LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON cg.Creator = au.custid
+		LEFT JOIN dbo.Users u WITH (NOLOCK) ON cg.Creator = u.CustId
 		OUTER APPLY (
 			SELECT COUNT(1) AS NoAffs FROM dbo.AffInfo ai WITH (NOLOCK) WHERE ai.GroupId = g.GroupId
 		) AS n

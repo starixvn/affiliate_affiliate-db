@@ -1,11 +1,8 @@
 ﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Aff_Admin_Affiliate_Sel] 
 	@UserId 			INT,
 	@GroupID 			INT				= 0,
-	@PreferredLanguage	VARCHAR(10)		= '',
+	@PreferredLanguages	VARCHAR(MAX),
 	@AffId				INT				= 0,
 	@UserName 			NVARCHAR(50) 	= '',
 	@Status				VARCHAR(30)		= '',
@@ -28,6 +25,7 @@ AS
 		- 20181212@Percy:
 			1. Return more information: currency, player currency, phone and player username [RedmineID: #106837]
 			2. Add @AffId to support search by Affiliate ID [RedmineID: #106265]
+		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
@@ -36,6 +34,8 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
+
+	SELECT @PreferredLanguages = ISNULL(@PreferredLanguages, '')
 
 	SELECT @NRows = COUNT(1)
 	FROM dbo.AffInfo ai WITH (NOLOCK)
@@ -56,7 +56,7 @@ BEGIN
 							WHEN @Status = 'Closed' THEN 1
 							ELSE ai.IsClosed END
 		AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
-		AND (ISNULL(@PreferredLanguage, '') = '' OR ad.PreferredLanguage = @PreferredLanguage)
+		AND ',' + @PreferredLanguages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
 		AND (ISNULL(@GroupID, 0) = 0 OR ai.GroupID = @GroupID)
 	
 	DECLARE @RowStart INT, @RowEnd INT
@@ -165,7 +165,7 @@ BEGIN
 								WHEN @Status = 'Closed' THEN 1
 								ELSE ai.IsClosed END
 			AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
-			AND (ISNULL(@PreferredLanguage, '') = '' OR ad.PreferredLanguage = @PreferredLanguage)
+			AND ',' + @PreferredLanguages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
 			AND (ISNULL(@GroupID, 0) = 0 OR ai.GroupID = @GroupID)
 			AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
 	) AS result

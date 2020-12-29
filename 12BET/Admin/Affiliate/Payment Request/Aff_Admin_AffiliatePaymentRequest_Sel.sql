@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliatePaymentRequest_Sel]
 	@SearchById	TINYINT = 1
 	,@Username	NVARCHAR(30) = NULL
@@ -21,6 +18,7 @@ AS
 
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 
 	Param's Explanation:
 		- @SearchById
@@ -70,7 +68,7 @@ BEGIN
 	SELECT TransID, TransDate, AffID, UserName, Amount, Status, CompletedDate, Creator
 	FROM (
 		SELECT t.TransID, a.TransDate, ai.AffID, ai.UserName, a.Amount, a.Status, a.CompletedDate
-				,CASE WHEN a.Creator = 148 THEN 'System' ELSE au.username END AS Creator
+				,CASE WHEN a.Creator = 148 THEN 'System' ELSE u.UserName END AS Creator
 				,ROW_NUMBER() OVER(ORDER BY
 											CASE a.Status
 												WHEN 'Pending' THEN 1
@@ -86,7 +84,7 @@ BEGIN
 				WHERE t.TransID = a.TransID
 			) AS a
 			INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON a.AffID = ai.AffID
-			LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON a.Creator = au.custid
+			LEFT JOIN dbo.Users u WITH (NOLOCK) ON a.Creator = u.CustId
 	) AS r
 	WHERE RN BETWEEN @RowStart AND @RowEnd
 	ORDER BY RN

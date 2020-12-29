@@ -1,7 +1,4 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliatePreferredLanguage_Upd]
 	@AffID				INT
 	,@UserID			INT
@@ -18,6 +15,7 @@ AS
 
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 */
 
 BEGIN
@@ -28,12 +26,11 @@ BEGIN
 	SELECT @ErrCode = 0, @ErrMsg = ''
 
 	-- Check permission
-	EXEC dbo.Aff_Con_CheckPermission
-		@CustId		= @UserId,
-		@FuncName	='[Affiliate]',
-		@System		= 'AFFILIATE',
-		@ErrCode	= @ErrCode OUTPUT,
-		@ErrMsg		= @ErrMsg OUTPUT
+	EXEC dbo.Aff_CheckPermission
+		@CustId		= @UserId
+		,@FuncName	= '[Affiliate]'
+		,@ErrCode	= @ErrCode OUTPUT
+		,@ErrMsg	= @ErrMsg OUTPUT
 
 	IF @ErrCode <> 0
 		RETURN

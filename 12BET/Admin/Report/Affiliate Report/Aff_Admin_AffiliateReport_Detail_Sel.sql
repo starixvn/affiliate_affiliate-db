@@ -23,6 +23,7 @@ AS
 		- 20181001@Percy: Support export excel [RedmineID: #102322]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 		- 20191101@Percy: Fix wrong FDM value [RedmineID: #123134]
+		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: Winloss, 4: Earning (Commission)

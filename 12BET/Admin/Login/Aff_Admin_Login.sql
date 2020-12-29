@@ -2,9 +2,9 @@
 ALTER PROCEDURE [dbo].[Aff_Admin_Login]
 	@UserId			INT = 0 OUTPUT
 	,@UserName		VARCHAR(50)
-	,@UserPwd		VARCHAR(50)
+	,@UserPwd		VARCHAR(100)
 	,@HostName		NVARCHAR(200)
-	,@IP			VARCHAR(20)
+	,@IP			VARCHAR(50)
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
@@ -16,6 +16,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 */
 
 BEGIN
@@ -24,14 +25,21 @@ BEGIN
 	DECLARE @LogData NVARCHAR(MAX)
 	DECLARE @FailedCount INT
 
+	IF ISNULL(@UserName, '') = '' OR ISNULL(@UserPwd, '') = ''
+	BEGIN
+		SELECT @LogData = @LogData + 'Failed(User_Not_Found)'
+	END
+
 	SELECT	@UserId = custid
-			,@LogData = CASE	WHEN RoleId NOT BETWEEN 5 AND 10 THEN 'Failed(Not_Admin)'
-								WHEN UserPwd <> @UserPwd THEN 'Failed(Password)'
-								WHEN Closed = 1 THEN 'Failed(A/C_Closed)'
-								END
-			,@FailedCount = ISNULL(LoginCount, 0)
-	FROM dbo.Affiliate_User u WITH (NOLOCK)
+			,@LogData = CASE
+							WHEN UserPwd <> @UserPwd THEN 'Failed(Password)'
+							WHEN Closed = 1 THEN 'Failed(A/C_Closed)'
+							END
+			,@FailedCount = ISNULL(FailedLoginCount, 0)
+	FROM dbo.Users WITH (NOLOCK)
 	WHERE Username = @UserName
+		AND Closed = 0
+		AND IsDeleted = 0
 
 	IF ISNULL(@UserId, 0) = 0
 	BEGIN
@@ -46,32 +54,35 @@ BEGIN
 		END
 		ELSE
 		BEGIN
+			SELECT @ErrCode = 102
+
 			IF @FailedCount < 5
 			BEGIN
-				UPDATE dbo.Affiliate_User WITH (ROWLOCK)
-				SET LoginCount = @FailedCount + 1
+				UPDATE dbo.Users WITH (ROWLOCK)
+				SET FailedLoginCount = @FailedCount + 1
 				WHERE custid = @UserId
+
+				SELECT @ErrMsg = 'Wrong username or password.'
 			END
 			ELSE
 			BEGIN
-				UPDATE dbo.Affiliate_User WITH (ROWLOCK)
+				UPDATE dbo.Users WITH (ROWLOCK)
 				SET Closed = 1
 				WHERE custid = @UserId
+
+				SELECT @ErrMsg = 'Your account is closed due to 5 wrong password attempts'
 
 				-- Reset LogData
 				SET @LogData = 'The A/C is closed due to 5 wrong password attempts'
 			END
-
-			SELECT @ErrCode = 102, @ErrMsg = 'Wrong username or password.'
 		END
 	END
 	ELSE -- Login Successful
 	BEGIN
-		UPDATE dbo.Affiliate_User WITH (ROWLOCK)
-		SET LoginCount = 0
-			,IPLogin = @IP
-			,LastLogged = GETDATE()
-			,On_SessionId = 0
+		UPDATE dbo.Users WITH (ROWLOCK)
+		SET FailedLoginCount = 0
+			,LastLoginIP = @IP
+			,LastLoginDate = GETDATE()
 		WHERE custid = @UserId
 
 		SET @LogData = 'Success'

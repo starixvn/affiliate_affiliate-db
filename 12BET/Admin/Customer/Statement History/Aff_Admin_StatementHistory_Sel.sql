@@ -1,5 +1,6 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_StatementHistory_Sel] 
+	@UserId		INT = 0,
 	@AffId		INT,
 	@TransType	INT = - 1,
 	@FDate		SMALLDATETIME = NULL,
@@ -19,6 +20,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20181012@Percy: Missing data today [RedmineID: #103143]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 */
 
 BEGIN
@@ -40,6 +42,35 @@ BEGIN
 	IF @FDate > @TDate
 		RETURN
 
+	DECLARE @Policy TINYINT = 0
+
+	DECLARE @tblTransType TABLE (TransType INT)
+	INSERT INTO @tblTransType (TransType)
+	VALUES (202), (203) -- Payment, Adjustment
+
+	IF ISNULL(@UserId, 0) <> 0
+	BEGIN
+		-- Payment
+		SET @Policy = 0
+		EXEC dbo.Aff_CheckPermission
+			@CustId		= @UserId
+			,@FuncName	= '[Payment]'
+			,@Policy	= @Policy OUTPUT
+
+		IF @Policy = 0
+			DELETE @tblTransType WHERE TransType = 202
+			
+		-- Adjustment
+		SET @Policy = 0
+		EXEC dbo.Aff_CheckPermission
+			@CustId		= @UserId
+			,@FuncName	= '[AffAdjustment]'
+			,@Policy	= @Policy OUTPUT
+
+		IF @Policy = 0
+			DELETE @tblTransType WHERE TransType = 203
+	END
+
 	CREATE TABLE #tempData
 	(
 		TransId		BIGINT,
@@ -52,6 +83,7 @@ BEGIN
 	)
 
 	-- Payment, Adjustment info (TransType = 202, 203)
+	IF EXISTS (SELECT 1 FROM @tblTransType)
 	BEGIN
 		INSERT INTO #tempData
 		(
@@ -69,13 +101,13 @@ BEGIN
 			at.TransType,
 			CASE WHEN at.TransType = 202 THEN ABS(at.Amount) ELSE at.Amount END AS Amount,
 			CASE WHEN at.TransType = 202 THEN at.Status ELSE 'B/F' END AS Status,
-			ISNULL(au.Username, 'System') AS Creator,
+			ISNULL(u.UserName, 'System') AS Creator,
 			CASE WHEN at.TransType = 202 THEN ap.AdminDesc ELSE at.Description END AS Description
 		FROM dbo.AffTrans at WITH (NOLOCK)
 			LEFT JOIN dbo.AffPayout ap WITH (NOLOCK) ON at.RefID = ap.RefID AND at.TransType = 202
-			LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON at.Creator = au.custid
+			LEFT JOIN dbo.Users u WITH (NOLOCK) ON at.Creator = u.CustId
 		WHERE at.AffId = @AffId
-			AND at.TransType IN (202, 203)
+			AND EXISTS (SELECT 1 FROM @tblTransType t WHERE at.TransType = t.TransType)
 			AND at.TransDate >= @FDate AND at.TransDate < DATEADD(DAY, 1, @TDate)
 	END
 

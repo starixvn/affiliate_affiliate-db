@@ -1,4 +1,15 @@
-﻿ALTER PROC [dbo].[Aff_MemberDel] 
+﻿USE [Affiliate_12BET]
+GO
+
+/****** Object:  StoredProcedure [dbo].[Aff_MemberDel]    Script Date: 11/9/2020 2:07:40 AM ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+/****** Object:  Stored Procedure dbo.Aff_MemberDel    Script Date: 4/24/2014 4:57:12 PM ******/
+CREATE PROCEDURE [dbo].[Aff_MemberDel] 
 	@IBCCustID INT
 	,@UserID INT
 	,@IP VARCHAR(20)
@@ -304,7 +315,13 @@ if(@ErrCode<>0)
 END
 GO
 
-GRANT EXECUTE ON [dbo].[Aff_MemberDel] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[Aff_MemberDel] TO [bodbAdminNet] AS [dbo]
 GO
 
-GRANT VIEW DEFINITION ON [dbo].[Aff_MemberDel] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[Aff_MemberDel] TO [vnAffiliate] AS [dbo]
+GO
+
+GRANT VIEW DEFINITION ON [dbo].[Aff_MemberDel] TO [vnteam] AS [dbo]
+GO
+
+

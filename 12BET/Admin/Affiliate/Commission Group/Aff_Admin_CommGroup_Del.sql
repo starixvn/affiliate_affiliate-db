@@ -1,7 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Del]
 	@UserId			INT,
 	@GroupId		INT,
@@ -17,6 +14,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 */
 
 BEGIN
@@ -25,12 +23,11 @@ BEGIN
 	DECLARE @Language NVARCHAR(5) = 'en-US'
 
 	-- Check permission
-	EXEC dbo.Aff_Con_CheckPermission
-		@CustId		= @UserId,
-		@FuncName	= '[CommissionGroup]',
-		@System		= 'AFFILIATE',
-		@ErrCode	= @ErrCode OUTPUT,
-		@ErrMsg		= @ErrMsg OUTPUT
+	EXEC dbo.Aff_CheckPermission
+		@CustId		= @UserId
+		,@FuncName	= '[CommissionGroup]'
+		,@ErrCode	= @ErrCode OUTPUT
+		,@ErrMsg	= @ErrMsg OUTPUT
 	
 	IF @ErrCode <> 0
 		RETURN

@@ -15,6 +15,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 */
 
 BEGIN
@@ -30,10 +31,9 @@ BEGIN
 	END
 
 	-- Check permission
-	EXEC [dbo].[Aff_Con_CheckPermission]
+	EXEC dbo.Aff_CheckPermission
 		@CustId		= @UserId
-		,@funcname	= '[Domain]'
-		,@System	= 'AFFILIATE'
+		,@FuncName	= '[Domain]'
 		,@ErrCode	= @ErrCode OUTPUT
 		,@ErrMsg	= @ErrMsg OUTPUT
 
