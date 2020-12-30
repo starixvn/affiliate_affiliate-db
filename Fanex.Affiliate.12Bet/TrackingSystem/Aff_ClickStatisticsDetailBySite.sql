@@ -1,16 +1,16 @@
 ﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_ClickStatisticsDetailBySite] 
-	@AffId			INT
-	,@Domain		NVARCHAR(300) = NULL
-	,@SportCode		VARCHAR(50) = NULL
-	,@LanguageCodes VARCHAR(MAX)
-	,@FromDate		DATETIME
-	,@ToDate		DATETIME
-	,@DeviceType	TINYINT = 0
-	,@PageSize		INT = 50
-	,@PageIndex		INT = 1
-	,@TotalPages	INT = 0 OUTPUT
-	,@NRows			INT = 0 OUTPUT
+	@AffID INT
+	,@Domain NVARCHAR(300) = NULL
+	,@SportCode VARCHAR(50) = NULL
+	,@LanguageCode VARCHAR(10) = NULL
+	,@FromDate DATETIME
+	,@ToDate DATETIME
+	,@DeviceType TINYINT = 0
+	,@PageSize INT = 50
+	,@PageIndex INT = 1
+	,@TotalPages INT = 0 OUTPUT
+	,@NRows INT = 0 OUTPUT
 AS
 
 /*  
@@ -62,7 +62,7 @@ BEGIN
 				AND AffId = @AffID
 				AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
 				AND SportCode = ISNULL(@SportCode, SportCode)
-				AND ',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'
+				AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
 			GROUP BY URLReferrer, DeviceType, [Date]
 		) AS t
 		GROUP BY URLReferrer, DeviceType
@@ -79,7 +79,7 @@ BEGIN
 				AND AffId = @AffID
 				AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
 				AND SportCode = ISNULL(@SportCode, SportCode)
-				AND ',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'
+				AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
 			GROUP BY URLReferrer, ISNULL(DeviceType, 0), [Date]
 		) AS t
 		GROUP BY URLReferrer, DeviceType
@@ -96,7 +96,7 @@ BEGIN
 				AND AffId = @AffID
 				AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
 				AND SportCode = ISNULL(@SportCode, SportCode)
-				AND ',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'
+				AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
 			GROUP BY URLReferrer, ISNULL(DeviceType, 0), [Date]
 
 			UNION ALL
@@ -106,7 +106,7 @@ BEGIN
 				AND AffId = @AffID
 				AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
 				AND SportCode = ISNULL(@SportCode, SportCode)
-				AND ',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'
+				AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
 			GROUP BY URLReferrer, DeviceType, [Date]
 		) AS t
 		GROUP BY URLReferrer, DeviceType
@@ -154,7 +154,7 @@ BEGIN
 			LEFT JOIN dbo.ClickStatistics1 c WITH (NOLOCK) ON tmp.ClickID = c.ClickID
 		WHERE DomainReferrer = ISNULL(@Domain, DomainReferrer)
 			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND ',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'
+			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
 		GROUP BY
 			ISNULL(URLReferrer, 'none'),
 			ISNULL(DeviceType, 0)
@@ -173,7 +173,7 @@ BEGIN
 			AND mi.AffId = @AffID
 			AND (@Domain IS NULL OR ISNULL(md.DomainReferrer, 'none') = @Domain)
 			AND (@SportCode IS NULL OR ISNULL(md.SportCode, 'none') = @SportCode)
-			AND ',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'
+			AND (@LanguageCode IS NULL OR ISNULL(md.LanguageCode, 'none') = @LanguageCode)
 			AND NOT EXISTS (
 				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 				WHERE
