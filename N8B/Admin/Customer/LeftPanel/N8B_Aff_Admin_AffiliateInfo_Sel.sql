@@ -14,6 +14,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201026@Percy: Add AffCode [RedmineID: #143852]
+		- 20200107@Percy: Add suspended status [RedmineID: #148373]
 */
 
 BEGIN
@@ -39,7 +40,10 @@ BEGIN
 		ai.AffId,
 		ai.AffCode,
 		ai.AffType,
-		ai.Status,
+		CASE
+			WHEN ai.Status = 'Approved' AND ai.IsClosed = 1 THEN 'Closed'
+			WHEN ai.Status = 'Approved' AND ai.IsRejected = 1 THEN 'Suspended'
+			ELSE ai.Status END AS Status,
 		ai.IsClosed AS Closed,
 		ai.IsLocked,
 		ad.LastLoginDate,

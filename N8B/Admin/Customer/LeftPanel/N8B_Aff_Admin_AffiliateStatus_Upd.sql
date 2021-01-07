@@ -17,6 +17,7 @@ AS
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20201026@Percy: Add AffCode - auto generate code when affiliate was approved [RedmineID: #143852]
+		- 20200107@Percy: Add suspended status [RedmineID: #148373]
 */
 
 BEGIN
@@ -44,27 +45,30 @@ BEGIN
 		RETURN
 	END
 
-	IF @Status NOT IN ('Pending', 'Approved', 'Disapproved')
+	IF @Status NOT IN ('Pending', 'Approved', 'Disapproved', 'Suspended')
 	BEGIN
 		-- Invalid input Status!
 		SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(306, @Language)
 		RETURN
 	END
+	
+	DECLARE @OldStatus VARCHAR(5)
+	SELECT  @OldStatus = CASE
+							WHEN Status = 'Approved' AND IsClosed = 1 THEN 'Closed'
+							WHEN Status = 'Approved' AND IsRejected = 1 THEN 'Suspended'
+							ELSE Status END
+	FROM dbo.AffInfo WITH (NOLOCK)
+	WHERE AffId = @AffId
+
+	IF @OldStatus = @Status
+		RETURN
 
 	-- For Log
 	DECLARE @OldData NVARCHAR(4000), @NewData NVARCHAR(4000), @SPName VARCHAR(50), @Email NVARCHAR(50)
-	SELECT  @OldData	= 'Status=' + ISNULL(CONVERT(VARCHAR(5), Status), '')
-			,@NewData	= 'Status=' + ISNULL(CONVERT(VARCHAR(5), @Status), '')
+	SELECT  @OldData	= 'Status=' + @OldStatus
+			,@NewData	= 'Status=' + @Status
 			,@SPName	= OBJECT_NAME(@@PROCID)
 			,@Email		= Email
-	FROM dbo.AffInfo WITH (NOLOCK)
-	WHERE AffID = @AffID
-
-	IF @OldData = @NewData
-		RETURN
-
-	SELECT  @OldData	= @OldData + 'Status=' + ISNULL(CONVERT(VARCHAR(5), Status), '')
-			,@NewData	= @NewData + 'Status=' + ISNULL(CONVERT(VARCHAR(5), @Status), '')
 	FROM dbo.AffInfo WITH (NOLOCK)
 	WHERE AffID = @AffID
 
@@ -77,31 +81,44 @@ BEGIN
 			RETURN
 		END
 
-		IF NOT EXISTS (SELECT 1 FROM dbo.CommGroup WITH (NOLOCK) WHERE GroupID = @GroupID AND IsDeleted = 0)
+		IF @OldStatus = 'Pending'
 		BEGIN
-			-- Group is not existed
-			SELECT @ErrCode = 1008, @ErrMsg = dbo.Aff_f_GetMessageById(1006, @Language)
+			IF NOT EXISTS (SELECT 1 FROM dbo.CommGroup WITH (NOLOCK) WHERE GroupID = @GroupID AND IsDeleted = 0)
+			BEGIN
+				-- Group is not existed
+				SELECT @ErrCode = 1008, @ErrMsg = dbo.Aff_f_GetMessageById(1006, @Language)
+				RETURN
+			END
+
+			;WITH CTE_AffCode AS
+			(
+				SELECT TOP 1 * FROM dbo.AffiliateCode WITH (ROWLOCK)
+				WHERE AffId IS NULL
+				ORDER BY NEWID() -- random
+			)
+			UPDATE CTE_AffCode
+			SET AffId = @AffId
+
+			SELECT @AffCode = AffCode FROM dbo.AffiliateCode WITH (NOLOCK) WHERE AffId = @AffId
+		END
+	END
+	ELSE IF @Status = 'Suspended'
+	BEGIN
+		IF NOT EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE Status = 'Approved' AND AffID = @AffID AND IsClosed = 0)
+		BEGIN
+			-- Invalid input Status!
+			SELECT @ErrCode = 1007, @ErrMsg = dbo.Aff_f_GetMessageById(1, @Language)
 			RETURN
 		END
-
-		;WITH CTE_AffCode AS
-		(
-			SELECT TOP 1 * FROM dbo.AffiliateCode WITH (ROWLOCK)
-			WHERE AffId IS NULL
-			ORDER BY NEWID() -- random
-		)
-		UPDATE CTE_AffCode
-		SET AffId = @AffId
-
-		SELECT @AffCode = AffCode FROM dbo.AffiliateCode WITH (NOLOCK) WHERE AffId = @AffId
 	END
 
 	BEGIN TRY
 		UPDATE dbo.AffInfo WITH (ROWLOCK)
-		SET	Status = @Status
+		SET	Status = CASE WHEN @Status = 'Suspended' THEN Status ELSE @Status END
 			,GroupID = ISNULL(@GroupID, GroupID)
-			,ApprovedDate = CASE WHEN @Status IN ('Approved', 'Disapproved') THEN GETDATE() ELSE NULL END
+			,ApprovedDate = CASE WHEN @Status IN ('Approved', 'Disapproved') THEN GETDATE() ELSE ApprovedDate END
 			,AffCode = ISNULL(@AffCode, AffCode)
+			,IsRejected = CASE WHEN @Status = 'Suspended' THEN 1 WHEN @Status = 'Approved' THEN 0 ELSE IsRejected END
 		WHERE AffID = @AffID
 	END TRY
 	BEGIN CATCH

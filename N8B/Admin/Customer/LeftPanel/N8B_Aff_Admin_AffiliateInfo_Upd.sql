@@ -58,6 +58,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201026@Percy: Add AffCode - auto generate code when affiliate was approved [RedmineID: #143852]
+		- 20200107@Percy: Add suspended status [RedmineID: #148373]
 */
 
 BEGIN
@@ -123,6 +124,7 @@ BEGIN
 		Wire_AccountName_Del	NVARCHAR(100),
 		Wire_AccountNo_Del		VARCHAR(100),
 		MailOption_Del			BIT,
+		IsRejected_Del			BIT,
 		-- insert
 		PreferredLanguage_Ins	VARCHAR(20),
 		Password_Ins			VARCHAR(40),
@@ -158,7 +160,8 @@ BEGIN
 		Wire_SwiftCode_Ins		NVARCHAR(50),
 		Wire_AccountName_Ins	NVARCHAR(100),
 		Wire_AccountNo_Ins		VARCHAR(100),
-		MailOption_Ins			BIT
+		MailOption_Ins			BIT,
+		IsRejected_Ins			BIT
 	)
 
 	-- Write log
@@ -173,9 +176,10 @@ BEGIN
 		BEGIN TRY
 			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
 			SET Password = ISNULL(@Password, Password),
-				Status = ISNULL(@Status, Status)
-			OUTPUT DELETED.Password, DELETED.Status, INSERTED.Password, INSERTED.Status
-			INTO @UpdatedData (Password_Del, Status_Del, Password_Ins, Status_Ins)
+				Status = CASE WHEN @Status = 'Suspended' THEN Status ELSE ISNULL(@Status, Status) END,
+				IsRejected = CASE WHEN @Status = 'Suspended' THEN 1 WHEN @Status = 'Approved' THEN 0 ELSE IsRejected END
+			OUTPUT DELETED.Password, DELETED.Status, DELETED.IsRejected, INSERTED.Password, INSERTED.Status, INSERTED.IsRejected
+			INTO @UpdatedData (Password_Del, Status_Del, IsRejected_Del, Password_Ins, Status_Ins, IsRejected_Ins)
 			WHERE AffId = @AffId
 		END TRY
 		BEGIN CATCH
@@ -185,11 +189,13 @@ BEGIN
 		END CATCH
 
 		SELECT	@OldData =
-					'Password=' + ISNULL(Password_Del, '') + ',' +
-					'Status='	+ ISNULL(Status_Del, ''),
+					'Password='		+ ISNULL(Password_Del, '') + ',' +
+					'Status='		+ ISNULL(Status_Del, '') + ',' +
+					'IsRejected='	+ ISNULL(CONVERT(VARCHAR(2), IsRejected_Del), ''),
 				@NewData =
-					'Password=' + ISNULL(Password_Ins, '') + ',' +
-					'Status='	+ ISNULL(Status_Ins, '')
+					'Password='		+ ISNULL(Password_Ins, '') + ',' +
+					'Status='		+ ISNULL(Status_Ins, '') + ',' +
+					'IsRejected='	+ ISNULL(CONVERT(VARCHAR(2), IsRejected_Ins), '')
 		FROM @UpdatedData
 	END
 	-- Update Preference Language only (Left menu)
@@ -255,7 +261,7 @@ BEGIN
 	-- Update Status only (Left menu)
 	ELSE IF @Status IS NOT NULL
 	BEGIN
-		IF @Status NOT IN ('Pending', 'Approved', 'Disapproved')
+		IF @Status NOT IN ('Pending', 'Approved', 'Disapproved', 'Suspended')
 		BEGIN
 			-- Invalid status
 			SELECT @ErrCode = 1004, @ErrMsg = dbo.Aff_f_GetMessageById(305, @Language)
@@ -295,17 +301,27 @@ BEGIN
 
 			SELECT @AffCode = AffCode FROM dbo.AffiliateCode WITH (NOLOCK) WHERE AffId = @AffId
 		END
+		ELSE IF @Status = 'Suspended'
+		BEGIN
+			IF NOT EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE Status = 'Approved' AND AffID = @AffID AND IsClosed = 0)
+			BEGIN
+				-- Invalid input Status!
+				SELECT @ErrCode = 1004, @ErrMsg = dbo.Aff_f_GetMessageById(1, @Language)
+				RETURN
+			END
+		END
 
 		BEGIN TRY
 			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
-			SET Status = ISNULL(@Status, Status),
+			SET Status = CASE WHEN @Status = 'Suspended' THEN Status ELSE @Status END,
 				ApprovedDate = CASE WHEN @Status IN ('Approved', 'Disapproved') THEN @CurrentDate ELSE NULL END,
 				ApprovedBy = @UserId,
-				AffCode = ISNULL(@AffCode, AffCode)
-			OUTPUT	DELETED.Status, DELETED.ApprovedDate, DELETED.ApprovedBy,
-					INSERTED.Status, INSERTED.ApprovedDate, INSERTED.ApprovedBy
-			INTO @UpdatedData (Status_Del, ApprovedDate_Del, ApprovedBy_Del,
-								Status_Ins, ApprovedDate_Ins, ApprovedBy_Ins)
+				AffCode = ISNULL(@AffCode, AffCode),
+				IsRejected = CASE WHEN @Status = 'Suspended' THEN 1 ELSE IsRejected END
+			OUTPUT	DELETED.Status, DELETED.ApprovedDate, DELETED.ApprovedBy, DELETED.IsRejected,
+					INSERTED.Status, INSERTED.ApprovedDate, INSERTED.ApprovedBy, INSERTED.IsRejected
+			INTO @UpdatedData (Status_Del, ApprovedDate_Del, ApprovedBy_Del, IsRejected_Del,
+								Status_Ins, ApprovedDate_Ins, ApprovedBy_Ins, IsRejected_Ins)
 			WHERE AffId = @AffId
 		END TRY
 		BEGIN CATCH
@@ -317,11 +333,13 @@ BEGIN
 		SELECT	@OldData =
 					'Status='			+ ISNULL(Status_Del, '') + ',' + 
 					'ApprovedDate='		+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Del), '') + ',' +
-					'ApprovedBy='		+ ISNULL(u1.UserName, ''),
+					'ApprovedBy='		+ ISNULL(u1.UserName, '') + ',' +
+					'IsRejected='		+ ISNULL(CONVERT(VARCHAR(2), IsRejected_Del), ''),
 				@NewData =
 					'Status='			+ ISNULL(Status_Ins, '') + ',' + 
 					'ApprovedDate='		+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Ins), '') + ',' + 
-					'ApprovedBy='		+ ISNULL(u2.UserName, '')
+					'ApprovedBy='		+ ISNULL(u2.UserName, '') + ',' +
+					'IsRejected='		+ ISNULL(CONVERT(VARCHAR(2), IsRejected_Del), '')
 		FROM @UpdatedData ud
 			LEFT JOIN dbo.Affiliate_User u1 WITH (NOLOCK) ON ud.ApprovedBy_Del = u1.CustId
 			LEFT JOIN dbo.Affiliate_User u2 WITH (NOLOCK) ON ud.ApprovedBy_Ins = u2.CustId
