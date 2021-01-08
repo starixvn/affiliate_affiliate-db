@@ -24,6 +24,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201026@Percy: Change search by AffId to AffCode [RedmineID: #143852]
+		- 20200107@Percy: Add suspended status [RedmineID: #148373]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
@@ -46,13 +47,18 @@ BEGIN
 		AND (ISNULL(@Email, '') = '' OR ai.Email LIKE '%' + @Email + '%')
 		AND ai.Status = CASE
 							WHEN ISNULL(@Status, '') = '' THEN ai.Status
-							WHEN @Status IN ('Favorite', 'Approved', 'Closed') THEN 'Approved'
+							WHEN @Status IN ('Favorite', 'Approved', 'Closed', 'Suspended') THEN 'Approved'
 							ELSE @Status END
 		AND ai.IsClosed = CASE
 							WHEN ISNULL(@Status, '') = '' THEN ai.IsClosed
 							WHEN @Status = 'Approved' THEN 0
 							WHEN @Status = 'Closed' THEN 1
 							ELSE ai.IsClosed END
+		AND ai.IsRejected = CASE
+							WHEN ISNULL(@Status, '') = '' THEN ai.IsRejected
+							WHEN @Status = 'Approved' THEN 0
+							WHEN @Status = 'Suspended' THEN 1
+							ELSE ai.IsRejected END
 		AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
 		AND (ISNULL(@PreferredLanguage, '') = '' OR ad.PreferredLanguage = @PreferredLanguage)
 		AND (ISNULL(@GroupID, 0) = 0 OR ai.GroupID = @GroupID)
@@ -106,7 +112,10 @@ BEGIN
 			ai.Username,
 			ai.FirstName,
 			ai.LastName,
-			CASE WHEN ai.Status = 'Approved' AND ai.IsClosed = 1 THEN 'Closed' ELSE ai.Status END AS Status,
+			CASE
+				WHEN ai.Status = 'Approved' AND ai.IsClosed = 1 THEN 'Closed'
+				WHEN ai.Status = 'Approved' AND ai.IsRejected = 1 THEN 'Suspended'
+				ELSE ai.Status END AS Status,
 			ai.IsClosed,
 			ad.PreferredLanguage,
 			ai.Email,
@@ -168,13 +177,18 @@ BEGIN
 			AND (ISNULL(@Email, '') = '' OR ai.Email LIKE '%' + @Email + '%')
 			AND ai.Status = CASE
 								WHEN ISNULL(@Status, '') = '' THEN ai.Status
-								WHEN @Status IN ('Favorite', 'Approved', 'Closed') THEN 'Approved'
+								WHEN @Status IN ('Favorite', 'Approved', 'Closed', 'Suspended') THEN 'Approved'
 								ELSE @Status END
 			AND ai.IsClosed = CASE
 								WHEN ISNULL(@Status, '') = '' THEN ai.IsClosed
 								WHEN @Status = 'Approved' THEN 0
 								WHEN @Status = 'Closed' THEN 1
 								ELSE ai.IsClosed END
+			AND ai.IsRejected = CASE
+								WHEN ISNULL(@Status, '') = '' THEN ai.IsRejected
+								WHEN @Status = 'Approved' THEN 0
+								WHEN @Status = 'Suspended' THEN 1
+								ELSE ai.IsRejected END
 			AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
 			AND (ISNULL(@PreferredLanguage, '') = '' OR ad.PreferredLanguage = @PreferredLanguage)
 			AND (ISNULL(@GroupID, 0) = 0 OR ai.GroupID = @GroupID)

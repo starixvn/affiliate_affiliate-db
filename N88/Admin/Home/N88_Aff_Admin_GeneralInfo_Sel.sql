@@ -10,6 +10,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
+		- 20200107@Percy: Add suspended status [RedmineID: #148373]
 */
 
 BEGIN
@@ -145,6 +146,7 @@ BEGIN
 		PendingAllNum,
 		ApprovedAllNum,
 		DisapprovedAllNum,
+		SuspendedAllNum,
 		MemAllNum,
 		DepositMemAllNum,
 		MemAllNum - DepositMemAllNum AS NonDepositMemAllNum,
@@ -161,6 +163,7 @@ BEGIN
 		PendingMonthNum,
 		ApprovedMonthNum,
 		DisapprovedMonthNum,
+		SuspendedMonthNum,
 		MemMonthNum,
 		DepositMemMonthNum,
 		MemMonthNum - DepositMemMonthNum AS NonDepositMemMonthNum,
@@ -212,12 +215,14 @@ BEGIN
 				SUM(Pending)		AS PendingAllNum,
 				SUM(Approved)		AS ApprovedAllNum,
 				SUM(Disapproved)	AS DisapprovedAllNum,
+				SUM(Suspended)		AS SuspendedAllNum,
 				SUM(Closed)			AS ClosedAllNum,
 				-- current month
 				SUM(CASE WHEN CurrentMonth = 1 THEN Total		ELSE 0 END) AS AffInProMonthNum,
 				SUM(CASE WHEN CurrentMonth = 1 THEN Pending		ELSE 0 END) AS PendingMonthNum,
 				SUM(CASE WHEN CurrentMonth = 1 THEN Approved	ELSE 0 END) AS ApprovedMonthNum,
 				SUM(CASE WHEN CurrentMonth = 1 THEN Disapproved ELSE 0 END) AS DisapprovedMonthNum,
+				SUM(CASE WHEN CurrentMonth = 1 THEN Suspended	ELSE 0 END) AS SuspendedMonthNum,
 				SUM(CASE WHEN CurrentMonth = 1 THEN Closed		ELSE 0 END) AS ClosedMonthNum
 			FROM
 			(
@@ -225,8 +230,9 @@ BEGIN
 					CASE WHEN RegisteredDate < @BeginOfCurrentMonth THEN 0 ELSE 1 END AS CurrentMonth,
 					SUM(1) AS Total,
 					SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS Pending,
-					SUM(CASE WHEN status = 'Approved' AND IsClosed = 0 THEN 1 ELSE 0 END) AS Approved,
 					SUM(CASE WHEN status = 'Disapproved' THEN 1 ELSE 0 END) AS Disapproved,
+					SUM(CASE WHEN status = 'Approved' AND IsClosed = 0 AND IsRejected = 0 THEN 1 ELSE 0 END) AS Approved,
+					SUM(CASE WHEN status = 'Approved' AND IsClosed = 0 AND IsRejected = 1 THEN 1 ELSE 0 END) AS Suspended,
 					SUM(CASE WHEN status = 'Approved' AND IsClosed = 1 THEN 1 ELSE 0 END) AS Closed
 				FROM dbo.AffInfo WITH (NOLOCK)
 				GROUP BY
