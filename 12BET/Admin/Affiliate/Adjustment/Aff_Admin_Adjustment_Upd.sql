@@ -25,7 +25,7 @@ BEGIN
 	--money
 	DECLARE @ID INT = 1, @LogData NVARCHAR(MAX), @SPName VARCHAR(50), @AffId INT
 	
-	DECLARE @MinMoney DECIMAL(38,6) = -922337203685479, @MaxMoney DECIMAL(38,6) = 922337203685476
+	DECLARE @MinMoney DECIMAL(38,6) = -922337203685476, @MaxMoney DECIMAL(38,6) = 922337203685476
 
 	SELECT @ErrCode = 0, @ErrMsg = ''
 
@@ -62,8 +62,8 @@ BEGIN
 
 	UPDATE i
 		SET i.ErrorMsg	 = COALESCE(i.ErrorMsg,'') + 
-						   CASE WHEN af.AffID IS NULL THEN 'This username does not exist.' + CASE WHEN e.r IS NOT NULL THEN 'This username is duplicate.' ELSE '' END
-							    WHEN e.r IS NOT NULL THEN 'This username is duplicate.'
+						   CASE WHEN af.AffID IS NULL THEN CHAR(13) + CHAR(10) + 'This username does not exist.' + CASE WHEN e.r IS NOT NULL THEN CHAR(13) + CHAR(10) + 'This username is duplicate.' ELSE '' END
+							    WHEN e.r IS NOT NULL THEN CHAR(13) + CHAR(10) + 'This username is duplicate.'
 						   ELSE '' END
 			,i.Currency	 = CASE WHEN  af.AffID IS NOT NULL THEN af.Currency ELSE i.Currency END
 			,i.AffID	 = CASE WHEN  af.AffID IS NOT NULL THEN af.AffID ELSE i.AffID END
@@ -74,32 +74,26 @@ BEGIN
 	) AS e
 	
 	UPDATE i
-		SET i.ErrorMsg = COALESCE(i.ErrorMsg,'') + 
-					     CASE WHEN ISNUMERIC(i.Amount) = 0 OR i.Amount LIKE '%e%' THEN ' amount is invalid.' 
-						 ELSE CASE WHEN i.Amount Like '%-%' THEN 'The amount is too small.' 
-							  ELSE 'The amount is too big.' END 
-						 END
-			,i.IsInvalid = 1
-	FROM #Input i
-	WHERE ISNUMERIC(i.Amount) = 0 
-		OR CHARINDEX('.', REPLACE(REPLACE(REPLACE(I.Amount, '+', ''),'-', ''),',','') + '.') > 16
-		OR i.Amount LIKE '%e%'
-
-	UPDATE i
 		SET i.ErrorMsg = COALESCE(i.ErrorMsg, '') + 
-						 CASE WHEN CONVERT(DECIMAL(38,6), i.Amount) + ISNULL(CONVERT(DECIMAL(38,6), a.BalBroughtForward), 0) > @MaxMoney THEN 'The amount is too big.'
-							  WHEN CONVERT(DECIMAL(38,6), i.Amount) + ISNULL(CONVERT(DECIMAL(38,6), a.BalBroughtForward), 0) < @MinMoney THEN 'The amount is too small.'
+						 CASE WHEN i.Amount LIKE '%[^0-9,.+-]%' THEN CHAR(13) + CHAR(10) + 'The amount is invalid.'
+							  WHEN ISNUMERIC(i.Amount) = 0      THEN CHAR(13) + CHAR(10) + 'The amount is invalid.'
+							  WHEN CHARINDEX('.', REPLACE(REPLACE(REPLACE(I.Amount, '+', ''),'-', ''),',','') + '.') > 16 
+									THEN CASE WHEN i.Amount LIKE '-%' THEN  CHAR(13) + CHAR(10) + 'The amount is too small.' 
+										 ELSE CHAR(13) + CHAR(10) + 'The amount is too big.' END
+							  WHEN CONVERT(DECIMAL(38,6), REPLACE(i.Amount, ',', '')) + ISNULL(CONVERT(DECIMAL(38,6), a.BalBroughtForward), 0) > @MaxMoney 
+									THEN CHAR(13) + CHAR(10) + 'The amount is too big.'
+							  WHEN CONVERT(DECIMAL(38,6), REPLACE(i.Amount, ',', '')) + ISNULL(CONVERT(DECIMAL(38,6), a.BalBroughtForward), 0) < @MinMoney 
+									THEN CHAR(13) + CHAR(10) + 'The amount is too small.'
 						 ELSE '' END
 	FROM #Input i
-	CROSS APPLY(
-		SELECT b.BalBroughtForward
+	OUTER APPLY(
+		SELECT TOP 1 b.BalBroughtForward
 		FROM dbo.Aff_f_GetBalBroughtForward(i.AffId) b 
-	) AS a
-	WHERE i.IsInvalid = 0
+	) a
 	
 	IF EXISTS(SELECT TOP 1 1 FROM #Input WHERE ISNULL(ErrorMsg, '') <> '')
 	BEGIN
-		SELECT @ErrCode = 101
+		SELECT @ErrCode = 101, @ErrMsg = 'The upload process is not completed. There are some invalid username/amount in your file.'
 		SELECT Username, Amount, ErrorMsg FROM #Input WHERE ISNULL(ErrorMsg, '') <> ''
 		RETURN
 	END
@@ -127,7 +121,7 @@ BEGIN
 			AffID
 			,GETDATE()
 			,GETDATE()
-			,CONVERT(MONEY, Amount)
+			,CONVERT(MONEY, REPLACE(Amount, ',', ''))
 			,'Completed'
 			,Description
 			,@UserId
