@@ -5,7 +5,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Affiliate_Approved]
 	@Password	NVARCHAR(40) = NULL,
 	@Status		VARCHAR(30) = NULL,
 	@IP			VARCHAR(50),
-	@AffCode	VARCHAR(20) = '' OUTPUT,
+	@AffCode	VARCHAR(20)	= '' OUTPUT,
 	@ErrCode	INT = 0 OUTPUT,
 	@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS  
@@ -18,6 +18,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20201026@Percy: Add AffCode - auto generate code when affiliate was approved [RedmineID: #143852]
+		- 20201215@Percy: Add AffMediaLink [RedmineID: #146201]
 */
 
 BEGIN
@@ -144,6 +145,19 @@ BEGIN
 
 			RETURN
 		END CATCH
+
+		INSERT INTO dbo.AffMediaChannel (AffId, ChannelCode, ChannelName)
+		SELECT @AffId, LOWER(t.ChannelName), t.ChannelName
+		FROM (
+			select 'Youtube' as ChannelName
+			union all select 'Facebook'
+			union all select 'Twitter'
+			union all select 'Tiktok'
+			union all select 'Whatsapp'
+			union all select 'Telegram'
+		) t
+			LEFT JOIN dbo.AffMediaChannel a WITH (NOLOCK) ON a.AffId = @AffId AND a.ChannelCode = LOWER(t.ChannelName)
+		WHERE a.AffId IS NULL
 
 		SELECT	@OldData =
 					'Password='			+ ISNULL(Password_Del, '') + ',' +

@@ -59,6 +59,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201026@Percy: Add AffCode - auto generate code when affiliate was approved [RedmineID: #143852]
 		- 20200107@Percy: Add suspended status [RedmineID: #148373]
+		- 20201215@Percy: Add AffMediaLink [RedmineID: #146201]
 */
 
 BEGIN
@@ -300,6 +301,19 @@ BEGIN
 			SET AffId = @AffId
 
 			SELECT @AffCode = AffCode FROM dbo.AffiliateCode WITH (NOLOCK) WHERE AffId = @AffId
+
+			INSERT INTO dbo.AffMediaChannel (AffId, ChannelCode, ChannelName)
+			SELECT @AffId, LOWER(t.ChannelName), t.ChannelName
+			FROM (
+				select 'Youtube' as ChannelName
+				union all select 'Facebook'
+				union all select 'Twitter'
+				union all select 'Tiktok'
+				union all select 'Whatsapp'
+				union all select 'Telegram'
+			) t
+				LEFT JOIN dbo.AffMediaChannel a WITH (NOLOCK) ON a.AffId = @AffId AND a.ChannelCode = LOWER(t.ChannelName)
+			WHERE a.AffId IS NULL
 		END
 		ELSE IF @Status = 'Suspended'
 		BEGIN
