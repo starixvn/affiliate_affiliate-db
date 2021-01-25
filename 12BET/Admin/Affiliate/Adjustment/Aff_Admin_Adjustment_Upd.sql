@@ -81,6 +81,8 @@ BEGIN
 							  WHEN CHARINDEX('.', REPLACE(REPLACE(REPLACE(I.Amount, '+', ''),'-', ''),',','') + '.') > 16 
 									THEN CASE WHEN i.Amount LIKE '-%' THEN  CHAR(13) + CHAR(10) + 'The amount is too small.' 
 										 ELSE CHAR(13) + CHAR(10) + 'The amount is too big.' END
+							  WHEN CONVERT(DECIMAL(38,6), REPLACE(i.Amount, ',', '')) > @MaxMoney THEN CHAR(13) + CHAR(10) + 'The amount is too big.'
+							  WHEN CONVERT(DECIMAL(38,6), REPLACE(i.Amount, ',', '')) < @MinMoney THEN CHAR(13) + CHAR(10) + 'The amount is too small.'
 							  WHEN CONVERT(DECIMAL(38,6), REPLACE(i.Amount, ',', '')) + ISNULL(CONVERT(DECIMAL(38,6), a.BalBroughtForward), 0) > @MaxMoney 
 									THEN CHAR(13) + CHAR(10) + 'The amount is too big.'
 							  WHEN CONVERT(DECIMAL(38,6), REPLACE(i.Amount, ',', '')) + ISNULL(CONVERT(DECIMAL(38,6), a.BalBroughtForward), 0) < @MinMoney 
