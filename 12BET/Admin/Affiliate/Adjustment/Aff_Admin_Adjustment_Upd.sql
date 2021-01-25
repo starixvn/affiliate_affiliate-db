@@ -62,7 +62,8 @@ BEGIN
 
 	UPDATE i
 		SET i.ErrorMsg	 = COALESCE(i.ErrorMsg,'') + 
-						   CASE WHEN af.AffID IS NULL THEN CHAR(13) + CHAR(10) + 'This username does not exist.' + CASE WHEN e.r IS NOT NULL THEN CHAR(13) + CHAR(10) + 'This username is duplicate.' ELSE '' END
+						   CASE WHEN ISNULL(i.Username,'') = '' THEN 'Username cannot be blank.'
+								WHEN af.AffID IS NULL THEN CHAR(13) + CHAR(10) + 'This username does not exist.' + CASE WHEN e.r IS NOT NULL THEN CHAR(13) + CHAR(10) + 'This username is duplicate.' ELSE '' END
 							    WHEN e.r IS NOT NULL THEN CHAR(13) + CHAR(10) + 'This username is duplicate.'
 						   ELSE '' END
 			,i.Currency	 = CASE WHEN  af.AffID IS NOT NULL THEN af.Currency ELSE i.Currency END
