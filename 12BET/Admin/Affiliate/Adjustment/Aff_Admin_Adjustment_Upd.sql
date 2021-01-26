@@ -25,7 +25,7 @@ BEGIN
 	--money
 	DECLARE @ID INT = 1, @LogData NVARCHAR(MAX), @SPName VARCHAR(50), @AffId INT
 	
-	DECLARE @MinMoney DECIMAL(38,6) = -922337203685476, @MaxMoney DECIMAL(38,6) = 922337203685476
+	DECLARE @MinMoney DECIMAL(38,6) = -922337203685477.5808, @MaxMoney DECIMAL(38,6) = 922337203685477.5807
 
 	SELECT @ErrCode = 0, @ErrMsg = ''
 
@@ -63,17 +63,18 @@ BEGIN
 	UPDATE i
 		SET i.ErrorMsg	 = COALESCE(i.ErrorMsg,'') + 
 						   CASE WHEN ISNULL(i.Username,'') = '' THEN 'Username cannot be blank.'
+								WHEN af.AffID IS NOT NULL AND (ISNULL(af.Status, '') <> 'Approved' OR Ma.r IS NULL) THEN 'Username is invalid'
 								WHEN af.AffID IS NULL THEN CHAR(13) + CHAR(10) + 'This username does not exist.' + CASE WHEN e.r IS NOT NULL THEN CHAR(13) + CHAR(10) + 'This username is duplicate.' ELSE '' END
 							    WHEN e.r IS NOT NULL THEN CHAR(13) + CHAR(10) + 'This username is duplicate.'
 						   ELSE '' END
 			,i.Currency	 = CASE WHEN  af.AffID IS NOT NULL THEN af.Currency ELSE i.Currency END
 			,i.AffID	 = CASE WHEN  af.AffID IS NOT NULL THEN af.AffID ELSE i.AffID END
 	FROM #Input i
-		LEFT JOIN dbo.AffInfo af WITH(NOLOCK) ON af.UserName = i.Username
-	OUTER APPLY(
-			SELECT TOP 1 1 AS r FROM #Input p WHERE p.Username = i.Username AND p.ID <> i.ID
-	) AS e
-	
+		LEFT JOIN dbo.AffInfo af WITH(NOLOCK) ON af.UserName = i.Username 
+		LEFT JOIN dbo.AffDetail d WITH(NOLOCK) ON d.AffID = af.AffID
+	OUTER APPLY(SELECT TOP 1 1 AS r FROM #Input p WHERE p.Username = i.Username AND p.ID <> i.ID) AS e
+	OUTER APPLY (SELECT TOP 1 1 AS r FROM UserMarket u WHERE u.CustId = @UserId AND u.MarketId = d.PreferredLanguage) AS Ma
+
 	UPDATE i
 		SET i.ErrorMsg = COALESCE(i.ErrorMsg, '') + 
 						 CASE WHEN i.Amount LIKE '%[^0-9,.+-]%' THEN CHAR(13) + CHAR(10) + 'The amount is invalid.'
