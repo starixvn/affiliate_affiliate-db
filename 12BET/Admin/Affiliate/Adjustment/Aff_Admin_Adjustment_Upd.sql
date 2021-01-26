@@ -88,6 +88,7 @@ BEGIN
 									THEN CHAR(13) + CHAR(10) + 'The amount is too big.'
 							  WHEN CONVERT(DECIMAL(38,6), REPLACE(i.Amount, ',', '')) + ISNULL(CONVERT(DECIMAL(38,6), a.BalBroughtForward), 0) < @MinMoney 
 									THEN CHAR(13) + CHAR(10) + 'The amount is too small.'
+							  WHEN CONVERT(DECIMAL(38,6), REPLACE(i.Amount, ',', '')) = 0 THEN CHAR(13) + CHAR(10) + 'The amount is invalid.'
 						 ELSE '' END
 	FROM #Input i
 	OUTER APPLY(

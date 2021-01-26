@@ -26,6 +26,7 @@ AS
 			1. Return more information: currency, player currency, phone and player username [RedmineID: #106837]
 			2. Add @AffId to support search by Affiliate ID [RedmineID: #106265]
 		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
+		- 20210126@Malcolm: Get Balance Brought Forward for affiliates who haven't members [RedmineID: #147902]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
@@ -150,7 +151,7 @@ BEGIN
 				FROM dbo.AffTrans WITH (NOLOCK)
 				WHERE TransDate >= @MinReportDate
 				GROUP BY AffId
-			) at ON at.AffId = mi.AffId
+			) at ON at.AffId = ai.AffId
 		WHERE
 			(ISNULL(@AffId, 0) = 0 OR ai.AffId = @AffId)
 			AND (ISNULL(@Username, '') = '' OR ai.Username LIKE '%' + @Username + '%')
