@@ -148,7 +148,7 @@ BEGIN
 		IF NOT EXISTS(SELECT TOP 1 1 FROM #Input WHERE ID = @ID)
 			BREAK
 
-		SELECT @AffId = AffID, @LogData = 'Amount=' + CONVERT(VARCHAR(50), CONVERT(MONEY, REPLACE(Amount, ',', ''))) FROM #Input WHERE ID = @ID
+		SELECT @AffId = AffID, @LogData = 'Amount=' + CONVERT(VARCHAR(50), Amount) FROM #Input WHERE ID = @ID
 
 		EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 			@UserID = @UserId
