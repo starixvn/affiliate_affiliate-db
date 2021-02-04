@@ -9,9 +9,9 @@ CREATE TABLE dbo.Newsletter
 (
 	NewsletterId INT IDENTITY(1, 1) NOT NULL
 	,FileName NVARCHAR(200)
-	,FileSize INT
-	,Language VARCHAR(50)
-	,CreatedAt DATETIME DEFAULT(GETDATE())
+	,FileSize SMALLINT
+	,Language NVARCHAR(50)
+	,UploadDate DATETIME DEFAULT(GETDATE())
 	,EffectiveFromDate DATETIME
 	,EffectiveToDate DATETIME
 	,CONSTRAINT PK_Newsletter PRIMARY KEY CLUSTERED (NewsletterId)
