@@ -19,6 +19,7 @@ AS
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 		- 20190614@Percy: Add @AffId into log [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -65,8 +66,8 @@ BEGIN
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
-	SELECT  @OldData = 'Password=' + @OldPassword,
-			@NewData = 'Password=' + @Password
+	SELECT @OldData = '<root><row Password="'+ @OldPassword +'"></row></root>'
+		   ,@NewData = '<root><row Password="'+ @Password +'"></row></root>'
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,

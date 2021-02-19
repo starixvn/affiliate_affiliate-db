@@ -20,6 +20,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 
 	Parameter's Explanation:
 		- @GroupId:
@@ -374,13 +375,16 @@ BEGIN
 
 	DECLARE @Data NVARCHAR(MAX)
 
-	SELECT  @Data =
-		'GroupName='	+ ISNULL(@GroupName, '') + ',' +
-		'Description='	+ ISNULL(@Description, '') + ',' +
-		'DeductionList='+ ISNULL(CONVERT(NVARCHAR(MAX), @DeductionList), '') + ',' +
-		'TierList='		+ ISNULL(CONVERT(NVARCHAR(MAX), @TierList), '') + ',' +
-		'QMTurnover='	+ ISNULL(CONVERT(NVARCHAR(MAX), @QMTurnover), '')
-	
+	SELECT @Data = CONVERT(NVARCHAR(MAX),
+				   (
+						SELECT @GroupName AS '@GroupName'
+							   ,@Description AS '@Description'
+							   ,@QMTurnover AS '@QMTurnover'
+							   ,CONVERT(XML,(SELECT t.c.query('.') FROM @DeductionList.nodes('/root/row') T(c) FOR XML PATH(''))) AS DeductionList
+							   ,CONVERT(XML,(SELECT t.c.query('.') FROM @TierList.nodes('/root/row') T(c) FOR XML PATH(''))) AS TierList
+						FOR XML PATH('row'), ROOT('root')
+					))
+
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,
 		@AffId		= 0,

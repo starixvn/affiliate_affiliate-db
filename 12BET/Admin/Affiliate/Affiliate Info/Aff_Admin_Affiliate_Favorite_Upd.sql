@@ -18,6 +18,7 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -71,8 +72,8 @@ BEGIN
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
-	SELECT  @OldData = 'IsFavorite=' + CASE WHEN @IsFavorite = 1 THEN '0' ELSE '1' END,
-			@NewData = 'IsFavorite=' + CASE WHEN @IsFavorite = 1 THEN '1' ELSE '0' END
+	SELECT @OldData = '<root><row IsFavorite="'+ CASE WHEN @IsFavorite = 1 THEN '0' ELSE '1' END +'"></row></root>'
+		   ,@NewData = '<root><row IsFavorite="'+ CASE WHEN @IsFavorite = 1 THEN '1' ELSE '0' END +'"></row></root>'
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,
