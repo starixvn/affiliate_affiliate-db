@@ -19,6 +19,7 @@ AS
 		- 20201026@Percy: Add AffCode - auto generate code when affiliate was approved [RedmineID: #143852]
 		- 20200107@Percy: Add suspended status [RedmineID: #148373]
 		- 20201215@Percy: Add AffMediaLink [RedmineID: #146201]
+		- 20210223@Percy: Do not update ApprovedDate if change from Suspended [RedmineID: #150493]
 */
 
 BEGIN
@@ -130,7 +131,7 @@ BEGIN
 		UPDATE dbo.AffInfo WITH (ROWLOCK)
 		SET	Status = CASE WHEN @Status = 'Suspended' THEN Status ELSE @Status END
 			,GroupID = ISNULL(@GroupID, GroupID)
-			,ApprovedDate = CASE WHEN @Status IN ('Approved', 'Disapproved') THEN GETDATE() ELSE ApprovedDate END
+			,ApprovedDate = CASE WHEN ApprovedDate IS NULL AND @Status IN ('Approved', 'Disapproved') THEN GETDATE() ELSE ApprovedDate END
 			,AffCode = ISNULL(@AffCode, AffCode)
 			,IsRejected = CASE WHEN @Status = 'Suspended' THEN 1 WHEN @Status = 'Approved' THEN 0 ELSE IsRejected END
 		WHERE AffID = @AffID

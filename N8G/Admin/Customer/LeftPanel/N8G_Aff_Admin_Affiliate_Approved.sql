@@ -19,6 +19,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20201026@Percy: Add AffCode - auto generate code when affiliate was approved [RedmineID: #143852]
 		- 20201215@Percy: Add AffMediaLink [RedmineID: #146201]
+		- 20210223@Percy: Do not update ApprovedDate if change from Suspended [RedmineID: #150493]
 */
 
 BEGIN
@@ -130,7 +131,7 @@ BEGIN
 			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
 			SET Status = ISNULL(@Status, Status),
 				Password = ISNULL(@Password, Password),
-				ApprovedDate = CASE WHEN @Status IN ('Approved', 'Disapproved') THEN @CurrentDate ELSE NULL END,
+				ApprovedDate = CASE WHEN ApprovedDate IS NULL AND @Status IN ('Approved', 'Disapproved') THEN @CurrentDate ELSE ApprovedDate END,
 				ApprovedBy = @UserId,
 				AffCode = ISNULL(@AffCode, AffCode)
 			OUTPUT	DELETED.Status, DELETED.Password, DELETED.ApprovedDate, DELETED.ApprovedBy,
