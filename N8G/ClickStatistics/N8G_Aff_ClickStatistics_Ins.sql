@@ -8,6 +8,7 @@ ALTER PROCEDURE [dbo].[Aff_ClickStatistics_Ins]
 	,@Browser			NVARCHAR(50) = ''
 	,@URLReferrer		NVARCHAR(300) = NULL
 	,@DomainReferrer	NVARCHAR(300) = NULL
+	,@AffMediaLink		VARCHAR(500) = NULL
 	,@OS				NVARCHAR(50) = ''
 	,@Device			NVARCHAR(50) = ''
 	,@BrowserVersion	NVARCHAR(16) = ''
@@ -29,6 +30,7 @@ AS
 
 	Revisions:  
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20201215@Percy: Add AffMediaLink [RedmineID: #146201]
 */
 
 BEGIN
@@ -104,6 +106,7 @@ BEGIN
 			,Browser
 			,URLReferrer
 			,DomainReferrer
+			,AffMediaLink
 			,OS
 			,Device
 			,BrowserVersion
@@ -126,6 +129,7 @@ BEGIN
 			,@Browser
 			,ISNULL(@URLReferrer, 'none')
 			,ISNULL(@DomainReferrer, 'none')
+			,ISNULL(@AffMediaLink, 'none')
 			,@OS
 			,@Device
 			,@BrowserVersion
