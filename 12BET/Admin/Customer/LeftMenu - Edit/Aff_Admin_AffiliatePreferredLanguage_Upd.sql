@@ -17,6 +17,7 @@ AS
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210223@Percy: Change permission function [RedmineID: #149213]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -46,8 +47,9 @@ BEGIN
 
 	-- For Log
 	DECLARE @OldData NVARCHAR(4000), @NewData NVARCHAR(4000), @SPName VARCHAR(50)
-	SELECT  @OldData	= 'PreferredLanguage=' + ISNULL(PreferredLanguage, '')
-			,@NewData	= 'PreferredLanguage=' + ISNULL(@PreferredLanguage, '')
+
+	SELECT  @OldData	= '<root><row PreferredLanguage="'+ ISNULL(PreferredLanguage, '') +'"></row></root>'
+			,@NewData	= '<root><row PreferredLanguage="'+  ISNULL(@PreferredLanguage, '') +'"></row></root>'
 			,@SPName	= OBJECT_NAME(@@PROCID)
 	FROM dbo.AffDetail WITH (NOLOCK)
 	WHERE AffID = @AffID

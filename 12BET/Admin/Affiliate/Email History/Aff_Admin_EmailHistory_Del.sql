@@ -16,6 +16,7 @@ AS
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210223@Percy: Change permission function [RedmineID: #149213]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 
 	Param's Explanation:
 		- @MIDs: List of Mail ID
@@ -83,7 +84,9 @@ BEGIN
 
 	-- Write Log
 	DECLARE @LogData NVARCHAR(200), @SPName VARCHAR(50)
-	SELECT	@LogData = 'Delete EmailHistory Mail Id list:' + @MIds
+
+	SELECT @LogData = CONVERT(NVARCHAR(MAX), (SELECT  MId AS '@MId' FROM @tblMailId FOR XML PATH('row'), ROOT('root')))
+
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog

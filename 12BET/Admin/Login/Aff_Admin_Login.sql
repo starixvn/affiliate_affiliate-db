@@ -17,6 +17,7 @@ AS
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -88,7 +89,8 @@ BEGIN
 		SET @LogData = 'Success'
 	END
 
-	SELECT @LogData = 'Admin:' + @Username + ' IP:' + ISNULL(@IP, '') + ' Result:' + @LogData + ' From:' + ISNULL(@HostName, '')
+	DECLARE @NewData NVARCHAR(MAX) 
+	SELECT @NewData = CONVERT(NVARCHAR(MAX), (SELECT @Username AS '@Admin', @IP AS '@IP', @LogData AS '@Result', @HostName AS '@HostName' FOR XML PATH('row'), ROOT('root')))
 
 	-- Write log
 	DECLARE @SPName VARCHAR(200)
@@ -98,7 +100,7 @@ BEGIN
 		@UserId		= @UserId,
 		@AffId		= 0,
 		@SPName		= @SPName,
-		@NewData	= @LogData,
+		@NewData	= @NewData,
 		@IP			= @IP,
 		@Language	= 'en-US'
 END

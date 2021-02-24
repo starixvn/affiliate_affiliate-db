@@ -22,6 +22,7 @@ AS
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 
 	Param's Explanation:
 		@Files format
@@ -102,15 +103,22 @@ BEGIN
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
 	DECLARE @NewData NVARCHAR(MAX)
-	SELECt  @NewData = COALESCE(@NewData + ',' ,'') + 'FileName:' + FileName + '-ImageType:' + ImageType + '-Size' + Size
-	FROM @tblBanner
-
-	SELECT  @NewData = 'Files=' + ISNULL(@NewData, '')
-					+ ',' + 'Categories=' + ISNULL(@Categories, '')
-					+ ',' + 'Language=' + ISNULL(@Language, '')
-					+ ',' + 'Currencies=' + ISNULL(@Currencies, '')
-					+ ',' + 'AffTypes=' + ISNULL(@AffTypes, '')
-					+ ',' + 'DeviceTypes=' + ISNULL(@DeviceTypes, '')
+	SELECT @NewData = CONVERT(NVARCHAR(MAX),
+					  (
+						SELECT 
+							FileName AS '@FileName',
+							ImageType AS '@ImageType',
+							Size AS '@Size',
+							@Categories AS '@Categories',
+							@SubCategories AS '@SubCategories',
+							@Language AS '@Language',
+							@Currencies AS '@Currencies',
+							@AffTypes AS '@AffTypes',
+							@DeviceTypes AS '@DeviceTypes',
+							@UserId AS '@UserId'
+						FROM @tblBanner t
+						FOR XML PATH('row'), ROOT('root')
+					  ))
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,

@@ -21,6 +21,7 @@ AS
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -37,15 +38,21 @@ BEGIN
 		RETURN
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
-	SELECT  @OldData = 'TextId=' + ISNULL(CONVERT(VARCHAR(10), BannerId), '')
-						+ ',' + 'Message=' + ISNULL(Message, '')
-						+ ',' + 'Category=' + ISNULL(Categories, '')
-						+ ',' + 'Language=' + ISNULL(Language, '')
-						+ ',' + 'Currency=' + ISNULL(Currencies, '')
-						+ ',' + 'DeviceType=' + ISNULL(DeviceTypes, '')
-	FROM dbo.Banners WITH (NOLOCK)
-	WHERE BannerId = @TextId
-		AND ImageType = 'Text'
+
+	SELECT  @OldData = CONVERT(NVARCHAR(MAX),
+					   (
+							SELECT BannerId AS '@BannerId'
+									,Message AS '@Message'
+									,Categories AS '@Categories'
+									,Language AS '@Language'
+									,Currencies AS '@Currencies'
+									,DeviceTypes AS '@DeviceTypes'
+							FROM dbo.Banners WITH (NOLOCK)
+							WHERE BannerId = @TextId
+								AND ImageType = 'Text' 
+							FOR XML PATH('row'), ROOT('root')
+					   ))
+
 
 	IF @OldData IS NULL
 	BEGIN
@@ -73,12 +80,16 @@ BEGIN
 	DECLARE @SPName VARCHAR(200)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
-	SELECT  @NewData = 'TextId=' + ISNULL(CONVERT(VARCHAR(10), @TextId), '')
-						+ ',' + 'Message=' + ISNULL(@Message, '')
-						+ ',' + 'Category=' + ISNULL(@Category, '')
-						+ ',' + 'Language=' + ISNULL(@Language, '')
-						+ ',' + 'Currency=' + ISNULL(@Currency, '')
-						+ ',' + 'DeviceType=' + ISNULL(CONVERT(VARCHAR(10), @DeviceType), '')
+	SELECT  @NewData = CONVERT(NVARCHAR(MAX), 
+					   (
+							SELECT	@TextId AS '@TextId', 
+									@Message AS '@Message', 
+									@Category AS '@Category', 
+									@Language AS '@Language', 
+									@Currency AS '@Currency', 
+									@DeviceType AS '@DeviceType'
+							FOR XML PATH('row'), ROOT('root')
+						))
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId

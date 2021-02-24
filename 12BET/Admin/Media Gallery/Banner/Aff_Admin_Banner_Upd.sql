@@ -23,6 +23,7 @@ AS
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -65,19 +66,24 @@ BEGIN
 	SELECT  @FileName = FileName, @ImageType = ImageType, @Size= Size FROM @tblBanner
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
-	SELECT  @OldData = 'BannerId=' + ISNULL(CONVERT(VARCHAR(10), BannerId), '')
-						+ ',' + 'FileName=' + ISNULL(FileName, '')
-						+ ',' + 'ImageType=' + ISNULL(ImageType, '')
-						+ ',' + 'Size=' + ISNULL(Size, '')
-						+ ',' + 'Categories=' + ISNULL(Categories, '')
-						+ ',' + 'Language=' + ISNULL(Language, '')
-						+ ',' + 'Currencies=' + ISNULL(Currencies, '')
-						+ ',' + 'AffTypes=' + ISNULL(AffTypes, '')
-						+ ',' + 'DeviceTypes=' + ISNULL(DeviceTypes, '')
-	FROM dbo.Banners WITH (NOLOCK)
-	WHERE BannerId = @BannerId
-		AND ImageType <> 'Text'
-
+	SELECT  @OldData = CONVERT(NVARCHAR(MAX),
+					   (
+							SELECT 
+								BannerId AS '@BannerId'
+								,FileName AS '@FileName'
+								,ImageType AS '@ImageType'
+								,Size AS '@Size'
+								,Categories AS '@Categories'
+								,Language AS '@Language'
+								,Currencies AS '@Currencies'
+								,AffTypes AS '@AffTypes'
+								,DeviceTypes AS '@DeviceTypes'
+							FROM dbo.Banners WITH (NOLOCK)
+							WHERE BannerId = @BannerId
+								AND ImageType <> 'Text'
+							FOR XML PATH('row'), ROOT('root')
+					   ))
+			
 	IF @OldData IS NULL
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'Error occurs. Banner does not exist.'
@@ -107,16 +113,19 @@ BEGIN
 	-- Write log
 	DECLARE @SPName VARCHAR(200)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
-
-	SELECT  @NewData = 'BannerId=' + ISNULL(CONVERT(VARCHAR(10), @BannerId), '')
-						+ ',' + 'FileName=' + ISNULL(@FileName, '')
-						+ ',' + 'ImageType=' + ISNULL(@ImageType, '')
-						+ ',' + 'Size=' + ISNULL(@Size, '')
-						+ ',' + 'Categories=' + ISNULL(@Categories, '')
-						+ ',' + 'Language=' + ISNULL(@Language, '')
-						+ ',' + 'Currencies=' + ISNULL(@Currencies, '')
-						+ ',' + 'AffTypes=' + ISNULL(@AffTypes, '')
-						+ ',' + 'DeviceTypes=' + ISNULL(@DeviceTypes, '')
+	SELECT  @NewData = CONVERT(NVARCHAR(MAX),
+					  (
+						SELECT	@BannerId AS '@BannerId', 
+								@FileName AS '@FileName',
+								@ImageType AS '@ImageType', 
+								@Size AS '@Size', 
+								@Categories AS '@Categories', 
+								@Language AS '@Language', 
+								@Currencies AS '@Currencies',
+								@AffTypes AS '@AffTypes',
+								@DeviceTypes AS '@DeviceTypes'
+						FOR XML PATH('row'), ROOT('root')
+					  ))
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId

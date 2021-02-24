@@ -53,15 +53,18 @@ BEGIN
 	END
 
 	DECLARE @OldData NVARCHAR(MAX)
-	SELECT  @OldData = COALESCE(@OldData + ' - ', '')
-						+ 'BannerId=' + ISNULL(CONVERT(VARCHAR(10), b.BannerId), '')
-						+ ',' + 'FileName=' + ISNULL(b.FileName, '')
-						+ ',' + 'Category=' + ISNULL(b.Categories, '')
-						+ ',' + 'Language=' + ISNULL(b.Language, '')
-						+ ',' + 'Currency=' + ISNULL(b.Currencies, '')
-						+ ',' + 'DeviceType=' + ISNULL(b.DeviceTypes, '')
-	FROM dbo.Banners b WITH (NOLOCK)
-		INNER JOIN @Texts tmp ON b.BannerId = tmp.TextId
+	SELECT  @OldData = CONVERT(NVARCHAR(MAX),
+					   (
+							SELECT  BannerId AS '@BannerId'
+									,FileName AS '@FileName'
+									,Categories AS '@Categories'
+									,Language AS '@Language'
+									,Currencies AS '@Currencies'
+									,DeviceTypes AS '@DeviceTypes'
+							FROM dbo.Banners b WITH (NOLOCK)
+							INNER JOIN @Texts tmp ON b.BannerId = tmp.TextId
+							FOR XML PATH('row'), ROOT('root')
+					   ))
 
 	BEGIN TRY
 		DELETE b WITH (ROWLOCK, UPDLOCK)

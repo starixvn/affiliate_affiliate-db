@@ -17,6 +17,7 @@ AS
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -38,8 +39,9 @@ BEGIN
 
 	-- For Log
 	DECLARE @OldData NVARCHAR(4000), @NewData NVARCHAR(4000), @SPName VARCHAR(50)
-	SELECT  @OldData	= 'Note=' + ISNULL(Note, '')
-			,@NewData	= 'Note=' + ISNULL(@Note, '')
+	
+	SELECT  @OldData	= '<root><row NoteId="'+ CONVERT(VARCHAR(20), @NoteID) +'" Note="'+ ISNULL(Note, '') +'"></row></root>'
+			,@NewData	= '<root><row NoteId="'+ CONVERT(VARCHAR(20), @NoteID) +'" Note="'+ ISNULL(@Note, '') +'"></row></root>'
 			,@SPName	= OBJECT_NAME(@@PROCID)
 	FROM dbo.AdminNotes WITH (NOLOCK)
 	WHERE NoteID = @NoteID

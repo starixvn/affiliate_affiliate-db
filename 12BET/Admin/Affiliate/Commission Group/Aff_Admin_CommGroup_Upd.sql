@@ -20,6 +20,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 
 	Parameter's Explanation:
 		- @DeductionList:
@@ -351,8 +352,8 @@ BEGIN
 				MaxQM		AS '@maxqm',
 				Commission	AS '@commission'
 			FROM @updateData
-			WHERE TypeId = 3
-			FOR XML PATH('row'), ROOT('root')		
+			WHERE TypeId = 2
+			FOR XML PATH('row'), ROOT('TierList')		
 		)
 
 	SELECT  @OldDeductionList = 
@@ -374,28 +375,39 @@ BEGIN
 								AND up.NextGroupProductId = ud.NextGroupProductId
 							FOR XML PATH (''))
 							, 1, 1, '') AS ProductIds
-				FROM @updateData ud
-				WHERE TypeId = 2
+				FROM
+				(
+					SELECT DISTINCT DeductionId, NextDeductedPercentage, NextGroupProductId
+					FROM @updateData 
+					WHERE TypeId = 3
+				) ud
 			) AS u
-			FOR XML PATH('row'), ROOT('root')		
+			FOR XML PATH('row'), ROOT('DeductionList')		
 		)
 
-	SELECT  @OldData =
-		'GroupId='			+ ISNULL(CONVERT(VARCHAR(15), @GroupId), '') + ',' +
-		'GroupName='		+ ISNULL(GroupName, '') + ',' +
-		'Description='		+ ISNULL(Description, '') + ',' +
-		'DeductionList='	+ ISNULL(CONVERT(NVARCHAR(MAX), @OldDeductionList), '') + ',' +
-		'TierList='			+ ISNULL(CONVERT(NVARCHAR(MAX), @OldTierList), '') + ',' +
-		'NextQMTurnover='	+ ISNULL(CONVERT(NVARCHAR(MAX), NextQMTurnover), '')
-	FROM @updateData
+	SELECT @OldData = CONVERT(NVARCHAR(MAX),
+					  (
+							SELECT @GroupId AS '@GroupId'
+								   ,GroupName AS '@GroupName'
+								   ,Description AS '@Description'
+								   ,NextQMTurnover AS '@NextQMTurnover'
+								   ,@OldDeductionList
+								   ,@OldTierList
+							FROM @updateData 
+							WHERE TypeId = 1
+							FOR XML PATH('row'), ROOT('root')
+					  ))
 
-	SELECT  @NewData =
-		'GroupId='			+ ISNULL(CONVERT(VARCHAR(15), @GroupId), '') + ',' +
-		'GroupName='		+ ISNULL(@GroupName, '') + ',' +
-		'Description='		+ ISNULL(@Description, '') + ',' +
-		'DeductionList='	+ ISNULL(CONVERT(NVARCHAR(MAX), @DeductionList), '') + ',' +
-		'TierList='			+ ISNULL(CONVERT(NVARCHAR(MAX), @TierList), '') + ',' +
-		'NextQMTurnover='	+ ISNULL(CONVERT(NVARCHAR(MAX), @NextQMTurnover), '')
+	SELECT @NewData = CONVERT(NVARCHAR(MAX),
+				      (
+						    SELECT @GroupId AS '@GroupId'
+							      ,@GroupName AS '@GroupName'
+							      ,@Description AS '@Description'
+							      ,@NextQMTurnover AS '@NextQMTurnover'
+							      ,CONVERT(XML,(SELECT t.c.query('.') FROM @DeductionList.nodes('/root/row') T(c) FOR XML PATH(''))) AS DeductionList
+							      ,CONVERT(XML,(SELECT t.c.query('.') FROM @TierList.nodes('/root/row') T(c) FOR XML PATH(''))) AS TierList
+						    FOR XML PATH('row'), ROOT('root')
+					  ))
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,

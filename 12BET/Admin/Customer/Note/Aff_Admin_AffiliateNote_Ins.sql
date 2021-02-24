@@ -16,6 +16,7 @@ AS
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -51,7 +52,7 @@ BEGIN
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
 	DECLARE @LogData NVARCHAR(MAX)
-	SELECT  @LogData = 'NoteId=' + CONVERT(VARCHAR(20), @NoteId)
+	SELECT  @LogData = '<root><row NoteId="'+ CONVERT(VARCHAR(20), @NoteId) +'"></row></root>'
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,
