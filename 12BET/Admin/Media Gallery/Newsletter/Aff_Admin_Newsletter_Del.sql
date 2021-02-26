@@ -63,13 +63,17 @@ BEGIN
 		IF NOT EXISTS(SELECT TOP 1 1 FROM @TmpDelete WHERE ID = @ID)
 			BREAK
 
-		SELECT @OldData  = 'NewsletterId=' + CONVERT(VARCHAR(20), NewsletterId) + ',' +
-					       'FileName=' + FileName + ',' + 
-						   'FileSize=' + CONVERT(VARCHAR(20), FileSize) + ',' +
-						   'UploadDate=' + CONVERT(VARCHAR(20), UploadDate, 121) + ',' +
-						   'EffectiveFromDate=' + CONVERT(VARCHAR(20), EffectiveFromDate, 121) + ',' +
-						   'EffectiveToDate=' + CONVERT(VARCHAR(20), EffectiveToDate, 121) + ',' +
-						   'Language='+ Language 
+		SELECT @OldData  = CONVERT(NVARCHAR(MAX), 
+						   (
+								SELECT NewsletterId AS '@NewsletterId'
+									   ,FileName AS '@FileName'
+									   ,FileSize AS '@FileSize'
+									   ,UploadDate AS '@UploadDate'
+									   ,EffectiveFromDate AS '@EffectiveFromDate'
+									   ,EffectiveToDate AS '@EffectiveToDate'
+									   ,Language AS '@Language'
+								FOR XML PATH('row'), ROOT('root')
+						   ))
 		FROM @TmpDelete 
 		WHERE ID = @ID 
 

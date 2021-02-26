@@ -28,19 +28,22 @@ BEGIN
 
 	IF @NewsletterId <> 0
 	BEGIN
-		SELECT NewsletterId, FileName, FileSize, UploadDate, EffectiveFromDate, EffectiveToDate, Language 
-		FROM dbo.Newsletter WITH(NOLOCK) WHERE NewsletterId = @NewsletterId
+		SELECT NewsletterId, FileName, FileSize, UploadDate, EffectiveFromDate, EffectiveToDate, Language, m.DisplayName AS LanguageName
+		FROM dbo.Newsletter n WITH(NOLOCK) 
+			INNER JOIN dbo.Market m WITH(NOLOCK) ON n.Language = m.MarketID
+		WHERE NewsletterId = @NewsletterId
 		RETURN
 	END
 
 	SELECT @NRows = COUNT(1)
 	FROM dbo.Newsletter WITH(NOLOCK)
 
-	SELECT h.NewsletterId, h.FileName, h.FileSize, h.UploadDate, h.EffectiveFromDate, h.EffectiveToDate, h.Language 
+	SELECT h.NewsletterId, h.FileName, h.FileSize, h.UploadDate, h.EffectiveFromDate, h.EffectiveToDate, h.Language, h.LanguageName
 	FROM
 	(
-		SELECT n.NewsletterId, n.FileName, n.FileSize, n.UploadDate, n.EffectiveFromDate, n.EffectiveToDate , n.Language, ROW_NUMBER() OVER(ORDER BY n.NewsletterId DESC) AS Rn
+		SELECT n.NewsletterId, n.FileName, n.FileSize, n.UploadDate, n.EffectiveFromDate, n.EffectiveToDate , n.Language, m.DisplayName AS LanguageName, ROW_NUMBER() OVER(ORDER BY n.UploadDate DESC) AS Rn
 		FROM dbo.Newsletter n WITH(NOLOCK)
+			INNER JOIN dbo.Market m WITH(NOLOCK) ON n.Language = m.MarketID
 	) AS h
 	WHERE h.Rn BETWEEN @RowStart AND @RowEnd
 	ORDER BY h.Rn ASC

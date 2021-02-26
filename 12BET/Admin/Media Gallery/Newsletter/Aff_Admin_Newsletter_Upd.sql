@@ -59,14 +59,18 @@ BEGIN
 		RETURN
 	END
 
-	SELECT @OldData  = 'NewsletterId=' + CONVERT(VARCHAR(20), NewsletterId) + ',' +
-					    'FileName=' + FileName + ',' + 
-						'FileSize=' + CONVERT(VARCHAR(20), FileSize) + ',' +
-						'EffectiveFromDate=' + CONVERT(VARCHAR(20), EffectiveFromDate, 121) + ',' +
-						'EffectiveToDate=' + CONVERT(VARCHAR(20), EffectiveToDate, 121) + ',' +
-						'Language='+ Language 
-	FROM dbo.Newsletter WITH(NOLOCK)
-	WHERE NewsletterId = @NewsletterId
+	SELECT @OldData  = CONVERT(NVARCHAR(MAX), 
+					   (
+							SELECT 	NewsletterId AS '@NewsletterId'
+									,FileName AS '@FileName'
+									,FileSize AS '@FileSize'
+									,EffectiveFromDate AS '@EffectiveFromDate'
+									,EffectiveToDate AS '@EffectiveToDate'
+									,Language AS '@Language'
+							FROM dbo.Newsletter WITH(NOLOCK)
+							WHERE NewsletterId = @NewsletterId
+							FOR XML PATH('row'), ROOT('root')
+					   ))
 	
 	BEGIN TRY
 		UPDATE dbo.Newsletter WITH(ROWLOCK)
@@ -83,12 +87,17 @@ BEGIN
 	END CATCH
 
 	--Write Log
-	SELECT @NewData ='NewsletterId=' + CONVERT(VARCHAR(20), @NewsletterId) + ',' +
-					 'FileName=' + @FileName + ',' + 
-					 'FileSize=' + CONVERT(VARCHAR(20), @FileSize) + ',' +
-					 'EffectiveFromDate=' + CONVERT(VARCHAR(20), @EffectiveFrom, 121) + ',' +
-					 'EffectiveToDate=' + CONVERT(VARCHAR(20), @EffectiveTo, 121) + ',' +
-					 'Language='+ @Language 
+
+	SELECT @NewData = CONVERT(NVARCHAR(MAX), 
+					  (
+							SELECT	@NewsletterId AS '@NewsletterId', 
+									@FileName AS '@FileName',
+									@FileSize AS '@FileSize', 
+									@EffectiveFrom AS '@EffectiveFromDate', 
+									@EffectiveTo AS '@EffectiveToDate',  
+									@Language AS '@Language'
+							FOR XML PATH('row'), ROOT('root')
+					  ))
 
 	SELECT @SPName = OBJECT_NAME(@@PROCID)
 
