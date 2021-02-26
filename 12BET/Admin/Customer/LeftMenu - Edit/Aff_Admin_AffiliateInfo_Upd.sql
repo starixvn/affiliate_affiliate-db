@@ -162,7 +162,8 @@ BEGIN
 		Wire_AccountNo_Ins		VARCHAR(100),
 		MailOption_Ins			BIT,
 		QuestionId_Ins			TINYINT,
-		Answer_Ins				NVARCHAR(300)
+		Answer_Ins				NVARCHAR(300),
+		Type					INT
 	)
 
 	-- Write log
@@ -397,9 +398,9 @@ BEGIN
 				LastName = ISNULL(@LastName, LastName),
 				Email = ISNULL(@Email, Email)
 			OUTPUT	DELETED.FirstName, DELETED.LastName, DELETED.Email,
-					INSERTED.FirstName, INSERTED.LastName, INSERTED.Email
+					INSERTED.FirstName, INSERTED.LastName, INSERTED.Email, 1
 			INTO @UpdatedData (FirstName_Del, LastName_Del, Email_Del,
-								FirstName_Ins, LastName_Ins, Email_Ins)
+								FirstName_Ins, LastName_Ins, Email_Ins, Type)
 			WHERE AffId = @AffId
 		END TRY
 		BEGIN CATCH
@@ -446,7 +447,7 @@ BEGIN
 					INSERTED.SiteURL,INSERTED.MoreSiteURLs,INSERTED.NoSiteDesc,INSERTED.PreferredPayment,
 					INSERTED.Player_IBCCustId,INSERTED.Player_Username,INSERTED.Neteller_AccountId,INSERTED.Moneybookers_Email,
 					INSERTED.Wire_BankName,INSERTED.Wire_BankAddress,INSERTED.Wire_SwiftCode,INSERTED.Wire_AccountName,
-					INSERTED.Wire_AccountNo,INSERTED.MailOption,INSERTED.QuestionId,INSERTED.Answer
+					INSERTED.Wire_AccountNo,INSERTED.MailOption,INSERTED.QuestionId,INSERTED.Answer, 2
 			INTO @UpdatedData
 			(
 					Gender_Del,Country_Del,Phone_Del,ContactApps_Del,
@@ -460,7 +461,7 @@ BEGIN
 					SiteURL_Ins,MoreSiteURLs_Ins,NoSiteDesc_Ins,PreferredPayment_Ins,
 					Player_IBCCustId_Ins,Player_Username_Ins,Neteller_AccountId_Ins,Moneybookers_Email_Ins,
 					Wire_BankName_Ins,Wire_BankAddress_Ins,Wire_SwiftCode_Ins,Wire_AccountName_Ins,
-					Wire_AccountNo_Ins,MailOption_Ins,QuestionId_Ins,Answer_Ins
+					Wire_AccountNo_Ins,MailOption_Ins,QuestionId_Ins,Answer_Ins, Type
 			)
 			WHERE AffId = @AffId
 		END TRY
@@ -484,72 +485,76 @@ BEGIN
 		SELECT	@OldData = CONVERT(NVARCHAR(MAX), 
 						  (
 								SELECT 
-									ISNULL(FirstName_Del, '') AS '@FirstName'
-									,ISNULL(LastName_Del, '') AS '@LastName'
-									,ISNULL(Email_Del, '') AS '@Email'
-									,ISNULL(CONVERT(VARCHAR(1), IsPageEnabled_Del), '') AS '@IsPageEnabled'
-									,ISNULL(CONVERT(VARCHAR(10), Level_Del), '') AS '@Level'
-									,ISNULL(CONVERT(VARCHAR(1), Gender_Del), '') AS '@Gender'
-									,ISNULL(Country_Del, '') AS '@Country'
-									,ISNULL(Phone_Del, '') AS '@Phone'
-									,ISNULL(ContactApps_Del, '') AS '@ContactApps'
-									,ISNULL(Address_Del, '') AS '@Address'
-									,ISNULL(City_Del, '') AS '@City'
-									,ISNULL(State_Del, '') AS '@State'
-									,ISNULL(Postal_Del, '') AS '@Postal'
-									,ISNULL(SiteURL_Del, '') AS '@SiteURL'
-									,ISNULL(MoreSiteURLs_Del, '') AS '@MoreSiteURLs'
-									,ISNULL(NoSiteDesc_Del, '') AS '@NoSiteDesc'
-									,ISNULL(PreferredPayment_Del, '') AS '@PreferredPayment'
-									,ISNULL(CONVERT(VARCHAR(15), Player_IBCCustId_Del), '') AS '@Player_IBCCustId'
-									,ISNULL(Player_Username_Del, '') AS '@Player_Username'
-									,ISNULL(Neteller_AccountId_Del, '') AS '@Neteller_AccountId'
-									,ISNULL(Moneybookers_Email_Del, '') AS '@Moneybookers_Email'
-									,ISNULL(Wire_BankName_Del, '') AS '@Wire_BankName'
-									,ISNULL(Wire_BankAddress_Del, '') AS '@Wire_BankAddress'
-									,ISNULL(Wire_SwiftCode_Del, '') AS '@Wire_SwiftCode'
-									,ISNULL(Wire_AccountName_Del, '') AS '@Wire_AccountName'
-									,ISNULL(Wire_AccountNo_Del, '') AS '@Wire_AccountNo'
-									,ISNULL(CONVERT(VARCHAR(1), MailOption_Del), '') AS '@MailOption'
-									,ISNULL(CONVERT(VARCHAR(3), QuestionId_Del), '') AS '@QuestionId'
-									,ISNULL(Answer_Del, '') AS '@Answer'
-							   FROM @UpdatedData 
+									ISNULL(t.FirstName_Del, '') AS '@FirstName'
+									,ISNULL(t.LastName_Del, '') AS '@LastName'
+									,ISNULL(t.Email_Del, '') AS '@Email'
+									,ISNULL(CONVERT(VARCHAR(1), t.IsPageEnabled_Del), '') AS '@IsPageEnabled'
+									,ISNULL(CONVERT(VARCHAR(10), t.Level_Del), '') AS '@Level'
+									,ISNULL(CONVERT(VARCHAR(1), q.Gender_Del), '') AS '@Gender'
+									,ISNULL(q.Country_Del, '') AS '@Country'
+									,ISNULL(q.Phone_Del, '') AS '@Phone'
+									,ISNULL(q.ContactApps_Del, '') AS '@ContactApps'
+									,ISNULL(q.Address_Del, '') AS '@Address'
+									,ISNULL(q.City_Del, '') AS '@City'
+									,ISNULL(q.State_Del, '') AS '@State'
+									,ISNULL(q.Postal_Del, '') AS '@Postal'
+									,ISNULL(q.SiteURL_Del, '') AS '@SiteURL'
+									,ISNULL(q.MoreSiteURLs_Del, '') AS '@MoreSiteURLs'
+									,ISNULL(q.NoSiteDesc_Del, '') AS '@NoSiteDesc'
+									,ISNULL(q.PreferredPayment_Del, '') AS '@PreferredPayment'
+									,ISNULL(CONVERT(VARCHAR(15), q.Player_IBCCustId_Del), '') AS '@Player_IBCCustId'
+									,ISNULL(q.Player_Username_Del, '') AS '@Player_Username'
+									,ISNULL(q.Neteller_AccountId_Del, '') AS '@Neteller_AccountId'
+									,ISNULL(q.Moneybookers_Email_Del, '') AS '@Moneybookers_Email'
+									,ISNULL(q.Wire_BankName_Del, '') AS '@Wire_BankName'
+									,ISNULL(q.Wire_BankAddress_Del, '') AS '@Wire_BankAddress'
+									,ISNULL(q.Wire_SwiftCode_Del, '') AS '@Wire_SwiftCode'
+									,ISNULL(q.Wire_AccountName_Del, '') AS '@Wire_AccountName'
+									,ISNULL(q.Wire_AccountNo_Del, '') AS '@Wire_AccountNo'
+									,ISNULL(CONVERT(VARCHAR(1), q.MailOption_Del), '') AS '@MailOption'
+									,ISNULL(CONVERT(VARCHAR(3), q.QuestionId_Del), '') AS '@QuestionId'
+									,ISNULL(q.Answer_Del, '') AS '@Answer'
+							   FROM @UpdatedData t
+									INNER JOIN @UpdatedData q ON 1 = 1
+							   WHERE t.Type = 1 AND q.Type = 2
 							   FOR XML PATH('row'), ROOT('root')
 						 ))
 
 		select 		@NewData = CONVERT(NVARCHAR(MAX),
 							  (
 									SELECT 
-										ISNULL(FirstName_Ins, '') AS '@FirstName'
-										,ISNULL(LastName_Ins, '') AS '@LastName'
-										,ISNULL(Email_Ins, '') AS '@Email'
-										,ISNULL(CONVERT(VARCHAR(1), IsPageEnabled_Ins), '') AS '@IsPageEnabled'
-										,ISNULL(CONVERT(VARCHAR(10), Level_Ins), '') AS '@Level'
-										,ISNULL(CONVERT(VARCHAR(1), Gender_Ins), '') AS '@Gender'
-										,ISNULL(Country_Ins, '') AS '@Country'
-										,ISNULL(Phone_Ins, '') AS '@Phone'
-										,ISNULL(ContactApps_Ins, '') AS '@ContactApps'
-										,ISNULL(Address_Ins, '') AS '@Address'
-										,ISNULL(City_Ins, '') AS '@City'
-										,ISNULL(State_Ins, '') AS '@State'
-										,ISNULL(Postal_Ins, '') AS '@Postal'
-										,ISNULL(SiteURL_Ins, '') AS '@SiteURL'
-										,ISNULL(MoreSiteURLs_Ins, '') AS '@MoreSiteURLs'
-										,ISNULL(NoSiteDesc_Ins, '') AS '@NoSiteDesc'
-										,ISNULL(PreferredPayment_Ins, '') AS '@PreferredPayment'
-										,ISNULL(CONVERT(VARCHAR(15), Player_IBCCustId_Ins), '') AS '@Player_IBCCustId'
-										,ISNULL(Player_Username_Ins, '') AS '@Player_Username'
-										,ISNULL(Neteller_AccountId_Ins, '') AS '@Neteller_AccountId'
-										,ISNULL(Moneybookers_Email_Ins, '') AS '@Moneybookers_Email'
-										,ISNULL(Wire_BankName_Ins, '') AS '@Wire_BankName'
-										,ISNULL(Wire_BankAddress_Ins, '') AS '@Wire_BankAddress'
-										,ISNULL(Wire_SwiftCode_Ins, '') AS '@Wire_SwiftCode'
-										,ISNULL(Wire_AccountName_Ins, '') AS '@Wire_AccountName'
-										,ISNULL(Wire_AccountNo_Ins, '') AS '@Wire_AccountNo'
-										,ISNULL(CONVERT(VARCHAR(1), MailOption_Ins), '') AS '@MailOption'
-										,ISNULL(CONVERT(VARCHAR(3), QuestionId_Ins), '') AS '@QuestionId'
-										,ISNULL(Answer_Ins, '') AS '@Answer' 
-									FROM @UpdatedData
+										ISNULL(t.FirstName_Ins, '') AS '@FirstName'
+										,ISNULL(t.LastName_Ins, '') AS '@LastName'
+										,ISNULL(t.Email_Ins, '') AS '@Email'
+										,ISNULL(CONVERT(VARCHAR(1), q.IsPageEnabled_Ins), '') AS '@IsPageEnabled'
+										,ISNULL(CONVERT(VARCHAR(10), q.Level_Ins), '') AS '@Level'
+										,ISNULL(CONVERT(VARCHAR(1), q.Gender_Ins), '') AS '@Gender'
+										,ISNULL(q.Country_Ins, '') AS '@Country'
+										,ISNULL(q.Phone_Ins, '') AS '@Phone'
+										,ISNULL(q.ContactApps_Ins, '') AS '@ContactApps'
+										,ISNULL(q.Address_Ins, '') AS '@Address'
+										,ISNULL(q.City_Ins, '') AS '@City'
+										,ISNULL(q.State_Ins, '') AS '@State'
+										,ISNULL(q.Postal_Ins, '') AS '@Postal'
+										,ISNULL(q.SiteURL_Ins, '') AS '@SiteURL'
+										,ISNULL(q.MoreSiteURLs_Ins, '') AS '@MoreSiteURLs'
+										,ISNULL(q.NoSiteDesc_Ins, '') AS '@NoSiteDesc'
+										,ISNULL(q.PreferredPayment_Ins, '') AS '@PreferredPayment'
+										,ISNULL(CONVERT(VARCHAR(15), q.Player_IBCCustId_Ins), '') AS '@Player_IBCCustId'
+										,ISNULL(q.Player_Username_Ins, '') AS '@Player_Username'
+										,ISNULL(q.Neteller_AccountId_Ins, '') AS '@Neteller_AccountId'
+										,ISNULL(q.Moneybookers_Email_Ins, '') AS '@Moneybookers_Email'
+										,ISNULL(q.Wire_BankName_Ins, '') AS '@Wire_BankName'
+										,ISNULL(q.Wire_BankAddress_Ins, '') AS '@Wire_BankAddress'
+										,ISNULL(q.Wire_SwiftCode_Ins, '') AS '@Wire_SwiftCode'
+										,ISNULL(q.Wire_AccountName_Ins, '') AS '@Wire_AccountName'
+										,ISNULL(q.Wire_AccountNo_Ins, '') AS '@Wire_AccountNo'
+										,ISNULL(CONVERT(VARCHAR(1), q.MailOption_Ins), '') AS '@MailOption'
+										,ISNULL(CONVERT(VARCHAR(3), q.QuestionId_Ins), '') AS '@QuestionId'
+										,ISNULL(q.Answer_Ins, '') AS '@Answer' 
+									FROM @UpdatedData t
+										INNER JOIN @UpdatedData q ON 1 = 1
+									WHERE t.Type = 1 AND q.Type = 2
 									FOR XML PATH ('row'), ROOT('root')
 							))
 	END

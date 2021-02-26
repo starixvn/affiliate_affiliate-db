@@ -18,6 +18,7 @@ AS
 
 	Revisions:
 		- 20190301@Walter: Initiliaze SP [RedmineID: #104884]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 
 	Parameter's Explanation:
 */
@@ -53,11 +54,14 @@ BEGIN
          SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
          DECLARE @NewData NVARCHAR(MAX)
-         SELECT  @NewData = 
-                 'VerificationCount='	+ ISNULL(CONVERT(VARCHAR(10), @VerificationCount), '') + ',' +
-                 'IP='					+ ISNULL(@IpAddress, '') + ',' +
-                 'DeviceInfo='			+ ISNULL(@DeviceInfo, '')
-
+		 SELECT @NewData = CONVERT(NVARCHAR(MAX), 
+						   (
+		 						SELECT @VerificationCount AS '@VerificationCount'
+		 							,@IpAddress AS '@IP'
+		 							,@DeviceInfo AS '@DeviceInfo'
+		 						FOR XML PATH('row'), ROOT('root')
+		 				   ))
+		 
          EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
              @UserId	= @AffId,
              @AffId		= @AffId,

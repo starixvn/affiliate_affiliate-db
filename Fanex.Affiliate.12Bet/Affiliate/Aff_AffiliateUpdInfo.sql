@@ -59,6 +59,7 @@ AS
 		- 20100209@Peter: Check If Admin update Player_UserName, we must make sure there is no pending payment request.
 		- 20180503@Walter: Fix data type [RedmineID: #94522]
 		- 20180601@Percy: Add ContactApps [RedmineID: #87923]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
    
 	Param's Explanation:  
 		• @AffId : Affiliate custid  
@@ -298,65 +299,73 @@ BEGIN
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
-	SELECT	@OldData =
-				'FirstName='			+ ISNULL(FirstName_Del, '') + ',' +
-				'LastName='				+ ISNULL(LastName_Del, '') + ',' +
-				'Email='				+ ISNULL(Email_Del, '') + ',' +
-				'IsPageEnabled='		+ ISNULL(CONVERT(VARCHAR(1), IsPageEnabled_Del), '') + ',' +
-				'Level='				+ ISNULL(CONVERT(VARCHAR(10), Level_Del), '') + ',' +
-				'Gender='				+ ISNULL(CONVERT(VARCHAR(1), Gender_Del), '') + ',' +
-				'Country='				+ ISNULL(Country_Del, '') + ',' +
-				'Phone='				+ ISNULL(Phone_Del, '') + ',' +
-				'ContactApps='			+ ISNULL(ContactApps_Del, '') + ',' +
-				'Address='				+ ISNULL(Address_Del, '') + ',' +
-				'City='					+ ISNULL(City_Del, '') + ',' +
-				'State='				+ ISNULL(State_Del, '') + ',' +
-				'Postal='				+ ISNULL(Postal_Del, '') + ',' +
-				'SiteURL='				+ ISNULL(SiteURL_Del, '') + ',' +
-				'MoreSiteURLs='			+ ISNULL(MoreSiteURLs_Del, '') + ',' +
-				'NoSiteDesc='			+ ISNULL(NoSiteDesc_Del, '') + ',' +
-				'PreferredLanguage='	+ ISNULL(PreferredLanguage_Del, '') + ',' +
-				'PreferredPayment='		+ ISNULL(PreferredPayment_Del, '') + ',' +
-				'Player_IBCCustId='		+ ISNULL(CONVERT(VARCHAR(15), Player_IBCCustId_Del), '') + ',' +
-				'Player_Username='		+ ISNULL(Player_Username_Del, '') + ',' +
-				'Neteller_AccountId='	+ ISNULL(Neteller_AccountId_Del, '') + ',' +
-				'Moneybookers_Email='	+ ISNULL(Moneybookers_Email_Del, '') + ',' +
-				'Wire_BankName='		+ ISNULL(Wire_BankName_Del, '') + ',' +
-				'Wire_BankAddress='		+ ISNULL(Wire_BankAddress_Del, '') + ',' +
-				'Wire_SwiftCode='		+ ISNULL(Wire_SwiftCode_Del, '') + ',' +
-				'Wire_AccountName='		+ ISNULL(Wire_AccountName_Del, '') + ',' +
-				'Wire_AccountNo='		+ ISNULL(Wire_AccountNo_Del, '') + ',' +
-				'MailOption='			+ ISNULL(CONVERT(VARCHAR(1), MailOption_Del), ''),
-			@NewData =
-				'FirstName='			+ ISNULL(FirstName_Ins, '') + ',' +
-				'LastName='				+ ISNULL(LastName_Ins, '') + ',' +
-				'Email='				+ ISNULL(Email_Ins, '') + ',' +
-				'IsPageEnabled='		+ ISNULL(CONVERT(VARCHAR(1), IsPageEnabled_Ins), '') + ',' +
-				'Level='				+ ISNULL(CONVERT(VARCHAR(10), Level_Ins), '') + ',' +
-				'Gender='				+ ISNULL(CONVERT(VARCHAR(1), Gender_Ins), '') + ',' +
-				'Country='				+ ISNULL(Country_Ins, '') + ',' +
-				'Phone='				+ ISNULL(Phone_Ins, '') + ',' +
-				'ContactApps='			+ ISNULL(ContactApps_Ins, '') + ',' +
-				'Address='				+ ISNULL(Address_Ins, '') + ',' +
-				'City='					+ ISNULL(City_Ins, '') + ',' +
-				'State='				+ ISNULL(State_Ins, '') + ',' +
-				'Postal='				+ ISNULL(Postal_Ins, '') + ',' +
-				'SiteURL='				+ ISNULL(SiteURL_Ins, '') + ',' +
-				'MoreSiteURLs='			+ ISNULL(MoreSiteURLs_Ins, '') + ',' +
-				'NoSiteDesc='			+ ISNULL(NoSiteDesc_Ins, '') + ',' +
-				'PreferredLanguage='	+ ISNULL(PreferredLanguage_Ins, '') + ',' +
-				'PreferredPayment='		+ ISNULL(PreferredPayment_Ins, '') + ',' +
-				'Player_IBCCustId='		+ ISNULL(CONVERT(VARCHAR(15), Player_IBCCustId_Ins), '') + ',' +
-				'Player_Username='		+ ISNULL(Player_Username_Ins, '') + ',' +
-				'Neteller_AccountId='	+ ISNULL(Neteller_AccountId_Ins, '') + ',' +
-				'Moneybookers_Email='	+ ISNULL(Moneybookers_Email_Ins, '') + ',' +
-				'Wire_BankName='		+ ISNULL(Wire_BankName_Ins, '') + ',' +
-				'Wire_BankAddress='		+ ISNULL(Wire_BankAddress_Ins, '') + ',' +
-				'Wire_SwiftCode='		+ ISNULL(Wire_SwiftCode_Ins, '') + ',' +
-				'Wire_AccountName='		+ ISNULL(Wire_AccountName_Ins, '') + ',' +
-				'Wire_AccountNo='		+ ISNULL(Wire_AccountNo_Ins, '') + ',' +
-				'MailOption='			+ ISNULL(CONVERT(VARCHAR(1), MailOption_Ins), '')
-	FROM @UpdatedData
+	SELECT @OldData = CONVERT(NVARCHAR(MAX), 
+					  (
+							SELECT FirstName_Del AS '@FirstName'
+								   ,LastName_Del AS '@LastName'
+								   ,Email_Del AS '@Email'
+								   ,IsPageEnabled_Del AS '@IsPageEnabled'
+								   ,Level_Del AS '@Level'
+								   ,Gender_Del AS '@Gender'
+								   ,Country_Del AS '@Country'
+								   ,Phone_Del AS '@Phone'
+								   ,ContactApps_Del AS '@ContactApps'
+								   ,Address_Del AS '@Address'
+								   ,City_Del AS '@City'
+								   ,State_Del AS '@State'
+								   ,Postal_Del AS '@Postal'
+								   ,SiteURL_Del AS '@SiteURL'
+								   ,MoreSiteURLs_Del AS '@MoreSiteURLs'
+								   ,NoSiteDesc_Del AS '@NoSiteDesc'
+								   ,PreferredLanguage_Del AS '@PreferredLanguage'
+								   ,PreferredPayment_Del AS '@PreferredPayment'
+								   ,Player_IBCCustId_Del AS '@Player_IBCCustId'
+								   ,Player_Username_Del AS '@Player_Username'
+								   ,Neteller_AccountId_Del AS '@Neteller_AccountId'
+								   ,Moneybookers_Email_Del AS '@Moneybookers_Email'
+								   ,Wire_BankName_Del AS '@Wire_BankName'
+								   ,Wire_BankAddress_Del AS '@Wire_BankAddress'
+								   ,Wire_SwiftCode_Del AS '@Wire_SwiftCode'
+								   ,Wire_AccountName_Del AS '@Wire_AccountName'
+								   ,Wire_AccountNo_Del AS '@Wire_AccountNo'
+								   ,MailOption_Del AS '@MailOption'
+							FROM @UpdatedData
+							FOR XML PATH('row'), ROOT('root')
+					  ))
+				
+	SELECT @NewData = CONVERT(NVARCHAR(MAX), 
+					  (
+							SELECT FirstName_Ins AS '@FirstName'
+								   ,LastName_Ins AS '@LastName'
+								   ,Email_Ins AS '@Email'
+								   ,IsPageEnabled_Ins AS '@IsPageEnabled'
+								   ,Level_Ins AS '@Level'
+								   ,Gender_Ins AS '@Gender'
+								   ,Country_Ins AS '@Country'
+								   ,Phone_Ins AS '@Phone'
+								   ,ContactApps_Ins AS '@ContactApps'
+								   ,Address_Ins AS '@Address'
+								   ,City_Ins AS '@City'
+								   ,State_Ins AS '@State'
+								   ,Postal_Ins AS '@Postal'
+								   ,SiteURL_Ins AS '@SiteURL'
+								   ,MoreSiteURLs_Ins AS '@MoreSiteURLs'
+								   ,NoSiteDesc_Ins AS '@NoSiteDesc'
+								   ,PreferredLanguage_Ins AS '@PreferredLanguage'
+								   ,PreferredPayment_Ins AS '@PreferredPayment'
+								   ,Player_IBCCustId_Ins AS '@Player_IBCCustId'
+								   ,Player_Username_Ins AS '@Player_Username'
+								   ,Neteller_AccountId_Ins AS '@Neteller_AccountId'
+								   ,Moneybookers_Email_Ins AS '@Moneybookers_Email'
+								   ,Wire_BankName_Ins AS '@Wire_BankName'
+								   ,Wire_BankAddress_Ins AS '@Wire_BankAddress'
+								   ,Wire_SwiftCode_Ins AS '@Wire_SwiftCode'
+								   ,Wire_AccountName_Ins AS '@Wire_AccountName'
+								   ,Wire_AccountNo_Ins AS '@Wire_AccountNo'
+								   ,MailOption_Ins AS '@MailOption'
+							FROM @UpdatedData
+							FOR XML PATH('row'), ROOT('root')
+					  ))
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,

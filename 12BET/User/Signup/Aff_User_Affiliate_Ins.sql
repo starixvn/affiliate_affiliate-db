@@ -46,6 +46,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [Redmine: #87923]
 		- 20190509@Percy: Enhance Security Questions [RedmineID: #104884]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -137,30 +138,33 @@ BEGIN
 	DECLARE @SPName VARCHAR(200)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
-	DECLARE @NewData NVARCHAR(MAX)
-	SELECT  @NewData = 
-			'AffType='				+ ISNULL(CONVERT(VARCHAR(10), @AffType), '') + ',' +
-			'AffId='				+ ISNULL(CONVERT(VARCHAR(20), @AffId), '') + ',' +
-			'UserName='				+ ISNULL(@UserName, '') + ',' +
-			'FirstName='			+ ISNULL(@FirstName, '') + ',' +
-			'LastName='				+ ISNULL(@LastName, '') + ',' +
-			'Gender='				+ ISNULL(CONVERT(VARCHAR(10), @Gender), '') + ',' +
-			'Email='				+ ISNULL(@Email, '') + ',' +
-			'Phone='				+ ISNULL(@Phone, '') + ',' +
-			'ContactApps='			+ ISNULL(@ContactApps, '') + ',' +
-			'Address='				+ ISNULL(@Address, '') + ',' +
-			'City='					+ ISNULL(@City, '') + ',' +
-			'State='				+ ISNULL(@State, '') + ',' +
-			'Postal='				+ ISNULL(@Postal, '') + ',' +
-			'Country='				+ ISNULL(@Country, '') + ',' +
-			'SiteUrl='				+ ISNULL(@SiteUrl, '') + ',' +
-			'MoreSiteUrls='			+ ISNULL(@MoreSiteUrls, '') + ',' +
-			'NoSiteDesc='			+ ISNULL(@NoSiteDesc, '') + ',' +
-			'PreferredLanguage='	+ ISNULL(@PreferredLanguage, '') + ',' +
-			'QuestionID='			+ ISNULL(CONVERT(VARCHAR(5), @QuestionID), '') + ',' +
-			'Answer='				+ ISNULL(@Answer, '') + ',' +
-			'PreferredPayment='		+ ISNULL(@PreferredPayment, '') + ',' +
-			'Player_UserName='		+ ISNULL(@Player_UserName, '')
+	DECLARE @NewData NVARCHAR(MAX)		
+	SELECT @NewData = CONVERT(NVARCHAR(MAX), 
+					  (
+							SELECT @AffType AS '@AffType'
+								   ,@AffId AS '@AffId'
+								   ,@UserName AS '@UserName'
+								   ,@FirstName AS '@FirstName'
+								   ,@LastName AS '@LastName'
+								   ,@Gender AS '@Gender'
+								   ,@Email AS '@Email'
+								   ,@Phone AS '@Phone'
+								   ,@ContactApps AS '@ContactApps'
+								   ,@Address AS '@Address'
+								   ,@City AS '@City'
+								   ,@State AS '@State'
+								   ,@Postal AS '@Postal'
+								   ,@Country AS '@Country'
+								   ,@SiteUrl AS '@SiteUrl'
+								   ,@MoreSiteUrls AS '@MoreSiteUrls'
+								   ,@NoSiteDesc AS '@NoSiteDesc'
+								   ,@PreferredLanguage AS '@PreferredLanguage'
+								   ,@QuestionID AS '@QuestionID'
+								   ,@Answer AS '@Answer'
+								   ,@PreferredPayment AS '@PreferredPayment'
+								   ,@Player_UserName AS '@Player_UserName'
+							FOR XML PATH('row'), ROOT('root')
+					  ))
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @AffId,

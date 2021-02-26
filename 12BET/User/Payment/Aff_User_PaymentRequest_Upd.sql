@@ -19,6 +19,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initiliaze SP [RedmineID: #87923]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -77,7 +78,9 @@ BEGIN
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
-	SELECT  @OldData = 'Status=pending', @NewData = 'Status=Cancelled'
+	SELECT @OldData = '<root><row Status="Pending"></row></root>'
+	
+	SELECT @NewData = '<root><row Status="Cancelled"></row></root>'
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @AffId,

@@ -19,6 +19,7 @@ AS
 	
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -88,8 +89,9 @@ BEGIN
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
-	SELECT  @OldData = 'Password=' + ISNULL(@OldPassword, ''),
-			@NewData = 'Password=' + ISNULL(@NewPassword, '')
+	SELECT @OldData = CONVERT(NVARCHAR(MAX), (SELECT @OldPassword AS '@Password' FOR XML PATH('row'), ROOT('root')))
+	
+	SELECT @NewData = CONVERT(NVARCHAR(MAX), (SELECT @NewPassword AS '@Password' FOR XML PATH('row'), ROOT('root')))
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @AffId,

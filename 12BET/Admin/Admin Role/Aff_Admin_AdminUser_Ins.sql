@@ -23,6 +23,7 @@ AS
 
 	Revisions:
 		- 20200731@Percy: Initialize SP [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 
 	Param's Explanation:
 		@Market:
@@ -129,7 +130,7 @@ BEGIN
 					INNER JOIN dbo.Functions f WITH (NOLOCK) ON uf.FuncId = f.FuncId
 				WHERE CustId = @CustId
 				ORDER BY f.FuncId
-				FOR XML PATH('row'), ROOT('root')
+				FOR XML PATH('row'), ROOT('FunctionPolicy')
 			)
 
 		SELECT @NewMarket = (
@@ -141,7 +142,7 @@ BEGIN
 				FROM dbo.Market m WITH (NOLOCK)
 					LEFT JOIN dbo.UserMarket um WITH (NOLOCK) ON um.MarketId = m.MarketId AND um.CustId = @CustId
 				ORDER BY m.MarketId
-				FOR XML PATH('row'), ROOT('root')
+				FOR XML PATH('row'), ROOT('MarketPolicy')
 			)
 	END TRY
 	BEGIN CATCH
@@ -167,14 +168,13 @@ BEGIN
 					,u.Closed					AS '@Closed'
 					,u.IsRoleFunctionDefault	AS '@IsRoleFunctionDefault'
 					,u.IsRoleMarketDefault		AS '@IsRoleMarketDefault'
+					,@NewFunction
+					,@NewMarket
 				FROM dbo.Users u WITH (NOLOCK)
 					INNER JOIN dbo.Roles r WITH (NOLOCK) ON u.RoleId = r.RoleId
 				WHERE u.CustId = @CustId AND u.IsDeleted = 0
 				FOR XML PATH('row'), ROOT('root')
 			))
-
-	SELECT @NewData = @NewData  + ',FunctionPolicy=' + CONVERT(VARCHAR(MAX), @NewFunction)
-								+ ',MarketPolicy=' + CONVERT(VARCHAR(MAX), @NewMarket)
 		
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId

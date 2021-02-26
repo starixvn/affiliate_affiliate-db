@@ -17,6 +17,7 @@ AS
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: get old data and new data [RedmineId : #149209]
 */
 
 BEGIN
@@ -47,9 +48,9 @@ BEGIN
 	IF @NRows = 0
 		RETURN
 
-	SELECT RowNum,LogId,[Date],UpdatedName,[Action],[Description],[IP]
+	SELECT RowNum,LogId,[Date],UpdatedName,[Action],[Description],[IP], OldData, NewData
 	FROM (
-		SELECT LogId,[Date],UpdatedName,[Action],[Description],[IP]
+		SELECT LogId,[Date],UpdatedName,[Action],[Description],[IP], OldData, NewData
 				, ROW_NUMBER() OVER(ORDER BY [Date] DESC, LogId DESC) AS RowNum
 		FROM (
 			SELECT
@@ -59,6 +60,8 @@ BEGIN
 				,lt.[Description]	AS [Action]
 				,ul.Details			AS [Description]
 				,ul.[IP]
+				,NULL AS OldData
+				,NULL AS NewData
 			FROM dbo.UserLog ul WITH (NOLOCK)
 				INNER JOIN dbo.LogType lt WITH (NOLOCK) ON ul.TypeID = lt.TypeID
 				LEFT JOIN dbo.Users u WITH (NOLOCK) ON ul.Creator = u.CustId
@@ -72,8 +75,10 @@ BEGIN
 				,ul.LogDate			AS [Date]
 				,u.UserName			AS UpdatedName
 				,lt.[Description]	AS [Action]
-				,ISNULL(ul.OldData, '') + ISNULL(ul.NewData, '') AS [Description]
+				,NULL AS [Description]
 				,ul.[IP]
+				,ul.OldData AS OldData
+				,ul.NewData AS NewData
 			FROM dbo.UserLog_RunSP_Detail ul WITH (NOLOCK)
 				INNER JOIN dbo.LogType lt WITH (NOLOCK) ON ul.LogTypeID = lt.TypeID
 				LEFT JOIN dbo.Users u WITH (NOLOCK) ON ul.UserId = u.CustId

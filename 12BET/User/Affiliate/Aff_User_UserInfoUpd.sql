@@ -24,6 +24,7 @@ AS
 	
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -129,27 +130,33 @@ BEGIN
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
-	SELECT  @OldData =
-		'Phone='			+ ISNULL(Phone_Del, '') + ',' +
-		'ContactApps='		+ ISNULL(ContactApps_Del, '') + ',' +
-		'SiteURL='			+ ISNULL(SiteURL_Del, '') + ',' +
-		'MoreSiteURLs='		+ ISNULL(MoreSiteURLs_Del, '') + ',' +
-		'NoSiteDesc='		+ ISNULL(NoSiteDesc_Del, '') + ',' +
-		'PreferredPayment='	+ ISNULL(PreferredPayment_Del, '') + ',' +
-		'Player_IBCCustId=' + ISNULL(CONVERT(VARCHAR(15), Player_IBCCustId_Del), '') + ',' +
-		'Player_Username='	+ ISNULL(Player_Username_Del, '')
-	FROM @UpdatedData
-
-	SELECT  @NewData =
-		'Phone='			+ ISNULL(Phone_Ins, '') + ',' +
-		'ContactApps='		+ ISNULL(ContactApps_Ins, '') + ',' +
-		'SiteURL='			+ ISNULL(SiteURL_Ins, '') + ',' +
-		'MoreSiteURLs='		+ ISNULL(MoreSiteURLs_Ins, '') + ',' +
-		'NoSiteDesc='		+ ISNULL(NoSiteDesc_Ins, '') + ',' +
-		'PreferredPayment='	+ ISNULL(PreferredPayment_Ins, '') + ',' +
-		'Player_IBCCustId='	+ ISNULL(CONVERT(VARCHAR(15), Player_IBCCustId_Ins), '') + ',' +
-		'Player_Username='	+ ISNULL(Player_Username_Ins, '')
-	FROM @UpdatedData
+	SELECT  @OldData = CONVERT(NVARCHAR(MAX),
+					   (
+							SELECT  Phone_Del AS '@Phone'
+									,ContactApps_Del AS '@ContactApps'
+									,SiteURL_Del AS '@SiteURL'
+									,MoreSiteURLs_Del AS '@MoreSiteURLs'
+									,NoSiteDesc_Del AS '@NoSiteDesc'
+									,PreferredPayment_Del AS '@PreferredPayment'
+									,Player_IBCCustId_Del AS '@Player_IBCCustId'
+									,Player_Username_Del AS '@Player_Username'
+							FROM @UpdatedData 
+							FOR XML PATH('row'), ROOT('root')
+					   ))
+	
+	SELECT  @NewData = CONVERT(NVARCHAR(MAX),
+	                   (
+							SELECT Phone_Ins AS '@Phone'
+									,ContactApps_Ins AS '@ContactApps'
+									,SiteURL_Ins AS '@SiteURL'
+									,MoreSiteURLs_Ins AS '@MoreSiteURLs'
+									,NoSiteDesc_Ins AS '@NoSiteDesc'
+									,PreferredPayment_Ins AS '@PreferredPayment'
+									,Player_IBCCustId_Ins AS '@Player_IBCCustId'
+									,Player_Username_Ins AS '@Player_Username'
+							FROM @UpdatedData 
+							FOR XML PATH('row'), ROOT('root')
+					   ))
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,
