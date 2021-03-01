@@ -2,7 +2,7 @@
 ALTER PROCEDURE [dbo].[Aff_Admin_Newsletter_Ins]
 	@UserId			INT
 	,@FileName		NVARCHAR(200)
-	,@FileSize		SMALLINT
+	,@FileSize		INT
 	,@EffectiveFrom DATETIME
 	,@EffectiveTo   DATETIME
 	,@Language		NVARCHAR(50)
@@ -44,7 +44,7 @@ BEGIN
 		RETURN
 	END
 	-- Check size limit of file (3MB)
-	IF @FileSize > 3 * 1024
+	IF @FileSize > 3 * 1024 * 1024
 	BEGIN
 		SELECT @ErrCode = 102, @ErrMsg ='The file size exceeds 3MB, please check again.'
 		RETURN
