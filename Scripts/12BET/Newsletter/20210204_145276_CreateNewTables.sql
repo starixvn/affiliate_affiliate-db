@@ -9,7 +9,7 @@ CREATE TABLE dbo.Newsletter
 (
 	NewsletterId INT IDENTITY(1, 1) NOT NULL
 	,FileName NVARCHAR(200)
-	,FileSize SMALLINT
+	,FileSize INT
 	,Language NVARCHAR(50)
 	,UploadDate DATETIME DEFAULT(GETDATE())
 	,EffectiveFromDate DATETIME
