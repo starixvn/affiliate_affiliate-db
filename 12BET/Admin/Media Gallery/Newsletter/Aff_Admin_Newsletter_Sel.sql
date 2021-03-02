@@ -1,8 +1,9 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet, bodbDownlineNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_Newsletter_Sel]
 	@NewsletterId INT = 0
 	,@PageIndex INT = 1
 	,@PageSize INT = 50
+	,@Date DATETIME = NULL
 	,@NRows INT = 0 OUTPUT
 AS
 
@@ -36,7 +37,8 @@ BEGIN
 	END
 
 	SELECT @NRows = COUNT(1)
-	FROM dbo.Newsletter WITH(NOLOCK)
+	FROM dbo.Newsletter n WITH(NOLOCK)
+	WHERE (@Date IS NULL OR (@Date BETWEEN n.EffectiveFromDate AND n.EffectiveToDate))
 
 	SELECT h.NewsletterId, h.FileName, h.FileSize, h.UploadDate, h.EffectiveFromDate, h.EffectiveToDate, h.Language, h.LanguageName
 	FROM
@@ -44,6 +46,7 @@ BEGIN
 		SELECT n.NewsletterId, n.FileName, n.FileSize, n.UploadDate, n.EffectiveFromDate, n.EffectiveToDate , n.Language, m.DisplayName AS LanguageName, ROW_NUMBER() OVER(ORDER BY n.UploadDate DESC) AS Rn
 		FROM dbo.Newsletter n WITH(NOLOCK)
 			INNER JOIN dbo.Market m WITH(NOLOCK) ON n.Language = m.MarketID
+		WHERE (@Date IS NULL OR (@Date BETWEEN n.EffectiveFromDate AND n.EffectiveToDate))
 	) AS h
 	WHERE h.Rn BETWEEN @RowStart AND @RowEnd
 	ORDER BY h.Rn ASC
