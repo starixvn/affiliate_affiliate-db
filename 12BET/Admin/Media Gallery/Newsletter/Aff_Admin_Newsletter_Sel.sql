@@ -29,7 +29,7 @@ BEGIN
 
 	IF @NewsletterId <> 0
 	BEGIN
-		SELECT NewsletterId, FileName, FileSize, UploadDate, EffectiveFromDate, EffectiveToDate, Language, m.DisplayName AS LanguageName
+		SELECT NewsletterId, FileName, FileSize, UploadDate, EffectiveFromDate, EffectiveToDate, Language, m.MarketName AS LanguageName
 		FROM dbo.Newsletter n WITH(NOLOCK) 
 			INNER JOIN dbo.Market m WITH(NOLOCK) ON n.Language = m.MarketID
 		WHERE NewsletterId = @NewsletterId
@@ -43,7 +43,7 @@ BEGIN
 	SELECT h.NewsletterId, h.FileName, h.FileSize, h.UploadDate, h.EffectiveFromDate, h.EffectiveToDate, h.Language, h.LanguageName
 	FROM
 	(
-		SELECT n.NewsletterId, n.FileName, n.FileSize, n.UploadDate, n.EffectiveFromDate, n.EffectiveToDate , n.Language, m.DisplayName AS LanguageName, ROW_NUMBER() OVER(ORDER BY n.UploadDate DESC) AS Rn
+		SELECT n.NewsletterId, n.FileName, n.FileSize, n.UploadDate, n.EffectiveFromDate, n.EffectiveToDate , n.Language, m.MarketName AS LanguageName, ROW_NUMBER() OVER(ORDER BY n.UploadDate DESC) AS Rn
 		FROM dbo.Newsletter n WITH(NOLOCK)
 			INNER JOIN dbo.Market m WITH(NOLOCK) ON n.Language = m.MarketID
 		WHERE (@Date IS NULL OR (@Date BETWEEN n.EffectiveFromDate AND n.EffectiveToDate))
