@@ -24,7 +24,7 @@ BEGIN
 	
 	DECLARE @OldData NVARCHAR(MAX), @SPName NVARCHAR(200), @ID INT = 1
 
-	DECLARE @TmpDelete TABLE (ID INT IDENTITY(1, 1), NewsletterId INT,FileName NVARCHAR(200),FileSize SMALLINT,UploadDate DATETIME,EffectiveFromDate DATETIME,EffectiveToDate DATETIME,Language NVARCHAR(50))
+	DECLARE @TmpDelete TABLE (ID INT IDENTITY(1, 1), NewsletterId INT,FileName NVARCHAR(200),FileSize INT,UploadDate DATETIME,EffectiveFromDate DATETIME,EffectiveToDate DATETIME,Language NVARCHAR(50))
 	--Check permission
 	EXEC dbo.Aff_CheckPermission
 		@CustId = @UserId
