@@ -6,6 +6,9 @@
 	Task: Add new permission [RedminedId : #149213]
 */
 
+USE Affiliate_12BET
+GO
+
 -- Add new roles
 INSERT INTO dbo.Roles (RoleName)
 VALUES ('Accounting Dept'), ('Other 1'), ('Other 2'), ('Other 3')

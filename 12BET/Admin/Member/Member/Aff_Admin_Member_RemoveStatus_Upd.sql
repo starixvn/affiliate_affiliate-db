@@ -64,8 +64,8 @@ BEGIN
 		END
 		ELSE IF @IsRemoved = 1
 		BEGIN
-			INSERT INTO dbo.MemberRemoval (IBCCustId, AffId, MonthDate)
-			VALUES (@IBCCustId, @AffId, @MonthDate)
+			INSERT INTO dbo.MemberRemoval (IBCCustId, AffId, RemovedDate, MonthDate)
+			VALUES (@IBCCustId, @AffId, GETDATE(), @MonthDate)
 
 			SET @AffId = 0
 		END

@@ -396,6 +396,12 @@ BEGIN
 				FROM #TempCommission
 				GROUP BY AffId
 			) tc ON ai.AffId = tc.AffId
+			INNER JOIN (
+				SELECT DISTINCT AffId
+				FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+				WHERE agh.MonthDate BETWEEN @FromDate AND @ToDate
+					AND ISNULL(agh.IsClosed, 0) = 0
+			) agh ON ai.AffId = agh.AffId
 		WHERE ai.Status = 'Approved'
 			AND ai.Username LIKE '%' + @Username + '%'
 			AND ',' + @PreferredLanguages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
@@ -409,19 +415,19 @@ BEGIN
 				AND FDM = 0
 				AND ActiveMember = 0
 				AND QualifiedMember = 0
-				AND Deposit = 0
-				AND Withdrawal = 0
-				AND Turnover = 0
-				AND Winlost = 0
-				AND Bonus = 0
-				AND PlatFormFee = 0
-				AND OperationalFee = 0
-				AND BankingFee = 0
-				AND CommissionRate = 0
-				AND Earning = 0
-				AND AffWithdrawal = 0
-				AND AffAdjustment = 0
-				AND BFF = 0
+				AND ROUND(Deposit, 2) = 0
+				AND ROUND(Withdrawal, 2) = 0
+				AND ROUND(Turnover, 2) = 0
+				AND ROUND(Winlost, 2) = 0
+				AND ROUND(Bonus, 2) = 0
+				AND ROUND(PlatFormFee, 2) = 0
+				AND ROUND(OperationalFee, 2) = 0
+				AND ROUND(BankingFee, 2) = 0
+				AND ROUND(CommissionRate, 2) = 0
+				AND ROUND(Earning, 2) = 0
+				AND ROUND(AffWithdrawal, 2) = 0
+				AND ROUND(AffAdjustment, 2) = 0
+				AND ROUND(BFF, 2) = 0
 	END
 		
 	SELECT @NRows = COUNT(1) FROM #Result
