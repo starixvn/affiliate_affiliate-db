@@ -16,12 +16,14 @@ AS
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210223@Percy: Change permission function [RedmineID: #149213]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @Language VARCHAR(10) = 'en-US'
+	DECLARE @LastDayOfMonth DATETIME = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
 
 	SELECT @ErrCode = 0, @ErrMsg = ''
 
@@ -53,6 +55,10 @@ BEGIN
 		UPDATE dbo.AffInfo WITH (ROWLOCK)
 		SET IsClosed = @IsClosed
 		WHERE AffID = @AffID
+
+		UPDATE dbo.AffGroupHistory WITH (ROWLOCK)
+		SET IsClosed = @IsClosed
+		WHERE AffID = @AffID AND MonthDate = @LastDayOfMonth
 	END TRY
 	BEGIN CATCH
 		-- Update process is unsuccessful. Please try again!
