@@ -6,5 +6,6 @@
 
 INSERT INTO LogAction (ActionId, ActionTypeId, SPName, Description)
 VALUES (1009,  2, 'Aff_Admin_AffiliatePreferredLanguage_Upd', 'Update Preferred Language')
-, (1010,  2, 'Aff_Admin_AffiliateStatus_Upd', 'Update Status')
-, (1011,  2, 'Aff_Admin_AffiliateAffType_Upd', 'Update affiliate type')
+,(1010,  2, 'Aff_Admin_AffiliateStatus_Upd', 'Update Status')
+,(1011,  2, 'Aff_Admin_AffiliateAffType_Upd', 'Update affiliate type')
+,(1012,  2, 'Aff_Admin_AffiliatePaymentRequest_Upd', 'Update payment request')

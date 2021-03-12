@@ -103,6 +103,7 @@ BEGIN
 		IsPageEnabled_Del		BIT,
 		Level_Del				TINYINT,
 		Gender_Del				BIT,
+		GenderName_Del			NVARCHAR(50),
 		Country_Del				NVARCHAR(50),
 		Phone_Del				VARCHAR(50),
 		ContactApps_Del			NVARCHAR(2000),
@@ -124,7 +125,9 @@ BEGIN
 		Wire_AccountName_Del	NVARCHAR(100),
 		Wire_AccountNo_Del		VARCHAR(100),
 		MailOption_Del			BIT,
+		MailOptionName_Del		NVARCHAR(50),
 		QuestionId_Del			TINYINT,
+		Question_Del			NVARCHAR(400),
 		Answer_Del				NVARCHAR(300),
 		-- insert
 		PreferredLanguage_Ins	VARCHAR(20),
@@ -140,6 +143,7 @@ BEGIN
 		IsPageEnabled_Ins		BIT,
 		Level_Ins				TINYINT,
 		Gender_Ins				BIT,
+		GenderName_Ins			NVARCHAR(20),
 		Country_Ins				NVARCHAR(50),
 		Phone_Ins				VARCHAR(50),
 		ContactApps_Ins			NVARCHAR(2000),
@@ -161,7 +165,9 @@ BEGIN
 		Wire_AccountName_Ins	NVARCHAR(100),
 		Wire_AccountNo_Ins		VARCHAR(100),
 		MailOption_Ins			BIT,
+		MailOptionName_Ins		NVARCHAR(50),
 		QuestionId_Ins			TINYINT,
+		Question_Ins			NVARCHAR(400),
 		Answer_Ins				NVARCHAR(300),
 		Type					INT
 	)
@@ -482,15 +488,29 @@ BEGIN
 			RETURN
 		END CATCH
 
+		UPDATE u
+			SET u.GenderName_Del = CASE WHEN u.Gender_Del = 1 THEN 'Male' ELSE 'Female' END
+				,u.GenderName_Ins = CASE WHEN u.Gender_Ins = 1 THEN 'Male' ELSE 'Female' END
+				,u.MailOptionName_Del = CASE WHEN u.MailOption_Del = 1 THEN 'Plain Text Format' ELSE 'Html Format' END
+				,u.MailOptionName_Ins = CASE WHEN u.MailOption_Ins = 1 THEN 'Plain Text Format' ELSE 'Html Format' END
+		FROM @UpdatedData u
+		WHERE u.Type = 2
+
+		UPDATE u
+			SET u.Question_Del = q_del.Question
+				,u.Question_Ins = q_ins.Question
+		FROM @UpdatedData u
+			INNER JOIN Aff_f_Get_SecurityQuestions (1, 'en-US') q_del ON q_del.QuestionID = u.QuestionId_Del
+			INNER JOIN Aff_f_Get_SecurityQuestions (1, 'en-US') q_ins ON q_ins.QuestionID = u.QuestionId_Ins
+		WHERE u.Type = 2
+
 		SELECT	@OldData = CONVERT(NVARCHAR(MAX), 
 						  (
 								SELECT 
 									ISNULL(t.FirstName_Del, '') AS '@FirstName'
 									,ISNULL(t.LastName_Del, '') AS '@LastName'
 									,ISNULL(t.Email_Del, '') AS '@Email'
-									,ISNULL(CONVERT(VARCHAR(1), t.IsPageEnabled_Del), '') AS '@IsPageEnabled'
-									,ISNULL(CONVERT(VARCHAR(10), t.Level_Del), '') AS '@Level'
-									,ISNULL(CONVERT(VARCHAR(1), q.Gender_Del), '') AS '@Gender'
+									,ISNULL(q.GenderName_Del, '') AS '@Gender'
 									,ISNULL(q.Country_Del, '') AS '@Country'
 									,ISNULL(q.Phone_Del, '') AS '@Phone'
 									,ISNULL(q.ContactApps_Del, '') AS '@ContactApps'
@@ -511,11 +531,11 @@ BEGIN
 									,ISNULL(q.Wire_SwiftCode_Del, '') AS '@Wire_SwiftCode'
 									,ISNULL(q.Wire_AccountName_Del, '') AS '@Wire_AccountName'
 									,ISNULL(q.Wire_AccountNo_Del, '') AS '@Wire_AccountNo'
-									,ISNULL(CONVERT(VARCHAR(1), q.MailOption_Del), '') AS '@MailOption'
-									,ISNULL(CONVERT(VARCHAR(3), q.QuestionId_Del), '') AS '@QuestionId'
+									,ISNULL(q.MailOptionName_Del, '') AS '@MailOption'
+									,ISNULL(q.Question_Del, '') AS '@Question'
 									,ISNULL(q.Answer_Del, '') AS '@Answer'
 							   FROM @UpdatedData t
-									INNER JOIN @UpdatedData q ON 1 = 1
+									,@UpdatedData q 
 							   WHERE t.Type = 1 AND q.Type = 2
 							   FOR XML PATH('row'), ROOT('root')
 						 ))
@@ -526,9 +546,7 @@ BEGIN
 										ISNULL(t.FirstName_Ins, '') AS '@FirstName'
 										,ISNULL(t.LastName_Ins, '') AS '@LastName'
 										,ISNULL(t.Email_Ins, '') AS '@Email'
-										,ISNULL(CONVERT(VARCHAR(1), q.IsPageEnabled_Ins), '') AS '@IsPageEnabled'
-										,ISNULL(CONVERT(VARCHAR(10), q.Level_Ins), '') AS '@Level'
-										,ISNULL(CONVERT(VARCHAR(1), q.Gender_Ins), '') AS '@Gender'
+										,ISNULL(q.GenderName_Ins, '') AS '@Gender'
 										,ISNULL(q.Country_Ins, '') AS '@Country'
 										,ISNULL(q.Phone_Ins, '') AS '@Phone'
 										,ISNULL(q.ContactApps_Ins, '') AS '@ContactApps'
@@ -549,11 +567,11 @@ BEGIN
 										,ISNULL(q.Wire_SwiftCode_Ins, '') AS '@Wire_SwiftCode'
 										,ISNULL(q.Wire_AccountName_Ins, '') AS '@Wire_AccountName'
 										,ISNULL(q.Wire_AccountNo_Ins, '') AS '@Wire_AccountNo'
-										,ISNULL(CONVERT(VARCHAR(1), q.MailOption_Ins), '') AS '@MailOption'
-										,ISNULL(CONVERT(VARCHAR(3), q.QuestionId_Ins), '') AS '@QuestionId'
+										,ISNULL(q.MailOptionName_Ins, '') AS '@MailOption'
+										,ISNULL(q.Question_Ins, '') AS '@Question'
 										,ISNULL(q.Answer_Ins, '') AS '@Answer' 
 									FROM @UpdatedData t
-										INNER JOIN @UpdatedData q ON 1 = 1
+										 , @UpdatedData q 
 									WHERE t.Type = 1 AND q.Type = 2
 									FOR XML PATH ('row'), ROOT('root')
 							))

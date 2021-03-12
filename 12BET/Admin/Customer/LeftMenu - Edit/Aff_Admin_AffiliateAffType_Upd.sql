@@ -46,11 +46,13 @@ BEGIN
 	-- For Log
 	DECLARE @OldData NVARCHAR(4000), @NewData NVARCHAR(4000), @SPName VARCHAR(50)
 
-	SELECT @OldData = '<root><row AffType="'+ ISNULL(CONVERT(VARCHAR(5), AffType), '') +'"></row></root>' 
-		  ,@NewData = '<root><row AffType="'+ ISNULL(CONVERT(VARCHAR(5), @AffType), '') +'"></row></root>' 
+	SELECT @OldData = '<root><row AffType="'+ t.Name +'"></row></root>' 
 		  ,@SPName	= OBJECT_NAME(@@PROCID)
-	FROM dbo.AffInfo WITH (NOLOCK)
-	WHERE AffID = @AffID 
+	FROM dbo.AffInfo i WITH (NOLOCK)
+		INNER JOIN dbo.AffType t WITH(NOLOCK) ON i.AffType = t.TypeId 
+	WHERE i.AffID = @AffID 
+
+	SELECT @NewData = '<root><row AffType="'+ Name +'"></row></root>' FROM dbo.AffType WITH(NOLOCK) WHERE TypeId = @AffType
 
 	IF @OldData = @NewData
 		RETURN

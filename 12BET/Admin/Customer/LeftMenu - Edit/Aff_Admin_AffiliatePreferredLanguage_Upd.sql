@@ -48,11 +48,15 @@ BEGIN
 	-- For Log
 	DECLARE @OldData NVARCHAR(4000), @NewData NVARCHAR(4000), @SPName VARCHAR(50)
 
-	SELECT  @OldData	= '<root><row PreferredLanguage="'+ ISNULL(PreferredLanguage, '') +'"></row></root>'
-			,@NewData	= '<root><row PreferredLanguage="'+  ISNULL(@PreferredLanguage, '') +'"></row></root>'
+	SELECT  @OldData	= '<root><row PreferredLanguage="'+ m.MarketName +'"></row></root>'		
 			,@SPName	= OBJECT_NAME(@@PROCID)
-	FROM dbo.AffDetail WITH (NOLOCK)
+	FROM dbo.AffDetail a WITH (NOLOCK)
+		INNER JOIN dbo.Market m WITH(NOLOCK) ON a.PreferredLanguage = m.MarketID
 	WHERE AffID = @AffID
+
+	SELECT @NewData	= '<root><row PreferredLanguage="'+  MarketName +'"></row></root>'
+	FROM dbo.Market WITH(NOLOCK)
+	WHERE MarketID = @PreferredLanguage
 
 	IF @OldData = @NewData
 		RETURN

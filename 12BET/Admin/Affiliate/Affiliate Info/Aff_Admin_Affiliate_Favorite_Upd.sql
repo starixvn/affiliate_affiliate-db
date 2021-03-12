@@ -77,7 +77,7 @@ BEGIN
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,
-		@AffId		= 0,
+		@AffId		= @AffId,
 		@SPName		= @SPName,
 		@OldData	= @OldData,
 		@NewData	= @NewData,
