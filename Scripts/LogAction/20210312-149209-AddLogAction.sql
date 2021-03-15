@@ -9,3 +9,4 @@ VALUES (1009,  2, 'Aff_Admin_AffiliatePreferredLanguage_Upd', 'Update Preferred 
 ,(1010,  2, 'Aff_Admin_AffiliateStatus_Upd', 'Update Status')
 ,(1011,  2, 'Aff_Admin_AffiliateAffType_Upd', 'Update affiliate type')
 ,(1012,  2, 'Aff_Admin_AffiliatePaymentRequest_Upd', 'Update payment request')
+,(1013,  2, 'Aff_Admin_AffiliateClosed_Upd', 'Update status')

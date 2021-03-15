@@ -33,6 +33,7 @@ BEGIN
 	FROM (
 		SELECT COUNT(1) AS [RowCount]
 		FROM dbo.UserLog ul WITH (NOLOCK)
+			INNER JOIN dbo.LogType lt WITH (NOLOCK) ON ul.TypeID = lt.TypeID
 		WHERE LoggedDate >= @FromDate AND LoggedDate < DATEADD(DAY, 1, @ToDate)
 			AND AffID = @AffID
 			AND (@LogType = 0 OR ul.TypeID = @LogType)
@@ -40,6 +41,7 @@ BEGIN
 		UNION ALL
 		SELECT COUNT(1) AS [RowCount]
 		FROM dbo.UserLog_RunSP_Detail ul WITH (NOLOCK)
+			INNER JOIN dbo.LogType lt WITH (NOLOCK) ON ul.LogTypeID = lt.TypeID
 		WHERE LogDate >= @FromDate AND LogDate < DATEADD(DAY, 1, @ToDate)
 			AND AffID = @AffID
 			AND (@LogType = 0 OR ul.LogTypeID = @LogType)
