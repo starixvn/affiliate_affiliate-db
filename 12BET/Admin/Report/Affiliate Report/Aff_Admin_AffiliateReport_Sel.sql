@@ -24,6 +24,7 @@ AS
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 		- 20191101@Percy: Fix wrong FDM value [RedmineID: #123134]
 		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
+		- 20210223@Percy: Do not show affiliate with all value is zero [149213]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -57,23 +58,6 @@ BEGIN
 	IF @NoOfMonth <= 0
 		RETURN
 
-	/*
-		===== Total page =====
-	*/
-	CREATE TABLE #AffInfo (AffId INT PRIMARY KEY, Username NVARCHAR(50))
-	INSERT INTO #AffInfo (AffId, Username)
-	SELECT ai.AffId, ai.Username
-	FROM dbo.AffInfo ai WITH (NOLOCK)
-		LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
-	WHERE ai.Status = 'Approved'
-		AND ai.Username LIKE '%' + @Username + '%'
-		AND ',' + @PreferredLanguages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
-
-	SELECT @NRows = @@ROWCOUNT
-
-	IF @NRows = 0
-		RETURN
-	
 	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME)
 	;WITH CTE_MonthDate AS
 	(
@@ -96,25 +80,6 @@ BEGIN
 		===== Get data =====
 	*/
 	BEGIN
-		-- Affiliates have place bet data
-		CREATE TABLE #AffData
-		(
-			AffId			INT,
-			ActivePlayer	INT,
-			QualifiedMember	INT,
-			Deposit			MONEY,
-			Withdrawal		MONEY,
-			Turnover		MONEY,
-			Winloss			MONEY,
-			Bonus			MONEY,
-			PlatFormFee		MONEY,
-			OperationalFee	MONEY,
-			BankingFee		MONEY,
-			NetWinloss		MONEY,
-			CommissionRate	FLOAT,
-			Commission		MONEY
-		)
-
 		CREATE TABLE #TempCommission
 		(
 			MonthDate				SMALLDATETIME,
@@ -224,44 +189,6 @@ BEGIN
 				@GetRowTotalOnly	= 1
 		END
 
-		INSERT INTO #AffData
-		(
-			AffId,
-			ActivePlayer,
-			QualifiedMember,
-			Deposit,
-			Withdrawal,
-			Turnover,
-			Winloss,
-			Bonus,
-			PlatFormFee,
-			OperationalFee,
-			BankingFee,
-			NetWinloss,
-			CommissionRate,
-			Commission
-		)
-		SELECT
-			AffId,
-			SUM(ActivePlayer)				AS ActivePlayer,
-			SUM(QualifiedMember)			AS QualifiedMember,
-			SUM(Deposit)					AS Deposit,
-			SUM(Withdrawal)					AS Withdrawal,
-			SUM(Turnover)					AS Turnover,
-			SUM(Winloss)					AS Winloss,
-			SUM(Bonus)						AS Bonus,
-			SUM(PlatFormFee)				AS PlatFormFee,
-			SUM(OperationalFee)				AS OperationalFee,
-			SUM(BankingFee)					AS BankingFee,
-			SUM(NetWinloss)					AS NetWinloss,
-			SUM(CommissionRate/@NoOfMonth)	AS CommissionRate,
-			SUM(Commission)					AS Commission
-		FROM #TempCommission
-		GROUP BY
-			AffId
-
-		DROP TABLE #TempCommission
-
 		-- Signup
 		CREATE TABLE #Signup (AffId INT, Signup INT)
 
@@ -277,117 +204,6 @@ BEGIN
 		END TRY
 		BEGIN CATCH
 		END CATCH
-	END
-	
-	/*
-		===== Paging ====
-	*/
-	BEGIN
-		DECLARE @RowStart INT, @RowEnd INT
-
-		IF @IsExportExcel = 0
-		BEGIN
-			SELECT  @RowStart = (@PageIndex - 1) * @PageSize + 1,
-					@RowEnd = @RowStart + @PageSize - 1
-		END
-		ELSE
-		BEGIN
-			SELECT  @RowStart = 1,
-					@RowEnd = @NRows
-		END
-
-		CREATE TABLE #AffPaging
-		(
-			RowIdx			INT,
-			AffId			INT,
-			Username		NVARCHAR(50),
-			ActivePlayer	INT,
-			QualifiedMember	INT,
-			Deposit			MONEY,
-			Withdrawal		MONEY,
-			Turnover		MONEY,
-			Winloss			MONEY,
-			Bonus			MONEY,
-			PlatFormFee		MONEY,
-			OperationalFee	MONEY,
-			BankingFee		MONEY,
-			NetWinloss		MONEY,
-			CommissionRate	FLOAT,
-			Commission		MONEY
-		)
-
-		INSERT INTO #AffPaging
-		(
-			RowIdx,
-			AffId,
-			Username,
-			ActivePlayer,
-			QualifiedMember,
-			Deposit,
-			Withdrawal,
-			Turnover,
-			Winloss,
-			Bonus,
-			PlatFormFee,
-			OperationalFee,
-			BankingFee,
-			NetWinloss,
-			CommissionRate,
-			Commission
-		)
-		SELECT
-			RowIdx,
-			AffId,
-			Username,
-			ActivePlayer,
-			QualifiedMember,
-			Deposit,
-			Withdrawal,
-			Turnover,
-			Winloss,
-			Bonus,
-			PlatFormFee,
-			OperationalFee,
-			BankingFee,
-			NetWinloss,
-			CommissionRate,
-			Commission
-		FROM
-		(
-			SELECT
-				ai.AffId,
-				ai.Username,
-				ISNULL(d.ActivePlayer, 0)		AS ActivePlayer,
-				ISNULL(d.QualifiedMember, 0)	AS QualifiedMember,
-				ISNULL(d.Deposit, 0)			AS Deposit,
-				ISNULL(d.Withdrawal, 0)			AS Withdrawal,
-				ISNULL(d.Turnover, 0)			AS Turnover,
-				ISNULL(d.Winloss, 0)			AS Winloss,
-				ISNULL(d.Bonus, 0)				AS Bonus,
-				ISNULL(d.PlatFormFee, 0)		AS PlatFormFee,
-				ISNULL(d.OperationalFee, 0)		AS OperationalFee,
-				ISNULL(d.BankingFee, 0)			AS BankingFee,
-				ISNULL(d.NetWinloss, 0)			AS NetWinloss,
-				ISNULL(d.CommissionRate, 0)		AS CommissionRate,
-				ISNULL(d.Commission, 0)			AS Commission,
-				ROW_NUMBER() OVER(ORDER BY
-					CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN ai.Username END ASC,
-					CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN ai.Username END DESC,
-					CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN ISNULL(d.Turnover, 0) END ASC,
-					CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN ISNULL(d.Turnover, 0) END DESC,
-					CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN ISNULL(d.Winloss, 0) END ASC,
-					CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ISNULL(d.Winloss, 0) END DESC,
-					CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN ISNULL(d.Commission, 0) END ASC,
-					CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ISNULL(d.Commission, 0) END DESC)
-												AS RowIdx
-			FROM dbo.AffInfo ai WITH (NOLOCK)
-				LEFT JOIN #AffData d ON ai.AffId = d.AffId
-				LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
-			WHERE ai.Status = 'Approved'
-				AND ai.Username LIKE '%' + @Username + '%'
-				AND ',' + @PreferredLanguages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
-			) AS aff
-		WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 
 		-- Statistics
 		CREATE TABLE #Statistics (AffId INT, TotalClick INT, UniqueClick INT, Signup INT, FDM INT)
@@ -402,19 +218,18 @@ BEGIN
 
 			INSERT INTO #Statistics (AffId, TotalClick, UniqueClick)
 			SELECT AffId, SUM(TotalClick), SUM(UniqueClick)
-			FROM
+			FROM 
 			(
 				SELECT
-					a.AffId,
-					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, c.Date) + 1, 0)) AS MonthDate,
+					AffId,
+					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0)) AS MonthDate,
 					COUNT(1) AS TotalClick,
-					COUNT(DISTINCT c.IP) AS UniqueClick
-				FROM #AffInfo a
-					INNER JOIN dbo.ClickStatistics1 c WITH (NOLOCK) ON a.AffId = c.AffId
+					COUNT(DISTINCT IP) AS UniqueClick
+				FROM dbo.ClickStatistics1 WITH (NOLOCK)
 				WHERE Date BETWEEN @tempFromDate AND @tempToDate
 				GROUP BY
-					a.AffId,
-					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, c.Date) + 1, 0))
+					AffId,
+					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0))
 			) AS c
 			GROUP BY AffId
 		END
@@ -429,128 +244,241 @@ BEGIN
 			FROM
 			(
 				SELECT
-					a.AffId,
-					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, c.Date) + 1, 0)) AS MonthDate,
-					c.IP,
+					AffId,
+					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0)) AS MonthDate,
+					IP,
 					COUNT(1) AS TotalClick
-				FROM #AffInfo a
-					INNER JOIN dbo.ClickStatistics1_bk c WITH (NOLOCK) ON a.AffId = c.AffId
+				FROM dbo.ClickStatistics1_bk WITH (NOLOCK)
 				WHERE Date BETWEEN @tempFromDate AND @tempToDate
 				GROUP BY
-					a.AffId,
-					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, c.Date) + 1, 0)),
-					c.IP
+					AffId,
+					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0)),
+					IP
 			) AS c
 			GROUP BY AffId
 		END
+
+		-- FDM
+		CREATE TABLE #FDM (AffId INT, FDM INT)
+		INSERT INTO #FDM (AffId, FDM)
+		SELECT mi.AffId, COUNT(1) AS FDM
+		FROM dbo.MemberInfo mi WITH (NOLOCK)
+		WHERE mi.CreatedDate >= @FromDate AND mi.CreatedDate < DATEADD(DAY, 1, @ToDate)
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE mi.IBCCustID = mr.IBCCustID
+					AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
+			)
+		GROUP BY mi.AffId
+		
+		-- AffWithdrawal, AffAdjustment
+		CREATE TABLE #AffTrans (AffId INT, AffWithdrawal MONEY, AffAdjustment MONEY, BFF MONEY)
+		INSERT INTO #AffTrans (AffId, AffWithdrawal, AffAdjustment, BFF)
+		SELECT AffId,
+			SUM(CASE WHEN TransType = 202 AND TransDate >= @FromDate THEN ABS(Amount) ELSE 0 END) AS AffWithdrawal,
+			SUM(CASE WHEN TransType = 203 AND TransDate >= @FromDate THEN Amount ELSE 0 END) AS AffAdjustment,
+			SUM(Amount) AS BFF
+		FROM dbo.AffTrans WITH (NOLOCK)
+		WHERE TransDate < DATEADD(DAY, 1, @ToDate)
+			AND Status IN ('Pending', 'Approved', 'Completed')
+		GROUP BY AffId
 	END
+	
+	-- Return data
+	BEGIN
+		CREATE TABLE #Result
+		(
+			AffId			INT,
+			Username		NVARCHAR(30),
+			TotalClick		INT,
+			UniqueClick		INT,
+			Signup			INT,
+			FDM				INT,
+			ActiveMember	INT,
+			QualifiedMember INT,
+			Deposit			MONEY,
+			Withdrawal		MONEY,
+			Turnover		MONEY,
+			Winlost			MONEY,
+			Bonus			MONEY,
+			PlatFormFee		MONEY,
+			OperationalFee	MONEY,
+			BankingFee		MONEY,
+			CommissionRate	MONEY,
+			Earning			MONEY,
+			AffWithdrawal	MONEY,
+			AffAdjustment	MONEY,
+			BFF				MONEY,
+			RowIdx			INT
+		)
+		INSERT INTO #Result
+		(
+			AffId,
+			Username,
+			TotalClick,
+			UniqueClick,
+			Signup,
+			FDM,
+			ActiveMember,
+			QualifiedMember,
+			Deposit,
+			Withdrawal,
+			Turnover,
+			Winlost,
+			Bonus,
+			PlatFormFee,
+			OperationalFee,
+			BankingFee,
+			CommissionRate,
+			Earning,
+			AffWithdrawal,
+			AffAdjustment,
+			BFF,
+			RowIdx
+		)
+		SELECT
+			ai.AffId,
+			ai.Username,
+			ISNULL(s.TotalClick, 0)			AS TotalClick,
+			ISNULL(s.UniqueClick, 0)		AS UniqueClick,
+			ISNULL(su.Signup, 0)			AS Signup,
+			ISNULL(fdm.FDM, 0)				AS FDM,
+			ISNULL(tc.ActivePlayer, 0)		AS ActiveMember,
+			ISNULL(tc.QualifiedMember, 0)	AS QualifiedMember,
+			ISNULL(tc.Deposit, 0)			AS Deposit,
+			ISNULL(tc.Withdrawal, 0)		AS Withdrawal,
+			ISNULL(tc.Turnover, 0)			AS Turnover,
+			ISNULL(tc.Winloss, 0)			AS Winlost,
+			ISNULL(tc.Bonus, 0)				AS Bonus,
+			ISNULL(tc.PlatFormFee, 0)		AS PlatFormFee,
+			ISNULL(tc.OperationalFee, 0)	AS OperationalFee,
+			ISNULL(tc.BankingFee, 0)		AS BankingFee,
+			ISNULL(tc.CommissionRate, 0)	AS CommissionRate,
+			ISNULL(tc.Commission, 0)		AS Earning,
+			ISNULL(at.AffWithdrawal, 0)		AS AffWithdrawal,
+			ISNULL(at.AffAdjustment, 0)		AS AffAdjustment,
+			ISNULL(at.BFF, 0)				AS BFF,
+			ROW_NUMBER() OVER(ORDER BY
+				CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN ai.Username END ASC,
+				CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN ai.Username END DESC,
+				CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN ISNULL(tc.Turnover, 0) END ASC,
+				CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN ISNULL(tc.Turnover, 0) END DESC,
+				CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN ISNULL(tc.Winloss, 0) END ASC,
+				CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ISNULL(tc.Winloss, 0) END DESC,
+				CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN ISNULL(tc.Commission, 0) END ASC,
+				CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ISNULL(tc.Commission, 0) END DESC) AS RowIdx
+		FROM dbo.AffInfo ai WITH (NOLOCK)
+			LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+			LEFT JOIN #Signup su ON ai.AffId = su.AffId
+			LEFT JOIN #FDM fdm ON ai.AffId = fdm.AffId
+			LEFT JOIN #AffTrans at ON ai.AffId = at.AffId
+			LEFT JOIN (
+				SELECT AffId, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
+				FROM #Statistics
+				GROUP BY AffId
+			) s ON ai.AffId = s.AffId
+			LEFT JOIN
+			(
+				SELECT AffId,
+					SUM(ActivePlayer)				AS ActivePlayer,
+					SUM(QualifiedMember)			AS QualifiedMember,
+					SUM(Deposit)					AS Deposit,
+					SUM(Withdrawal)					AS Withdrawal,
+					SUM(Turnover)					AS Turnover,
+					SUM(Winloss)					AS Winloss,
+					SUM(Bonus)						AS Bonus,
+					SUM(PlatFormFee)				AS PlatFormFee,
+					SUM(OperationalFee)				AS OperationalFee,
+					SUM(BankingFee)					AS BankingFee,
+					SUM(NetWinloss)					AS NetWinloss,
+					SUM(CommissionRate/@NoOfMonth)	AS CommissionRate,
+					SUM(Commission)					AS Commission
+				FROM #TempCommission
+				GROUP BY AffId
+			) tc ON ai.AffId = tc.AffId
+			INNER JOIN (
+				SELECT DISTINCT AffId
+				FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+				WHERE agh.MonthDate BETWEEN @FromDate AND @ToDate
+					AND ISNULL(agh.IsClosed, 0) = 0
+			) agh ON ai.AffId = agh.AffId
+		WHERE ai.Status = 'Approved'
+			AND ai.Username LIKE '%' + @Username + '%'
+			AND ',' + @PreferredLanguages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
+
+		IF @Username = ''
+			DELETE #Result
+			WHERE
+				TotalClick = 0
+				AND UniqueClick = 0
+				AND Signup = 0
+				AND FDM = 0
+				AND ActiveMember = 0
+				AND QualifiedMember = 0
+				AND ROUND(Deposit, 2) = 0
+				AND ROUND(Withdrawal, 2) = 0
+				AND ROUND(Turnover, 2) = 0
+				AND ROUND(Winlost, 2) = 0
+				AND ROUND(Bonus, 2) = 0
+				AND ROUND(PlatFormFee, 2) = 0
+				AND ROUND(OperationalFee, 2) = 0
+				AND ROUND(BankingFee, 2) = 0
+				AND ROUND(CommissionRate, 2) = 0
+				AND ROUND(Earning, 2) = 0
+				AND ROUND(AffWithdrawal, 2) = 0
+				AND ROUND(AffAdjustment, 2) = 0
+				AND ROUND(BFF, 2) = 0
+	END
+		
+	SELECT @NRows = COUNT(1) FROM #Result
+	IF @NRows = 0
+		RETURN
+		
+	DECLARE @RowStart INT, @RowEnd INT
+
+	IF @IsExportExcel = 0
+		SELECT @RowStart = (@PageIndex - 1) * @PageSize + 1, @RowEnd = @RowStart + @PageSize - 1
+	ELSE
+		SELECT @RowStart = 1, @RowEnd = @NRows
 
 	-- Return detail
-	SELECT
-		a.AffId,
-		a.Username,
-		ISNULL(s.TotalClick, 0) AS TotalClick,
-		ISNULL(s.UniqueClick, 0) AS UniqueClick,
-		ISNULL(su.Signup, 0) AS Signup,
-		ISNULL(mi.FDM, 0) AS FDM,
-		a.ActivePlayer AS ActiveMember,
-		a.QualifiedMember AS QualifiedMember,
-		a.Deposit AS Deposit,
-		a.Withdrawal,
-		a.Turnover,
-		a.Winloss AS Winlost,
-		a.Bonus,
-		a.PlatFormFee,
-		a.OperationalFee,
-		a.BankingFee,
-		a.PlatFormFee + a.OperationalFee + a.BankingFee AS TotalFee,
-		a.CommissionRate,
-		a.Commission AS Earning,
-		ISNULL(at.AffWithdrawal, 0) AS AffWithdrawal,
-		ISNULL(at.AffAdjustment, 0) AS AffAdjustment,
-		ISNULL(at.BFF, 0) AS BFF
-	FROM #AffPaging a
-		LEFT JOIN (
-			SELECT AffId, SUM(ISNULL(TotalClick, 0)) AS TotalClick, SUM(ISNULL(UniqueClick, 0)) AS UniqueClick FROM #Statistics GROUP BY AffId
-		) s ON a.AffId = s.AffId
-		LEFT JOIN #Signup su ON a.AffId = su.AffId
-		LEFT JOIN (
-			SELECT mi.AffId, COUNT(1) AS FDM
-			FROM dbo.MemberInfo mi WITH (NOLOCK)
-			WHERE mi.CreatedDate >= @FromDate AND mi.CreatedDate < DATEADD(DAY, 1, @ToDate)
-				AND NOT EXISTS (
-					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-					WHERE mi.IBCCustID = mr.IBCCustID
-						AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
-				)
-			GROUP BY mi.AffId
-		) mi ON a.AffId = mi.AffId
-		LEFT JOIN (
-			SELECT AffId,
-				SUM(CASE WHEN TransType = 202 AND TransDate >= @FromDate THEN ABS(Amount) ELSE 0 END) AS AffWithdrawal,
-				SUM(CASE WHEN TransType = 203 AND TransDate >= @FromDate THEN Amount ELSE 0 END) AS AffAdjustment,
-				SUM(Amount) AS BFF
-			FROM dbo.AffTrans WITH (NOLOCK)
-			WHERE TransDate < DATEADD(DAY, 1, @ToDate)
-				AND Status IN ('Pending', 'Approved', 'Completed')
-			GROUP BY AffId
-		) at ON a.AffId = at.AffId
-	ORDER BY a.RowIdx
+	SELECT AffId, Username, TotalClick, UniqueClick, Signup, FDM, ActiveMember, QualifiedMember
+		,Deposit, Withdrawal, Turnover, Winlost, Bonus, PlatFormFee, OperationalFee, BankingFee
+		,PlatFormFee + OperationalFee + BankingFee AS TotalFee
+		,CommissionRate, Earning, AffWithdrawal, AffAdjustment, BFF
+	FROM #Result
+	WHERE RowIdx BETWEEN @RowStart AND @RowEnd
+	ORDER BY RowIdx
 
 	-- Return total
 	SELECT
-		SUM(ISNULL(s.TotalClick, 0)) AS TotalClick,
-		SUM(ISNULL(s.UniqueClick, 0)) AS UniqueClick,
-		SUM(ISNULL(su.Signup, 0)) AS Signup,
-		SUM(ISNULL(mi.FDM, 0)) AS FDM,
-		SUM(ISNULL(ad.ActivePlayer, 0)) AS ActiveMember,
-		SUM(ISNULL(ad.QualifiedMember, 0)) AS QualifiedMember,
-		SUM(ISNULL(ad.Deposit, 0)) AS Deposit,
-		SUM(ISNULL(ad.Withdrawal, 0)) AS Withdrawal,
-		SUM(ISNULL(ad.Turnover, 0)) AS Turnover,
-		SUM(ISNULL(ad.Winloss, 0)) AS Winlost,
-		SUM(ISNULL(ad.Bonus, 0)) AS Bonus,
-		SUM(ISNULL(ad.PlatFormFee, 0)) AS PlatFormFee,
-		SUM(ISNULL(ad.OperationalFee, 0)) AS OperationalFee,
-		SUM(ISNULL(ad.BankingFee, 0)) AS BankingFee,
-		SUM(ISNULL(ad.PlatFormFee, 0) + ISNULL(ad.OperationalFee, 0) + ISNULL(ad.BankingFee, 0)) AS TotalFee,
-		0 AS CommissionRate,
-		SUM(ISNULL(ad.Commission, 0)) AS Earning,
-		SUM(ISNULL(at.AffWithdrawal, 0)) AS AffWithdrawal,
-		SUM(ISNULL(at.AffAdjustment, 0)) AS AffAdjustment,
-		SUM(ISNULL(at.BFF, 0)) AS BFF
-	FROM #AffInfo a
-		LEFT JOIN (
-			SELECT AffId, SUM(ISNULL(TotalClick, 0)) AS TotalClick, SUM(ISNULL(UniqueClick, 0)) AS UniqueClick FROM #Statistics GROUP BY AffId
-		) s ON a.AffId = s.AffId
-		LEFT JOIN #AffData ad ON a.AffId = ad.AffId
-		LEFT JOIN #Signup su ON a.AffId = su.AffId
-		LEFT JOIN (
-			SELECT mi.AffId, COUNT(1) AS FDM
-			FROM dbo.MemberInfo mi WITH (NOLOCK)
-			WHERE mi.CreatedDate >= @FromDate AND mi.CreatedDate < DATEADD(DAY, 1, @ToDate)
-				AND NOT EXISTS (
-					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-					WHERE mi.IBCCustID = mr.IBCCustID
-						AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
-				)
-			GROUP BY mi.AffId
-		) mi ON a.AffId = mi.AffId
-		LEFT JOIN (
-			SELECT AffId,
-				SUM(CASE WHEN TransType = 202 AND TransDate >= @FromDate THEN ABS(Amount) ELSE 0 END) AS AffWithdrawal,
-				SUM(CASE WHEN TransType = 203 AND TransDate >= @FromDate THEN Amount ELSE 0 END) AS AffAdjustment,
-				SUM(Amount) AS BFF
-			FROM dbo.AffTrans WITH (NOLOCK)
-			WHERE TransDate < DATEADD(DAY, 1, @ToDate)
-				AND Status IN ('Pending', 'Approved', 'Completed')
-			GROUP BY AffId
-		) at ON a.AffId = at.AffId
+		SUM(TotalClick)			AS TotalClick
+		,SUM(UniqueClick)		AS UniqueClick
+		,SUM(Signup)			AS Signup
+		,SUM(FDM)				AS FDM
+		,SUM(ActiveMember)		AS ActiveMember
+		,SUM(QualifiedMember)	AS QualifiedMember
+		,SUM(Deposit)			AS Deposit
+		,SUM(Withdrawal)		AS Withdrawal
+		,SUM(Turnover)			AS Turnover
+		,SUM(Winlost)			AS Winlost
+		,SUM(Bonus)				AS Bonus
+		,SUM(PlatFormFee)		AS PlatFormFee
+		,SUM(OperationalFee)	AS OperationalFee
+		,SUM(BankingFee)		AS BankingFee
+		,SUM(PlatFormFee + OperationalFee + BankingFee) AS TotalFee
+		,0 AS CommissionRate
+		,SUM(Earning)			AS Earning
+		,SUM(AffWithdrawal)		AS AffWithdrawal
+		,SUM(AffAdjustment)		AS AffAdjustment
+		,SUM(BFF)				AS BFF
+	FROM #Result
 
-	DROP TABLE #AffData
-	DROP TABLE #AffInfo
-	DROP TABLE #AffPaging
+	DROP TABLE #AffTrans
+	DROP TABLE #FDM
+	DROP TABLE #Result
 	DROP TABLE #Signup
 	DROP TABLE #Statistics
+	DROP TABLE #TempCommission
 END
 GO

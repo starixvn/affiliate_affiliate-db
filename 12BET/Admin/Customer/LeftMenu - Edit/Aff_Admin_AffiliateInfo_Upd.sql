@@ -58,6 +58,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210223@Percy: Change permission function [RedmineID: #149213]
 */
 
 BEGIN
@@ -66,10 +67,12 @@ BEGIN
 	DECLARE @CurrentDate SMALLDATETIME
 	SELECT  @CurrentDate = GETDATE()
 
+	DECLARE @LastDayOfMonth DATETIME = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
+
 	-- Check permission
 	EXEC dbo.Aff_CheckPermission
 		@CustId		= @UserId
-		,@FuncName	= '[Affiliate]'
+		,@FuncName	= '[AffCustomerEdit]'
 		,@ErrCode	= @ErrCode OUTPUT
 		,@ErrMsg	= @ErrMsg OUTPUT
 
@@ -355,6 +358,10 @@ BEGIN
 			OUTPUT DELETED.IsClosed, INSERTED.IsClosed
 			INTO @UpdatedData (Closed_Del, Closed_Ins)
 			WHERE AffId = @AffId
+
+			UPDATE dbo.AffGroupHistory WITH (ROWLOCK)
+			SET IsClosed = ISNULL(@Closed, IsClosed)
+			WHERE AffID = @AffID AND MonthDate = @LastDayOfMonth
 		END TRY
 		BEGIN CATCH
 			-- Update process is unsuccessful. Please try again!
