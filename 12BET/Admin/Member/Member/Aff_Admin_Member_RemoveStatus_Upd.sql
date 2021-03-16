@@ -34,8 +34,8 @@ BEGIN
 	IF @ErrCode <> 0
 		RETURN
 
-	DECLARE @UserName VARCHAR(30), @Old_IsRemoved BIT
-	SELECT  @UserName = UserName, @Old_IsRemoved = ISNULL(IsRemoved, 0), @AffId = AffId, @DepositCustId = DepositCustId
+	DECLARE @UserName VARCHAR(30), @Old_IsRemoved BIT, @LogAffId INT
+	SELECT  @UserName = UserName, @Old_IsRemoved = ISNULL(IsRemoved, 0), @AffId = AffId, @LogAffId = AffID, @DepositCustId = DepositCustId
 	FROM dbo.MemberInfo WITH (NOLOCK)
 	WHERE IBCCustId = @IBCCustId
 
@@ -84,7 +84,7 @@ BEGIN
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@SPName = @SPName
 		,@UserId	= @UserId
-		,@AffId		= 0
+		,@AffId		= @LogAffId
 		,@OldData	= @OldData
 		,@NewData	= @NewData
 		,@IP		= @IP
