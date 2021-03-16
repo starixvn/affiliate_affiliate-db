@@ -45,6 +45,7 @@ BEGIN
 	BEGIN CATCH
 		-- Update process is unsuccessful. Please try again!
 		SELECT @ErrCode = 101, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
+		RETURN
 	END CATCH
 
 	-- Write log
@@ -52,7 +53,7 @@ BEGIN
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
 	DECLARE @LogData NVARCHAR(MAX)
-	SELECT  @LogData = '<root><row NoteId="'+ CONVERT(VARCHAR(20), @NoteId) +'"></row></root>'
+	SELECT  @LogData = CONVERT(NVARCHAR(MAX), (SELECT @NoteID AS '@NoteId', @Note AS '@Content' FOR XML PATH('row'), root('root')))
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,
