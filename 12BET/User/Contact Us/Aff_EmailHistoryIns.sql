@@ -21,6 +21,7 @@ BEGIN
 	Original:
 
 	Revisions:
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 
 
 	Param's Explanation:

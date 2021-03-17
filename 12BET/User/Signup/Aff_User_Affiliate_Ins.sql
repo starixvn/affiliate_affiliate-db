@@ -52,7 +52,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @AffId INT, @Player_IBCCustId INT
+	DECLARE @AffId INT, @Player_IBCCustId INT, @GenderName NVARCHAR(20), @MailOptionName NVARCHAR(300), @Question NVARCHAR(400)
 
 	-- Check exists email
 	IF EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE Email = @Email)
@@ -138,6 +138,10 @@ BEGIN
 	DECLARE @SPName VARCHAR(200)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
+	SELECT @GenderName = CASE WHEN @Gender = 0 THEN 'Female' ELSE 'Male' END
+
+	SELECT Question = f.Question FROM dbo.Aff_f_Get_SecurityQuestions(0, 'en-US') f WHERE f.QuestionID = @QuestionID
+
 	DECLARE @NewData NVARCHAR(MAX)		
 	SELECT @NewData = CONVERT(NVARCHAR(MAX), 
 					  (
@@ -146,7 +150,8 @@ BEGIN
 								   ,@UserName AS '@UserName'
 								   ,@FirstName AS '@FirstName'
 								   ,@LastName AS '@LastName'
-								   ,@Gender AS '@Gender'
+								   ,@GenderName AS '@Gender'
+								   ,'Html Format' AS '@MailOption'
 								   ,@Email AS '@Email'
 								   ,@Phone AS '@Phone'
 								   ,@ContactApps AS '@ContactApps'
@@ -159,7 +164,7 @@ BEGIN
 								   ,@MoreSiteUrls AS '@MoreSiteUrls'
 								   ,@NoSiteDesc AS '@NoSiteDesc'
 								   ,@PreferredLanguage AS '@PreferredLanguage'
-								   ,@QuestionID AS '@QuestionID'
+								   ,@Question AS '@Question'
 								   ,@Answer AS '@Answer'
 								   ,@PreferredPayment AS '@PreferredPayment'
 								   ,@Player_UserName AS '@Player_UserName'
