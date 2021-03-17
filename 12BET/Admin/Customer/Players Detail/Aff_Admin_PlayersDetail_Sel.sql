@@ -22,6 +22,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20181001@Percy: Support export excel [RedmineID: #102322]
 		- 20191210@Percy: Add withdrawal column and support sort [RedmineID: #121971]
+		- 20210223@Percy: Exclude removed member [RedmineID: #149213]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -126,7 +127,10 @@ BEGIN
 		OPTION (MAXRECURSION 0)
 	END
 
-	SELECT @NRows = COUNT(1) FROM #tmpData
+	SELECT @NRows = COUNT(1)
+	FROM #tmpData d
+		LEFT JOIN dbo.MemberRemoval mr WITH (NOLOCK) ON d.IBCCustId = mr.IBCCustId AND mr.MonthDate = @ToEndMonth
+	WHERE mr.IBCCustId IS NULL
 
 	IF @NRows = 0
 		RETURN
@@ -183,11 +187,8 @@ BEGIN
 			) AS RN
 		FROM #tmpData d
 			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.IBCCustId = m.IBCCustId
-		WHERE NOT EXISTS (
-				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-				WHERE mr.RemovedDate <= @ToEndMonth
-					AND mr.IBCCustId = d.IBCCustId
-				)
+			LEFT JOIN dbo.MemberRemoval mr WITH (NOLOCK) ON m.IBCCustId = mr.IBCCustId AND mr.MonthDate = @ToEndMonth
+		WHERE mr.IBCCustId IS NULL
 	) r
 	WHERE r.RN BETWEEN @RowStart AND @RowEnd
 	ORDER BY r.RN
