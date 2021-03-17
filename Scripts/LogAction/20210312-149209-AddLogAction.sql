@@ -12,3 +12,4 @@ VALUES (1009,  2, 'Aff_Admin_AffiliatePreferredLanguage_Upd', 'Update Preferred 
 ,(1013,  2, 'Aff_Admin_AffiliateClosed_Upd', 'Update status')
 ,(1014,  18, 'Aff_Admin_Member_RemoveStatus_Upd', 'Update remove status')
 ,(1015,  11, 'Aff_Admin_AffiliateNote_Ins', 'User note')
+,(1016,  4, 'Aff_PaymentRequestIns', 'Payout')
