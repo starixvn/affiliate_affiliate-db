@@ -76,13 +76,14 @@ BEGIN
 				ul.LogId			AS LogId
 				,ul.LogDate			AS [Date]
 				,u.UserName			AS UpdatedName
-				,lt.[Description]	AS [Action]
+				,ISNULL( la.Description ,lt.[Description]) AS [Action]
 				,NULL AS [Description]
 				,ul.[IP]
 				,ul.OldData AS OldData
 				,ul.NewData AS NewData
 			FROM dbo.UserLog_RunSP_Detail ul WITH (NOLOCK)
 				INNER JOIN dbo.LogType lt WITH (NOLOCK) ON ul.LogTypeID = lt.TypeID
+				LEFT JOIN dbo.LogAction la WITH(NOLOCK) ON la.ActionId = ul.LogActionId
 				LEFT JOIN dbo.Users u WITH (NOLOCK) ON ul.UserId = u.CustId
 			WHERE ul.LogDate >= @FromDate AND ul.LogDate < DATEADD(DAY, 1, @ToDate)
 				AND ul.AffID = @AffID
