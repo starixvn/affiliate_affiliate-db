@@ -15,3 +15,5 @@ VALUES (1009,  2, 'Aff_Admin_AffiliatePreferredLanguage_Upd', 'Update Preferred 
 ,(1016,  4, 'Aff_PaymentRequestIns', 'Payout')
 ,(1017,  8, 'Aff_EmailHistoryIns', 'New Email From Affiliate')
 ,(1018,  11, 'Aff_Admin_AffiliateNote_Upd', 'Update a note')
+,(1019,  16, 'Aff_AffiliateUpdPwd', 'Update affiliate password')
+,(1020,  8, 'Aff_Admin_EmailHistory_Del', 'Remove Affiliate Email')

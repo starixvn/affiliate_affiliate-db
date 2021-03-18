@@ -52,7 +52,7 @@ BEGIN
 	END
 	-- End check permission
 
-	DECLARE @tblMailId TABLE (MId INT NOT NULL PRIMARY KEY)
+	DECLARE @tblMailId TABLE (MId INT NOT NULL PRIMARY KEY, ID INT IDENTITY(1, 1))
 	INSERT INTO @tblMailId (MId)
 	SELECT DISTINCT val FROM dbo.strSplit (@MIds, ',')
 
@@ -83,19 +83,46 @@ BEGIN
 	END CATCH
 
 	-- Write Log
-	DECLARE @LogData NVARCHAR(200), @SPName VARCHAR(50)
-
-	SELECT @LogData = CONVERT(NVARCHAR(MAX), (SELECT  MId AS '@MId' FROM @tblMailId FOR XML PATH('row'), ROOT('root')))
-
+	DECLARE @LogData NVARCHAR(200), @SPName VARCHAR(50), @Content NVARCHAR(MAX), @Sender nvarchar(100), @AffId INT, @Email nvarchar(50),@Subject nvarchar(2000), @SendDate DATETIME
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
-	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
-		@UserId		= @UserId,
-		@AffId		= 0,
-		@SPName		= @SPName,
-		@OldData	= @LogData,
-		@NewData	= '',
-		@IP			= @IP,
-		@Language	= @Language
+	DECLARE @ID INT = 1,@_Mid INT
+
+	WHILE 1 = 1
+	BEGIN
+		IF NOT EXISTS(SELECT 1 FROM @tblMailId WHERE ID = @ID)
+			RETURN
+
+		SELECT @_Mid = MId FROM @tblMailId WHERE ID = @ID
+
+		SELECT @Content = Content, @Sender = Sender, @Subject = Subject, @Email = Email, @SendDate = CreatedDate, @AffId = AffId
+		FROM EmailHistory
+		where MID = @_Mid
+	
+		SELECT @LogData = CONVERT(NVARCHAR(MAX), 
+						  (
+								SELECT 
+									@_Mid    AS '@Mid',
+									@Content AS '@Content',
+									@Sender AS '@Sender', 
+									@Subject AS '@Subject', 
+									@Email AS '@Email', 
+									CONVERT(VARCHAR(100), @SendDate, 121) AS '@SendDate'
+								FOR XML PATH('row'), ROOT('root'))
+						   )
+
+		SET @AffId = CASE WHEN @AffId = -1 THEN 0 ELSE @AffId END
+
+		EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
+			@UserId		= @UserId,
+			@AffId		= @AffId,
+			@SPName		= @SPName,
+			@OldData	= @LogData,
+			@NewData	= '',
+			@IP			= @IP,
+			@Language	= @Language
+
+		SET @ID += 1
+	END
 END
 GO

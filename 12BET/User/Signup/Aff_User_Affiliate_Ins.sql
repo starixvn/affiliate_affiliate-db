@@ -52,7 +52,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @AffId INT, @Player_IBCCustId INT, @GenderName NVARCHAR(20), @MailOptionName NVARCHAR(300), @Question NVARCHAR(400)
+	DECLARE @AffId INT, @Player_IBCCustId INT, @GenderName NVARCHAR(20), @MailOptionName NVARCHAR(300), @Question NVARCHAR(400),@AffTypeName NVARCHAR(100)
 
 	-- Check exists email
 	IF EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE Email = @Email)
@@ -142,10 +142,12 @@ BEGIN
 
 	SELECT Question = f.Question FROM dbo.Aff_f_Get_SecurityQuestions(0, 'en-US') f WHERE f.QuestionID = @QuestionID
 
+	SELECT @AffTypeName = Name FROM AffType WITH(NOLOCK)WHERE TypeId = @AffType
+
 	DECLARE @NewData NVARCHAR(MAX)		
 	SELECT @NewData = CONVERT(NVARCHAR(MAX), 
 					  (
-							SELECT @AffType AS '@AffType'
+							SELECT @AffTypeName AS '@AffType'
 								   ,@AffId AS '@AffId'
 								   ,@UserName AS '@UserName'
 								   ,@FirstName AS '@FirstName'

@@ -41,6 +41,8 @@ BEGIN
                 SET VerificationCount = @VerificationCount + 1,
                     LastVerificationDate = @CurrentTime
                 WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo
+				
+			SET @VerificationCount = @VerificationCount + 1
         END TRY
         BEGIN CATCH
             SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
