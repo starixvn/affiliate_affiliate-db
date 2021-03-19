@@ -276,7 +276,7 @@ BEGIN
 	--Write the log     
 	DECLARE @LogData NVARCHAR(MAX),@SPName varchar(100)       
 
-	SELECT @LogData = CONVERT(NVARCHAR(MAX), (SELECT @TransID AS '@TransactionId', @Amount AS '@Amount' FOR XML PATH('row'), ROOT('root'))), @SPName=OBJECT_NAME(@@ProcID)    
+	SELECT @LogData = CONVERT(NVARCHAR(MAX), (SELECT @TransID AS '@TransactionId', CONVERT(VARCHAR(50), @Amount) AS '@Amount' FOR XML PATH('row'), ROOT('root'))), @SPName=OBJECT_NAME(@@ProcID)    
      
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog    
 			 @SPName = @SPName

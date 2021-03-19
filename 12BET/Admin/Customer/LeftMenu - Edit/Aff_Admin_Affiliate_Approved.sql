@@ -133,8 +133,8 @@ BEGIN
 			RETURN
 		END CATCH
 		
-		SELECT	@OldData = '<root><row Password="'+ ISNULL(Password_Del, '') +'" Status="'+ ISNULL(Status_Del, '') +'" ApprovedDate="'+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Del), '') +'" CasinoJoinedDate="'+ ISNULL(CONVERT(VARCHAR(20), CasinoJoinedDate_Del), '') +'"></row></root>'
-				,@NewData = '<root><row Password="'+ ISNULL(Password_Ins, '') +'" Status="'+ ISNULL(Status_Ins, '') +'" ApprovedDate="'+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Ins), '') +'" CasinoJoinedDate="'+ ISNULL(CONVERT(VARCHAR(20), CasinoJoinedDate_Ins), '') +'"></row></root>'
+		SELECT	@OldData = '<root><row Status="'+ ISNULL(Status_Del, '') +'" ApprovedDate="'+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Del), '') +'" CasinoJoinedDate="'+ ISNULL(CONVERT(VARCHAR(20), CasinoJoinedDate_Del), '') +'"></row></root>'
+				,@NewData = '<root><row Status="'+ ISNULL(Status_Ins, '') +'" ApprovedDate="'+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Ins), '') +'" CasinoJoinedDate="'+ ISNULL(CONVERT(VARCHAR(20), CasinoJoinedDate_Ins), '') +'"></row></root>'
 		FROM @UpdatedData
 	END
 	

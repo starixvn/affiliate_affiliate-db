@@ -18,5 +18,6 @@ BEGIN
 	SELECT ActionId, Description AS ActionName
 	FROM LogAction WITH(NOLOCK)
 	WHERE IsShow = @IsShow OR @IsShow IS NULL
+	ORDER BY Description ASC
 END
 GO
