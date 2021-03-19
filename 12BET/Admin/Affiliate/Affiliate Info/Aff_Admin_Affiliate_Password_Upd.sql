@@ -65,16 +65,13 @@ BEGIN
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
-
-	SELECT @OldData = '<root><row Password="'+ @OldPassword +'"></row></root>'
-		   ,@NewData = '<root><row Password="'+ @Password +'"></row></root>'
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,
 		@AffId		= @AffId,
 		@SPName		= @SPName,
-		@OldData	= @OldData,
-		@NewData	= @NewData,
+		@OldData	= NULL,
+		@NewData	= NULL,
 		@IP			= @IP,
 		@Language	= @Language
 END

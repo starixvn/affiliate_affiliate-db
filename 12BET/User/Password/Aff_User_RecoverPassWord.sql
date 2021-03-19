@@ -87,18 +87,12 @@ BEGIN
 	DECLARE @SPName VARCHAR(200)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
-	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
-
-	SELECT @OldData = CONVERT(NVARCHAR(MAX), (SELECT @OldPassword AS '@Password' FOR XML PATH('row'), ROOT('root')))
-	
-	SELECT @NewData = CONVERT(NVARCHAR(MAX), (SELECT @NewPassword AS '@Password' FOR XML PATH('row'), ROOT('root')))
-	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @AffId,
 		@AffId		= @AffId,
 		@SPName		= @SPName,
-		@OldData	= @OldData,
-		@NewData	= @NewData,
+		@OldData	= NULL,
+		@NewData	= NULL,
 		@IP			= @IP,
 		@Language	= @Language
 END

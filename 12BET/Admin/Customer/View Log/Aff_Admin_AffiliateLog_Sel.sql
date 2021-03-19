@@ -1,12 +1,12 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateLog_Sel]
-	@AffID		INT,
-	@LogType	INT = 0,
-	@FromDate	DATETIME,
-	@ToDate		DATETIME,
-	@PageSize	INT = 50,
-	@PageIndex	INT = 1,
-	@NRows		INT = 0 OUTPUT
+	@AffID			INT,
+	@LogActionId	INT = 0,
+	@FromDate		DATETIME,
+	@ToDate			DATETIME,
+	@PageSize		INT = 50,
+	@PageIndex		INT = 1,
+	@NRows			INT = 0 OUTPUT
 AS
 
 /*
@@ -23,7 +23,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT @LogType = ISNULL(@LogType, 0), @NRows = 0
+	SELECT @LogActionId = ISNULL(@LogActionId, 0), @NRows = 0
 
 	DECLARE @RowStart INT, @RowEnd INT
 	SELECT  @RowStart = @PageSize * (@PageIndex - 1) + 1
@@ -36,15 +36,15 @@ BEGIN
 			INNER JOIN dbo.LogType lt WITH (NOLOCK) ON ul.TypeID = lt.TypeID
 		WHERE LoggedDate >= @FromDate AND LoggedDate < DATEADD(DAY, 1, @ToDate)
 			AND AffID = @AffID
-			AND (@LogType = 0 OR ul.TypeID = @LogType)
+			AND (@LogActionId = 0)
 
 		UNION ALL
 		SELECT COUNT(1) AS [RowCount]
 		FROM dbo.UserLog_RunSP_Detail ul WITH (NOLOCK)
-			INNER JOIN dbo.LogType lt WITH (NOLOCK) ON ul.LogTypeID = lt.TypeID
+			INNER JOIN dbo.LogAction lt WITH (NOLOCK) ON ul.LogActionId = lt.ActionId
 		WHERE LogDate >= @FromDate AND LogDate < DATEADD(DAY, 1, @ToDate)
 			AND AffID = @AffID
-			AND (@LogType = 0 OR ul.LogTypeID = @LogType)
+			AND (@LogActionId = 0 OR ul.LogActionId = @LogActionId)
 	) AS t
 
 	IF @NRows = 0
@@ -69,7 +69,7 @@ BEGIN
 				LEFT JOIN dbo.Users u WITH (NOLOCK) ON ul.Creator = u.CustId
 			WHERE ul.LoggedDate >= @FromDate AND ul.LoggedDate < DATEADD(DAY, 1, @ToDate)
 				AND ul.AffID = @AffID
-				AND (@LogType = 0 OR ul.TypeID = @LogType)
+				AND (@LogActionId = 0)
 
 			UNION ALL
 			SELECT
@@ -87,7 +87,7 @@ BEGIN
 				LEFT JOIN dbo.Users u WITH (NOLOCK) ON ul.UserId = u.CustId
 			WHERE ul.LogDate >= @FromDate AND ul.LogDate < DATEADD(DAY, 1, @ToDate)
 				AND ul.AffID = @AffID
-				AND (@LogType = 0 OR ul.LogTypeID = @LogType)
+				AND (@LogActionId = 0 OR ul.LogActionId = @LogActionId)
 		) AS l
 	) AS r
 	WHERE RowNum BETWEEN @RowStart AND @RowEnd

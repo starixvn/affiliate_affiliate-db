@@ -63,8 +63,6 @@ SET Password=@Affpwd
 where AffID=@AffID  
   
 declare @SPName varchar(50), @NewData nvarchar(MAX)  , @OldData NVARCHAR(MAX)
-Select @NewData = CONVERT(NVARCHAR(MAX), (SELECT @Affpwd FOR XML PATH('row'), ROOT('root')))
-Select @OldData = CONVERT(NVARCHAR(MAX), (SELECT @OldData FOR XML PATH('row'), ROOT('root')))
 select @SPName = OBJECT_NAME(@@ProcID)  
 select @UserID = isnull(@UserID, @AffID)  
  
@@ -73,7 +71,7 @@ EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 	@UserId		= @UserID,
 	@AffId		= @AffId,
 	@SPName		= @SPName,
-	@NewData	= @NewData,
-	@OldData	= @OldData,
+	@NewData	= NULL,
+	@OldData	= NULL,
 	@IP			= @IP
 GO
