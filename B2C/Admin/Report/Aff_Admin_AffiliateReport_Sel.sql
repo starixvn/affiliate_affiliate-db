@@ -25,6 +25,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 		- 20210223@Percy: Add Commission Group filter [RedmineID: #150493]
+		- 20210323@Percy: Missing FDM [RedmineID: #151391]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -245,8 +246,7 @@ BEGIN
 			,COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate) THEN 1 ELSE NULL END) AS Signup
 			,COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate) THEN 1 ELSE NULL END) AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
-		WHERE mi.RegisteredDate >= @FromDate
-			AND NOT EXISTS (
+		WHERE NOT EXISTS (
 					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 					WHERE mi.CustId = mr.CustId
 						AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
