@@ -12,6 +12,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
+		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 */
 
 BEGIN
@@ -72,9 +73,7 @@ BEGIN
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
-			ActivePlayer		INT,
 			QualifiedMember		INT,
-			QMTurnover			MONEY,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
 			SubAffCommission	MONEY
@@ -105,9 +104,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				ActivePlayer,
 				QualifiedMember,
-				QMTurnOver,
 				CommissionRate,
 				Commission,
 				SubAffCommission
@@ -146,9 +143,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				ActivePlayer,
 				QualifiedMember,
-				QMTurnOver,
 				CommissionRate,
 				Commission,
 				SubAffCommission
@@ -165,7 +160,7 @@ BEGIN
 
 	SELECT
 		@QualifiedMembersByMonth	= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(QualifiedMember, 0) ELSE 0 END),
-		@ActivePlayersByMonth		= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(ActivePlayer, 0) ELSE 0 END),
+		@ActivePlayersByMonth		= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(QualifiedMember, 0) ELSE 0 END),
 		@DepositByMonth				= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Deposit, 0) ELSE 0 END),
 		@TurnoverByMonth			= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Turnover, 0) ELSE 0 END),
 		@WinlostByMonth				= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Winloss, 0) ELSE 0 END),

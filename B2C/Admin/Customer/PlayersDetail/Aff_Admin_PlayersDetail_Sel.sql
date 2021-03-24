@@ -22,6 +22,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -48,6 +49,17 @@ BEGIN
 	SELECT  @ToEndMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @FromBeginMonth))
 
 	CREATE TABLE #tmpData (CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, Winloss MONEY, Bonus MONEY, Rebate MONEY)
+
+	DECLARE @ProductIds VARCHAR(MAX)
+	SELECT  @ProductIds = COALESCE(@ProductIds + ',', '') + CONVERT(VARCHAR(15), ProductId)
+	FROM (
+	SELECT DISTINCT dsh.ProductId
+		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+			INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupID = dsh.GroupID AND agh.MonthDate = dsh.MonthDate
+		WHERE dsh.ProductId > 0
+			AND agh.MonthDate = @ToEndMonth
+			AND agh.AffID = @AffId
+	) s
 
 	-- rptMemberDaily
 	BEGIN
@@ -83,7 +95,13 @@ BEGIN
 					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, r.Currency, @BaseCurrency) e
 				WHERE wld.WinlostDate = r.WinlostDate
 					AND r.AffId = @AffId
-					AND (@ProductId = 0 OR r.ProductId < 0 OR r.ProductId = @ProductId)
+					AND (
+						r.ProductId < 0
+						OR (
+							',' + @ProductIds + ',' LIKE '%,' + CONVERT(VARCHAR(15), r.ProductId) + ',%'
+							AND (@ProductId = 0 OR r.ProductId = @ProductId)
+						)
+					)
 					AND (@Currencies = '' OR ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
 			) r
 		GROUP BY r.CustId

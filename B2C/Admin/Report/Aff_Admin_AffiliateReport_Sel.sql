@@ -26,6 +26,7 @@ AS
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 		- 20210223@Percy: Add Commission Group filter [RedmineID: #150493]
 		- 20210323@Percy: Missing FDM [RedmineID: #151391]
+		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -97,9 +98,7 @@ BEGIN
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
-			ActivePlayer		INT,
 			QualifiedMember		INT,
-			QMTurnover			MONEY,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
 			SubAffCommission	MONEY
@@ -128,9 +127,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				ActivePlayer,
 				QualifiedMember,
-				QMTurnOver,
 				CommissionRate,
 				Commission,
 				SubAffCommission
@@ -168,9 +165,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				ActivePlayer,
 				QualifiedMember,
-				QMTurnOver,
 				CommissionRate,
 				Commission,
 				SubAffCommission
@@ -276,7 +271,6 @@ BEGIN
 			UniqueClick		INT,
 			Signup			INT,
 			FDM				INT,
-			ActiveMember	INT,
 			QualifiedMember INT,
 			NoOfSubAff		INT,
 			Deposit			MONEY,
@@ -305,7 +299,6 @@ BEGIN
 			UniqueClick,
 			Signup,
 			FDM,
-			ActiveMember,
 			QualifiedMember,
 			NoOfSubAff,
 			Deposit,
@@ -333,7 +326,6 @@ BEGIN
 			ISNULL(s.UniqueClick, 0)		AS UniqueClick,
 			ISNULL(su.Signup, 0)			AS Signup,
 			ISNULL(su.FDM, 0)				AS FDM,
-			ISNULL(tc.ActivePlayer, 0)		AS ActiveMember,
 			ISNULL(tc.QualifiedMember, 0)	AS QualifiedMember,
 			ISNULL(a.NoOfSubAff, 0)			AS NoOfSubAff,
 			ISNULL(tc.Deposit, 0)			AS Deposit,
@@ -372,7 +364,6 @@ BEGIN
 			) s ON ai.AffId = s.AffId
 			LEFT JOIN (
 				SELECT AffId,
-					SUM(ActivePlayer)				AS ActivePlayer,
 					SUM(QualifiedMember)			AS QualifiedMember,
 					SUM(Deposit)					AS Deposit,
 					SUM(Withdrawal)					AS Withdrawal,
@@ -420,7 +411,7 @@ BEGIN
 		SELECT @RowStart = 1, @RowEnd = @NRows
 
 	-- Return detail
-	SELECT AffId, Username, TotalClick, UniqueClick, Signup, FDM, ActiveMember, QualifiedMember, NoOfSubAff
+	SELECT AffId, Username, TotalClick, UniqueClick, Signup, FDM, QualifiedMember AS ActiveMember, QualifiedMember, NoOfSubAff
 		,Deposit, Withdrawal, Turnover, Winlost, Bonus, Rebate, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee
 		,PlatFormFee + OperationalFee + DepositFee + WithdrawalFee AS TotalFee
 		,CommissionRate, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF
@@ -434,7 +425,7 @@ BEGIN
 		,SUM(UniqueClick)		AS UniqueClick
 		,SUM(Signup)			AS Signup
 		,SUM(FDM)				AS FDM
-		,SUM(ActiveMember)		AS ActiveMember
+		,SUM(QualifiedMember)	AS ActiveMember -- same QualifiedMember
 		,SUM(QualifiedMember)	AS QualifiedMember
 		,SUM(NoOfSubAff)		AS NoOfSubAff
 		,SUM(Deposit)			AS Deposit

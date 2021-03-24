@@ -16,6 +16,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20210317@Percy: Change ExchangeOanda [RedmineID: #151391]
 */
 
 BEGIN
@@ -29,6 +30,29 @@ BEGIN
 	SELECT  @BeginOfFromMonthDate	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate), 0) -- First day of @FromMonthDate
 	SELECT  @EndOfToMonthDate		= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToMonthDate) + 1, 0)) -- Last day of @ToMonthDate
 
+	-- AffCurrency
+	DECLARE @AffCurrency INT
+	SELECT  @AffCurrency = dbo.Aff_f_GetSetting('AffCurrency')
+
+	IF @BaseCurrency = 0
+		SET @BaseCurrency = @AffCurrency
+
+	CREATE TABLE #ExchangeOanda (MonthDate SMALLDATETIME, Currency INT, Rate FLOAT)
+	INSERT INTO #ExchangeOanda (MonthDate, Currency, Rate)
+	SELECT ExchangeDate, ExchangeId,
+		CASE @BaseCurrency
+			WHEN  2 THEN MYR
+			WHEN  3 THEN USD
+			WHEN  6 THEN EUR
+			WHEN 13 THEN CNY
+			WHEN 20 THEN 1 -- cheat code for UAT testing
+			WHEN 34 THEN IDR / 1000.0
+			WHEN 43 THEN THB
+			WHEN 51 THEN VND / 1000.0
+			ELSE 0 END AS Rate
+	FROM dbo.ExchangeOanda WITH (NOLOCK)
+	WHERE ExchangeDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
+		
 	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME, AffId INT, GroupId INT)
 
 	CREATE TABLE #AffCommission
@@ -247,10 +271,7 @@ BEGIN
 		END
 	END
 
-	DECLARE @AffCurrency INT
-	SELECT  @AffCurrency = dbo.Aff_f_GetSetting('AffCurrency')
-
-	IF @BaseCurrency <> 0 AND @BaseCurrency <> @AffCurrency
+	-- Base Currency
 	BEGIN
 		UPDATE c
 		SET c.Deposit			= c.Deposit * e.Rate,
@@ -268,7 +289,7 @@ BEGIN
 			c.Commission		= c.Commission * e.Rate,
 			c.SubAffCommission	= c.SubAffCommission * e.Rate
 		FROM #AffCommission c
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(c.MonthDate, @AffCurrency, @BaseCurrency) e
+			INNER JOIN #ExchangeOanda e ON c.MonthDate = e.MonthDate AND e.Currency = @BaseCurrency
 	END
 
 	-- Filter by Products
@@ -324,9 +345,7 @@ BEGIN
 			SUM(ISNULL(WithdrawalFee, 0))	AS WithdrawalFee,
 			SUM(GrossWinloss)		AS GrossWinloss,
 			SUM(NetWinloss)			AS NetWinloss,
-			SUM(ActivePlayer)		AS ActivePlayer,
 			SUM(QualifiedMember)	AS QualifiedMember,
-			SUM(QMTurnOver)			AS QMTurnOver,
 			SUM(CommissionRate)		AS CommissionRate,
 			SUM(Commission)			AS Commission,
 			SUM(SubAffCommission)	AS SubAffCommission
@@ -355,9 +374,7 @@ BEGIN
 			ISNULL(WithdrawalFee, 0)	AS WithdrawalFee,
 			GrossWinloss,
 			NetWinloss,
-			ActivePlayer,
 			QualifiedMember,
-			QMTurnOver,
 			CommissionRate,
 			Commission,
 			SubAffCommission
