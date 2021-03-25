@@ -1,7 +1,7 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateLog_Sel]
 	@AffID			INT,
-	@LogActionId	INT = 0,
+	@LogActionIds	VARCHAR(MAX) = '',
 	@FromDate		DATETIME,
 	@ToDate			DATETIME,
 	@PageSize		INT = 50,
@@ -19,12 +19,13 @@ AS
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: get old data and new data [RedmineId : #149209]
 		- 20210325@Malcolm: get description [RedmineId : #149209]
+		- 20210325@Malcolm: get multiple actions[RedmineId : #149209]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT @LogActionId = ISNULL(@LogActionId, 0), @NRows = 0
+	SELECT @LogActionIds = ISNULL(@LogActionIds, ''), @NRows = 0
 
 	DECLARE @RowStart INT, @RowEnd INT
 	SELECT  @RowStart = @PageSize * (@PageIndex - 1) + 1
@@ -37,7 +38,7 @@ BEGIN
 			INNER JOIN dbo.LogType lt WITH (NOLOCK) ON ul.TypeID = lt.TypeID
 		WHERE LoggedDate >= @FromDate AND LoggedDate < DATEADD(DAY, 1, @ToDate)
 			AND AffID = @AffID
-			AND (@LogActionId = 0)
+			AND (@LogActionIds = '')
 
 		UNION ALL
 		SELECT COUNT(1) AS [RowCount]
@@ -45,7 +46,7 @@ BEGIN
 			INNER JOIN dbo.LogAction lt WITH (NOLOCK) ON ul.LogActionId = lt.ActionId
 		WHERE LogDate >= @FromDate AND LogDate < DATEADD(DAY, 1, @ToDate)
 			AND AffID = @AffID
-			AND (@LogActionId = 0 OR ul.LogActionId = @LogActionId)
+			AND (@LogActionIds = '' OR ul.LogActionId IN (SELECT val FROM dbo.f_SplitString(@LogActionIds, ',')))
 	) AS t
 
 	IF @NRows = 0
@@ -70,7 +71,7 @@ BEGIN
 				LEFT JOIN dbo.Users u WITH (NOLOCK) ON ul.Creator = u.CustId
 			WHERE ul.LoggedDate >= @FromDate AND ul.LoggedDate < DATEADD(DAY, 1, @ToDate)
 				AND ul.AffID = @AffID
-				AND (@LogActionId = 0)
+				AND (@LogActionIds = '')
 
 			UNION ALL
 			SELECT
@@ -88,7 +89,7 @@ BEGIN
 				LEFT JOIN dbo.Users u WITH (NOLOCK) ON ul.UserId = u.CustId
 			WHERE ul.LogDate >= @FromDate AND ul.LogDate < DATEADD(DAY, 1, @ToDate)
 				AND ul.AffID = @AffID
-				AND (@LogActionId = 0 OR ul.LogActionId = @LogActionId)
+				AND (@LogActionIds = '' OR ul.LogActionId IN (SELECT val FROM dbo.f_SplitString(@LogActionIds, ',')))
 		) AS l
 	) AS r
 	WHERE RowNum BETWEEN @RowStart AND @RowEnd
