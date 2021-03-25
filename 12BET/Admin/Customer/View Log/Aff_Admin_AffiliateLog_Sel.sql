@@ -18,6 +18,7 @@ AS
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: get old data and new data [RedmineId : #149209]
+		- 20210325@Malcolm: get description [RedmineId : #149209]
 */
 
 BEGIN
@@ -77,7 +78,7 @@ BEGIN
 				,ul.LogDate			AS [Date]
 				,u.UserName			AS UpdatedName
 				,ISNULL( la.Description ,lt.[Description]) AS [Action]
-				,NULL AS [Description]
+				,ISNULL(ul.OldData, '') + ISNULL(ul.NewData, '') AS [Description]
 				,ul.[IP]
 				,ul.OldData AS OldData
 				,ul.NewData AS NewData
