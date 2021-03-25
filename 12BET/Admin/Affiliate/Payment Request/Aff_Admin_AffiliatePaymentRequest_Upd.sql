@@ -18,6 +18,7 @@ AS
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -103,16 +104,27 @@ BEGIN
 
 	-- For Log
 	DECLARE @OldData NVARCHAR(4000), @NewData NVARCHAR(4000), @SPName VARCHAR(50)
-	SELECT  @OldData	= 'Status=' + ISNULL(Status, 'NULL')
-							+ 'AdminDesc=' + ISNULL(AdminDesc, 'NULL')
-							+ 'AffDesc=' + ISNULL(AffDesc, 'NULL')
-			,@NewData	= 'Status=' + ISNULL(@Status, 'NULL')
-							+ 'AdminDesc=' + ISNULL(@AdminDesc, 'NULL')
-							+ 'AffDesc=' + ISNULL(@AffDesc, 'NULL')
-			,@SPName	= OBJECT_NAME(@@PROCID)
-	FROM dbo.AffPayout WITH (NOLOCK)
-	WHERE AffID = @AffID AND RefID = @RefID
-	
+
+	SELECT @OldData = CONVERT(NVARCHAR(MAX),
+					  (
+						 SELECT	Status AS '@Status', 
+							    AdminDesc AS '@AdminDesc', 
+							    AffDesc AS '@AffDesc' 
+						 FROM dbo.AffPayout WITH (NOLOCK) 
+						 WHERE AffID = @AffID AND RefID = @RefID 
+						 FOR XML PATH ('row'), ROOT('root')
+					  ))
+
+	SELECT @NewData = CONVERT(NVARCHAR(MAX), 
+					  (
+							SELECT @Status AS '@Status', 
+								   @AdminDesc AS '@AdminDesc', 
+								   @AffDesc AS '@AffDesc' 
+						    FOR XML PATH('row'), ROOT('root')
+					  ))
+
+	SELECT @SPName	= OBJECT_NAME(@@PROCID)
+
 	IF @OldData = @NewData
 		RETURN
 

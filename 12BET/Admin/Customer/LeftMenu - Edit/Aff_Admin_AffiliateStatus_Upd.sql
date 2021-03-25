@@ -17,6 +17,7 @@ AS
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -52,8 +53,9 @@ BEGIN
 
 	-- For Log
 	DECLARE @OldData NVARCHAR(4000), @NewData NVARCHAR(4000), @SPName VARCHAR(50), @Email NVARCHAR(50)
-	SELECT  @OldData	= 'Status=' + ISNULL(CONVERT(VARCHAR(5), Status), '')
-			,@NewData	= 'Status=' + ISNULL(CONVERT(VARCHAR(5), @Status), '')
+
+	SELECT  @OldData	= '<root><row Status="'+ ISNULL(CONVERT(VARCHAR(10), Status), '') +'"></row></root>'
+			,@NewData	= '<root><row Status="'+ ISNULL(CONVERT(VARCHAR(10), @Status), '') +'"></row></root>'
 			,@SPName	= OBJECT_NAME(@@PROCID)
 			,@Email		= Email
 	FROM dbo.AffInfo WITH (NOLOCK)
@@ -61,11 +63,6 @@ BEGIN
 
 	IF @OldData = @NewData
 		RETURN
-
-	SELECT  @OldData	= @OldData + 'Status=' + ISNULL(CONVERT(VARCHAR(5), Status), '')
-			,@NewData	= @NewData + 'Status=' + ISNULL(CONVERT(VARCHAR(5), @Status), '')
-	FROM dbo.AffInfo WITH (NOLOCK)
-	WHERE AffID = @AffID
 
 	IF @Status = 'Approved' -- From Pending/Disapproved
 	BEGIN

@@ -18,6 +18,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize SP [Redmine: #87923]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -68,7 +69,7 @@ BEGIN
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
 	DECLARE @NewData NVARCHAR(MAX)
-	SELECT  @NewData = 'ValidCode=' + ISNULL(@ValidCode, '')
+	SELECT  @NewData = CONVERT(NVARCHAR(MAX), (SELECT @ValidCode AS '@ValidCode' FOR XML PATH('row'), ROOT('root')))
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @AffId,

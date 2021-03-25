@@ -16,6 +16,7 @@ AS
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102399]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -63,7 +64,7 @@ BEGIN
 
 	DECLARE @Data NVARCHAR(MAX)
 
-	SELECT  @Data = 'PageName=' + @PageName + ',' + 'PageCode=' + @PageCode
+	SELECT @Data = CONVERT(NVARCHAR(MAX), (SELECT @PageName AS '@PageName', @PageCode AS '@PageCode' FOR XML PATH('row'), ROOT('root')))
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,

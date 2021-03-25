@@ -19,6 +19,7 @@ AS
 	
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -86,17 +87,12 @@ BEGIN
 	DECLARE @SPName VARCHAR(200)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
-	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
-
-	SELECT  @OldData = 'Password=' + ISNULL(@OldPassword, ''),
-			@NewData = 'Password=' + ISNULL(@NewPassword, '')
-	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @AffId,
 		@AffId		= @AffId,
 		@SPName		= @SPName,
-		@OldData	= @OldData,
-		@NewData	= @NewData,
+		@OldData	= NULL,
+		@NewData	= NULL,
 		@IP			= @IP,
 		@Language	= @Language
 END

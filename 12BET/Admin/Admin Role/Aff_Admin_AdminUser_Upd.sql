@@ -24,6 +24,7 @@ AS
 
 	Revisions:
 		- 20200731@Percy: Initialize SP [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 
 	Param's Explanation:
 		@Market:
@@ -114,8 +115,9 @@ BEGIN
 	END
 
 	-- Update process
-	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
-	SELECT  @OldData = CONVERT(NVARCHAR(MAX), (
+	DECLARE @OldUserInfo XML='', @NewUserInfo XML='',  @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
+
+	SELECT  @OldUserInfo = CONVERT(XML, (
 				SELECT
 					u.CustId					AS '@CustId'
 					,u.UserName					AS '@UserName'
@@ -129,7 +131,7 @@ BEGIN
 				FROM dbo.Users u WITH (NOLOCK)
 					INNER JOIN dbo.Roles r WITH (NOLOCK) ON u.RoleId = r.RoleId
 				WHERE u.CustId = @CustId AND u.IsDeleted = 0
-				FOR XML PATH('row'), ROOT('root')
+				FOR XML PATH('row'), ROOT('UserInfo')
 			))
 
 	DECLARE @OldFunction XML, @OldMarket XML
@@ -158,7 +160,7 @@ BEGIN
 					INNER JOIN dbo.Functions f WITH (NOLOCK) ON uf.FuncId = f.FuncId
 				WHERE CustId = @CustId
 				ORDER BY f.FuncId
-				FOR XML PATH('row'), ROOT('root')
+				FOR XML PATH('row'), ROOT('FunctionPolicy')
 			)
 
 			DELETE dbo.UserFunction WITH (ROWLOCK, UPDLOCK) WHERE CustId = @CustId
@@ -177,7 +179,7 @@ BEGIN
 					INNER JOIN dbo.Functions f WITH (NOLOCK) ON uf.FuncId = f.FuncId
 				WHERE CustId = @CustId
 				ORDER BY f.FuncId
-				FOR XML PATH('row'), ROOT('root')
+				FOR XML PATH('row'), ROOT('FunctionPolicy')
 			)
 		END
 
@@ -192,7 +194,7 @@ BEGIN
 				FROM dbo.Market m WITH (NOLOCK)
 					LEFT JOIN dbo.UserMarket um WITH (NOLOCK) ON um.MarketId = m.MarketId AND um.CustId = @CustId
 				ORDER BY m.MarketId
-				FOR XML PATH('row'), ROOT('root')
+				FOR XML PATH('row'), ROOT('MarketPolicy')
 			)
 
 			DELETE dbo.UserMarket WITH (ROWLOCK, UPDLOCK) WHERE CustId = @CustId
@@ -211,7 +213,7 @@ BEGIN
 				FROM dbo.Market m WITH (NOLOCK)
 					LEFT JOIN dbo.UserMarket um WITH (NOLOCK) ON um.MarketId = m.MarketId AND um.CustId = @CustId
 				ORDER BY m.MarketId
-				FOR XML PATH('row'), ROOT('root')
+				FOR XML PATH('row'), ROOT('MarketPolicy')
 			)
 		END
 	END TRY
@@ -224,7 +226,7 @@ BEGIN
 	DECLARE @SPName VARCHAR(200)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
-	SELECT  @NewData = CONVERT(NVARCHAR(MAX), (
+	SELECT  @NewUserInfo = CONVERT(XML, (
 				SELECT
 					u.CustId					AS '@CustId'
 					,u.UserName					AS '@UserName'
@@ -238,17 +240,14 @@ BEGIN
 				FROM dbo.Users u WITH (NOLOCK)
 					INNER JOIN dbo.Roles r WITH (NOLOCK) ON u.RoleId = r.RoleId
 				WHERE u.CustId = @CustId AND u.IsDeleted = 0
-				FOR XML PATH('row'), ROOT('root')
+				FOR XML PATH('row'), ROOT('UserInfo')
 			))
 
-	IF @OldData = @NewData
-		SELECT @OldData = NULL, @NewData = NULL
+	IF CONVERT(NVARCHAR(MAX), @NewUserInfo) = CONVERT(NVARCHAR(MAX), @OldUserInfo)
+		SELECT @NewUserInfo = '', @OldUserInfo = ''
 
-	SELECT @OldData = COALESCE(@OldData + ',', '') + 'FunctionPolicy=' + CONVERT(VARCHAR(MAX), @OldFunction)
-			,@NewData = COALESCE(@NewData + ',', '') + 'FunctionPolicy=' + CONVERT(VARCHAR(MAX), @NewFunction)
-		
-	SELECT @OldData = COALESCE(@OldData + ',', '') + 'MarketPolicy=' + CONVERT(VARCHAR(MAX), @OldMarket)
-			,@NewData = COALESCE(@NewData + ',', '') + 'MarketPolicy=' + CONVERT(VARCHAR(MAX), @NewMarket)
+	SELECT @OldData = CONVERT(NVARCHAR(MAX), (SELECT @OldUserInfo, @OldFunction, @OldMarket FOR XML PATH ('row'), ROOT('root')))
+	SELECT @NewData = CONVERT(NVARCHAR(MAX), (SELECT @NewUserInfo, @NewFunction, @NewMarket FOR XML PATH ('row'), ROOT('root')))
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId

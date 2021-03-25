@@ -16,6 +16,7 @@ AS
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -44,11 +45,14 @@ BEGIN
 
 	-- For Log
 	DECLARE @OldData NVARCHAR(4000), @NewData NVARCHAR(4000), @SPName VARCHAR(50)
-	SELECT  @OldData	= 'AffType=' + ISNULL(CONVERT(VARCHAR(5), AffType), '')
-			,@NewData	= 'AffType=' + ISNULL(CONVERT(VARCHAR(5), @AffType), '')
-			,@SPName	= OBJECT_NAME(@@PROCID)
-	FROM dbo.AffInfo WITH (NOLOCK)
-	WHERE AffID = @AffID
+
+	SELECT @OldData = '<root><row AffType="'+ t.Name +'"></row></root>' 
+		  ,@SPName	= OBJECT_NAME(@@PROCID)
+	FROM dbo.AffInfo i WITH (NOLOCK)
+		INNER JOIN dbo.AffType t WITH(NOLOCK) ON i.AffType = t.TypeId 
+	WHERE i.AffID = @AffID 
+
+	SELECT @NewData = '<root><row AffType="'+ Name +'"></row></root>' FROM dbo.AffType WITH(NOLOCK) WHERE TypeId = @AffType
 
 	IF @OldData = @NewData
 		RETURN

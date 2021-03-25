@@ -17,6 +17,7 @@ AS
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210223@Percy: Change permission function [RedmineID: #149213]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -92,8 +93,9 @@ BEGIN
 
 	-- Write Log
 	DECLARE @OldData NVARCHAR(4000), @NewData NVARCHAR(4000), @SPName VARCHAR(50)
-	SELECT  @OldData	= 'IsClosed=' + ISNULL(CONVERT(VARCHAR(5), @Old_IsClosed), '')
-			,@NewData	= 'IsClosed=' + ISNULL(CONVERT(VARCHAR(5), @IsClosed), '')
+
+	SELECT  @OldData	= '<root><row IsClosed="'+ ISNULL(CONVERT(VARCHAR(5), @Old_IsClosed), '') +'"></row></root>'
+			,@NewData	= '<root><row IsClosed="'+ ISNULL(CONVERT(VARCHAR(5), @IsClosed), '') +'"></row></root>'
 			,@SPName	= OBJECT_NAME(@@PROCID)
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog

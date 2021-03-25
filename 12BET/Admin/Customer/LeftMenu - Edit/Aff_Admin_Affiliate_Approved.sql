@@ -17,6 +17,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -131,17 +132,9 @@ BEGIN
 
 			RETURN
 		END CATCH
-
-		SELECT	@OldData =
-					'Password='			+ ISNULL(Password_Del, '') + ',' +
-					'Status='			+ ISNULL(Status_Del, '') + ',' + 
-					'ApprovedDate='		+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Del), '') + ',' + 
-					'CasinoJoinedDate=' + ISNULL(CONVERT(VARCHAR(20), CasinoJoinedDate_Del), ''),
-				@NewData =
-					'Password='			+ ISNULL(Password_Ins, '') + ',' +
-					'Status='			+ ISNULL(Status_Ins, '') + ',' + 
-					'ApprovedDate='		+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Ins), '') + ',' + 
-					'CasinoJoinedDate=' + ISNULL(CONVERT(VARCHAR(20), CasinoJoinedDate_Ins), '')
+		
+		SELECT	@OldData = '<root><row Status="'+ ISNULL(Status_Del, '') +'" ApprovedDate="'+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Del), '') +'" CasinoJoinedDate="'+ ISNULL(CONVERT(VARCHAR(20), CasinoJoinedDate_Del), '') +'"></row></root>'
+				,@NewData = '<root><row Status="'+ ISNULL(Status_Ins, '') +'" ApprovedDate="'+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Ins), '') +'" CasinoJoinedDate="'+ ISNULL(CONVERT(VARCHAR(20), CasinoJoinedDate_Ins), '') +'"></row></root>'
 		FROM @UpdatedData
 	END
 	

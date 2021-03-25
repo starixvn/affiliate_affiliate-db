@@ -18,6 +18,7 @@ AS
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -73,9 +74,7 @@ BEGIN
 	DECLARE @SPName VARCHAR(200), @NewData NVARCHAR(MAX)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
-	SELECT  @NewData = 'AffDomainId=' + CONVERT(VARCHAR(10), @AffDomainId)
-					+ ',12BetDomainId=' + CONVERT(VARCHAR(10), @12BetDomainId)
-					+ ',MarketId=' + ISNULL(@MarketId, '')
+	SELECT  @NewData = CONVERT(NVARCHAR(MAX), (SELECT @AffDomainId AS '@AffDomainId', @12BetDomainId AS '@_12BetDomainId', @MarketId AS '@MarketId' FOR XML PATH('row'), ROOT('root')))
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId

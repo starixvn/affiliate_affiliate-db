@@ -42,19 +42,23 @@ BEGIN
 
 	-- Check banner exists
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
-	SELECT  @OldData = 'MessageId=' + ISNULL(CONVERT(VARCHAR(5), MsgId), '')
-					+ ',' + 'Message_En=' + ISNULL(Message_En, '')
-					+ ',' + 'Message_Cn=' + ISNULL(Message_Cn, '')
-					+ ',' + 'Message_Tw=' + ISNULL(Message_Tw, '')
-					+ ',' + 'Message_Es=' + ISNULL(Message_Es, '')
-					+ ',' + 'Message_Th=' + ISNULL(Message_Th, '')
-					+ ',' + 'Message_Id=' + ISNULL(Message_Id, '')
-					+ ',' + 'Message_Vi=' + ISNULL(Message_Vi, '')
-					+ ',' + 'Message_Kr=' + ISNULL(Message_Kr, '')
-					+ ',' + 'Message_Jp=' + ISNULL(Message_Jp, '')
-					+ ',' + 'Important=' + ISNULL(CONVERT(VARCHAR(5), Important), '')
-	FROM dbo.News WITH (NOLOCK)
-	WHERE MsgId = @MessageId
+	SELECT  @OldData = CONVERT(NVARCHAR(MAX), 
+					   (
+							SELECT MsgId AS '@MessageId',
+								   Message_En AS '@Message_En',
+								   Message_Cn AS '@Message_Cn',
+								   Message_Tw AS '@Message_Tw',
+								   Message_Es AS '@Message_Es',
+								   Message_Th AS '@Message_Th',
+								   Message_Id AS '@Message_Id',
+								   Message_Vi AS '@Message_Vi',
+								   Message_Kr AS '@Message_Kr',
+								   Message_Jp	AS '@Message_Jp',
+								   Important AS '@Important'
+							FROM dbo.News WITH (NOLOCK)
+							WHERE MsgId = @MessageId
+							FOR XML PATH('row'), ROOT('root')
+					   ))
 
 	IF @OldData IS NULL
 	BEGIN
@@ -86,18 +90,21 @@ BEGIN
 	-- Write log
 	DECLARE @SPName VARCHAR(200)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
-
-	SELECT  @NewData = 'MessageId=' + ISNULL(CONVERT(VARCHAR(5), @MessageId), '')
-					+ ',' + 'Message_En=' + ISNULL(@MsgEn, '')
-					+ ',' + 'Message_Cn=' + ISNULL(@MsgCn, '')
-					+ ',' + 'Message_Tw=' + ISNULL(@MsgTw, '')
-					+ ',' + 'Message_Es=' + ISNULL(@MsgEs, '')
-					+ ',' + 'Message_Th=' + ISNULL(@MsgTh, '')
-					+ ',' + 'Message_Id=' + ISNULL(@MsgId, '')
-					+ ',' + 'Message_Vi=' + ISNULL(@MsgVi, '')
-					+ ',' + 'Message_Kr=' + ISNULL(@MsgKr, '')
-					+ ',' + 'Message_Jp=' + ISNULL(@MsgJp, '')
-					+ ',' + 'Important=' + ISNULL(CONVERT(VARCHAR(5), @IsImportant), '')
+	SELECT  @NewData = CONVERT(NVARCHAR(MAX),
+					   (
+							SELECT	 @MessageId AS '@MessageId'
+									,@MsgEn AS '@Message_En'
+									,@MsgCn AS '@Message_Cn'
+									,@MsgTw AS  '@Message_Tw'
+									,@MsgEs AS  '@Message_Es'
+									,@MsgTh AS  '@Message_Th'
+									,@MsgId AS  '@Message_Id'
+									,@MsgVi AS  '@Message_Vi'
+									,@MsgKr AS  '@Message_Kr'
+									,@MsgJp AS  '@Message_Jp'
+									,@IsImportant AS '@IsImportant'
+							FOR XML PATH('row'), ROOT('root')
+						))
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId

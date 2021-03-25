@@ -16,6 +16,7 @@ AS
 	Revisions:
 		- 20210113@Malcolm: Initialize SP [RedmineID: #147902]
 		- 20210128@Malcolm: Convert amount from varchar(max) to money [RedmineID: #147902]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 
 	Param's Explanation
 		.@XmlData = <root><r Username="" Amount="" Description=""/></root>
@@ -149,8 +150,7 @@ BEGIN
 		IF NOT EXISTS(SELECT TOP 1 1 FROM #Input WHERE ID = @ID)
 			BREAK
 
-		SELECT @AffId = AffID, @LogData = 'Amount=' + CONVERT(VARCHAR(50), CONVERT(MONEY, REPLACE(Amount, ',', ''))) FROM #Input WHERE ID = @ID
-
+		SELECT @AffId = AffID, @LogData = '<root><row Amount="'+ CONVERT(VARCHAR(50), CONVERT(MONEY, REPLACE(Amount, ',', ''))) +'"></row></root>' FROM #Input WHERE ID = @ID
 		EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 			@UserID = @UserId
 			,@AffID = @AffId

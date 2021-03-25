@@ -16,6 +16,7 @@ AS
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -44,6 +45,7 @@ BEGIN
 	BEGIN CATCH
 		-- Update process is unsuccessful. Please try again!
 		SELECT @ErrCode = 101, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
+		RETURN
 	END CATCH
 
 	-- Write log
@@ -51,7 +53,7 @@ BEGIN
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
 	DECLARE @LogData NVARCHAR(MAX)
-	SELECT  @LogData = 'NoteId=' + CONVERT(VARCHAR(20), @NoteId)
+	SELECT  @LogData = CONVERT(NVARCHAR(MAX), (SELECT @NoteID AS '@NoteId', @Note AS '@Content' FOR XML PATH('row'), root('root')))
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,

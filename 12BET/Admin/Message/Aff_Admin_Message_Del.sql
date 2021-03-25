@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -52,19 +53,24 @@ BEGIN
 	END
 
 	DECLARE @OldData NVARCHAR(MAX)
-	SELECT  @OldData = 'MessageId=' + ISNULL(CONVERT(VARCHAR(5), m.MsgId), '')
-					+ ',' + 'Message_En=' + ISNULL(m.Message_En, '')
-					+ ',' + 'Message_Cn=' + ISNULL(m.Message_Cn, '')
-					+ ',' + 'Message_Tw=' + ISNULL(m.Message_Tw, '')
-					+ ',' + 'Message_Es=' + ISNULL(m.Message_Es, '')
-					+ ',' + 'Message_Th=' + ISNULL(m.Message_Th, '')
-					+ ',' + 'Message_Id=' + ISNULL(m.Message_Id, '')
-					+ ',' + 'Message_Vi=' + ISNULL(m.Message_Vi, '')
-					+ ',' + 'Message_Kr=' + ISNULL(m.Message_Kr, '')
-					+ ',' + 'Message_Jp=' + ISNULL(m.Message_Jp, '')
-					+ ',' + 'Important=' + ISNULL(CONVERT(VARCHAR(5), m.Important), '')
-	FROM dbo.News m WITH (NOLOCK)
-		INNER JOIN @Messages tmp ON m.MsgId = tmp.MessageId
+	SELECT  @OldData = CONVERT(NVARCHAR(MAX), 
+					   (
+							SELECT m.MsgId AS '@MessageId',
+								   m.Message_En AS '@Message_En',
+								   m.Message_Cn AS '@Message_Cn',
+								   m.Message_Tw AS '@Message_Tw',
+								   m.Message_Es AS '@Message_Es',
+								   m.Message_Th AS '@Message_Th',
+								   m.Message_Id AS '@Message_Id',
+								   m.Message_Vi AS '@Message_Vi',
+								   m.Message_Kr AS '@Message_Kr',
+								   m.Message_Jp	AS '@Message_Jp',
+								   m.Important AS '@Important'
+								   
+							FROM dbo.News m WITH (NOLOCK)
+								INNER JOIN @Messages tmp ON m.MsgId = tmp.MessageId
+							FOR XML PATH('row'), ROOT('root')
+					   ))
 
 	BEGIN TRY
 		DELETE m WITH (ROWLOCK, UPDLOCK)

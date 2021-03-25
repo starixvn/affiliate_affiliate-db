@@ -16,6 +16,7 @@ AS
 
 	Revisions:
 		- 20200731@Percy: Initialize SP [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 
 	Param's Explanation:
 		@Permission:
@@ -81,11 +82,12 @@ BEGIN
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
 	DECLARE @NewData NVARCHAR(MAX)
-	SELECT  @NewData =
-			'RoleId='			+ CONVERT(VARCHAR(5), @RoleId) + ',' +
-			'RoleName='			+ @RoleName + ',' +
-			'FunctionPolicy='	+ CONVERT(NVARCHAR(MAX),
-									(
+	SELECT  @NewData = CONVERT(NVARCHAR(MAX),
+					   (
+							SELECT @RoleId	AS '@RoleId'
+								   ,@RoleName AS '@RoleName'
+								   ,CONVERT(XML, 
+								    (
 										SELECT
 											f.FuncId	AS '@FuncId'
 											,f.FuncName	AS '@FuncName'
@@ -94,8 +96,10 @@ BEGIN
 											INNER JOIN dbo.Functions f WITH (NOLOCK) ON rf.FuncId = f.FuncId
 										WHERE rf.RoleId = @RoleId
 										ORDER BY f.FuncId
-										FOR XML PATH('row'), ROOT('root')
-									))
+										FOR XML PATH('row')
+									)) AS FunctionPolicy
+							FOR XML PATH('row'), ROOT('root')
+					    ))
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId

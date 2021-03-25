@@ -17,6 +17,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20190614@Percy: Add @AffId into log [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -89,8 +90,8 @@ BEGIN
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
-	SELECT  @OldData = 'GroupId=' + CONVERT(VARCHAR(20), @OldGroupId),
-			@NewData = 'GroupId=' + CONVERT(VARCHAR(20), @GroupId)
+	SELECT  @OldData = '<root><row GroupId="'+ CONVERT(VARCHAR(20), @OldGroupId) +'"></row></root>'
+			,@NewData = '<root><row GroupId="'+ CONVERT(VARCHAR(20), @GroupId) +'"></row></root>'
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,

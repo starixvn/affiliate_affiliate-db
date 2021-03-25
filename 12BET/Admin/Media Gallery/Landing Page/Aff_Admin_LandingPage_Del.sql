@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102399]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -53,11 +54,8 @@ BEGIN
 
 	DECLARE @OldData NVARCHAR(MAX)
 
-	SELECT  @OldData = COALESCE(@OldData + ',', '') + CONVERT(VARCHAR(10), PageId)
-	FROM @LandingPage
+	SELECT  @OldData = CONVERT(NVARCHAR(MAX),(SELECT PageId AS '@PageId' FROM @LandingPage FOR XML PATH('row'), ROOT('root')))
 
-	SELECT  @OldData = 'PageId=' + @OldData
-	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,
 		@AffId		= 0,

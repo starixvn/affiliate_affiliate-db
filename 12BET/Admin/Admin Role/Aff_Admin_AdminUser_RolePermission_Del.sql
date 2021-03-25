@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20200731@Percy: Initialize SP [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -40,22 +41,23 @@ BEGIN
 	END
 
 	DECLARE @OldData NVARCHAR(MAX)
-	SELECT  @OldData =
-			'RoleId=' + CONVERT(VARCHAR(5), @RoleId) + ',' +
-			'RoleName=' + @RoleName + ',' +
-			'FunctionPolicy='	+ CONVERT(NVARCHAR(MAX),
-									(
-										SELECT
-											f.FuncId	AS '@FuncId'
-											,f.FuncName	AS '@FuncName'
-											,rf.Policy	AS '@Policy'
-										FROM dbo.RoleFunction rf WITH (NOLOCK)
-											INNER JOIN dbo.Functions f WITH (NOLOCK) ON rf.FuncId = f.FuncId
-										WHERE rf.RoleId = @RoleId
-										ORDER BY f.FuncId
-										FOR XML PATH('row'), ROOT('root')
-									))
-
+	SELECT  @OldData = CONVERT(NVARCHAR(MAX), 
+					   (
+						  SELECT @RoleId AS '@RoleId', 
+						  	     @RoleName AS '@RoleName', 
+						  	     CONVERT(XML, 
+								 (
+									SELECT  f.FuncId	AS '@FuncId'
+						  				    ,f.FuncName	AS '@FuncName'
+						  					,rf.Policy	AS '@Policy'
+						  			FROM dbo.RoleFunction rf WITH (NOLOCK)
+						  				INNER JOIN dbo.Functions f WITH (NOLOCK) ON rf.FuncId = f.FuncId
+						  			WHERE rf.RoleId = @RoleId
+						  			ORDER BY f.FuncId
+						  			FOR XML PATH('row'))
+								 ) AS FunctionPolicy
+						  FOR XML PATH('row'), ROOT('root')
+					   ))
 	-- Delete process
 	BEGIN TRY
 		DELETE dbo.Roles WITH (ROWLOCK, UPDLOCK)

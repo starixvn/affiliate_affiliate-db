@@ -21,6 +21,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20190115@Walter: Remove Locking action [RedmineID: #104884]
 		- 20190125@Walter: Store user device info [RedmineID: #104884]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -78,11 +79,14 @@ BEGIN
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
 	DECLARE @NewData NVARCHAR(MAX)
-	SELECT  @NewData = 
-			'IsSuccessful='			+ ISNULL(CONVERT(VARCHAR(1), @IsSuccessful), '') + ',' +
-			'FailedLoginCount='		+ ISNULL(CONVERT(VARCHAR(10), @FailedLoginCount), '') + ',' +
-			'IP='					+ ISNULL(@IpAddress, '') + ',' +
-			'DeviceInfo='			+ ISNULL(@DeviceInfo, '')
+	SELECT  @NewData = CONVERT(NVARCHAR(MAX), 
+					   (
+							SELECT  @IsSuccessful AS '@IsSuccessful', 
+									@FailedLoginCount AS '@FailedLoginCount', 
+									@IpAddress AS '@IP', 
+									@DeviceInfo AS '@DeviceInfo'
+						    FOR XML PATH('row'), ROOT('root')
+					   ))
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @AffId,

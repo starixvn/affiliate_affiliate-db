@@ -16,6 +16,7 @@ AS
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -53,19 +54,23 @@ BEGIN
 	END
 
 	DECLARE @OldData NVARCHAR(MAX)
-	SELECT  @OldData = COALESCE(@OldData + ';', '')
-						+ 'BannerId=' + ISNULL(CONVERT(VARCHAR(10), BannerId), '')
-						+ ',' + 'FileName=' + ISNULL(FileName, '')
-						+ ',' + 'ImageType=' + ISNULL(ImageType, '')
-						+ ',' + 'Size=' + ISNULL(Size, '')
-						+ ',' + 'Categories=' + ISNULL(Categories, '')
-						+ ',' + 'Language=' + ISNULL(Language, '')
-						+ ',' + 'Currencies=' + ISNULL(Currencies, '')
-						+ ',' + 'AffTypes=' + ISNULL(AffTypes, '')
-						+ ',' + 'DeviceTypes=' + ISNULL(DeviceTypes, '')
-	FROM dbo.Banners b WITH (NOLOCK)
-	WHERE ImageType <> 'Text'
-		AND EXISTS (SELECT 1 FROM @Banners tmp WHERE b.BannerId = tmp.BannerId)
+	SELECT  @OldData = CONVERT(NVARCHAR(MAX),
+					   (
+							SELECT 
+								BannerId AS '@BannerId'
+								,FileName AS '@FileName'
+								,ImageType AS '@ImageType'
+								,Size AS '@Size'
+								,Categories AS '@Categories'
+								,Language AS '@Language'
+								,Currencies AS '@Currencies'
+								,AffTypes AS '@AffTypes'
+								,DeviceTypes AS '@DeviceTypes'
+							FROM dbo.Banners b WITH (NOLOCK)
+							WHERE ImageType <> 'Text'
+								AND EXISTS (SELECT 1 FROM @Banners tmp WHERE b.BannerId = tmp.BannerId)
+							FOR XML PATH('row'), ROOT('root')
+					   ))			
 
 	BEGIN TRY
 		DELETE b WITH (ROWLOCK, UPDLOCK)

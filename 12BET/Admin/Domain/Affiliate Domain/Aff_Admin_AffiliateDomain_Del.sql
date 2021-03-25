@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -37,10 +38,16 @@ BEGIN
 	END
 
 	DECLARE @OldData NVARCHAR(MAX)
-	SELECT  @OldData = 'DomainId=' + CONVERT(VARCHAR(10), DomainId)
-						+ ',DomainName=' + DomainName
-						+ ',IsSSL=' + CONVERT(VARCHAR(1), IsSSL)
-	FROM dbo.AffDomain WITH (NOLOCK) WHERE DomainId = @DomainId AND IsDeleted = 0
+
+	SELECT  @OldData = CONVERT(NVARCHAR(MAX), 
+					   (
+						  SELECT DomainId AS '@DomainId'
+								,DomainName AS '@DomainName'
+								,IsSSL AS '@IsSSL'
+						  FROM dbo.AffDomain WITH (NOLOCK) 
+						  WHERE DomainId = @DomainId AND IsDeleted = 0
+						  FOR XML PATH('row'), ROOT('root')
+					   ))
 
 	IF @@ROWCOUNT = 0
 	BEGIN

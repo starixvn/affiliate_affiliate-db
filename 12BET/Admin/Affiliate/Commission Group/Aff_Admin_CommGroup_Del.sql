@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 */
 
 BEGIN
@@ -67,7 +68,7 @@ BEGIN
 
 	DECLARE @Data NVARCHAR(MAX)
 
-	SELECT  @Data = 'GroupId='	+ ISNULL(CONVERT(VARCHAR(15), @GroupId), '')
+	SELECT @Data = '<root><row GroupId="'+ ISNULL(CONVERT(VARCHAR(15), @GroupId), '') +'"></row></root>'
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,

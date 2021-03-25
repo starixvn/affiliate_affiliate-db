@@ -65,18 +65,22 @@ BEGIN
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
 	DECLARE @NewData NVARCHAR(MAX)
-	SELECT  @NewData = 'MessageId=' + ISNULL(CONVERT(VARCHAR(5), @MessageId), '')
-					+ ',' + 'Message_En=' + ISNULL(@MsgEn, '')
-					+ ',' + 'Message_Cn=' + ISNULL(@MsgCn, '')
-					+ ',' + 'Message_Tw=' + ISNULL(@MsgTw, '')
-					+ ',' + 'Message_Es=' + ISNULL(@MsgEs, '')
-					+ ',' + 'Message_Th=' + ISNULL(@MsgTh, '')
-					+ ',' + 'Message_Id=' + ISNULL(@MsgId, '')
-					+ ',' + 'Message_Vi=' + ISNULL(@MsgVi, '')
-					+ ',' + 'Message_Kr=' + ISNULL(@MsgKr, '')
-					+ ',' + 'Message_Jp=' + ISNULL(@MsgJp, '')
-					+ ',' + 'Important=' + ISNULL(CONVERT(VARCHAR(5), @IsImportant), '')
-	
+	SELECT  @NewData = CONVERT(NVARCHAR(MAX),
+					   (
+							SELECT   @MessageId AS '@MessageId'
+									 ,@MsgEn AS '@Message_En'
+									 ,@MsgCn AS '@Message_Cn'
+									 ,@MsgTw AS  '@Message_Tw'
+									 ,@MsgEs AS  '@Message_Es'
+									 ,@MsgTh AS  '@Message_Th'
+									 ,@MsgId AS  '@Message_Id'
+									 ,@MsgVi AS  '@Message_Vi'
+									 ,@MsgKr AS  '@Message_Kr'
+									 ,@MsgJp AS  '@Message_Jp'
+									 ,@IsImportant AS '@IsImportant'
+							FOR XML PATH('row'), ROOT('root')
+						))
+
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,
 		@AffId		= 0,
