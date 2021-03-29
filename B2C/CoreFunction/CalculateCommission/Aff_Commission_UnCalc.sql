@@ -287,7 +287,13 @@ BEGIN
 		
 		-- Total
 		INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, Deposit, Withdrawal, Bonus, Rebate)
-		SELECT d.MonthDate, d.AffId, a.GroupId, 0 AS ProductId, 0 AS GroupProductId, d.Turnover, d.Winloss, d.Deposit, d.Withdrawal, d.Bonus, d.Rebate
+		SELECT d.MonthDate, d.AffId, a.GroupId, 0 AS ProductId, 0 AS GroupProductId,
+			SUM(d.Turnover),
+			SUM(d.Winloss),
+			SUM(d.Deposit),
+			SUM(d.Withdrawal),
+			SUM(d.Bonus),
+			SUM(d.Rebate)
 		FROM (
 			SELECT MonthDate, AffId,
 				0 AS Turnover,
@@ -312,6 +318,7 @@ BEGIN
 			GROUP BY MonthDate, AffId
 		) d
 			INNER JOIN @AffGroupInfo a ON d.MonthDate = a.MonthDate AND d.AffId = a.AffId
+		GROUP BY d.MonthDate, d.AffId, a.GroupId
 
 		-- Update ActivePlayers
 		UPDATE c
