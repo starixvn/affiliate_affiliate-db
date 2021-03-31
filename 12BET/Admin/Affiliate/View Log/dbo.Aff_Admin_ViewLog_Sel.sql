@@ -26,11 +26,11 @@ BEGIN
 
 	SELECT @PageIndex = @PageIndex - 1, @RowStart = @PageIndex * @PageSize + 1, @RowEnd = @RowStart + @PageSize - 1
 
-	DECLARE @Log TABLE (AffId INT, NumberOfAction INT, LogDate DATETIME, TypeId INT, LogId INT)
+	CREATE TABLE #Log (Id INT, AffId INT, NumberOfAction INT, LogDate DATETIME, TypeId INT, LogId INT)
 	
-	DECLARE @Result TABLE (Id INT, AffId INT, NumberOfAction INT, LogDate DATETIME, ActionId INT, UserId INT, TypeId INT, LogId INT)
+	DECLARE @Result TABLE (AffId INT, NumberOfAction INT, LogDate DATETIME, ActionId INT, UserId INT, TypeId INT, LogId INT)
 
-	INSERT INTO @Log (AffId, NumberOfAction, LogDate, LogId, TypeId)
+	INSERT INTO #Log (AffId, NumberOfAction, LogDate, LogId, TypeId)
 	SELECT d.AffId, COUNT(1) AS NumberOfAction, MAX(d.LogDate), MAX(d.LogId),1
 	FROM UserLog_RunSP_Detail d WITH(NOLOCK)
 	WHERE d.LogDate BETWEEN @FromDate AND @ToDate
@@ -38,35 +38,42 @@ BEGIN
 		AND d.AffId <> 0
 	GROUP BY d.AffId
 
-	INSERT INTO @Log (AffId, NumberOfAction, LogDate, LogId, TypeId)
+	INSERT INTO #Log (AffId, NumberOfAction, LogDate, LogId, TypeId)
 	SELECT d.AffId, COUNT(1) AS NumberOfAction, MAX(d.LoggedDate), MAX(d.RefNo),2
 	FROM UserLog d WITH(NOLOCK)
 	WHERE d.LoggedDate BETWEEN @FromDate AND @ToDate
 		AND (@ActionIds = '') AND d.AffId <> 0
 	GROUP BY d.AffId
 
-	;WITH CTE AS
-	(
-		SELECT l.AffId, SUM(NumberOfAction) AS NumberOfAction,MAX(l.LogDate) AS LogDate FROM @Log l GROUP BY l.AffId
-	)
-	INSERT INTO @Result (AffId, NumberOfAction, LogId, TypeId)
-	SELECT e.AffId, e.NumberOfAction, lg.LogId, lg.TypeId
-	FROM CTE e
-	CROSS APPLY (SELECT TOP(1) l.LogId, l.TypeId FROM @Log l) AS lg
+	CREATE INDEX IX_affId ON #Log(affId)
 
 	UPDATE x
 		SET x.Id = x.NewRowNum
 	FROM
 	(
-		SELECT Id,
-			ROW_NUMBER() OVER(ORDER BY af.Username ASC) AS NewRowNum
-		FROM @Result r
+		SELECT r.Id, 
+			DENSE_RANK() OVER(ORDER BY af.username ASC) AS NewRowNum
+		FROM #Log r
 			INNER JOIN dbo.AffInfo af WITH(NOLOCK) ON af.AffID = r.AffId
 		WHERE af.UserName LIKE '%' + @AffName + '%' OR @AffName = ''
 	) x
 
-	DELETE @Result 
-	WHERE Id < @RowStart OR Id > @RowEnd
+	DELETE #Log 
+	WHERE Id < @RowStart OR Id > @RowEnd OR id IS NULL
+
+	;WITH CTE AS
+	(
+		SELECT l.AffId, SUM(NumberOfAction) AS NumberOfAction,MAX(l.LogDate) AS LogDate FROM #Log l GROUP BY l.AffId
+	)
+	INSERT INTO @Result (AffId, NumberOfAction, LogId, TypeId, LogDate)
+	SELECT e.AffId, e.NumberOfAction, lg.LogId, lg.TypeId, e.LogDate
+	FROM CTE e
+	CROSS APPLY 
+	(
+		SELECT TOP(1) l.LogId, l.TypeId 
+		FROM #Log l 
+		WHERE l.AffId = e.AffId AND l.LogDate = e.LogDate
+	) AS lg
 
 	UPDATE  r
 		SET r.ActionId = ISNULL(m.LogActionId, u.TypeID)
@@ -86,12 +93,13 @@ BEGIN
 		WHERE ul.RefNo = r.LogId AND r.TypeId = 2
 	) AS u
 
-	SELECT AI.UserName AS AffName, r.NumberOfAction, ISNULL(la.Description, lt.Description) AS LastAction, u.UserName AS Actor, r.LogDate AS [DateTime]
+	SELECT ai.UserName AS AffName, r.NumberOfAction, ISNULL(la.Description, lt.Description) AS LastAction, u.UserName AS Actor, r.LogDate AS [DateTime]
 	FROM @Result r
 		INNER JOIN dbo.AffInfo ai WITH(NOLOCK) ON ai.AffID = r.AffId
 		LEFT JOIN dbo.Users u WITH(NOLOCK) ON  u.CustId = r.UserId
 		LEFT JOIN dbo.LogAction la WITH(NOLOCK) ON la.ActionId = r.ActionId AND r.TypeId = 1
 		LEFT JOIN dbo.LogType lt WITH(NOLOCK) ON lt.TypeID = r.ActionId AND r.TypeId = 2
-	
+
+	DROP TABLE #Log
 END
 GO
