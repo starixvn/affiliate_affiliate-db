@@ -28,18 +28,18 @@ BEGIN
 
 	SELECT @PageIndex = @PageIndex - 1, @RowStart = @PageIndex * @PageSize + 1, @RowEnd = @RowStart + @PageSize - 1
 
-	CREATE TABLE #Log (Id INT, AffId INT, NumberOfAction INT, LogDate DATETIME, TypeId INT, LogId INT, OrderId INT)
+	CREATE TABLE #Log (Id INT, AffId INT, NumberOfAction INT, LogDate DATETIME, [Type] INT, LogId INT, OrderId INT)
 	
-	DECLARE @Result TABLE (AffId INT, NumberOfAction INT, LogDate DATETIME, ActionId INT, UserId INT, TypeId INT, LogId INT)
+	DECLARE @Result TABLE (AffId INT, NumberOfAction INT, LogDate DATETIME, ActionId INT, UserId INT, [Type] INT, LogId INT)
 
-	INSERT INTO #Log (AffId, NumberOfAction, LogDate, LogId, TypeId)
+	INSERT INTO #Log (AffId, NumberOfAction, LogDate, LogId, [Type])
 	SELECT d.AffId, COUNT(1) AS NumberOfAction, MAX(d.LogDate), MAX(d.LogId),1
 	FROM UserLog_RunSP_Detail d WITH(NOLOCK)
 	WHERE d.LogDate BETWEEN @FromDate AND @ToDate
 		AND (d.LogActionId IN (SELECT val FROM dbo.strSplit(@LogActionIds, ',')) OR (@LogActionIds = '')) AND d.AffId <> 0
 	GROUP BY d.AffId
 
-	INSERT INTO #Log (AffId, NumberOfAction, LogDate, LogId, TypeId)
+	INSERT INTO #Log (AffId, NumberOfAction, LogDate, LogId, [Type])
 	SELECT d.AffId, COUNT(1) AS NumberOfAction, MAX(d.LoggedDate), MAX(d.RefNo),2
 	FROM UserLog d WITH(NOLOCK)
 	WHERE d.LoggedDate BETWEEN @FromDate AND @ToDate
@@ -77,8 +77,8 @@ BEGIN
 	(
 		SELECT l.AffId, SUM(NumberOfAction) AS NumberOfAction, MAX(l.LogDate) AS LogDate FROM #Log l GROUP BY l.AffId
 	)
-	INSERT INTO @Result (AffId, NumberOfAction, LogId, TypeId, LogDate)
-	SELECT e.AffId, e.NumberOfAction, l.LogId, l.TypeId, e.LogDate
+	INSERT INTO @Result (AffId, NumberOfAction, LogId, [Type], LogDate)
+	SELECT e.AffId, e.NumberOfAction, l.LogId, l.[Type], e.LogDate
 	FROM CTE e
 		INNER JOIN #Log l ON e.AffId = l.AffId
 	WHERE l.OrderId = 1
@@ -86,25 +86,25 @@ BEGIN
 	UPDATE  r
 		SET r.ActionId = ISNULL(m.LogActionId, u.TypeID)
 			,r.UserId = ISNULL(m.UserId, u.Creator)
-			,r.TypeId = ISNULL(m._TypeId, u._TypeId)
+			,r.[Type] = ISNULL(m.[Type], u.[Type])
 	FROM @Result r
 	OUTER APPLY(
-		SELECT d.LogActionId, d.UserId, 1 AS _TypeId
+		SELECT d.LogActionId, d.UserId, 1 AS [Type]
 		FROM UserLog_RunSP_Detail d WITH(NOLOCK)
-		WHERE d.LogId = r.LogId AND r.TypeId = 1
+		WHERE d.LogId = r.LogId AND r.[Type] = 1
 	) AS m
 	OUTER APPLY(
-		SELECT ul.TypeID, ul.Creator, 2 AS _TypeId
+		SELECT ul.TypeID, ul.Creator, 2 AS [Type]
 		FROM UserLog ul WITH(NOLOCK)
-		WHERE ul.RefNo = r.LogId AND r.TypeId = 2
+		WHERE ul.RefNo = r.LogId AND r.[Type] = 2
 	) AS u
 
 	SELECT r.AffId, ai.UserName AS AffName, r.NumberOfAction, ISNULL(la.Description, lt.Description) AS LastAction, u.UserName AS Actor, r.LogDate AS [DateTime]
 	FROM @Result r
 		INNER JOIN dbo.AffInfo ai WITH(NOLOCK) ON ai.AffID = r.AffId
 		LEFT JOIN dbo.Users u WITH(NOLOCK) ON  u.CustId = r.UserId
-		LEFT JOIN dbo.LogAction la WITH(NOLOCK) ON la.ActionId = r.ActionId AND r.TypeId = 1
-		LEFT JOIN dbo.LogType lt WITH(NOLOCK) ON lt.TypeID = r.ActionId AND r.TypeId = 2
+		LEFT JOIN dbo.LogAction la WITH(NOLOCK) ON la.ActionId = r.ActionId AND r.[Type] = 1
+		LEFT JOIN dbo.LogType lt WITH(NOLOCK) ON lt.TypeID = r.ActionId AND r.[Type] = 2
 	ORDER BY ai.UserName ASC
 
 	DROP TABLE #Log
