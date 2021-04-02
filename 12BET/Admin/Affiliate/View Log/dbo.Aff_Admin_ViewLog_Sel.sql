@@ -35,14 +35,14 @@ BEGIN
 	INSERT INTO #Log (AffId, NumberOfAction, LogDate, LogId, [Type])
 	SELECT d.AffId, COUNT(1) AS NumberOfAction, MAX(d.LogDate), MAX(d.LogId),1
 	FROM UserLog_RunSP_Detail d WITH(NOLOCK)
-	WHERE d.LogDate BETWEEN @FromDate AND @ToDate
-		AND (d.LogActionId IN (SELECT val FROM dbo.strSplit(@LogActionIds, ',')) OR (@LogActionIds = '')) AND d.AffId <> 0
+	WHERE d.LogDate >= @FromDate AND d.LogDate < DATEADD(DAY, 1, @ToDate)
+		AND (d.LogActionId IN (SELECT val FROM dbo.Aff_f_StringSplit(@LogActionIds, ',')) OR (@LogActionIds = '')) AND d.AffId <> 0
 	GROUP BY d.AffId
 
 	INSERT INTO #Log (AffId, NumberOfAction, LogDate, LogId, [Type])
 	SELECT d.AffId, COUNT(1) AS NumberOfAction, MAX(d.LoggedDate), MAX(d.RefNo),2
 	FROM UserLog d WITH(NOLOCK)
-	WHERE d.LoggedDate BETWEEN @FromDate AND @ToDate
+	WHERE d.LoggedDate >= @FromDate AND d.LoggedDate < DATEADD(DAY, 1, @ToDate)
 		AND (@LogActionIds = '') AND d.AffId <> 0
 	GROUP BY d.AffId	
 
