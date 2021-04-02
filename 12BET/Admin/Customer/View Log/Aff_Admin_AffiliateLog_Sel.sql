@@ -46,7 +46,7 @@ BEGIN
 			INNER JOIN dbo.LogAction lt WITH (NOLOCK) ON ul.LogActionId = lt.ActionId
 		WHERE LogDate >= @FromDate AND LogDate < DATEADD(DAY, 1, @ToDate)
 			AND AffID = @AffID
-			AND (@LogActionIds = '' OR ul.LogActionId IN (SELECT val FROM dbo.f_SplitString(@LogActionIds, ',')))
+			AND (@LogActionIds = '' OR ul.LogActionId IN (SELECT val FROM dbo.Aff_f_StringSplit(@LogActionIds, ',')))
 	) AS t
 
 	IF @NRows = 0
@@ -89,7 +89,7 @@ BEGIN
 				LEFT JOIN dbo.Users u WITH (NOLOCK) ON ul.UserId = u.CustId
 			WHERE ul.LogDate >= @FromDate AND ul.LogDate < DATEADD(DAY, 1, @ToDate)
 				AND ul.AffID = @AffID
-				AND (@LogActionIds = '' OR ul.LogActionId IN (SELECT val FROM dbo.f_SplitString(@LogActionIds, ',')))
+				AND (@LogActionIds = '' OR ul.LogActionId IN (SELECT val FROM dbo.Aff_f_StringSplit(@LogActionIds, ',')))
 		) AS l
 	) AS r
 	WHERE RowNum BETWEEN @RowStart AND @RowEnd
