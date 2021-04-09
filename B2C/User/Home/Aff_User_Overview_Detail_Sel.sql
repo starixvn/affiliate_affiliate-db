@@ -13,6 +13,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
+		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 */
 
 BEGIN
@@ -31,6 +32,17 @@ BEGIN
 
 	IF @ToNextMonth < DATEADD(DAY, 1, @FromBeginMonth)
 		RETURN
+
+	DECLARE @ProductIds VARCHAR(MAX)
+	SELECT  @ProductIds = COALESCE(@ProductIds + ',', '') + CONVERT(VARCHAR(15), ProductId)
+	FROM (
+	SELECT DISTINCT dsh.ProductId
+		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+			INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupID = dsh.GroupID AND agh.MonthDate = dsh.MonthDate
+		WHERE dsh.ProductId > 0
+			AND agh.MonthDate = @EndOfMonth
+			AND agh.AffID = @AffId
+	) s
 
 	-- Signups, Deposited Members
 	BEGIN
@@ -80,6 +92,10 @@ BEGIN
 					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (r.WinlostDate, r.Currency, @BaseCurrency) e
 				WHERE r.WinlostDate = wld.WinlostDate
 					AND r.AffId = @AffId
+					AND (
+						r.ProductId < 0
+						OR ',' + @ProductIds + ',' LIKE '%,' + CONVERT(VARCHAR(15), r.ProductId) + ',%'
+					)
 					AND NOT EXISTS (
 						SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 						WHERE mr.CustId = r.CustId

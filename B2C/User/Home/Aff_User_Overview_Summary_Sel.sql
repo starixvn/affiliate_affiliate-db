@@ -13,6 +13,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
+		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 */
 
 BEGIN
@@ -75,9 +76,7 @@ BEGIN
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
-			ActivePlayer		INT,
 			QualifiedMember		INT,
-			QMTurnover			MONEY,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
 			SubAffCommission	MONEY
@@ -107,9 +106,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				ActivePlayer,
 				QualifiedMember,
-				QMTurnOver,
 				CommissionRate,
 				Commission,
 				SubAffCommission
@@ -143,9 +140,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				ActivePlayer,
 				QualifiedMember,
-				QMTurnOver,
 				CommissionRate,
 				Commission,
 				SubAffCommission
@@ -161,8 +156,7 @@ BEGIN
 		END
 
 		SELECT
-			@ActivePlayers				= SUM(ISNULL(ActivePlayer, 0))
-			,@QualifiedActivePlayers	= SUM(ISNULL(QualifiedMember, 0))
+			@QualifiedActivePlayers		= SUM(ISNULL(QualifiedMember, 0))
 			,@Turnover					= SUM(ISNULL(Turnover, 0))
 			,@Deposit					= SUM(ISNULL(Deposit, 0))
 			,@Commission				= SUM(ISNULL(Commission, 0))
@@ -178,7 +172,7 @@ BEGIN
 			ISNULL(@Signups, 0)					AS Signups
 			,ISNULL(@DepositedMembers, 0)		AS DepositedMembers
 			,ISNULL(@BBF, 0)					AS BalanceBroughtForward
-			,ISNULL(@ActivePlayers, 0)			AS ActivePlayers
+			,ISNULL(@QualifiedActivePlayers, 0)	AS ActivePlayers -- same QualifiedMember
 			,ISNULL(@QualifiedActivePlayers, 0)	AS QualifiedActivePlayers
 			,ISNULL(@Turnover, 0)				AS Turnover
 			,ISNULL(@Deposit, 0)				AS Deposit

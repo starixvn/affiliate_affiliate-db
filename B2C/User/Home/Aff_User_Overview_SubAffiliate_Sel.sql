@@ -12,6 +12,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 */
 
 BEGIN
@@ -44,9 +45,7 @@ BEGIN
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
-			ActivePlayer		INT,
 			QualifiedMember		INT,
-			QMTurnover			MONEY,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
 			SubAffCommission	MONEY
@@ -86,9 +85,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				ActivePlayer,
 				QualifiedMember,
-				QMTurnOver,
 				CommissionRate,
 				Commission,
 				SubAffCommission
@@ -122,9 +119,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				ActivePlayer,
 				QualifiedMember,
-				QMTurnOver,
 				CommissionRate,
 				Commission,
 				SubAffCommission
@@ -160,7 +155,7 @@ BEGIN
 					SUM(c.Turnover) AS Turnover
 					,SUM(c.Winloss) AS Winloss
 					,SUM(c.Commission + c.SubAffCommission) AS Commission
-					,SUM(c.ActivePlayer) AS ActivePlayer
+					,SUM(c.QualifiedMember) AS ActivePlayer -- same QualifiedMember
 				FROM #TempCommission c
 				WHERE ai.AffId = c.AffId
 					AND ISNULL(ai.IsSuspended, 0) = 0

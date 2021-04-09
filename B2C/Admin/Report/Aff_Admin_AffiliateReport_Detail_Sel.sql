@@ -23,6 +23,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
+		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -115,9 +116,7 @@ BEGIN
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
-			ActivePlayer		INT,
 			QualifiedMember		INT,
-			QMTurnover			MONEY,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
 			SubAffCommission	MONEY
@@ -146,9 +145,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				ActivePlayer,
 				QualifiedMember,
-				QMTurnOver,
 				CommissionRate,
 				Commission,
 				SubAffCommission
@@ -186,9 +183,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				ActivePlayer,
 				QualifiedMember,
-				QMTurnOver,
 				CommissionRate,
 				Commission,
 				SubAffCommission
@@ -364,7 +359,7 @@ BEGIN
 		ISNULL(m.Signup, 0)				AS Signup,
 		ISNULL(m.FDM, 0)				AS FDM,
 		ISNULL(ts.NoOfSubAff, 0)		AS NoOfSubAff,
-		ISNULL(tc.ActivePlayer, 0)		AS ActiveMember,
+		ISNULL(tc.QualifiedMember, 0)	AS ActiveMember, -- same QualifiedMember
 		ISNULL(tc.QualifiedMember, 0)	AS QualifiedMember,
 		ISNULL(tc.Deposit, 0)			AS Deposit,
 		ISNULL(tc.Withdrawal, 0)		AS Withdrawal,
@@ -415,7 +410,7 @@ BEGIN
 		SUM(ISNULL(m.Signup, 0))			AS Signup,
 		SUM(ISNULL(m.FDM, 0))				AS FDM,
 		SUM(ISNULL(ts.NoOfSubAff, 0))		AS NoOfSubAff,
-		SUM(ISNULL(tc.ActivePlayer, 0))		AS ActiveMember,
+		SUM(ISNULL(tc.QualifiedMember, 0))	AS ActiveMember, -- same QualifiedMember
 		SUM(ISNULL(tc.QualifiedMember, 0))	AS QualifiedMember,
 		SUM(ISNULL(tc.Deposit, 0))			AS Deposit,
 		SUM(ISNULL(tc.Withdrawal, 0))		AS Withdrawal,
