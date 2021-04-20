@@ -29,6 +29,7 @@ BEGIN
 
 	DECLARE @RegisteredDate DATETIME
 		,@ClickId 			BIGINT
+		,@CurrencyName		NVARCHAR(50)
 	
 	SELECT @AffId			= ISNULL(@AffId, 0)
 		, @IBCCustID		= ISNULL(@IBCCustID, 0)
@@ -144,6 +145,8 @@ BEGIN
 	/*
 	- Write log info
 	*/
+	SELECT @CurrencyName = currency  FROM bodb02.dbo.Exchange WITH(NOLOCK) WHERE ExchangeId = @Currency
+
 	DECLARE @LogData NVARCHAR(4000)
 		,@SPName VARCHAR(100)
 
@@ -152,13 +155,13 @@ BEGIN
 	SELECT @LogData = 	CONVERT(NVARCHAR(MAX), 
 						(	
 							SELECT 
-								@IbcCustID AS '@IbcCustID'
+								@IbcCustID AS '@IBCCustID'
 								,@UserName AS '@UserName'
 								,@IBCUserName AS '@IBCUserName'
 								,@DepositCustID AS '@DepositCustID'
 								,@FirstName AS '@FirstName'
 								,@LastName AS '@LastName'
-								,@Currency AS '@Currency'
+								,@CurrencyName AS '@Currency'
 								,@Recommend AS '@Recommend'
 								,@Email AS '@Email'
 								,@RegisteredDate AS '@RegisteredDate'
