@@ -12,6 +12,7 @@ AS
 	Revisions:
 		- 20191210@Percy: Initialize SP [RedmineID: #121971]
 		- 20200303@Percy: Fix issue wrongly count Active Members and Qualified Members [RedmineID: #121974]
+		- 20210412@Malcolm: Fix wrong number of Deposited member [RedmineID: #152957]
 */
 
 BEGIN
