@@ -43,14 +43,21 @@ BEGIN
 
 	-- Signups, Deposited Members
 	BEGIN
-		DECLARE @Signups TABLE (WinlostDate SMALLDATETIME, Signups INT, DepositedMembers INT)
+		DECLARE @Signups TABLE (WinlostDate SMALLDATETIME, Signups INT)
+		DECLARE @DepositedMembers TABLE (WinlostDate DATETIME, DepositedMembers INT)
 
-		INSERT INTO @Signups (WinlostDate, Signups, DepositedMembers)
-		SELECT CONVERT(DATE, creatdate) AS WinlostDate, COUNT(1) AS Signups, COUNT(IBCCustID) AS DepositedMembers
+		INSERT INTO @Signups (WinlostDate, Signups)
+		SELECT CONVERT(DATE, creatdate) AS WinlostDate, COUNT(1) AS Signups
 		FROM DBDEPOSIT.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
 		WHERE AffiliateID = @AffId
 			AND creatdate >= @FromBeginMonth AND creatdate < @ToNextMonth
 		GROUP BY CONVERT(DATE, creatdate)
+
+		INSERT INTO @DepositedMembers (WinlostDate, DepositedMembers)
+		SELECT  CONVERT(DATE, CreatedDate) AS WinlostDate, COUNT(1) AS DepositedMembers
+		FROM dbo.MemberInfo WITH (NOLOCK)
+		WHERE AffId = @AffId AND CreatedDate >= @FromBeginMonth AND CreatedDate < @ToNextMonth
+		GROUP BY CONVERT(DATE, CreatedDate)
 	END
 
 	-- Turnover, Winloss, Deposit, Withdrawl, Active Members, Qualified Active Members
@@ -127,7 +134,7 @@ BEGIN
 		SELECT
 			wld.WinlostDate
 			,ISNULL(s.Signups, 0)					AS Signups
-			,ISNULL(s.DepositedMembers, 0)			AS DepositedMembers
+			,ISNULL(p.DepositedMembers, 0)			AS DepositedMembers
 			,ISNULL(d.Deposit, 0)					AS Deposit
 			,ISNULL(d.Withdrawal, 0)				AS Withdrawal
 			,ISNULL(d.Turnover, 0)					AS Turnover
@@ -136,10 +143,15 @@ BEGIN
 			,ISNULL(q.QualifiedActiveMembers, 0)	AS QualifiedActiveMembers
 		FROM @tblWinlostDate wld
 			OUTER APPLY (
-				SELECT s.Signups, s.DepositedMembers
+				SELECT s.Signups
 				FROM @Signups s
 				WHERE wld.WinlostDate = s.WinlostDate
 			) s
+			OUTER APPLY (
+				SELECT p.DepositedMembers
+				FROM @DepositedMembers p
+			    WHERE p.WinlostDate = wld.WinlostDate
+			) p
 			OUTER APPLY (
 				SELECT SUM(d.Deposit) AS Deposit, SUM(d.Withdrawal) AS Withdrawal, SUM(d.Turnover) AS Turnover, SUM(d.Winloss) AS Winloss
 				FROM #Data d
