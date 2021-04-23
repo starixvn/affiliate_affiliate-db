@@ -25,6 +25,7 @@ AS
 		- 20191101@Percy: Fix wrong FDM value [RedmineID: #123134]
 		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
 		- 20210223@Percy: Do not show affiliate with all value is zero [149213]
+		- 20210423@Malcolm: Fix Number of Affiliates in a page don't equal PageSize [RedmineId: #152957]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -333,8 +334,7 @@ BEGIN
 			Earning,
 			AffWithdrawal,
 			AffAdjustment,
-			BFF,
-			RowIdx
+			BFF
 		)
 		SELECT
 			ai.AffId,
@@ -357,16 +357,7 @@ BEGIN
 			ISNULL(tc.Commission, 0)		AS Earning,
 			ISNULL(at.AffWithdrawal, 0)		AS AffWithdrawal,
 			ISNULL(at.AffAdjustment, 0)		AS AffAdjustment,
-			ISNULL(at.BFF, 0)				AS BFF,
-			ROW_NUMBER() OVER(ORDER BY
-				CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN ai.Username END ASC,
-				CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN ai.Username END DESC,
-				CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN ISNULL(tc.Turnover, 0) END ASC,
-				CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN ISNULL(tc.Turnover, 0) END DESC,
-				CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN ISNULL(tc.Winloss, 0) END ASC,
-				CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ISNULL(tc.Winloss, 0) END DESC,
-				CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN ISNULL(tc.Commission, 0) END ASC,
-				CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ISNULL(tc.Commission, 0) END DESC) AS RowIdx
+			ISNULL(at.BFF, 0)				AS BFF			
 		FROM dbo.AffInfo ai WITH (NOLOCK)
 			LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 			LEFT JOIN #Signup su ON ai.AffId = su.AffId
@@ -428,6 +419,24 @@ BEGIN
 				AND ROUND(AffWithdrawal, 2) = 0
 				AND ROUND(AffAdjustment, 2) = 0
 				AND ROUND(BFF, 2) = 0
+
+		--Get rowId
+		UPDATE x
+			SET x.RowIdx = x.NewRowIdx
+		FROM 
+		(
+			SELECT	RowIdx,
+					ROW_NUMBER() OVER(ORDER BY
+					CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN Username	END ASC,
+					CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN Username	END DESC,
+					CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN Turnover	END ASC,
+					CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN Turnover	END DESC,
+					CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN Winlost		END ASC,
+					CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN Winlost		END DESC,
+					CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN Earning		END ASC,
+					CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN Earning		END DESC) AS NewRowIdx
+			FROM #Result
+		) x
 	END
 		
 	SELECT @NRows = COUNT(1) FROM #Result
