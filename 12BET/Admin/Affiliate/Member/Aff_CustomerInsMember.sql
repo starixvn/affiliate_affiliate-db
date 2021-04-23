@@ -145,7 +145,7 @@ BEGIN
 	/*
 	- Write log info
 	*/
-	SELECT @CurrencyName = currency  FROM bodb02.dbo.Exchange WITH(NOLOCK) WHERE ExchangeId = @Currency
+	SELECT @CurrencyName = currency  FROM dbo.Exchange_Current WITH(NOLOCK) WHERE ExchangeId = @Currency
 
 	DECLARE @LogData NVARCHAR(4000)
 		,@SPName VARCHAR(100)
