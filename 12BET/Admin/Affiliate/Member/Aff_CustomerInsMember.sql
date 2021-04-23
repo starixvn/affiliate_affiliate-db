@@ -23,6 +23,7 @@ Revisions:
 	- 20141013@Bobby: Enhance checking Deposit member by updating [d.AffiliateID = @AffId] 
 	- 20151013@Bobby: Check for validation of member affiliate
 	- 20210416@Malcolm: Change format when writing logs [RedmineId : #152449]
+	- 20210423@Malcolm: Get currency name[RedmineId : #152449]
 */
 BEGIN
 	SET NOCOUNT ON
