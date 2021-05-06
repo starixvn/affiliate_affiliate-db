@@ -12,6 +12,7 @@ AS
 		- 20200220@Percy: Initiliaze SP [RedmineID: #128775]
 		- 20201026@Percy: Add AffCode [RedmineID: #143852]
 		- 20200107@Percy: Add suspended status [RedmineID: #148373]
+		- 20210426@Percy: Convert data type output column: IsMaxSubLevel [RedmineID: #153465]
 
 	Parameter's Explanation:
 		- @UserName: username
@@ -55,7 +56,7 @@ BEGIN
 			WHEN ai.Status = 'Approved' AND ai.IsRejected = 1 THEN 'Suspended'
 			ELSE ai.Status END AS Status
 		,ad.PreferredLanguage
-		,CASE WHEN l.SubLevel >= @MaxSubLevel THEN 1 ELSE 0 END AS IsMaxSubLevel
+		,CONVERT(BIT, CASE WHEN l.SubLevel >= @MaxSubLevel THEN 1 ELSE 0 END) AS IsMaxSubLevel
 		,ISNULL(@Dep_IsDeductedPercent, 0) AS Dep_IsDeductedPercent
 		,ISNULL(@Wit_IsDeductedPercent, 0) AS Wit_IsDeductedPercent
 	FROM dbo.AffInfo ai WITH (NOLOCK)
