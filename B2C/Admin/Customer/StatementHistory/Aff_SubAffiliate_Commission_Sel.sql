@@ -18,6 +18,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
+		- 20210506@Percy: Max Sub Affiliate Commission Setting [RedmineID: #153465]
 */
 
 BEGIN
@@ -36,25 +37,6 @@ BEGIN
 	DECLARE @tblSubAffCommission TABLE (AffId INT, UserName NVARCHAR(50), Commission MONEY, SubAffCommission MONEY)
 
 	-- Calculated months
-	IF @MonthDate <= @MaxCommDate
-	BEGIN
-		INSERT INTO @tblSubAffCommission (AffId, UserName, Commission, SubAffCommission)
-		SELECT
-			ai.AffId
-			,ai.UserName
-			,SUM(at.Amount * e.Rate) AS Commission
-			,SUM(@SubAffCommRate * at.Amount * e.Rate) AS SubAffCommission
-		FROM dbo.AffInfo ai WITH (NOLOCK)
-			INNER JOIN dbo.AffTrans at WITH (NOLOCK) ON ai.AffId = at.AffId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@MonthDate, @AffCurrency, @BaseCurrency) e
-		WHERE ai.ParentAffId = @AffId
-			AND at.TransDate = @MonthDate
-			AND at.TransType IN (201, 204)
-		GROUP BY
-			ai.AffId
-			,ai.UserName
-	END
-	ELSE
 	BEGIN
 		DECLARE @AffIds VARCHAR(MAX)
 		SELECT  @AffIds = COALESCE(@AffIds + ',', '') + CONVERT(VARCHAR(20), AffId)
@@ -116,6 +98,7 @@ BEGIN
 			@ToMonthDate		= @MonthDate,
 			@ProductIds			= '0',
 			@BaseCurrency		= @BaseCurrency,
+			@SubLevel			= 2,
 			@IsSumAll			= 0,
 			@GetRowTotalOnly	= 1
 
