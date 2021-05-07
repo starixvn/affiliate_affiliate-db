@@ -18,6 +18,7 @@ AS
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20210506@Malcolm: Raise error when account is closed [RedmineId : #152449]
 */
 
 BEGIN
@@ -33,13 +34,12 @@ BEGIN
 
 	SELECT	@UserId = custid
 			,@LogData = CASE
-							WHEN UserPwd <> @UserPwd THEN 'Failed(Password)'
 							WHEN Closed = 1 THEN 'Failed(A/C_Closed)'
+							WHEN UserPwd <> @UserPwd THEN 'Failed(Password)'						
 							END
 			,@FailedCount = ISNULL(FailedLoginCount, 0)
 	FROM dbo.Users WITH (NOLOCK)
 	WHERE Username = @UserName
-		AND Closed = 0
 		AND IsDeleted = 0
 
 	IF ISNULL(@UserId, 0) = 0
