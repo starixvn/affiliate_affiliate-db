@@ -6,6 +6,7 @@ ALTER PROCEDURE [dbo].[Aff_Commission_UnCalc]
 	,@ProductIds		VARCHAR(MAX) = '0'
 	,@Currencies		VARCHAR(MAX) = ''
 	,@BaseCurrency		INT = 0
+	,@SubLevel			TINYINT = 0
 	,@IsSumAll			BIT = 0
 	,@GetRowTotalOnly	BIT = 0
 AS
@@ -18,6 +19,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
+		- 20210506@Percy: Max Sub Affiliate Commission Setting [RedmineID: #153465]
 */
 
 BEGIN
@@ -39,6 +41,13 @@ BEGIN
 
 	-- Get sub affiliate
 	DECLARE @InputAffIds VARCHAR(MAX) = @AffIds
+
+	-- Max Sub Affiliate Commission Setting
+	DECLARE @MaxSubAff INT
+	IF @SubLevel <> 0
+		SELECT @MaxSubAff = @SubLevel
+	ELSE
+		SELECT @MaxSubAff = 3
 	
 	IF @AffIds <> 'all'
 	BEGIN
@@ -527,7 +536,10 @@ BEGIN
 			SELECT
 				c.MonthDate,
 				f.val AS AffId,
-				SUM(POWER(@SubAffCommRate, f.Id) * c.NetWinloss * c.CommissionRate) AS SubAffCommission
+				SUM(
+					CASE WHEN f.Id > @MaxSubAff THEN 0 ELSE POWER(@SubAffCommRate, f.Id) END
+					* c.NetWinloss * c.CommissionRate
+				) AS SubAffCommission
 			FROM #Commission c
 				INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON agh.MonthDate = c.MonthDate AND agh.AffId = c.AffId
 				CROSS APPLY dbo.Aff_f_StringSplit(agh.AllParentAffId, ',') f
