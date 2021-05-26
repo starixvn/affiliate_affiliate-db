@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20191210@Percy: Remove get data on bettrans [RedmineID: #121971]
+		- 20210526@Malcolm: Get turnover [RedmineID: #149210]
 */
 
 BEGIN
