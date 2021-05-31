@@ -23,7 +23,7 @@ BEGIN
 	DECLARE @InactivedMembers TABLE (Username NVARCHAR(50), Firstname NVARCHAR(50), Lastname NVARCHAR(50), CreatedDate DATETIME, AffId INT)
 	DECLARE @sql NVARCHAR(MAX)
 	SELECT  @sql = 'SELECT Username, Firstname, Lastname, creatdate, AffiliateID
-					FROM OPENQUERY(DBDEPOSIT, ''SELECT Username, Firstname, Lastname
+					FROM OPENQUERY(DBDEPOSIT, ''SELECT Username, Firstname, Lastname, creatdate, AffiliateID
 												FROM Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
 												WHERE actstatus NOT IN (2, 9)
 												''

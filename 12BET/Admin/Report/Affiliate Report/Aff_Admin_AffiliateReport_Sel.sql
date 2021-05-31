@@ -8,6 +8,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	@SortType			TINYINT = 1,
 	@SortDirectionType	BIT = 0,
 	@IsExportExcel		BIT = 0,
+	@IsGetMonthly       BIT = 1,
 	@PageIndex			INT = 1,
 	@PageSize			INT = 50,
 	@NRows				INT = 0 OUTPUT
@@ -26,6 +27,7 @@ AS
 		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
 		- 20210223@Percy: Do not show affiliate with all value is zero [149213]
 		- 20210423@Malcolm: Fix Number of Affiliates in a page don't equal PageSize [RedmineId: #152957]
+		- 20210528@Malcolm: Get data daily [RedmineID: #149210]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -40,16 +42,21 @@ BEGIN
 		RETURN
 
 	SELECT  @Username = ISNULL(LTRIM(RTRIM(@Username)), ''), @PreferredLanguages = ISNULL(@PreferredLanguages, '')
-
-	SELECT  @FromDate		= DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0) -- Begin Of Month
-	SELECT  @ToDate			= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0)) -- End Of Month
-
+	
 	DECLARE @MinReportDate SMALLDATETIME, @EndOfCurrentMonth SMALLDATETIME, @NoOfMonth INT
-	SELECT  @MinReportDate		= dbo.Aff_f_GetMinReportDate(0)
-	SELECT  @EndOfCurrentMonth	= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
+	SELECT  @MinReportDate		= dbo.Aff_f_GetMinReportDate(0), @EndOfCurrentMonth = GETDATE()
+	
+	IF @IsGetMonthly = 1
+	BEGIN
+		SELECT  @FromDate			= DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0), -- Begin Of Month
+				@ToDate				= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0)), -- End Of Month
+		        @EndOfCurrentMonth	= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @EndOfCurrentMonth) + 1, 0)),
+		        @MinReportDate		= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MinReportDate), 0)
+	END
+	
 
 	IF @FromDate < @MinReportDate
-		SELECT @FromDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MinReportDate), 0)
+		SELECT @FromDate = @MinReportDate
 
 	IF @ToDate > @EndOfCurrentMonth
 		SELECT @ToDate = @EndOfCurrentMonth
@@ -75,7 +82,7 @@ BEGIN
 	DECLARE @MaxCommDate SMALLDATETIME
 	SELECT  @MaxCommDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
-	DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
+	DECLARE @tempFromDate SMALLDATETIME = NULL, @tempToDate SMALLDATETIME = NULL, @_tempFromDate SMALLDATETIME = NULL, @_tempToDate SMALLDATETIME = NULL
 
 	/*
 		===== Get data =====
@@ -112,84 +119,149 @@ BEGIN
 
 		IF @FromDate <= @MaxCommDate
 		BEGIN
-			SELECT @tempFromDate	= @FromDate
+			SELECT @tempFromDate	= @FromDate 
 			SELECT @tempToDate		= CASE WHEN @ToDate > @MaxCommDate THEN @MaxCommDate ELSE @ToDate END
-
-			INSERT INTO #TempCommission
-			(
-				MonthDate,
-				AffId,
-				GroupId,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Turnover,
-				Winloss,
-				AWinloss,
-				AComm,
-				PlatFormFee,
-				OperationalFee,
-				BankingFee,
-				ExchangeWinlossShare,
-				ExchangeCommShare,
-				GrossWinloss,
-				NetWinloss,
-				ActivePlayer,
-				QualifiedMember,
-				QMTurnOver,
-				CommissionRate,
-				Commission
-			)
-			EXEC dbo.Aff_Commission_Calc
-				@AffIds				= 'all',
-				@FromMonthDate		= @tempFromDate,
-				@ToMonthDate		= @tempToDate,
-				@ProductIds			= @ProductIds,
-				@IsSumAll			= 1,
-				@GetRowTotalOnly	= 1
-		END
-
-		IF @ToDate > @MaxCommDate
-		BEGIN
-			SELECT @tempFromDate	= CASE WHEN @FromDate <= @MaxCommDate THEN DATEADD(DAY, 1, @MaxCommDate) ELSE @FromDate END
-			SELECT @tempToDate		= @ToDate
 			
-			INSERT INTO #TempCommission
-			(
-				MonthDate,
-				AffId,
-				GroupId,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Turnover,
-				Winloss,
-				AWinloss,
-				AComm,
-				PlatFormFee,
-				OperationalFee,
-				BankingFee,
-				ExchangeWinlossShare,
-				ExchangeCommShare,
-				GrossWinloss,
-				NetWinloss,
-				ActivePlayer,
-				QualifiedMember,
-				QMTurnOver,
-				CommissionRate,
-				Commission
-			)
-			EXEC dbo.Aff_Commission_UnCalc
-				@AffIds				= 'all',
-				@FromMonthDate		= @tempFromDate,
-				@ToMonthDate		= @tempToDate,
-				@ProductIds			= @ProductIds,
-				@IsSumAll			= 1,
-				@GetRowTotalOnly	= 1
+			IF @IsGetMonthly = 0
+			BEGIN
+				IF @tempFromDate <>  DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempFromDate), 0)
+				BEGIN	
+					SELECT @tempFromDate  = DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 1)
+					SELECT @_tempFromDate = DATEADD(DAY, -1, @tempFromDate)
+				END
+				
+				IF @tempToDate <> DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempToDate) + 1, 0))
+				BEGIN
+					SELECT @_tempToDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempToDate), 1)
+					SELECT @tempToDate  = DATEADD(DAY, -1, @_tempToDate)				
+				END
+			END
+			
+			IF @IsGetMonthly = 1 OR (@_tempFromDate IS NOT NULL AND @_tempFromDate = @_tempToDate)
+			BEGIN
+				INSERT INTO #TempCommission
+				(
+					MonthDate,
+					AffId,
+					GroupId,
+					ProductId,
+					Deposit,
+					Withdrawal,
+					Bonus,
+					Turnover,
+					Winloss,
+					AWinloss,
+					AComm,
+					PlatFormFee,
+					OperationalFee,
+					BankingFee,
+					ExchangeWinlossShare,
+					ExchangeCommShare,
+					GrossWinloss,
+					NetWinloss,
+					ActivePlayer,
+					QualifiedMember,
+					QMTurnOver,
+					CommissionRate,
+					Commission
+				)
+				EXEC dbo.Aff_Commission_Calc
+					@AffIds				= 'all',
+					@FromMonthDate		= @tempFromDate,
+					@ToMonthDate		= @tempToDate,
+					@ProductIds			= @ProductIds,
+					@IsSumAll			= 1,
+					@GetRowTotalOnly	= 1
+				END
 		END
 
+		IF @ToDate > @MaxCommDate OR @IsGetMonthly = 0
+		BEGIN
+		
+			IF @IsGetMonthly = 0 AND @_tempFromDate IS NOT NULL
+			BEGIN
+				INSERT INTO #TempCommission
+				(
+					MonthDate,
+					AffId,
+					GroupId,
+					ProductId,
+					Deposit,
+					Withdrawal,
+					Bonus,
+					Turnover,
+					Winloss,
+					AWinloss,
+					AComm,
+					PlatFormFee,
+					OperationalFee,
+					BankingFee,
+					ExchangeWinlossShare,
+					ExchangeCommShare,
+					GrossWinloss,
+					NetWinloss,
+					ActivePlayer,
+					QualifiedMember,
+					QMTurnOver,
+					CommissionRate,
+					Commission
+				)
+				EXEC dbo.Aff_Commission_UnCalc
+					@AffIds				= 'all',
+					@FromMonthDate		= @FromDate,
+					@ToMonthDate		= @_tempFromDate,
+					@IsGetMonthly		= 0,
+					@ProductIds			= @ProductIds,
+					@IsSumAll			= 1,
+					@GetRowTotalOnly	= 1
+			END
+			
+			IF @ToDate > @MaxCommDate OR @_tempToDate IS NOT NULL
+			BEGIN
+				SELECT @tempToDate = @ToDate
+				
+				IF @ToDate > @MaxCommDate
+					SELECT @tempFromDate = CASE WHEN @FromDate <= @MaxCommDate THEN DATEADD(DAY, 1, @MaxCommDate) ELSE @FromDate END
+				ELSE
+					SELECT @tempFromDate = @_tempToDate		
+				
+				INSERT INTO #TempCommission
+				(
+					MonthDate,
+					AffId,
+					GroupId,
+					ProductId,
+					Deposit,
+					Withdrawal,
+					Bonus,
+					Turnover,
+					Winloss,
+					AWinloss,
+					AComm,
+					PlatFormFee,
+					OperationalFee,
+					BankingFee,
+					ExchangeWinlossShare,
+					ExchangeCommShare,
+					GrossWinloss,
+					NetWinloss,
+					ActivePlayer,
+					QualifiedMember,
+					QMTurnOver,
+					CommissionRate,
+					Commission
+				)
+				EXEC dbo.Aff_Commission_UnCalc
+					@AffIds				= 'all',
+					@FromMonthDate		= @tempFromDate,
+					@ToMonthDate		= @tempToDate,
+					@IsGetMonthly		= @IsGetMonthly,
+					@ProductIds			= @ProductIds,
+					@IsSumAll			= 1,
+					@GetRowTotalOnly	= 1
+				END		
+		END
+		
 		-- Signup
 		CREATE TABLE #Signup (AffId INT, Signup INT)
 
@@ -310,12 +382,14 @@ BEGIN
 			AffWithdrawal	MONEY,
 			AffAdjustment	MONEY,
 			BFF				MONEY,
-			RowIdx			INT
+			RowIdx			INT,
+			PreferredLanguage VARCHAR(100)
 		)
 		INSERT INTO #Result
 		(
 			AffId,
 			Username,
+			PreferredLanguage,
 			TotalClick,
 			UniqueClick,
 			Signup,
@@ -339,6 +413,7 @@ BEGIN
 		SELECT
 			ai.AffId,
 			ai.Username,
+			ad.PreferredLanguage,
 			ISNULL(s.TotalClick, 0)			AS TotalClick,
 			ISNULL(s.UniqueClick, 0)		AS UniqueClick,
 			ISNULL(su.Signup, 0)			AS Signup,
@@ -454,7 +529,7 @@ BEGIN
 	SELECT AffId, Username, TotalClick, UniqueClick, Signup, FDM, ActiveMember, QualifiedMember
 		,Deposit, Withdrawal, Turnover, Winlost, Bonus, PlatFormFee, OperationalFee, BankingFee
 		,PlatFormFee + OperationalFee + BankingFee AS TotalFee
-		,CommissionRate, Earning, AffWithdrawal, AffAdjustment, BFF
+		,CommissionRate, Earning, AffWithdrawal, AffAdjustment, BFF, PreferredLanguage AS [Language]
 	FROM #Result
 	WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 	ORDER BY RowIdx

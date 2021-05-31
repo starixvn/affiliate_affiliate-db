@@ -25,6 +25,7 @@ AS
 		- 20191210@Percy: Add withdrawal column and support sort [RedmineID: #121971]
 		- 20210223@Percy: Exclude removed member [RedmineID: #149213]
 		- 20210528@Malcolm: Filter by date [RedmineID: #149210]
+		- 20210528@Malcolm: Add turnover and winlost column[RedmineID: #149210]
 	Param's Explanation:
 		- @SortById:	1 = Username
 						2 = Registered Date
