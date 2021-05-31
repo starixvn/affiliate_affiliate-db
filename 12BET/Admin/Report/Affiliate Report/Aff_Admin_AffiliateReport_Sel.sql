@@ -43,7 +43,7 @@ BEGIN
 
 	SELECT  @Username = ISNULL(LTRIM(RTRIM(@Username)), ''), @PreferredLanguages = ISNULL(@PreferredLanguages, '')
 	
-	DECLARE @MinReportDate SMALLDATETIME, @EndOfCurrentMonth SMALLDATETIME, @NoOfMonth INT
+	DECLARE @MinReportDate SMALLDATETIME, @EndOfCurrentMonth SMALLDATETIME, @NoOfMonth INT, @IsCalMonthly BIT = 0
 	SELECT  @MinReportDate		= dbo.Aff_f_GetMinReportDate(0)
 	SELECT  @EndOfCurrentMonth	= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
 	
@@ -135,9 +135,12 @@ BEGIN
 					SELECT @_tempToDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempToDate) + 1, 0)
 					SELECT @tempToDate  = DATEADD(DAY, -1, @_tempToDate)				
 				END
+				
+				IF @tempFromDate < @tempToDate
+					SET @IsCalMonthly = 1
 			END
 			
-			IF @IsGetMonthly = 1 OR (@tempFromDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempFromDate),0) AND @tempToDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempToDate) + 1, 0)))
+			IF @IsGetMonthly = 1 OR @IsCalMonthly = 1
 			BEGIN
 				INSERT INTO #TempCommission
 				(
@@ -178,7 +181,7 @@ BEGIN
 		IF @ToDate > @MaxCommDate OR @IsGetMonthly = 0
 		BEGIN
 		
-			IF @IsGetMonthly = 0 AND @_tempFromDate IS NOT NULL
+			IF @IsCalMonthly = 1 AND @_tempFromDate IS NOT NULL OR @IsCalMonthly = 0 AND @IsGetMonthly = 0
 			BEGIN
 				INSERT INTO #TempCommission
 				(
@@ -209,7 +212,7 @@ BEGIN
 				EXEC dbo.Aff_Commission_UnCalc
 					@AffIds				= 'all',
 					@FromMonthDate		= @FromDate,
-					@ToMonthDate		= @_tempFromDate,
+					@ToMonthDate		= CASE WHEN @IsCalMonthly = 1 THEN @_tempFromDate ELSE @ToDate END,
 					@IsGetMonthly		= 0,
 					@ProductIds			= @ProductIds,
 					@IsSumAll			= 1,
