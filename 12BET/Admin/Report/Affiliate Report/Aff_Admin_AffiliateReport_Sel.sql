@@ -126,18 +126,18 @@ BEGIN
 			BEGIN
 				IF @tempFromDate <>  DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempFromDate), 0)
 				BEGIN	
-					SELECT @tempFromDate  = DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 1)
+					SELECT @tempFromDate  = DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate) + 1,0)
 					SELECT @_tempFromDate = DATEADD(DAY, -1, @tempFromDate)
 				END
 				
 				IF @tempToDate <> DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempToDate) + 1, 0))
 				BEGIN
-					SELECT @_tempToDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempToDate), 1)
+					SELECT @_tempToDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempToDate) + 1, 0)
 					SELECT @tempToDate  = DATEADD(DAY, -1, @_tempToDate)				
 				END
 			END
 			
-			IF @IsGetMonthly = 1 OR (@_tempFromDate IS NULL OR @_tempToDate IS NULL OR @_tempFromDate = @_tempToDate)
+			IF @IsGetMonthly = 1 OR (@tempFromDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempFromDate),0) AND @tempToDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempToDate) + 1, 0)))
 			BEGIN
 				INSERT INTO #TempCommission
 				(
