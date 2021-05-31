@@ -44,13 +44,13 @@ BEGIN
 	SELECT  @Username = ISNULL(LTRIM(RTRIM(@Username)), ''), @PreferredLanguages = ISNULL(@PreferredLanguages, '')
 	
 	DECLARE @MinReportDate SMALLDATETIME, @EndOfCurrentMonth SMALLDATETIME, @NoOfMonth INT
-	SELECT  @MinReportDate		= dbo.Aff_f_GetMinReportDate(0), @EndOfCurrentMonth = GETDATE()
+	SELECT  @MinReportDate		= dbo.Aff_f_GetMinReportDate(0)
+	SELECT  @EndOfCurrentMonth	= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
 	
 	IF @IsGetMonthly = 1
 	BEGIN
 		SELECT  @FromDate			= DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0), -- Begin Of Month
-				@ToDate				= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0)), -- End Of Month
-		        @EndOfCurrentMonth	= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @EndOfCurrentMonth) + 1, 0)),
+				@ToDate				= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0)), -- End Of Month	        
 		        @MinReportDate		= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MinReportDate), 0)
 	END
 	
