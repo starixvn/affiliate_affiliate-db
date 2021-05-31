@@ -6,14 +6,16 @@
 */
 
 INSERT INTO dbo.Functions(FuncName, DisplayName, Description, ParentId, AllParentIds, CreatedDate, UpdatedDate, Creator, OrderId)
-VALUES ('[RegisteredMembers]', 'Registered Members', 'Registered Members', NULL, NULL, GETDATE(), GETDATE(), NULL, 38)
+VALUES ('[RegisteredMembers]', 'Registered', 'Registered', NULL, NULL, GETDATE(), GETDATE(), NULL, 38)
 
-DECLARE @FunctionId INT
+DECLARE @FunctionId INT,@ParentId INT
 
 SELECT @FunctionId = FuncId FROM dbo.Functions WITH(NOLOCK) WHERE FuncName = '[RegisteredMembers]'
 
+SELECT @ParentId = FuncId FROM dbo.Functions WITH(NOLOCK) WHERE FuncName = '[AffMember]'
+
 UPDATE dbo.Functions WITH(ROWLOCK)
-	SET ParentId = @FunctionId, AllParentIds = @FunctionId
+	SET ParentId = @ParentId, AllParentIds = @ParentId
 WHERE FuncId = @FunctionId
 
 INSERT INTO dbo.RoleFunction(RoleId, FuncId, Policy, Creator)

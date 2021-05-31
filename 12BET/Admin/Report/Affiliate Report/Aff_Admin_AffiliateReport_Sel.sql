@@ -82,8 +82,7 @@ BEGIN
 	DECLARE @MaxCommDate SMALLDATETIME
 	SELECT  @MaxCommDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
-	DECLARE @tempFromDate SMALLDATETIME = NULL, @tempToDate SMALLDATETIME = NULL, @_tempFromDate SMALLDATETIME = NULL, @_tempToDate SMALLDATETIME = NULL
-
+	DECLARE @threshold1 DATETIME, @threshold2 DATETIME, @tempFromDate DATETIME, @tempToDate DATETIME
 	/*
 		===== Get data =====
 	*/
@@ -116,73 +115,101 @@ BEGIN
 			CommissionRate			FLOAT,
 			Commission				MONEY
 		)
-
-		IF @FromDate <= @MaxCommDate
-		BEGIN
-			SELECT @tempFromDate	= @FromDate 
-			SELECT @tempToDate		= CASE WHEN @ToDate > @MaxCommDate THEN @MaxCommDate ELSE @ToDate END
-			
-			IF @IsGetMonthly = 0
-			BEGIN
-				IF @tempFromDate <>  DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempFromDate), 0)
-				BEGIN	
-					SELECT @tempFromDate  = DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate) + 1,0)
-					SELECT @_tempFromDate = DATEADD(DAY, -1, @tempFromDate)
-				END
-				
-				IF @tempToDate <> DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempToDate) + 1, 0))
-				BEGIN
-					SELECT @_tempToDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempToDate) + 1, 0)
-					SELECT @tempToDate  = DATEADD(DAY, -1, @_tempToDate)				
-				END
-				
-				IF @tempFromDate < @tempToDate
-					SET @IsCalMonthly = 1
-			END
-			
-			IF @IsGetMonthly = 1 OR @IsCalMonthly = 1
-			BEGIN
-				INSERT INTO #TempCommission
-				(
-					MonthDate,
-					AffId,
-					GroupId,
-					ProductId,
-					Deposit,
-					Withdrawal,
-					Bonus,
-					Turnover,
-					Winloss,
-					AWinloss,
-					AComm,
-					PlatFormFee,
-					OperationalFee,
-					BankingFee,
-					ExchangeWinlossShare,
-					ExchangeCommShare,
-					GrossWinloss,
-					NetWinloss,
-					ActivePlayer,
-					QualifiedMember,
-					QMTurnOver,
-					CommissionRate,
-					Commission
-				)
-				EXEC dbo.Aff_Commission_Calc
-					@AffIds				= 'all',
-					@FromMonthDate		= @tempFromDate,
-					@ToMonthDate		= @tempToDate,
-					@ProductIds			= @ProductIds,
-					@IsSumAll			= 1,
-					@GetRowTotalOnly	= 1
-				END
-		END
-
-		IF @ToDate > @MaxCommDate OR @IsGetMonthly = 0
-		BEGIN
 		
-			IF @IsCalMonthly = 1 AND @_tempFromDate IS NOT NULL OR @IsCalMonthly = 0 AND @IsGetMonthly = 0
+		IF @FromDate <>  DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0)
+		BEGIN	
+			SELECT @threshold1 = DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate) + 1, 0)
+		END
+		ELSE
+			SELECT @threshold1 = @FromDate
+		
+		IF @ToDate <> DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0))
+		BEGIN
+			SELECT @threshold2 = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate), 0))
+			SELECT @threshold2 = CASE WHEN @threshold2 > @MaxCommDate THEN @MaxCommDate ELSE @threshold2 END
+		END
+		ELSE 
+		BEGIN
+			SELECT @threshold2 = CASE WHEN @ToDate > @MaxCommDate THEN @MaxCommDate ELSE @ToDate END
+		END
+		
+		IF @threshold1 >= @threshold2 
+		BEGIN
+			INSERT INTO #TempCommission
+			(
+				MonthDate,
+				AffId,
+				GroupId,
+				ProductId,
+				Deposit,
+				Withdrawal,
+				Bonus,
+				Turnover,
+				Winloss,
+				AWinloss,
+				AComm,
+				PlatFormFee,
+				OperationalFee,
+				BankingFee,
+				ExchangeWinlossShare,
+				ExchangeCommShare,
+				GrossWinloss,
+				NetWinloss,
+				ActivePlayer,
+				QualifiedMember,
+				QMTurnOver,
+				CommissionRate,
+				Commission
+			)
+			EXEC dbo.Aff_Commission_UnCalc
+				@AffIds				= 'all',
+				@FromMonthDate		= @FromDate,
+				@ToMonthDate		= @ToDate,
+				@IsGetMonthly		= 0,
+				@ProductIds			= @ProductIds,
+				@IsSumAll			= 1,
+				@GetRowTotalOnly	= 1
+		END
+		ELSE 
+		BEGIN
+			INSERT INTO #TempCommission
+			(
+				MonthDate,
+				AffId,
+				GroupId,
+				ProductId,
+				Deposit,
+				Withdrawal,
+				Bonus,
+				Turnover,
+				Winloss,
+				AWinloss,
+				AComm,
+				PlatFormFee,
+				OperationalFee,
+				BankingFee,
+				ExchangeWinlossShare,
+				ExchangeCommShare,
+				GrossWinloss,
+				NetWinloss,
+				ActivePlayer,
+				QualifiedMember,
+				QMTurnOver,
+				CommissionRate,
+				Commission
+			)
+			EXEC dbo.Aff_Commission_Calc
+				@AffIds				= 'all',
+				@FromMonthDate		= @threshold1,
+				@ToMonthDate		= @threshold2,
+				@ProductIds			= @ProductIds,
+				@IsSumAll			= 1,
+				@GetRowTotalOnly	= 1
+			
+			IF @FromDate <> @threshold1
 			BEGIN
+				SELECT @threshold1 = DATEADD(DAY, -1, @threshold1)
+
 				INSERT INTO #TempCommission
 				(
 					MonthDate,
@@ -212,22 +239,17 @@ BEGIN
 				EXEC dbo.Aff_Commission_UnCalc
 					@AffIds				= 'all',
 					@FromMonthDate		= @FromDate,
-					@ToMonthDate		= CASE WHEN @IsCalMonthly = 1 THEN @_tempFromDate ELSE @ToDate END,
+					@ToMonthDate		= @threshold1,
 					@IsGetMonthly		= 0,
 					@ProductIds			= @ProductIds,
 					@IsSumAll			= 1,
 					@GetRowTotalOnly	= 1
-			END
-			
-			IF @ToDate > @MaxCommDate OR @_tempToDate IS NOT NULL
-			BEGIN
-				SELECT @tempToDate = @ToDate
+			 END
 				
-				IF @ToDate > @MaxCommDate
-					SELECT @tempFromDate = CASE WHEN @FromDate <= @MaxCommDate THEN DATEADD(DAY, 1, @MaxCommDate) ELSE @FromDate END
-				ELSE
-					SELECT @tempFromDate = @_tempToDate		
-				
+			 IF @ToDate <> @threshold2
+			 BEGIN
+				SELECT @threshold2 = DATEADD(DAY, 1, @threshold2)
+
 				INSERT INTO #TempCommission
 				(
 					MonthDate,
@@ -256,15 +278,14 @@ BEGIN
 				)
 				EXEC dbo.Aff_Commission_UnCalc
 					@AffIds				= 'all',
-					@FromMonthDate		= @tempFromDate,
-					@ToMonthDate		= @tempToDate,
-					@IsGetMonthly		= @IsGetMonthly,
+					@FromMonthDate		= @threshold2,
+					@ToMonthDate		= @ToDate,
+					@IsGetMonthly		= 0,
 					@ProductIds			= @ProductIds,
 					@IsSumAll			= 1,
 					@GetRowTotalOnly	= 1
-				END		
-		END
-		
+			 END
+		END	
 		-- Signup
 		CREATE TABLE #Signup (AffId INT, Signup INT)
 

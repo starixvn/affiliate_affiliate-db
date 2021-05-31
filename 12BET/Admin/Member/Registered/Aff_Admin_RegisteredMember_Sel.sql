@@ -1,7 +1,7 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_RegisteredMember_Sel]
-	@AffName NVARCHAR(30) =''
-	,@Username	NVARCHAR(30) =''
+	@AffName		NVARCHAR(50) =''
+	,@Username		NVARCHAR(50) =''
 	,@PageSize		INT = 50
 	,@PageIndex		INT = 1
 	,@NRows			INT = 0 OUTPUT
@@ -27,17 +27,17 @@ BEGIN
 			,@RowEnd	= @RowStart + @PageSize - 1
 
 	-- Inactivated members
-	DECLARE @InactivedMembers TABLE (Username NVARCHAR(50), Firstname NVARCHAR(50), Lastname NVARCHAR(50), CreatedDate DATETIME, AffId INT)
+	DECLARE @InactivedMembers TABLE (Username NVARCHAR(50), Firstname NVARCHAR(50), Lastname NVARCHAR(50), CreatedDate DATETIME, AffId INT, Currency TINYINT)
 
 	DECLARE @sql NVARCHAR(MAX)
-	SELECT  @sql = 'SELECT Username, Firstname, Lastname, creatdate, AffiliateID
-					FROM OPENQUERY(DBDEPOSIT, ''SELECT Username, Firstname, Lastname, creatdate, AffiliateID
-												FROM Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
-												WHERE actstatus NOT IN (2, 9)
-												''
-									)'
+	SELECT  @sql = 'SELECT Username, Firstname, Lastname, creatdate, AffiliateID, currency
+					FROM OPENQUERY(DBDEPOSIT, ''SELECT Username, Firstname, Lastname, creatdate, AffiliateID, currency
+											   FROM Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+											   WHERE actstatus NOT IN (2, 9) AND (Username LIKE '''''+ @Username +''''' OR '''''+ @Username+''''' = '''''''')''
+								   )'
+
 	BEGIN TRY
-		INSERT INTO @InactivedMembers (Username, Firstname, Lastname, CreatedDate, AffId)
+		INSERT INTO @InactivedMembers (Username, Firstname, Lastname, CreatedDate, AffId,currency)
 		EXEC (@sql)
 	END TRY
 	BEGIN CATCH
@@ -47,17 +47,16 @@ BEGIN
 	SELECT @NRows = COUNT(1)
 	FROM @InactivedMembers m
 		LEFT JOIN dbo.AffInfo ai WITH(NOLOCK) ON m.AffId = ai.AffID
-	WHERE (m.Username LIKE '%' + @Username + '%' OR m.Username = '')
-		AND (ai.UserName LIKE '%' + @AffName + '%' OR ai.UserName = '')
+	WHERE ai.UserName LIKE '%' + @AffName + '%' OR @AffName = ''
 	
-	SELECT r.Username, r.Firstname, r.Lastname, r.CreatedDate, r.AffName
+	SELECT r.Username, r.Firstname, r.Lastname, r.CreatedDate, r.AffName, r.Currency
 	FROM
 	(
-		SELECT m.Username, m.Firstname, m.Lastname, m.CreatedDate, ai.UserName AS AffName, ROW_NUMBER() OVER(ORDER BY m.CreatedDate DESC, m.Username ASC) AS Rn
+		SELECT m.Username, m.Firstname, m.Lastname, m.CreatedDate, ai.UserName AS AffName, e.Currency, ROW_NUMBER() OVER(ORDER BY m.CreatedDate DESC, m.Username ASC) AS Rn
 		FROM @InactivedMembers m
+			LEFT JOIN Exchange_Current e ON e.ExchangeID = m.Currency
 			LEFT JOIN dbo.AffInfo ai WITH(NOLOCK) ON m.AffId = ai.AffID
-		WHERE (m.Username LIKE '%' + @Username + '%' OR m.Username = '')
-			AND (ai.UserName LIKE '%' + @AffName + '%' OR ai.UserName = '')
+		WHERE ai.UserName LIKE '%' + @AffName + '%' OR @AffName = ''
 	) r
 	WHERE r.Rn >= @RowStart AND r.Rn <= @RowEnd
 END

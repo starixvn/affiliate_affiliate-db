@@ -25,7 +25,7 @@ AS
 		- 20191210@Percy: Add withdrawal column and support sort [RedmineID: #121971]
 		- 20210223@Percy: Exclude removed member [RedmineID: #149213]
 		- 20210528@Malcolm: Filter by date [RedmineID: #149210]
-		- 20210528@Malcolm: Add turnover and winlost column[RedmineID: #149210]
+		- 20210528@Malcolm: Add filter Date range [RedmineID: #149210]
 	Param's Explanation:
 		- @SortById:	1 = Username
 						2 = Registered Date
@@ -128,7 +128,7 @@ BEGIN
 	END
 
 	UPDATE t
-		SET t.BankingFee = (t.Withdrawal + t.Deposit) * l.DeductedPercentage
+		SET t.BankingFee = (t.Withdrawal + t.Deposit) * ISNULL(l.DeductedPercentage, 0)
 	FROM #tmpData t
 	OUTER APPLY (
 		SELECT ISNULL(dsh.DeductedPercentage, 0) AS DeductedPercentage
