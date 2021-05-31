@@ -465,7 +465,7 @@ BEGIN
 			INNER JOIN (
 				SELECT DISTINCT AffId
 				FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-				WHERE agh.MonthDate BETWEEN @FromDate AND @ToDate
+				WHERE agh.MonthDate BETWEEN @FromDate AND DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0))
 					AND ISNULL(agh.IsClosed, 0) = 0
 			) agh ON ai.AffId = agh.AffId
 		WHERE ai.Status = 'Approved'
