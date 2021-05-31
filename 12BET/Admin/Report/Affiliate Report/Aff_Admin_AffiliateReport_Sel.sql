@@ -137,7 +137,7 @@ BEGIN
 				END
 			END
 			
-			IF @IsGetMonthly = 1 OR (@_tempFromDate IS NOT NULL AND @_tempFromDate = @_tempToDate)
+			IF @IsGetMonthly = 1 OR (@_tempFromDate IS NULL OR @_tempToDate IS NULL OR @_tempFromDate = @_tempToDate)
 			BEGIN
 				INSERT INTO #TempCommission
 				(
