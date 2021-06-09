@@ -20,6 +20,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210506@Percy: Max Sub Affiliate Commission Setting [RedmineID: #153465]
+		- 20210604@Percy: Fix Withdrawal Amount [RedmineID: #156487]
 */
 
 BEGIN
@@ -368,7 +369,7 @@ BEGIN
 		UPDATE c
 		SET c.OperationalFee	= ABS(c.GrossWinloss) * s.OperationalFee + s.OperationalAmount,
 			c.DepositFee		= c.Deposit * s.DepositFee + s.DepositAmount,
-			c.WithdrawalFee		= c.WithdrawalFee * s.DepositFee + s.WithdrawalAmount
+			c.WithdrawalFee		= c.Withdrawal * s.WithdrawalFee + s.WithdrawalAmount
 		FROM #Commission c
 			INNER JOIN @Setting s ON c.MonthDate = s.MonthDate AND c.GroupId = s.GroupId AND c.ProductId = s.ProductId
 		WHERE c.ProductId = 0
