@@ -37,9 +37,9 @@ BEGIN
 	IF @BaseCurrency = 0
 		SET @BaseCurrency = @AffCurrency
 
-	CREATE TABLE #ExchangeOanda (MonthDate SMALLDATETIME, Currency INT, Rate FLOAT)
-	INSERT INTO #ExchangeOanda (MonthDate, Currency, Rate)
-	SELECT ExchangeDate, ExchangeId,
+	CREATE TABLE #ExchangeOanda (MonthDate SMALLDATETIME, Rate FLOAT)
+	INSERT INTO #ExchangeOanda (MonthDate, Rate)
+	SELECT ExchangeDate,
 		CASE @BaseCurrency
 			WHEN  2 THEN MYR
 			WHEN  3 THEN USD
@@ -52,6 +52,7 @@ BEGIN
 			ELSE 0 END AS Rate
 	FROM dbo.ExchangeOanda WITH (NOLOCK)
 	WHERE ExchangeDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
+		AND ExchangeId = @AffCurrency
 		
 	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME, AffId INT, GroupId INT)
 
@@ -289,7 +290,7 @@ BEGIN
 			c.Commission		= c.Commission * e.Rate,
 			c.SubAffCommission	= c.SubAffCommission * e.Rate
 		FROM #AffCommission c
-			INNER JOIN #ExchangeOanda e ON c.MonthDate = e.MonthDate AND e.Currency = @BaseCurrency
+			INNER JOIN #ExchangeOanda e ON c.MonthDate = e.MonthDate
 	END
 
 	-- Filter by Products
@@ -382,5 +383,6 @@ BEGIN
 	END
 
 	DROP TABLE #AffCommission
+	DROP TABLE #ExchangeOanda
 END
 GO

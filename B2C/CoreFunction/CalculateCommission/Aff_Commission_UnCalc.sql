@@ -240,7 +240,7 @@ BEGIN
 			s.DepositAmount = s.DepositAmount * e.Rate,
 			s.WithdrawalAmount = s.WithdrawalAmount * e.Rate
 		FROM @Setting s
-			INNER JOIN #ExchangeOanda e ON s.MonthDate = e.MonthDate AND e.Currency = @BaseCurrency
+			INNER JOIN #ExchangeOanda e ON s.MonthDate = e.MonthDate AND e.Currency = @AffCurrency
 	END
 
 	DELETE d
@@ -399,11 +399,6 @@ BEGIN
 				ORDER BY gsh.TierId DESC
 			) AS s
 		WHERE c.ProductId = 0
-
-		-- Reset PlatFormFee per product
-		UPDATE #Commission
-		SET PlatFormFee = 0
-		WHERE ProductId > 0
 
 		-- Filter by Currencies
 		IF @Currencies <> ''
