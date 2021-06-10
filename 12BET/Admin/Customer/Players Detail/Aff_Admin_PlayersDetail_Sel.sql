@@ -146,7 +146,8 @@ BEGIN
 	GROUP BY t.IBCCustId
 
 	SELECT @NRows = COUNT(1)
-	FROM #tmpData d
+	FROM #Result d
+		INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.IBCCustId = m.IBCCustId
 		LEFT JOIN dbo.MemberRemoval mr WITH (NOLOCK) ON d.IBCCustId = mr.IBCCustId AND mr.MonthDate = @ToDate
 	WHERE mr.IBCCustId IS NULL
 
