@@ -15,6 +15,7 @@ AS
 	
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20210528@Malcolm: Correct paging [RedmineID: #149210]
 
 	Param's Explanation:
 */
@@ -34,7 +35,9 @@ BEGIN
 	BEGIN
 		IF @Username = '' AND @IBCUserName = ''
 		BEGIN
-			SELECT @NRows = COUNT(1) FROM dbo.MemberInfo WITH (NOLOCK)
+			SELECT @NRows = COUNT(1) 
+			FROM dbo.MemberInfo mi WITH (NOLOCK)
+				INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
 		
 			SELECT IBCCustId, UserName, IBCUserName, FirstName, LastName, CreatedDate, IsRemoved, AffUserName, 0 AS CurrBalance
 			FROM
@@ -50,9 +53,10 @@ BEGIN
 		ELSE
 		BEGIN
 			SELECT @NRows = COUNT(1)
-			FROM dbo.MemberInfo WITH (NOLOCK)
-			WHERE UserName LIKE '%' + @UserName + '%'
-				AND IBCUserName LIKE '%' + @IBCUserName + '%'
+			FROM dbo.MemberInfo mi WITH (NOLOCK)
+				INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
+			WHERE mi.UserName LIKE '%' + @UserName + '%'
+				AND mi.IBCUserName LIKE '%' + @IBCUserName + '%'
 
 			SELECT IBCCustId, UserName, IBCUserName, FirstName, LastName, CreatedDate, IsRemoved, AffUserName, 0 AS CurrBalance
 			FROM

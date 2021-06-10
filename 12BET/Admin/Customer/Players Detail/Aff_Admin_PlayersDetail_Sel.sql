@@ -24,7 +24,6 @@ AS
 		- 20181001@Percy: Support export excel [RedmineID: #102322]
 		- 20191210@Percy: Add withdrawal column and support sort [RedmineID: #121971]
 		- 20210223@Percy: Exclude removed member [RedmineID: #149213]
-		- 20210528@Malcolm: Filter by date [RedmineID: #149210]
 		- 20210528@Malcolm: Add filter Date range [RedmineID: #149210]
 	Param's Explanation:
 		- @SortById:	1 = Username
