@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20191210@Percy: Remove get data on bettrans [RedmineID: #121971]
+		- 20210526@Malcolm: Get turnover [RedmineID: #149210]
 */
 
 BEGIN
@@ -43,6 +44,7 @@ BEGIN
 			,Withdrawal	MONEY
 			,Winloss	MONEY
 			,Bonus		MONEY
+			,Turnover   MONEY
 		)
 
 		DECLARE @tblWinlostDate TABLE (WinlostDate SMALLDATETIME)
@@ -63,15 +65,16 @@ BEGIN
 		-- MemberDaily
 		IF EXISTS (SELECT 1 FROM @tblWinlostDate WHERE WinlostDate = @CutOffDate)
 		BEGIN
-			INSERT INTO #Data (WinlostDate, Deposit, Withdrawal, Winloss, Bonus)
-			SELECT r.WinlostDate, SUM(r.Deposit), SUM(r.Withdrawal), SUM(r.Winloss), SUM(r.Bonus)
+			INSERT INTO #Data (WinlostDate, Deposit, Withdrawal, Winloss, Bonus, Turnover)
+			SELECT r.WinlostDate, SUM(r.Deposit), SUM(r.Withdrawal), SUM(r.Winloss), SUM(r.Bonus), SUM(r.Turnover)
 			FROM @tblWinlostDate wld
 				CROSS APPLY (
 					SELECT	r.WinlostDate
 							,r.Deposit * r.AffExRate	AS Deposit
 							,r.Withdrawal * r.AffExRate AS Withdrawal
 							,CASE WHEN ISNULL(@ProductId, 0) = 0 OR r.SportType = @ProductId THEN r.Winlost * r.AffExRate ELSE 0 END AS Winloss
-							,r.Bonus * r.AffExRate		AS Bonus
+							,CASE WHEN ISNULL(@ProductId, 0) = 0 OR r.SportType = @ProductId THEN r.Turnover * r.AffExRate ELSE 0 END AS Turnover
+							,r.Bonus * r.AffExRate		AS Bonus					
 					FROM dbo.MemberDaily r WITH (NOLOCK)
 					WHERE r.WinlostDate = wld.WinlostDate
 						AND r.AffId = @AffId
@@ -86,8 +89,8 @@ BEGIN
 		-- rptMemberDaily
 		ELSE
 		BEGIN
-			INSERT INTO #Data (WinlostDate, Deposit, Withdrawal, Winloss, Bonus)
-			SELECT r.WinlostDate, SUM(r.Deposit), SUM(r.Withdrawal), SUM(r.Winloss), SUM(r.Bonus)
+			INSERT INTO #Data (WinlostDate, Deposit, Withdrawal, Winloss, Bonus, Turnover)
+			SELECT r.WinlostDate, SUM(r.Deposit), SUM(r.Withdrawal), SUM(r.Winloss), SUM(r.Bonus), SUM(r.Turnover)
 			FROM @tblWinlostDate wld
 				CROSS APPLY (
 					SELECT	r.WinlostDate
@@ -95,6 +98,7 @@ BEGIN
 							,r.Withdrawal * r.AffExRate AS Withdrawal
 							,r.Winloss * r.AffExRate	AS Winloss
 							,r.Bonus * r.AffExRate		AS Bonus
+							,r.Turnover * r.AffExRate   AS Turnover
 					FROM dbo.rptMemberDaily r WITH (NOLOCK)
 					WHERE r.WinlostDate = wld.WinlostDate
 						AND r.AffId = @AffId
@@ -128,6 +132,7 @@ BEGIN
 			,SUM(ISNULL(Winloss, 0))	AS MemberWinlostFake
 			,SUM(ISNULL(Bonus, 0))		AS Bonus
 			,SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * ISNULL(@BankingFee, 0)) AS BankingFee
+			,SUM(ISNULL(Turnover, 0))   AS Turnover
 		FROM #Data
 		GROUP BY
 			WinlostDate
@@ -141,6 +146,7 @@ BEGIN
 			,SUM(ISNULL(Winloss, 0))	AS MemberWinlostFake
 			,SUM(ISNULL(Bonus, 0))		AS Bonus
 			,SUM((ISNULL(Deposit, 0) + ISNULL(Withdrawal, 0)) * ISNULL(@BankingFee, 0)) AS BankingFee
+			,SUM(ISNULL(Turnover, 0))   AS Turnover
 		FROM #Data
 		HAVING SUM(ISNULL(Deposit, 0)) IS NOT NULL
 	END

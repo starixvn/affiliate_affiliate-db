@@ -4,6 +4,7 @@ ALTER PROCEDURE [dbo].[Aff_Commission_UnCalc]
 	@FromMonthDate		SMALLDATETIME,
 	@ToMonthDate		SMALLDATETIME,
 	@ProductIds			VARCHAR(MAX) = '0',
+	@IsGetMonthly       BIT = 1,
 	@IsSumAll			BIT = 0,
 	@GetRowTotalOnly	BIT = 0
 AS
@@ -19,15 +20,19 @@ AS
 		- 20181120@Percy: Keep line total (productId = 0) [RedmineID: #104963]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 		- 20191127@Percy: Enhance performance [RedmineID: #118992]
+		- 20210528@Malcolm: Get date daily [RedmineID: #149210]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @BeginOfFromMonthDate SMALLDATETIME, @EndOfToMonthDate SMALLDATETIME
-
-	SELECT  @BeginOfFromMonthDate	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate), 0) -- First day of @FromMonthDate
-	SELECT  @EndOfToMonthDate		= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToMonthDate) + 1, 0)) -- Last day of @ToMonthDate
+	DECLARE @BeginOfFromMonthDate SMALLDATETIME = @FromMonthDate, @EndOfToMonthDate SMALLDATETIME = @ToMonthDate
+	
+	IF @IsGetMonthly = 1
+	BEGIN 
+		SELECT  @BeginOfFromMonthDate	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate), 0) -- First day of @FromMonthDate
+		SELECT  @EndOfToMonthDate		= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToMonthDate) + 1, 0)) -- Last day of @ToMonthDate
+	END
 
 	IF @EndOfToMonthDate > CONVERT(DATE, GETDATE())
 		SELECT @EndOfToMonthDate = CONVERT(DATE, GETDATE())
