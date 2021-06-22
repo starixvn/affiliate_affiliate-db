@@ -8,6 +8,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Affiliate_Sel]
 	@UserName 			NVARCHAR(50) 	= '',
 	@Status				VARCHAR(30)		= '',
 	@Email 				NVARCHAR(50) 	= '',
+	@Player_UserName	VARCHAR(30)		= '',
 	@SortType			TINYINT			= 1,
 	@SortDirectionType	BIT				= 0,
 	@IsExportExcel		BIT				= 0,
@@ -25,6 +26,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201026@Percy: Change search by AffId to AffCode [RedmineID: #143852]
 		- 20200107@Percy: Add suspended status [RedmineID: #148373]
+		- 20210622@Percy: Support search Affiliate player [RedmineID: #157299]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
@@ -44,7 +46,8 @@ BEGIN
 		(ISNULL(@ParentAffName, '') = '' OR p.Username LIKE '%' + @ParentAffName + '%')
 		AND (ISNULL(@AffCode, '') = '' OR ai.AffCode = @AffCode)
 		AND (ISNULL(@Username, '') = '' OR ai.Username LIKE '%' + @Username + '%')
-		AND (ISNULL(@Email, '') = '' OR ai.Email LIKE '%' + @Email + '%')
+		AND (ISNULL(@Email, '') = '' OR ai.Email LIKE '%' + REPLACE(@Email, '_', '[_]') + '%')
+		AND (ISNULL(@Player_UserName, '') = '' OR ad.Player_Username LIKE '%' + REPLACE(@Player_UserName, '_', '[_]') + '%')
 		AND ai.Status = CASE
 							WHEN ISNULL(@Status, '') = '' THEN ai.Status
 							WHEN @Status IN ('Favorite', 'Approved', 'Closed', 'Suspended') THEN 'Approved'
@@ -174,7 +177,8 @@ BEGIN
 			(ISNULL(@ParentAffName, '') = '' OR p.Username LIKE '%' + @ParentAffName + '%')
 			AND (ISNULL(@AffCode, '') = '' OR ai.AffCode = @AffCode)
 			AND (ISNULL(@Username, '') = '' OR ai.Username LIKE '%' + @Username + '%')
-			AND (ISNULL(@Email, '') = '' OR ai.Email LIKE '%' + @Email + '%')
+			AND (ISNULL(@Email, '') = '' OR ai.Email LIKE '%' + REPLACE(@Email, '_', '[_]') + '%')
+			AND (ISNULL(@Player_UserName, '') = '' OR ad.Player_Username LIKE '%' + REPLACE(@Player_UserName, '_', '[_]') + '%')
 			AND ai.Status = CASE
 								WHEN ISNULL(@Status, '') = '' THEN ai.Status
 								WHEN @Status IN ('Favorite', 'Approved', 'Closed', 'Suspended') THEN 'Approved'
