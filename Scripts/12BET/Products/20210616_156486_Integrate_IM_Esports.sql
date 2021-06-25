@@ -1,3 +1,4 @@
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET"></info>*/
 USE [Affiliate_12BET]
 GO
 
@@ -10,11 +11,11 @@ GO
 INSERT INTO Products (ProductId, ProductName, ProductPrefix, IsIBC, TransferType, Enabled, IsTest, EndOfSupportDate, ReleasedDate)
 VALUES (31, 'IM Esports', '12IMES', 0, 0, 1, 0, NULL, NULL)
 
-DECLARE @MonthDate SMALLDATETIME = '2021-06-30'
+DECLARE @MonthDate SMALLDATETIME = '2021-07-31'
 
 INSERT INTO dbo.APIProductSettings (ProductId, SettingName, SettingValue)
 VALUES (31, 'LastQueueId', '0')
-		,(31, 'LaunchDate', '2021-06-01')
+		,(31, 'LaunchDate', '2021-07-01')
 		,(31, 'SourceTable', 'APIProduct_ImportQueue')
 
 -- Current Setting
