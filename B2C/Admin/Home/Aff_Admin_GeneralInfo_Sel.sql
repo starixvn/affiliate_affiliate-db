@@ -12,6 +12,7 @@ AS
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 		- 20200107@Percy: Add suspended status [RedmineID: #148373]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
+		- 20210714@Percy: Treat TO, WL = 0 for P2P Products [RedmineID: #157958]
 */
 
 BEGIN
@@ -40,7 +41,9 @@ BEGIN
 			Rebate				MONEY,
 			Turnover			MONEY,
 			Winloss				MONEY,
+			Revenue				MONEY,
 			-- Fees
+			P2PFee				MONEY,
 			PlatFormFee			MONEY,
 			OperationalFee		MONEY,
 			DepositFee			MONEY,
@@ -48,9 +51,10 @@ BEGIN
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
-			QualifiedMember		INT,
+			ActivePlayer		INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
+			StraightCommission	MONEY,
 			SubAffCommission	MONEY
 		)
 
@@ -71,15 +75,18 @@ BEGIN
 				Rebate,
 				Turnover,
 				Winloss,
+				Revenue,
+				P2PFee,
 				PlatFormFee,
 				OperationalFee,
 				DepositFee,
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				QualifiedMember,
+				ActivePlayer,
 				CommissionRate,
 				Commission,
+				StraightCommission,
 				SubAffCommission
 			)
 			EXEC dbo.Aff_Commission_UnCalc
@@ -108,15 +115,18 @@ BEGIN
 				Rebate,
 				Turnover,
 				Winloss,
+				Revenue,
+				P2PFee,
 				PlatFormFee,
 				OperationalFee,
 				DepositFee,
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				QualifiedMember,
+				ActivePlayer,
 				CommissionRate,
 				Commission,
+				StraightCommission,
 				SubAffCommission
 			)
 			EXEC dbo.Aff_Commission_Calc

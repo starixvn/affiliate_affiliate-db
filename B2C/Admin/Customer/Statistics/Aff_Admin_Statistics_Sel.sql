@@ -13,6 +13,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
+		- 20210714@Percy: Treat TO, WL = 0 for P2P Products [RedmineID: #157958]
 */
 
 BEGIN
@@ -23,7 +24,6 @@ BEGIN
 			@FDMByMonth					INT,
 			@FDMTotal					INT,
 			@ActivePlayersByMonth		INT,
-			@QualifiedMembersByMonth	INT,
 			@DepositByMonth				MONEY,
 			@DepositTotal				MONEY,
 			@TurnoverByMonth			MONEY,
@@ -65,7 +65,9 @@ BEGIN
 			Rebate				MONEY,
 			Turnover			MONEY,
 			Winloss				MONEY,
+			Revenue				MONEY,
 			-- Fees
+			P2PFee				MONEY,
 			PlatFormFee			MONEY,
 			OperationalFee		MONEY,
 			DepositFee			MONEY,
@@ -73,9 +75,10 @@ BEGIN
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
-			QualifiedMember		INT,
+			ActivePlayer		INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
+			StraightCommission	MONEY,
 			SubAffCommission	MONEY
 		)
 
@@ -98,15 +101,18 @@ BEGIN
 				Rebate,
 				Turnover,
 				Winloss,
+				Revenue,
+				P2PFee,
 				PlatFormFee,
 				OperationalFee,
 				DepositFee,
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				QualifiedMember,
+				ActivePlayer,
 				CommissionRate,
 				Commission,
+				StraightCommission,
 				SubAffCommission
 			)
 			EXEC dbo.Aff_Commission_UnCalc
@@ -137,15 +143,18 @@ BEGIN
 				Rebate,
 				Turnover,
 				Winloss,
+				Revenue,
+				P2PFee,
 				PlatFormFee,
 				OperationalFee,
 				DepositFee,
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				QualifiedMember,
+				ActivePlayer,
 				CommissionRate,
 				Commission,
+				StraightCommission,
 				SubAffCommission
 			)
 			EXEC dbo.Aff_Commission_Calc
@@ -159,14 +168,13 @@ BEGIN
 	END
 
 	SELECT
-		@QualifiedMembersByMonth	= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(QualifiedMember, 0) ELSE 0 END),
-		@ActivePlayersByMonth		= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(QualifiedMember, 0) ELSE 0 END),
-		@DepositByMonth				= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Deposit, 0) ELSE 0 END),
-		@TurnoverByMonth			= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Turnover, 0) ELSE 0 END),
-		@WinlostByMonth				= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Winloss, 0) ELSE 0 END),
-		@DepositTotal				= SUM(ISNULL(Deposit, 0)),
-		@TurnoverTotal				= SUM(ISNULL(Turnover, 0)),
-		@WinlostTotal				= SUM(ISNULL(Winloss, 0))
+		@ActivePlayersByMonth	= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(ActivePlayer, 0) ELSE 0 END),
+		@DepositByMonth			= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Deposit, 0) ELSE 0 END),
+		@TurnoverByMonth		= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Turnover, 0) ELSE 0 END),
+		@WinlostByMonth			= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Winloss, 0) ELSE 0 END),
+		@DepositTotal			= SUM(ISNULL(Deposit, 0)),
+		@TurnoverTotal			= SUM(ISNULL(Turnover, 0)),
+		@WinlostTotal			= SUM(ISNULL(Winloss, 0))
 	FROM #TempCommission
 
 	DROP TABLE #TempCommission
@@ -231,7 +239,6 @@ BEGIN
 		ISNULL(@FDMByMonth, 0)					AS FDMByMonth,
 		ISNULL(@FDMTotal, 0)					AS FDMTotal,
 		ISNULL(@ActivePlayersByMonth, 0)		AS ActivePlayersByMonth,
-		ISNULL(@QualifiedMembersByMonth, 0)		AS QualifiedMembersByMonth,
 		ISNULL(@DepositByMonth, 0)				AS DepositByMonth,
 		ISNULL(@DepositTotal, 0)				AS DepositTotal,
 		ISNULL(@TurnoverByMonth, 0)				AS TurnoverByMonth,

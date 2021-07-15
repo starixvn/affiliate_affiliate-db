@@ -14,22 +14,23 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
+		- 20210714@Percy: Include P2P Earning into Monthly Earning [RedmineID: #157958]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	-- date range for get data whole month of @MonthDate
-	DECLARE @FromBeginMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME
-	SELECT  @FromBeginMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
-	SELECT  @ToNextMonth	= DATEADD(MONTH, 1, @FromBeginMonth)
+	DECLARE @BeginOfMonth SMALLDATETIME, @EndOfMonth SMALLDATETIME
+	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
+	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
 
 	-- Total Signup/Deposited Members
 	BEGIN
 		DECLARE @Signups INT, @DepositedMembers INT
 		
-		SELECT  @Signups = COUNT(CASE WHEN RegisteredDate >= @FromBeginMonth AND RegisteredDate < @ToNextMonth THEN 1 ELSE NULL END)
-				,@DepositedMembers = COUNT(CASE WHEN FirstDepositDate >= @FromBeginMonth AND FirstDepositDate < @ToNextMonth THEN 1 ELSE NULL END)
+		SELECT  @Signups = COUNT(CASE WHEN RegisteredDate >= @BeginOfMonth AND RegisteredDate < DATEADD(DAY, 1, @EndOfMonth) THEN 1 ELSE NULL END)
+				,@DepositedMembers = COUNT(CASE WHEN FirstDepositDate >= @BeginOfMonth AND FirstDepositDate < DATEADD(DAY, 1, @EndOfMonth) THEN 1 ELSE NULL END)
 		FROM dbo.MemberInfo WITH (NOLOCK)
 		WHERE AffId = @AffId
 	END
@@ -40,21 +41,20 @@ BEGIN
 		SELECT  @BBF = SUM(Amount)
 		FROM dbo.AffTrans WITH (NOLOCK)
 		WHERE AffId = @AffId
-			AND TransDate < @ToNextMonth
+			AND TransDate < DATEADD(DAY, 1, @EndOfMonth)
 			AND Status IN ('Pending', 'Approved', 'Completed')
 	END
 
-	-- Active Players, Qualified Active Players, Turnover, Deposit, Commission
+	-- Active Players, Turnover, Deposit, Commission
 	BEGIN
-		DECLARE @ActivePlayers INT, @QualifiedActivePlayers INT, @Turnover MONEY, @Deposit MONEY, @Commission MONEY
-				,@NoOfSubAff INT, @SubAffCommission MONEY
+		DECLARE @NoOfSubAff INT, @ActivePlayers INT, @Turnover MONEY, @Deposit MONEY, @Commission MONEY, @SubAffCommission MONEY
 
 		SELECT @NoOfSubAff = COUNT(1)
 		FROM dbo.AffInfo WITH (NOLOCK)
 		WHERE ParentAffId = @AffId
 			AND Status = 'Approved'
 			AND IsClosed = 0
-			AND ApprovedDate >= @FromBeginMonth AND ApprovedDate < @ToNextMonth
+			AND ApprovedDate >= @BeginOfMonth AND ApprovedDate < DATEADD(DAY, 1, @EndOfMonth)
 
 		CREATE TABLE #TempCommission
 		(
@@ -68,7 +68,9 @@ BEGIN
 			Rebate				MONEY,
 			Turnover			MONEY,
 			Winloss				MONEY,
+			Revenue				MONEY,
 			-- Fees
+			P2PFee				MONEY,
 			PlatFormFee			MONEY,
 			OperationalFee		MONEY,
 			DepositFee			MONEY,
@@ -76,9 +78,10 @@ BEGIN
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
-			QualifiedMember		INT,
+			ActivePlayer		INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
+			StraightCommission	MONEY,
 			SubAffCommission	MONEY
 		)
 
@@ -86,7 +89,7 @@ BEGIN
 		SELECT  @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 		SELECT  @AffIds = CONVERT(VARCHAR(20), @AffId)
 
-		IF @FromBeginMonth > @MaxCommDate
+		IF @BeginOfMonth > @MaxCommDate
 		BEGIN
 			INSERT INTO #TempCommission
 			(
@@ -100,21 +103,24 @@ BEGIN
 				Rebate,
 				Turnover,
 				Winloss,
+				Revenue,
+				P2PFee,
 				PlatFormFee,
 				OperationalFee,
 				DepositFee,
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				QualifiedMember,
+				ActivePlayer,
 				CommissionRate,
 				Commission,
+				StraightCommission,
 				SubAffCommission
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= @AffIds,
-				@FromMonthDate		= @FromBeginMonth,
-				@ToMonthDate		= @FromBeginMonth,
+				@FromMonthDate		= @BeginOfMonth,
+				@ToMonthDate		= @BeginOfMonth,
 				@ProductIds			= '0',
 				@BaseCurrency		= @BaseCurrency,
 				@IsSumAll			= 1,
@@ -134,21 +140,24 @@ BEGIN
 				Rebate,
 				Turnover,
 				Winloss,
+				Revenue,
+				P2PFee,
 				PlatFormFee,
 				OperationalFee,
 				DepositFee,
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				QualifiedMember,
+				ActivePlayer,
 				CommissionRate,
 				Commission,
+				StraightCommission,
 				SubAffCommission
 			)
 			EXEC dbo.Aff_Commission_Calc
 				@AffIds				= @AffIds,
-				@FromMonthDate		= @FromBeginMonth,
-				@ToMonthDate		= @FromBeginMonth,
+				@FromMonthDate		= @BeginOfMonth,
+				@ToMonthDate		= @BeginOfMonth,
 				@ProductIds			= '0',
 				@BaseCurrency		= @BaseCurrency,
 				@IsSumAll			= 1,
@@ -156,11 +165,11 @@ BEGIN
 		END
 
 		SELECT
-			@QualifiedActivePlayers		= SUM(ISNULL(QualifiedMember, 0))
-			,@Turnover					= SUM(ISNULL(Turnover, 0))
-			,@Deposit					= SUM(ISNULL(Deposit, 0))
-			,@Commission				= SUM(ISNULL(Commission, 0))
-			,@SubAffCommission			= SUM(ISNULL(SubAffCommission, 0))
+			@ActivePlayers		= SUM(ISNULL(ActivePlayer, 0))
+			,@Turnover			= SUM(ISNULL(Turnover, 0))
+			,@Deposit			= SUM(ISNULL(Deposit, 0))
+			,@Commission		= SUM(ISNULL(Commission, 0) + ISNULL(StraightCommission, 0))
+			,@SubAffCommission	= SUM(ISNULL(SubAffCommission, 0))
 		FROM #TempCommission
 
 		DROP TABLE #TempCommission
@@ -169,16 +178,15 @@ BEGIN
 	-- Return result
 	BEGIN
 		SELECT
-			ISNULL(@Signups, 0)					AS Signups
-			,ISNULL(@DepositedMembers, 0)		AS DepositedMembers
-			,ISNULL(@BBF, 0)					AS BalanceBroughtForward
-			,ISNULL(@QualifiedActivePlayers, 0)	AS ActivePlayers -- same QualifiedMember
-			,ISNULL(@QualifiedActivePlayers, 0)	AS QualifiedActivePlayers
-			,ISNULL(@Turnover, 0)				AS Turnover
-			,ISNULL(@Deposit, 0)				AS Deposit
-			,ISNULL(@Commission, 0)				AS Commission
-			,ISNULL(@NoOfSubAff, 0)				AS NoOfSubAff
-			,ISNULL(@SubAffCommission, 0)		AS SubAffCommission
+			ISNULL(@Signups, 0)				AS Signups
+			,ISNULL(@DepositedMembers, 0)	AS DepositedMembers
+			,ISNULL(@BBF, 0)				AS BalanceBroughtForward
+			,ISNULL(@ActivePlayers, 0)		AS ActivePlayers
+			,ISNULL(@Turnover, 0)			AS Turnover
+			,ISNULL(@Deposit, 0)			AS Deposit
+			,ISNULL(@Commission, 0)			AS Commission
+			,ISNULL(@NoOfSubAff, 0)			AS NoOfSubAff
+			,ISNULL(@SubAffCommission, 0)	AS SubAffCommission
 	END
 END
 GO

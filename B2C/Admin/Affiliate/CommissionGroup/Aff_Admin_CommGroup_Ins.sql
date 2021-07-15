@@ -5,8 +5,9 @@ ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Ins]
 	,@IsPrivate		BIT = 0
 	,@GroupName		NVARCHAR(100) = ''
 	,@Description	NVARCHAR(100) = NULL
-	,@DeductionList	XML
-	,@TierList		XML
+	,@DeductionList	XML = NULL
+	,@TierList		XML = NULL
+	,@StraightList	XML = NULL
 	,@IP			NVARCHAR(20) = ''
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
@@ -19,19 +20,25 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20210714@Percy: Add @StraightList for P2P Setting [RedmineID: #157958]
 
 	Parameter's Explanation:
 		- @DeductionList:
 			<root>
-				<row id="10" productids = "1,2,3" percent="0.17" amount="0" isdeductedpercent="1" />
-				<row id="10" productids = "4,5" percent="0.15" amount="0" isdeductedpercent="1" />
-				<row id="11" productids = "0" percent="0" amount="100" isdeductedpercent="0" />
-				<row id="12" productids = "0" percent="0.02" amount="0" isdeductedpercent="1" />
+				<row id="10" productids="1,2,3" percent="0.17" amount="0" isdeductedpercent="1" />
+				<row id="10" productids="4,5" percent="0.15" amount="0" isdeductedpercent="1" />
+				<row id="11" productids="0" percent="0" amount="100" isdeductedpercent="0" />
+				<row id="12" productids="0" percent="0.02" amount="0" isdeductedpercent="1" />
 			</root>
 		- @TierList:
 			<root>
 				<row id="1" minamount="0" maxamount="100" minam="0" maxam="5" commission="0.2" />
 				<row id="2" minamount="101" maxamount="100000000000000" minam="6" maxam="1000000000" commission="0.3" />
+			</root>
+		- @StraightList:
+			<root>
+				<row id="1" productids="41" percent="0.16" commission="0.16" />
+				<row id="2" productids="42" percent="0.17" commission="0.17" />
 			</root>
 		- Note: Infinite value of MaxAmount is 100,000,000,000 and MaxAM is 1,000,000,000
 */
@@ -87,9 +94,9 @@ BEGIN
 		FROM @DeductionList.nodes('/root/row') AS t(c)
 	)
 	INSERT INTO @DeductionSetting (GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
-	SELECT GroupProductId, ds.DeductionId, f.val, ISNULL(ds.DeductedPercentage, 0), ISNULL(ds.DeductedAmount, 0), ISNULL(ds.IsDeductedPercent, 0)
+	SELECT GroupProductId, ds.DeductionId, ISNULL(CONVERT(INT, f.val), 0), ISNULL(ds.DeductedPercentage, 0), ISNULL(ds.DeductedAmount, 0), ISNULL(ds.IsDeductedPercent, 0)
 	FROM CTE_DeductionSetting ds
-		CROSS APPLY dbo.Aff_f_StringSplit(ds.ProductIds, ',') f
+		OUTER APPLY dbo.Aff_f_StringSplit(ds.ProductIds, ',') f
 	OPTION (OPTIMIZE FOR (@DeductionList = NULL), MAXRECURSION 0)
 
 	UPDATE @DeductionSetting
@@ -142,6 +149,42 @@ BEGIN
 		RETURN
 	END
 
+	-- Straight Setting
+	DECLARE @StraightSetting TABLE (ProductId INT, GroupProductId INT, DeductedPercentage DECIMAL(9, 8), Commission DECIMAL(9, 8))
+	
+	;WITH CTE_StraightSetting AS
+	(
+		SELECT
+			ROW_NUMBER() OVER(PARTITION BY t.c.value('@id', 'TINYINT') ORDER BY (SELECT NULL)) AS GroupProductId,
+			t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
+			t.c.value('@percent', 'DECIMAL(9,8)') AS DeductedPercentage,
+			t.c.value('@commission', 'DECIMAL(9,8)') AS Commission
+		FROM @StraightList.nodes('/root/row') AS t(c)
+	)
+	INSERT INTO @StraightSetting (ProductId, GroupProductId, DeductedPercentage, Commission)
+	SELECT ISNULL(CONVERT(INT, f.val), 0), s.GroupProductId, ISNULL(s.DeductedPercentage, 0), ISNULL(s.Commission, 0)
+	FROM CTE_StraightSetting s
+		OUTER APPLY dbo.Aff_f_StringSplit(s.ProductIds, ',') f
+	OPTION (OPTIMIZE FOR (@StraightList = NULL), MAXRECURSION 0)
+
+	-- Check full products
+	SET @ErrMsg = NULL
+	SELECT @ErrMsg = COALESCE(@ErrMsg + ', ', '') + ProductName
+	FROM dbo.Products p WITH (NOLOCK)
+		LEFT JOIN (
+			SELECT DISTINCT ProductId FROM @DeductionSetting
+			UNION SELECT DISTINCT ProductId FROM @StraightSetting
+		) s ON p.ProductId = s.ProductId
+	WHERE p.Enabled = 1 AND p.IsTest = 0 AND s.ProductId IS NULL
+	
+	IF ISNULL(@ErrMsg, '') <> ''
+	BEGIN
+		-- Please select the following product: <product 1>, <product 2>
+		SELECT @ErrCode = 110, @ErrMsg = 'Please select the following product: ' + @ErrMsg
+
+		RETURN
+	END
+
 	IF @IsPrivate = 1
 	BEGIN
 		DECLARE @ExistsGroupId INT
@@ -166,155 +209,43 @@ BEGIN
 		END
 	END
 
-	-- General information
 	BEGIN TRY
-		INSERT INTO dbo.CommGroup
-		(
-			GroupName,
-			CreatedDate,
-			Creator,
-			IsPrivate,
-			Description
-		)
-		VALUES
-		(
-			@GroupName,
-			GETDATE(),
-			@UserId,
-			@IsPrivate,
-			@Description
-		)
+		-- General information
+		INSERT INTO dbo.CommGroup (GroupName, CreatedDate, Creator, IsPrivate, Description)
+		VALUES (@GroupName, GETDATE(), @UserId, @IsPrivate, @Description)
 
 		SELECT @GroupId = SCOPE_IDENTITY()
-	END TRY
-	BEGIN CATCH
-		-- Failed to insert new group! Please try again!
-		SELECT @ErrCode = 105, @ErrMsg = dbo.Aff_f_GetMessageById(1005, @Language)
 
-		RETURN
-	END CATCH
+		-- Tier List
+		INSERT INTO dbo.TierSetting (GroupId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
+		SELECT @GroupId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission FROM @TierSetting
 
-	-- Tier List
-	BEGIN TRY
-		INSERT INTO dbo.TierSetting
-		(
-			GroupId,
-			TierId,
-			MinAmount,
-			MaxAmount,
-			MinAM,
-			MaxAM,
-			Commission
-		)
-		SELECT
-			@GroupId,
-			TierId,
-			MinAmount,
-			MaxAmount,
-			MinAM,
-			MaxAM,
-			Commission
-		FROM @TierSetting
+		INSERT INTO dbo.TierSettingHistory (GroupId, MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
+		SELECT @GroupId, @MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission FROM @TierSetting
 
-		INSERT INTO dbo.TierSettingHistory
-		(
-			GroupId,
-			MonthDate,
-			TierId,
-			MinAmount,
-			MaxAmount,
-			MinAM,
-			MaxAM,
-			Commission
-		)
-		SELECT
-			@GroupId,
-			@MonthDate,
-			TierId,
-			MinAmount,
-			MaxAmount,
-			MinAM,
-			MaxAM,
-			Commission
-		FROM @TierSetting
+		-- Deduction List
+		INSERT INTO dbo.DeductionSetting (GroupId, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
+		SELECT @GroupId, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent FROM @DeductionSetting
+
+		INSERT INTO dbo.DeductionSettingHistory (GroupId, MonthDate, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
+		SELECT @GroupId, @MonthDate, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent FROM @DeductionSetting
+
+		-- Straight List
+		INSERT INTO dbo.StraightSetting (GroupId, ProductId, GroupProductId, DeductedPercentage, Commission)
+		SELECT @GroupId, ProductId, GroupProductId, DeductedPercentage, Commission FROM @StraightSetting
+
+		INSERT INTO dbo.StraightSettingHistory (GroupId, MonthDate, ProductId, GroupProductId, DeductedPercentage, Commission)
+		SELECT @GroupId, @MonthDate, ProductId, GroupProductId, DeductedPercentage, Commission FROM @StraightSetting
 	END TRY
 	BEGIN CATCH
 		-- Rollback manually
-		DELETE dbo.CommGroup WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId
-
-		DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId
-
-		DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-
-		-- Failed to insert new group! Please try again!
-		SELECT @ErrCode = 105, @ErrMsg = dbo.Aff_f_GetMessageById(1005, @Language)
-
-		RETURN
-	END CATCH
-
-	-- Deduction List
-	BEGIN TRY
-		INSERT INTO dbo.DeductionSetting
-		(
-			GroupId,
-			GroupProductId,
-			DeductionId,
-			ProductId,
-			DeductedPercentage,
-			DeductedAmount,
-			IsDeductedPercent
-		)
-		SELECT
-			@GroupId,
-			GroupProductId,
-			DeductionId,
-			ProductId,
-			DeductedPercentage,
-			DeductedAmount,
-			IsDeductedPercent
-		FROM @DeductionSetting
-
-		INSERT INTO dbo.DeductionSettingHistory
-		(
-			GroupId,
-			MonthDate,
-			GroupProductId,
-			DeductionId,
-			ProductId,
-			DeductedPercentage,
-			DeductedAmount,
-			IsDeductedPercent
-		)
-		SELECT
-			@GroupId,
-			@MonthDate,
-			GroupProductId,
-			DeductionId,
-			ProductId,
-			DeductedPercentage,
-			DeductedAmount,
-			IsDeductedPercent
-		FROM @DeductionSetting
-	END TRY
-	BEGIN CATCH
-		-- Rollback manually
-		DELETE dbo.CommGroup WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId
-
-		DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId
-
-		DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-
-		DELETE dbo.DeductionSetting WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId
-
-		DELETE dbo.DeductionSettingHistory WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
+		DELETE dbo.CommGroup WHERE GroupId = @GroupId
+		DELETE dbo.TierSetting WHERE GroupId = @GroupId
+		DELETE dbo.TierSettingHistory WHERE GroupId = @GroupId AND MonthDate = @MonthDate
+		DELETE dbo.DeductionSetting WHERE GroupId = @GroupId
+		DELETE dbo.DeductionSettingHistory WHERE GroupId = @GroupId AND MonthDate = @MonthDate
+		DELETE dbo.StraightSetting WHERE GroupId = @GroupId
+		DELETE dbo.StraightSettingHistory WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
 		-- Failed to insert new group! Please try again!
 		SELECT @ErrCode = 105, @ErrMsg = dbo.Aff_f_GetMessageById(1005, @Language)
@@ -334,7 +265,8 @@ BEGIN
 		'IsPrivate='	+ ISNULL(CONVERT(VARCHAR(1), @IsPrivate), '') + ',' +
 		'Description='	+ ISNULL(@Description, '') + ',' +
 		'DeductionList='+ ISNULL(CONVERT(NVARCHAR(MAX), @DeductionList), '') + ',' +
-		'TierList='		+ ISNULL(CONVERT(NVARCHAR(MAX), @TierList), '')
+		'TierList='		+ ISNULL(CONVERT(NVARCHAR(MAX), @TierList), '') + ',' +
+		'StraightList='	+ ISNULL(CONVERT(NVARCHAR(MAX), @StraightList), '')
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,

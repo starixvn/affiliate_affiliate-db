@@ -17,10 +17,9 @@ BEGIN
 	DECLARE @isTest BIT = 0
 	SELECT  @isTest = dbo.f_Aff_CheckSPVersion(@@PROCID)
 
-	SELECT DeductionId, DeductionName, DeductedPercentage, DeductedAmount, IsDeductedPercent
+	SELECT DeductionId, DeductionName, DeductedPercentage, DeductedAmount, IsDeductedPercent, Commission
 	FROM dbo.Deductions WITH (NOLOCK)
-	WHERE
-		IsTest <= @isTest
+	WHERE IsTest <= @isTest
 		AND IsDeleted = 0
 END
 GO

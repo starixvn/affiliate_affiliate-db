@@ -16,6 +16,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
+		- 20210714@Percy: Include P2P Earning into Monthly Earning [RedmineID: #157958]
 */
 
 BEGIN
@@ -109,26 +110,25 @@ BEGIN
 				Description
 			)
 			SELECT
-				ISNULL(at.TransId, 0),
-				md.MonthDate,
-				t.TransType,
-				ISNULL(at.Amount, 0),
+				0,
+				MonthDate,
+				TransType,
+				SUM(Amount),
 				'B/F' AS Status,
 				'System' AS Creator,
-				t.Description
-			FROM CTE_MonthDate md
-				CROSS APPLY (
-					SELECT 201 AS TransType, 'Monthly Earning' AS Description
-					UNION ALL
-					SELECT 204 AS TransType, 'Revenue Share' AS Description
-				) t
-				OUTER APPLY (
-					SELECT at.TransId, at.Amount
-					FROM dbo.AffTrans at WITH (NOLOCK)
-					WHERE md.MonthDate = at.TransDate
-						AND at.AffId = @AffId
-						AND at.TransType = t.TransType
-				) at
+				CASE WHEN TransType = 201 THEN 'Monthly Earning' ELSE 'Revenue Share' END AS Description
+			FROM (
+				SELECT md.MonthDate, CASE WHEN at.TransType = 205 THEN 201 ELSE at.TransType END AS TransType, ISNULL(at.Amount, 0) AS Amount
+				FROM CTE_MonthDate md
+					OUTER APPLY (
+						SELECT at.TransType, at.Amount
+						FROM dbo.AffTrans at WITH (NOLOCK)
+						WHERE md.MonthDate = at.TransDate
+							AND at.AffId = @AffId
+							AND at.TransType IN (201, 204, 205)
+					) at
+			) t
+			GROUP BY MonthDate, TransType
 			OPTION (MAXRECURSION 0)
 		END
 
@@ -153,7 +153,9 @@ BEGIN
 				Rebate				MONEY,
 				Turnover			MONEY,
 				Winloss				MONEY,
+				Revenue				MONEY,
 				-- Fees
+				P2PFee				MONEY,
 				PlatFormFee			MONEY,
 				OperationalFee		MONEY,
 				DepositFee			MONEY,
@@ -161,9 +163,10 @@ BEGIN
 				-- Calculation
 				GrossWinloss		MONEY,
 				NetWinloss			MONEY,
-				QualifiedMember		INT,
+				ActivePlayer		INT,
 				CommissionRate		FLOAT,
 				Commission			MONEY,
+				StraightCommission	MONEY,
 				SubAffCommission	MONEY
 			)
 
@@ -179,15 +182,18 @@ BEGIN
 				Rebate,
 				Turnover,
 				Winloss,
+				Revenue,
+				P2PFee,
 				PlatFormFee,
 				OperationalFee,
 				DepositFee,
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				QualifiedMember,
+				ActivePlayer,
 				CommissionRate,
 				Commission,
+				StraightCommission,
 				SubAffCommission
 			)
 			EXEC dbo.Aff_Commission_UnCalc
@@ -218,25 +224,32 @@ BEGIN
 				CalculatedType
 			)
 			SELECT
-				0 AS TransId,
-				md.MonthDate,
-				t.TransType,
-				ISNULL(at.Amount, 0) AS Amount,
-				'Current' AS Status,
-				'' AS Creator,
-				CASE WHEN md.MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current ' ELSE 'UnCalculated ' END + t.Description AS Description,
-				CASE WHEN md.MonthDate >= CONVERT(DATE, GETDATE()) THEN 0 ELSE 1 END AS CalculatedType
-			FROM CTE_MonthDate md
-				CROSS APPLY (
-					SELECT 201 AS TransType, 'Monthly Earning' AS Description
-					UNION ALL
-					SELECT 204 AS TransType, 'Revenue Share' AS Description
-				) t
-				OUTER APPLY (
-					SELECT CASE WHEN t.TransType = 201 THEN c.Commission ELSE c.SubAffCommission END AS Amount
-					FROM #TempCommission c
-					WHERE md.MonthDate = c.MonthDate
-				) at
+				0,
+				MonthDate,
+				TransType,
+				SUM(Amount),
+				'B/F' AS Status,
+				'System' AS Creator,
+				CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current ' ELSE 'UnCalculated ' END
+					+ CASE WHEN TransType = 201 THEN 'Monthly Earning' ELSE 'Revenue Share' END AS Description,
+				CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 0 ELSE 1 END AS CalculatedType
+			FROM (
+				SELECT md.MonthDate, CASE WHEN at.TransType = 205 THEN 201 ELSE at.TransType END AS TransType, ISNULL(at.Amount, 0) AS Amount
+				FROM CTE_MonthDate md
+					OUTER APPLY (
+						SELECT c.Commission, c.StraightCommission, c.SubAffCommission
+						FROM #TempCommission c
+						WHERE md.MonthDate = c.MonthDate
+							AND c.AffId = @AffId
+							AND c.ProductId = 0
+					) c
+					OUTER APPLY (
+						SELECT 201 AS TransType, c.Commission AS Amount
+						UNION ALL SELECT 205, c.StraightCommission
+						UNION ALL SELECT 204, c.SubAffCommission
+					) at
+			) t
+			GROUP BY MonthDate, TransType
 			OPTION (MAXRECURSION 0)
 
 			DROP TABLE #TempCommission

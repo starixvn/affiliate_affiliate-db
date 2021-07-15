@@ -13,15 +13,16 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
+		- 20210714@Percy: Include P2P Earning into Monthly Earning & Treat TO, WL = 0 for P2P Products [RedmineID: #157958]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	-- date range for get data whole month of @MonthDate
-	DECLARE @FromBeginMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME
-	SELECT  @FromBeginMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
-	SELECT  @ToNextMonth	= DATEADD(MONTH, 1, @FromBeginMonth)
+	DECLARE @BeginOfMonth SMALLDATETIME, @EndOfMonth SMALLDATETIME
+	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
+	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
 
 	-- Total Turnover, Winloss, Commission
 	BEGIN
@@ -37,7 +38,9 @@ BEGIN
 			Rebate				MONEY,
 			Turnover			MONEY,
 			Winloss				MONEY,
+			Revenue				MONEY,
 			-- Fees
+			P2PFee				MONEY,
 			PlatFormFee			MONEY,
 			OperationalFee		MONEY,
 			DepositFee			MONEY,
@@ -45,9 +48,10 @@ BEGIN
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
-			QualifiedMember		INT,
+			ActivePlayer		INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
+			StraightCommission	MONEY,
 			SubAffCommission	MONEY
 		)
 
@@ -63,9 +67,9 @@ BEGIN
 			AND Status = 'Approved'
 			AND IsClosed = 0
 			AND ISNULL(IsSuspended, 0) = 0
-			AND ApprovedDate < @ToNextMonth
+			AND ApprovedDate < DATEADD(DAY, 1, @EndOfMonth)
 
-		IF @FromBeginMonth > @MaxCommDate
+		IF @BeginOfMonth > @MaxCommDate
 		BEGIN
 			INSERT INTO #TempCommission
 			(
@@ -79,21 +83,24 @@ BEGIN
 				Rebate,
 				Turnover,
 				Winloss,
+				Revenue,
+				P2PFee,
 				PlatFormFee,
 				OperationalFee,
 				DepositFee,
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				QualifiedMember,
+				ActivePlayer,
 				CommissionRate,
 				Commission,
+				StraightCommission,
 				SubAffCommission
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= @AffIds,
-				@FromMonthDate		= @FromBeginMonth,
-				@ToMonthDate		= @FromBeginMonth,
+				@FromMonthDate		= @BeginOfMonth,
+				@ToMonthDate		= @BeginOfMonth,
 				@ProductIds			= '0',
 				@BaseCurrency		= @BaseCurrency,
 				@IsSumAll			= 1,
@@ -113,21 +120,24 @@ BEGIN
 				Rebate,
 				Turnover,
 				Winloss,
+				Revenue,
+				P2PFee,
 				PlatFormFee,
 				OperationalFee,
 				DepositFee,
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				QualifiedMember,
+				ActivePlayer,
 				CommissionRate,
 				Commission,
+				StraightCommission,
 				SubAffCommission
 			)
 			EXEC dbo.Aff_Commission_Calc
 				@AffIds				= @AffIds,
-				@FromMonthDate		= @FromBeginMonth,
-				@ToMonthDate		= @FromBeginMonth,
+				@FromMonthDate		= @BeginOfMonth,
+				@ToMonthDate		= @BeginOfMonth,
 				@ProductIds			= '0',
 				@BaseCurrency		= @BaseCurrency,
 				@IsSumAll			= 1,
@@ -154,8 +164,8 @@ BEGIN
 				SELECT
 					SUM(c.Turnover) AS Turnover
 					,SUM(c.Winloss) AS Winloss
-					,SUM(c.Commission + c.SubAffCommission) AS Commission
-					,SUM(c.QualifiedMember) AS ActivePlayer -- same QualifiedMember
+					,SUM(c.Commission + c.StraightCommission + c.SubAffCommission) AS Commission
+					,SUM(c.ActivePlayer) AS ActivePlayer
 				FROM #TempCommission c
 				WHERE ai.AffId = c.AffId
 					AND ISNULL(ai.IsSuspended, 0) = 0
@@ -163,7 +173,7 @@ BEGIN
 		WHERE ai.ParentAffId = @AffId
 			AND ai.Status = 'Approved'
 			AND ai.IsClosed = 0
-			AND ai.ApprovedDate < @ToNextMonth
+			AND ai.ApprovedDate < DATEADD(DAY, 1, @EndOfMonth)
 		ORDER BY
 			ai.IsSuspended
 			,ai.UserName
