@@ -19,6 +19,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210506@Percy: Max Sub Affiliate Commission Setting [RedmineID: #153465]
+		- 20210714@Percy: Include P2P Earning into Monthly Earning [RedmineID: #157958]
 */
 
 BEGIN
@@ -55,7 +56,9 @@ BEGIN
 			Rebate				MONEY,
 			Turnover			MONEY,
 			Winloss				MONEY,
+			Revenue				MONEY,
 			-- Fees
+			P2PFee				MONEY,
 			PlatFormFee			MONEY,
 			OperationalFee		MONEY,
 			DepositFee			MONEY,
@@ -63,9 +66,10 @@ BEGIN
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
-			QualifiedMember		INT,
+			ActivePlayer		INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
+			StraightCommission	MONEY,
 			SubAffCommission	MONEY
 		)
 
@@ -81,15 +85,18 @@ BEGIN
 			Rebate,
 			Turnover,
 			Winloss,
+			Revenue,
+			P2PFee,
 			PlatFormFee,
 			OperationalFee,
 			DepositFee,
 			WithdrawalFee,
 			GrossWinloss,
 			NetWinloss,
-			QualifiedMember,
+			ActivePlayer,
 			CommissionRate,
 			Commission,
+			StraightCommission,
 			SubAffCommission
 		)
 		EXEC dbo.Aff_Commission_UnCalc
@@ -106,8 +113,8 @@ BEGIN
 		SELECT
 			ai.AffId
 			,ai.UserName
-			,SUM(tc.Commission + tc.SubAffCommission) AS Commission
-			,SUM(tc.Commission + tc.SubAffCommission) * @SubAffCommRate AS SubAffCommission
+			,SUM(tc.Commission + tc.StraightCommission + tc.SubAffCommission) AS Commission
+			,SUM(tc.Commission + tc.StraightCommission + tc.SubAffCommission) * @SubAffCommRate AS SubAffCommission
 		FROM dbo.AffInfo ai WITH (NOLOCK)
 			INNER JOIN #TempCommission tc ON ai.AffId = tc.AffId
 		GROUP BY

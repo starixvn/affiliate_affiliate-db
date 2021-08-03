@@ -13,6 +13,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
+		- 20210714@Percy: Add column P2P Earning & Treat TO, WL = 0 for P2P Products [RedmineID: #157958]
 */
 
 BEGIN
@@ -60,7 +61,9 @@ BEGIN
 			Rebate				MONEY,
 			Turnover			MONEY,
 			Winloss				MONEY,
+			Revenue				MONEY,
 			-- Fees
+			P2PFee				MONEY,
 			PlatFormFee			MONEY,
 			OperationalFee		MONEY,
 			DepositFee			MONEY,
@@ -68,9 +71,10 @@ BEGIN
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
-			QualifiedMember		INT,
+			ActivePlayer		INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
+			StraightCommission	MONEY,
 			SubAffCommission	MONEY,
 			-- for monthdate -- 0: temporary, 1: uncalculated, 2: calculated
 			CalculatedType		TINYINT DEFAULT ((2))
@@ -94,15 +98,18 @@ BEGIN
 				Rebate,
 				Turnover,
 				Winloss,
+				Revenue,
+				P2PFee,
 				PlatFormFee,
 				OperationalFee,
 				DepositFee,
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				QualifiedMember,
+				ActivePlayer,
 				CommissionRate,
 				Commission,
+				StraightCommission,
 				SubAffCommission
 			)
 			EXEC dbo.Aff_Commission_UnCalc
@@ -136,15 +143,18 @@ BEGIN
 				Rebate,
 				Turnover,
 				Winloss,
+				Revenue,
+				P2PFee,
 				PlatFormFee,
 				OperationalFee,
 				DepositFee,
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				QualifiedMember,
+				ActivePlayer,
 				CommissionRate,
 				Commission,
+				StraightCommission,
 				SubAffCommission
 			)
 			EXEC dbo.Aff_Commission_Calc
@@ -165,7 +175,7 @@ BEGIN
 		p.ProductName,
 		d.Turnover,
 		d.GrossWinloss AS Winloss,
-		d.PlatformFee,
+		d.P2PFee + d.PlatformFee AS PlatformFee,
 		d.OperationalFee,
 		d.DepositFee,
 		d.WithdrawalFee,
@@ -173,6 +183,7 @@ BEGIN
 		d.Rebate,
 		d.CommissionRate,
 		d.Commission,
+		d.StraightCommission AS P2PCommission,
 		d.SubAffCommission,
 		d.CalculatedType
 	FROM #TempCommission d

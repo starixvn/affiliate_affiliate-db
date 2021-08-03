@@ -10,6 +10,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20181001@Percy: Add isTest [RedmineID: #102322]
+		- 20210714@Percy: Add P2P [RedmineID: #157958]
 */
 
 BEGIN
@@ -21,7 +22,8 @@ BEGIN
 	SELECT
 		ProductId,
 		ProductName,
-		EndOfSupportDate
+		EndOfSupportDate,
+		ISNULL(IsP2P, 0) AS IsP2P
 	FROM dbo.Products WITH (NOLOCK)
 	WHERE IsTest <= @IsTest
 	ORDER BY

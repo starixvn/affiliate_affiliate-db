@@ -14,6 +14,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
+		- 20210714@Percy: Treat TO, WL = 0 for P2P Products [RedmineID: #157958]
 */
 
 BEGIN
@@ -33,16 +34,23 @@ BEGIN
 	IF @ToNextMonth < DATEADD(DAY, 1, @FromBeginMonth)
 		RETURN
 
-	DECLARE @ProductIds VARCHAR(MAX)
-	SELECT  @ProductIds = COALESCE(@ProductIds + ',', '') + CONVERT(VARCHAR(15), ProductId)
-	FROM (
-	SELECT DISTINCT dsh.ProductId
-		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-			INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupID = dsh.GroupID AND agh.MonthDate = dsh.MonthDate
-		WHERE dsh.ProductId > 0
-			AND agh.MonthDate = @EndOfMonth
-			AND agh.AffID = @AffId
-	) s
+	DECLARE @Products TABLE (ProductId INT, IsStraightSetting BIT)
+		
+	INSERT INTO @Products (ProductId, IsStraightSetting)
+	SELECT DISTINCT dsh.ProductId, 0
+	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+		INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupId = dsh.GroupId AND agh.MonthDate = dsh.MonthDate
+	WHERE dsh.ProductId > 0
+		AND agh.MonthDate = @EndOfMonth
+		AND agh.AffID = @AffId
+
+	INSERT INTO @Products (ProductId, IsStraightSetting)
+	SELECT DISTINCT ssh.ProductId, 1
+	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+		INNER JOIN dbo.StraightSettingHistory ssh WITH (NOLOCK) ON agh.GroupId = ssh.GroupId AND agh.MonthDate = ssh.MonthDate
+	WHERE ssh.ProductId > 0
+		AND agh.MonthDate = @EndOfMonth
+		AND agh.AffID = @AffId
 
 	-- Signups, Deposited Members
 	BEGIN
@@ -63,45 +71,28 @@ BEGIN
 		GROUP BY CONVERT(DATE, FirstDepositDate)
 	END
 
-	-- Turnover, Winloss, Deposit, Withdrawl, Active Members, Qualified Active Members
+	-- Turnover, Winloss, Deposit, Withdrawl, Qualified Active Members
 	BEGIN
-		DECLARE @tblWinlostDate TABLE (WinlostDate SMALLDATETIME)
-		;WITH CTE AS (
-			SELECT @FromBeginMonth AS WinlostDate
-			UNION ALL
-			SELECT DATEADD(DAY, 1, WinlostDate)
-			FROM CTE
-			WHERE WinlostDate < DATEADD(DAY, -1, @ToNextMonth)
-		)
-		INSERT INTO @tblWinlostDate (WinlostDate)
-		SELECT WinlostDate FROM CTE
-		OPTION (MAXRECURSION 0)
-
-		CREATE TABLE #Data (WinlostDate SMALLDATETIME, CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, Winloss MONEY)
+		CREATE TABLE #Data (WinlostDate SMALLDATETIME, CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, Winloss MONEY, IsActive TINYINT)
 		
-		INSERT INTO #Data (WinlostDate, CustId, Deposit, Withdrawal, Turnover, Winloss)
-		SELECT r.WinlostDate, r.CustId, SUM(r.Deposit), SUM(r.Withdrawal), SUM(r.Turnover), SUM(r.Winloss)
-		FROM @tblWinlostDate wld
-			CROSS APPLY (
-				SELECT	r.WinlostDate, r.CustId
-						,r.Deposit		* ISNULL(e.Rate, 1) AS Deposit
-						,r.Withdrawal	* ISNULL(e.Rate, 1) AS Withdrawal
-						,r.Turnover		* ISNULL(e.Rate, 1) AS Turnover
-						,r.Winloss		* ISNULL(e.Rate, 1) AS Winloss
-				FROM dbo.rptMemberDaily r WITH (NOLOCK)
-					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (r.WinlostDate, r.Currency, @BaseCurrency) e
-				WHERE r.WinlostDate = wld.WinlostDate
-					AND r.AffId = @AffId
-					AND (
-						r.ProductId < 0
-						OR ',' + @ProductIds + ',' LIKE '%,' + CONVERT(VARCHAR(15), r.ProductId) + ',%'
-					)
-					AND NOT EXISTS (
-						SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-						WHERE mr.CustId = r.CustId
-							AND mr.RemovedDate <= @EndOfMonth
-					)
-			) r
+		INSERT INTO #Data (WinlostDate, CustId, Deposit, Withdrawal, Turnover, Winloss, IsActive)
+		SELECT r.WinlostDate, r.CustId
+			,SUM(r.Deposit * e.Rate) AS Deposit
+			,SUM(r.Withdrawal * e.Rate) AS Withdrawal
+			,SUM(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Turnover END * e.Rate) AS Turnover
+			,SUM(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Winloss END * e.Rate) AS Winloss
+			,MAX(CASE WHEN r.ProductId > 0 THEN 1 ELSE 0 END)
+		FROM dbo.rptMemberDaily r WITH (NOLOCK)
+			LEFT JOIN @Products p ON r.ProductId = p.ProductId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (r.WinlostDate, r.Currency, @BaseCurrency) e
+		WHERE r.WinlostDate BETWEEN @FromBeginMonth AND @ToNextMonth
+			AND r.AffId = @AffId
+			AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE mr.CustId = r.CustId
+					AND mr.RemovedDate <= @EndOfMonth
+			)
 		GROUP BY r.WinlostDate, r.CustId
 
 		CREATE CLUSTERED INDEX CIX_IBCCustId_WinlostDate ON #Data (CustId, WinlostDate)
@@ -120,7 +111,7 @@ BEGIN
 				SELECT WinlostDate, CustId
 				FROM #Data d
 				WHERE WinlostDate = @tmpWinlostDate
-					AND Turnover > 0
+					AND IsActive = 1
 					AND NOT EXISTS (SELECT 1 FROM @ActiveMembers a WHERE d.CustId = a.CustId)
 			END
 
@@ -130,6 +121,13 @@ BEGIN
 	
 	-- Return result
 	BEGIN
+		WITH CTE_WinlostDate AS (
+			SELECT @FromBeginMonth AS WinlostDate
+			UNION ALL
+			SELECT DATEADD(DAY, 1, WinlostDate)
+			FROM CTE_WinlostDate
+			WHERE WinlostDate < DATEADD(DAY, -1, @ToNextMonth)
+		)
 		SELECT
 			wld.WinlostDate
 			,ISNULL(s.Signups, 0)					AS Signups
@@ -139,8 +137,7 @@ BEGIN
 			,ISNULL(d.Turnover, 0)					AS Turnover
 			,ISNULL(d.Winloss, 0)					AS Winloss
 			,ISNULL(a.ActiveMembers, 0)				AS ActiveMembers
-			,ISNULL(a.ActiveMembers, 0)				AS QualifiedActiveMembers
-		FROM @tblWinlostDate wld
+		FROM CTE_WinlostDate wld
 			OUTER APPLY (
 				SELECT SUM(s.Signups) AS Signups, SUM(s.DepositedMembers) AS DepositedMembers
 				FROM @Signups s

@@ -27,6 +27,7 @@ AS
 		- 20210223@Percy: Add Commission Group filter [RedmineID: #150493]
 		- 20210323@Percy: Missing FDM [RedmineID: #151391]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
+		- 20210714@Percy: Add P2PEarning column [RedmineID: #157958]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -90,7 +91,9 @@ BEGIN
 			Rebate				MONEY,
 			Turnover			MONEY,
 			Winloss				MONEY,
+			Revenue				MONEY,
 			-- Fees
+			P2PFee				MONEY,
 			PlatFormFee			MONEY,
 			OperationalFee		MONEY,
 			DepositFee			MONEY,
@@ -98,9 +101,10 @@ BEGIN
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
-			QualifiedMember		INT,
+			ActivePlayer		INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
+			StraightCommission	MONEY,
 			SubAffCommission	MONEY
 		)
 
@@ -121,15 +125,18 @@ BEGIN
 				Rebate,
 				Turnover,
 				Winloss,
+				Revenue,
+				P2PFee,
 				PlatFormFee,
 				OperationalFee,
 				DepositFee,
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				QualifiedMember,
+				ActivePlayer,
 				CommissionRate,
 				Commission,
+				StraightCommission,
 				SubAffCommission
 			)
 			EXEC dbo.Aff_Commission_Calc
@@ -159,15 +166,18 @@ BEGIN
 				Rebate,
 				Turnover,
 				Winloss,
+				Revenue,
+				P2PFee,
 				PlatFormFee,
 				OperationalFee,
 				DepositFee,
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
-				QualifiedMember,
+				ActivePlayer,
 				CommissionRate,
 				Commission,
+				StraightCommission,
 				SubAffCommission
 			)
 			EXEC dbo.Aff_Commission_UnCalc
@@ -271,12 +281,12 @@ BEGIN
 			UniqueClick		INT,
 			Signup			INT,
 			FDM				INT,
-			QualifiedMember INT,
+			ActivePlayer 	INT,
 			NoOfSubAff		INT,
 			Deposit			MONEY,
 			Withdrawal		MONEY,
 			Turnover		MONEY,
-			Winlost			MONEY,
+			Winloss			MONEY,
 			Bonus			MONEY,
 			Rebate			MONEY,
 			PlatFormFee		MONEY,
@@ -285,6 +295,7 @@ BEGIN
 			WithdrawalFee	MONEY,
 			CommissionRate	MONEY,
 			Earning			MONEY,
+			P2PEarning		MONEY,
 			SubAffEarning	MONEY,
 			AffWithdrawal	MONEY,
 			AffAdjustment	MONEY,
@@ -299,12 +310,12 @@ BEGIN
 			UniqueClick,
 			Signup,
 			FDM,
-			QualifiedMember,
+			ActivePlayer,
 			NoOfSubAff,
 			Deposit,
 			Withdrawal,
 			Turnover,
-			Winlost,
+			Winloss,
 			Bonus,
 			Rebate,
 			PlatFormFee,
@@ -313,6 +324,7 @@ BEGIN
 			WithdrawalFee,
 			CommissionRate,
 			Earning,
+			P2PEarning,
 			SubAffEarning,
 			AffWithdrawal,
 			AffAdjustment,
@@ -322,28 +334,29 @@ BEGIN
 		SELECT
 			ai.AffId,
 			ai.Username,
-			ISNULL(s.TotalClick, 0)			AS TotalClick,
-			ISNULL(s.UniqueClick, 0)		AS UniqueClick,
-			ISNULL(su.Signup, 0)			AS Signup,
-			ISNULL(su.FDM, 0)				AS FDM,
-			ISNULL(tc.QualifiedMember, 0)	AS QualifiedMember,
-			ISNULL(a.NoOfSubAff, 0)			AS NoOfSubAff,
-			ISNULL(tc.Deposit, 0)			AS Deposit,
-			ISNULL(tc.Withdrawal, 0)		AS Withdrawal,
-			ISNULL(tc.Turnover, 0)			AS Turnover,
-			ISNULL(tc.Winloss, 0)			AS Winlost,
-			ISNULL(tc.Bonus, 0)				AS Bonus,
-			ISNULL(tc.Rebate, 0)			AS Rebate,
-			ISNULL(tc.PlatFormFee, 0)		AS PlatFormFee,
-			ISNULL(tc.OperationalFee, 0)	AS OperationalFee,
-			ISNULL(tc.DepositFee, 0)		AS DepositFee,
-			ISNULL(tc.WithdrawalFee, 0)		AS WithdrawalFee,
-			ISNULL(tc.CommissionRate, 0)	AS CommissionRate,
-			ISNULL(tc.Commission, 0)		AS Earning,
-			ISNULL(tc.SubAffCommission, 0)	AS SubAffEarning,
-			ISNULL(at.AffWithdrawal, 0)		AS AffWithdrawal,
-			ISNULL(at.AffAdjustment, 0)		AS AffAdjustment,
-			ISNULL(at.BFF, 0)				AS BFF,
+			ISNULL(s.TotalClick, 0)				AS TotalClick,
+			ISNULL(s.UniqueClick, 0)			AS UniqueClick,
+			ISNULL(su.Signup, 0)				AS Signup,
+			ISNULL(su.FDM, 0)					AS FDM,
+			ISNULL(tc.ActivePlayer, 0)			AS ActivePlayer,
+			ISNULL(a.NoOfSubAff, 0)				AS NoOfSubAff,
+			ISNULL(tc.Deposit, 0)				AS Deposit,
+			ISNULL(tc.Withdrawal, 0)			AS Withdrawal,
+			ISNULL(tc.Turnover, 0)				AS Turnover,
+			ISNULL(tc.Winloss, 0)				AS Winloss,
+			ISNULL(tc.Bonus, 0)					AS Bonus,
+			ISNULL(tc.Rebate, 0)				AS Rebate,
+			ISNULL(tc.PlatFormFee, 0)			AS PlatFormFee,
+			ISNULL(tc.OperationalFee, 0)		AS OperationalFee,
+			ISNULL(tc.DepositFee, 0)			AS DepositFee,
+			ISNULL(tc.WithdrawalFee, 0)			AS WithdrawalFee,
+			ISNULL(tc.CommissionRate, 0)		AS CommissionRate,
+			ISNULL(tc.Commission, 0)			AS Earning,
+			ISNULL(tc.StraightCommission, 0)	AS P2PEarning,
+			ISNULL(tc.SubAffCommission, 0)		AS SubAffEarning,
+			ISNULL(at.AffWithdrawal, 0)			AS AffWithdrawal,
+			ISNULL(at.AffAdjustment, 0)			AS AffAdjustment,
+			ISNULL(at.BFF, 0)					AS BFF,
 			ROW_NUMBER() OVER(ORDER BY
 				CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN ai.Username END ASC,
 				CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN ai.Username END DESC,
@@ -364,20 +377,21 @@ BEGIN
 			) s ON ai.AffId = s.AffId
 			LEFT JOIN (
 				SELECT AffId,
-					SUM(QualifiedMember)			AS QualifiedMember,
+					SUM(ActivePlayer)				AS ActivePlayer,
 					SUM(Deposit)					AS Deposit,
 					SUM(Withdrawal)					AS Withdrawal,
 					SUM(Turnover)					AS Turnover,
 					SUM(Winloss)					AS Winloss,
 					SUM(Bonus)						AS Bonus,
 					SUM(Rebate)						AS Rebate,
-					SUM(PlatFormFee)				AS PlatFormFee,
+					SUM(PlatFormFee + P2PFee)		AS PlatFormFee, -- include P2P Fee
 					SUM(OperationalFee)				AS OperationalFee,
 					SUM(DepositFee)					AS DepositFee,
 					SUM(WithdrawalFee)				AS WithdrawalFee,
 					SUM(NetWinloss)					AS NetWinloss,
 					SUM(CommissionRate/@NoOfMonth)	AS CommissionRate,
 					SUM(Commission)					AS Commission,
+					SUM(StraightCommission)			AS StraightCommission,
 					SUM(SubAffCommission)			AS SubAffCommission
 				FROM #TempCommission
 				GROUP BY AffId
@@ -411,10 +425,10 @@ BEGIN
 		SELECT @RowStart = 1, @RowEnd = @NRows
 
 	-- Return detail
-	SELECT AffId, Username, TotalClick, UniqueClick, Signup, FDM, QualifiedMember AS ActiveMember, QualifiedMember, NoOfSubAff
-		,Deposit, Withdrawal, Turnover, Winlost, Bonus, Rebate, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee
+	SELECT AffId, Username, TotalClick, UniqueClick, Signup, FDM, ActivePlayer, NoOfSubAff
+		,Deposit, Withdrawal, Turnover, Winloss, Bonus, Rebate, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee
 		,PlatFormFee + OperationalFee + DepositFee + WithdrawalFee AS TotalFee
-		,CommissionRate, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF
+		,CommissionRate, P2PEarning, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF
 	FROM #Result
 	WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 	ORDER BY RowIdx
@@ -425,13 +439,12 @@ BEGIN
 		,SUM(UniqueClick)		AS UniqueClick
 		,SUM(Signup)			AS Signup
 		,SUM(FDM)				AS FDM
-		,SUM(QualifiedMember)	AS ActiveMember -- same QualifiedMember
-		,SUM(QualifiedMember)	AS QualifiedMember
+		,SUM(ActivePlayer)		AS ActivePlayer
 		,SUM(NoOfSubAff)		AS NoOfSubAff
 		,SUM(Deposit)			AS Deposit
 		,SUM(Withdrawal)		AS Withdrawal
 		,SUM(Turnover)			AS Turnover
-		,SUM(Winlost)			AS Winlost
+		,SUM(Winloss)			AS Winloss
 		,SUM(Bonus)				AS Bonus
 		,SUM(Rebate)			AS Rebate
 		,SUM(PlatFormFee)		AS PlatFormFee
@@ -441,6 +454,7 @@ BEGIN
 		,SUM(PlatFormFee + OperationalFee + DepositFee + WithdrawalFee) AS TotalFee
 		,0 AS CommissionRate
 		,SUM(Earning)			AS Earning
+		,SUM(P2PEarning)		AS P2PEarning
 		,SUM(SubAffEarning)		AS SubAffEarning
 		,SUM(AffWithdrawal)		AS AffWithdrawal
 		,SUM(AffAdjustment)		AS AffAdjustment

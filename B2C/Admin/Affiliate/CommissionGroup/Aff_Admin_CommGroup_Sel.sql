@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20210714@Percy: Output more table for P2P Setting [RedmineID: #157958]
 */
 
 BEGIN
@@ -52,6 +53,7 @@ BEGIN
 					INNER JOIN dbo.DeductionSetting ds WITH (NOLOCK) ON d.DeductionId = ds.DeductionID
 				WHERE cg.GroupId = ds.GroupId
 			)
+			AND EXISTS (SELECT 1 FROM dbo.StraightSetting ss WITH (NOLOCK) WHERE cg.GroupId = ss.GroupId)
 	) AS g
 	WHERE RowIDX BETWEEN @RowStart AND @RowEnd
 
@@ -96,9 +98,10 @@ BEGIN
 		STUFF(
 			(SELECT	',' + CONVERT(VARCHAR(10), d.ProductId)
 				FROM dbo.DeductionSetting d WITH (NOLOCK)
-				WHERE ds.GroupId					= d.GroupId
-					AND ds.DeductionId				= d.DeductionId
-					AND ds.GroupProductId			= d.GroupProductId
+				WHERE ds.GroupId			= d.GroupId
+					AND ds.DeductionId		= d.DeductionId
+					AND ds.GroupProductId	= d.GroupProductId
+					AND d.ProductId			<> 0
 				FOR XML PATH (''))
 				, 1, 1, '') AS ProductIds,
 		ds.DeductedPercentage,
@@ -116,5 +119,26 @@ BEGIN
 		ds.DeductedPercentage,
 		ds.DeductedAmount,
 		ds.IsDeductedPercent
+
+	-- Straight List
+	SELECT
+		ss.GroupId,
+		STUFF(
+			(SELECT	',' + CONVERT(VARCHAR(10), s.ProductId)
+				FROM dbo.StraightSetting s WITH (NOLOCK)
+				WHERE ss.GroupId			= s.GroupId
+					AND ss.GroupProductId	= s.GroupProductId
+					AND s.ProductId			<> 0
+				FOR XML PATH (''))
+				, 1, 1, '') AS ProductIds,
+		ss.DeductedPercentage,
+		ss.Commission
+	FROM dbo.StraightSetting ss WITH (NOLOCK)
+		INNER JOIN @Group g ON ss.GroupId = g.GroupId
+	GROUP BY
+		ss.GroupId,
+		ss.GroupProductId,
+		ss.DeductedPercentage,
+		ss.Commission
 END
 GO
