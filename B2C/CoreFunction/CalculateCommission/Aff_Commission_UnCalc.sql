@@ -489,8 +489,9 @@ BEGIN
 			OUTER APPLY (
 				SELECT gsh.TierId
 				FROM dbo.TierSettingHistory gsh WITH (NOLOCK)
+					INNER JOIN #ExchangeOanda e ON gsh.MonthDate = e.MonthDate AND e.Currency = @AffCurrency
 				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId
-					AND FLOOR(ABS(c.NetWinloss)) BETWEEN gsh.MinAmount AND gsh.MaxAmount
+					AND FLOOR(ABS(c.NetWinloss)) BETWEEN gsh.MinAmount * e.Rate AND gsh.MaxAmount * e.Rate
 			) AS t
 			OUTER APPLY (
 				SELECT TOP 1 gsh.Commission
