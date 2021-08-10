@@ -30,3 +30,6 @@ CREATE TABLE dbo.bettrans_BTi2
 ) ON ReportData
 GO
 
+CREATE CLUSTERED INDEX CIX_WinlostDate ON dbo.bettrans_BTi2 (WinlostDate) ON ReportData
+GO
+
