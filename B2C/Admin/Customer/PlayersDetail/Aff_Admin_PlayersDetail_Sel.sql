@@ -24,19 +24,22 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Show TO, WL = 0 for P2P Products [RedmineID: #157958]
+		- 20210819@Percy: Return FirstDepositDate, FirstDepositAmount columns [RedmineID: #160406]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
-						2 = IBCUsername
-						3 = Registered Date
-						4 = Deposit
-						5 = Withdrawal
-						6 = Turnover
-						7 = Winloss
-						8 = Bonus
-					    9 = Rebate
-					   10 = Deposit Fee
-					   11 = Withdrawal Fee
+						2 = Registered Date
+						3 = Deposit
+						4 = Withdrawal
+						5 = Turnover
+						6 = Winloss
+						7 = Bonus
+					    8 = Rebate
+					    9 = Deposit Fee
+					   10 = Withdrawal Fee
+					   11 = IBCUsername
+					   12 = First Deposit Date
+					   13 = First Deposit Amount
 		- @IsSortAsc:	0 = DESC
 						1 = ASC
 */
@@ -147,7 +150,7 @@ BEGIN
 	ELSE
 		SELECT @RowStart =  1, @RowEnd = @NRows
 
-	SELECT CustId, UserName, IBCUserName, RegisteredDate, Deposit, Withdrawal, Turnover, Winloss, Bonus, Rebate, DepositFee, WithdrawalFee
+	SELECT CustId, UserName, IBCUserName, RegisteredDate, FirstDepositDate, FirstDepositAmount, Deposit, Withdrawal, Turnover, Winloss, Bonus, Rebate, DepositFee, WithdrawalFee
 	FROM
 	(
 		SELECT
@@ -155,6 +158,8 @@ BEGIN
 			,m.UserName
 			,m.IBCUserName
 			,m.RegisteredDate
+			,m.FirstDepositDate
+			,m.FirstDepositAmount
 			,d.Deposit
 			,d.Withdrawal
 			,d.Turnover
@@ -164,29 +169,33 @@ BEGIN
 			,d.Deposit * @DepositRate + @DepositAmount AS DepositFee
 			,d.Withdrawal * @WithdrawalRate + @WithdrawalAmount AS WithdrawalFee
 			,ROW_NUMBER() OVER(ORDER BY
-				 (CASE WHEN @IsSortAsc = 1 AND @SortById =  1 THEN m.UserName		END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  2 THEN m.IBCUserName	END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  3 THEN m.RegisteredDate	END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  4 THEN d.Deposit		END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  5 THEN d.Withdrawal		END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  6 THEN d.Turnover		END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  7 THEN d.Winloss		END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  8 THEN d.Bonus			END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  9 THEN d.Rebate			END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 10 THEN d.Deposit		END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 11 THEN d.Withdrawal		END) ASC
+				 (CASE WHEN @IsSortAsc = 1 AND @SortById =  1 THEN m.UserName			END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  2 THEN m.RegisteredDate		END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  3 THEN d.Deposit			END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  4 THEN d.Withdrawal			END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  5 THEN d.Turnover			END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  6 THEN d.Winloss			END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  7 THEN d.Bonus				END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  8 THEN d.Rebate				END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  9 THEN d.Deposit			END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 10 THEN d.Withdrawal			END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 11 THEN m.IBCUserName		END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 12 THEN m.FirstDepositDate	END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 13 THEN m.FirstDepositAmount	END) ASC
 				
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  1 THEN m.UserName		END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  2 THEN m.IBCUserName	END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  3 THEN m.RegisteredDate	END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  4 THEN d.Deposit		END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  5 THEN d.Withdrawal		END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  6 THEN d.Turnover		END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  7 THEN d.Winloss		END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  8 THEN d.Bonus			END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  9 THEN d.Rebate			END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 10 THEN d.Deposit		END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 11 THEN d.Withdrawal		END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  1 THEN m.UserName			END) DESC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  2 THEN m.RegisteredDate		END) DESC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  3 THEN d.Deposit			END) DESC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  4 THEN d.Withdrawal			END) DESC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  5 THEN d.Turnover			END) DESC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  6 THEN d.Winloss			END) DESC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  7 THEN d.Bonus				END) DESC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  8 THEN d.Rebate				END) DESC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  9 THEN d.Deposit			END) DESC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 10 THEN d.Withdrawal			END) DESC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 11 THEN m.IBCUserName		END) DESC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 12 THEN m.FirstDepositDate	END) DESC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 13 THEN m.FirstDepositAmount	END) DESC
 			) AS RN
 		FROM #tmpData d
 			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId

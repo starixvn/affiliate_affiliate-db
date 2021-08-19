@@ -15,6 +15,7 @@ AS
 	
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20210819@Percy: Use FirstDepositDate to get deposited player [RedmineID: #160414]
 
 	Param's Explanation:
 */
@@ -34,16 +35,16 @@ BEGIN
 	BEGIN
 		IF @Username = '' AND @IBCUserName = ''
 		BEGIN
-			SELECT @NRows = COUNT(1) FROM dbo.MemberInfo WITH (NOLOCK) WHERE CreatedDate IS NOT NULL
+			SELECT @NRows = COUNT(1) FROM dbo.MemberInfo WITH (NOLOCK) WHERE FirstDepositDate IS NOT NULL
 		
-			SELECT CustId, UserName, IBCUserName, FirstName, LastName, CreatedDate, 0 AS CurrBalance, AffUserName 
+			SELECT CustId, UserName, IBCUserName, FirstName, LastName, FirstDepositDate AS CreatedDate, 0 AS CurrBalance, AffUserName 
 			FROM
 			(
-				SELECT	mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.CreatedDate, ai.UserName AS AffUserName
-						,ROW_NUMBER() OVER(ORDER BY mi.CreatedDate DESC) AS RowNum
+				SELECT	mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.FirstDepositDate, ai.UserName AS AffUserName
+						,ROW_NUMBER() OVER(ORDER BY mi.FirstDepositDate DESC) AS RowNum
 				FROM dbo.MemberInfo mi WITH (NOLOCK)
 					INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
-				WHERE mi.CreatedDate IS NOT NULL
+				WHERE mi.FirstDepositDate IS NOT NULL
 			) AS r
 			WHERE r.RowNum BETWEEN @RowStart AND @RowEnd
 			ORDER BY r.RowNum
@@ -52,18 +53,18 @@ BEGIN
 		BEGIN
 			SELECT @NRows = COUNT(1)
 			FROM dbo.MemberInfo WITH (NOLOCK)
-			WHERE CreatedDate IS NOT NULL
+			WHERE FirstDepositDate IS NOT NULL
 				AND UserName LIKE '%' + @UserName + '%'
 				AND IBCUserName LIKE '%' + @IBCUserName + '%'
 
-			SELECT CustId, UserName, IBCUserName, FirstName, LastName, CreatedDate, 0 AS CurrBalance, AffUserName 
+			SELECT CustId, UserName, IBCUserName, FirstName, LastName, FirstDepositDate AS CreatedDate, 0 AS CurrBalance, AffUserName 
 			FROM
 			(
-				SELECT	mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.CreatedDate, ai.UserName AS AffUserName
-						,ROW_NUMBER() OVER(ORDER BY mi.CreatedDate DESC) AS RowNum
+				SELECT	mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.FirstDepositDate, ai.UserName AS AffUserName
+						,ROW_NUMBER() OVER(ORDER BY mi.FirstDepositDate DESC) AS RowNum
 				FROM dbo.MemberInfo mi WITH (NOLOCK)
 					INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
-				WHERE mi.CreatedDate IS NOT NULL
+				WHERE mi.FirstDepositDate IS NOT NULL
 					AND mi.UserName LIKE '%' + @UserName + '%'
 					AND ISNULL(mi.IBCUserName, '') LIKE '%' + @IBCUserName + '%'
 			) AS r
@@ -76,19 +77,19 @@ BEGIN
 		SELECT @NRows = COUNT(1)
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
 			INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
-		WHERE mi.CreatedDate IS NOT NULL
+		WHERE mi.FirstDepositDate IS NOT NULL
 			AND mi.UserName LIKE '%' + @UserName + '%'
 			AND mi.IBCUserName LIKE '%' + @IBCUserName + '%'
 			AND ai.UserName LIKE '%' + @AffUsername + '%'
 
-		SELECT CustId, UserName, IBCUserName, FirstName, LastName, CreatedDate, 0 AS CurrBalance, AffUserName 
+		SELECT CustId, UserName, IBCUserName, FirstName, LastName, FirstDepositDate AS CreatedDate, 0 AS CurrBalance, AffUserName 
 		FROM
 		(
-			SELECT	mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.CreatedDate, ai.UserName AS AffUserName
-					,ROW_NUMBER() OVER(ORDER BY mi.CreatedDate DESC) AS RowNum
+			SELECT	mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.FirstDepositDate, ai.UserName AS AffUserName
+					,ROW_NUMBER() OVER(ORDER BY mi.FirstDepositDate DESC) AS RowNum
 			FROM dbo.MemberInfo mi WITH (NOLOCK)
 				INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
-			WHERE mi.CreatedDate IS NOT NULL
+			WHERE mi.FirstDepositDate IS NOT NULL
 				AND mi.UserName LIKE '%' + @UserName + '%'
 				AND ISNULL(mi.IBCUserName, '') LIKE '%' + @IBCUserName + '%'
 				AND ai.UserName LIKE '%' + @AffUsername + '%'
