@@ -153,16 +153,16 @@ BEGIN
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 11 THEN m.FirstDepositDate	END) ASC
 
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  1 THEN m.UserName			END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  2 THEN m.RegisteredDate		END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  3 THEN d.Deposit			END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  4 THEN d.Withdrawal			END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  5 THEN d.Turnover			END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  6 THEN d.Winloss			END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  7 THEN d.Bonus				END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  8 THEN d.Rebate				END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  9 THEN d.Deposit			END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 10 THEN d.Withdrawal			END) DESC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 11 THEN m.FirstDepositDate	END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  2 THEN m.RegisteredDate		END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  3 THEN d.Deposit			END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  4 THEN d.Withdrawal			END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  5 THEN d.Turnover			END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  6 THEN d.Winloss			END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  7 THEN d.Bonus				END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  8 THEN d.Rebate				END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  9 THEN d.Deposit			END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 10 THEN d.Withdrawal			END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 11 THEN m.FirstDepositDate	END) DESC
 			) AS RN
 		FROM #tmpData d
 			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId
