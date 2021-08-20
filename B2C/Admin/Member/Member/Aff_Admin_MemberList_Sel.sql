@@ -15,7 +15,7 @@ AS
 	
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
-		- 20210819@Percy: Use FirstDepositDate to get deposited player [RedmineID: #160414]
+		- 20210819@Percy: Get all players [RedmineID: #160414]
 
 	Param's Explanation:
 */
@@ -35,7 +35,7 @@ BEGIN
 	BEGIN
 		IF @Username = '' AND @IBCUserName = ''
 		BEGIN
-			SELECT @NRows = COUNT(1) FROM dbo.MemberInfo WITH (NOLOCK) WHERE FirstDepositDate IS NOT NULL
+			SELECT @NRows = COUNT(1) FROM dbo.MemberInfo WITH (NOLOCK)
 		
 			SELECT CustId, UserName, IBCUserName, FirstName, LastName, FirstDepositDate AS CreatedDate, 0 AS CurrBalance, AffUserName 
 			FROM
@@ -44,7 +44,6 @@ BEGIN
 						,ROW_NUMBER() OVER(ORDER BY mi.FirstDepositDate DESC) AS RowNum
 				FROM dbo.MemberInfo mi WITH (NOLOCK)
 					INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
-				WHERE mi.FirstDepositDate IS NOT NULL
 			) AS r
 			WHERE r.RowNum BETWEEN @RowStart AND @RowEnd
 			ORDER BY r.RowNum
@@ -53,8 +52,7 @@ BEGIN
 		BEGIN
 			SELECT @NRows = COUNT(1)
 			FROM dbo.MemberInfo WITH (NOLOCK)
-			WHERE FirstDepositDate IS NOT NULL
-				AND UserName LIKE '%' + @UserName + '%'
+			WHERE UserName LIKE '%' + @UserName + '%'
 				AND IBCUserName LIKE '%' + @IBCUserName + '%'
 
 			SELECT CustId, UserName, IBCUserName, FirstName, LastName, FirstDepositDate AS CreatedDate, 0 AS CurrBalance, AffUserName 
@@ -64,8 +62,7 @@ BEGIN
 						,ROW_NUMBER() OVER(ORDER BY mi.FirstDepositDate DESC) AS RowNum
 				FROM dbo.MemberInfo mi WITH (NOLOCK)
 					INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
-				WHERE mi.FirstDepositDate IS NOT NULL
-					AND mi.UserName LIKE '%' + @UserName + '%'
+				WHERE mi.UserName LIKE '%' + @UserName + '%'
 					AND ISNULL(mi.IBCUserName, '') LIKE '%' + @IBCUserName + '%'
 			) AS r
 			WHERE r.RowNum BETWEEN @RowStart AND @RowEnd
@@ -77,8 +74,7 @@ BEGIN
 		SELECT @NRows = COUNT(1)
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
 			INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
-		WHERE mi.FirstDepositDate IS NOT NULL
-			AND mi.UserName LIKE '%' + @UserName + '%'
+		WHERE mi.UserName LIKE '%' + @UserName + '%'
 			AND mi.IBCUserName LIKE '%' + @IBCUserName + '%'
 			AND ai.UserName LIKE '%' + @AffUsername + '%'
 
@@ -89,8 +85,7 @@ BEGIN
 					,ROW_NUMBER() OVER(ORDER BY mi.FirstDepositDate DESC) AS RowNum
 			FROM dbo.MemberInfo mi WITH (NOLOCK)
 				INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
-			WHERE mi.FirstDepositDate IS NOT NULL
-				AND mi.UserName LIKE '%' + @UserName + '%'
+			WHERE mi.UserName LIKE '%' + @UserName + '%'
 				AND ISNULL(mi.IBCUserName, '') LIKE '%' + @IBCUserName + '%'
 				AND ai.UserName LIKE '%' + @AffUsername + '%'
 		) AS r
