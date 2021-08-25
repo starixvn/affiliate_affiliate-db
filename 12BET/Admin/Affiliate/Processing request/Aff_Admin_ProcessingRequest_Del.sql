@@ -171,7 +171,7 @@ BEGIN
 								LEFT JOIN dbo.Market m WITH(NOLOCK) ON m.MarketID = d.MarketID
 								LEFT JOIN dbo.Users c WITH(NOLOCK) ON c.CustId = d.Creator
 								LEFT JOIN dbo.Users a WITH(NOLOCK) ON a.CustId = d.Approver
-							FOR XML PATH ('r'), ROOT ('root')
+							FOR XML PATH ('row'), ROOT ('root')
 					))
 
 	SELECT @SPName = OBJECT_NAME(@@PROCID)

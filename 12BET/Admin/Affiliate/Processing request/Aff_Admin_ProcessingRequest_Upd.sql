@@ -279,7 +279,7 @@ BEGIN
 									,u.AccountNo_Del				 AS '@AccountNo'	
 								FROM @UpdateData u
 									LEFT JOIN dbo.Market m WITH(NOLOCK) ON m.MarketId = u.MarketID_Del
-								FOR XML PATH('r'), ROOT('root')
+								FOR XML PATH('row'), ROOT('root')
 					  ))
 
 	SELECT @NewData = CONVERT(NVARCHAR(MAX), 
@@ -311,7 +311,7 @@ BEGIN
 									,u.AccountNo_Ins				 AS '@AccountNo'	
 								FROM @UpdateData u
 									LEFT JOIN dbo.Market m WITH(NOLOCK) ON m.MarketId = u.MarketID_Ins
-								FOR XML PATH('r'), ROOT('root')
+								FOR XML PATH('row'), ROOT('root')
 					 ))
 
 	SELECT @SPName = OBJECT_NAME(@@PROCID)

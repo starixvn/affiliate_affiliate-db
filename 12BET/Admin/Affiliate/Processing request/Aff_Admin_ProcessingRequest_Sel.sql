@@ -72,6 +72,7 @@ BEGIN
 			AND (ISNULL(@Username, '') = '' OR ai.UserName LIKE '%' + @UserName + '%')
 	) r
 	WHERE r.rn BETWEEN @Rowstart AND @RowEnd
+	ORDER BY r.rn
 
 	SELECT @Draft AS Draft, @Submitted AS Submitted, @Approved AS Approved, @Rejected AS Rejected
 END

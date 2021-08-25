@@ -156,7 +156,7 @@ BEGIN
 								,@BankSwiftCode			 AS '@BankSwiftCode'
 								,@BankAccountName		 AS '@BankAccountName'
 								,@BankAccountNo			 AS '@BankAccountNo'
-							FOR XML PATH ('r'), ROOT ('root')
+							FOR XML PATH ('row'), ROOT ('root')
 					  ))
 
 	SELECT @SPName = OBJECT_NAME(@@PROCID)
