@@ -37,42 +37,80 @@ BEGIN
 	ELSE 
 		SELECT @Rowstart = (@PageIndex - 1) * @PageSize + 1, @RowEnd = @Rowstart + @PageSize - 1
 
-	SELECT 
-		r.RequestId
-		,r.AffID
-		,r.UserName
-		,r.CreatedBy
-		,r.CreationDate
-		,r.LastModified
-		,r.SubmittedDate
-		,r.Deadline
-		,r.ApprovedBy
-		,r.ApprovalDate
-		,r.Status
-	FROM
-	(
+	IF ISNULL(@UserName, '') = ''
 		SELECT 
-			pr.RequestId
-			,ai.AffID
-			,ai.UserName
-			,cr.UserName AS CreatedBy
-			,pr.CreationDate
-			,pr.LastModified
-			,pr.SubmittedDate
-			,pr.Deadline
-			,ap.UserName AS ApprovedBy
-			,pr.ApprovalDate
-			,pr.Status
-			,ROW_NUMBER() OVER(ORDER BY RequestId DESC) AS rn
-		FROM dbo.ProcessingRequest pr WITH(NOLOCK)
-			INNER JOIN dbo.AffInfo ai WITH(NOLOCK) ON ai.AffID = pr.AffId
-			LEFT JOIN dbo.Users cr WITH(NOLOCK) ON cr.CustId = pr.Creator
-			LEFT JOIN dbo.Users ap WITH(NOLOCK) ON ap.CustId = pr.Approver
-		WHERE (ISNULL(@Status, '') = '' OR pr.Status = @Status)
-			AND (ISNULL(@Username, '') = '' OR ai.UserName LIKE '%' + @UserName + '%')
-	) r
-	WHERE r.rn BETWEEN @Rowstart AND @RowEnd
-	ORDER BY r.rn
+			r.RequestId
+			,r.AffID
+			,r.UserName
+			,r.CreatedBy
+			,r.CreationDate
+			,r.LastModified
+			,r.SubmittedDate
+			,r.Deadline
+			,r.ApprovedBy
+			,r.ApprovalDate
+			,r.Status
+		FROM
+		(
+			SELECT 
+				pr.RequestId
+				,ai.AffID
+				,ai.UserName
+				,cr.UserName AS CreatedBy
+				,pr.CreationDate
+				,pr.LastModified
+				,pr.SubmittedDate
+				,pr.Deadline
+				,ap.UserName AS ApprovedBy
+				,pr.ApprovalDate
+				,pr.Status
+				,ROW_NUMBER() OVER(ORDER BY RequestId DESC) AS rn
+			FROM dbo.ProcessingRequest pr WITH(NOLOCK)
+				INNER JOIN dbo.AffInfo ai WITH(NOLOCK) ON ai.AffID = pr.AffId
+				LEFT JOIN dbo.Users cr WITH(NOLOCK) ON cr.CustId = pr.Creator
+				LEFT JOIN dbo.Users ap WITH(NOLOCK) ON ap.CustId = pr.Approver
+			WHERE (ISNULL(@Status, '') = '' OR pr.Status = @Status)
+		) r
+		WHERE r.rn BETWEEN @Rowstart AND @RowEnd
+		ORDER BY r.rn
+	ELSE
+		SELECT 
+			r.RequestId
+			,r.AffID
+			,r.UserName
+			,r.CreatedBy
+			,r.CreationDate
+			,r.LastModified
+			,r.SubmittedDate
+			,r.Deadline
+			,r.ApprovedBy
+			,r.ApprovalDate
+			,r.Status
+		FROM
+		(
+			SELECT 
+				pr.RequestId
+				,ai.AffID
+				,ai.UserName
+				,cr.UserName AS CreatedBy
+				,pr.CreationDate
+				,pr.LastModified
+				,pr.SubmittedDate
+				,pr.Deadline
+				,ap.UserName AS ApprovedBy
+				,pr.ApprovalDate
+				,pr.Status
+				,ROW_NUMBER() OVER(ORDER BY RequestId DESC) AS rn
+			FROM dbo.ProcessingRequest pr WITH(NOLOCK)
+				INNER JOIN dbo.AffInfo ai WITH(NOLOCK) ON ai.AffID = pr.AffId
+				LEFT JOIN dbo.Users cr WITH(NOLOCK) ON cr.CustId = pr.Creator
+				LEFT JOIN dbo.Users ap WITH(NOLOCK) ON ap.CustId = pr.Approver
+			WHERE (ISNULL(@Status, '') = '' OR pr.Status = @Status)
+				AND ai.UserName LIKE '%' + @UserName + '%'
+		) r
+		WHERE r.rn BETWEEN @Rowstart AND @RowEnd
+		ORDER BY r.rn
+		
 
 	SELECT @Draft AS Draft, @Submitted AS Submitted, @Approved AS Approved, @Rejected AS Rejected
 END
