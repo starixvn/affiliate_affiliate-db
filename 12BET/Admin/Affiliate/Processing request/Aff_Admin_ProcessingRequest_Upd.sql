@@ -4,30 +4,30 @@ CREATE PROCEDURE dbo.Aff_Admin_ProcessingRequest_Upd
 	,@UserId				INT
 	,@Deadline				SMALLDATETIME
 	,@Status				VARCHAR(30)
-	,@MarketID				NVARCHAR(10)
-	,@PreferredPayment		VARCHAR(20) --Play for 12bet play, bank for Wire
-	,@Player_Username		VARCHAR(100)
-	,@PromotionMethod		NVARCHAR(1000)
-	,@Webrank				NVARCHAR(1000)
-	,@WebRegDate			NVARCHAR(1000)
-	,@WebSMLanguage			NVARCHAR(1000)
-	,@ServerCountry			NVARCHAR(1000)
-	,@WebSMQuality			NVARCHAR(1000)
-	,@WebSMType				NVARCHAR(1000)
-	,@WebAdvAff				NVARCHAR(1000)
-	,@TargetMarket			NVARCHAR(1000)
-	,@AgentName				NVARCHAR(1000)
-	,@ContactModeTime		NVARCHAR(1000)
-	,@Remark				NVARCHAR(1000)
-	,@BankName				NVARCHAR(100)
-	,@BankAddress			NVARCHAR(200)
-	,@BankSwiftCode			NVARCHAR(50)
-	,@BankAccountName		NVARCHAR(100)
-	,@BankAccountNo			VARCHAR(100)
-	,@Language				VARCHAR(10) = 'en-US'
-	,@IP					VARCHAR(50) = ''
-	,@ErrCode				INT = 0 OUTPUT
-	,@ErrMsg				NVARCHAR(MAX) = '' OUTPUT
+	,@MarketID				NVARCHAR(10)	= ''
+	,@PreferredPayment		VARCHAR(20)		= ''
+	,@Player_Username		VARCHAR(100)	= ''
+	,@PromotionMethod		NVARCHAR(1000)	= ''
+	,@Webrank				NVARCHAR(1000)	= ''
+	,@WebRegDate			NVARCHAR(1000)	= ''
+	,@WebSMLanguage			NVARCHAR(1000)	= ''
+	,@ServerCountry			NVARCHAR(1000)	= ''
+	,@WebSMQuality			NVARCHAR(1000)	= ''
+	,@WebSMType				NVARCHAR(1000)	= ''
+	,@WebAdvAff				NVARCHAR(1000)	= ''
+	,@TargetMarket			NVARCHAR(1000)	= ''
+	,@AgentName				NVARCHAR(1000)	
+	,@ContactModeTime		NVARCHAR(1000)	= ''
+	,@Remark				NVARCHAR(1000)	= ''
+	,@BankName				NVARCHAR(100)	= ''
+	,@BankAddress			NVARCHAR(200)	= ''
+	,@BankSwiftCode			NVARCHAR(50)	= ''
+	,@BankAccountName		NVARCHAR(100)	= ''
+	,@BankAccountNo			VARCHAR(100)	= ''
+	,@Language				VARCHAR(10)		= 'en-US'
+	,@IP					VARCHAR(50)		= ''
+	,@ErrCode				INT				= 0 OUTPUT
+	,@ErrMsg				NVARCHAR(MAX)	= '' OUTPUT
 AS
 
 /*

@@ -4,30 +4,30 @@ CREATE PROCEDURE dbo.Aff_Admin_ProcessingRequest_Ins
 	,@UserId				INT
 	,@Deadline				SMALLDATETIME
 	,@Status				VARCHAR(30)
-	,@MarketID				NVARCHAR(10)
-	,@PreferredPayment		VARCHAR(20)
-	,@Player_Username		VARCHAR(100)
-	,@PromotionMethod		NVARCHAR(MAX)
-	,@WebRank				NVARCHAR(MAX)
-	,@WebRegDate			NVARCHAR(MAX)
-	,@WebSMLanguage			NVARCHAR(MAX)
-	,@ServerCountry			NVARCHAR(MAX)
-	,@WebSMQuality			NVARCHAR(MAX)
-	,@WebSMType				NVARCHAR(MAX)
-	,@WebAdvAff				NVARCHAR(MAX)
-	,@TargetMarket			NVARCHAR(MAX)
-	,@AgentName				NVARCHAR(MAX)
-	,@ContactModeTime		NVARCHAR(MAX)
-	,@Remark				NVARCHAR(MAX)
-	,@BankName				NVARCHAR(100)
-	,@BankAddress			NVARCHAR(200)
-	,@BankSwiftCode			NVARCHAR(50)
-	,@BankAccountName		NVARCHAR(100)
-	,@BankAccountNo			VARCHAR(100)
-	,@IP					VARCHAR(50) = ''
-	,@Language				VARCHAR(10) = 'en-US'
-	,@ErrCode				INT = 0 OUTPUT
-	,@ErrMsg				NVARCHAR(MAX) = '' OUTPUT
+	,@MarketID				NVARCHAR(10)	= ''
+	,@PreferredPayment		VARCHAR(20)		= ''
+	,@Player_Username		VARCHAR(100)	= ''
+	,@PromotionMethod		NVARCHAR(1000)	= ''
+	,@WebRank				NVARCHAR(1000)	= ''
+	,@WebRegDate			NVARCHAR(1000)	= ''
+	,@WebSMLanguage			NVARCHAR(1000)	= ''
+	,@ServerCountry			NVARCHAR(1000)	= ''
+	,@WebSMQuality			NVARCHAR(1000)	= ''
+	,@WebSMType				NVARCHAR(1000)	= ''
+	,@WebAdvAff				NVARCHAR(1000)	= ''
+	,@TargetMarket			NVARCHAR(1000)	= ''
+	,@AgentName				NVARCHAR(1000)
+	,@ContactModeTime		NVARCHAR(1000)	= ''
+	,@Remark				NVARCHAR(1000)	= ''
+	,@BankName				NVARCHAR(100)	= ''
+	,@BankAddress			NVARCHAR(200)	= ''
+	,@BankSwiftCode			NVARCHAR(50)	= ''
+	,@BankAccountName		NVARCHAR(100)	= ''
+	,@BankAccountNo			VARCHAR(100)	= ''
+	,@IP					VARCHAR(50)		= ''
+	,@Language				VARCHAR(10)		= 'en-US'
+	,@ErrCode				INT				= 0 OUTPUT
+	,@ErrMsg				NVARCHAR(MAX)	= '' OUTPUT
 AS
 
 /*
