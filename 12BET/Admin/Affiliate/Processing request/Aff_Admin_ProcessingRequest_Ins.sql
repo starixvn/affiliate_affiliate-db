@@ -51,7 +51,7 @@ BEGIN
 		RETURN
 	END
 
-	IF @Deadline < GETDATE()
+	IF @Deadline < CONVERT(DATE, GETDATE())
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'Invalid deadline.'
 		RETURN

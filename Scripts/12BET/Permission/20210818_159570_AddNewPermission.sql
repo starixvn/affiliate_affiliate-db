@@ -5,7 +5,7 @@
 	Task: Add new permission for Processing Request [RedmineId : #159570]
 */
 
-DECLARE @FuncId INT, @FuncIdMarket INT, @FuncIdManage INT
+DECLARE @FuncId INT, @FuncIdMarket INT, @FuncIdManage INT, @FuncIdAffiliate INT
 
 INSERT INTO dbo.Functions(FuncName, DisplayName, Description, CreatedDate, UpdatedDate, Creator, OrderId)
 VALUES ('[ProcessingRequest]', 'Processing Request', 'Processing Request', GETDATE(), GETDATE(), NULL, 39)
@@ -15,10 +15,16 @@ VALUES ('[ProcessingRequest]', 'Processing Request', 'Processing Request', GETDA
 SELECT @FuncId = FuncId FROM dbo.Functions WITH(NOLOCK) WHERE FuncName = '[ProcessingRequest]'
 SELECT @FuncIdMarket = FuncId FROM dbo.Functions WITH(NOLOCK) WHERE FuncName = '[ProcessingRequestMarketingRole]'
 SELECT @FuncIdManage = FuncId FROM dbo.Functions WITH(NOLOCK) WHERE FuncName = '[ProcessingRequestManagementRole]'
+SELECT @FuncIdAffiliate = FuncId FROM dbo.Functions WITH(NOLOCK) WHERE FuncName = '[AffAffiliate]'
 
 UPDATE dbo.Functions WITH(ROWLOCK)
 	SET ParentId = @FuncId, AllParentIds = CONVERT(VARCHAR(20), @FuncId)
-WHERE FuncName IN ('[ProcessingRequest]', '[ProcessingRequestMarketingRole]', '[ProcessingRequestManagementRole]')
+WHERE FuncName IN ('[ProcessingRequestMarketingRole]', '[ProcessingRequestManagementRole]')
+
+
+UPDATE dbo.Functions WITH(ROWLOCK)
+	SET ParentId = @FuncIdAffiliate, AllParentIds = CONVERT(VARCHAR(20), @FuncIdAffiliate)
+WHERE FuncName IN ('[ProcessingRequest]')
 
 INSERT INTO dbo.RoleFunction (RoleId, FuncId, Policy, Creator)
 VALUES (1, @FuncId, 3, NULL)

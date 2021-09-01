@@ -45,7 +45,7 @@ BEGIN
 
 	SELECT @AffId = AffId FROM dbo.ProcessingRequest pr WITH(NOLOCK) WHERE RequestId = @RequestId
 
-	IF @Deadline < GETDATE()
+	IF @Deadline < CONVERT(DATE, GETDATE())
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'Invalid deadline.'
 		RETURN
