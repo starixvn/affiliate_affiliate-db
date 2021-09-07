@@ -130,7 +130,7 @@ BEGIN
 			,Wire_SwiftCode			= @BankSwiftCode
 			,Wire_AccountName		= @BankAccountName
 			,Wire_AccountNo			= @BankAccountNo
-			,SubmittedDate			= CASE WHEN @Status = 'Submitted' THEN GETDATE() ELSE SubmittedDate END
+			,SubmittedDate			= CASE WHEN @Status = 'Submitted' AND Status <> 'Submitted' THEN GETDATE() ELSE SubmittedDate END
 			,LastModified			= CASE WHEN @Status IN ('Draft', 'Submitted')	THEN GETDATE() ELSE LastModified  END
 			,ApprovalDate			= CASE WHEN @Status IN ('Approved', 'Rejected') THEN GETDATE() ELSE ApprovalDate  END
 			,Approver				= CASE WHEN @Status IN ('Approved', 'Rejected') THEN @UserId   ELSE Approver	  END
