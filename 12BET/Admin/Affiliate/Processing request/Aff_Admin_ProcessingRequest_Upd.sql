@@ -41,11 +41,11 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @AffId INT = 0, @NewData NVARCHAR(MAX) = '', @OldData NVARCHAR(MAX) = '', @SPName VARCHAR(200) = ''
+	DECLARE @AffId INT = 0, @NewData NVARCHAR(MAX) = '', @OldData NVARCHAR(MAX) = '', @SPName VARCHAR(200) = '', @OldDeadline DATETIME
 
-	SELECT @AffId = AffId FROM dbo.ProcessingRequest pr WITH(NOLOCK) WHERE RequestId = @RequestId
+	SELECT @AffId = AffId,@OldDeadline = Deadline FROM dbo.ProcessingRequest pr WITH(NOLOCK) WHERE RequestId = @RequestId
 
-	IF @Deadline < CONVERT(DATE, GETDATE())
+	IF @Deadline < CONVERT(DATE, GETDATE()) AND @Deadline <> @OldDeadline
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'Invalid deadline.'
 		RETURN
@@ -254,7 +254,7 @@ BEGIN
 					  (
 								SELECT
 									@RequestId                       AS '@RequestId'
-									,u.Deadline_Del					 AS '@Deadline'			
+									,CONVERT(VARCHAR(30), u.Deadline_Del, 120) AS '@Deadline'			
 									,u.Status_Del					 AS '@Status'				
 									,u.MarketID_Del					 AS '@MarketID'	
 									,ISNULL(m.MarketName, '')		 AS '@MarketName'		
@@ -285,30 +285,30 @@ BEGIN
 	SELECT @NewData = CONVERT(NVARCHAR(MAX), 
 					  (
 								SELECT
-									@RequestId                       AS '@RequestId'
-									,u.Deadline_Ins					 AS '@Deadline'			
-									,u.Status_Ins					 AS '@Status'				
-									,u.MarketID_Ins					 AS '@MarketID'		
-									,ISNULL(m.MarketName, '')		 AS '@MarketName'		
-									,u.PreferredPayment_Ins			 AS '@PreferredPayment'
-									,u.Player_Username_Ins			 AS '@Player_Username'	
-									,u.PromotionMethod_Ins			 AS '@PromotionMethod'	
-									,u.Webrank_Ins					 AS '@WebsiteRank'			
-									,u.WebRegDate_Ins				 AS '@WebRegDate'	
-									,u.WebSMLanguage_Ins			 AS '@WebSMLanguage'		
-									,u.ServerCountry_Ins			 AS '@ServerCountry'		
-									,u.WebSMQuality_Ins				 AS '@WebSMQuality'		
-									,u.WebSMType_Ins				 AS '@WebSMType'			
-									,u.WebAdvAff_Ins				 AS '@WebAdvAff'			
-									,u.TargetMarket_Ins				 AS '@TargetMarket'		
-									,u.AgentName_Ins				 AS '@AgentName'			
-									,u.ContactbleMode_Ins			 AS '@ContactMode'		
-									,u.Remark_Ins					 AS '@Remark'				
-									,u.BankName_Ins					 AS '@BankName'			
-									,u.BankAddress_Ins				 AS '@BankAddress'		
-									,u.SwiftCode_Ins				 AS '@SwiftCode'			
-									,u.AccountName_Ins				 AS '@AccountName'		
-									,u.AccountNo_Ins				 AS '@AccountNo'	
+									@RequestId									AS '@RequestId'
+									,CONVERT(VARCHAR(30), u.Deadline_Ins, 120)	AS '@Deadline'			
+									,u.Status_Ins								AS '@Status'				
+									,u.MarketID_Ins								AS '@MarketID'		
+									,ISNULL(m.MarketName, '')					AS '@MarketName'		
+									,u.PreferredPayment_Ins						AS '@PreferredPayment'
+									,u.Player_Username_Ins						AS '@Player_Username'	
+									,u.PromotionMethod_Ins						AS '@PromotionMethod'	
+									,u.Webrank_Ins								AS '@WebsiteRank'			
+									,u.WebRegDate_Ins							AS '@WebRegDate'	
+									,u.WebSMLanguage_Ins						AS '@WebSMLanguage'		
+									,u.ServerCountry_Ins						AS '@ServerCountry'		
+									,u.WebSMQuality_Ins							AS '@WebSMQuality'		
+									,u.WebSMType_Ins							AS '@WebSMType'			
+									,u.WebAdvAff_Ins							AS '@WebAdvAff'			
+									,u.TargetMarket_Ins							AS '@TargetMarket'		
+									,u.AgentName_Ins							AS '@AgentName'			
+									,u.ContactbleMode_Ins						AS '@ContactMode'		
+									,u.Remark_Ins								AS '@Remark'				
+									,u.BankName_Ins								AS '@BankName'			
+									,u.BankAddress_Ins							AS '@BankAddress'		
+									,u.SwiftCode_Ins							AS '@SwiftCode'			
+									,u.AccountName_Ins							AS '@AccountName'		
+									,u.AccountNo_Ins							AS '@AccountNo'	
 								FROM @UpdateData u
 									LEFT JOIN dbo.Market m WITH(NOLOCK) ON m.MarketId = u.MarketID_Ins
 								FOR XML PATH('row'), ROOT('root')
