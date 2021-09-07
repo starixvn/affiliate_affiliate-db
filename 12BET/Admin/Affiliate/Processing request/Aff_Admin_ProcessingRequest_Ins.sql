@@ -2,7 +2,7 @@
 CREATE PROCEDURE dbo.Aff_Admin_ProcessingRequest_Ins
 	 @Username				NVARCHAR(50)
 	,@UserId				INT
-	,@Deadline				SMALLDATETIME
+	,@Deadline				DATETIME
 	,@Status				VARCHAR(30)
 	,@MarketID				NVARCHAR(10)	= ''
 	,@PreferredPayment		VARCHAR(20)		= ''

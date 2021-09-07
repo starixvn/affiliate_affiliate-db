@@ -26,12 +26,12 @@ BEGIN
 		RequestId				INT 
 		,AffId					INT
 		,Creator				INT
-		,CreationDate			SMALLDATETIME
-		,LastModified			SMALLDATETIME
-		,SubmittedDate			SMALLDATETIME
-		,Deadline				SMALLDATETIME
+		,CreationDate			DATETIME
+		,LastModified			DATETIME
+		,SubmittedDate			DATETIME
+		,Deadline				DATETIME
 		,Approver				INT
-		,ApprovalDate			SMALLDATETIME
+		,ApprovalDate			DATETIME
 		,Status					VARCHAR(30)
 		,MarketID				NVARCHAR(10)
 		,PreferredPayment		VARCHAR(20) --Play for 12bet play, bank for Wire

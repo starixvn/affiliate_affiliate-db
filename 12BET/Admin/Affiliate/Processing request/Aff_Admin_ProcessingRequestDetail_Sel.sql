@@ -46,9 +46,9 @@ BEGIN
 		,pr.Remark
 		,pr.Wire_BankName AS BankName
 		,pr.Wire_BankAddress AS BankAddress
-		,pr.Wire_SwiftCode AS SwiftCode 
-		,pr.Wire_AccountName AS AccountName
-		,pr.Wire_AccountNo AS AccountNo
+		,pr.Wire_SwiftCode AS BankSwiftCode 
+		,pr.Wire_AccountName AS BankAccountName
+		,pr.Wire_AccountNo AS BankAccountNo
 	FROM dbo.ProcessingRequest pr WITH(NOLOCK)
 		INNER JOIN dbo.AffInfo ai WITH(NOLOCK) ON ai.AffID = pr.AffId
 		LEFT JOIN dbo.Users cr WITH(NOLOCK) ON cr.CustId = pr.Creator

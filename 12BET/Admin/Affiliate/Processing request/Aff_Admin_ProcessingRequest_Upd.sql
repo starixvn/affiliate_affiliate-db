@@ -2,7 +2,7 @@
 CREATE PROCEDURE dbo.Aff_Admin_ProcessingRequest_Upd
 	@RequestId				INT
 	,@UserId				INT
-	,@Deadline				SMALLDATETIME
+	,@Deadline				DATETIME
 	,@Status				VARCHAR(30)
 	,@MarketID				NVARCHAR(10)	= ''
 	,@PreferredPayment		VARCHAR(20)		= ''
@@ -54,7 +54,7 @@ BEGIN
 	DECLARE @updateData TABLE
 	(
 		--Insert
-		Deadline_Ins				SMALLDATETIME
+		Deadline_Ins				DATETIME
 		,Status_Ins					VARCHAR(30)
 		,MarketID_Ins				NVARCHAR(10)
 		,PreferredPayment_Ins		VARCHAR(20) --Play for 12bet play, bank for Wire
@@ -76,11 +76,11 @@ BEGIN
 		,SwiftCode_Ins				NVARCHAR(50)
 		,AccountName_Ins			NVARCHAR(100)
 		,AccountNo_Ins				VARCHAR(100)
-		,LastModified_Ins			SMALLDATETIME
+		,LastModified_Ins			DATETIME
 		,Approver_Ins				INT
-		,ApprovalDate_Ins			SMALLDATETIME
+		,ApprovalDate_Ins			DATETIME
 		---Delete
-		,Deadline_Del				SMALLDATETIME
+		,Deadline_Del				DATETIME
 		,Status_Del					VARCHAR(30)
 		,MarketID_Del				NVARCHAR(10)
 		,PreferredPayment_Del		VARCHAR(20) --Play for 12bet play, bank for Wire
@@ -102,9 +102,9 @@ BEGIN
 		,SwiftCode_Del				NVARCHAR(50)
 		,AccountName_Del			NVARCHAR(100)
 		,AccountNo_Del				VARCHAR(100)
-		,LastModified_Del			SMALLDATETIME
+		,LastModified_Del			DATETIME
 		,Approver_Del				INT
-		,ApprovalDate_Del			SMALLDATETIME
+		,ApprovalDate_Del			DATETIME
 	)
 
 	UPDATE dbo.ProcessingRequest WITH(ROWLOCK)
@@ -132,8 +132,8 @@ BEGIN
 			,Wire_AccountNo			= @BankAccountNo
 			,SubmittedDate			= CASE WHEN @Status = 'Submitted' AND Status <> 'Submitted' THEN GETDATE() ELSE SubmittedDate END
 			,LastModified			= CASE WHEN @Status IN ('Draft', 'Submitted')	THEN GETDATE() ELSE LastModified  END
-			,ApprovalDate			= CASE WHEN @Status IN ('Approved', 'Rejected') THEN GETDATE() ELSE ApprovalDate  END
-			,Approver				= CASE WHEN @Status IN ('Approved', 'Rejected') THEN @UserId   ELSE Approver	  END
+			,ApprovalDate			= CASE WHEN @Status IN ('Approved', 'Rejected') AND Status <> @Status THEN GETDATE() ELSE ApprovalDate  END
+			,Approver				= CASE WHEN @Status IN ('Approved', 'Rejected') AND Status <> @Status THEN @UserId   ELSE Approver	  END
 	OUTPUT 
 		--Insert
 		inserted.Deadline			
