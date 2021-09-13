@@ -41,13 +41,18 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @AffId INT = 0, @SPName VARCHAR(200) = '', @NewData NVARCHAR(MAX), @MarketName NVARCHAR(50) = '', @RequestId INT
-
-	SELECT @AffId = AffId FROM dbo.AffInfo ai WITH(NOLOCK) WHERE ai.UserName = @Username
-
+	DECLARE @AffId INT = 0, @SPName VARCHAR(200) = '', @NewData NVARCHAR(MAX), @MarketName NVARCHAR(50) = '', @RequestId INT, @PreferredLanguage VARCHAR(11)
+	-- You are not authorized to process the selected affiliate.
+	SELECT @AffId = AffId , @PreferredLanguage = PreferredLanguage FROM dbo.AffDetail ad WITH(NOLOCK) WHERE ad.UserName = @Username 	
 	IF ISNULL(@AffId, 0) = 0
 	BEGIN
 		SELECT @ErrCode = 100, @ErrMsg = 'Invalid affiliate username.'
+		RETURN
+	END
+
+	IF NOT EXISTS(SELECT MarketId FROM UserMarket m WITH(NOLOCK) WHERE m.CustId = @UserId AND m.MarketId = @PreferredLanguage) 
+	BEGIN
+		SELECT @ErrCode = 102, @ErrMsg = 'You are not authorized to process the selected affiliate.'
 		RETURN
 	END
 
