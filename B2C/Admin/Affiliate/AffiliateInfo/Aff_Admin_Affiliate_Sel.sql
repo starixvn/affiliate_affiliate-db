@@ -27,6 +27,7 @@ AS
 		- 20201026@Percy: Change search by AffId to AffCode [RedmineID: #143852]
 		- 20200107@Percy: Add suspended status [RedmineID: #148373]
 		- 20210622@Percy: Support search Affiliate player [RedmineID: #157299]
+		- 20210819@Percy: Count all players [RedmineID: #160414]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
@@ -165,7 +166,6 @@ BEGIN
 				FROM dbo.MemberInfo mi WITH (NOLOCK)
 				WHERE mi.AffId = ai.AffId
 					AND mi.IsRemoved = 0
-					AND mi.CreatedDate IS NOT NULL
 			) mi
 			OUTER APPLY (
 				SELECT SUM(at.Amount) AS BFF
