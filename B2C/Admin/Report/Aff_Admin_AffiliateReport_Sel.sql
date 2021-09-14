@@ -1,12 +1,13 @@
 /*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	@Username			NVARCHAR(50) = NULL
-	,@GroupId 			INT = 0
+	,@GroupIds 			VARCHAR(MAX) = ''
 	,@FromDate			SMALLDATETIME
 	,@ToDate			SMALLDATETIME
 	,@PreferredLanguage	VARCHAR(11) = NULL
 	,@ProductIds		VARCHAR(MAX) = '0'
 	,@Currencies		VARCHAR(MAX) = ''
+	,@PaymentCurrencies	VARCHAR(MAX) = ''
 	,@BaseCurrency		INT = 0
 	,@SortType			TINYINT = 1
 	,@SortDirectionType	BIT = 0
@@ -28,6 +29,7 @@ AS
 		- 20210323@Percy: Missing FDM [RedmineID: #151391]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Add P2PEarning column [RedmineID: #157958]
+		- 20210914@Percy: Support multiple revenue group filter + Add payment currency filter [RedmineID: #161488]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -41,7 +43,7 @@ BEGIN
 	IF @FromDate IS NULL OR @ToDate IS NULL
 		RETURN
 
-	SELECT  @Username = ISNULL(LTRIM(RTRIM(@Username)), ''), @PreferredLanguage = ISNULL(@PreferredLanguage, ''), @GroupId = ISNULL(@GroupId, 0)
+	SELECT  @Username = ISNULL(LTRIM(RTRIM(@Username)), ''), @PreferredLanguage = ISNULL(@PreferredLanguage, ''), @GroupIds = ISNULL(@GroupIds, '')
 
 	SELECT  @FromDate	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0) -- Begin Of Month
 	SELECT  @ToDate		= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0)) -- End Of Month
@@ -277,6 +279,7 @@ BEGIN
 		(
 			AffId			INT,
 			Username		NVARCHAR(30),
+			PaymentCurrency	VARCHAR(5),
 			TotalClick		INT,
 			UniqueClick		INT,
 			Signup			INT,
@@ -306,6 +309,7 @@ BEGIN
 		(
 			AffId,
 			Username,
+			PaymentCurrency,
 			TotalClick,
 			UniqueClick,
 			Signup,
@@ -334,6 +338,7 @@ BEGIN
 		SELECT
 			ai.AffId,
 			ai.Username,
+			ad.Player_CurrencyCode AS PaymentCurrency,
 			ISNULL(s.TotalClick, 0)				AS TotalClick,
 			ISNULL(s.UniqueClick, 0)			AS UniqueClick,
 			ISNULL(su.Signup, 0)				AS Signup,
@@ -367,7 +372,7 @@ BEGIN
 				CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN ISNULL(tc.Commission, 0) END ASC,
 				CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ISNULL(tc.Commission, 0) END DESC) AS RowIdx
 		FROM dbo.AffInfo ai WITH (NOLOCK)
-			LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+			INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 			LEFT JOIN #Signup su ON ai.AffId = su.AffId
 			LEFT JOIN #AffTrans at ON ai.AffId = at.AffId
 			LEFT JOIN (
@@ -406,9 +411,11 @@ BEGIN
 		WHERE ai.Status = 'Approved'
 			AND ai.Username LIKE '%' + @Username + '%'
 			AND (@PreferredLanguage = '' OR ad.PreferredLanguage = @PreferredLanguage)
-			AND (
-				@GroupId = 0
-				OR EXISTS (SELECT 1 FROM dbo.AffGroupHistory agh WITH (NOLOCK) WHERE agh.AffId = ai.AffId AND agh.GroupId = @GroupId AND agh.MonthDate BETWEEN @FromDate AND @ToDate)
+			AND ',' + @PaymentCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(20), ad.Player_Currency) + ',%'
+			AND EXISTS (
+				SELECT 1 FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+				WHERE agh.AffId = ai.AffId AND agh.MonthDate BETWEEN @FromDate AND @ToDate
+						AND ',' + @GroupIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), agh.GroupId) + ',%'
 			)
 			AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate)
 	END
@@ -425,7 +432,7 @@ BEGIN
 		SELECT @RowStart = 1, @RowEnd = @NRows
 
 	-- Return detail
-	SELECT AffId, Username, TotalClick, UniqueClick, Signup, FDM, ActivePlayer, NoOfSubAff
+	SELECT AffId, Username, PaymentCurrency, TotalClick, UniqueClick, Signup, FDM, ActivePlayer, NoOfSubAff
 		,Deposit, Withdrawal, Turnover, Winloss, Bonus, Rebate, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee
 		,PlatFormFee + OperationalFee + DepositFee + WithdrawalFee AS TotalFee
 		,CommissionRate, P2PEarning, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF
