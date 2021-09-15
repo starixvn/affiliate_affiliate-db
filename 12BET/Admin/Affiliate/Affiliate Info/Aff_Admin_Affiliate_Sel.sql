@@ -6,6 +6,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Affiliate_Sel]
 	@AffId				INT				= 0,
 	@UserName 			NVARCHAR(50) 	= '',
 	@Status				VARCHAR(30)		= '',
+	@ProcessingStatus	VARCHAR(30)		= '',
 	@Email 				NVARCHAR(50) 	= '',
 	@SortType			TINYINT			= 1,
 	@SortDirectionType	BIT				= 0,
@@ -27,6 +28,7 @@ AS
 			2. Add @AffId to support search by Affiliate ID [RedmineID: #106265]
 		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
 		- 20210126@Malcolm: Get Balance Brought Forward for affiliates who haven't members [RedmineID: #147902]
+		- 20210817@Malcolm: Get processing request [RedmineID: #159570]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
@@ -59,6 +61,8 @@ BEGIN
 		AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
 		AND ',' + @PreferredLanguages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
 		AND (ISNULL(@GroupID, 0) = 0 OR ai.GroupID = @GroupID)
+		AND (EXISTS(SELECT 1 FROM dbo.ProcessingRequest pr WITH(NOLOCK) WHERE pr.AffId = ai.AffID AND pr.Status = @ProcessingStatus)
+			 OR ISNULL(@ProcessingStatus, '') = '')
 	
 	DECLARE @RowStart INT, @RowEnd INT
 
@@ -98,7 +102,8 @@ BEGIN
 		Currency,
 		PlayerCurrency,
 		Phone,
-		Player_Username
+		Player_Username,
+		ProcessingStatus
 	FROM
 	(
 		SELECT
@@ -121,6 +126,7 @@ BEGIN
 			e2.Currency AS PlayerCurrency,
 			ad.Phone,
 			ad.Player_Username,
+			CONVERT(VARCHAR(10), ISNULL(pr.Draft, 0)) + '/' + CONVERT(VARCHAR(10), ISNULL(pr.Submitted, 0)) + '/' +  CONVERT(VARCHAR(10), ISNULL(pr.Approved,0)) + '/' +  CONVERT(VARCHAR(10), ISNULL(pr.Rejected, 0)) AS ProcessingStatus,
 			ROW_NUMBER() OVER (ORDER BY
 						CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN ai.Username END ASC,
 						CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN ai.Username END DESC,
@@ -152,6 +158,15 @@ BEGIN
 				WHERE TransDate >= @MinReportDate
 				GROUP BY AffId
 			) at ON at.AffId = ai.AffId
+			LEFT JOIN (
+			    SELECT AffId
+					   ,COUNT(CASE WHEN Status = 'Draft' THEN 1 ELSE NULL END) AS Draft
+					   ,COUNT(CASE WHEN Status = 'Submitted' THEN 1 ELSE NULL END) AS Submitted
+					   ,COUNT(CASE WHEN Status = 'Approved' THEN 1 ELSE NULL END) AS Approved
+					   ,COUNT(CASE WHEN Status = 'Rejected' THEN 1 ELSE NULL END) AS Rejected
+				FROM dbo.ProcessingRequest WITH(NOLOCK)
+				GROUP BY AffId
+			) pr ON pr.AffId = ai.AffID
 		WHERE
 			(ISNULL(@AffId, 0) = 0 OR ai.AffId = @AffId)
 			AND (ISNULL(@Username, '') = '' OR ai.Username LIKE '%' + @Username + '%')
@@ -169,6 +184,8 @@ BEGIN
 			AND ',' + @PreferredLanguages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
 			AND (ISNULL(@GroupID, 0) = 0 OR ai.GroupID = @GroupID)
 			AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
+			AND (EXISTS(SELECT 1 FROM dbo.ProcessingRequest pr WITH(NOLOCK) WHERE pr.AffId = ai.AffID AND pr.Status = @ProcessingStatus)
+			 OR ISNULL(@ProcessingStatus, '') = '')
 	) AS result
 	WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 END
