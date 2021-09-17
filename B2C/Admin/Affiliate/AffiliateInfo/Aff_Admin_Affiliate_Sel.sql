@@ -66,7 +66,11 @@ BEGIN
 							ELSE ai.IsRejected END
 		AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
 		AND (ISNULL(@PreferredLanguage, '') = '' OR ad.PreferredLanguage = @PreferredLanguage)
-		AND  ',' + @GroupIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), ai.GroupId) + ',%'
+		AND (
+			@GroupIds = 'all'
+			OR  ',' + @GroupIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), ai.GroupId) + ',%'
+		)
+		
 	
 	DECLARE @RowStart INT, @RowEnd INT
 
@@ -199,7 +203,10 @@ BEGIN
 			AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
 			AND (ISNULL(@PreferredLanguage, '') = '' OR ad.PreferredLanguage = @PreferredLanguage)
 			AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
-			AND  ',' + @GroupIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), ai.GroupId) + ',%'
+			AND (
+				@GroupIds = 'all'
+				OR  ',' + @GroupIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), ai.GroupId) + ',%'
+			)
 	) AS result
 	WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 END

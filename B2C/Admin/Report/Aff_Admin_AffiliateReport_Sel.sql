@@ -412,10 +412,13 @@ BEGIN
 			AND ai.Username LIKE '%' + @Username + '%'
 			AND (@PreferredLanguage = '' OR ad.PreferredLanguage = @PreferredLanguage)
 			AND ',' + @PaymentCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(20), ad.Player_Currency) + ',%'
-			AND EXISTS (
-				SELECT 1 FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-				WHERE agh.AffId = ai.AffId AND agh.MonthDate BETWEEN @FromDate AND @ToDate
-						AND ',' + @GroupIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), agh.GroupId) + ',%'
+			AND (
+				@GroupIds = 'all'
+				OR EXISTS (
+					SELECT 1 FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+					WHERE agh.AffId = ai.AffId AND agh.MonthDate BETWEEN @FromDate AND @ToDate
+							AND ',' + @GroupIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), agh.GroupId) + ',%'
+				)
 			)
 			AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate)
 	END
