@@ -1,7 +1,7 @@
 ﻿/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Affiliate_Sel] 
 	@UserId 			INT,
-	@GroupID 			INT				= 0,
+	@GroupIds 			VARCHAR(MAX)	= '',
 	@PreferredLanguage	VARCHAR(10)		= '',
 	@ParentAffName		NVARCHAR(50)	= '',
 	@AffCode			VARCHAR(20)		= '',
@@ -28,6 +28,7 @@ AS
 		- 20200107@Percy: Add suspended status [RedmineID: #148373]
 		- 20210622@Percy: Support search Affiliate player [RedmineID: #157299]
 		- 20210819@Percy: Count all players [RedmineID: #160414]
+		- 20210914@Percy: Support multiple revenue group filter + Return AffCode [RedmineID: #161488]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
@@ -65,7 +66,7 @@ BEGIN
 							ELSE ai.IsRejected END
 		AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
 		AND (ISNULL(@PreferredLanguage, '') = '' OR ad.PreferredLanguage = @PreferredLanguage)
-		AND (ISNULL(@GroupID, 0) = 0 OR ai.GroupID = @GroupID)
+		AND  ',' + @GroupIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), ai.GroupId) + ',%'
 	
 	DECLARE @RowStart INT, @RowEnd INT
 
@@ -88,6 +89,7 @@ BEGIN
 		ParentAffName,
 		AffId,
 		Username,
+		AffCode,
 		FirstName,
 		LastName,
 		Status,
@@ -114,6 +116,7 @@ BEGIN
 			p.UserName AS ParentAffName,
 			ai.AffId,
 			ai.Username,
+			ai.AffCode,
 			ai.FirstName,
 			ai.LastName,
 			CASE
@@ -195,8 +198,8 @@ BEGIN
 								ELSE ai.IsRejected END
 			AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
 			AND (ISNULL(@PreferredLanguage, '') = '' OR ad.PreferredLanguage = @PreferredLanguage)
-			AND (ISNULL(@GroupID, 0) = 0 OR ai.GroupID = @GroupID)
 			AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
+			AND  ',' + @GroupIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), ai.GroupId) + ',%'
 	) AS result
 	WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 END
