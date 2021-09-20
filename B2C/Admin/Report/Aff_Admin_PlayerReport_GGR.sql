@@ -5,6 +5,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_PlayerReport_GGR]
 	,@ProductIds	VARCHAR(MAX) = ''
 	,@FromDate		SMALLDATETIME
 	,@ToDate		SMALLDATETIME
+	,@BaseCurrency	INT = 0
 	,@IsExportExcel	BIT = 0
 	,@PageIndex		INT = 1
 	,@PageSize		INT = 50
@@ -78,16 +79,9 @@ BEGIN
 	CREATE TABLE #Result (AffId INT, AffUsername VARCHAR(50), CustId INT, UserName VARCHAR(50), RegisteredDate DATETIME, FirstDepositDate DATETIME
 		,ProductId INT, Turnover MONEY, Winloss MONEY)
 	INSERT INTO #Result (AffId, AffUsername, CustId, ProductId, Turnover, Winloss)
-	SELECT d.AffId, d.AffUsername, d.CustId, d.ProductId, SUM(d.Turnover), SUM(d.Winloss)
-	FROM (
-		SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0)) AS MonthDate
-			,AffId, AffUsername, CustId, Currency, ProductId
-			,SUM(Turnover) AS Turnover, SUM(Winloss) AS Winloss
-		FROM #tmpData
-		GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0))
-			,AffId, AffUsername, CustId, Currency, ProductId
-	) d
-		INNER JOIN dbo.ExchangeOanda e WITH (NOLOCK) ON d.MonthDate = e.ExchangeDate AND d.Currency = e.ExchangeId
+	SELECT d.AffId, d.AffUsername, d.CustId, d.ProductId, SUM(d.Turnover * e.Rate), SUM(d.Winloss * e.Rate)
+	FROM #tmpData d
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(d.WinlostDate, d.Currency, @BaseCurrency) e
 	GROUP BY d.AffId, d.AffUsername, d.CustId, d.ProductId
 
 	IF @Username <> ''
