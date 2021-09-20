@@ -75,7 +75,8 @@ BEGIN
 	WHERE r.WinlostDate BETWEEN @FromDate AND @ToDate
 	GROUP BY r.WinlostDate, r.AffId, a.AffUsername, r.CustId, r.Currency, r.ProductId
 
-	CREATE TABLE #Result (AffId INT, AffUsername VARCHAR(50), CustId INT, ProductId INT, Turnover MONEY, Winloss MONEY)
+	CREATE TABLE #Result (AffId INT, AffUsername VARCHAR(50), CustId INT, UserName VARCHAR(50), RegisteredDate DATETIME, FirstDepositDate DATETIME
+		,ProductId INT, Turnover MONEY, Winloss MONEY)
 	INSERT INTO #Result (AffId, AffUsername, CustId, ProductId, Turnover, Winloss)
 	SELECT d.AffId, d.AffUsername, d.CustId, d.ProductId, SUM(d.Turnover), SUM(d.Winloss)
 	FROM (
@@ -112,11 +113,16 @@ BEGIN
 		WHERE r.RN NOT BETWEEN @RowStart AND @RowEnd
 	END
 
+	UPDATE r
+	SET r.UserName = m.UserName, r.RegisteredDate = m.RegisteredDate, r.FirstDepositDate = m.FirstDepositDate
+	FROM #Result r
+		INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON r.CustId = m.CustId
+
 	-- Insert Total
-	INSERT INTO #Result (AffId, AffUsername, CustId, ProductId, Turnover, Winloss)
-	SELECT AffId, AffUsername, CustId, 0 AS ProductId, SUM(Turnover), SUM(Winloss)
+	INSERT INTO #Result (AffId, AffUsername, CustId, UserName, RegisteredDate, FirstDepositDate, ProductId, Turnover, Winloss)
+	SELECT AffId, AffUsername, CustId, UserName, RegisteredDate, FirstDepositDate, 0 AS ProductId, SUM(Turnover), SUM(Winloss)
 	FROM #Result
-	GROUP BY AffId, AffUsername, CustId
+	GROUP BY AffId, AffUsername, CustId, UserName, RegisteredDate, FirstDepositDate
 
 	DECLARE @OutputColumns VARCHAR(MAX)
 	SELECT  @OutputColumns = COALESCE(@OutputColumns + ', ', '')
@@ -130,17 +136,34 @@ BEGIN
 	DECLARE @SQL VARCHAR(MAX)
 	SET @SQL = '
 	;WITH CTE_Result AS (
-		SELECT r.AffId, r.AffUsername, m.CustId, m.Username, m.RegisteredDate, m.FirstDepositDate, ISNULL(t.Value, 0) AS Value
+		SELECT r.AffId, r.AffUsername, r.CustId, r.UserName, r.RegisteredDate, r.FirstDepositDate, ISNULL(t.Value, 0) AS Value
 			,CASE WHEN r.ProductId = 0 THEN ''Total'' ELSE CONVERT(VARCHAR(20), r.ProductId) END + ''_'' + t.Figure AS Figure
 		FROM #Result r
-			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON r.CustId = m.CustId
 			CROSS APPLY (
 				SELECT ''Turnover'' AS Figure, Turnover AS Value
 				UNION ALL SELECT ''Winloss'', r.Winloss
 			) t
-		WHERE m.UserName LIKE ''%' + @Username + '%''
 	)
-	SELECT AffId, AffUsername, CustId, Username, RegisteredDate, FirstDepositDate, ' + @OutputColumns + '
+	SELECT AffId, AffUsername, CustId, UserName, RegisteredDate, FirstDepositDate, ' + @OutputColumns + '
+	FROM CTE_Result r
+	PIVOT (
+		MAX (Value)
+		FOR Figure IN (' + @OutputColumns + ')
+	) p'
+
+	EXEC (@SQL)
+
+	SET @SQL = '
+	;WITH CTE_Result AS (
+		SELECT ISNULL(t.Value, 0) AS Value
+			,CASE WHEN r.ProductId = 0 THEN ''Total'' ELSE CONVERT(VARCHAR(20), r.ProductId) END + ''_'' + t.Figure AS Figure
+		FROM #Result r
+			CROSS APPLY (
+				SELECT ''Turnover'' AS Figure, Turnover AS Value
+				UNION ALL SELECT ''Winloss'', r.Winloss
+			) t
+	)
+	SELECT ' + @OutputColumns + '
 	FROM CTE_Result r
 	PIVOT (
 		MAX (Value)
