@@ -94,6 +94,13 @@ BEGIN
 	IF @NRows = 0
 		RETURN
 
+	-- Total row
+	CREATE TABLE #Total (ProductId INT, Turnover MONEY, Winloss MONEY)
+	INSERT INTO #Total (ProductId, Turnover, Winloss)
+	SELECT ProductId, SUM(Turnover), SUM(Winloss)
+	FROM #Result
+	GROUP BY ProductId
+
 	IF @IsExportExcel = 0
 	BEGIN
 		DECLARE @RowStart INT, @RowEnd INT
@@ -112,11 +119,15 @@ BEGIN
 	FROM #Result r
 		INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON r.CustId = m.CustId
 
-	-- Insert Total
+	-- Total TO, WL columns
 	INSERT INTO #Result (AffId, AffUsername, CustId, UserName, RegisteredDate, FirstDepositDate, ProductId, Turnover, Winloss)
 	SELECT AffId, AffUsername, CustId, UserName, RegisteredDate, FirstDepositDate, 0 AS ProductId, SUM(Turnover), SUM(Winloss)
 	FROM #Result
 	GROUP BY AffId, AffUsername, CustId, UserName, RegisteredDate, FirstDepositDate
+
+	INSERT INTO #Total (ProductId, Turnover, Winloss)
+	SELECT 0 AS ProductId, SUM(Turnover), SUM(Winloss)
+	FROM #Total
 
 	DECLARE @OutputColumns VARCHAR(MAX)
 	SELECT  @OutputColumns = COALESCE(@OutputColumns + ', ', '')
@@ -147,11 +158,12 @@ BEGIN
 
 	EXEC (@SQL)
 
+	-- Total row
 	SET @SQL = '
 	;WITH CTE_Result AS (
 		SELECT ISNULL(t.Value, 0) AS Value
 			,CASE WHEN r.ProductId = 0 THEN ''Total'' ELSE CONVERT(VARCHAR(20), r.ProductId) END + ''_'' + t.Figure AS Figure
-		FROM #Result r
+		FROM #Total r
 			CROSS APPLY (
 				SELECT ''Turnover'' AS Figure, Turnover AS Value
 				UNION ALL SELECT ''Winloss'', r.Winloss
