@@ -16,6 +16,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
+		- 20210916@Percy: Change Base Currency ID of THB, IDR [RedmineID: #161540]
 */
 
 RETURN
@@ -32,11 +33,11 @@ RETURN
 		CASE bc.BaseCurrency
 			WHEN  2 THEN e.MYR
 			WHEN  3 THEN e.USD
+			WHEN  4 THEN e.THB
 			WHEN  6 THEN e.EUR
 			WHEN 13 THEN e.CNY
+			WHEN 15 THEN e.IDR / 1000.0
 			WHEN 20 THEN 1 -- cheat code for UAT testing
-			WHEN 34 THEN e.IDR / 1000.0
-			WHEN 43 THEN e.THB
 			WHEN 51 THEN e.VND / 1000.0
 			ELSE 0 END AS Rate
 	FROM dbo.ExchangeOanda e WITH (NOLOCK)

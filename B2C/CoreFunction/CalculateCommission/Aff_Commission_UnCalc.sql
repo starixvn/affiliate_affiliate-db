@@ -22,6 +22,7 @@ AS
 		- 20210506@Percy: Max Sub Affiliate Commission Setting [RedmineID: #153465]
 		- 20210604@Percy: Fix Withdrawal Amount [RedmineID: #156487]
 		- 20210714@Percy: Calculate P2P Fee [RedmineID: #157958]
+		- 20210916@Percy: Use Exchange function [RedmineID: #161540]
 */
 
 BEGIN
@@ -67,22 +68,6 @@ BEGIN
 
 	-- Get data
 	BEGIN
-		CREATE TABLE #ExchangeOanda (MonthDate SMALLDATETIME, Currency INT, Rate FLOAT)
-		INSERT INTO #ExchangeOanda (MonthDate, Currency, Rate)
-		SELECT ExchangeDate, ExchangeId,
-			CASE @BaseCurrency
-				WHEN  2 THEN MYR
-				WHEN  3 THEN USD
-				WHEN  6 THEN EUR
-				WHEN 13 THEN CNY
-				WHEN 20 THEN 1 -- cheat code for UAT testing
-				WHEN 34 THEN IDR / 1000.0
-				WHEN 43 THEN THB
-				WHEN 51 THEN VND / 1000.0
-				ELSE 0 END AS Rate
-		FROM dbo.ExchangeOanda WITH (NOLOCK)
-		WHERE ExchangeDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
-
 		CREATE TABLE #Data
 		(
 			MonthDate		SMALLDATETIME,
@@ -140,7 +125,7 @@ BEGIN
 			GROUP BY CONVERT(SMALLDATETIME, DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0)))
 				,AffId, CustId, Currency, CASE WHEN ProductId < 0 THEN 0 ELSE ProductId END
 		) r
-			INNER JOIN #ExchangeOanda e ON r.MonthDate = e.MonthDate AND r.Currency = e.Currency
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.MonthDate, r.Currency, @BaseCurrency) e
 			LEFT JOIN dbo.MemberRemoval mr WITH (NOLOCK) ON r.CustId = mr.CustId AND mr.RemovedDate < r.MonthDate
 		WHERE mr.CustId IS NULL
 		GROUP BY r.MonthDate, r.AffId, r.CustId, r.Currency, r.ProductId
@@ -246,7 +231,7 @@ BEGIN
 			s.DepositAmount = s.DepositAmount * e.Rate,
 			s.WithdrawalAmount = s.WithdrawalAmount * e.Rate
 		FROM @Setting s
-			INNER JOIN #ExchangeOanda e ON s.MonthDate = e.MonthDate AND e.Currency = @AffCurrency
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(s.MonthDate, @AffCurrency, @BaseCurrency) e
 
 		;WITH CTE_Group AS (SELECT DISTINCT MonthDate, GroupId FROM @AffGroupInfo)
 		INSERT INTO @Setting (MonthDate, GroupId, ProductId, GroupProductId, PlatFormFee, StraightCommission, IsStraightSetting)
@@ -489,7 +474,7 @@ BEGIN
 			OUTER APPLY (
 				SELECT gsh.TierId
 				FROM dbo.TierSettingHistory gsh WITH (NOLOCK)
-					INNER JOIN #ExchangeOanda e ON gsh.MonthDate = e.MonthDate AND e.Currency = @AffCurrency
+					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(gsh.MonthDate, @AffCurrency, @BaseCurrency) e
 				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId
 					AND FLOOR(ABS(c.NetWinloss)) BETWEEN gsh.MinAmount * e.Rate AND gsh.MaxAmount * e.Rate
 			) AS t
@@ -790,6 +775,5 @@ BEGIN
 
 	DROP TABLE #Data
 	DROP TABLE #Commission
-	DROP TABLE #ExchangeOanda
 END
 GO
