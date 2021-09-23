@@ -14,6 +14,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Add column P2P Earning & Treat TO, WL = 0 for P2P Products [RedmineID: #157958]
+		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 */
 
 BEGIN
@@ -174,7 +175,7 @@ BEGIN
 		d.ProductId,
 		p.ProductName,
 		d.Turnover,
-		d.GrossWinloss AS Winloss,
+		-d.Winloss + d.Revenue AS GGR,
 		d.P2PFee + d.PlatformFee AS PlatformFee,
 		d.OperationalFee,
 		d.DepositFee,

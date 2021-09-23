@@ -64,22 +64,22 @@ BEGIN
 	-- Get player TO/WL data
 	CREATE TABLE #tmpData
 	(
-		WinlostDate SMALLDATETIME, AffId INT, AffUsername VARCHAR(50), CustId INT, Currency INT, ProductId INT, Turnover MONEY, Winloss MONEY
+		WinlostDate SMALLDATETIME, AffId INT, AffUsername VARCHAR(50), CustId INT, Currency INT, ProductId INT, Turnover MONEY, GGR MONEY
 		,PRIMARY KEY (WinlostDate, AffId, CustId, Currency, ProductId)
 	)
-	INSERT INTO #tmpData (WinlostDate, AffId, AffUsername, CustId, Currency, ProductId, Turnover, Winloss)
+	INSERT INTO #tmpData (WinlostDate, AffId, AffUsername, CustId, Currency, ProductId, Turnover, GGR)
 	SELECT r.WinlostDate, r.AffId, a.AffUsername, r.CustId, r.Currency, r.ProductId
 		,SUM(CASE WHEN a.IsStraightSetting = 1 THEN 0 ELSE r.Turnover END)
-		,SUM(CASE WHEN a.IsStraightSetting = 1 THEN r.Revenue ELSE r.Winloss END)
+		,SUM(CASE WHEN a.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0) ELSE -(r.Winloss - ISNULL(r.ProgressiveWin, 0)) - ISNULL(r.ProgressiveBet, 0) END)
 	FROM dbo.rptMemberDaily r WITH (NOLOCK)
 		INNER JOIN #ProductSetting a ON r.AffId = a.AffId AND r.ProductId = a.ProductId AND r.WinlostDate BETWEEN a.FromDate AND a.ToDate
 	WHERE r.WinlostDate BETWEEN @FromDate AND @ToDate
 	GROUP BY r.WinlostDate, r.AffId, a.AffUsername, r.CustId, r.Currency, r.ProductId
 
 	CREATE TABLE #Result (AffId INT, AffUsername VARCHAR(50), CustId INT, UserName VARCHAR(50), RegisteredDate DATETIME, FirstDepositDate DATETIME
-		,ProductId INT, Turnover MONEY, Winloss MONEY)
-	INSERT INTO #Result (AffId, AffUsername, CustId, ProductId, Turnover, Winloss)
-	SELECT d.AffId, d.AffUsername, d.CustId, d.ProductId, SUM(d.Turnover * e.Rate), SUM(d.Winloss * e.Rate)
+		,ProductId INT, Turnover MONEY, GGR MONEY)
+	INSERT INTO #Result (AffId, AffUsername, CustId, ProductId, Turnover, GGR)
+	SELECT d.AffId, d.AffUsername, d.CustId, d.ProductId, SUM(d.Turnover * e.Rate), SUM(d.GGR * e.Rate)
 	FROM #tmpData d
 		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(d.WinlostDate, d.Currency, @BaseCurrency) e
 	GROUP BY d.AffId, d.AffUsername, d.CustId, d.ProductId
@@ -95,9 +95,9 @@ BEGIN
 		RETURN
 
 	-- Total row
-	CREATE TABLE #Total (ProductId INT, Turnover MONEY, Winloss MONEY)
-	INSERT INTO #Total (ProductId, Turnover, Winloss)
-	SELECT ProductId, SUM(Turnover), SUM(Winloss)
+	CREATE TABLE #Total (ProductId INT, Turnover MONEY, GGR MONEY)
+	INSERT INTO #Total (ProductId, Turnover, GGR)
+	SELECT ProductId, SUM(Turnover), SUM(GGR)
 	FROM #Result
 	GROUP BY ProductId
 
@@ -120,22 +120,22 @@ BEGIN
 		INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON r.CustId = m.CustId
 
 	-- Total TO, WL columns
-	INSERT INTO #Result (AffId, AffUsername, CustId, UserName, RegisteredDate, FirstDepositDate, ProductId, Turnover, Winloss)
-	SELECT AffId, AffUsername, CustId, UserName, RegisteredDate, FirstDepositDate, 0 AS ProductId, SUM(Turnover), SUM(Winloss)
+	INSERT INTO #Result (AffId, AffUsername, CustId, UserName, RegisteredDate, FirstDepositDate, ProductId, Turnover, GGR)
+	SELECT AffId, AffUsername, CustId, UserName, RegisteredDate, FirstDepositDate, 0 AS ProductId, SUM(Turnover), SUM(GGR)
 	FROM #Result
 	GROUP BY AffId, AffUsername, CustId, UserName, RegisteredDate, FirstDepositDate
 
-	INSERT INTO #Total (ProductId, Turnover, Winloss)
-	SELECT 0 AS ProductId, SUM(Turnover), SUM(Winloss)
+	INSERT INTO #Total (ProductId, Turnover, GGR)
+	SELECT 0 AS ProductId, SUM(Turnover), SUM(GGR)
 	FROM #Total
 
 	DECLARE @OutputColumns VARCHAR(MAX)
 	SELECT  @OutputColumns = COALESCE(@OutputColumns + ', ', '')
 		+ '[' + CONVERT(VARCHAR(20), ProductId) + '_Turnover]'
-		+ ', [' + CONVERT(VARCHAR(20), ProductId) + '_WinLoss]'
+		+ ', [' + CONVERT(VARCHAR(20), ProductId) + '_GGR]'
 	FROM @Products
 
-	SELECT @OutputColumns = '[Total_Turnover], [Total_Winloss]' + ISNULL(', ' + @OutputColumns, '')
+	SELECT @OutputColumns = '[Total_Turnover], [Total_GGR]' + ISNULL(', ' + @OutputColumns, '')
 
 	-- Return result
 	DECLARE @SQL VARCHAR(MAX)
@@ -146,7 +146,7 @@ BEGIN
 		FROM #Result r
 			CROSS APPLY (
 				SELECT ''Turnover'' AS Figure, Turnover AS Value
-				UNION ALL SELECT ''Winloss'', r.Winloss
+				UNION ALL SELECT ''GGR'', r.GGR
 			) t
 	)
 	SELECT AffId, AffUsername, CustId, UserName, RegisteredDate, FirstDepositDate, ' + @OutputColumns + '
@@ -166,7 +166,7 @@ BEGIN
 		FROM #Total r
 			CROSS APPLY (
 				SELECT ''Turnover'' AS Figure, Turnover AS Value
-				UNION ALL SELECT ''Winloss'', r.Winloss
+				UNION ALL SELECT ''GGR'', r.GGR
 			) t
 	)
 	SELECT ' + @OutputColumns + '
@@ -181,5 +181,6 @@ BEGIN
 	DROP TABLE #ProductSetting
 	DROP TABLE #Result
 	DROP TABLE #tmpData
+	DROP TABLE #Total
 END
 GO

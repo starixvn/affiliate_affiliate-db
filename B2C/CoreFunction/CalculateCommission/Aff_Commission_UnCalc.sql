@@ -23,6 +23,7 @@ AS
 		- 20210604@Percy: Fix Withdrawal Amount [RedmineID: #156487]
 		- 20210714@Percy: Calculate P2P Fee [RedmineID: #157958]
 		- 20210916@Percy: Use Exchange function [RedmineID: #161540]
+		- 20210916@Percy: Exclude Jackpot from WL [RedmineID: #161540]
 */
 
 BEGIN
@@ -117,7 +118,7 @@ BEGIN
 				,SUM(ISNULL(Bonus, 0))		AS Bonus
 				,SUM(ISNULL(Rebate, 0))		AS Rebate
 				,SUM(ISNULL(Turnover, 0))	AS Turnover
-				,SUM(ISNULL(Winloss, 0))	AS Winloss
+				,SUM(ISNULL(Winloss, 0) - ISNULL(ProgressiveWin, 0) + ISNULL(ProgressiveBet, 0)) AS Winloss
 				,SUM(ISNULL(Revenue, 0))	AS Revenue
 			FROM dbo.rptMemberDaily WITH (NOLOCK)
 			WHERE WinlostDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
