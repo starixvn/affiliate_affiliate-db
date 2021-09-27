@@ -37,7 +37,7 @@ GO
 
 INSERT INTO dbo.APIProductSettings (ProductId, SettingName, SettingValue)
 VALUES (32, 'LastQueueId', '0')
-		,(32, 'LaunchDate', '2021-08-01')
+		,(32, 'LaunchDate', '2021-09-01')
 		,(32, 'SourceTable', 'APIProduct_ImportQueue')
 GO
 
@@ -53,7 +53,7 @@ WHERE RN = 1
 GO
 
 INSERT INTO dbo.DeductionSettingHistory (GroupID,MonthDate,DeductionID,DeductedPercentage,ProductId,GroupProductId)
-SELECT GroupID,'2021-08-31',DeductionID,DeductedPercentage,32,GroupProductId
+SELECT GroupID,'2021-09-30',DeductionID,DeductedPercentage,32,GroupProductId
 FROM (
 	SELECT GroupID,DeductionID,DeductedPercentage,GroupProductId
 		,ROW_NUMBER() OVER(PARTITION BY GroupId ORDER BY GroupProductId, ProductId) AS RN
