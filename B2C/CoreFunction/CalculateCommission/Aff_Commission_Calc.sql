@@ -18,6 +18,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210317@Percy: Change ExchangeOanda [RedmineID: #151391]
 		- 20210714@Percy: Calculate P2P Fee [RedmineID: #157958]
+		- 20210916@Percy: Use Exchange function [RedmineID: #161540]
 */
 
 BEGIN
@@ -38,23 +39,6 @@ BEGIN
 	IF @BaseCurrency = 0
 		SET @BaseCurrency = @AffCurrency
 
-	CREATE TABLE #ExchangeOanda (MonthDate SMALLDATETIME, Rate FLOAT)
-	INSERT INTO #ExchangeOanda (MonthDate, Rate)
-	SELECT ExchangeDate,
-		CASE @BaseCurrency
-			WHEN  2 THEN MYR
-			WHEN  3 THEN USD
-			WHEN  6 THEN EUR
-			WHEN 13 THEN CNY
-			WHEN 20 THEN 1 -- cheat code for UAT testing
-			WHEN 34 THEN IDR / 1000.0
-			WHEN 43 THEN THB
-			WHEN 51 THEN VND / 1000.0
-			ELSE 0 END AS Rate
-	FROM dbo.ExchangeOanda WITH (NOLOCK)
-	WHERE ExchangeDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
-		AND ExchangeId = @AffCurrency
-		
 	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME)
 	
 	;WITH CTE_MonthDate AS
@@ -68,6 +52,12 @@ BEGIN
 	INSERT INTO @MonthDate (MonthDate)
 	SELECT MonthDate FROM CTE_MonthDate
 	OPTION (MAXRECURSION 0)
+
+	CREATE TABLE #ExchangeOanda (MonthDate SMALLDATETIME, Rate FLOAT)
+	INSERT INTO #ExchangeOanda (MonthDate, Rate)
+	SELECT m.MonthDate, e.Rate
+	FROM @MonthDate m
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(m.MonthDate, @AffCurrency, @BaseCurrency) e
 
 	CREATE TABLE #Commission
 	(
