@@ -18,6 +18,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Show TO, WL = 0 for P2P Products [RedmineID: #157958]
+		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 */
 
 BEGIN
@@ -49,15 +50,16 @@ BEGIN
 		IF @ProductId <> 0
 			DELETE @Products WHERE ProductId <> @ProductId
 
-		SELECT mi.CustId, mi.UserName, mi.IBCUsername, r.Deposit, r.Withdrawal, r.Turnover, r.Winloss, r.Bonus, r.Rebate
+		SELECT mi.CustId, mi.UserName, mi.IBCUsername, r.Deposit, r.Withdrawal, r.Turnover, r.GGR, r.Bonus, r.Rebate
 		FROM (
 			SELECT r.CustId
 				,SUM(ISNULL(r.Deposit * e.Rate, 0))		AS Deposit
 				,SUM(ISNULL(r.Withdrawal * e.Rate, 0))	AS Withdrawal
 				,SUM(ISNULL(r.Bonus * e.Rate, 0))		AS Bonus
 				,SUM(ISNULL(r.Rebate * e.Rate, 0))		AS Rebate
-				,SUM(ISNULL(CASE WHEN p.IsStraightSetting = 0 THEN r.Turnover ELSE 0 END * e.Rate, 0)) AS Turnover
-				,SUM(ISNULL(CASE WHEN p.IsStraightSetting = 0 THEN r.Winloss ELSE 0 END * e.Rate, 0)) AS Winloss
+				,SUM(ISNULL(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Turnover END * e.Rate, 0)) AS Turnover
+				,SUM(ISNULL(CASE WHEN p.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0)
+								ELSE -(r.Winloss - ISNULL(r.ProgressiveWin, 0)) - ISNULL(r.ProgressiveBet, 0) END * e.Rate, 0)) AS GGR
 			FROM dbo.rptMemberDaily r WITH (NOLOCK)
 				LEFT JOIN @Products p ON r.ProductId = p.ProductId
 				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, r.Currency, @BaseCurrency) e

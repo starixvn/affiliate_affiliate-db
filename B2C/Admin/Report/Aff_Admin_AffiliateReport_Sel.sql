@@ -30,9 +30,10 @@ AS
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Add P2PEarning column [RedmineID: #157958]
 		- 20210914@Percy: Support multiple revenue group filter + Add payment currency filter [RedmineID: #161488]
+		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 
 	Param's Explanation:
-		- @SortType: 1: Affiliate username, 2: Turnover, 3: Winloss, 4: Earning (Commission)
+		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
 		- @SortDirectionType: 0: ASC (ascending), 1: DESC (descending)
 		- @ProductIds: list of products
 */
@@ -289,7 +290,7 @@ BEGIN
 			Deposit			MONEY,
 			Withdrawal		MONEY,
 			Turnover		MONEY,
-			Winloss			MONEY,
+			GGR				MONEY,
 			Bonus			MONEY,
 			Rebate			MONEY,
 			PlatFormFee		MONEY,
@@ -319,7 +320,7 @@ BEGIN
 			Deposit,
 			Withdrawal,
 			Turnover,
-			Winloss,
+			GGR,
 			Bonus,
 			Rebate,
 			PlatFormFee,
@@ -348,7 +349,7 @@ BEGIN
 			ISNULL(tc.Deposit, 0)				AS Deposit,
 			ISNULL(tc.Withdrawal, 0)			AS Withdrawal,
 			ISNULL(tc.Turnover, 0)				AS Turnover,
-			ISNULL(tc.Winloss, 0)				AS Winloss,
+			ISNULL(tc.GGR, 0)					AS GGR,
 			ISNULL(tc.Bonus, 0)					AS Bonus,
 			ISNULL(tc.Rebate, 0)				AS Rebate,
 			ISNULL(tc.PlatFormFee, 0)			AS PlatFormFee,
@@ -367,8 +368,8 @@ BEGIN
 				CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN ai.Username END DESC,
 				CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN ISNULL(tc.Turnover, 0) END ASC,
 				CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN ISNULL(tc.Turnover, 0) END DESC,
-				CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN ISNULL(tc.Winloss, 0) END ASC,
-				CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ISNULL(tc.Winloss, 0) END DESC,
+				CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN ISNULL(tc.GGR, 0) END ASC,
+				CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ISNULL(tc.GGR, 0) END DESC,
 				CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN ISNULL(tc.Commission, 0) END ASC,
 				CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ISNULL(tc.Commission, 0) END DESC) AS RowIdx
 		FROM dbo.AffInfo ai WITH (NOLOCK)
@@ -386,7 +387,7 @@ BEGIN
 					SUM(Deposit)					AS Deposit,
 					SUM(Withdrawal)					AS Withdrawal,
 					SUM(Turnover)					AS Turnover,
-					SUM(Winloss)					AS Winloss,
+					SUM(-Winloss + Revenue)			AS GGR,
 					SUM(Bonus)						AS Bonus,
 					SUM(Rebate)						AS Rebate,
 					SUM(PlatFormFee + P2PFee)		AS PlatFormFee, -- include P2P Fee
@@ -436,7 +437,7 @@ BEGIN
 
 	-- Return detail
 	SELECT AffId, Username, PaymentCurrency, TotalClick, UniqueClick, Signup, FDM, ActivePlayer, NoOfSubAff
-		,Deposit, Withdrawal, Turnover, Winloss, Bonus, Rebate, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee
+		,Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee
 		,PlatFormFee + OperationalFee + DepositFee + WithdrawalFee AS TotalFee
 		,CommissionRate, P2PEarning, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF
 	FROM #Result
@@ -454,7 +455,7 @@ BEGIN
 		,SUM(Deposit)			AS Deposit
 		,SUM(Withdrawal)		AS Withdrawal
 		,SUM(Turnover)			AS Turnover
-		,SUM(Winloss)			AS Winloss
+		,SUM(GGR)				AS GGR
 		,SUM(Bonus)				AS Bonus
 		,SUM(Rebate)			AS Rebate
 		,SUM(PlatFormFee)		AS PlatFormFee

@@ -21,6 +21,7 @@ AS
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Treat TO, WL = 0 for P2P Products [RedmineID: #157958]
 		- 20210819@Percy: Return FirstDepositDate column [RedmineID: #160406]
+		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -28,7 +29,7 @@ AS
 						3 = Deposit
 						4 = Withdrawal
 						5 = Turnover
-						6 = Winloss
+						6 = GGR
 						7 = Bonus
 						8 = Rebate
 						9 = Deposit Fee
@@ -46,7 +47,7 @@ BEGIN
 	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
 
-	CREATE TABLE #tmpData (CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, Winloss MONEY, Bonus MONEY, Rebate MONEY)
+	CREATE TABLE #tmpData (CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, GGR MONEY, Bonus MONEY, Rebate MONEY)
 
 	DECLARE @Products TABLE (ProductId INT, IsStraightSetting BIT)
 		
@@ -68,12 +69,13 @@ BEGIN
 
 	-- Get data
 	BEGIN
-		INSERT INTO #tmpData (CustId, Deposit, Withdrawal, Turnover, Winloss, Bonus, Rebate)
+		INSERT INTO #tmpData (CustId, Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate)
 		SELECT r.CustId
 			,SUM(r.Deposit * e.Rate) AS Deposit
 			,SUM(r.Withdrawal * e.Rate) AS Withdrawal
 			,SUM(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Turnover END * e.Rate) AS Turnover
-			,SUM(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Winloss END * e.Rate) AS Winloss
+			,SUM(CASE WHEN p.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0)
+					ELSE -(r.Winloss - ISNULL(r.ProgressiveWin, 0)) - ISNULL(r.ProgressiveBet, 0) END * e.Rate) AS GGR
 			,SUM(r.Bonus * e.Rate)
 			,SUM(r.Rebate * e.Rate)
 		FROM dbo.rptMemberDaily r WITH (NOLOCK)
@@ -123,7 +125,7 @@ BEGIN
 	DECLARE @RowStart INT, @RowEnd INT
 	SELECT  @RowStart = @PageSize * (@PageIndex - 1) + 1, @RowEnd = @RowStart + @PageSize - 1
 
-	SELECT CustId, UserName, RegisteredDate, FirstDepositDate, Deposit, Withdrawal, Turnover, Winloss, Bonus, Rebate, DepositFee, WithdrawalFee
+	SELECT CustId, UserName, RegisteredDate, FirstDepositDate, Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, DepositFee, WithdrawalFee
 	FROM
 	(
 		SELECT
@@ -134,7 +136,7 @@ BEGIN
 			,d.Deposit
 			,d.Withdrawal
 			,d.Turnover
-			,d.Winloss
+			,d.GGR
 			,d.Bonus
 			,d.Rebate
 			,d.Deposit * @DepositRate + @DepositAmount AS DepositFee
@@ -145,7 +147,7 @@ BEGIN
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  3 THEN d.Deposit			END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  4 THEN d.Withdrawal			END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  5 THEN d.Turnover			END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  6 THEN d.Winloss			END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  6 THEN d.GGR				END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  7 THEN d.Bonus				END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  8 THEN d.Rebate				END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  9 THEN d.Deposit			END) ASC
@@ -157,7 +159,7 @@ BEGIN
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  3 THEN d.Deposit			END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  4 THEN d.Withdrawal			END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  5 THEN d.Turnover			END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  6 THEN d.Winloss			END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  6 THEN d.GGR				END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  7 THEN d.Bonus				END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  8 THEN d.Rebate				END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  9 THEN d.Deposit			END) DESC

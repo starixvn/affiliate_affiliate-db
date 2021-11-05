@@ -13,6 +13,7 @@ AS
 		- 20200107@Percy: Add suspended status [RedmineID: #148373]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Treat TO, WL = 0 for P2P Products [RedmineID: #157958]
+		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 */
 
 BEGIN
@@ -157,7 +158,7 @@ BEGIN
 		MemAllNum - DepositMemAllNum AS NonDepositMemAllNum,
 		ClosedAllNum,
 		DepositAll,
-		WinlostAll,
+		GGRAll,
 		BonusAll,
 		RebateAll,
 		PSPFeeAll,
@@ -174,7 +175,7 @@ BEGIN
 		MemMonthNum - DepositMemMonthNum AS NonDepositMemMonthNum,
 		ClosedMonthNum,
 		DepositMonth,
-		WinlostMonth,
+		GGRMonth,
 		BonusMonth,
 		RebateMonth,
 		PSPFeeMonth,
@@ -184,16 +185,16 @@ BEGIN
 	(
 		SELECT
 			SUM(ISNULL(Deposit, 0))		AS DepositAll,
-			SUM(ISNULL(Winloss, 0))		AS WinlostAll,
 			SUM(ISNULL(Bonus, 0))		AS BonusAll,
 			SUM(ISNULL(Rebate, 0))		AS RebateAll,
+			SUM(-ISNULL(Winloss, 0) + ISNULL(Revenue, 0))			AS GGRAll,
 			SUM(ISNULL(DepositFee, 0) + ISNULL(WithdrawalFee, 0))	AS PSPFeeAll,
 			0 AS AdjustmentAll,
 			SUM(ISNULL(NetWinloss, 0))	AS NetWinlostAll,
 			SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Deposit, 0) ELSE 0 END)		AS DepositMonth,
-			SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Winloss, 0) ELSE 0 END)		AS WinlostMonth,
 			SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Bonus, 0) ELSE 0 END)			AS BonusMonth,
 			SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Rebate, 0) ELSE 0 END)		AS RebateMonth,
+			SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN -ISNULL(Winloss, 0) + ISNULL(Revenue, 0) ELSE 0 END)			AS GGRMonth,
 			SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(DepositFee, 0) + ISNULL(WithdrawalFee, 0) ELSE 0 END)	AS PSPFeeMonth,
 			0 AS AdjustmentMonth,
 			SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(NetWinloss, 0) ELSE 0 END)	AS NetWinlostMonth

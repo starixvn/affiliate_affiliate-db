@@ -25,9 +25,10 @@ AS
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Add P2PEarning column [RedmineID: #157958]
+		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 
 	Param's Explanation:
-		- @SortType: 1: Month, 2: Turnover, 3: Winloss, 4: Earning (Commission)
+		- @SortType: 1: Month, 2: Turnover, 3: GGR, 4: Earning (Commission)
 		- @SortDirectionType: 0: ASC (ascending), 1: DESC (descending)
 		- @ProductIds: list of products
 */
@@ -285,8 +286,8 @@ BEGIN
 							CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN md.MonthDate END DESC,
 							CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN ISNULL(tc.Turnover, 0) END ASC,
 							CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN ISNULL(tc.Turnover, 0) END DESC,
-							CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN ISNULL(tc.Winloss, 0) END ASC,
-							CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ISNULL(tc.Winloss, 0) END DESC,
+							CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN ISNULL(-tc.Winloss + tc.Revenue, 0) END ASC,
+							CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ISNULL(-tc.Winloss + tc.Revenue, 0) END DESC,
 							CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN ISNULL(tc.Commission, 0) END ASC,
 							CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ISNULL(tc.Commission, 0) END DESC) AS RowIdx
 			FROM @MonthDate md
@@ -364,30 +365,30 @@ BEGIN
 			WHEN md.MonthDate >= GETDATE() THEN 'Temporary'
 			WHEN md.MonthDate > @MaxCommDate THEN 'Uncalculated'
 			ELSE '' END AS Description,
-		ISNULL(s.TotalClick, 0)				AS TotalClick,
-		ISNULL(s.UniqueClick, 0)			AS UniqueClick,
-		ISNULL(m.Signup, 0)					AS Signup,
-		ISNULL(m.FDM, 0)					AS FDM,
-		ISNULL(ts.NoOfSubAff, 0)			AS NoOfSubAff,
-		ISNULL(tc.ActivePlayer, 0)			AS ActivePlayer,
-		ISNULL(tc.Deposit, 0)				AS Deposit,
-		ISNULL(tc.Withdrawal, 0)			AS Withdrawal,
-		ISNULL(tc.Turnover, 0)				AS Turnover,
-		ISNULL(tc.Winloss, 0)				AS Winloss,
-		ISNULL(tc.Bonus, 0)					AS Bonus,
-		ISNULL(tc.Rebate, 0)				AS Rebate,
+		ISNULL(s.TotalClick, 0)					AS TotalClick,
+		ISNULL(s.UniqueClick, 0)				AS UniqueClick,
+		ISNULL(m.Signup, 0)						AS Signup,
+		ISNULL(m.FDM, 0)						AS FDM,
+		ISNULL(ts.NoOfSubAff, 0)				AS NoOfSubAff,
+		ISNULL(tc.ActivePlayer, 0)				AS ActivePlayer,
+		ISNULL(tc.Deposit, 0)					AS Deposit,
+		ISNULL(tc.Withdrawal, 0)				AS Withdrawal,
+		ISNULL(tc.Turnover, 0)					AS Turnover,
+		ISNULL(-tc.Winloss + tc.Revenue, 0)		AS GGR,
+		ISNULL(tc.Bonus, 0)						AS Bonus,
+		ISNULL(tc.Rebate, 0)					AS Rebate,
 		ISNULL(tc.PlatFormFee + tc.P2PFee, 0)	AS PlatFormFee,
-		ISNULL(tc.OperationalFee, 0)		AS OperationalFee,
-		ISNULL(tc.DepositFee, 0)			AS DepositFee,
-		ISNULL(tc.WithdrawalFee, 0)			AS WithdrawalFee,
+		ISNULL(tc.OperationalFee, 0)			AS OperationalFee,
+		ISNULL(tc.DepositFee, 0)				AS DepositFee,
+		ISNULL(tc.WithdrawalFee, 0)				AS WithdrawalFee,
 		ISNULL(tc.PlatFormFee + tc.P2PFee + tc.OperationalFee + tc.DepositFee + tc.WithdrawalFee, 0) AS TotalFee,
-		ISNULL(tc.CommissionRate, 0)		AS CommissionRate,
-		ISNULL(tc.Commission, 0)			AS Earning,
-		ISNULL(tc.StraightCommission, 0)	AS P2PEarning,
-		ISNULL(tc.SubAffCommission, 0)		AS SubAffEarning,
-		ISNULL(at.AffWithdrawal, 0)			AS AffWithdrawal,
-		ISNULL(at.AffAdjustment, 0)			AS AffAdjustment,
-		ISNULL(at.BFF, 0)					AS BFF
+		ISNULL(tc.CommissionRate, 0)			AS CommissionRate,
+		ISNULL(tc.Commission, 0)				AS Earning,
+		ISNULL(tc.StraightCommission, 0)		AS P2PEarning,
+		ISNULL(tc.SubAffCommission, 0)			AS SubAffEarning,
+		ISNULL(at.AffWithdrawal, 0)				AS AffWithdrawal,
+		ISNULL(at.AffAdjustment, 0)				AS AffAdjustment,
+		ISNULL(at.BFF, 0)						AS BFF
 	FROM @MonthDate md
 		LEFT JOIN #TempCommission tc ON md.MonthDate = tc.MonthDate
 		OUTER APPLY (
@@ -415,29 +416,29 @@ BEGIN
 
 	-- Return total
 	SELECT
-		SUM(ISNULL(s.TotalClick, 0))			AS TotalClick,
-		SUM(ISNULL(s.UniqueClick, 0))			AS UniqueClick,
-		SUM(ISNULL(m.Signup, 0))				AS Signup,
-		SUM(ISNULL(m.FDM, 0))					AS FDM,
-		SUM(ISNULL(ts.NoOfSubAff, 0))			AS NoOfSubAff,
-		SUM(ISNULL(tc.ActivePlayer, 0))			AS ActivePlayer,
-		SUM(ISNULL(tc.Deposit, 0))				AS Deposit,
-		SUM(ISNULL(tc.Withdrawal, 0))			AS Withdrawal,
-		SUM(ISNULL(tc.Turnover, 0))				AS Turnover,
-		SUM(ISNULL(tc.Winloss, 0))				AS Winloss,
-		SUM(ISNULL(tc.Bonus, 0))				AS Bonus,
-		SUM(ISNULL(tc.Rebate, 0))				AS Rebate,
+		SUM(ISNULL(s.TotalClick, 0))				AS TotalClick,
+		SUM(ISNULL(s.UniqueClick, 0))				AS UniqueClick,
+		SUM(ISNULL(m.Signup, 0))					AS Signup,
+		SUM(ISNULL(m.FDM, 0))						AS FDM,
+		SUM(ISNULL(ts.NoOfSubAff, 0))				AS NoOfSubAff,
+		SUM(ISNULL(tc.ActivePlayer, 0))				AS ActivePlayer,
+		SUM(ISNULL(tc.Deposit, 0))					AS Deposit,
+		SUM(ISNULL(tc.Withdrawal, 0))				AS Withdrawal,
+		SUM(ISNULL(tc.Turnover, 0))					AS Turnover,
+		SUM(ISNULL(-tc.Winloss + tc.Revenue, 0))	AS GGR,
+		SUM(ISNULL(tc.Bonus, 0))					AS Bonus,
+		SUM(ISNULL(tc.Rebate, 0))					AS Rebate,
 		SUM(ISNULL(tc.PlatFormFee, 0) + ISNULL(tc.P2PFee, 0))	AS PlatFormFee,
-		SUM(ISNULL(tc.OperationalFee, 0))		AS OperationalFee,
-		SUM(ISNULL(tc.DepositFee, 0))			AS DepositFee,
-		SUM(ISNULL(tc.WithdrawalFee, 0))		AS WithdrawalFee,
+		SUM(ISNULL(tc.OperationalFee, 0))			AS OperationalFee,
+		SUM(ISNULL(tc.DepositFee, 0))				AS DepositFee,
+		SUM(ISNULL(tc.WithdrawalFee, 0))			AS WithdrawalFee,
 		SUM(ISNULL(tc.PlatFormFee, 0) + ISNULL(tc.P2PFee, 0) + ISNULL(tc.OperationalFee, 0) + ISNULL(tc.DepositFee, 0) + ISNULL(tc.WithdrawalFee, 0)) AS TotalFee,
-		AVG(ISNULL(tc.CommissionRate, 0))		AS CommissionRate,
-		SUM(ISNULL(tc.Commission, 0))			AS Earning,
-		SUM(ISNULL(tc.StraightCommission, 0))	AS P2PEarning,
-		SUM(ISNULL(tc.SubAffCommission, 0))		AS SubAffEarning,
-		SUM(ISNULL(at.AffWithdrawal, 0))		AS AffWithdrawal,
-		SUM(ISNULL(at.AffAdjustment, 0))		AS AffAdjustment,
+		AVG(ISNULL(tc.CommissionRate, 0))			AS CommissionRate,
+		SUM(ISNULL(tc.Commission, 0))				AS Earning,
+		SUM(ISNULL(tc.StraightCommission, 0))		AS P2PEarning,
+		SUM(ISNULL(tc.SubAffCommission, 0))			AS SubAffEarning,
+		SUM(ISNULL(at.AffWithdrawal, 0))			AS AffWithdrawal,
+		SUM(ISNULL(at.AffAdjustment, 0))			AS AffAdjustment,
 		SUM(ISNULL(CASE WHEN md.MonthDate = @ToDate THEN at.BFF ELSE 0 END, 0)) AS BFF -- the last month by running total
 	FROM @MonthDate md
 		LEFT JOIN #TempCommission tc ON md.MonthDate = tc.MonthDate

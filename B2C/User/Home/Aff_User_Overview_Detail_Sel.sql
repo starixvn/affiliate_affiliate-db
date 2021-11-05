@@ -15,6 +15,7 @@ AS
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Treat TO, WL = 0 for P2P Products [RedmineID: #157958]
+		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 */
 
 BEGIN
@@ -73,14 +74,15 @@ BEGIN
 
 	-- Turnover, Winloss, Deposit, Withdrawl, Qualified Active Members
 	BEGIN
-		CREATE TABLE #Data (WinlostDate SMALLDATETIME, CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, Winloss MONEY, IsActive TINYINT)
+		CREATE TABLE #Data (WinlostDate SMALLDATETIME, CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, GGR MONEY, IsActive TINYINT)
 		
-		INSERT INTO #Data (WinlostDate, CustId, Deposit, Withdrawal, Turnover, Winloss, IsActive)
+		INSERT INTO #Data (WinlostDate, CustId, Deposit, Withdrawal, Turnover, GGR, IsActive)
 		SELECT r.WinlostDate, r.CustId
 			,SUM(r.Deposit * e.Rate) AS Deposit
 			,SUM(r.Withdrawal * e.Rate) AS Withdrawal
 			,SUM(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Turnover END * e.Rate) AS Turnover
-			,SUM(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Winloss END * e.Rate) AS Winloss
+			,SUM(CASE WHEN p.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0)
+					ELSE -(r.Winloss - ISNULL(r.ProgressiveWin, 0)) - ISNULL(r.ProgressiveBet, 0) END * e.Rate) AS GGR
 			,MAX(CASE WHEN r.ProductId > 0 THEN 1 ELSE 0 END)
 		FROM dbo.rptMemberDaily r WITH (NOLOCK)
 			LEFT JOIN @Products p ON r.ProductId = p.ProductId
@@ -130,13 +132,13 @@ BEGIN
 		)
 		SELECT
 			wld.WinlostDate
-			,ISNULL(s.Signups, 0)					AS Signups
-			,ISNULL(s.DepositedMembers, 0)			AS DepositedMembers
-			,ISNULL(d.Deposit, 0)					AS Deposit
-			,ISNULL(d.Withdrawal, 0)				AS Withdrawal
-			,ISNULL(d.Turnover, 0)					AS Turnover
-			,ISNULL(d.Winloss, 0)					AS Winloss
-			,ISNULL(a.ActiveMembers, 0)				AS ActiveMembers
+			,ISNULL(s.Signups, 0)			AS Signups
+			,ISNULL(s.DepositedMembers, 0)	AS DepositedMembers
+			,ISNULL(d.Deposit, 0)			AS Deposit
+			,ISNULL(d.Withdrawal, 0)		AS Withdrawal
+			,ISNULL(d.Turnover, 0)			AS Turnover
+			,ISNULL(d.GGR, 0)				AS GGR
+			,ISNULL(a.ActiveMembers, 0)		AS ActiveMembers
 		FROM CTE_WinlostDate wld
 			OUTER APPLY (
 				SELECT SUM(s.Signups) AS Signups, SUM(s.DepositedMembers) AS DepositedMembers
@@ -144,7 +146,7 @@ BEGIN
 				WHERE wld.WinlostDate = s.WinlostDate
 			) s
 			OUTER APPLY (
-				SELECT SUM(d.Deposit) AS Deposit, SUM(d.Withdrawal) AS Withdrawal, SUM(d.Turnover) AS Turnover, SUM(d.Winloss) AS Winloss
+				SELECT SUM(d.Deposit) AS Deposit, SUM(d.Withdrawal) AS Withdrawal, SUM(d.Turnover) AS Turnover, SUM(d.GGR) AS GGR
 				FROM #Data d
 				WHERE wld.WinlostDate = d.WinlostDate
 			) d

@@ -25,6 +25,7 @@ AS
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Show TO, WL = 0 for P2P Products [RedmineID: #157958]
 		- 20210819@Percy: Return FirstDepositDate, FirstDepositAmount columns [RedmineID: #160406]
+		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -32,7 +33,7 @@ AS
 						3 = Deposit
 						4 = Withdrawal
 						5 = Turnover
-						6 = Winloss
+						6 = GGR
 						7 = Bonus
 					    8 = Rebate
 					    9 = Deposit Fee
@@ -52,7 +53,7 @@ BEGIN
 	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
 
-	CREATE TABLE #tmpData (CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, Winloss MONEY, Bonus MONEY, Rebate MONEY)
+	CREATE TABLE #tmpData (CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, GGR MONEY, Bonus MONEY, Rebate MONEY)
 
 	DECLARE @Products TABLE (ProductId INT, IsStraightSetting BIT)
 		
@@ -85,15 +86,16 @@ BEGIN
 			,Bonus
 			,Rebate
 			,Turnover
-			,Winloss
+			,GGR
 		)
 		SELECT r.CustId
 			,SUM(ISNULL(r.Deposit * e.Rate, 0))		AS Deposit
 			,SUM(ISNULL(r.Withdrawal * e.Rate, 0))	AS Withdrawal
 			,SUM(ISNULL(r.Bonus * e.Rate, 0))		AS Bonus
 			,SUM(ISNULL(r.Rebate * e.Rate, 0))		AS Rebate
-			,SUM(ISNULL(CASE WHEN p.IsStraightSetting = 0 THEN r.Turnover ELSE 0 END * e.Rate, 0)) AS Turnover
-			,SUM(ISNULL(CASE WHEN p.IsStraightSetting = 0 THEN r.Winloss ELSE 0 END * e.Rate, 0)) AS Winloss
+			,SUM(ISNULL(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Turnover END * e.Rate, 0)) AS Turnover
+			,SUM(ISNULL(CASE WHEN p.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0)
+							ELSE -(r.Winloss - ISNULL(ProgressiveWin, 0)) - ISNULL(ProgressiveBet, 0) END * e.Rate, 0)) AS GGR
 		FROM dbo.rptMemberDaily r WITH (NOLOCK)
 			LEFT JOIN @Products p ON r.ProductId = p.ProductId
 			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, r.Currency, @BaseCurrency) e
@@ -108,7 +110,7 @@ BEGIN
 			AND (@Currencies = '' OR ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
 		GROUP BY r.CustId
 
-		DELETE #tmpData WHERE Deposit = 0 AND Withdrawal = 0 AND Bonus = 0 AND Rebate = 0 AND Turnover = 0 AND Winloss = 0
+		DELETE #tmpData WHERE Deposit = 0 AND Withdrawal = 0 AND Bonus = 0 AND Rebate = 0 AND Turnover = 0 AND GGR = 0
 
 		SELECT @NRows = COUNT(1) FROM #tmpData
 
@@ -152,7 +154,7 @@ BEGIN
 	ELSE
 		SELECT @RowStart =  1, @RowEnd = @NRows
 
-	SELECT CustId, UserName, IBCUserName, RegisteredDate, FirstDepositDate, FirstDepositAmount, Deposit, Withdrawal, Turnover, Winloss, Bonus, Rebate, DepositFee, WithdrawalFee
+	SELECT CustId, UserName, IBCUserName, RegisteredDate, FirstDepositDate, FirstDepositAmount, Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, DepositFee, WithdrawalFee
 	FROM
 	(
 		SELECT
@@ -165,7 +167,7 @@ BEGIN
 			,d.Deposit
 			,d.Withdrawal
 			,d.Turnover
-			,d.Winloss
+			,d.GGR
 			,d.Bonus
 			,d.Rebate
 			,d.Deposit * @DepositRate + @DepositAmount AS DepositFee
@@ -176,7 +178,7 @@ BEGIN
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  3 THEN d.Deposit			END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  4 THEN d.Withdrawal			END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  5 THEN d.Turnover			END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  6 THEN d.Winloss			END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  6 THEN d.GGR				END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  7 THEN d.Bonus				END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  8 THEN d.Rebate				END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  9 THEN d.Deposit			END) ASC
@@ -190,7 +192,7 @@ BEGIN
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  3 THEN d.Deposit			END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  4 THEN d.Withdrawal			END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  5 THEN d.Turnover			END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  6 THEN d.Winloss			END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  6 THEN d.GGR				END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  7 THEN d.Bonus				END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  8 THEN d.Rebate				END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  9 THEN d.Deposit			END) DESC

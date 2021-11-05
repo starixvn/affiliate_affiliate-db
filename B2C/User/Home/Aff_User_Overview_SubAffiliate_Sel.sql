@@ -14,6 +14,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Include P2P Earning into Monthly Earning & Treat TO, WL = 0 for P2P Products [RedmineID: #157958]
+		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 */
 
 BEGIN
@@ -156,14 +157,14 @@ BEGIN
 			,ai.IsSuspended
 			,ai.SuspendedDate
 			,c.Turnover
-			,c.Winloss
+			,c.GGR
 			,c.Commission
 			,c.ActivePlayer
 		FROM dbo.AffInfo ai WITH (NOLOCK)
 			OUTER APPLY (
 				SELECT
 					SUM(c.Turnover) AS Turnover
-					,SUM(c.Winloss) AS Winloss
+					,SUM(-c.Winloss + c.Revenue) AS GGR
 					,SUM(c.Commission + c.StraightCommission + c.SubAffCommission) AS Commission
 					,SUM(c.ActivePlayer) AS ActivePlayer
 				FROM #TempCommission c

@@ -14,6 +14,7 @@ AS
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Treat TO, WL = 0 for P2P Products [RedmineID: #157958]
+		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 */
 
 BEGIN
@@ -28,8 +29,8 @@ BEGIN
 			@DepositTotal				MONEY,
 			@TurnoverByMonth			MONEY,
 			@TurnoverTotal				MONEY,
-			@WinlostByMonth				MONEY,
-			@WinlostTotal				MONEY,
+			@GGRByMonth					MONEY,
+			@GGRTotal					MONEY,
 			@UniqueClickPCByMonth		INT,
 			@TotalClickPCByMonth		INT,
 			@UniqueClickMobileByMonth	INT,
@@ -171,10 +172,10 @@ BEGIN
 		@ActivePlayersByMonth	= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(ActivePlayer, 0) ELSE 0 END),
 		@DepositByMonth			= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Deposit, 0) ELSE 0 END),
 		@TurnoverByMonth		= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Turnover, 0) ELSE 0 END),
-		@WinlostByMonth			= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Winloss, 0) ELSE 0 END),
+		@GGRByMonth				= SUM(CASE WHEN MonthDate = @MonthDate THEN -ISNULL(Winloss, 0) + ISNULL(Revenue, 0) ELSE 0 END),
 		@DepositTotal			= SUM(ISNULL(Deposit, 0)),
 		@TurnoverTotal			= SUM(ISNULL(Turnover, 0)),
-		@WinlostTotal			= SUM(ISNULL(Winloss, 0))
+		@GGRTotal				= SUM(-ISNULL(Winloss, 0) + ISNULL(Revenue, 0))
 	FROM #TempCommission
 
 	DROP TABLE #TempCommission
@@ -243,8 +244,8 @@ BEGIN
 		ISNULL(@DepositTotal, 0)				AS DepositTotal,
 		ISNULL(@TurnoverByMonth, 0)				AS TurnoverByMonth,
 		ISNULL(@TurnoverTotal, 0)				AS TurnoverTotal,
-		ISNULL(@WinlostByMonth, 0)				AS WinlostByMonth,
-		ISNULL(@WinlostTotal, 0)				AS WinlostTotal,
+		ISNULL(@GGRByMonth, 0)					AS GGRByMonth,
+		ISNULL(@GGRTotal, 0)					AS GGRTotal,
 		ISNULL(@UniqueClickPCByMonth, 0)		AS UniqueClickPCByMonth,
 		ISNULL(@TotalClickPCByMonth, 0)			AS TotalClickPCByMonth,
 		ISNULL(@TotalClickMobileByMonth, 0)		AS TotalClickMobileByMonth,
