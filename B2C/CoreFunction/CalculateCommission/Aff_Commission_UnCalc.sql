@@ -24,6 +24,7 @@ AS
 		- 20210714@Percy: Calculate P2P Fee [RedmineID: #157958]
 		- 20210916@Percy: Use Exchange function [RedmineID: #161540]
 		- 20210916@Percy: Exclude Jackpot from WL [RedmineID: #161540]
+		- 20211105@Percy: Exclude non-deposited player from active players [RedmineID: #164246]
 */
 
 BEGIN
@@ -354,6 +355,7 @@ BEGIN
 				INNER JOIN (
 					SELECT d.MonthDate, d.AffId, COUNT(DISTINCT d.CustId) AS ActivePlayer
 					FROM #Data d
+						INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId AND d.MonthDate >= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, m.FirstDepositDate) + 1, 0))
 						INNER JOIN @AffGroupInfo a ON d.MonthDate = a.MonthDate AND d.AffId = a.AffId
 						INNER JOIN @Setting s ON a.GroupId = s.GroupId AND d.MonthDate = s.MonthDate AND d.ProductId = s.ProductId
 					WHERE d.ProductId > 0 AND d.MonthDate < @P2P_CutOffDate
@@ -459,10 +461,11 @@ BEGIN
 					GROUP BY d.MonthDate, d.AffId, d.GroupId
 				) d ON c.MonthDate = d.MonthDate AND c.AffId = d.AffId AND c.GroupId = d.GroupId
 				LEFT JOIN (
-					SELECT MonthDate, AffId, COUNT(DISTINCT CustId) AS ActivePlayer
-					FROM #Data
-					WHERE ProductId > 0 AND MonthDate >= @P2P_CutOffDate
-					GROUP BY MonthDate, AffId
+					SELECT d.MonthDate, d.AffId, COUNT(DISTINCT d.CustId) AS ActivePlayer
+					FROM #Data d
+						INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId AND d.MonthDate >= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, m.FirstDepositDate) + 1, 0))
+					WHERE d.ProductId > 0 AND d.MonthDate >= @P2P_CutOffDate
+					GROUP BY MonthDate, d.AffId
 				) t ON c.MonthDate = t.MonthDate AND c.AffId = t.AffId
 			WHERE c.ProductId = 0 AND c.MonthDate >= @P2P_CutOffDate
 		END
