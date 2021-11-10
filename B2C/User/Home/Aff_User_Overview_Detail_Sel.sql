@@ -101,13 +101,14 @@ BEGIN
 		CREATE CLUSTERED INDEX CIX_IBCCustId_WinlostDate ON #Data (CustId, WinlostDate)
 
 		UPDATE d
-		SET d.IsActive = CASE
-							WHEN m.FirstDepositDate IS NULL THEN 0
-							WHEN d.WinlostDate <= CONVERT(DATE, m.FirstDepositDate) THEN 0
-							ELSE 1 END
+		SET d.IsActive = 0
 		FROM #Data d
-			LEFT JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId
+			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId
 		WHERE d.IsActive = 1
+			AND (
+				m.FirstDepositDate IS NULL
+				OR m.FirstDepositDate >= DATEADD(DAY, 1, @EndOfMonth)
+			)
 
 		-- Active Members
 		DECLARE @ActiveMembers TABLE (WinlostDate SMALLDATETIME, CustId INT)
