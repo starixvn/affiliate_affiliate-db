@@ -16,6 +16,7 @@ AS
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Treat TO, WL = 0 for P2P Products [RedmineID: #157958]
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
+		- 20211105@Percy: Exclude non-deposited player from active players [RedmineID: #164246]
 */
 
 BEGIN
@@ -98,6 +99,16 @@ BEGIN
 		GROUP BY r.WinlostDate, r.CustId
 
 		CREATE CLUSTERED INDEX CIX_IBCCustId_WinlostDate ON #Data (CustId, WinlostDate)
+
+		UPDATE d
+		SET d.IsActive = 0
+		FROM #Data d
+			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId
+		WHERE d.IsActive = 1
+			AND (
+				m.FirstDepositDate IS NULL
+				OR m.FirstDepositDate >= DATEADD(DAY, 1, @EndOfMonth)
+			)
 
 		-- Active Members
 		DECLARE @ActiveMembers TABLE (WinlostDate SMALLDATETIME, CustId INT)
