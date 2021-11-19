@@ -13,6 +13,7 @@ AS
 		- 20201026@Percy: Add AffCode [RedmineID: #143852]
 		- 20200107@Percy: Add suspended status [RedmineID: #148373]
 		- 20210426@Percy: Convert data type output column: IsMaxSubLevel [RedmineID: #153465]
+		- 20211005@Percy: Support Transfer Balance For Player [RedmineID: #153227]
 
 	Parameter's Explanation:
 		- @UserName: username
@@ -57,6 +58,7 @@ BEGIN
 			ELSE ai.Status END AS Status
 		,ad.PreferredLanguage
 		,CONVERT(BIT, CASE WHEN l.SubLevel >= @MaxSubLevel THEN 1 ELSE 0 END) AS IsMaxSubLevel
+		,CONVERT(BIT, ISNULL(ad.DisabledTransfer, 1)) AS DisabledTransfer
 		,ISNULL(@Dep_IsDeductedPercent, 0) AS Dep_IsDeductedPercent
 		,ISNULL(@Wit_IsDeductedPercent, 0) AS Wit_IsDeductedPercent
 	FROM dbo.AffInfo ai WITH (NOLOCK)
