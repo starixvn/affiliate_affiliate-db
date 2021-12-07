@@ -17,6 +17,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20181120@Percy: Change way to get amount of fees [RedmineID: #104963]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
+		- 20211207@Percy: Apply core function Group Product [RedmineID: #165777]
 */
 
 BEGIN
@@ -84,32 +85,43 @@ BEGIN
 			INSERT INTO #AffCommission
 			(
 				MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,AWinloss,AComm,
-				GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission
+				GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission,PlatFormFee
 			)
 			SELECT
 				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Turnover,dt.Winloss,dt.AWinloss,dt.AComm,
-				dt.GrossWinloss,dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,0 AS Commission
+				dt.GrossWinloss,dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,0 AS Commission,dt.PlatFormFee
 			FROM @MonthDate md
 				CROSS APPLY (
 					SELECT TOP (@n)
-						MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,AWinloss,AComm,
-						GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate
+						ac.MonthDate, ac.AffId, ac.GroupId, ISNULL(g.GroupProductId, ac.ProductId) AS ProductId
+						,SUM(ac.Deposit) AS Deposit
+						,SUM(ac.Withdrawal) AS Withdrawal
+						,SUM(ac.Bonus) AS Bonus
+						,SUM(ac.Turnover) AS Turnover
+						,SUM(ac.Winloss) AS Winloss
+						,SUM(ac.AWinloss) AS AWinloss
+						,SUM(ac.AComm) AS AComm
+						,SUM(ac.GrossWinloss) AS GrossWinloss
+						,SUM(ac.NetWinloss) AS NetWinloss
+						,SUM(ac.ActivePlayer) AS ActivePlayer
+						,SUM(ac.QualifiedMember) AS QualifiedMember
+						,SUM(ac.QMTurnover) AS QMTurnover
+						,SUM(ac.CommissionRate) AS CommissionRate
+						,SUM(ISNULL(ad.Amount, 0)) AS PlatFormFee
 					FROM dbo.rptAffCommission ac WITH (NOLOCK)
+						LEFT JOIN dbo.rptAffDeduction ad WITH (NOLOCK) ON ac.MonthDate = ad.MonthDate AND ac.AffId = ad.AffId AND ac.ProductId = ad.ProductId
+																			AND ad.DeductionId = 10 AND ad.ProductId > 0
+						LEFT JOIN dbo.Aff_f_GroupProduct() g ON ac.ProductId = g.ProductId
 					WHERE ac.MonthDate = md.MonthDate
+					GROUP BY ac.MonthDate, ac.AffId, ac.GroupId, ISNULL(g.GroupProductId, ac.ProductId)
 				) AS dt
 			OPTION (OPTIMIZE FOR (@n=1))
 
 			UPDATE d
-			SET d.Commission = Amount
+			SET d.Commission = at.Amount
 			FROM #AffCommission d
 				INNER JOIN dbo.AffTrans at WITH (NOLOCK) ON d.MonthDate = at.TransDate AND d.AffId = at.AffId
 			WHERE d.ProductId = 0 AND at.TransType = 201
-
-			UPDATE d
-			SET d.PlatFormFee	= ad.Amount
-			FROM #AffCommission d
-				INNER JOIN dbo.rptAffDeduction ad WITH (NOLOCK) ON d.MonthDate = ad.MonthDate AND d.AffId = ad.AffId AND d.ProductId = ad.ProductId
-			WHERE ad.DeductionId = 10 AND d.ProductId > 0
 
 			;WITH CTE_Fees AS
 			(
@@ -171,19 +183,36 @@ BEGIN
 			INSERT INTO #AffCommission
 			(
 				MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,AWinloss,AComm,
-				GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission
+				GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission,PlatFormFee
 			)
 			SELECT
 				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Turnover,dt.Winloss,dt.AWinloss,dt.AComm,
-				dt.GrossWinloss,dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,0 AS Commission
+				dt.GrossWinloss,dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,0 AS Commission,dt.PlatFormFee
 			FROM @MonthDate md
 				CROSS APPLY (
 					SELECT TOP (@n)
-						MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,AWinloss,AComm,
-						GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate
+						ac.MonthDate, ac.AffId, ac.GroupId, ISNULL(g.GroupProductId, ac.ProductId) AS ProductId
+						,SUM(ac.Deposit) AS Deposit
+						,SUM(ac.Withdrawal) AS Withdrawal
+						,SUM(ac.Bonus) AS Bonus
+						,SUM(ac.Turnover) AS Turnover
+						,SUM(ac.Winloss) AS Winloss
+						,SUM(ac.AWinloss) AS AWinloss
+						,SUM(ac.AComm) AS AComm
+						,SUM(ac.GrossWinloss) AS GrossWinloss
+						,SUM(ac.NetWinloss) AS NetWinloss
+						,SUM(ac.ActivePlayer) AS ActivePlayer
+						,SUM(ac.QualifiedMember) AS QualifiedMember
+						,SUM(ac.QMTurnover) AS QMTurnover
+						,SUM(ac.CommissionRate) AS CommissionRate
+						,SUM(ISNULL(ad.Amount, 0)) AS PlatFormFee
 					FROM dbo.rptAffCommission ac WITH (NOLOCK)
+						LEFT JOIN dbo.rptAffDeduction ad WITH (NOLOCK) ON ac.MonthDate = ad.MonthDate AND ac.AffId = ad.AffId AND ac.ProductId = ad.ProductId
+																			AND ad.DeductionId = 10 AND ad.ProductId > 0
+						LEFT JOIN dbo.Aff_f_GroupProduct() g ON ac.ProductId = g.ProductId
 					WHERE ac.MonthDate = md.MonthDate
 						AND ac.AffId = md.AffId
+					GROUP BY ac.MonthDate, ac.AffId, ac.GroupId, ISNULL(g.GroupProductId, ac.ProductId)
 				) AS dt
 			OPTION (OPTIMIZE FOR (@n=1))
 
@@ -193,12 +222,6 @@ BEGIN
 				INNER JOIN dbo.AffTrans at WITH (NOLOCK) ON d.MonthDate = at.TransDate AND d.AffId = at.AffId
 			WHERE d.ProductId = 0 AND at.TransType = 201
 			
-			UPDATE d
-			SET d.PlatFormFee	= ad.Amount
-			FROM #AffCommission d
-				INNER JOIN dbo.rptAffDeduction ad WITH (NOLOCK) ON d.MonthDate = ad.MonthDate AND d.AffId = ad.AffId AND d.ProductId = ad.ProductId
-			WHERE ad.DeductionId = 10 AND d.ProductId > 0
-
 			;WITH CTE_Fees AS
 			(
 				SELECT
