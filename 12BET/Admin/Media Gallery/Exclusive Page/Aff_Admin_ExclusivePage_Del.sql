@@ -99,8 +99,8 @@ BEGIN
 										,FileName AS '@FileName'
 										,FileSize AS '@FileSize'
 										,UploadDate AS '@UploadDate'
-										,EffectiveFromDate AS '@EffectiveFromDate'
-										,EffectiveToDate AS '@EffectiveToDate'
+										,CONVERT(VARCHAR(20), EffectiveFromDate, 120) AS '@EffectiveFromDate'
+										,CONVERT(VARCHAR(20), EffectiveToDate, 120) AS '@EffectiveToDate'
 										,Language AS '@Language'
 								FOR XML PATH('row'), ROOT('root')
 						  ))

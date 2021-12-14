@@ -10,7 +10,7 @@ AS
 /*
 	Created: 20211213@Malcolm
 	DB: DBAFF12BET.Affiliate_12BET
-	Task: Admin - Media Gallery - Exclusive Affiliate - Insert
+	Task: Admin - Media Gallery - Exclusive Affiliate - Assign
 
 	Revisions:
 		- 20211213@Malcolm: Initialize SP [RedmineID: #165915]
@@ -91,7 +91,7 @@ BEGIN
 							(
 								SELECT ',' + t.Username 
 								FROM #tmpAff t  
-								WHERE t.AffId IS NULL 
+								WHERE t.IsAsian = 0 
 								FOR XML PATH('')
 							), 1, 1, ''
 						  )
@@ -108,10 +108,10 @@ BEGIN
 								SELECT ',' + t.Username 
 								FROM #tmpAff t  
 									INNER JOIN dbo.ExclusiveAffiliate ea WITH(NOLOCK) ON ea.AffId = t.AffId
-								WHERE t.AffId IS NULL 
 								FOR XML PATH('')
 							), 1, 1, ''
 						  )
+		RETURN
 	END
 
 	BEGIN TRY

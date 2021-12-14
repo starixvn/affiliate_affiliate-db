@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_ExclusivePage_Sel]
 	 @PageId	 INT = 0
 	 ,@PageIndex INT = 1
@@ -40,13 +40,18 @@ BEGIN
 
 	SELECT @NRows = COUNT(1) 
 	FROM dbo.ExclusivePage ep WITH(NOLOCK)
-	WHERE (@Date IS NULL AND (@Date BETWEEN ep.EffectiveFromDate AND ep.EffectiveToDate))
+	WHERE (@Date IS NULL OR (@Date BETWEEN ep.EffectiveFromDate AND ep.EffectiveToDate))
 
+	IF @PageSize = 0
+	BEGIN
+		SELECT @RowStart = 1, @RowEnd = @NRows
+	END
 
 	SELECT n.PageId, n.FileName, n.FileSize, n.Language, n.UploadDate, n.EffectiveFromDate, n.EffectiveToDate, n.Affiliate
 	FROM 
 	(
-		SELECT ep.PageId, ep.FileName, ep.FileSize, ep.Language, ep.UploadDate, ep.EffectiveFromDate, ep.EffectiveToDate, ISNULL(n.NoOfAff, 0) AS [Affiliate], ROW_NUMBER() OVER(ORDER BY ep.PageId ASC) rn
+		SELECT ep.PageId, ep.FileName, ep.FileSize, ep.Language, ep.UploadDate, ep.EffectiveFromDate, ep.EffectiveToDate, ISNULL(n.NoOfAff, 0) AS [Affiliate]
+			,ROW_NUMBER() OVER(ORDER BY CASE WHEN @PageSize = 0 THEN ep.FileName END ASC, CASE WHEN @PageSize <> 0 THEN  ep.PageId END ASC ) rn
 		FROM dbo.ExclusivePage ep WITH(NOLOCK)
 		OUTER APPLY (
 			SELECT COUNT(1) AS [NoOfAff] FROM dbo.ExclusiveAffiliate ea WITH(NOLOCK) 

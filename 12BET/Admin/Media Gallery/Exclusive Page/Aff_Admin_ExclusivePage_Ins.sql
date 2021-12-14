@@ -68,8 +68,8 @@ BEGIN
 							SELECT  @PageId AS '@PageId',
 									@FileName AS '@FileName',
 									@FileSize AS '@FileSize',
-									@EffectiveFrom AS '@EffectiveFrom',
-									@EffectiveTo AS '@EffectiveTo',
+									CONVERT(VARCHAR(20), @EffectiveFrom, 120) AS '@EffectiveFrom',
+									CONVERT(VARCHAR(20), @EffectiveTo, 120) AS '@EffectiveTo',
 									@Language  AS '@Language'
 							FOR XML PATH('row'), ROOT('root')
 					  ))

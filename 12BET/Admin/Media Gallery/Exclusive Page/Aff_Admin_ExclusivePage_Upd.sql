@@ -38,7 +38,7 @@ BEGIN
 		RETURN
 
 	-- Check if exclusive page have deleted or not
-	IF EXISTS (SELECT TOP 1 1 FROM dbo.ExclusivePage WITH(NOLOCK) WHERE PageId = @PageId)
+	IF NOT EXISTS (SELECT TOP 1 1 FROM dbo.ExclusivePage WITH(NOLOCK) WHERE PageId = @PageId)
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'The exclusive page does not exist, please refresh the page and try again.'
 		RETURN
@@ -59,12 +59,12 @@ BEGIN
 
 	SELECT @OldData = CONVERT(NVARCHAR(MAX),
 					  (
-							SELECT	PageId				AS '@PageId',
-									FileName			AS '@FileName',
-									FileSize			AS '@FileSize',
-									EffectiveFromDate	AS '@EffectiveFromDate',
-									EffectiveToDate		AS '@EffectiveToDate',
-									Language			AS '@Language'
+							SELECT	PageId AS '@PageId',
+									FileName AS '@FileName',
+									FileSize AS '@FileSize',
+									CONVERT(VARCHAR(20), EffectiveFromDate, 120) AS '@EffectiveFromDate',
+									CONVERT(VARCHAR(20), EffectiveToDate, 120) AS '@EffectiveToDate',
+									Language AS '@Language'
 							FROM dbo.ExclusivePage WITH(NOLOCK)
 							WHERE PageId = @PageId
 							FOR XML PATH('row'), ROOT('root')
@@ -86,12 +86,12 @@ BEGIN
 
 	SELECT @NewData = CONVERT(NVARCHAR(MAX),
 				  (
-						SELECT  @PageId			AS '@PageId',
-								@FileName		AS '@FileName',
-								@FileSize		AS '@FileSize',
-								@EffectiveFrom	AS '@EffectiveFrom',
-								@EffectiveTo	AS '@EffectiveTo',
-								@Language		AS '@Language'
+						SELECT  @PageId AS '@PageId',
+								@FileName AS '@FileName',
+								@FileSize AS '@FileSize',
+								CONVERT(VARCHAR(20), @EffectiveFrom, 120) AS '@EffectiveFrom',
+								CONVERT(VARCHAR(20), @EffectiveTo, 120) AS '@EffectiveTo',
+								@Language AS '@Language'
 						FOR XML PATH('row'), ROOT('root')
 				  ))
 

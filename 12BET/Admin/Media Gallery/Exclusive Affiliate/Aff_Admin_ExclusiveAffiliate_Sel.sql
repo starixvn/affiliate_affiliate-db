@@ -30,7 +30,7 @@ BEGIN
 		INNER JOIN dbo.AffInfo ai WITH(NOLOCK) ON ai.AffID = ea.AffId 
 	WHERE ai.UserName LIKE '%' + @AffName + '%' AND ep.FileName LIKE '%' + @FileName + '%' 
 
-	SELECT n.AffId, n.UserName, n.PageId, n.FileName, n.EffectiveFromDate, n.EffectiveToDate, n.rn
+	SELECT n.AffId, n.UserName, n.PageId, n.FileName, n.EffectiveFromDate, n.EffectiveToDate
 	FROM 
 	(
 		SELECT ea.AffId, ai.UserName, ea.PageId, ep.FileName, ep.EffectiveFromDate, ep.EffectiveToDate, ROW_NUMBER() OVER(ORDER BY ai.Username ASC) AS rn
