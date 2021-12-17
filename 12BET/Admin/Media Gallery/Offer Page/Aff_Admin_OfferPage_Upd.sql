@@ -1,5 +1,5 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Aff_Admin_ExclusivePage_Upd]
+CREATE PROCEDURE [dbo].[Aff_Admin_OfferPage_Upd]
 	@UserId			INT
 	,@PageId		INT
 	,@FileName		NVARCHAR(200)
@@ -14,7 +14,7 @@ AS
 /*
 	Created: 20211213@Malcolm
 	DB: DBAFF12BET.Affiliate_12BET
-	Task: Admin - Media Gallery - Exclusive Page - Update
+	Task: Admin - Media Gallery - Offer Page - Update
 
 	Revisions:
 		- 20211213@Malcolm: Initialize SP [RedmineID: #165915]
@@ -37,14 +37,14 @@ BEGIN
 	IF @ErrCode <> 0
 		RETURN
 
-	-- Check if exclusive page have deleted or not
-	IF NOT EXISTS (SELECT TOP 1 1 FROM dbo.ExclusivePage WITH(NOLOCK) WHERE PageId = @PageId)
+	-- Check if offer page have deleted or not
+	IF NOT EXISTS (SELECT TOP 1 1 FROM dbo.OfferPage WITH(NOLOCK) WHERE PageId = @PageId)
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'The exclusive page does not exist, please refresh the page and try again.'
+		SELECT @ErrCode = 101, @ErrMsg = 'The offer page does not exist, please refresh the page and try again.'
 		RETURN
 	END
 	-- Check if file name have exists or not
-	IF EXISTS (SELECT TOP 1 1 FROM dbo.ExclusivePage WITH(NOLOCK) WHERE FileName = @FileName AND PageId <> @PageId)
+	IF EXISTS (SELECT TOP 1 1 FROM dbo.OfferPage WITH(NOLOCK) WHERE FileName = @FileName AND PageId <> @PageId)
 	BEGIN
 		SELECT @ErrCode = 102, @ErrMsg = 'The html file name exist already, please choose another name.'
 		RETURN
@@ -65,13 +65,13 @@ BEGIN
 									CONVERT(VARCHAR(20), EffectiveFromDate, 120) AS '@EffectiveFromDate',
 									CONVERT(VARCHAR(20), EffectiveToDate, 120) AS '@EffectiveToDate',
 									Language AS '@Language'
-							FROM dbo.ExclusivePage WITH(NOLOCK)
+							FROM dbo.OfferPage WITH(NOLOCK)
 							WHERE PageId = @PageId
 							FOR XML PATH('row'), ROOT('root')
 					  ))
 
 	BEGIN TRY
-		UPDATE dbo.ExclusivePage WITH(ROWLOCK)
+		UPDATE dbo.OfferPage WITH(ROWLOCK)
 		SET FileName = @FileName
 			,FileSize = @FileSize
 			,EffectiveFromDate = @EffectiveFrom

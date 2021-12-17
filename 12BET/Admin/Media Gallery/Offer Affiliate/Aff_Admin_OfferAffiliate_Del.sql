@@ -1,5 +1,5 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Aff_Admin_ExclusiveAffiliate_Del]
+CREATE PROCEDURE [dbo].[Aff_Admin_OfferAffiliate_Del]
 	@UserId			INT
 	,@AffIds		VARCHAR(MAX)
 	,@IP			VARCHAR(20)= ''
@@ -9,7 +9,7 @@ AS
 /*
 	Created: 20211213@Malcolm
 	DB: DBAFF12BET.Affiliate_12BET
-	Task: Admin - Media Gallery - Exclusive Affilitate Page - Unassign
+	Task: Admin - Media Gallery - Offer Affilitate Page - Unassign
 
 	Revisions:
 		- 20211213@Malcolm: Initialize SP [RedmineID: #165915]
@@ -34,19 +34,19 @@ BEGIN
 	IF @ErrCode <> 0
 		RETURN
 
-	-- Check if exclusive page have deleted or not
+	-- Check if offer page have deleted or not
 	IF EXISTS (
 		SELECT 1
 		FROM dbo.strSplit(@AffIds, ',') s
-		WHERE NOT EXISTS (SELECT 1 FROM dbo.ExclusiveAffiliate ea WITH(NOLOCK) WHERE ea.AffId = s.val)
+		WHERE NOT EXISTS (SELECT 1 FROM dbo.OfferAffiliate ea WITH(NOLOCK) WHERE ea.AffId = s.val)
 	)
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'Exclusive - affiliate assignment(s) do not exist, please refresh the page and try again.'
+		SELECT @ErrCode = 101, @ErrMsg = 'Offer - affiliate assignment(s) do not exist, please refresh the page and try again.'
 		RETURN
 	END
 
 	BEGIN TRY
-		DELETE dbo.ExclusiveAffiliate WITH(ROWLOCK, UPDLOCK)
+		DELETE dbo.OfferAffiliate WITH(ROWLOCK, UPDLOCK)
 		OUTPUT deleted.AffId, deleted.PageId
 			INTO @TmpAff (AffId, PageId)
 		WHERE AffId IN (SELECT s.val FROM dbo.strSplit(@AffIds, ',') s)
@@ -60,7 +60,7 @@ BEGIN
 		SET t.Username = ai.UserName, t.FileName = ep.FileName
 	FROM @TmpAff t
 		INNER JOIN dbo.AffInfo ai WITH(NOLOCK) ON ai.AffID = t.AffId
-		INNER JOIN dbo.ExclusivePage ep WITH(NOLOCK) ON ep.PageId = t.PageId
+		INNER JOIN dbo.OfferPage ep WITH(NOLOCK) ON ep.PageId = t.PageId
 		
 	SELECT @SPName = OBJECT_NAME(@@PROCID)
 

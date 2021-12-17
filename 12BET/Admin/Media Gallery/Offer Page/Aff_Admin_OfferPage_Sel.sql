@@ -1,5 +1,5 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Aff_Admin_ExclusivePage_Sel]
+CREATE PROCEDURE [dbo].[Aff_Admin_OfferPage_Sel]
 	 @PageId	 INT = 0
 	 ,@PageIndex INT = 1
 	 ,@PageSize	 INT = 50
@@ -9,7 +9,7 @@ AS
 /*
 	Created: 20211213@Malcolm
 	DB: DBAFF12BET.Affiliate_12BET
-	Task: Admin - Media Gallery - Exclusive Page - Select
+	Task: Admin - Media Gallery - Offer Page - Select
 
 	Revisions:
 		- 20211213@Malcolm: Initialize SP [RedmineID: #165915]
@@ -28,10 +28,10 @@ BEGIN
 	IF @PageId <> 0
 	BEGIN
 		SELECT ep.PageId, ep.FileName, ep.FileSize, ep.Language, ep.UploadDate, ep.EffectiveFromDate, ep.EffectiveToDate, n.NoOfAff AS [Affiliate]
-		FROM dbo.ExclusivePage ep WITH(NOLOCK)
+		FROM dbo.OfferPage ep WITH(NOLOCK)
 		OUTER APPLY (
 			SELECT COUNT(1) AS [NoOfAff]
-			FROM dbo.ExclusiveAffiliate ea WITH(NOLOCK)
+			FROM dbo.OfferAffiliate ea WITH(NOLOCK)
 			WHERE ea.PageId = ep.PageId
 		) n
 		WHERE ep.PageId = @PageId
@@ -39,7 +39,7 @@ BEGIN
 	END
 
 	SELECT @NRows = COUNT(1) 
-	FROM dbo.ExclusivePage ep WITH(NOLOCK)
+	FROM dbo.OfferPage ep WITH(NOLOCK)
 	WHERE (@Date IS NULL OR (@Date BETWEEN ep.EffectiveFromDate AND ep.EffectiveToDate))
 
 	IF @PageSize = 0
@@ -52,9 +52,9 @@ BEGIN
 	(
 		SELECT ep.PageId, ep.FileName, ep.FileSize, ep.Language, ep.UploadDate, ep.EffectiveFromDate, ep.EffectiveToDate, ISNULL(n.NoOfAff, 0) AS [Affiliate]
 			,ROW_NUMBER() OVER(ORDER BY CASE WHEN @PageSize = 0 THEN ep.FileName END ASC, CASE WHEN @PageSize <> 0 THEN  ep.PageId END ASC ) rn
-		FROM dbo.ExclusivePage ep WITH(NOLOCK)
+		FROM dbo.OfferPage ep WITH(NOLOCK)
 		OUTER APPLY (
-			SELECT COUNT(1) AS [NoOfAff] FROM dbo.ExclusiveAffiliate ea WITH(NOLOCK) 
+			SELECT COUNT(1) AS [NoOfAff] FROM dbo.OfferAffiliate ea WITH(NOLOCK) 
 			WHERE ea.PageId = ep.PageId 
 		) as N (NoOfAff)
 		WHERE (@Date IS NULL OR (@Date BETWEEN ep.EffectiveFromDate AND ep.EffectiveToDate)) 

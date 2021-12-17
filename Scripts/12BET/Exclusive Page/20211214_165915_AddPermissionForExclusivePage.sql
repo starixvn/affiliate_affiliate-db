@@ -4,20 +4,20 @@
 	DB: DBAFF12BET.Affiliate_12BET
 */
 INSERT INTO LogType (TypeName, Description)
-VALUES ('ExclusivePage', 'Exclusive Page' ),
-	   ('ExclusiveAffiliatePage', 'Exclusive - Affiliate Page')
+VALUES ('OfferPage', 'Offer Page' ),
+	   ('OfferAffiliatePage', 'Offer - Affiliate Page')
 
-DECLARE @ExclusivePage INT, @ExclusiveAffiliatePage INT
+DECLARE @OfferPage INT, @OfferAffiliatePage INT
 
 SELECT
-	@ExclusivePage = CASE WHEN TypeName = 'ExclusivePage' THEN TypeID ELSE @ExclusivePage END
-	,@ExclusiveAffiliatePage = CASE WHEN TypeName = 'ExclusiveAffiliatePage' THEN TypeID ELSE @ExclusiveAffiliatePage END
+	@OfferPage = CASE WHEN TypeName = 'OfferPage' THEN TypeID ELSE @OfferPage END
+	,@OfferAffiliatePage = CASE WHEN TypeName = 'OfferAffiliatePage' THEN TypeID ELSE @OfferAffiliatePage END
 FROM LogType WITH(NOLOCK)
 
 INSERT INTO LogAction (ActionId, ActionTypeId, SPName, Description, IsShow)
-VALUES (1025, @ExclusivePage, 'Aff_Admin_ExclusivePage_Ins', 'Upload Exclusive Page', 1)
-,(1026, @ExclusivePage, 'Aff_Admin_ExclusivePage_Upd', 'Update Exclusive Page', 1)
-,(1027, @ExclusivePage, 'Aff_Admin_ExclusivePage_Del', 'Remove Exclusive Page', 1)
+VALUES (1025, @OfferPage, 'Aff_Admin_OfferPage_Ins', 'Upload Offer Page', 1)
+,(1026, @OfferPage, 'Aff_Admin_OfferPage_Upd', 'Update Offer Page', 1)
+,(1027, @OfferPage, 'Aff_Admin_OfferPage_Del', 'Remove Offer Page', 1)
 
-,(1028, @ExclusiveAffiliatePage, 'Aff_Admin_ExclusiveAffiliate_Ins', 'Assign Exclusive Page To Affiliate', 1)
-,(1029, @ExclusiveAffiliatePage, 'Aff_Admin_ExclusiveAffiliate_Del', 'Unassign Exclusive Page To Affiliate', 1)
+,(1028, @OfferAffiliatePage, 'Aff_Admin_OfferAffiliate_Ins', 'Assign Offer Page To Affiliate', 1)
+,(1029, @OfferAffiliatePage, 'Aff_Admin_OfferAffiliate_Del', 'Unassign Offer Page To Affiliate', 1)

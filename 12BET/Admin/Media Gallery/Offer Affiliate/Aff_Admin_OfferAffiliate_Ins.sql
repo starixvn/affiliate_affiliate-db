@@ -1,5 +1,5 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Aff_Admin_ExclusiveAffiliate_Ins]
+CREATE PROCEDURE [dbo].[Aff_Admin_OfferAffiliate_Ins]
 	 @UserId		INT
 	 ,@AffNameList	NVARCHAR(MAX) 
 	 ,@PageId		INT
@@ -10,7 +10,7 @@ AS
 /*
 	Created: 20211213@Malcolm
 	DB: DBAFF12BET.Affiliate_12BET
-	Task: Admin - Media Gallery - Exclusive Affiliate - Assign
+	Task: Admin - Media Gallery - Offer Affiliate - Assign
 
 	Revisions:
 		- 20211213@Malcolm: Initialize SP [RedmineID: #165915]
@@ -33,20 +33,20 @@ BEGIN
 	IF @ErrCode <> 0
 		RETURN
 
-	IF NOT EXISTS (SELECT 1 FROM dbo.ExclusivePage WITH(NOLOCK) WHERE PageId = @PageId)
+	IF NOT EXISTS (SELECT 1 FROM dbo.OfferPage WITH(NOLOCK) WHERE PageId = @PageId)
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'The exclusive page does not exist, please refresh the page and try again.'
+		SELECT @ErrCode = 101, @ErrMsg = 'The offer page does not exist, please refresh the page and try again.'
 		RETURN
 	END
 
-	SELECT @FileName = FileName FROM dbo.ExclusivePage WITH(NOLOCK) WHERE PageId = @PageId
+	SELECT @FileName = FileName FROM dbo.OfferPage WITH(NOLOCK) WHERE PageId = @PageId
 
-	CREATE TABLE #tmpAff (ID INT IDENTITY(1, 1), AffId INT, Username NVARCHAR(30), IsAsian BIT)
+	CREATE TABLE #tmpAff (ID INT IDENTITY(1, 1), AffId INT, Username NVARCHAR(40), IsAsian BIT)
 	INSERT INTO #tmpAff (Username)
 	SELECT DISTINCT RTRIM(LTRIM(s.val)) AS Username
 	FROM dbo.strSplit (@AffNameList, ',') s
 	WHERE s.val <> ''
-
+		
 	SELECT @Naff = COUNT(1) FROM #tmpAff 
 
 	IF @Naff > 500
@@ -69,7 +69,7 @@ BEGIN
 	IF EXISTS (SELECT 1 FROM #tmpAff WHERE AffId IS NULL)
 	BEGIN
 		SELECT @ErrCode = 103, 
-			   @ErrMsg = 'The following affiliates do not exist: ' +
+			   @ErrMsg = '- The following affiliates do not exist: ' +
 			             STUFF
 						 (
 							(
@@ -78,14 +78,13 @@ BEGIN
 								WHERE t.AffId IS NULL 
 								FOR XML PATH('')
 							), 1, 1, ''
-						 )
-		RETURN
+						 ) + ' <br /> '
 	END
 
 	IF EXISTS (SELECT 1 FROM #tmpAff WHERE IsAsian = 0)
 	BEGIN
-		SELECT @ErrCode = 104,
-			   @ErrMsg = 'The following affiliates are not Asian affiliates: ' + 
+		SELECT @ErrCode = 103,
+			   @ErrMsg = @ErrMsg + '- The following affiliates are not Asian affiliates: ' + 
 						  STUFF
 						  (
 							(
@@ -94,33 +93,34 @@ BEGIN
 								WHERE t.IsAsian = 0 
 								FOR XML PATH('')
 							), 1, 1, ''
-						  )
-		RETURN
+						  ) + ' <br /> '
 	END
 
-	IF EXISTS (SELECT 1 FROM #tmpAff t INNER JOIN dbo.ExclusiveAffiliate ea WITH(NOLOCK) ON ea.AffId = t.AffId)
+	IF EXISTS (SELECT 1 FROM #tmpAff t INNER JOIN dbo.OfferAffiliate ea WITH(NOLOCK) ON ea.AffId = t.AffId)
 	BEGIN
-		SELECT @ErrCode = 105,
-			   @ErrMsg = 'The following affiliates have already had exclusive page assigned: ' +
+		SELECT @ErrCode = 103,
+			   @ErrMsg = @ErrMsg + '- The following affiliates have already had offer page assigned: ' +
 				          STUFF
 						  (
 							(
 								SELECT ',' + t.Username 
 								FROM #tmpAff t  
-									INNER JOIN dbo.ExclusiveAffiliate ea WITH(NOLOCK) ON ea.AffId = t.AffId
+									INNER JOIN dbo.OfferAffiliate ea WITH(NOLOCK) ON ea.AffId = t.AffId
 								FOR XML PATH('')
 							), 1, 1, ''
-						  )
-		RETURN
+						  ) + ' <br /> '
 	END
 
+	IF @ErrCode <> 0
+		RETURN
+
 	BEGIN TRY
-		INSERT INTO dbo.ExclusiveAffiliate (PageId, AffId)
+		INSERT INTO dbo.OfferAffiliate (PageId, AffId)
 		SELECT @PageId, AffId
 		FROM #tmpAff
 	END TRY
 	BEGIN CATCH 
-		SELECT @ErrCode = 106, @ErrMsg = 'Error occurs. Insert unsucessfully.'
+		SELECT @ErrCode = 104, @ErrMsg = 'Error occurs. Insert unsucessfully.'
 		RETURN
 	END CATCH
 

@@ -1,5 +1,5 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Aff_Admin_ExclusivePage_Ins]
+CREATE PROCEDURE [dbo].[Aff_Admin_OfferPage_Ins]
 	@UserId			INT
 	,@FileName		NVARCHAR(200)
 	,@FileSize		INT
@@ -13,7 +13,7 @@ AS
 /*
 	Created: 20211213@Malcolm
 	DB: DBAFF12BET.Affiliate_12BET
-	Task: Admin - Media Gallery - Exclusive Page - Insert
+	Task: Admin - Media Gallery - Offer Page - Insert
 
 	Revisions:
 		- 20211213@Malcolm: Initialize SP [RedmineID: #165915]
@@ -37,7 +37,7 @@ BEGIN
 		RETURN
 
 	--Check if filename have exists
-	IF EXISTS (SELECT 1 FROM dbo.ExclusivePage WITH(NOLOCK) WHERE FileName = @FileName)
+	IF EXISTS (SELECT 1 FROM dbo.OfferPage WITH(NOLOCK) WHERE FileName = @FileName)
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'The html file name exist already, please choose another name.'
 		RETURN
@@ -51,7 +51,7 @@ BEGIN
 	END
 
 	BEGIN TRY
-		INSERT INTO dbo.ExclusivePage (FileName, FileSize, Language, UploadDate, EffectiveFromDate, EffectiveToDate)
+		INSERT INTO dbo.OfferPage (FileName, FileSize, Language, UploadDate, EffectiveFromDate, EffectiveToDate)
 		VALUES (@FileName, @FileSize, @Language, GETDATE(), @EffectiveFrom, @EffectiveTo)
 
 		SET @PageId = SCOPE_IDENTITY()

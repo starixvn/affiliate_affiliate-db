@@ -1,5 +1,5 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Aff_Admin_ExclusivePage_Del]
+CREATE PROCEDURE [dbo].[Aff_Admin_OfferPage_Del]
 	@UserId			INT
 	,@PageIds		VARCHAR(MAX)
 	,@IP			VARCHAR(20)= ''
@@ -9,7 +9,7 @@ AS
 /*
 	Created: 20211213@Malcolm
 	DB: DBAFF12BET.Affiliate_12BET
-	Task: Admin - Media Gallery - Exclusive Page - delete
+	Task: Admin - Media Gallery - Offer Page - delete
 
 	Revisions:
 		- 20211213@Malcolm: Initialize SP [RedmineID: #165915]
@@ -46,34 +46,34 @@ BEGIN
 	IF @ErrCode <> 0
 		RETURN
 
-	-- Check if exclusive page have deleted or not
+	-- Check if offer page have deleted or not
 	IF EXISTS (
 		SELECT 1
 		FROM dbo.strSplit(@PageIds, ',') s
-		WHERE NOT EXISTS (SELECT 1 FROM dbo.ExclusivePage ep WITH(NOLOCK) WHERE ep.PageId = s.val)
+		WHERE NOT EXISTS (SELECT 1 FROM dbo.OfferPage ep WITH(NOLOCK) WHERE ep.PageId = s.val)
 	)
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'Exclusive Page(s) do not exist, please refresh the page and try again.'
+		SELECT @ErrCode = 101, @ErrMsg = 'Offer Page(s) do not exist, please refresh the page and try again.'
 		RETURN
 	END
 
 	BEGIN TRY
-		DELETE dbo.ExclusiveAffiliate WITH(ROWLOCK, UPDLOCK)
+		DELETE dbo.OfferAffiliate WITH(ROWLOCK, UPDLOCK)
 		OUTPUT deleted.AffId, deleted.PageId
 			INTO @TmpAff (AffId, PageId)
 		WHERE PageId IN (SELECT s.val FROM dbo.strSplit(@PageIds, ',') s)
 
-		DELETE dbo.ExclusivePage WITH(ROWLOCK, UPDLOCK)
+		DELETE dbo.OfferPage WITH(ROWLOCK, UPDLOCK)
 		OUTPUT deleted.PageId, deleted.FileName, deleted.FileSize, deleted.UploadDate, deleted.EffectiveFromDate, deleted.EffectiveToDate, deleted.Language
 			INTO @TmpDelete (PageId, FileName, FileSize, UploadDate, EffectiveFromDate, EffectiveToDate, Language)
 		WHERE PageId IN (SELECT s.val FROM dbo.strSplit(@PageIds, ',') s)	
 	END TRY
 	BEGIN CATCH
 		--Rollback
-		INSERT INTO dbo.ExclusiveAffiliate(AffId, PageId)
+		INSERT INTO dbo.OfferAffiliate(AffId, PageId)
 		SELECT T.AffId, t.PageId
 		FROM @TmpAff t
-		WHERE NOT EXISTS (SELECT 1 FROM dbo.ExclusiveAffiliate ea WITH(NOLOCK) WHERE ea.AffId = t.AffId AND ea.PageId = t.PageId)
+		WHERE NOT EXISTS (SELECT 1 FROM dbo.OfferAffiliate ea WITH(NOLOCK) WHERE ea.AffId = t.AffId AND ea.PageId = t.PageId)
 
 		SELECT @ErrCode = 102, @ErrMsg = 'Error occurs. Delete unsucessfully.'
 		RETURN

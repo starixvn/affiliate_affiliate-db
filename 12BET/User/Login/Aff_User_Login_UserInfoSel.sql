@@ -32,11 +32,11 @@ BEGIN
 		ai.IsClosed,
 		ai.Status,
 		ad.PreferredLanguage,
-		ISNULL(ea.PageId, 0) AS ExclusivePageId
+		ISNULL(ea.PageId, 0) AS OfferPageId
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffID = ad.AffID
 		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupID = cg.GroupID
-		LEFT JOIN dbo.ExclusiveAffiliate ea WITH(NOLOCK) ON ea.AffId = ai.AffID
+		LEFT JOIN dbo.OfferAffiliate ea WITH(NOLOCK) ON ea.AffId = ai.AffID
 	WHERE (ai.UserName = @UserName OR ai.Email = @UserName)
 		AND cg.IsDeleted = 0
 END

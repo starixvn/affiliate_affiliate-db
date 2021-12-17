@@ -3,7 +3,7 @@
 	Created: 20211213@Malcolm
 	DB: DBAFF12BET.Affiliate_12BET
 */
-CREATE TABLE dbo.ExclusivePage
+CREATE TABLE dbo.OfferPage
 (
 	PageId				INT IDENTITY(1, 1)
 	,FileName			NVARCHAR(200)
@@ -14,7 +14,7 @@ CREATE TABLE dbo.ExclusivePage
 	,EffectiveToDate	DATETIME
 )
 
-CREATE TABLE dbo.ExclusiveAffiliate
+CREATE TABLE dbo.OfferAffiliate
 (
 	PageId INT
 	,AffId INT
