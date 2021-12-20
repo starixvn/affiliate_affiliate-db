@@ -63,7 +63,9 @@ BEGIN
 	CROSS APPLY (
 		SELECT ai.AffId, ai.AffType
 		FROM dbo.AffInfo ai WITH(NOLOCK)
-		WHERE ai.UserName = t.Username
+			INNER JOIN dbo.AffDetail d WITH(NOLOCK) ON d.AffID = ai.AffID
+			INNER JOIN dbo.UserMarket m WITH(NOLOCK) ON m.MarketId = d.PreferredLanguage
+		WHERE ai.UserName = t.Username AND m.CustId = @UserId
 	) n
 
 	IF EXISTS (SELECT 1 FROM #tmpAff WHERE AffId IS NULL)

@@ -38,7 +38,10 @@ BEGIN
 	IF EXISTS (
 		SELECT 1
 		FROM dbo.strSplit(@AffIds, ',') s
-		WHERE NOT EXISTS (SELECT 1 FROM dbo.OfferAffiliate ea WITH(NOLOCK) WHERE ea.AffId = s.val)
+			LEFT JOIN dbo.AffDetail d WITH(NOLOCK) ON s.val = d.AffID
+			LEFT JOIN dbo.OfferAffiliate ea WITH(NOLOCK) ON ea.AffId = d.AffID
+			LEFT JOIN dbo.UserMarket m WITH(NOLOCK) ON m.MarketId = d.PreferredLanguage AND m.CustId = @UserId
+		WHERE ea.AffId IS NULL OR  m.CustId IS NULL
 	)
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'Offer - affiliate assignment(s) do not exist, please refresh the page and try again.'

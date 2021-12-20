@@ -51,7 +51,7 @@ BEGIN
 	FROM 
 	(
 		SELECT ep.PageId, ep.FileName, ep.FileSize, ep.Language, ep.UploadDate, ep.EffectiveFromDate, ep.EffectiveToDate, ISNULL(n.NoOfAff, 0) AS [Affiliate]
-			,ROW_NUMBER() OVER(ORDER BY CASE WHEN @PageSize = 0 THEN ep.FileName END ASC, CASE WHEN @PageSize <> 0 THEN  ep.PageId END ASC ) rn
+			,ROW_NUMBER() OVER(ORDER BY ep.PageId DESC) rn
 		FROM dbo.OfferPage ep WITH(NOLOCK)
 		OUTER APPLY (
 			SELECT COUNT(1) AS [NoOfAff] FROM dbo.OfferAffiliate ea WITH(NOLOCK) 
