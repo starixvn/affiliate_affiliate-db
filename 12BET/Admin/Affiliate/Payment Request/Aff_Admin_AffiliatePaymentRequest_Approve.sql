@@ -22,6 +22,7 @@ AS
 
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
+		- 20211222@Malcolm: Split transfer out of bettrans [RedmineID: #165095]
 */
 
 BEGIN
@@ -81,15 +82,16 @@ BEGIN
 
 	BEGIN TRY
 		-- Add money to player
-		INSERT INTO dbo.bettrans
+
+		INSERT INTO dbo.Transfer
 		(
-			custid, username, refno, transdate, matchid, bettype, transdesc, winlost, actual_stake, winlostdate
-			,creator, recommend, mrecommend, srecommend, currency, actualrate, currencyName, ruben, status, ip, StatusID
+			custid, username, refno, transdate, bettype, transdesc, winlost, actual_stake, winlostdate
+			,creator, recommend, mrecommend, srecommend, currency, actualrate, currencyName, ip, StatusID
 		)
 		VALUES
 		(
-			@Player_IBCCustID, @Player_UserName, @RefID, @TransDate, 0, @BetType, @TransDesc, @Amount, 0, @WinlostDate
-			,@UserID, @Player_Recommend, @Player_MRecommend, @Player_SRecommend, @Player_Currency, @Player_ExRate, @Player_CurrencyName, 1, @Status, @ip, @StatusID
+			@Player_IBCCustID, @Player_UserName, @RefID, @TransDate, @BetType, @TransDesc, @Amount, 0, @WinlostDate
+			,@UserID, @Player_Recommend, @Player_MRecommend, @Player_SRecommend, @Player_Currency, @Player_ExRate, @Player_CurrencyName, @ip, @StatusID
 		)
 	
 		SELECT @TransID1 = SCOPE_IDENTITY()
@@ -97,15 +99,15 @@ BEGIN
 		EXEC Dot_BalanceCreditUpd @CustID = @Player_IBCCustID, @balance = @Amount, @type = 2
 
 		-- Deduct balance account
-		INSERT INTO dbo.bettrans
+		INSERT INTO dbo.Transfer
 		(
-			custid, username, refno, transdate, matchid, bettype, transdesc, winlost, actual_stake, winlostdate
-			,creator, recommend, mrecommend, srecommend, currency, actualrate, currencyName, ruben, status, ip, StatusID
+			custid, username, refno, transdate, bettype, transdesc, winlost, actual_stake, winlostdate
+			,creator, recommend, mrecommend, srecommend, currency, actualrate, currencyName, ip, StatusID
 		)
 		VALUES
 		(
-			@Ballance_CustID, @Ballance_UserName, @RefID, @TransDate, 0, @BetType, @TransDesc, 0, @Amount, @WinlostDate
-			,@UserID, @Ballance_Recommend, @Ballance_MRecommend, @Ballance_SRecommend, @Player_Currency, @Player_ExRate, @Player_CurrencyName, 1, @Status, @ip, @StatusID
+			@Ballance_CustID, @Ballance_UserName, @RefID, @TransDate, @BetType, @TransDesc, 0, @Amount, @WinlostDate
+			,@UserID, @Ballance_Recommend, @Ballance_MRecommend, @Ballance_SRecommend, @Player_Currency, @Player_ExRate, @Player_CurrencyName, @ip, @StatusID
 		)
     
 		SELECT @TransID2 = SCOPE_IDENTITY()
@@ -115,7 +117,7 @@ BEGIN
 		IF @ErrCode <> 0
 		BEGIN
 			-- Rollback bettrans
-			DELETE dbo.bettrans WITH (ROWLOCK, UPDLOCK)
+			DELETE dbo.Transfer WITH (ROWLOCK, UPDLOCK)
 			WHERE transid IN (@TransID1, @TransID2)
 
 			SELECT @ErrCode = 4002, @ErrMsg = 'Update transaction failed.'
@@ -124,7 +126,7 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		-- Rollback bettrans
-		DELETE dbo.bettrans WITH (ROWLOCK, UPDLOCK)
+		DELETE dbo.Transfer WITH (ROWLOCK, UPDLOCK)
 		WHERE transid IN (@TransID1, @TransID2)
 
 		SELECT @ErrCode = 4003, @ErrMsg = 'Insert transaction failed.'
