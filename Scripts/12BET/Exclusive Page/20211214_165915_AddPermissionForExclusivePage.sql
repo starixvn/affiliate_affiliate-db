@@ -15,9 +15,9 @@ SELECT
 FROM LogType WITH(NOLOCK)
 
 INSERT INTO LogAction (ActionId, ActionTypeId, SPName, Description, IsShow)
-VALUES (1025, @OfferPage, 'Aff_Admin_OfferPage_Ins', 'Upload Offer Page', 1)
-,(1026, @OfferPage, 'Aff_Admin_OfferPage_Upd', 'Update Offer Page', 1)
-,(1027, @OfferPage, 'Aff_Admin_OfferPage_Del', 'Remove Offer Page', 1)
+VALUES (1025, @OfferPage, 'Aff_Admin_OfferPage_Ins', 'Upload Offer Page', 0)
+,(1026, @OfferPage, 'Aff_Admin_OfferPage_Upd', 'Update Offer Page', 0)
+,(1027, @OfferPage, 'Aff_Admin_OfferPage_Del', 'Unassign Offer Page From Affiliate (Remove Page)', 1)
 
 ,(1028, @OfferAffiliatePage, 'Aff_Admin_OfferAffiliate_Ins', 'Assign Offer Page To Affiliate', 1)
-,(1029, @OfferAffiliatePage, 'Aff_Admin_OfferAffiliate_Del', 'Unassign Offer Page To Affiliate', 1)
+,(1029, @OfferAffiliatePage, 'Aff_Admin_OfferAffiliate_Del', 'Unassign Offer Page From Affiliate', 1)
