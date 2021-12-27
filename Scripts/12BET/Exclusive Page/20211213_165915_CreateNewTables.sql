@@ -12,10 +12,19 @@ CREATE TABLE dbo.OfferPage
 	,UploadDate			DATETIME
 	,EffectiveFromDate	DATETIME
 	,EffectiveToDate	DATETIME
-)
+	,CONSTRAINT PK_OfferPage PRIMARY KEY CLUSTERED
+	(
+		PageId ASC
+	)
+) ON [DATA]
 
 CREATE TABLE dbo.OfferAffiliate
 (
 	PageId INT
 	,AffId INT
-)
+	,CONSTRAINT PK_OfferAffiliate PRIMARY KEY CLUSTERED
+	(
+		PageId ASC, AffId ASC
+	)
+)ON [DATA]
+
