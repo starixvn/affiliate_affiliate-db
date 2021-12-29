@@ -1,0 +1,114 @@
+/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[AffAdmin_QualifiedMembersReport] 
+	@UserCurrencies	VARCHAR(MAX) = ''
+	,@AffId			INT
+	,@MonthDate		DATETIME
+	,@BaseCurrency	TINYINT 		= 2
+	,@ProductIds 	VARCHAR(100)	= NULL
+AS
+
+/*    
+	Task: Qualified Members Report  
+	DB: DBAFF.Affiliate_Athena000
+	Original: [AffAdmin_CommissionReport]
+
+	Revisions:           
+		- 20140213@Bobby.Nguyen: Multiply exchange rate
+		- 20140514@Bobby: Add Playtech Casio product    
+		- 20140523@Bobby: Rollback check QualifiedAmount
+		- 20140523@Bobby: Add Virtual Sport & apply style-scope
+		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
+		- 20151119@Bobby: Do update for listing product dynamically
+		- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
+		- 20211222@Percy: Merge SLT to SB [RedmineID: #165777]
+
+	Param's Explanation: 
+		• @UserId: Admin user id
+		• @AffId: Affiliate ID
+		• @Month: Month need to view
+*/
+
+BEGIN
+	SET NOCOUNT ON
+	
+	DECLARE @HasPermission BIT = 0
+
+	IF EXISTS (
+		SELECT 1 FROM dbo.AffInfo ai WITH (NOLOCK)
+			INNER JOIN dbo.strSplit(@UserCurrencies, ',') c ON ai.Currency = CONVERT(INT, c.val)
+		WHERE ai.AffID = @AffId
+	)
+		SELECT @HasPermission = 1
+
+	IF (@HasPermission = 0) RETURN
+	
+	-- Get productid
+	DECLARE @FromDate 		DATETIME
+		,@ToDate 			DATETIME
+		,@QualifiedAmount 	MONEY
+		,@AffCurrency 		INT
+		,@SysCurrency 		INT
+		,@SysExRate 		FLOAT = 1
+
+	SELECT @FromDate 		= dbo.Aff_GetFirstDayOfMonth(@MonthDate)
+		,@ToDate 			= dbo.Aff_GetLastDayOfMonth(@MonthDate)
+		
+		
+	DECLARE @ProductFilter TABLE (GroupProductId INT, ProductId INT, GroupProductName VARCHAR(100))
+	
+	IF (LEN(@ProductIds) > 0)
+	BEGIN
+		INSERT INTO @ProductFilter (GroupProductId, ProductId, GroupProductName)
+		SELECT ISNULL(g.GroupProductId, p.ProductId), ISNULL(g.ProductId, p.ProductId), ISNULL(g.GroupProductName, p.ProductName)
+		FROM [dbo].[strSplit](@ProductIds, ',') s
+			INNER JOIN dbo.Product p WITH (NOLOCK) ON s.val = p.ProductId
+			LEFT JOIN dbo.Aff_f_GroupProduct() g ON p.ProductId = g.GroupProductId
+	END
+	ELSE
+	BEGIN
+		INSERT INTO @ProductFilter (GroupProductId, ProductId, GroupProductName)
+		SELECT ISNULL(g.GroupProductId, p.ProductId), ISNULL(g.ProductId, p.ProductId), ISNULL(g.GroupProductName, p.ProductName)
+		FROM dbo.Product p WITH (NOLOCK)
+			LEFT JOIN dbo.Aff_f_GroupProduct() g ON p.ProductId = g.ProductId
+	END
+
+	SELECT @QualifiedAmount = [dbo].[AffAdmin_QualifiedAmount](@AffId, @MonthDate)
+
+	IF(@BaseCurrency = 1) -- convert QualifiedAmount to SysCurrency
+	BEGIN
+		SELECT TOP 1 @AffCurrency = Currency
+		FROM dbo.AffInfo WITH(NOLOCK)
+		WHERE AffID = @AffId
+
+		SELECT TOP 1 @SysCurrency = cur.CurrencyID
+		FROM dbo.SystemSettings se WITH(NOLOCK)
+			INNER JOIN dbo.Currency cur WITH(NOLOCK) ON se.SValue = cur.CurrencyCode
+		WHERE SName = 'SystemCurrency'
+			AND [Type] = 'Meta'
+		
+		IF(@AffCurrency <> @SysCurrency)
+		BEGIN
+			SET @SysExRate = [dbo].[Aff_GetExchangeRate](@AffCurrency, @SysCurrency, NULL)
+		END
+	END
+
+	--get exchange rate base on @BaseCurrency
+	SELECT m.Username
+		,e.Code AS Currency
+		,(@QualifiedAmount * @SysExRate) AS QualifiedAmountBase 
+		,@QualifiedAmount AS QualifiedAmount --Get from group setting
+		,p.GroupProductId AS ProductId
+		,p.GroupProductName AS ProductName
+		,SUM(ISNULL(Turnover,0) * ISNULL(m.SysExRate, 0)) AS TurnoverBase
+		,SUM(ISNULL(Turnover,0) * ISNULL(m.AffExRate, 0)) AS Turnover
+	FROM dbo.MemberDaily m WITH (NOLOCK)
+		INNER JOIN dbo.Exchange e WITH (NOLOCK) ON m.Currency = e.ExchangeID
+		INNER JOIN @ProductFilter p ON m.ProductId = p.ProductId
+	WHERE AffId = @AffID
+		AND m.WinlostDate BETWEEN @FromDate AND @ToDate
+	GROUP BY m.Username
+		,e.Code
+		,p.GroupProductId
+		,p.GroupProductName
+END
+GO
