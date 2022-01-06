@@ -13,6 +13,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initiliaze SP [RedmineID: #87923]
+		- 20211213@Malcolm: Add information of exclusive page [RedmineID: #165915]
 
 	Parameter's Explanation:
 		- @UserName: username or mail of user
@@ -30,10 +31,15 @@ BEGIN
 		ai.AffType,
 		ai.IsClosed,
 		ai.Status,
-		ad.PreferredLanguage
+		ad.PreferredLanguage,
+	    CASE WHEN op.PageId IS NULL THEN 0
+			 WHEN GETDATE() BETWEEN op.EffectiveFromDate AND op.EffectiveToDate THEN op.PageId  
+		ELSE 0 END AS OfferPageId
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffID = ad.AffID
 		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupID = cg.GroupID
+		LEFT JOIN dbo.OfferAffiliate ea WITH(NOLOCK) ON ea.AffId = ai.AffID
+		LEFT JOIN dbo.OfferPage op WITH(NOLOCK) ON op.PageId = ea.PageId
 	WHERE (ai.UserName = @UserName OR ai.Email = @UserName)
 		AND cg.IsDeleted = 0
 END
