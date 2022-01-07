@@ -74,11 +74,11 @@ BEGIN
 							)  
 		SELECT @Date,b.CustID,c.username,b.currency,
 			  SUM( CASE WHEN bettype = 22001 THEN winlost-actual_stake ELSE 0 END), --Deposit  
-			  -SUM(CASE WHEN bettype in (22002,22003) THEN winlost-actual_stake ELSE 0 END),--Withdrawal  
+			  -SUM(CASE WHEN bettype IN (22002,22003) THEN winlost-actual_stake ELSE 0 END),--Withdrawal  
 			  SUM( CASE WHEN bettype = 21006 THEN winlost-actual_stake ELSE 0 END), --Aff2MemTransfer  
 			  SUM( CASE WHEN bettype = 22004 THEN winlost-actual_stake ELSE 0 END),--Bonus  
-			  SUM( CASE WHEN bettype in (21001, 21002, 21003, 21004, 21005, 22005) THEN winlost-actual_stake ELSE 0 END), --Adjustment  
-			  SUM( CASE WHEN bettype in (22006,22007) THEN winlost-actual_stake ELSE 0 END)--Transfer3rd  
+			  SUM( CASE WHEN bettype IN (21001, 21002, 21003, 21004, 21005, 22005) THEN winlost-actual_stake ELSE 0 END), --Adjustment  
+			  SUM( CASE WHEN bettype IN (22006,22007) THEN winlost-actual_stake ELSE 0 END)--Transfer3rd  
 		FROM bodb02.dbo.Transfer b WITH(NOLOCK)    
 			INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid=c.custid  	
 		WHERE b.winlostdate = @Date  		
@@ -115,7 +115,7 @@ BEGIN
 		FROM bodb_Report.dbo.rptDepWinlost_bk b WITH(NOLOCK)    
 			INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid=c.custid  	
 		WHERE b.winlostdate = @Date  		
-			and (ISNULL(b.deposit, 0) <> 0 or ISNULL(b.withdrawal, 0) <> 0 or ISNULL(b.Bonus, 0) <> 0 or ISNULL(b.Adjustment, 0) <> 0)
+			AND (ISNULL(b.deposit, 0) <> 0 OR ISNULL(b.withdrawal, 0) <> 0 OR ISNULL(b.Bonus, 0) <> 0 OR ISNULL(b.Adjustment, 0) <> 0)
 	END  
 
 	ELSE IF @Date >= @CutDate  
@@ -146,7 +146,7 @@ BEGIN
 		FROM bodb_report.dbo.rptdepwinlost b WITH(NOLOCK)     
 			 INNER JOIN #LicenseeCust c WITH (NOLOCK) ON b.custid=c.custid  	
 		WHERE b.winlostdate  = @Date  		
-			AND (ISNULL(b.deposit, 0) <> 0 or ISNULL(b.withdrawal, 0) <> 0 or ISNULL(b.Bonus, 0) <> 0 or ISNULL(b.Adjustment, 0) <> 0)
+			AND (ISNULL(b.deposit, 0) <> 0 OR ISNULL(b.withdrawal, 0) <> 0 OR ISNULL(b.Bonus, 0) <> 0 OR ISNULL(b.Adjustment, 0) <> 0)
 	END   
    
 	SELECT  

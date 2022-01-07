@@ -77,12 +77,11 @@ BEGIN
 			,@Status		= 'Approved'
 			,@StatusID		= 132
 	
-	DECLARE @TransID1 BIGINT, @TransID2 BIGINT, @Amount MONEY
+	DECLARE @TransID1 BIGINT, @TransID2 BIGINT = NULL, @Amount MONEY
 	SELECT  @Amount = ABS(@AffPayout)
 
+	-- Add money to player
 	BEGIN TRY
-		-- Add money to player
-
 		INSERT INTO dbo.Transfer
 		(
 			custid, username, refno, transdate, bettype, transdesc, winlost, actual_stake, winlostdate
@@ -95,10 +94,25 @@ BEGIN
 		)
 	
 		SELECT @TransID1 = SCOPE_IDENTITY()
+	END TRY
+	BEGIN CATCH 
+		SELECT @ErrCode = 4003, @ErrMsg = 'Insert transaction failed.'
+		RETURN
+	END CATCH
 
-		EXEC Dot_BalanceCreditUpd @CustID = @Player_IBCCustID, @balance = @Amount, @type = 2
+	EXEC Dot_BalanceCreditUpd @CustID = @Player_IBCCustID, @balance = @Amount, @type = 2, @ErrCode = @ErrCode OUTPUT
+	
+	IF @ErrCode <> 0
+	BEGIN
+		DELETE dbo.Transfer WITH (ROWLOCK, UPDLOCK)
+		WHERE transid = @TransID1
 
-		-- Deduct balance account
+		SELECT @ErrCode = 4002, @ErrMsg = 'Update transaction failed.'
+		RETURN
+	END
+
+	-- Deduct balance account
+	BEGIN TRY
 		INSERT INTO dbo.Transfer
 		(
 			custid, username, refno, transdate, bettype, transdesc, winlost, actual_stake, winlostdate
@@ -111,26 +125,29 @@ BEGIN
 		)
     
 		SELECT @TransID2 = SCOPE_IDENTITY()
-
-		EXEC Dot_BalanceDebitUpd @CustID = @Ballance_CustID, @balance = @Amount, @type = 2, @IsForced = 1, @ErrCode = @ErrCode OUTPUT
-
-		IF @ErrCode <> 0
-		BEGIN
-			-- Rollback bettrans
-			DELETE dbo.Transfer WITH (ROWLOCK, UPDLOCK)
-			WHERE transid IN (@TransID1, @TransID2)
-
-			SELECT @ErrCode = 4002, @ErrMsg = 'Update transaction failed.'
-			RETURN
-		END
 	END TRY
-	BEGIN CATCH
+	BEGIN CATCH 
+		DELETE dbo.Transfer WITH (ROWLOCK, UPDLOCK)
+		WHERE transid IN (@TransID1, @TransID2)
+
+		EXEC Dot_BalanceDebitUpd @CustID = @Player_IBCCustID, @balance = @Amount, @type = 2, @IsForced = 1
+
+		SELECT @ErrCode = 4002, @ErrMsg = 'Update transaction failed.'
+		RETURN
+	END CATCH
+
+	EXEC Dot_BalanceDebitUpd @CustID = @Ballance_CustID, @balance = @Amount, @type = 2, @IsForced = 1, @ErrCode = @ErrCode OUTPUT
+
+	IF @ErrCode <> 0
+	BEGIN
 		-- Rollback bettrans
 		DELETE dbo.Transfer WITH (ROWLOCK, UPDLOCK)
 		WHERE transid IN (@TransID1, @TransID2)
 
-		SELECT @ErrCode = 4003, @ErrMsg = 'Insert transaction failed.'
+		EXEC Dot_BalanceDebitUpd @CustID = @Player_IBCCustID, @balance = @Amount, @type = 2, @IsForced = 1
+
+		SELECT @ErrCode = 4002, @ErrMsg = 'Update transaction failed.'
 		RETURN
-	END CATCH
+	END
 END
 GO
