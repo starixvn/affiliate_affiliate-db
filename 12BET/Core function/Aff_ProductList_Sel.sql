@@ -10,6 +10,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20181001@Percy: Add isTest [RedmineID: #102322]
+		- 20211207@Percy: Apply core function Group Product [RedmineID: #165777]
 */
 
 BEGIN
@@ -18,13 +19,10 @@ BEGIN
 	DECLARE @IsTest BIT
 	SELECT  @IsTest = dbo.f_Aff_CheckSPVersion(@@PROCID)
 
-	SELECT
-		ProductId,
-		ProductName,
-		EndOfSupportDate
-	FROM dbo.Products WITH (NOLOCK)
-	WHERE IsTest <= @IsTest
-	ORDER BY
-		ProductId
+	SELECT p.ProductId, p.ProductName, p.EndOfSupportDate
+	FROM dbo.Products p WITH (NOLOCK)
+	WHERE p.IsTest <= @IsTest
+		AND NOT EXISTS (SELECT 1 FROM dbo.Aff_f_GroupProduct() g WHERE p.ProductId = g.ProductId AND g.ProductId <> g.GroupProductId)
+	ORDER BY p.ProductId
 END
 GO

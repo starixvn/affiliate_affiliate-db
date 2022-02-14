@@ -16,6 +16,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20191210@Percy: Remove get data on bettrans [RedmineID: #121971]
 		- 20210526@Malcolm: Get turnover [RedmineID: #149210]
+		- 20211207@Percy: Apply core function Group Product [RedmineID: #165777]
 */
 
 BEGIN
@@ -37,6 +38,15 @@ BEGIN
 
 	-- Get Data
 	BEGIN
+		DECLARE @Products TABLE (ProductId INT)
+	
+		IF @ProductId > 0
+			INSERT INTO @Products (ProductId)
+			SELECT ISNULL(g.ProductId, p.ProductId)
+			FROM dbo.Products p WITH (NOLOCK)
+				LEFT JOIN dbo.Aff_f_GroupProduct() g ON p.ProductId = g.GroupProductId
+			WHERE p.ProductId = @ProductId
+
 		CREATE TABLE #Data
 		(
 			WinlostDate SMALLDATETIME
@@ -100,9 +110,10 @@ BEGIN
 							,r.Bonus * r.AffExRate		AS Bonus
 							,r.Turnover * r.AffExRate   AS Turnover
 					FROM dbo.rptMemberDaily r WITH (NOLOCK)
+						LEFT JOIN @Products p ON r.ProductId = p.ProductId
 					WHERE r.WinlostDate = wld.WinlostDate
 						AND r.AffId = @AffId
-						AND (@ProductId = 0 OR r.ProductId < 0 OR r.ProductId = @ProductId)
+						AND (@ProductId = 0 OR r.ProductId < 0 OR p.ProductId IS NOT NULL)
 						AND NOT EXISTS (
 							SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 							WHERE mr.IBCCustId = r.IBCCustId

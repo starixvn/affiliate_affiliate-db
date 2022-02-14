@@ -25,6 +25,8 @@ AS
 		- 20191210@Percy: Add withdrawal column and support sort [RedmineID: #121971]
 		- 20210223@Percy: Exclude removed member [RedmineID: #149213]
 		- 20210528@Malcolm: Add filter Date range [RedmineID: #149210]
+		- 20211207@Percy: Apply core function Group Product [RedmineID: #165777]
+
 	Param's Explanation:
 		- @SortById:	1 = Username
 						2 = Registered Date
@@ -44,6 +46,15 @@ BEGIN
 
 	DECLARE @CutOffDate SMALLDATETIME
 	SELECT  @CutOffDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CutOffReportDate'
+
+	DECLARE @Products TABLE (ProductId INT)
+	
+	IF @ProductId > 0
+		INSERT INTO @Products (ProductId)
+		SELECT ISNULL(g.ProductId, p.ProductId)
+		FROM dbo.Products p WITH (NOLOCK)
+			LEFT JOIN dbo.Aff_f_GroupProduct() g ON p.ProductId = g.GroupProductId
+		WHERE p.ProductId = @ProductId
 	
 	CREATE TABLE #tmpData (IBCCustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, Winloss MONEY, Bonus MONEY, BankingFee MONEY, EndOfMonth DATETIME)
 	-- rptMemberDaily
@@ -78,9 +89,10 @@ BEGIN
 			CROSS APPLY (
 				SELECT r.IBCCustId, r.Deposit, r.Withdrawal, r.Turnover, r.Winloss, r.Bonus, r.AffExRate
 				FROM dbo.rptMemberDaily r WITH (NOLOCK)
+					LEFT JOIN @Products p ON r.ProductId = p.ProductId
 				WHERE wld.WinlostDate = r.WinlostDate
 					AND r.AffId = @AffId
-					AND (@ProductId = 0 OR r.ProductId < 0 OR r.ProductId = @ProductId)
+					AND (@ProductId = 0 OR r.ProductId < 0 OR p.ProductId IS NOT NULL)
 			) r
 		GROUP BY r.IBCCustId, DATEADD(DAY, - 1, DATEADD(MONTH, DATEDIFF(MONTH, 0, wld.WinlostDate) + 1, 0))
 		HAVING SUM((r.Deposit + r.Withdrawal + r.Turnover + ABS(r.Winloss) + r.Bonus) * r.AffExRate) > 0.0

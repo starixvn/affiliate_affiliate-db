@@ -6,7 +6,8 @@ ALTER PROCEDURE [dbo].[Aff_Commission_UnCalc]
 	@ProductIds			VARCHAR(MAX) = '0',
 	@IsGetMonthly       BIT = 1,
 	@IsSumAll			BIT = 0,
-	@GetRowTotalOnly	BIT = 0
+	@GetRowTotalOnly	BIT = 0,
+	@IsGroupProduct		BIT = 1
 AS
 
 /*
@@ -21,6 +22,7 @@ AS
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 		- 20191127@Percy: Enhance performance [RedmineID: #118992]
 		- 20210528@Malcolm: Get date daily [RedmineID: #149210]
+		- 20211207@Percy: Apply core function Group Product [RedmineID: #165777]
 */
 
 BEGIN
@@ -48,6 +50,7 @@ BEGIN
 			AffId			INT,
 			IBCCustId		INT,
 			ProductId		INT,
+			ParentProductId	INT, -- GroupProductId
 			Deposit			MONEY,
 			Withdrawal		MONEY,
 			Bonus			MONEY,
@@ -63,6 +66,7 @@ BEGIN
 			AffId,
 			IBCCustId,
 			ProductId,
+			ParentProductId,
 			Deposit,
 			Withdrawal,
 			Bonus,
@@ -76,6 +80,7 @@ BEGIN
 			,md.AffId
 			,md.IBCCustId
 			,md.ProductId
+			,ISNULL(g.GroupProductId, md.ProductId)
 			,SUM(ISNULL(md.Deposit, 0)		* ISNULL(md.AffExRate, 1)) AS Deposit
 			,SUM(ISNULL(md.Withdrawal, 0)	* ISNULL(md.AffExRate, 1)) AS Withdrawal
 			,SUM(ISNULL(md.Bonus, 0)		* ISNULL(md.AffExRate, 1)) AS Bonus
@@ -84,6 +89,7 @@ BEGIN
 			,SUM(ISNULL(md.AWinloss, 0)		* ISNULL(md.AffExRate, 1)) AS AWinloss
 			,SUM(ISNULL(md.AComm, 0)		* ISNULL(md.AffExRate, 1)) AS AComm
 		FROM dbo.rptMemberDaily md WITH (NOLOCK)
+			LEFT JOIN dbo.Aff_f_GroupProduct() g ON md.ProductId = g.ProductId
 		WHERE (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%' + CONVERT(VARCHAR(20), md.AffId) + '%')
 			AND md.winlostdate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
 			AND NOT EXISTS (
@@ -96,6 +102,7 @@ BEGIN
 			,md.AffId
 			,md.IBCCustId
 			,md.ProductId
+			,ISNULL(g.GroupProductId, md.ProductId)
 	END
 
 	-- Setting
@@ -122,7 +129,7 @@ BEGIN
 			MonthDate				SMALLDATETIME
 			,GroupId				INT
 			,ProductId				INT
-			,GroupProductId			TINYINT
+			,GroupProductId			TINYINT -- for setting
 			,PlatFormFee			DECIMAL(9,8) DEFAULT (0)
 			,OperationalFee			DECIMAL(9,8) DEFAULT (0)
 			,BankingFee				DECIMAL(9,8) DEFAULT (0)
@@ -178,6 +185,7 @@ BEGIN
 			AffId					INT,
 			GroupId					INT,
 			ProductId				INT,
+			ParentProductId			INT,
 			GroupProductId			TINYINT,
 			Deposit					MONEY DEFAULT (0),
 			Withdrawal				MONEY DEFAULT (0),
@@ -211,19 +219,20 @@ BEGIN
 			MonthDate,
 			AffId,
 			ProductId,
+			ParentProductId,
 			Turnover,
 			Winloss,
 			AWinloss,
 			AComm
 		)
-		SELECT MonthDate, AffId, ProductId
+		SELECT MonthDate, AffId, ProductId, ParentProductId
 			,SUM(Turnover)	AS Turnover
 			,SUM(Winloss)	AS Winloss
 			,SUM(AWinloss)	AS AWinloss
 			,SUM(AComm)		AS AComm
 		FROM #Data
 		WHERE ProductId > 0
-		GROUP BY MonthDate, AffId, ProductId
+		GROUP BY MonthDate, AffId, ProductId, ParentProductId
 
 		-- Total
 		;WITH CTE_SumMember AS
@@ -239,6 +248,7 @@ BEGIN
 			MonthDate,
 			AffId,
 			ProductId,
+			ParentProductId,
 			Deposit,
 			Withdrawal,
 			Bonus,
@@ -250,7 +260,7 @@ BEGIN
 			QualifiedMember,
 			QMTurnover
 		)
-		SELECT MonthDate, AffId, 0	AS ProductId,
+		SELECT MonthDate, AffId, 0 AS ProductId, 0 AS ParentProductId,
 			SUM(Deposit)			AS Deposit,
 			SUM(Withdrawal)			AS Withdrawal,
 			SUM(Bonus)				AS Bonus,
@@ -312,7 +322,7 @@ BEGIN
 			c.BankingFee			= (c.Deposit + c.Withdrawal) * s.BankingFee
 		FROM #Commission c
 			INNER JOIN @AffGroupInfo a ON c.AffId = a.AffId AND c.MonthDate = a.MonthDate
-			INNER JOIN @Setting s ON a.GroupId = s.GroupId AND c.MonthDate = s.MonthDate AND c.ProductId = s.ProductId
+			INNER JOIN @Setting s ON a.GroupId = s.GroupId AND c.MonthDate = s.MonthDate AND c.ParentProductId = s.ProductId
 
 		;WITH CTE_PlatFormFee AS
 		(
@@ -339,7 +349,7 @@ BEGIN
 				AffId
 		)
 		UPDATE c
-		SET c.PlatFormFee	= pf.PlatFormFee
+		SET c.PlatFormFee = pf.PlatFormFee
 		FROM #Commission c
 			INNER JOIN CTE_PlatFormFee pf ON c.MonthDate = pf.MonthDate AND c.AffId = pf.AffId
 		WHERE c.ProductId = 0
@@ -381,6 +391,24 @@ BEGIN
 					AND gsh.TierId <= t.TierId
 			) AS s
 		WHERE c.ProductId = 0
+
+		IF @IsGroupProduct = 1 -- 0 for job (keep original data), 1 for report (merge product)
+		BEGIN
+			MERGE #Commission AS t
+			USING (
+				SELECT MonthDate, AffId, GroupId, GroupProductId, ParentProductId AS ProductId, Turnover, Winloss, PlatFormFee
+				FROM #Commission WHERE ProductId <> ParentProductId
+			) AS s ON t.MonthDate = s.MonthDate AND t.AffId = s.AffId AND t.ProductId = s.ProductId
+			WHEN MATCHED THEN UPDATE
+				SET t.Turnover = t.Turnover + s.Turnover
+				,t.Winloss = t.Winloss + s.Winloss
+				,t.PlatFormFee = t.PlatFormFee + s.PlatFormFee
+			WHEN NOT MATCHED THEN INSERT
+				(MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, PlatFormFee)
+				VALUES (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, PlatFormFee);
+
+			DELETE #Commission WHERE ProductId <> ParentProductId
+		END
 
 		-- Filter by Products
 		IF @ProductIds <> '0'

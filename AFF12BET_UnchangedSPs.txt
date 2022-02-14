@@ -1,8 +1,8 @@
-12BET\Admin\Customer\Statement History\Aff_Admin_StatementHistory_Sel.sql
 12BET\Admin\Customer\Statistics\Aff_Admin_Statistics_Sel.sql
+12BET\Admin\Customer\Statement History\Aff_Admin_StatementHistory_Sel.sql
 12BET\Admin\Home\Aff_Admin_GeneralInfo_Sel.sql
 12BET\Admin\Report\Affiliate Report\Aff_Admin_AffiliateReport_Detail_Sel.sql
 12BET\Admin\Report\Affiliate Report\Aff_Admin_AffiliateReport_Sel.sql
 12BET\User\Commission Report\Aff_User_Rpt_Commission.sql
-12BET\User\Home\Aff_User_StatisticsSel.sql
+12BET\User\Home\Aff_User_Overview_Summary_Sel.sql
 12BET\User\Statement History\Aff_User_StatementHistory_Sel.sql
