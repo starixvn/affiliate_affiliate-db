@@ -15,6 +15,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201026@Percy: Add AffCode [RedmineID: #143852]
 		- 20200107@Percy: Add suspended status [RedmineID: #148373]
+		- 20211005@Percy: Support Transfer Balance For Player [RedmineID: #153227]
 */
 
 BEGIN
@@ -82,6 +83,9 @@ BEGIN
 		ad.PreferredPayment, -- Player, Neteller, Moneybookers, Wire (Bank Transfer)
 			-- Player
 		ad.Player_Username		AS PlayerUsername,
+		ad.Player_CurrencyCode	AS PlayerCurrency,
+		ad.TransferLimit,
+		CONVERT(BIT, ISNULL(ad.DisabledTransfer, 0)) AS DisabledTransfer,
 			-- Netteller
 		ad.Neteller_AccountID	AS NetellerAccountId,
 			-- Moneybookers
