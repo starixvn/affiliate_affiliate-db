@@ -17,6 +17,7 @@ AS
 		- 20210714@Percy: Treat TO, WL = 0 for P2P Products [RedmineID: #157958]
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20211105@Percy: Exclude non-deposited player from active players [RedmineID: #164246]
+		- 20220110@Percy: Fix check current date due to different timezone [RedmineID: #167244]
 */
 
 BEGIN
@@ -30,8 +31,11 @@ BEGIN
 	DECLARE @EndOfMonth SMALLDATETIME
 	SELECT  @EndOfMonth = DATEADD(DAY, -1, @ToNextMonth)
 
-	IF @ToNextMonth > DATEADD(DAY, 1, CONVERT(DATE, GETDATE()))
-		SELECT @ToNextMonth = DATEADD(DAY, 1, CONVERT(DATE, GETDATE()))
+	DECLARE @TimeZone INT
+	SELECT  @TimeZone = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
+
+	IF @ToNextMonth > DATEADD(DAY, 1, CONVERT(DATE, DATEADD(HOUR, 4 + @TimeZone, GETDATE())))
+		SELECT @ToNextMonth = DATEADD(DAY, 1, CONVERT(DATE, DATEADD(HOUR, 4 + @TimeZone, GETDATE())))
 
 	IF @ToNextMonth < DATEADD(DAY, 1, @FromBeginMonth)
 		RETURN
