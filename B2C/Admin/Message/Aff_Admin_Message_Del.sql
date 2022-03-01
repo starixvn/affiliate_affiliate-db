@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20220301@Malcolm: Add Hindi Language [RedmineId: #169142]
 */
 
 BEGIN
@@ -61,6 +62,7 @@ BEGIN
 					+ ',' + 'Message_Vi=' + ISNULL(m.Message_Vi, '')
 					+ ',' + 'Message_Kr=' + ISNULL(m.Message_Kr, '')
 					+ ',' + 'Message_Jp=' + ISNULL(m.Message_Jp, '')
+					+ ',' + 'Message_Hi=' + ISNULL(m.Message_Hi, '')
 					+ ',' + 'Important=' + ISNULL(CONVERT(VARCHAR(5), m.Important), '')
 	FROM dbo.News m WITH (NOLOCK)
 		INNER JOIN @Messages tmp ON m.MsgId = tmp.MessageId

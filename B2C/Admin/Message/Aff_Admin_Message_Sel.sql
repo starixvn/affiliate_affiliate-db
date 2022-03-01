@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20220301@Malcolm: Add Hindi Language [RedmineId: #169142]
 
 	Param Explanation:
 		- @MessageId:
@@ -48,6 +49,7 @@ BEGIN
 			,m.Message_Vi
 			,m.Message_Kr
 			,m.Message_Jp
+			,m.Message_Hi
 			,m.PostedDate
 			,m.Important
 			,m.UpdatedDate
@@ -83,7 +85,7 @@ BEGIN
 
 		SELECT
 			MessageId, Message_En, Message_Cn, Message_Tw, Message_Es, Message_Th, Message_Id
-			,Message_Vi, Message_Kr, Message_Jp, PostedDate, Important, UpdatedDate, CreatorName, UpdatedName
+			,Message_Vi, Message_Kr, Message_Jp, Message_Hi, PostedDate, Important, UpdatedDate, CreatorName, UpdatedName
 		FROM (
 			SELECT
 				m.MsgId AS MessageId
@@ -96,6 +98,7 @@ BEGIN
 				,m.Message_Vi
 				,m.Message_Kr
 				,m.Message_Jp
+				,m.Message_Hi
 				,m.PostedDate
 				,m.Important
 				,m.UpdatedDate
