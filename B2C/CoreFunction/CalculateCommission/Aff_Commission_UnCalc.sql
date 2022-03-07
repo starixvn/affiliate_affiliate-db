@@ -419,10 +419,10 @@ BEGIN
 				INNER JOIN @Setting s ON d.MonthDate = s.MonthDate AND d.GroupId = s.GroupId AND d.ProductId = s.ProductId
 
 			-- Total
-			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, Turnover, Winloss, Revenue, GrossWinloss, P2PFee, PlatFormFee, OperationalFee, StraightCommission)
-			SELECT c.MonthDate, c.AffId, c.GroupId, 0 AS ProductId, c.Turnover, c.Winloss, c.Revenue, c.GrossWinloss, c.P2PFee, c.PlatFormFee, c.OperationalFee * ISNULL(s.OperationalFee, 0) + ISNULL(s.OperationalAmount, 0), c.StraightCommission
+			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, Revenue, GrossWinloss, P2PFee, PlatFormFee, OperationalFee, StraightCommission)
+			SELECT c.MonthDate, c.AffId, c.GroupId, 0 AS ProductId, c.GroupProductId, c.Turnover, c.Winloss, c.Revenue, c.GrossWinloss, c.P2PFee, c.PlatFormFee, c.OperationalFee * ISNULL(s.OperationalFee, 0) + ISNULL(s.OperationalAmount, 0), c.StraightCommission
 			FROM (
-				SELECT MonthDate, AffId, GroupId, 0 AS ProductId
+				SELECT MonthDate, AffId, GroupId, 0 AS ProductId, GroupProductId
 					,SUM(Turnover) AS Turnover
 					,SUM(Winloss) AS Winloss
 					,SUM(Revenue) AS Revenue
@@ -440,15 +440,16 @@ BEGIN
 			UPDATE #Commission SET P2PFee = 0, PlatFormFee = 0, OperationalFee = 0 WHERE ProductId > 0
 
 			-- Total: Deposit, Withdrawal, ActivePlayer, Net WinLoss
+			;WITH CTE AS (SELECT MonthDate, GroupId, COUNT(DISTINCT GroupProductId) AS [NoGroupProduct] FROM @Setting WHERE IsStraightSetting = 0 GROUP BY MonthDate, GroupId)
 			UPDATE c
-			SET c.Deposit			= ISNULL(d.Deposit, 0)
-				,c.Withdrawal		= ISNULL(d.Withdrawal, 0)
-				,c.Bonus			= ISNULL(d.Bonus, 0)
-				,c.Rebate			= ISNULL(d.Rebate, 0)
-				,c.DepositFee		= ISNULL(d.DepositFee, 0)
-				,c.WithdrawalFee	= ISNULL(d.WithdrawalFee, 0)
+			SET c.Deposit			= ISNULL(d.Deposit, 0) / e.[NoGroupProduct]
+				,c.Withdrawal		= ISNULL(d.Withdrawal, 0) / e.[NoGroupProduct]
+				,c.Bonus			= ISNULL(d.Bonus, 0) / e.[NoGroupProduct]
+				,c.Rebate			= ISNULL(d.Rebate, 0) / e.[NoGroupProduct]
+				,c.DepositFee		= ISNULL(d.DepositFee, 0) / e.[NoGroupProduct]
+				,c.WithdrawalFee	= ISNULL(d.WithdrawalFee, 0) / e.[NoGroupProduct]
 				,c.ActivePlayer		= ISNULL(t.ActivePlayer, 0)
-				,c.NetWinloss = c.GrossWinloss - (c.PlatFormFee + c.OperationalFee + ISNULL(d.DepositFee, 0) + ISNULL(d.WithdrawalFee, 0)) - (ISNULL(d.Bonus, 0) + ISNULL(d.Rebate, 0))
+				,c.NetWinloss = c.GrossWinloss - c.PlatFormFee - (c.OperationalFee + ISNULL(d.DepositFee, 0) + ISNULL(d.WithdrawalFee, 0) - ISNULL(d.Bonus, 0) + ISNULL(d.Rebate, 0))/ e.NoGroupProduct
 			FROM #Commission c
 				LEFT JOIN (
 					SELECT d.MonthDate, d.AffId, d.GroupId
@@ -463,13 +464,15 @@ BEGIN
 					WHERE d.ProductId = 0 AND d.MonthDate >= @P2P_CutOffDate
 					GROUP BY d.MonthDate, d.AffId, d.GroupId
 				) d ON c.MonthDate = d.MonthDate AND c.AffId = d.AffId AND c.GroupId = d.GroupId
+				LEFT JOIN CTE e ON c.MonthDate = e.MonthDate AND c.GroupId = e.GroupId 
 				LEFT JOIN (
-					SELECT d.MonthDate, d.AffId, COUNT(DISTINCT d.CustId) AS ActivePlayer
+					SELECT d.MonthDate, d.AffId, s.GroupProductId, COUNT(DISTINCT d.CustId) AS ActivePlayer
 					FROM #Data d
 						INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId AND d.MonthDate >= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, m.FirstDepositDate) + 1, 0))
+						INNER JOIN @Setting s ON d.MonthDate = s.MonthDate AND d.GroupId = s.GroupId AND d.ProductId = s.ProductId
 					WHERE d.ProductId > 0 AND d.MonthDate >= @P2P_CutOffDate
-					GROUP BY MonthDate, d.AffId
-				) t ON c.MonthDate = t.MonthDate AND c.AffId = t.AffId
+					GROUP BY d.MonthDate, d.AffId, s.GroupProductId
+				) t ON c.MonthDate = t.MonthDate AND c.AffId = t.AffId AND c.GroupProductId = t.GroupProductId
 			WHERE c.ProductId = 0 AND c.MonthDate >= @P2P_CutOffDate
 		END
 
@@ -494,18 +497,76 @@ BEGIN
 				SELECT gsh.TierId
 				FROM dbo.TierSettingHistory gsh WITH (NOLOCK)
 					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(gsh.MonthDate, @AffCurrency, @BaseCurrency) e
-				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId
+				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId AND c.GroupProductId = gsh.GroupProductId
 					AND FLOOR(ABS(c.NetWinloss)) BETWEEN gsh.MinAmount * e.Rate AND gsh.MaxAmount * e.Rate
 			) AS t
 			OUTER APPLY (
 				SELECT TOP 1 gsh.Commission
 				FROM dbo.TierSettingHistory gsh WITH (NOLOCK)
-				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId
+				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId AND c.GroupProductId = gsh.GroupProductId
 					AND c.ActivePlayer BETWEEN gsh.MinAM AND gsh.MaxAM
 					AND gsh.TierId <= t.TierId
 				ORDER BY gsh.TierId DESC
 			) AS s
 		WHERE c.ProductId = 0
+
+		INSERT INTO #Commission
+		(
+			MonthDate,
+			AffId,
+			GroupId,
+			GroupProductId,
+			ProductId,
+			Deposit,
+			Withdrawal,
+			Bonus,
+			Rebate,
+			Turnover,
+			Winloss,
+			Revenue,
+			P2PFee,
+			PlatFormFee,
+			OperationalFee,
+			DepositFee,
+			WithdrawalFee,
+			GrossWinloss,
+			NetWinloss,
+			ActivePlayer,
+			CommissionRate,
+			Commission,
+			StraightCommission,
+			SubAffCommission
+		)
+		SELECT 
+			MonthDate,
+			AffId,
+			GroupId,
+			0 AS GroupProductId,
+			0 AS ProductId,
+			SUM(Deposit),
+			SUM(Withdrawal),
+			SUM(Bonus),
+			SUM(Rebate),
+			SUM(Turnover),
+			SUM(Winloss),
+			SUM(Revenue),
+			SUM(P2PFee),
+			SUM(PlatFormFee),
+			SUM(OperationalFee),
+			SUM(DepositFee),
+			SUM(WithdrawalFee),
+			SUM(GrossWinloss),
+			SUM(NetWinloss),
+			SUM(ActivePlayer),
+			SUM(CommissionRate),
+			SUM(Commission),
+			SUM(StraightCommission),
+			SUM(SubAffCommission)
+		FROM #Commission
+		WHERE ProductId = 0
+		GROUP BY MonthDate, AffId, GroupId
+	
+		DELETE #Commission WHERE ProductId = 0 AND GroupProductId <> 0
 
 		-- Filter by Currencies
 		IF @Currencies <> ''
