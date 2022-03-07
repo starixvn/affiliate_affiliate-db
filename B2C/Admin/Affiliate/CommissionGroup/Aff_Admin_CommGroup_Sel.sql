@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210714@Percy: Output more table for P2P Setting [RedmineID: #157958]
+		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 */
 
 BEGIN
@@ -83,7 +84,8 @@ BEGIN
 		gs.MaxAmount,
 		gs.MinAM,
 		gs.MaxAM,
-		gs.Commission
+		gs.Commission,
+		gs.GroupProductId
 	FROM dbo.TierSetting gs WITH (NOLOCK)
 		INNER JOIN @Group g ON gs.GroupId = g.GroupId
 	ORDER BY
@@ -106,7 +108,8 @@ BEGIN
 				, 1, 1, '') AS ProductIds,
 		ds.DeductedPercentage,
 		ds.DeductedAmount,
-		ds.IsDeductedPercent
+		ds.IsDeductedPercent,
+		ds.GroupProductId
 	FROM dbo.DeductionSetting ds WITH (NOLOCK)
 		INNER JOIN dbo.Deductions dt WITH (NOLOCK) ON ds.DeductionId = dt.DeductionId
 		INNER JOIN @Group g ON ds.GroupId = g.GroupId

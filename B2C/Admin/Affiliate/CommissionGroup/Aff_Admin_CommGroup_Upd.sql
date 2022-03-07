@@ -20,6 +20,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210714@Percy: Add @StraightList for P2P Setting [RedmineID: #157958]
+		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 
 	Parameter's Explanation:
 		- @DeductionList:
@@ -31,8 +32,10 @@ AS
 			</root>
 		- @TierList:
 			<root>
-				<row id="1" minamount="0" maxamount="100" minam="0" maxam="5" commission="0.2" />
-				<row id="2" minamount="101" maxamount="100000000000000" minam="6" maxam="1000000000" commission="0.3" />
+				<row id="1" productids="1,2,3" minamount="0" maxamount="100" minam="0" maxam="5" commission="0.2" />
+				<row id="2" productids="1,2,3" minamount="101" maxamount="100000000000000" minam="6" maxam="1000000000" commission="0.3" />
+				<row id="1" productids="4,5" minamount="0" maxamount="100" minam="0" maxam="5" commission="0.2" />
+				<row id="2" productids="4,5" minamount="101" maxamount="100000000000000" minam="6" maxam="1000000000" commission="0.3" />
 			</root>
 		- @StraightList:
 			<root>
@@ -111,11 +114,12 @@ BEGIN
 		,DeductedAmount		= CASE WHEN IsDeductedPercent = 1 THEN 0 ELSE ISNULL(DeductedAmount, 0) END
 
 	-- Tier Setting
-	DECLARE @TierSetting TABLE (TierID TINYINT, MinAmount MONEY, MaxAmount MONEY, MinAM INT, MaxAM INT, Commission DECIMAL(9,8))
+	DECLARE @TierSetting TABLE (TierID TINYINT, productids VARCHAR(MAX), GroupProductId TINYINT, MinAmount MONEY, MaxAmount MONEY, MinAM INT, MaxAM INT, Commission DECIMAL(9,8))
 	
-	INSERT INTO @TierSetting (TierID, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
+	INSERT INTO @TierSetting (TierID, productids, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
 	SELECT
 		t.c.value('@id', 'TINYINT'),
+		t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
 		t.c.value('@minamount', 'MONEY'),
 		t.c.value('@maxamount', 'MONEY'),
 		t.c.value('@minam', 'INT'),
@@ -123,6 +127,15 @@ BEGIN
 		t.c.value('@commission', 'DECIMAL(9,8)')
 	FROM @TierList.nodes('/root/row') AS t(c)
 	OPTION (OPTIMIZE FOR (@TierList = NULL))
+
+	UPDATE t
+		SET t.GroupProductId = l.GroupProductId
+	FROM @TierSetting t
+	CROSS APPLY (
+		SELECT TOP 1 d.GroupProductId
+		FROM @DeductionSetting d 
+		WHERE ',' + t.ProductIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), d.ProductId) + ',%'
+	) AS l
 
 	-- Check valid tier setting
 	IF (SELECT COUNT(1) FROM @TierSetting) > 50
@@ -140,10 +153,6 @@ BEGIN
 			FROM @TierSetting ts1
 				INNER JOIN @TierSetting ts2 ON ts1.TierID + 1 = ts2.TierID
 			WHERE ts1.MaxAmount + 1 <> ts2.MinAmount
-		)
-		OR NOT EXISTS
-		(
-			SELECT 1 FROM @TierSetting WHERE MaxAmount = @Infinity_Amount
 		)
 		OR NOT EXISTS
 		(
@@ -225,17 +234,17 @@ BEGIN
 
 		-- Tier List
 		DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
-			OUTPUT DELETED.TierId, DELETED.MinAmount, DELETED.MaxAmount, DELETED.MinAM, DELETED.MaxAM, DELETED.Commission, 2
-			INTO @updateData (TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, TypeId)
+			OUTPUT DELETED.TierId, DELETED.GroupProductId, DELETED.MinAmount, DELETED.MaxAmount, DELETED.MinAM, DELETED.MaxAM, DELETED.Commission, 2
+			INTO @updateData (TierId, GroupProductId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, TypeId)
 		WHERE GroupId = @GroupId
 
 		DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
-		INSERT INTO dbo.TierSetting (GroupId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
-		SELECT @GroupId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission FROM @TierSetting
+		INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
+		SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission FROM @TierSetting
 
-		INSERT INTO dbo.TierSettingHistory (GroupId, MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
-		SELECT @GroupId, @MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission FROM @TierSetting
+		INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
+		SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission FROM @TierSetting
 
 		-- Deduction List
 		DELETE dbo.DeductionSetting WITH (ROWLOCK, UPDLOCK)
@@ -281,11 +290,11 @@ BEGIN
 			DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId
 			DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
-			INSERT INTO dbo.TierSetting (GroupId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
-			SELECT @GroupId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission FROM @updateData WHERE TypeId = 2
+			INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
+			SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission FROM @updateData WHERE TypeId = 2
 
-			INSERT INTO dbo.TierSettingHistory (GroupId, MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
-			SELECT @GroupId, @MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission FROM @updateData WHERE TypeId = 2
+			INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
+			SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission FROM @updateData WHERE TypeId = 2
 		END
 
 		IF EXISTS (SELECT 1 FROM @updateData WHERE TypeId = 3)
@@ -334,7 +343,8 @@ BEGIN
 				MaxAmount	AS '@maxamount',
 				MinAM		AS '@minam',
 				MaxAM		AS '@maxam',
-				Commission	AS '@commission'
+				Commission	AS '@commission',
+				GroupProductId AS '@GroupProductId'
 			FROM @updateData
 			WHERE TypeId = 2
 			FOR XML PATH('row'), ROOT('root')		

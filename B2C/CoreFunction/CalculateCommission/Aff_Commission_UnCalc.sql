@@ -25,6 +25,7 @@ AS
 		- 20210916@Percy: Use Exchange function [RedmineID: #161540]
 		- 20210916@Percy: Exclude Jackpot from WL [RedmineID: #161540]
 		- 20211105@Percy: Exclude non-deposited player from active players [RedmineID: #164246]
+		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 */
 
 BEGIN
