@@ -44,5 +44,6 @@ RETURN
 			,QuestionNameID
 			,QuestionNameVN
 			,QuestionNameTH
+			,QuestionNameHI
 		)
 GO

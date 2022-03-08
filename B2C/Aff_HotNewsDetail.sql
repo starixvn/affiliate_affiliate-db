@@ -37,7 +37,7 @@ if(coalesce(@MsgID,-1)=-1) -- get the latest message
 		  ,[message_id]
 		  ,[message_kr]
 		  ,[message_jp]
-		  ,[message_Hi]
+		  ,[message_hi]
 		  ,n.creator
 		  ,[posteddate]
 		  ,[msgid]
