@@ -385,10 +385,13 @@ BEGIN
 			UPDATE c
 			SET c.OperationalFee	=  (k.GrossWinloss * s.OperationalFee + s.OperationalAmount)/e.NoGroupProduct,
 				c.DepositFee		=  (k.Deposit * s.DepositFee + s.DepositAmount)/ e.NoGroupProduct,
-				c.WithdrawalFee		=  (k.Withdrawal * s.WithdrawalFee + s.WithdrawalAmount)/ e.NoGroupProduct
+				c.WithdrawalFee		=  (k.Withdrawal * s.WithdrawalFee + s.WithdrawalAmount)/ e.NoGroupProduct,
+				c.Bonus				= K.Bonus/e.NoGroupProduct,
+				c.Rebate			= k.Rebate/e.NoGroupProduct
 			FROM #Commission c
 				INNER JOIN (
 					SELECT MonthDate, AffId, GroupId, ABS(SUM(GrossWinloss)) AS GrossWinloss,  SUM(Deposit) AS Deposit, SUM(Withdrawal) AS Withdrawal
+						, SUM(Bonus) AS Bonus, SUM(Rebate) AS Rebate
 					FROM #Commission 
 					WHERE ProductId = 0 AND MonthDate < @P2P_CutOffDate 
 					GROUP BY MonthDate, AffId, GroupId
