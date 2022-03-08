@@ -315,7 +315,7 @@ BEGIN
 		
 			-- Total
 			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, Deposit, Withdrawal, Bonus, Rebate)
-			SELECT d.MonthDate, d.AffId, a.GroupId, 0 AS ProductId, d.GroupProductId AS GroupProductId,
+			SELECT d.MonthDate, d.AffId, a.GroupId, 0 AS ProductId, 0 AS GroupProductId,
 				SUM(d.Turnover),
 				SUM(d.Winloss),
 				SUM(d.Deposit),
@@ -323,82 +323,76 @@ BEGIN
 				SUM(d.Bonus),
 				SUM(d.Rebate)
 			FROM (
-				SELECT d.MonthDate, d.AffId, s.GroupProductId,
+				SELECT MonthDate, AffId,
 					0 AS Turnover,
 					0 AS Winloss,
-					SUM(d.Deposit)	AS Deposit,
-					SUM(d.Withdrawal)	AS Withdrawal,
-					SUM(d.Bonus)		AS Bonus,
-					SUM(d.Rebate)		AS Rebate
-				FROM #Data d
-					LEFT JOIN @Setting s ON d.MonthDate = s.MonthDate AND d.GroupId = s.GroupId AND d.ProductId = s.ProductId
-				WHERE d.ProductId = 0 AND d.MonthDate < @P2P_CutOffDate 
-				GROUP BY d.MonthDate, d.AffId, s.GroupProductId
+					SUM(Deposit)	AS Deposit,
+					SUM(Withdrawal)	AS Withdrawal,
+					SUM(Bonus)		AS Bonus,
+					SUM(Rebate)		AS Rebate
+				FROM #Data
+				WHERE ProductId = 0 AND MonthDate < @P2P_CutOffDate
+				GROUP BY MonthDate, AffId
 
 				UNION ALL
-				SELECT c.MonthDate, c.AffId, c.GroupProductId,
-					SUM(c.Turnover)	AS Turnover,
-					SUM(c.Winloss)	AS Winloss,
+				SELECT MonthDate, AffId,
+					SUM(Turnover)	AS Turnover,
+					SUM(Winloss)	AS Winloss,
 					0 AS Deposit,
 					0 AS Withdrawal,
 					0 AS Bonus,
 					0 AS Rebate
-				FROM #Commission c
-				WHERE c.MonthDate < @P2P_CutOffDate
-				GROUP BY c.MonthDate, c.AffId, c.GroupProductId
+				FROM #Commission
+				WHERE MonthDate < @P2P_CutOffDate
+				GROUP BY MonthDate, AffId
 			) d
 				INNER JOIN @AffGroupInfo a ON d.MonthDate = a.MonthDate AND d.AffId = a.AffId
-			GROUP BY d.MonthDate, d.AffId, a.GroupId, d.GroupProductId
+			GROUP BY d.MonthDate, d.AffId, a.GroupId
 
 			-- Update ActivePlayers
 			UPDATE c
 			SET c.ActivePlayer = t.ActivePlayer
 			FROM #Commission c
 				INNER JOIN (
-					SELECT d.MonthDate, d.AffId, s.GroupProductId, COUNT(DISTINCT d.CustId) AS ActivePlayer
+					SELECT d.MonthDate, d.AffId, COUNT(DISTINCT d.CustId) AS ActivePlayer
 					FROM #Data d
 						INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId AND d.MonthDate >= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, m.FirstDepositDate) + 1, 0))
 						INNER JOIN @AffGroupInfo a ON d.MonthDate = a.MonthDate AND d.AffId = a.AffId
 						INNER JOIN @Setting s ON a.GroupId = s.GroupId AND d.MonthDate = s.MonthDate AND d.ProductId = s.ProductId
 					WHERE d.ProductId > 0 AND d.MonthDate < @P2P_CutOffDate
-					GROUP BY d.MonthDate, d.AffId, s.GroupProductId
-				) t ON c.MonthDate = t.MonthDate AND c.AffId = t.AffId AND c.GroupProductId = t.GroupProductId
-			WHERE c.MonthDate < @P2P_CutOffDate AND c.ProductId = 0
+					GROUP BY d.MonthDate, d.AffId
+				) t ON c.MonthDate = t.MonthDate AND c.AffId = t.AffId
+			WHERE c.ProductId = 0 AND c.MonthDate < @P2P_CutOffDate
 
 			-- Update GrossWinloss, PlatFormFee
 			UPDATE c
-			SET c.GrossWinloss		= s.GrossWinloss,
-				c.PlatFormFee		= s.PlatFormFee
+			SET c.GrossWinloss		= t.GrossWinloss,
+				c.PlatFormFee		= t.PlatFormFee
 			FROM #Commission c
 				INNER JOIN (
-						SELECT MonthDate, AffId, GroupId,GroupProductId,
+					SELECT MonthDate, AffId, GroupId,
+						SUM(GrossWinloss)		AS GrossWinloss,
+						SUM(ABS(PlatFormFee))	AS PlatFormFee
+					FROM (
+						SELECT MonthDate, AffId, GroupId,
 							SUM(GrossWinloss)	AS GrossWinloss,
 							SUM(PlatFormFee)	AS PlatFormFee
 						FROM #Commission
 						WHERE ProductId > 0 AND MonthDate < @P2P_CutOffDate
 						GROUP BY MonthDate, AffId, GroupId, GroupProductId -- PlatFormFee group by GroupProductId
-					) s ON c.MonthDate = s.MonthDate AND c.AffId = s.AffId AND c.GroupId = s.GroupId AND  c.GroupProductId = s.GroupProductId
-			WHERE c.ProductId = 0 AND c.MonthDate < @P2P_CutOffDate  
+					) s
+					GROUP BY MonthDate, AffId, GroupId
+				) t ON c.MonthDate = t.MonthDate AND c.AffId = t.AffId
+			WHERE c.ProductId = 0 AND c.MonthDate < @P2P_CutOffDate
 
 			-- Update OperationalFee, DepositFee, WithdrawalFee
-			;WITH CTE AS (SELECT MonthDate, GroupId, COUNT(DISTINCT GroupProductId) AS [NoGroupProduct] FROM @Setting WHERE IsStraightSetting = 0 GROUP BY MonthDate, GroupId)
 			UPDATE c
-			SET c.OperationalFee	=  (k.GrossWinloss * s.OperationalFee + s.OperationalAmount)/e.NoGroupProduct,
-				c.DepositFee		=  (k.Deposit * s.DepositFee + s.DepositAmount)/ e.NoGroupProduct,
-				c.WithdrawalFee		=  (k.Withdrawal * s.WithdrawalFee + s.WithdrawalAmount)/ e.NoGroupProduct,
-				c.Bonus				= K.Bonus/e.NoGroupProduct,
-				c.Rebate			= k.Rebate/e.NoGroupProduct
+			SET c.OperationalFee	= ABS(c.GrossWinloss) * s.OperationalFee + s.OperationalAmount,
+				c.DepositFee		= c.Deposit * s.DepositFee + s.DepositAmount,
+				c.WithdrawalFee		= c.Withdrawal * s.WithdrawalFee + s.WithdrawalAmount
 			FROM #Commission c
-				INNER JOIN (
-					SELECT MonthDate, AffId, GroupId, ABS(SUM(GrossWinloss)) AS GrossWinloss,  SUM(Deposit) AS Deposit, SUM(Withdrawal) AS Withdrawal
-						, SUM(Bonus) AS Bonus, SUM(Rebate) AS Rebate
-					FROM #Commission 
-					WHERE ProductId = 0 AND MonthDate < @P2P_CutOffDate 
-					GROUP BY MonthDate, AffId, GroupId
-				) k ON k.MonthDate = c.MonthDate AND k.AffId = c.AffId AND k.GroupId = c.GroupId
-				INNER JOIN @Setting s ON c.MonthDate = s.MonthDate AND c.GroupId = s.GroupId AND c.ProductId = s.ProductId AND c.GroupProductId = s.GroupProductId
-				INNER JOIN CTE e ON e.MonthDate = s.MonthDate and e.GroupId = s.GroupId
-			WHERE c.ProductId = 0 AND c.MonthDate < @P2P_CutOffDate AND c.AffId = k.AffId
+				INNER JOIN @Setting s ON c.MonthDate = s.MonthDate AND c.GroupId = s.GroupId AND c.ProductId = s.ProductId
+			WHERE c.ProductId = 0 AND c.MonthDate < @P2P_CutOffDate
 
 			-- Update NetWinloss
 			UPDATE #Commission
@@ -574,7 +568,7 @@ BEGIN
 			SUM(StraightCommission),
 			SUM(SubAffCommission)
 		FROM #Commission
-		WHERE ProductId = 0
+		WHERE ProductId = 0 AND MonthDate > @P2P_CutOffDate
 		GROUP BY MonthDate, AffId, GroupId
 	
 		DELETE #Commission WHERE ProductId = 0 AND GroupProductId <> 0

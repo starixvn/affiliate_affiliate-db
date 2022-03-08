@@ -357,7 +357,8 @@ BEGIN
 				ProductIds			AS '@productids',
 				DeductedPercentage	AS '@percent',
 				DeductedAmount		AS '@amount',
-				IsDeductedPercent	AS '@isdeductedpercent'
+				IsDeductedPercent	AS '@isdeductedpercent',
+				GroupProductId      AS '@GroupProductId'
 			FROM
 			(
 				SELECT
@@ -375,7 +376,8 @@ BEGIN
 								AND up.IsDeductedPercent = ud.IsDeductedPercent
 								AND up.TypeId = ud.TypeId
 							FOR XML PATH (''))
-							, 1, 1, '') AS ProductIds
+							, 1, 1, '') AS ProductIds,
+					ud.GroupProductId
 				FROM @updateData ud
 				WHERE ud.TypeId = 3
 			) AS u
