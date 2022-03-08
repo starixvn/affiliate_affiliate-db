@@ -487,8 +487,13 @@ BEGIN
 			INNER JOIN (
 				SELECT c.MonthDate, c.GroupId, c.AffId, SUM(c.ActivePlayer) AS ActivePlayer
 				FROM #Commission c
-					LEFT JOIN dbo.TierSettingHistory h WITH(NOLOCK) ON h.GroupId = c.GroupId AND h.MonthDate = c.MonthDate AND h.GroupProductId = c.GroupProductId
-				WHERE c.ProductId = 0 AND h.IsActivePlayerSum = 1
+				WHERE c.ProductId = 0 
+					AND EXISTS (
+							SELECT 1 
+							FROM dbo.TierSettingHistory h WITH(NOLOCK) 
+							WHERE h.GroupId = c.GroupId AND h.MonthDate = c.MonthDate 
+							  AND h.GroupProductId = c.GroupProductId AND h.IsActivePlayerSum = 1
+					)
 				GROUP BY c.MonthDate, c.GroupId, c.AffId
 			) e ON e.MonthDate = c.MonthDate AND e.GroupId = c.GroupId AND e.AffId = c.AffId
 		WHERE c.ProductId = 0 AND c.MonthDate >= @P2P_CutOffDate
@@ -568,7 +573,7 @@ BEGIN
 			SUM(StraightCommission),
 			SUM(SubAffCommission)
 		FROM #Commission
-		WHERE ProductId = 0 AND MonthDate > @P2P_CutOffDate
+		WHERE ProductId = 0 AND MonthDate > @P2P_CutOffDate AND GroupProductId <> 0
 		GROUP BY MonthDate, AffId, GroupId
 	
 		DELETE #Commission WHERE ProductId = 0 AND GroupProductId <> 0

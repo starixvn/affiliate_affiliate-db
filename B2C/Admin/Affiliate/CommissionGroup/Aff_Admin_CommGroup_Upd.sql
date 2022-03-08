@@ -338,16 +338,26 @@ BEGIN
 	SELECT  @OldTierList = 
 		(
 			SELECT
-				TierId		AS '@id',
-				MinAmount	AS '@minamount',
-				MaxAmount	AS '@maxamount',
-				MinAM		AS '@minam',
-				MaxAM		AS '@maxam',
-				Commission	AS '@commission',
-				GroupProductId AS '@GroupProductId'
-			FROM @updateData
-			WHERE TypeId = 2
-			FOR XML PATH('row'), ROOT('root')		
+				u.TierId			AS '@id',
+				u.MinAmount			AS '@minamount',
+				u.MaxAmount			AS '@maxamount',
+				u.MinAM				AS '@minam',
+				u.MaxAM				AS '@maxam',
+				u.Commission		AS '@commission',
+				u.GroupProductId	AS '@GroupProductId',
+				l.productids		AS '@productids'
+			FROM @updateData u
+				CROSS APPLY (
+					SELECT STUFF
+						   (
+								(
+									SELECT ',' + CONVERT(VARCHAR(20), d.ProductId) AS productids
+									FROM @updateData d
+									WHERE u.GroupProductId = d.GroupProductId AND d.DeductionId = 10 AND d.TypeId = 3
+								 ), 1, 1, '')
+				 ) AS l (productids)
+			 WHERE u.TypeId = 2
+			 FOR XML PATH('row'), ROOT('root')		
 		)
 
 	SELECT  @OldDeductionList = 
