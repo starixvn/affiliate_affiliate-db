@@ -354,6 +354,7 @@ BEGIN
 									SELECT ',' + CONVERT(VARCHAR(20), d.ProductId) AS productids
 									FROM @updateData d
 									WHERE u.GroupProductId = d.GroupProductId AND d.DeductionId = 10 AND d.TypeId = 3
+									FOR XML PATH ('')
 								 ), 1, 1, '')
 				 ) AS l (productids)
 			 WHERE u.TypeId = 2

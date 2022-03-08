@@ -289,7 +289,8 @@ BEGIN
 			Commission			MONEY DEFAULT (0),
 			StraightCommission	MONEY DEFAULT (0),
 			SubAffCommission	MONEY DEFAULT (0),
-			IsHasMemberData		BIT DEFAULT (1)
+			IsHasMemberData		BIT DEFAULT (1),
+			ActivePlayerSum		INT DEFAULT (0)		
 		)
 	
 		CREATE NONCLUSTERED INDEX IX_MonthDate ON #Commission (MonthDate, AffId, GroupId, ProductId)
@@ -484,10 +485,10 @@ BEGIN
 				SELECT MonthDate, AffId, GroupProductId, COUNT(DISTINCT CustId) AS ActivePlayer FROM CTE WHERE IsActivePlayerSum = 0 GROUP BY MonthDate, AffId, GroupProductId
 			),CTE_SUM AS
 			(
-				SELECT MonthDate, AffId, COUNT(DISTINCT CustId) AS ActivePlayer FROM CTE WHERE IsActivePlayerSum = 1 GROUP BY MonthDate, AffId
+				SELECT MonthDate, AffId, COUNT(DISTINCT CustId) AS ActivePlayer FROM CTE GROUP BY MonthDate, AffId
 			)
 			UPDATE c
-				SET c.ActivePlayer = ISNULL(ISNULL(p.ActivePlayer, a.ActivePlayer), 0)
+				SET c.ActivePlayer = ISNULL(ISNULL(p.ActivePlayer, a.ActivePlayer), 0), c.ActivePlayerSum = ISNULL(a.ActivePlayer, 0)
 			FROM #Commission c 
 				LEFT JOIN CTE_GroupProduct p ON c.MonthDate = p.MonthDate AND c.AffId = p.AffId AND c.GroupProductId = p.GroupProductId
 				LEFT JOIN CTE_SUM a ON a.MonthDate = c.MonthDate AND a.AffId = c.AffId
@@ -563,7 +564,7 @@ BEGIN
 			SUM(WithdrawalFee),
 			SUM(GrossWinloss),
 			SUM(NetWinloss),
-			SUM(ActivePlayer),
+			MAX(ActivePlayer),
 			SUM(CommissionRate),
 			SUM(Commission),
 			SUM(StraightCommission),
