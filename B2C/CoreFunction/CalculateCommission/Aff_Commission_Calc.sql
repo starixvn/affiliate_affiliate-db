@@ -86,7 +86,8 @@ BEGIN
 		CommissionRate		DECIMAL(9,8) DEFAULT (0),
 		Commission			MONEY DEFAULT (0),
 		StraightCommission	MONEY DEFAULT (0),
-		SubAffCommission	MONEY DEFAULT (0)
+		SubAffCommission	MONEY DEFAULT (0),
+		IsMultiGroupProduct BIT DEFAULT (0)
 	)
 
 	BEGIN
@@ -104,11 +105,11 @@ BEGIN
 		-- Total
 		INSERT INTO #Commission (
 			MonthDate, AffId, GroupId, ProductId, Deposit, Withdrawal, Bonus, Rebate, Turnover, Winloss, Revenue
-			,P2PFee, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee, GrossWinloss, NetWinloss, ActivePlayer, CommissionRate
+			,P2PFee, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee, GrossWinloss, NetWinloss, ActivePlayer, CommissionRate, IsMultiGroupProduct
 		)
 		SELECT
 			r.MonthDate, r.AffId, r.GroupId, 0 AS ProductId, r.Deposit, r.Withdrawal, r.Bonus, r.Rebate, r.Turnover, r.Winloss, r.Revenue
-			,r.P2PFee, r.PlatFormFee, r.OperationalFee, r.DepositFee, r.WithdrawalFee, r.GrossWinloss, r.NetWinloss, r.ActivePlayer, r.CommissionRate
+			,r.P2PFee, r.PlatFormFee, r.OperationalFee, r.DepositFee, r.WithdrawalFee, r.GrossWinloss, r.NetWinloss, r.ActivePlayer, r.CommissionRate, IsMultiGroupProduct
 		FROM @MonthDate md
 			CROSS APPLY (
 				SELECT
@@ -131,6 +132,7 @@ BEGIN
 					,SUM(r.NetWinloss)		AS NetWinloss
 					,SUM(r.ActivePlayer)	AS ActivePlayer
 					,SUM(CASE WHEN r.GroupProductId IN (0, 1) THEN r.CommissionRate ELSE 0 END)	AS CommissionRate
+					,MAX(CASE WHEN GroupProductId > 1 THEN 1 ELSE 0 END) AS IsMultiGroupProduct
 				FROM dbo.rptAffCommission r WITH (NOLOCK)
 				WHERE r.MonthDate = md.MonthDate
 					AND (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), r.AffId) + ',%')
@@ -243,7 +245,8 @@ BEGIN
 			SUM(CommissionRate)		AS CommissionRate,
 			SUM(Commission)			AS Commission,
 			SUM(StraightCommission)	AS StraightCommission,
-			SUM(SubAffCommission)	AS SubAffCommission
+			SUM(SubAffCommission)	AS SubAffCommission,
+			MAX(IsMultiGroupProduct)AS IsMultiGroupProduct
 		FROM #Commission
 		GROUP BY
 			AffId,
@@ -275,7 +278,8 @@ BEGIN
 			CommissionRate,
 			Commission,
 			StraightCommission,
-			SubAffCommission
+			SubAffCommission,
+			IsMultiGroupProduct
 		FROM #Commission
 	END
 

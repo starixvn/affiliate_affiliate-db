@@ -77,6 +77,7 @@ BEGIN
 			Commission			MONEY,
 			StraightCommission	MONEY,
 			SubAffCommission	MONEY,
+			IsMultiGroupProduct BIT,
 			-- for monthdate -- 0: temporary, 1: uncalculated, 2: calculated
 			CalculatedType		TINYINT DEFAULT ((2))
 		)
@@ -111,7 +112,8 @@ BEGIN
 				CommissionRate,
 				Commission,
 				StraightCommission,
-				SubAffCommission
+				SubAffCommission,
+				IsMultiGroupProduct
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= @AffIds,
@@ -156,7 +158,8 @@ BEGIN
 				CommissionRate,
 				Commission,
 				StraightCommission,
-				SubAffCommission
+				SubAffCommission,
+				IsMultiGroupProduct
 			)
 			EXEC dbo.Aff_Commission_Calc
 				@AffIds				= @AffIds,
@@ -183,6 +186,7 @@ BEGIN
 		d.Bonus,
 		d.Rebate,
 		d.CommissionRate,
+		d.IsMultiGroupProduct,
 		d.Commission,
 		d.StraightCommission AS P2PCommission,
 		d.SubAffCommission,

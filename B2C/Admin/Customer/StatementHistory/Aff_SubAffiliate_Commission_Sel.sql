@@ -70,7 +70,8 @@ BEGIN
 			CommissionRate		FLOAT,
 			Commission			MONEY,
 			StraightCommission	MONEY,
-			SubAffCommission	MONEY
+			SubAffCommission	MONEY,
+			IsMultiGroupProduct BIT
 		)
 
 		INSERT INTO #TempCommission
@@ -97,7 +98,8 @@ BEGIN
 			CommissionRate,
 			Commission,
 			StraightCommission,
-			SubAffCommission
+			SubAffCommission,
+			IsMultiGroupProduct
 		)
 		EXEC dbo.Aff_Commission_UnCalc
 			@AffIds				= @AffIds,

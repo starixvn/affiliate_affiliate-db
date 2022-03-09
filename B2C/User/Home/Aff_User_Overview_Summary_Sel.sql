@@ -82,7 +82,8 @@ BEGIN
 			CommissionRate		FLOAT,
 			Commission			MONEY,
 			StraightCommission	MONEY,
-			SubAffCommission	MONEY
+			SubAffCommission	MONEY,
+			IsMultiGroupProduct BIT 
 		)
 
 		DECLARE @MaxCommDate SMALLDATETIME, @AffIds VARCHAR(MAX)
@@ -115,7 +116,8 @@ BEGIN
 				CommissionRate,
 				Commission,
 				StraightCommission,
-				SubAffCommission
+				SubAffCommission,
+				IsMultiGroupProduct
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= @AffIds,
@@ -152,7 +154,8 @@ BEGIN
 				CommissionRate,
 				Commission,
 				StraightCommission,
-				SubAffCommission
+				SubAffCommission,
+				IsMultiGroupProduct
 			)
 			EXEC dbo.Aff_Commission_Calc
 				@AffIds				= @AffIds,

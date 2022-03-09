@@ -291,7 +291,8 @@ BEGIN
 			StraightCommission	MONEY DEFAULT (0),
 			SubAffCommission	MONEY DEFAULT (0),
 			IsHasMemberData		BIT DEFAULT (1),
-			ActivePlayerSum		INT DEFAULT (0)		
+			ActivePlayerSum		INT DEFAULT (0),
+			IsMultiGroupProduct BIT DEFAULT (0)
 		)
 	
 		CREATE NONCLUSTERED INDEX IX_MonthDate ON #Commission (MonthDate, AffId, GroupId, ProductId)
@@ -552,7 +553,8 @@ BEGIN
 				CommissionRate,
 				Commission,
 				StraightCommission,
-				SubAffCommission
+				SubAffCommission,
+				IsMultiGroupProduct
 			)
 			SELECT 
 				MonthDate,
@@ -578,7 +580,8 @@ BEGIN
 				SUM(CASE WHEN GroupProductId IN (0, 1) THEN CommissionRate ELSE 0 END),
 				SUM(Commission),
 				SUM(StraightCommission),
-				SUM(SubAffCommission)
+				SUM(SubAffCommission),
+				MAX(CASE WHEN GroupProductId > 1 THEN 1 ELSE 0 END) AS IsMultiGroupProduct
 			FROM #Commission
 			WHERE ProductId = 0 AND MonthDate > @P2P_CutOffDate AND GroupProductId <> 0
 			GROUP BY MonthDate, AffId, GroupId
@@ -839,7 +842,8 @@ BEGIN
 				SUM(CommissionRate)			AS CommissionRate,
 				SUM(Commission)				AS Commission,
 				SUM(StraightCommission)		AS StraightCommission,
-				SUM(SubAffCommission)		AS SubAffCommission
+				SUM(SubAffCommission)		AS SubAffCommission,
+				MAX(IsMultiGroupProduct)    AS IsMultiGroupProduct
 			FROM #Commission
 			GROUP BY
 				AffId,
@@ -872,7 +876,8 @@ BEGIN
 				CommissionRate,
 				Commission,
 				StraightCommission,
-				SubAffCommission
+				SubAffCommission,
+				IsMultiGroupProduct
 			FROM #Commission
 		END
 	END
@@ -903,7 +908,8 @@ BEGIN
 				SUM(CommissionRate)			AS CommissionRate,
 				SUM(Commission)				AS Commission,
 				SUM(StraightCommission)		AS StraightCommission,
-				SUM(SubAffCommission)		AS SubAffCommission
+				SUM(SubAffCommission)		AS SubAffCommission,
+				MAX(IsMultiGroupProduct)    AS IsMultiGroupProduct
 			FROM #Commission
 			GROUP BY
 				AffId,
@@ -935,7 +941,8 @@ BEGIN
 				CommissionRate,
 				Commission,
 				StraightCommission,
-				SubAffCommission
+				SubAffCommission,
+				IsMultiGroupProduct
 			FROM #Commission
 		END
 	END

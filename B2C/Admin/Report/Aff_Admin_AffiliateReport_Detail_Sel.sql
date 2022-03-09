@@ -124,7 +124,8 @@ BEGIN
 			CommissionRate		FLOAT,
 			Commission			MONEY,
 			StraightCommission	MONEY,
-			SubAffCommission	MONEY
+			SubAffCommission	MONEY,
+			IsMultiGroupProduct BIT
 		)
 
 		IF @FromDate <= @MaxCommDate
@@ -156,7 +157,8 @@ BEGIN
 				CommissionRate,
 				Commission,
 				StraightCommission,
-				SubAffCommission
+				SubAffCommission,
+				IsMultiGroupProduct
 			)
 			EXEC dbo.Aff_Commission_Calc
 				@AffIds				= @AffIds,
@@ -197,7 +199,8 @@ BEGIN
 				CommissionRate,
 				Commission,
 				StraightCommission,
-				SubAffCommission
+				SubAffCommission,
+				IsMultiGroupProduct
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= @AffIds,
@@ -383,6 +386,7 @@ BEGIN
 		ISNULL(tc.WithdrawalFee, 0)				AS WithdrawalFee,
 		ISNULL(tc.PlatFormFee + tc.P2PFee + tc.OperationalFee + tc.DepositFee + tc.WithdrawalFee, 0) AS TotalFee,
 		ISNULL(tc.CommissionRate, 0)			AS CommissionRate,
+		ISNULL(tc.IsMultiGroupProduct, 0)       AS IsMultiGroupProduct,
 		ISNULL(tc.Commission, 0)				AS Earning,
 		ISNULL(tc.StraightCommission, 0)		AS P2PEarning,
 		ISNULL(tc.SubAffCommission, 0)			AS SubAffEarning,
@@ -434,6 +438,7 @@ BEGIN
 		SUM(ISNULL(tc.WithdrawalFee, 0))			AS WithdrawalFee,
 		SUM(ISNULL(tc.PlatFormFee, 0) + ISNULL(tc.P2PFee, 0) + ISNULL(tc.OperationalFee, 0) + ISNULL(tc.DepositFee, 0) + ISNULL(tc.WithdrawalFee, 0)) AS TotalFee,
 		AVG(ISNULL(tc.CommissionRate, 0))			AS CommissionRate,
+		MAX(ISNULL(tc.IsMultiGroupProduct, 0))      AS IsMultiGroupProduct,
 		SUM(ISNULL(tc.Commission, 0))				AS Earning,
 		SUM(ISNULL(tc.StraightCommission, 0))		AS P2PEarning,
 		SUM(ISNULL(tc.SubAffCommission, 0))			AS SubAffEarning,
