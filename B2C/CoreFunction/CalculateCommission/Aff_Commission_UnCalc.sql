@@ -9,6 +9,7 @@ ALTER PROCEDURE [dbo].[Aff_Commission_UnCalc]
 	,@SubLevel			TINYINT = 0
 	,@IsSumAll			BIT = 0
 	,@GetRowTotalOnly	BIT = 0
+	,@IsJob				BIT = 0
 AS
 
 /*
@@ -517,63 +518,74 @@ BEGIN
 			) AS s
 		WHERE c.ProductId = 0
 
-		INSERT INTO #Commission
-		(
-			MonthDate,
-			AffId,
-			GroupId,
-			GroupProductId,
-			ProductId,
-			Deposit,
-			Withdrawal,
-			Bonus,
-			Rebate,
-			Turnover,
-			Winloss,
-			Revenue,
-			P2PFee,
-			PlatFormFee,
-			OperationalFee,
-			DepositFee,
-			WithdrawalFee,
-			GrossWinloss,
-			NetWinloss,
-			ActivePlayer,
-			CommissionRate,
-			Commission,
-			StraightCommission,
-			SubAffCommission
-		)
-		SELECT 
-			MonthDate,
-			AffId,
-			GroupId,
-			0 AS GroupProductId,
-			0 AS ProductId,
-			SUM(Deposit),
-			SUM(Withdrawal),
-			SUM(Bonus),
-			SUM(Rebate),
-			SUM(Turnover),
-			SUM(Winloss),
-			SUM(Revenue),
-			SUM(P2PFee),
-			SUM(PlatFormFee),
-			SUM(OperationalFee),
-			SUM(DepositFee),
-			SUM(WithdrawalFee),
-			SUM(GrossWinloss),
-			SUM(NetWinloss),
-			MAX(ActivePlayer),
-			SUM(CommissionRate),
-			SUM(Commission),
-			SUM(StraightCommission),
-			SUM(SubAffCommission)
-		FROM #Commission
-		WHERE ProductId = 0 AND MonthDate > @P2P_CutOffDate AND GroupProductId <> 0
-		GROUP BY MonthDate, AffId, GroupId
+		--Update Active player
+		UPDATE #Commission
+			SET ActivePlayer = CASE WHEN GroupProductId > 1 THEN 0 
+									WHEN GroupProductId = 1 THEN ActivePlayerSum
+							   ELSE ActivePlayer END
+		WHERE MonthDate >= @P2P_CutOffDate AND ProductId = 0
+
+		IF @IsJob = 0
+		BEGIN
+			INSERT INTO #Commission
+			(
+				MonthDate,
+				AffId,
+				GroupId,
+				GroupProductId,
+				ProductId,
+				Deposit,
+				Withdrawal,
+				Bonus,
+				Rebate,
+				Turnover,
+				Winloss,
+				Revenue,
+				P2PFee,
+				PlatFormFee,
+				OperationalFee,
+				DepositFee,
+				WithdrawalFee,
+				GrossWinloss,
+				NetWinloss,
+				ActivePlayer,
+				CommissionRate,
+				Commission,
+				StraightCommission,
+				SubAffCommission
+			)
+			SELECT 
+				MonthDate,
+				AffId,
+				GroupId,
+				0 AS GroupProductId,
+				0 AS ProductId,
+				SUM(Deposit),
+				SUM(Withdrawal),
+				SUM(Bonus),
+				SUM(Rebate),
+				SUM(Turnover),
+				SUM(Winloss),
+				SUM(Revenue),
+				SUM(P2PFee),
+				SUM(PlatFormFee),
+				SUM(OperationalFee),
+				SUM(DepositFee),
+				SUM(WithdrawalFee),
+				SUM(GrossWinloss),
+				SUM(NetWinloss),
+				MAX(ActivePlayer),
+				AVG(CommissionRate),
+				SUM(Commission),
+				SUM(StraightCommission),
+				SUM(SubAffCommission)
+			FROM #Commission
+			WHERE ProductId = 0 AND MonthDate > @P2P_CutOffDate AND GroupProductId <> 0
+			GROUP BY MonthDate, AffId, GroupId
 	
-		DELETE #Commission WHERE ProductId = 0 AND GroupProductId <> 0
+			DELETE #Commission WHERE ProductId = 0 AND GroupProductId <> 0
+		END
+		
 
 		-- Filter by Currencies
 		IF @Currencies <> ''
@@ -806,6 +818,7 @@ BEGIN
 			AffId,
 			GroupId,
 			ProductId,
+			GroupProductId,
 			SUM(Deposit)				AS Deposit,
 			SUM(Withdrawal)				AS Withdrawal,
 			SUM(Bonus)					AS Bonus,
@@ -835,9 +848,10 @@ BEGIN
 	BEGIN
 		SELECT
 			MonthDate,
-			AffId,
+			AffId,		
 			GroupId,
 			ProductId,
+			GroupProductId,
 			Deposit,
 			Withdrawal,
 			Bonus,
