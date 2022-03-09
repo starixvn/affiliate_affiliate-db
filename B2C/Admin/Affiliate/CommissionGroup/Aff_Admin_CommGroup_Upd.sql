@@ -1,15 +1,16 @@
 /*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Upd]
-	@UserId			INT
-	,@GroupId		INT
-	,@GroupName		NVARCHAR(100) = NULL
-	,@Description	NVARCHAR(100) = NULL
-	,@DeductionList	XML = NULL
-	,@TierList		XML = NULL
-	,@StraightList	XML = NULL
-	,@IP			NVARCHAR(20) = ''
-	,@ErrCode		INT = 0 OUTPUT
-	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+	@UserId				INT
+	,@GroupId			INT
+	,@GroupName			NVARCHAR(100) = NULL
+	,@Description		NVARCHAR(100) = NULL
+	,@DeductionList		XML = NULL
+	,@TierList			XML = NULL
+	,@StraightList		XML = NULL
+	,@IsActivePlayerSum BIT
+	,@IP				NVARCHAR(20) = ''
+	,@ErrCode			INT = 0 OUTPUT
+	,@ErrMsg			NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -216,6 +217,7 @@ BEGIN
 		,MinAM					INT
 		,MaxAM					INT
 		,Commission				DECIMAL(9, 8)
+		,IsActivePlayerSum		BIT
 		-- Deduction List
 		,GroupProductId			TINYINT
 		,DeductionId			TINYINT
@@ -234,17 +236,17 @@ BEGIN
 
 		-- Tier List
 		DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
-			OUTPUT DELETED.TierId, DELETED.GroupProductId, DELETED.MinAmount, DELETED.MaxAmount, DELETED.MinAM, DELETED.MaxAM, DELETED.Commission, 2
-			INTO @updateData (TierId, GroupProductId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, TypeId)
+			OUTPUT DELETED.TierId, DELETED.GroupProductId, DELETED.MinAmount, DELETED.MaxAmount, DELETED.MinAM, DELETED.MaxAM, DELETED.Commission, DELETED.IsActivePlayerSum,2
+			INTO @updateData (TierId, GroupProductId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum, TypeId)
 		WHERE GroupId = @GroupId
 
 		DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
-		INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
-		SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission FROM @TierSetting
+		INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum)
+		SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, @IsActivePlayerSum FROM @TierSetting
 
-		INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
-		SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission FROM @TierSetting
+		INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum)
+		SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, @IsActivePlayerSum FROM @TierSetting
 
 		-- Deduction List
 		DELETE dbo.DeductionSetting WITH (ROWLOCK, UPDLOCK)
@@ -290,11 +292,11 @@ BEGIN
 			DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId
 			DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
-			INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
-			SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission FROM @updateData WHERE TypeId = 2
+			INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum)
+			SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum FROM @updateData WHERE TypeId = 2
 
-			INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
-			SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission FROM @updateData WHERE TypeId = 2
+			INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum)
+			SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum FROM @updateData WHERE TypeId = 2
 		END
 
 		IF EXISTS (SELECT 1 FROM @updateData WHERE TypeId = 3)
@@ -345,6 +347,7 @@ BEGIN
 				u.MaxAM				AS '@maxam',
 				u.Commission		AS '@commission',
 				u.GroupProductId	AS '@GroupProductId',
+				u.IsActivePlayerSum AS '@IsActivePlayerSum',
 				l.productids		AS '@productids'
 			FROM @updateData u
 				CROSS APPLY (
@@ -438,6 +441,7 @@ BEGIN
 		'Description='		+ ISNULL(@Description, '') + ',' +
 		'DeductionList='	+ ISNULL(CONVERT(NVARCHAR(MAX), @DeductionList), '') + ',' +
 		'TierList='			+ ISNULL(CONVERT(NVARCHAR(MAX), @TierList), '') + ',' +
+		'IsActivePlayerSum='+ ISNULL(CONVERT(NVARCHAR(MAX), @IsActivePlayerSum), '') + ',' +
 		'StraightList='		+ ISNULL(CONVERT(NVARCHAR(MAX), @StraightList), '')
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog

@@ -85,7 +85,8 @@ BEGIN
 		gs.MinAM,
 		gs.MaxAM,
 		gs.Commission,
-		gs.GroupProductId
+		gs.GroupProductId,
+		gs.IsActivePlayerSum
 	FROM dbo.TierSetting gs WITH (NOLOCK)
 		INNER JOIN @Group g ON gs.GroupId = g.GroupId
 	ORDER BY

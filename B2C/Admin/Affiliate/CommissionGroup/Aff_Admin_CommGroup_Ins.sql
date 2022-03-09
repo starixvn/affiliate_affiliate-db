@@ -1,16 +1,17 @@
 /*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Ins]
-	@UserId			INT
-	,@GroupId		INT = 0 OUTPUT
-	,@IsPrivate		BIT = 0
-	,@GroupName		NVARCHAR(100) = ''
-	,@Description	NVARCHAR(100) = NULL
-	,@DeductionList	XML = NULL
-	,@TierList		XML = NULL
-	,@StraightList	XML = NULL
-	,@IP			NVARCHAR(20) = ''
-	,@ErrCode		INT = 0 OUTPUT
-	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+	@UserId				INT
+	,@GroupId			INT = 0 OUTPUT
+	,@IsPrivate			BIT = 0
+	,@GroupName			NVARCHAR(100) = ''
+	,@Description		NVARCHAR(100) = NULL
+	,@DeductionList		XML = NULL
+	,@TierList			XML = NULL
+	,@StraightList		XML = NULL
+	,@IsActivePlayerSum BIT
+	,@IP				NVARCHAR(20) = ''
+	,@ErrCode			INT = 0 OUTPUT
+	,@ErrMsg			NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -227,11 +228,11 @@ BEGIN
 		SELECT @GroupId = SCOPE_IDENTITY()
 
 		-- Tier List
-		INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
-		SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission FROM @TierSetting
+		INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum)
+		SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission , @IsActivePlayerSum FROM @TierSetting
 
-		INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
-		SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission FROM @TierSetting
+		INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum)
+		SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, @IsActivePlayerSum FROM @TierSetting
 
 		-- Deduction List
 		INSERT INTO dbo.DeductionSetting (GroupId, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
@@ -276,6 +277,7 @@ BEGIN
 		'Description='	+ ISNULL(@Description, '') + ',' +
 		'DeductionList='+ ISNULL(CONVERT(NVARCHAR(MAX), @DeductionList), '') + ',' +
 		'TierList='		+ ISNULL(CONVERT(NVARCHAR(MAX), @TierList), '') + ',' +
+		'IsActivePlayerSum='+ ISNULL(CONVERT(NVARCHAR(MAX), @IsActivePlayerSum), '') + ',' +
 		'StraightList='	+ ISNULL(CONVERT(NVARCHAR(MAX), @StraightList), '')
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
