@@ -83,7 +83,7 @@ BEGIN
 			Commission			MONEY,
 			StraightCommission	MONEY,
 			SubAffCommission	MONEY,
-			IsMultiGroupProduct BIT 
+			IsMultiGroupProduct TINYINT 
 		)
 
 		DECLARE @MaxCommDate SMALLDATETIME, @AffIds VARCHAR(MAX)

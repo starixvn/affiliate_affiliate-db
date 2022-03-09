@@ -32,6 +32,7 @@ AS
 		- 20210914@Percy: Support multiple revenue group filter + Add payment currency filter [RedmineID: #161488]
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20220315@Malcolm: convert BF to base currency [RedmineID: #161540]
+		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)

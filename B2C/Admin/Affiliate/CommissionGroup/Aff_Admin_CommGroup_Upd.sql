@@ -152,7 +152,7 @@ BEGIN
 		(
 			SELECT 1
 			FROM @TierSetting ts1
-				INNER JOIN @TierSetting ts2 ON ts1.TierID + 1 = ts2.TierID
+				INNER JOIN @TierSetting ts2 ON ts1.TierID + 1 = ts2.TierID  AND ts1.GroupProductId = ts2.GroupProductId
 			WHERE ts1.MaxAmount + 1 <> ts2.MinAmount
 		)
 		OR NOT EXISTS

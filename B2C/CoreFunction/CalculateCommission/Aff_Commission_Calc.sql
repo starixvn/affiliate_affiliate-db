@@ -87,7 +87,7 @@ BEGIN
 		Commission			MONEY DEFAULT (0),
 		StraightCommission	MONEY DEFAULT (0),
 		SubAffCommission	MONEY DEFAULT (0),
-		IsMultiGroupProduct BIT DEFAULT (0)
+		IsMultiGroupProduct TINYINT DEFAULT (0)
 	)
 
 	BEGIN

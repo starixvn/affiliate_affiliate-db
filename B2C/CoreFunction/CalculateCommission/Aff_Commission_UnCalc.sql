@@ -292,7 +292,7 @@ BEGIN
 			SubAffCommission	MONEY DEFAULT (0),
 			IsHasMemberData		BIT DEFAULT (1),
 			ActivePlayerSum		INT DEFAULT (0),
-			IsMultiGroupProduct BIT DEFAULT (0)
+			IsMultiGroupProduct TINYINT DEFAULT (0)
 		)
 	
 		CREATE NONCLUSTERED INDEX IX_MonthDate ON #Commission (MonthDate, AffId, GroupId, ProductId)
@@ -455,7 +455,7 @@ BEGIN
 				,c.Rebate			= ISNULL(d.Rebate, 0) / e.[NoGroupProduct]
 				,c.DepositFee		= ISNULL(d.DepositFee, 0) / e.[NoGroupProduct]
 				,c.WithdrawalFee	= ISNULL(d.WithdrawalFee, 0) / e.[NoGroupProduct]
-				,c.NetWinloss = c.GrossWinloss - c.PlatFormFee - (c.OperationalFee + ISNULL(d.DepositFee, 0) + ISNULL(d.WithdrawalFee, 0) - ISNULL(d.Bonus, 0) + ISNULL(d.Rebate, 0))/ e.NoGroupProduct
+				,c.NetWinloss = c.GrossWinloss - c.PlatFormFee - (c.OperationalFee + ISNULL(d.DepositFee, 0) + ISNULL(d.WithdrawalFee, 0) + ISNULL(d.Bonus, 0) + ISNULL(d.Rebate, 0))/ e.NoGroupProduct
 			FROM #Commission c
 				LEFT JOIN (
 					SELECT d.MonthDate, d.AffId, d.GroupId
@@ -524,6 +524,7 @@ BEGIN
 			SET ActivePlayer = CASE WHEN GroupProductId > 1 THEN 0 
 									WHEN GroupProductId = 1 THEN ActivePlayerSum
 							   ELSE ActivePlayer END
+				,IsMultiGroupProduct = CASE WHEN GroupProductId > 1 THEN 1 ELSE 0 END 
 		WHERE MonthDate >= @P2P_CutOffDate AND ProductId = 0
 
 		IF @IsForJob = 0

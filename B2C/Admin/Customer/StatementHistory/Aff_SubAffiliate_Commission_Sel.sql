@@ -20,6 +20,7 @@ AS
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210506@Percy: Max Sub Affiliate Commission Setting [RedmineID: #153465]
 		- 20210714@Percy: Include P2P Earning into Monthly Earning [RedmineID: #157958]
+		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 */
 
 BEGIN
@@ -71,7 +72,7 @@ BEGIN
 			Commission			MONEY,
 			StraightCommission	MONEY,
 			SubAffCommission	MONEY,
-			IsMultiGroupProduct BIT
+			IsMultiGroupProduct TINYINT
 		)
 
 		INSERT INTO #TempCommission
