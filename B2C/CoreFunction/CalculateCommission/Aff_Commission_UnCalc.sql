@@ -9,7 +9,7 @@ ALTER PROCEDURE [dbo].[Aff_Commission_UnCalc]
 	,@SubLevel			TINYINT = 0
 	,@IsSumAll			BIT = 0
 	,@GetRowTotalOnly	BIT = 0
-	,@IsJob				BIT = 0
+	,@IsForJob			BIT = 0
 AS
 
 /*
@@ -525,7 +525,7 @@ BEGIN
 							   ELSE ActivePlayer END
 		WHERE MonthDate >= @P2P_CutOffDate AND ProductId = 0
 
-		IF @IsJob = 0
+		IF @IsForJob = 0
 		BEGIN
 			INSERT INTO #Commission
 			(
@@ -575,7 +575,7 @@ BEGIN
 				SUM(GrossWinloss),
 				SUM(NetWinloss),
 				MAX(ActivePlayer),
-				AVG(CommissionRate),
+				SUM(CASE WHEN GroupProductId IN (0, 1) THEN CommissionRate ELSE 0 END),
 				SUM(Commission),
 				SUM(StraightCommission),
 				SUM(SubAffCommission)
@@ -811,67 +811,133 @@ BEGIN
 	END
 
 	-- Return data
-	IF @IsSumAll = 1
+	IF @IsForJob = 1
 	BEGIN
-		SELECT
-			DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate) + 1, 0)) AS MonthDate,
-			AffId,
-			GroupId,
-			ProductId,
-			GroupProductId,
-			SUM(Deposit)				AS Deposit,
-			SUM(Withdrawal)				AS Withdrawal,
-			SUM(Bonus)					AS Bonus,
-			SUM(Rebate)					AS Rebate,
-			SUM(Turnover)				AS Turnover,
-			SUM(Winloss)				AS Winloss,
-			SUM(Revenue)				AS Revenue,
-			SUM(P2PFee)					AS P2PFee,
-			SUM(PlatFormFee)			AS PlatFormFee,
-			SUM(OperationalFee)			AS OperationalFee,
-			SUM(DepositFee)				AS DepositFee,
-			SUM(WithdrawalFee)			AS WithdrawalFee,
-			SUM(GrossWinloss)			AS GrossWinloss,
-			SUM(NetWinloss)				AS NetWinloss,
-			SUM(ActivePlayer)			AS ActivePlayer,
-			SUM(CommissionRate)			AS CommissionRate,
-			SUM(Commission)				AS Commission,
-			SUM(StraightCommission)		AS StraightCommission,
-			SUM(SubAffCommission)		AS SubAffCommission
-		FROM #Commission
-		GROUP BY
-			AffId,
-			GroupId,
-			ProductId
+		IF @IsSumAll = 1
+		BEGIN
+			SELECT
+				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate) + 1, 0)) AS MonthDate,
+				AffId,
+				GroupId,
+				ProductId,
+				GroupProductId,
+				SUM(Deposit)				AS Deposit,
+				SUM(Withdrawal)				AS Withdrawal,
+				SUM(Bonus)					AS Bonus,
+				SUM(Rebate)					AS Rebate,
+				SUM(Turnover)				AS Turnover,
+				SUM(Winloss)				AS Winloss,
+				SUM(Revenue)				AS Revenue,
+				SUM(P2PFee)					AS P2PFee,
+				SUM(PlatFormFee)			AS PlatFormFee,
+				SUM(OperationalFee)			AS OperationalFee,
+				SUM(DepositFee)				AS DepositFee,
+				SUM(WithdrawalFee)			AS WithdrawalFee,
+				SUM(GrossWinloss)			AS GrossWinloss,
+				SUM(NetWinloss)				AS NetWinloss,
+				SUM(ActivePlayer)			AS ActivePlayer,
+				SUM(CommissionRate)			AS CommissionRate,
+				SUM(Commission)				AS Commission,
+				SUM(StraightCommission)		AS StraightCommission,
+				SUM(SubAffCommission)		AS SubAffCommission
+			FROM #Commission
+			GROUP BY
+				AffId,
+				GroupId,
+				ProductId
+		END
+		ELSE
+		BEGIN
+			SELECT
+				MonthDate,
+				AffId,		
+				GroupId,
+				ProductId,
+				GroupProductId,
+				Deposit,
+				Withdrawal,
+				Bonus,
+				Rebate,
+				Turnover,
+				Winloss,
+				Revenue,
+				P2PFee,
+				PlatFormFee,
+				OperationalFee,
+				DepositFee,
+				WithdrawalFee,
+				GrossWinloss,
+				NetWinloss,
+				ActivePlayer,
+				CommissionRate,
+				Commission,
+				StraightCommission,
+				SubAffCommission
+			FROM #Commission
+		END
 	END
 	ELSE
 	BEGIN
-		SELECT
-			MonthDate,
-			AffId,		
-			GroupId,
-			ProductId,
-			GroupProductId,
-			Deposit,
-			Withdrawal,
-			Bonus,
-			Rebate,
-			Turnover,
-			Winloss,
-			Revenue,
-			P2PFee,
-			PlatFormFee,
-			OperationalFee,
-			DepositFee,
-			WithdrawalFee,
-			GrossWinloss,
-			NetWinloss,
-			ActivePlayer,
-			CommissionRate,
-			Commission,
-			StraightCommission,
-			SubAffCommission
-		FROM #Commission
+		IF @IsSumAll = 1
+		BEGIN
+			SELECT
+				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate) + 1, 0)) AS MonthDate,
+				AffId,
+				GroupId,
+				ProductId,
+				SUM(Deposit)				AS Deposit,
+				SUM(Withdrawal)				AS Withdrawal,
+				SUM(Bonus)					AS Bonus,
+				SUM(Rebate)					AS Rebate,
+				SUM(Turnover)				AS Turnover,
+				SUM(Winloss)				AS Winloss,
+				SUM(Revenue)				AS Revenue,
+				SUM(P2PFee)					AS P2PFee,
+				SUM(PlatFormFee)			AS PlatFormFee,
+				SUM(OperationalFee)			AS OperationalFee,
+				SUM(DepositFee)				AS DepositFee,
+				SUM(WithdrawalFee)			AS WithdrawalFee,
+				SUM(GrossWinloss)			AS GrossWinloss,
+				SUM(NetWinloss)				AS NetWinloss,
+				SUM(ActivePlayer)			AS ActivePlayer,
+				SUM(CommissionRate)			AS CommissionRate,
+				SUM(Commission)				AS Commission,
+				SUM(StraightCommission)		AS StraightCommission,
+				SUM(SubAffCommission)		AS SubAffCommission
+			FROM #Commission
+			GROUP BY
+				AffId,
+				GroupId,
+				ProductId
+		END
+		ELSE
+		BEGIN
+			SELECT
+				MonthDate,
+				AffId,		
+				GroupId,
+				ProductId,
+				Deposit,
+				Withdrawal,
+				Bonus,
+				Rebate,
+				Turnover,
+				Winloss,
+				Revenue,
+				P2PFee,
+				PlatFormFee,
+				OperationalFee,
+				DepositFee,
+				WithdrawalFee,
+				GrossWinloss,
+				NetWinloss,
+				ActivePlayer,
+				CommissionRate,
+				Commission,
+				StraightCommission,
+				SubAffCommission
+			FROM #Commission
+		END
 	END
 
 	DROP TABLE #Data

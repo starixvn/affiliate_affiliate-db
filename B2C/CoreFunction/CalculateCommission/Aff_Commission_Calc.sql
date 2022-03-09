@@ -19,6 +19,7 @@ AS
 		- 20210317@Percy: Change ExchangeOanda [RedmineID: #151391]
 		- 20210714@Percy: Calculate P2P Fee [RedmineID: #157958]
 		- 20210916@Percy: Use Exchange function [RedmineID: #161540]
+		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 */
 
 BEGIN
@@ -111,11 +112,29 @@ BEGIN
 		FROM @MonthDate md
 			CROSS APPLY (
 				SELECT
-					r.MonthDate, r.AffId, r.GroupId, r.Deposit, r.Withdrawal, r.Bonus, r.Rebate, r.Turnover, r.Winloss, r.Revenue
-					,r.P2PFee, r.PlatFormFee, r.OperationalFee, r.DepositFee, r.WithdrawalFee, r.GrossWinloss, r.NetWinloss, r.ActivePlayer, r.CommissionRate
+					r.MonthDate
+					,r.AffId
+					,r.GroupId
+					,SUM(r.Deposit)			AS Deposit
+					,SUM(r.Withdrawal)		AS Withdrawal
+					,SUM(r.Bonus)			AS Bonus
+					,SUM(r.Rebate)			AS Rebate
+					,SUM(r.Turnover)		AS Turnover
+					,SUM(r.Winloss)			AS Winloss
+					,SUM(r.Revenue)			AS Revenue
+					,SUM(r.P2PFee)			AS P2PFee
+					,SUM(r.PlatFormFee)		AS PlatFormFee
+					,SUM(r.OperationalFee)	AS OperationalFee
+					,SUM(r.DepositFee)		AS DepositFee
+					,SUM(r.WithdrawalFee)	AS WithdrawalFee
+					,SUM(r.GrossWinloss)	AS GrossWinloss
+					,SUM(r.NetWinloss)		AS NetWinloss
+					,SUM(r.ActivePlayer)	AS ActivePlayer
+					,SUM(CASE WHEN r.GroupProductId IN (0, 1) THEN r.CommissionRate ELSE 0 END)	AS CommissionRate
 				FROM dbo.rptAffCommission r WITH (NOLOCK)
 				WHERE r.MonthDate = md.MonthDate
 					AND (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), r.AffId) + ',%')
+				GROUP BY r.MonthDate, r.AffId, r.GroupId
 			) r
 
 		-- Total: Commission
