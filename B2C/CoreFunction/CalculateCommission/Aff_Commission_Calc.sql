@@ -105,11 +105,11 @@ BEGIN
 		-- Total
 		INSERT INTO #Commission (
 			MonthDate, AffId, GroupId, ProductId, Deposit, Withdrawal, Bonus, Rebate, Turnover, Winloss, Revenue
-			,P2PFee, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee, GrossWinloss, NetWinloss, ActivePlayer, CommissionRate, IsMultiGroupProduct
+			,P2PFee, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee, GrossWinloss, NetWinloss, ActivePlayer, CommissionRate
 		)
 		SELECT
 			r.MonthDate, r.AffId, r.GroupId, 0 AS ProductId, r.Deposit, r.Withdrawal, r.Bonus, r.Rebate, r.Turnover, r.Winloss, r.Revenue
-			,r.P2PFee, r.PlatFormFee, r.OperationalFee, r.DepositFee, r.WithdrawalFee, r.GrossWinloss, r.NetWinloss, r.ActivePlayer, r.CommissionRate, IsMultiGroupProduct
+			,r.P2PFee, r.PlatFormFee, r.OperationalFee, r.DepositFee, r.WithdrawalFee, r.GrossWinloss, r.NetWinloss, r.ActivePlayer, r.CommissionRate
 		FROM @MonthDate md
 			CROSS APPLY (
 				SELECT
@@ -132,7 +132,6 @@ BEGIN
 					,SUM(r.NetWinloss)		AS NetWinloss
 					,SUM(r.ActivePlayer)	AS ActivePlayer
 					,SUM(CASE WHEN r.GroupProductId IN (0, 1) THEN r.CommissionRate ELSE 0 END)	AS CommissionRate
-					,MAX(CASE WHEN GroupProductId > 1 THEN 1 ELSE 0 END) AS IsMultiGroupProduct
 				FROM dbo.rptAffCommission r WITH (NOLOCK)
 				WHERE r.MonthDate = md.MonthDate
 					AND (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), r.AffId) + ',%')
@@ -218,6 +217,13 @@ BEGIN
 	BEGIN
 		DELETE #Commission WHERE ProductId <> 0
 	END
+
+	-- Update Multi Group Products
+	UPDATE c
+		SET c.IsMultiGroupProduct = CASE WHEN ISNULL(l.NoGroupProduct, 0) > 1 THEN 1 ELSE 0 END
+	FROM #Commission c
+		OUTER APPLY (SELECT COUNT(DISTINCT tsh.GroupProductId) AS NoGroupProduct FROM dbo.TierSettingHistory tsh WITH(NOLOCK) WHERE tsh.MonthDate = c.MonthDate AND tsh.GroupId = c.GroupId) AS l
+	WHERE c.ProductId = 0
 
 	-- Return data
 	IF @IsSumAll = 1

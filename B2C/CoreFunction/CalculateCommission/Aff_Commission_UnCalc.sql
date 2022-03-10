@@ -412,7 +412,13 @@ BEGIN
 				AND s.MonthDate >= @P2P_CutOffDate
 
 			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, Revenue, GrossWinloss, P2PFee, PlatFormFee, OperationalFee, StraightCommission)
-			SELECT d.MonthDate, d.AffId, d.GroupId, d.ProductId, s.GroupProductId, d.Turnover, d.Winloss, d.Revenue, -d.Winloss AS GrossWinloss
+			SELECT 
+				d.MonthDate, d.AffId, d.GroupId, d.ProductId
+				,CASE WHEN s.GroupProductId <> 0 AND s.IsStraightSetting = 1 THEN 1 ELSE s.GroupProductId END AS GroupProductId -- Set GroupProductId = 1 for P2P
+				,d.Turnover
+				,d.Winloss
+				,d.Revenue
+				,-d.Winloss AS GrossWinloss
 				,CASE WHEN d.Revenue < 0 THEN 0 ELSE d.Revenue * ISNULL(s.PlatFormFee, 0) END AS P2PFee
 				,CASE WHEN d.Winloss > 0 THEN 0 ELSE -d.Winloss * ISNULL(s.PlatFormFee, 0) + ISNULL(s.PlatFormAmount, 0) END AS PlatFormFee
 				,CASE WHEN d.Winloss > 0 THEN 0 ELSE -d.Winloss END AS OperationalFee
@@ -529,7 +535,6 @@ BEGIN
 			SET ActivePlayer = CASE WHEN GroupProductId > 1 THEN 0 
 									WHEN GroupProductId = 1 THEN ActivePlayerSum
 							   ELSE ActivePlayer END
-				,IsMultiGroupProduct = CASE WHEN GroupProductId > 1 THEN 1 ELSE 0 END 
 		WHERE MonthDate >= @P2P_CutOffDate AND ProductId = 0
 
 		IF @IsForJob = 0
@@ -559,8 +564,7 @@ BEGIN
 				CommissionRate,
 				Commission,
 				StraightCommission,
-				SubAffCommission,
-				IsMultiGroupProduct
+				SubAffCommission
 			)
 			SELECT 
 				MonthDate,
@@ -586,8 +590,7 @@ BEGIN
 				SUM(CASE WHEN GroupProductId IN (0, 1) THEN CommissionRate ELSE 0 END),
 				SUM(Commission),
 				SUM(StraightCommission),
-				SUM(SubAffCommission),
-				MAX(CASE WHEN GroupProductId > 1 THEN 1 ELSE 0 END) AS IsMultiGroupProduct
+				SUM(SubAffCommission)
 			FROM #Commission
 			WHERE ProductId = 0 AND MonthDate > @P2P_CutOffDate AND GroupProductId <> 0
 			GROUP BY MonthDate, AffId, GroupId
@@ -731,19 +734,19 @@ BEGIN
 
 		;WITH CTE_SubAffCommission AS
 		(
-			SELECT c.MonthDate, c.GroupProductId, f.val AS AffId
+			SELECT c.MonthDate, f.val AS AffId
 				,SUM(CASE WHEN f.Id <= @MaxSubAff THEN POWER(@SubAffCommRate, f.Id) * (c.Commission + c.StraightCommission) ELSE 0 END) AS SubAffCommission
 			FROM #Commission c
 				INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON agh.MonthDate = c.MonthDate AND agh.AffId = c.AffId
 				CROSS APPLY dbo.Aff_f_StringSplit(agh.AllParentAffId, ',') f
 			WHERE c.ProductId = 0
-			GROUP BY c.MonthDate, c.GroupProductId, f.val
+			GROUP BY c.MonthDate, f.val
 		)
 		UPDATE c
 		SET c.SubAffCommission = s.SubAffCommission
 		FROM #Commission c
-			INNER JOIN CTE_SubAffCommission s ON s.MonthDate = c.MonthDate AND s.AffId = c.AffId AND c.GroupProductId = s.GroupProductId
-		WHERE c.ProductId = 0
+			INNER JOIN CTE_SubAffCommission s ON s.MonthDate = c.MonthDate AND s.AffId = c.AffId
+		WHERE c.ProductId = 0 AND c.GroupProductId IN (0, 1)
 
 		IF @AffIds <>  'all'
 		BEGIN
@@ -818,6 +821,17 @@ BEGIN
 		WHERE c.MonthDate = DATEADD(DAY, -1, @LaunchDate)
 			AND c.ProductId = 0
 	END
+
+	-- Update Multi Group
+	UPDATE c
+		SET c.IsMultiGroupProduct = CASE WHEN ISNULL(l.NoGroupProduct, 0) > 1 THEN 1 ELSE 0 END
+	FROM #Commission c
+		OUTER APPLY (
+			SELECT COUNT(DISTINCT tsh.GroupProductId) AS NoGroupProduct 
+			FROM dbo.TierSettingHistory tsh WITH(NOLOCK) 
+			WHERE tsh.MonthDate = c.MonthDate AND tsh.GroupId = c.GroupId
+		) AS l
+	WHERE c.ProductId = 0
 
 	-- Return data
 	IF @IsForJob = 1
