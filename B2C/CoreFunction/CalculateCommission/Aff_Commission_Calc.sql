@@ -87,7 +87,7 @@ BEGIN
 		Commission			MONEY DEFAULT (0),
 		StraightCommission	MONEY DEFAULT (0),
 		SubAffCommission	MONEY DEFAULT (0),
-		IsMultiGroupProduct TINYINT DEFAULT (0)
+		IsMultiGroupProduct BIT DEFAULT (0)
 	)
 
 	BEGIN
@@ -252,7 +252,7 @@ BEGIN
 			SUM(Commission)			AS Commission,
 			SUM(StraightCommission)	AS StraightCommission,
 			SUM(SubAffCommission)	AS SubAffCommission,
-			MAX(IsMultiGroupProduct)AS IsMultiGroupProduct
+			MAX(CONVERT(TINYINT, IsMultiGroupProduct)) AS IsMultiGroupProduct
 		FROM #Commission
 		GROUP BY
 			AffId,

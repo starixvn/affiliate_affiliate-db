@@ -126,7 +126,7 @@ BEGIN
 			Commission			MONEY,
 			StraightCommission	MONEY,
 			SubAffCommission	MONEY,
-			IsMultiGroupProduct TINYINT
+			IsMultiGroupProduct BIT
 		)
 
 		IF @FromDate <= @MaxCommDate

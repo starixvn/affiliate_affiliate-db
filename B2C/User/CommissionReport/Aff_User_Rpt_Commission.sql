@@ -78,7 +78,7 @@ BEGIN
 			Commission			MONEY,
 			StraightCommission	MONEY,
 			SubAffCommission	MONEY,
-			IsMultiGroupProduct TINYINT,
+			IsMultiGroupProduct BIT,
 			-- for monthdate -- 0: temporary, 1: uncalculated, 2: calculated
 			CalculatedType		TINYINT DEFAULT ((2))
 		)

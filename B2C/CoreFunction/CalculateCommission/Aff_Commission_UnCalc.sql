@@ -64,7 +64,6 @@ BEGIN
 	END
 
 	-- AffCurrency
-	DECLARE @Malcolm DATETIME =  CONVERT(DATETIME, dbo.Aff_f_GetSetting('Malcolm'))
 	DECLARE @AffCurrency INT
 	SELECT  @AffCurrency = dbo.Aff_f_GetSetting('AffCurrency')
 
@@ -293,7 +292,7 @@ BEGIN
 			SubAffCommission	MONEY DEFAULT (0),
 			IsHasMemberData		BIT DEFAULT (1),
 			ActivePlayerSum		INT DEFAULT (0),
-			IsMultiGroupProduct TINYINT DEFAULT (0),
+			IsMultiGroupProduct BIT DEFAULT (0),
 			IsStraightSetting   TINYINT DEFAULT (0)
 		)
 	
@@ -413,7 +412,7 @@ BEGIN
 			WHERE s.MonthDate >= @P2P_CutOffDate 
 				AND EXISTS (SELECT 1 FROM dbo.TierSettingHistory tsh WITH(NOLOCK) WHERE tsh.MonthDate = s.MonthDate AND tsh.GroupId = s.GroupId AND tsh.GroupProductId = 0)
 
-			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, Revenue, GrossWinloss, P2PFee, PlatFormFee, OperationalFee, StraightCommission)
+			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, Revenue, GrossWinloss, P2PFee, PlatFormFee, OperationalFee, StraightCommission, IsStraightSetting)
 			SELECT 
 				d.MonthDate, d.AffId, d.GroupId, d.ProductId
 				,CASE WHEN s.IsStraightSetting = 1 THEN 0 ELSE s.GroupProductId END -- Set GroupProductId = 0. for P2P
@@ -425,6 +424,7 @@ BEGIN
 				,CASE WHEN d.Winloss > 0 THEN 0 ELSE -d.Winloss * ISNULL(s.PlatFormFee, 0) + ISNULL(s.PlatFormAmount, 0) END AS PlatFormFee
 				,CASE WHEN d.Winloss > 0 THEN 0 ELSE -d.Winloss END AS OperationalFee
 				,CASE WHEN d.Revenue < 0 THEN d.Revenue ELSE d.Revenue * (1.0 - ISNULL(s.PlatFormFee, 0)) END * ISNULL(s.StraightCommission, 0) AS StraightCommission
+				,CASE WHEN s.IsStraightSetting = 1 AND s.GroupProductId <> 0 THEN 1 ELSE 0 END AS IsStraightSetting
 			FROM (
 				SELECT MonthDate, AffId, GroupId, ProductId, SUM(Turnover) Turnover, SUM(Winloss) Winloss, SUM(Revenue) AS Revenue
 				FROM #Data
@@ -434,8 +434,8 @@ BEGIN
 				INNER JOIN @Setting s ON d.MonthDate = s.MonthDate AND d.GroupId = s.GroupId AND d.ProductId = s.ProductId
 
 			-- Total
-			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, Revenue, GrossWinloss, P2PFee, PlatFormFee, OperationalFee, StraightCommission)
-			SELECT c.MonthDate, c.AffId, c.GroupId, 0 AS ProductId, c.GroupProductId, c.Turnover, c.Winloss, c.Revenue, c.GrossWinloss, c.P2PFee, c.PlatFormFee, c.OperationalFee * ISNULL(s.OperationalFee, 0) + ISNULL(s.OperationalAmount, 0), c.StraightCommission
+			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, Revenue, GrossWinloss, P2PFee, PlatFormFee, OperationalFee, StraightCommission, IsStraightSetting)
+			SELECT c.MonthDate, c.AffId, c.GroupId, 0 AS ProductId, c.GroupProductId, c.Turnover, c.Winloss, c.Revenue, c.GrossWinloss, c.P2PFee, c.PlatFormFee, c.OperationalFee * ISNULL(s.OperationalFee, 0) + ISNULL(s.OperationalAmount, 0), c.StraightCommission, c.IsStraightSetting
 			FROM (
 				SELECT MonthDate, AffId, GroupId, 0 AS ProductId, GroupProductId
 					,SUM(Turnover) AS Turnover
@@ -480,7 +480,7 @@ BEGIN
 					GROUP BY d.MonthDate, d.AffId, d.GroupId
 				) d ON c.MonthDate = d.MonthDate AND c.AffId = d.AffId AND c.GroupId = d.GroupId
 				LEFT JOIN CTE_GroupProduct e ON c.MonthDate = e.MonthDate AND c.GroupId = e.GroupId 
-			WHERE c.ProductId = 0 AND c.MonthDate >= @P2P_CutOffDate AND (c.GroupProductId <> 0 OR c.MonthDate <= @Malcolm)
+			WHERE c.ProductId = 0 AND c.MonthDate >= @P2P_CutOffDate AND c.IsStraightSetting = 0
 
 			-- Update active player
 			;WITH CTE_Group AS
@@ -508,7 +508,7 @@ BEGIN
 			FROM #Commission c 
 				LEFT JOIN CTE_GroupProduct p ON c.MonthDate = p.MonthDate AND c.AffId = p.AffId AND c.GroupProductId = p.GroupProductId
 				LEFT JOIN CTE_SUM s ON s.MonthDate = c.MonthDate AND s.AffId = c.AffId
-			WHERE c.ProductId = 0 AND c.MonthDate >= @P2P_CutOffDate
+			WHERE c.ProductId = 0 AND c.MonthDate >= @P2P_CutOffDate AND c.IsStraightSetting = 0
 		END
 
 		-- Total: Commission
@@ -531,14 +531,21 @@ BEGIN
 					AND gsh.TierId <= t.TierId
 				ORDER BY gsh.TierId DESC
 			) AS s
-		WHERE c.ProductId = 0
+		WHERE c.ProductId = 0 AND c.IsStraightSetting = 0
 
 		--Update Active player
-		UPDATE #Commission
-			SET ActivePlayer = CASE WHEN GroupProductId > 1 THEN 0 
-									WHEN GroupProductId = 1 THEN ActivePlayerSum
-							   ELSE ActivePlayer END
-		WHERE MonthDate >= @P2P_CutOffDate AND ProductId = 0
+		;WITH CTE_Group AS
+		(
+			SELECT MonthDate, AffId, GroupProductId, MAX(ActivePlayerSum) AS ActivePlayerSum 
+			FROM #Commission 
+			WHERE ProductId = 0 AND IsStraightSetting = 0 AND MonthDate >= @P2P_CutOffDate
+			GROUP BY MonthDate, AffId, GroupProductId
+		)
+		UPDATE c
+			SET ActivePlayer = ISNULL(g.ActivePlayerSum, 0)
+		FROM #Commission c
+			LEFT JOIN CTE_Group g ON g.MonthDate = c.MonthDate AND g.AffId = c.AffId AND g.GroupProductId = c.GroupProductId	
+		WHERE c.MonthDate >= @P2P_CutOffDate AND c.ProductId = 0
 
 		IF @IsForJob = 0
 		BEGIN
@@ -866,7 +873,7 @@ BEGIN
 				SUM(Commission)				AS Commission,
 				SUM(StraightCommission)		AS StraightCommission,
 				SUM(SubAffCommission)		AS SubAffCommission,
-				MAX(IsMultiGroupProduct)    AS IsMultiGroupProduct
+				MAX(CONVERT(TINYINT, IsMultiGroupProduct)) AS IsMultiGroupProduct
 			FROM #Commission
 			GROUP BY
 				AffId,
@@ -932,7 +939,7 @@ BEGIN
 				SUM(Commission)				AS Commission,
 				SUM(StraightCommission)		AS StraightCommission,
 				SUM(SubAffCommission)		AS SubAffCommission,
-				MAX(IsMultiGroupProduct)    AS IsMultiGroupProduct
+				MAX(CONVERT(TINYINT, IsMultiGroupProduct))    AS IsMultiGroupProduct
 			FROM #Commission
 			GROUP BY
 				AffId,
