@@ -102,6 +102,7 @@ BEGIN
 		INNER JOIN @Group g ON gs.GroupId = g.GroupId
 	ORDER BY
 		gs.GroupId,
+		gs.GroupProductId,
 		gs.TierId
 
 	-- Deduction List
