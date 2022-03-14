@@ -405,7 +405,7 @@ BEGIN
 					SUM(WithdrawalFee)				AS WithdrawalFee,
 					SUM(NetWinloss)					AS NetWinloss,
 					SUM(CommissionRate/@NoOfMonth)	AS CommissionRate,
-					MAX(IsMultiGroupProduct)		AS IsMultiGroupProduct,
+					CONVERT(BIT, MAX(CONVERT(TINYINT, IsMultiGroupProduct))) AS IsMultiGroupProduct,
 					SUM(Commission)					AS Commission,
 					SUM(StraightCommission)			AS StraightCommission,
 					SUM(SubAffCommission)			AS SubAffCommission

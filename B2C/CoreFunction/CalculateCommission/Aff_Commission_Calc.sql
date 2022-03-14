@@ -252,7 +252,7 @@ BEGIN
 			SUM(Commission)			AS Commission,
 			SUM(StraightCommission)	AS StraightCommission,
 			SUM(SubAffCommission)	AS SubAffCommission,
-			MAX(CONVERT(TINYINT, IsMultiGroupProduct)) AS IsMultiGroupProduct
+			CONVERT(BIT, MAX(CONVERT(TINYINT, IsMultiGroupProduct))) AS IsMultiGroupProduct
 		FROM #Commission
 		GROUP BY
 			AffId,

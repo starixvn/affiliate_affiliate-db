@@ -873,7 +873,7 @@ BEGIN
 				SUM(Commission)				AS Commission,
 				SUM(StraightCommission)		AS StraightCommission,
 				SUM(SubAffCommission)		AS SubAffCommission,
-				MAX(CONVERT(TINYINT, IsMultiGroupProduct)) AS IsMultiGroupProduct
+				CONVERT(BIT, MAX(CONVERT(TINYINT, IsMultiGroupProduct))) AS IsMultiGroupProduct
 			FROM #Commission
 			GROUP BY
 				AffId,
@@ -939,7 +939,7 @@ BEGIN
 				SUM(Commission)				AS Commission,
 				SUM(StraightCommission)		AS StraightCommission,
 				SUM(SubAffCommission)		AS SubAffCommission,
-				MAX(CONVERT(TINYINT, IsMultiGroupProduct))    AS IsMultiGroupProduct
+				CONVERT(BIT, MAX(CONVERT(TINYINT, IsMultiGroupProduct)))    AS IsMultiGroupProduct
 			FROM #Commission
 			GROUP BY
 				AffId,
@@ -953,27 +953,32 @@ BEGIN
 				AffId,		
 				GroupId,
 				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Rebate,
-				Turnover,
-				Winloss,
-				Revenue,
-				P2PFee,
-				PlatFormFee,
-				OperationalFee,
-				DepositFee,
-				WithdrawalFee,
-				GrossWinloss,
-				NetWinloss,
-				ActivePlayer,
-				CommissionRate,
-				Commission,
-				StraightCommission,
-				SubAffCommission,
-				IsMultiGroupProduct
+				SUM(Deposit),
+				SUM(Withdrawal),
+				SUM(Bonus),
+				SUM(Rebate),
+				SUM(Turnover),
+				SUM(Winloss),
+				SUM(Revenue),
+				SUM(P2PFee),
+				SUM(PlatFormFee),
+				SUM(OperationalFee),
+				SUM(DepositFee),
+				SUM(WithdrawalFee),
+				SUM(GrossWinloss),
+				SUM(NetWinloss),
+				SUM(ActivePlayer),
+				SUM(CommissionRate),
+				SUM(Commission),
+				SUM(StraightCommission),
+				SUM(SubAffCommission),
+				CONVERT(BIT, MAX(CONVERT(TINYINT, IsMultiGroupProduct)))    AS IsMultiGroupProduct
 			FROM #Commission
+			GROUP BY
+				MonthDate,
+				AffId,
+				GroupId,
+				ProductId
 		END
 	END
 
