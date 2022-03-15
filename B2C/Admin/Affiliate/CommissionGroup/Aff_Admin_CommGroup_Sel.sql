@@ -89,15 +89,7 @@ BEGIN
 		gs.MinAM,
 		gs.MaxAM,
 		gs.Commission,
-		STUFF(
-			(SELECT	',' + CONVERT(VARCHAR(10), d.ProductId)
-				FROM dbo.DeductionSetting d WITH (NOLOCK)
-				WHERE gs.GroupId			= d.GroupId
-					AND d.DeductionId = 10
-					AND gs.GroupProductId	= d.GroupProductId
-					AND d.ProductId			<> 0
-				FOR XML PATH (''))
-				, 1, 1, '') AS ProductIds
+		gs.GroupProductId
 	FROM dbo.TierSetting gs WITH (NOLOCK)
 		INNER JOIN @Group g ON gs.GroupId = g.GroupId
 	ORDER BY
@@ -121,7 +113,8 @@ BEGIN
 				, 1, 1, '') AS ProductIds,
 		ds.DeductedPercentage,
 		ds.DeductedAmount,
-		ds.IsDeductedPercent
+		ds.IsDeductedPercent,
+		ds.GroupProductId
 	FROM dbo.DeductionSetting ds WITH (NOLOCK)
 		INNER JOIN dbo.Deductions dt WITH (NOLOCK) ON ds.DeductionId = dt.DeductionId
 		INNER JOIN @Group g ON ds.GroupId = g.GroupId
