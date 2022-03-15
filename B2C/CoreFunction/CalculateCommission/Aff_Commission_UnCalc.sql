@@ -536,10 +536,10 @@ BEGIN
 		--Update Active player
 		;WITH CTE_Group AS
 		(
-			SELECT MonthDate, AffId, GroupProductId, MAX(ActivePlayerSum) AS ActivePlayerSum 
+			SELECT MonthDate, AffId, MAX(GroupProductId) AS GroupProductId, MAX(ActivePlayerSum) AS ActivePlayerSum 
 			FROM #Commission 
 			WHERE ProductId = 0 AND IsStraightSetting = 0 AND MonthDate >= @P2P_CutOffDate
-			GROUP BY MonthDate, AffId, GroupProductId
+			GROUP BY MonthDate, AffId
 		)
 		UPDATE c
 			SET ActivePlayer = ISNULL(g.ActivePlayerSum, 0)
@@ -574,7 +574,8 @@ BEGIN
 				CommissionRate,
 				Commission,
 				StraightCommission,
-				SubAffCommission
+				SubAffCommission,
+				IsStraightSetting 
 			)
 			SELECT 
 				MonthDate,
@@ -600,12 +601,13 @@ BEGIN
 				SUM(CASE WHEN GroupProductId IN (0, 1) THEN CommissionRate ELSE 0 END),
 				SUM(Commission),
 				SUM(StraightCommission),
-				SUM(SubAffCommission)
+				SUM(SubAffCommission),
+				2
 			FROM #Commission
-			WHERE ProductId = 0 AND MonthDate > @P2P_CutOffDate AND GroupProductId <> 0
+			WHERE ProductId = 0 AND MonthDate > @P2P_CutOffDate 
 			GROUP BY MonthDate, AffId, GroupId
 	
-			DELETE #Commission WHERE ProductId = 0 AND GroupProductId <> 0
+			DELETE #Commission WHERE ProductId = 0 AND IsStraightSetting <> 2
 		END
 		
 
@@ -875,10 +877,8 @@ BEGIN
 				SUM(SubAffCommission)													AS SubAffCommission,
 				CONVERT(BIT, MAX(CONVERT(TINYINT, IsMultiGroupProduct)))				AS IsMultiGroupProduct
 			FROM #Commission
-			GROUP BY
-				AffId,
-				GroupId,
-				ProductId
+			GROUP BY AffId, GroupId, GroupProductId, ProductId
+			ORDER BY AffId, GroupId, GroupProductId, ProductId
 		END
 		ELSE
 		BEGIN
@@ -909,6 +909,7 @@ BEGIN
 				SubAffCommission,
 				IsMultiGroupProduct
 			FROM #Commission
+			ORDER BY MonthDate, AffId, GroupId, GroupProductId, ProductId
 		END
 	END
 	ELSE
@@ -941,10 +942,8 @@ BEGIN
 				SUM(SubAffCommission)													AS SubAffCommission,
 				CONVERT(BIT, MAX(CONVERT(TINYINT, IsMultiGroupProduct)))				AS IsMultiGroupProduct
 			FROM #Commission
-			GROUP BY
-				AffId,
-				GroupId,
-				ProductId
+			GROUP BY AffId, GroupId, ProductId
+			ORDER BY AffId, GroupId, ProductId
 		END
 		ELSE
 		BEGIN
@@ -974,11 +973,8 @@ BEGIN
 				SUM(SubAffCommission)													AS SubAffCommission,
 				CONVERT(BIT, MAX(CONVERT(TINYINT, IsMultiGroupProduct)))				AS IsMultiGroupProduct
 			FROM #Commission
-			GROUP BY
-				MonthDate,
-				AffId,
-				GroupId,
-				ProductId
+			GROUP BY MonthDate, AffId, GroupId, ProductId
+			ORDER BY MonthDate, AffId, GroupId, ProductId
 		END
 	END
 

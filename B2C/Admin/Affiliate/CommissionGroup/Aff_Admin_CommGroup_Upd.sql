@@ -89,6 +89,7 @@ BEGIN
 
 	DECLARE @MonthDate SMALLDATETIME
 	SELECT  @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
+	DECLARE @Infinity_Amount MONEY = 100000000000, @Inifinity_QM INT = 1000000000
 
 	-- Deductions
 	DECLARE @DeductionSetting TABLE (GroupProductId TINYINT, DeductionId TINYINT, ProductId INT, DeductedPercentage DECIMAL(9,8), DeductedAmount MONEY, IsDeductedPercent BIT)
@@ -124,7 +125,7 @@ BEGIN
 		t.c.value('@minamount', 'MONEY'),
 		t.c.value('@maxamount', 'MONEY'),
 		t.c.value('@minam', 'INT'),
-		t.c.value('@maxam', 'INT'),
+		@Inifinity_QM AS MaxAM,
 		t.c.value('@commission', 'DECIMAL(9,8)')
 	FROM @TierList.nodes('/root/row') AS t(c)
 	OPTION (OPTIMIZE FOR (@TierList = NULL))
@@ -138,8 +139,22 @@ BEGIN
 		WHERE ',' + t.ProductIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), d.ProductId) + ',%'
 	) AS l
 
+	UPDATE t1
+		SET t1.MaxAmount = t2.MinAmount - 1
+	FROM @TierSetting t1
+		INNER JOIN @TierSetting t2 ON t1.TierID +1 = t2.TierID AND t1.GroupProductId = t2.GroupProductId
+	
+	;WITH CTE AS
+	(
+		SELECT GroupProductId, MAX(TierID) AS TierID FROM @TierSetting GROUP BY GroupProductId
+	)
+	UPDATE t
+		SET t.MaxAmount = @Infinity_Amount
+	FROM @TierSetting t
+		INNER JOIN CTE e ON t.TierID = e.TierID AND t.GroupProductId = e.GroupProductId
+
 	-- Check valid tier setting
-	IF (SELECT COUNT(1) FROM @TierSetting) > 50
+	IF EXISTS (SELECT 1 FROM @TierSetting GROUP BY GroupProductId HAVING COUNT(1) > 50) 
 	BEGIN
 		-- Oops, maximum of 50 tiers are allowed!
 		SELECT @ErrCode = 103, @ErrMsg = dbo.Aff_f_GetMessageById(1003, @Language)
@@ -147,7 +162,7 @@ BEGIN
 		RETURN
 	END
 
-	DECLARE @Infinity_Amount MONEY = 100000000000, @Inifinity_QM INT = 1000000000
+	
 	IF EXISTS
 		(
 			SELECT 1
@@ -155,9 +170,9 @@ BEGIN
 				INNER JOIN @TierSetting ts2 ON ts1.TierID + 1 = ts2.TierID  AND ts1.GroupProductId = ts2.GroupProductId
 			WHERE ts1.MaxAmount + 1 <> ts2.MinAmount
 		)
-		OR NOT EXISTS
+		OR EXISTS
 		(
-			SELECT 1 FROM @TierSetting WHERE TierId = 1 AND MinAmount = 0
+			SELECT 1 FROM @TierSetting WHERE TierId = 1 AND MinAmount <> 0
 		)
 	BEGIN
 		-- Error! Invalid Tier Setting!
