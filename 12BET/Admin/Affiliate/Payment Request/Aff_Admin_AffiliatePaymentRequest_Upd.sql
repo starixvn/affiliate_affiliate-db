@@ -19,6 +19,7 @@ AS
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20211222@Malcolm: Split transfer out of bettrans [RedmineID: #165095]
 */
 
 BEGIN
@@ -128,6 +129,8 @@ BEGIN
 	IF @OldData = @NewData
 		RETURN
 
+	DECLARE @Tmp TABLE (Status NVARCHAR(50), CompletedDate DATETIME, AdminDesc NVARCHAR(300), AffDesc NVARCHAR(300), Creator INT, TypeId TINYINT)
+
 	DECLARE @CompletedDate DATETIME
 	SELECT  @CompletedDate = GETDATE()
 
@@ -137,6 +140,8 @@ BEGIN
 			,CompletedDate	= CASE WHEN @Status IS NOT NULL THEN @CompletedDate ELSE CompletedDate END
 			,AdminDesc		= ISNULL(@AdminDesc, AdminDesc)
 			,AffDesc		= ISNULL(@AffDesc, AffDesc)
+		OUTPUT deleted.Status, deleted.CompletedDate, deleted.AdminDesc, deleted.AffDesc, 1
+			INTO @Tmp (Status, CompletedDate, AdminDesc, AffDesc, TypeId)
 		WHERE AffID = @AffID AND RefID = @RefID
 
 		IF @Status IS NOT NULL
@@ -145,10 +150,23 @@ BEGIN
 			SET Status			= @Status
 				,CompletedDate	= @CompletedDate
 				,Creator		= @UserID
+			OUTPUT deleted.Status, deleted.CompletedDate, deleted.Creator, 2
+				INTO @Tmp (Status, CompletedDate, Creator, TypeId)
 			WHERE TransID = @TransID
 		END
 	END TRY
 	BEGIN CATCH
+		IF EXISTS (SELECT 1 FROM @Tmp)
+		BEGIN
+			UPDATE p WITH (ROWLOCK)
+				SET p.Status		= t.Status,
+					p.CompletedDate = t.CompletedDate,
+					p.AdminDesc		= t.AdminDesc,
+					p.AffDesc		= t.AffDesc
+			FROM dbo.AffPayout p
+				CROSS JOIN @Tmp t 
+			WHERE p.AffID = @AffID AND p.RefID = @RefID AND t.TypeId = 1
+		END
 		-- Update process is unsuccessful. Please try again!
 		SELECT @ErrCode = 105, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
 		RETURN
@@ -170,6 +188,22 @@ BEGIN
 
 		IF @ErrCode <> 0
 		BEGIN
+			UPDATE p WITH (ROWLOCK)
+				SET p.Status		= t.Status,
+					p.CompletedDate = t.CompletedDate,
+					p.AdminDesc		= t.AdminDesc,
+					p.AffDesc		= t.AffDesc
+			FROM dbo.AffPayout p
+				CROSS JOIN @Tmp t 
+			WHERE p.AffID = @AffID AND p.RefID = @RefID AND t.TypeId = 1
+
+			UPDATE at 
+				SET at.Status			= t.Status,
+					at.CompletedDate	= t.CompletedDate,
+					at.Creator			= t.Creator
+			FROM dbo.AffTrans at WITH(ROWLOCK)
+				CROSS JOIN @Tmp t 
+			WHERE TransID = @TransID AND t.TypeId = 2
 			RETURN
 		END
 	END
