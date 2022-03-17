@@ -22,6 +22,7 @@ AS
 
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
+		- 20211222@Malcolm: Split transfer out of bettrans [RedmineID: #165095]
 */
 
 BEGIN
@@ -76,59 +77,77 @@ BEGIN
 			,@Status		= 'Approved'
 			,@StatusID		= 132
 	
-	DECLARE @TransID1 BIGINT, @TransID2 BIGINT, @Amount MONEY
+	DECLARE @TransID1 BIGINT, @TransID2 BIGINT = NULL, @Amount MONEY
 	SELECT  @Amount = ABS(@AffPayout)
 
+	-- Add money to player
 	BEGIN TRY
-		-- Add money to player
-		INSERT INTO dbo.bettrans
+		INSERT INTO dbo.Transfer
 		(
-			custid, username, refno, transdate, matchid, bettype, transdesc, winlost, actual_stake, winlostdate
-			,creator, recommend, mrecommend, srecommend, currency, actualrate, currencyName, ruben, status, ip, StatusID
+			custid, username, refno, transdate, bettype, transdesc, winlost, actual_stake, winlostdate
+			,creator, recommend, mrecommend, srecommend, currency, actualrate, currencyName, ip, StatusID
 		)
 		VALUES
 		(
-			@Player_IBCCustID, @Player_UserName, @RefID, @TransDate, 0, @BetType, @TransDesc, @Amount, 0, @WinlostDate
-			,@UserID, @Player_Recommend, @Player_MRecommend, @Player_SRecommend, @Player_Currency, @Player_ExRate, @Player_CurrencyName, 1, @Status, @ip, @StatusID
+			@Player_IBCCustID, @Player_UserName, @RefID, @TransDate, @BetType, @TransDesc, @Amount, 0, @WinlostDate
+			,@UserID, @Player_Recommend, @Player_MRecommend, @Player_SRecommend, @Player_Currency, @Player_ExRate, @Player_CurrencyName, @ip, @StatusID
 		)
 	
 		SELECT @TransID1 = SCOPE_IDENTITY()
-
-		EXEC Dot_BalanceCreditUpd @CustID = @Player_IBCCustID, @balance = @Amount, @type = 2
-
-		-- Deduct balance account
-		INSERT INTO dbo.bettrans
-		(
-			custid, username, refno, transdate, matchid, bettype, transdesc, winlost, actual_stake, winlostdate
-			,creator, recommend, mrecommend, srecommend, currency, actualrate, currencyName, ruben, status, ip, StatusID
-		)
-		VALUES
-		(
-			@Ballance_CustID, @Ballance_UserName, @RefID, @TransDate, 0, @BetType, @TransDesc, 0, @Amount, @WinlostDate
-			,@UserID, @Ballance_Recommend, @Ballance_MRecommend, @Ballance_SRecommend, @Player_Currency, @Player_ExRate, @Player_CurrencyName, 1, @Status, @ip, @StatusID
-		)
-    
-		SELECT @TransID2 = SCOPE_IDENTITY()
-
-		EXEC Dot_BalanceDebitUpd @CustID = @Ballance_CustID, @balance = @Amount, @type = 2, @IsForced = 1, @ErrCode = @ErrCode OUTPUT
-
-		IF @ErrCode <> 0
-		BEGIN
-			-- Rollback bettrans
-			DELETE dbo.bettrans WITH (ROWLOCK, UPDLOCK)
-			WHERE transid IN (@TransID1, @TransID2)
-
-			SELECT @ErrCode = 4002, @ErrMsg = 'Update transaction failed.'
-			RETURN
-		END
 	END TRY
-	BEGIN CATCH
-		-- Rollback bettrans
-		DELETE dbo.bettrans WITH (ROWLOCK, UPDLOCK)
-		WHERE transid IN (@TransID1, @TransID2)
-
+	BEGIN CATCH 
 		SELECT @ErrCode = 4003, @ErrMsg = 'Insert transaction failed.'
 		RETURN
 	END CATCH
+
+	EXEC Dot_BalanceCreditUpd @CustID = @Player_IBCCustID, @balance = @Amount, @type = 2, @ErrCode = @ErrCode OUTPUT
+	
+	IF @ErrCode <> 0
+	BEGIN
+		DELETE dbo.Transfer WITH (ROWLOCK, UPDLOCK)
+		WHERE transid = @TransID1
+
+		SELECT @ErrCode = 4002, @ErrMsg = 'Update transaction failed.'
+		RETURN
+	END
+
+	-- Deduct balance account
+	BEGIN TRY
+		INSERT INTO dbo.Transfer
+		(
+			custid, username, refno, transdate, bettype, transdesc, winlost, actual_stake, winlostdate
+			,creator, recommend, mrecommend, srecommend, currency, actualrate, currencyName, ip, StatusID
+		)
+		VALUES
+		(
+			@Ballance_CustID, @Ballance_UserName, @RefID, @TransDate, @BetType, @TransDesc, 0, @Amount, @WinlostDate
+			,@UserID, @Ballance_Recommend, @Ballance_MRecommend, @Ballance_SRecommend, @Player_Currency, @Player_ExRate, @Player_CurrencyName, @ip, @StatusID
+		)
+    
+		SELECT @TransID2 = SCOPE_IDENTITY()
+	END TRY
+	BEGIN CATCH 
+		DELETE dbo.Transfer WITH (ROWLOCK, UPDLOCK)
+		WHERE transid IN (@TransID1, @TransID2)
+
+		EXEC Dot_BalanceDebitUpd @CustID = @Player_IBCCustID, @balance = @Amount, @type = 2, @IsForced = 1
+
+		SELECT @ErrCode = 4002, @ErrMsg = 'Update transaction failed.'
+		RETURN
+	END CATCH
+
+	EXEC Dot_BalanceDebitUpd @CustID = @Ballance_CustID, @balance = @Amount, @type = 2, @IsForced = 1, @ErrCode = @ErrCode OUTPUT
+
+	IF @ErrCode <> 0
+	BEGIN
+		-- Rollback bettrans
+		DELETE dbo.Transfer WITH (ROWLOCK, UPDLOCK)
+		WHERE transid IN (@TransID1, @TransID2)
+
+		EXEC Dot_BalanceDebitUpd @CustID = @Player_IBCCustID, @balance = @Amount, @type = 2, @IsForced = 1
+
+		SELECT @ErrCode = 4002, @ErrMsg = 'Update transaction failed.'
+		RETURN
+	END
 END
 GO
