@@ -23,7 +23,7 @@ AS
 		- 20191127@Percy: Enhance performance [RedmineID: #118992]
 		- 20210528@Malcolm: Get date daily [RedmineID: #149210]
 		- 20211207@Percy: Apply core function Group Product [RedmineID: #165777]
-		- 20211222@Malcolm: Get move bet date from sp : Age_SelBalanceUpDay  [RedmineID: #165095]
+		- 20211222@Malcolm: remove move bet date  [RedmineID: #165095]
 */
 
 BEGIN
@@ -39,14 +39,6 @@ BEGIN
 
 	IF @EndOfToMonthDate > CONVERT(DATE, GETDATE())
 		SELECT @EndOfToMonthDate = CONVERT(DATE, GETDATE())
-
-	DECLARE @MoveBetsDay SMALLDATETIME
-	DECLARE @tblMoveBetBalanceUp AS TABLE (BalanceUpDay SMALLDATETIME, MoveBetsDay SMALLDATETIME)
-
-	INSERT INTO @tblMoveBetBalanceUp(BalanceUpDay,MoveBetsDay)
-	EXEC bodb02.dbo.Age_SelBalanceUpDay
-	
-	SELECT  @MoveBetsDay = MoveBetsDay FROM @tblMoveBetBalanceUp
 
 	-- Get data
 	BEGIN
