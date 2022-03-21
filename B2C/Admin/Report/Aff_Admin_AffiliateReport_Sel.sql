@@ -31,6 +31,7 @@ AS
 		- 20210714@Percy: Add P2PEarning column [RedmineID: #157958]
 		- 20210914@Percy: Support multiple revenue group filter + Add payment currency filter [RedmineID: #161488]
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
+		- 20220315@Malcolm: convert BF to base currency [RedmineID: #161540]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -264,11 +265,12 @@ BEGIN
 		-- AffWithdrawal, AffAdjustment
 		CREATE TABLE #AffTrans (AffId INT, AffWithdrawal MONEY, AffAdjustment MONEY, BFF MONEY)
 		INSERT INTO #AffTrans (AffId, AffWithdrawal, AffAdjustment, BFF)
-		SELECT AffId,
-			SUM(CASE WHEN TransType = 202 AND TransDate >= @FromDate THEN ABS(Amount) ELSE 0 END) AS AffWithdrawal,
-			SUM(CASE WHEN TransType = 203 AND TransDate >= @FromDate THEN Amount ELSE 0 END) AS AffAdjustment,
-			SUM(Amount) AS BFF
-		FROM dbo.AffTrans WITH (NOLOCK)
+		SELECT at.AffId,
+			SUM((CASE WHEN at.TransType = 202 AND at.TransDate >= @FromDate THEN ABS(at.Amount) ELSE 0 END) * e.Rate) AS AffWithdrawal,
+			SUM((CASE WHEN at.TransType = 203 AND at.TransDate >= @FromDate THEN at.Amount ELSE 0 END) * e.Rate) AS AffAdjustment,
+			SUM(Amount * e.Rate) AS BFF
+		FROM dbo.AffTrans at WITH (NOLOCK)
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, at.AffCurrency, @BaseCurrency) e
 		WHERE TransDate < DATEADD(DAY, 1, @ToDate)
 			AND Status IN ('Pending', 'Approved', 'Completed')
 		GROUP BY AffId
