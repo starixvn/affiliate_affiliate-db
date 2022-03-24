@@ -1,5 +1,2 @@
-B2C\Admin\Customer\Statistics\Aff_Admin_Statistics_Sel.sql
-B2C\Admin\Report\Aff_Admin_AffiliateReport_Detail_Sel.sql
-B2C\Admin\Report\Aff_Admin_AffiliateReport_Sel.sql
-B2C\User\Home\Aff_User_Overview_SubAffiliate_Sel.sql
-B2C\User\Home\Aff_User_Overview_Summary_Sel.sql
+B2C\Admin\Customer\LeftPanel\Aff_Admin_AffiliateInfo_Sel.sql
+B2C\User\Login\Aff_User_SecurityQuestions_Sel.sql

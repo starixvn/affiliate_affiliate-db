@@ -15,6 +15,7 @@ Revisions:
 	- 20130218@LongLuu : Add Korean Language http://ccs.nexcel.vn/viewtopic.php?f=6&t=8460&start=0&st=0&sk=t&sd=a#p36106
 	- 20130426@LongLuu: Add Japanese Language
 	- 20200220@Percy: Initialize SP for DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G [RedmineID: #128775]
+	- 20220301@Malcolm: Add Hindi Language [RedmineId: #169142]
 Param's Explanation:
 • @MsgID : >0 message id selected
 		   null: select the latest message
@@ -36,6 +37,7 @@ if(coalesce(@MsgID,-1)=-1) -- get the latest message
 		  ,[message_id]
 		  ,[message_kr]
 		  ,[message_jp]
+		  ,[message_hi]
 		  ,n.creator
 		  ,[posteddate]
 		  ,[msgid]

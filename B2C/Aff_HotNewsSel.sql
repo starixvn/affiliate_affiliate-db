@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20220301@Malcolm: Add Hindi Language [RedmineId: #169142]
 */
 
 BEGIN
@@ -50,11 +51,11 @@ BEGIN
 	BEGIN
 		SELECT
 			msgid, creator, posteddate, important, creatorname, updatename, updateddate
-			,message_en, message_cn, message_tw, message_es, message_th, message_vi, message_id, message_kr, message_jp
+			,message_en, message_cn, message_tw, message_es, message_th, message_vi, message_id, message_kr, message_jp, message_hi
 		FROM (
 			SELECT
 				n.msgid, n.creator, n.posteddate, n.important, c.username AS creatorname, u.username AS updatename, n.updateddate
-				,n.message_en, n.message_cn, n.message_tw, n.message_es, n.message_th, n.message_vi, n.message_id, n.message_kr, n.message_jp
+				,n.message_en, n.message_cn, n.message_tw, n.message_es, n.message_th, n.message_vi, n.message_id, n.message_kr, n.message_jp, n.message_hi
 				,ROW_NUMBER() OVER(ORDER BY n.posteddate DESC) AS RowNum
 			FROM dbo.News n WITH (NOLOCK)
 				LEFT JOIN dbo.Affiliate_User c WITH (NOLOCK) ON n.Creator = c.custid
@@ -86,6 +87,7 @@ BEGIN
 						WHEN 'id-ID' THEN ISNULL(message_id, message_en)
 						WHEN 'ko-KR' THEN ISNULL(message_kr, message_en)
 						WHEN 'ja-JP' THEN ISNULL(message_jp, message_en)
+						WHEN 'hi-IN' THEN ISNULL(message_hi, message_en)
 						ELSE message_en END AS [message]
 				,posteddate
 				,msgid

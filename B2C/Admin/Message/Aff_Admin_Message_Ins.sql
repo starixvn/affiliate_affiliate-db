@@ -10,6 +10,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Message_Ins]
 	,@MsgID			NVARCHAR(4000)
 	,@MsgKR			NVARCHAR(4000)
 	,@MsgJP			NVARCHAR(4000)
+	,@MsgHI			NVARCHAR(4000)
 	,@IsImportant	BIT
 	,@IP			VARCHAR(20) = ''
 	,@ErrCode		INT = 0 OUTPUT
@@ -23,6 +24,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20220301@Malcolm: Add Hindi Language [RedmineId: #169142]
 */
 
 BEGIN
@@ -43,12 +45,12 @@ BEGIN
 	BEGIN TRY
 		INSERT INTO dbo.News
 		(
-			Message_En,Message_Cn,Message_Tw,Message_Es,Message_Th,Message_Id,Message_Vi,Message_Kr,Message_Jp
+			Message_En,Message_Cn,Message_Tw,Message_Es,Message_Th,Message_Id,Message_Vi,Message_Kr,Message_Jp, Message_Hi
 			,Creator,PostedDate,Important
 		)
 		VALUES
 		(
-			@MsgEn,@MsgCn,@MsgTw,@MsgEs,@MsgTh,@MsgId,@MsgVi,@MsgKr,@MsgJp
+			@MsgEn,@MsgCn,@MsgTw,@MsgEs,@MsgTh,@MsgId,@MsgVi,@MsgKr,@MsgJp, @MsgHI
 			,@UserId,GETDATE(),@IsImportant
 		)
 
@@ -74,6 +76,7 @@ BEGIN
 					+ ',' + 'Message_Vi=' + ISNULL(@MsgVi, '')
 					+ ',' + 'Message_Kr=' + ISNULL(@MsgKr, '')
 					+ ',' + 'Message_Jp=' + ISNULL(@MsgJp, '')
+					+ ',' + 'Message_Hi=' + ISNULL(@MsgHI, '')
 					+ ',' + 'Important=' + ISNULL(CONVERT(VARCHAR(5), @IsImportant), '')
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog

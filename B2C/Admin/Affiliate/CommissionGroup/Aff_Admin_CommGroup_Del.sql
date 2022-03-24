@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20220322@Malcolm: Change messageID [RedmineID: #169142]
 */
 
 BEGIN
@@ -55,7 +56,7 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		-- Failed to delete group! Please try again!
-		SELECT @ErrCode = 103, @ErrMsg = dbo.Aff_f_GetMessageById(1010, @Language)
+		SELECT @ErrCode = 103, @ErrMsg = dbo.Aff_f_GetMessageById(1009, @Language)
 
 		RETURN
 	END CATCH
