@@ -1,2 +1,3 @@
 B2C\Admin\Customer\LeftPanel\Aff_Admin_AffiliateInfo_Sel.sql
 B2C\User\Login\Aff_User_SecurityQuestions_Sel.sql
+
