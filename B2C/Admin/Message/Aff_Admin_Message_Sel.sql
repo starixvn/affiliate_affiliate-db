@@ -43,13 +43,9 @@ BEGIN
 			m.MsgId AS MessageId
 			,m.Message_En
 			,m.Message_Cn
-			,m.Message_Tw
-			,m.Message_Es
 			,m.Message_Th
 			,m.Message_Id
 			,m.Message_Vi
-			,m.Message_Kr
-			,m.Message_Jp
 			,m.Message_Hi
 			,m.Message_Ms
 			,m.PostedDate
@@ -86,20 +82,16 @@ BEGIN
 			RETURN
 
 		SELECT
-			MessageId, Message_En, Message_Cn, Message_Tw, Message_Es, Message_Th, Message_Id
-			,Message_Vi, Message_Kr, Message_Jp, Message_Hi, Message_Ms, PostedDate, Important, UpdatedDate, CreatorName, UpdatedName
+			MessageId, Message_En, Message_Cn, Message_Th, Message_Id
+			,Message_Vi, Message_Hi, Message_Ms, PostedDate, Important, UpdatedDate, CreatorName, UpdatedName
 		FROM (
 			SELECT
 				m.MsgId AS MessageId
 				,m.Message_En
 				,m.Message_Cn
-				,m.Message_Tw
-				,m.Message_Es
 				,m.Message_Th
 				,m.Message_Id
 				,m.Message_Vi
-				,m.Message_Kr
-				,m.Message_Jp
 				,m.Message_Hi
 				,m.Message_Ms
 				,m.PostedDate

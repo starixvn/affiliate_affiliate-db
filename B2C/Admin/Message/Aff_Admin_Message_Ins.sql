@@ -3,13 +3,9 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Message_Ins]
 	@UserId			INT
 	,@MsgEN			NVARCHAR(4000)
 	,@MsgCN			NVARCHAR(4000)
-	,@MsgTW			NVARCHAR(4000)
-	,@MsgES			NVARCHAR(4000)
 	,@MsgTH			NVARCHAR(4000)
 	,@MsgVI			NVARCHAR(4000)
 	,@MsgID			NVARCHAR(4000)
-	,@MsgKR			NVARCHAR(4000)
-	,@MsgJP			NVARCHAR(4000)
 	,@MsgHI			NVARCHAR(4000)
 	,@MsgMS			NVARCHAR(4000)
 	,@IsImportant	BIT
@@ -47,13 +43,13 @@ BEGIN
 	BEGIN TRY
 		INSERT INTO dbo.News
 		(
-			Message_En,Message_Cn,Message_Tw,Message_Es,Message_Th,Message_Id,Message_Vi,Message_Kr,Message_Jp, Message_Hi, Message_Ms
-			,Creator,PostedDate,Important
+			Message_En, Message_Cn, Message_Th, Message_Id, Message_Vi, Message_Hi, Message_Ms
+			,Creator, PostedDate, Important
 		)
 		VALUES
 		(
-			@MsgEn,@MsgCn,@MsgTw,@MsgEs,@MsgTh,@MsgId,@MsgVi,@MsgKr,@MsgJp, @MsgHI, @MsgMs
-			,@UserId,GETDATE(),@IsImportant
+			@MsgEn, @MsgCn, @MsgTh, @MsgId, @MsgVi, @MsgHI, @MsgMs
+			,@UserId, GETDATE(), @IsImportant
 		)
 
 		SELECT @MessageId = SCOPE_IDENTITY()
@@ -71,13 +67,9 @@ BEGIN
 	SELECT  @NewData = 'MessageId=' + ISNULL(CONVERT(VARCHAR(5), @MessageId), '')
 					+ ',' + 'Message_En=' + ISNULL(@MsgEn, '')
 					+ ',' + 'Message_Cn=' + ISNULL(@MsgCn, '')
-					+ ',' + 'Message_Tw=' + ISNULL(@MsgTw, '')
-					+ ',' + 'Message_Es=' + ISNULL(@MsgEs, '')
 					+ ',' + 'Message_Th=' + ISNULL(@MsgTh, '')
 					+ ',' + 'Message_Id=' + ISNULL(@MsgId, '')
 					+ ',' + 'Message_Vi=' + ISNULL(@MsgVi, '')
-					+ ',' + 'Message_Kr=' + ISNULL(@MsgKr, '')
-					+ ',' + 'Message_Jp=' + ISNULL(@MsgJp, '')
 					+ ',' + 'Message_Hi=' + ISNULL(@MsgHI, '')
 					+ ',' + 'Message_Ms=' + ISNULL(@MsgMS, '')
 					+ ',' + 'Important=' + ISNULL(CONVERT(VARCHAR(5), @IsImportant), '')
