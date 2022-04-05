@@ -298,8 +298,10 @@ BEGIN
 	
 		CREATE NONCLUSTERED INDEX IX_MonthDate ON #Commission (MonthDate, AffId, GroupId, ProductId)
 
-		DECLARE @P2P_CutOffDate DATETIME
-		SELECT  @P2P_CutOffDate = dbo.Aff_f_GetSetting('P2P_CutOffDate')
+		DECLARE @P2P_CutOffDate DATETIME, @GroupProduct_CutOffFDate DATETIME
+
+
+		SELECT  @P2P_CutOffDate = dbo.Aff_f_GetSetting('P2P_CutOffDate'), @GroupProduct_CutOffFDate = dbo.Aff_f_GetSetting('GroupProduct_CutOffDate');
 		
 		IF @BeginOfFromMonthDate < @P2P_CutOffDate -- Old formula
 		BEGIN
@@ -409,8 +411,7 @@ BEGIN
 			UPDATE s
 				SET s.GroupProductId = 0
 			FROM @Setting s
-			WHERE s.MonthDate >= @P2P_CutOffDate 
-				AND EXISTS (SELECT 1 FROM dbo.TierSettingHistory tsh WITH(NOLOCK) WHERE tsh.MonthDate = s.MonthDate AND tsh.GroupId = s.GroupId AND tsh.GroupProductId = 0)
+			WHERE s.MonthDate BETWEEN @P2P_CutOffDate AND @GroupProduct_CutOffFDate 
 
 			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, Revenue, GrossWinloss, P2PFee, PlatFormFee, OperationalFee, StraightCommission, IsStraightSetting)
 			SELECT 
