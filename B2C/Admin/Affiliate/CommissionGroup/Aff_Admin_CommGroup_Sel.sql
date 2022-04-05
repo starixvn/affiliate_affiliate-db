@@ -24,11 +24,6 @@ BEGIN
 	DECLARE @IsTest BIT
 	SELECT  @IsTest = dbo.f_Aff_CheckSPVersion(@@PROCID)
 
-	DECLARE @GroupProductId INT = NULL, @GroupProduct_CutOffDate DATETIME = dbo.Aff_f_GetSetting('GroupProduct_CutOffDate')
-
-	IF @GroupProduct_CutOffDate >= GETDATE()
-		SET @GroupProductId = 0
-
 	DECLARE @RowStart INT, @RowEnd INT
 
 	IF @GroupId <> 0
@@ -94,12 +89,12 @@ BEGIN
 		gs.MinAM,
 		gs.MaxAM,
 		gs.Commission,
-		ISNULL(@GroupProductId, gs.GroupProductId) AS GroupProductId
+		gs.GroupProductId
 	FROM dbo.TierSetting gs WITH (NOLOCK)
 		INNER JOIN @Group g ON gs.GroupId = g.GroupId
 	ORDER BY
 		gs.GroupId,
-		ISNULL(@GroupProductId, gs.GroupProductId),
+		gs.GroupProductId,
 		gs.TierId
 
 	-- Deduction List
@@ -112,14 +107,14 @@ BEGIN
 				FROM dbo.DeductionSetting d WITH (NOLOCK)
 				WHERE ds.GroupId			= d.GroupId
 					AND ds.DeductionId		= d.DeductionId
-					AND ISNULL(@GroupProductId, ds.GroupProductId) = d.GroupProductId
+					AND ds.GroupProductId = d.GroupProductId
 					AND d.ProductId			<> 0
 				FOR XML PATH (''))
 				, 1, 1, '') AS ProductIds,
 		ds.DeductedPercentage,
 		ds.DeductedAmount,
 		ds.IsDeductedPercent,
-		ISNULL(@GroupProductId, ds.GroupProductId) AS GroupProductId
+		ds.GroupProductId
 	FROM dbo.DeductionSetting ds WITH (NOLOCK)
 		INNER JOIN dbo.Deductions dt WITH (NOLOCK) ON ds.DeductionId = dt.DeductionId
 		INNER JOIN @Group g ON ds.GroupId = g.GroupId
@@ -128,7 +123,7 @@ BEGIN
 		ds.GroupId,
 		ds.DeductionId,
 		dt.DeductionName,
-		ISNULL(@GroupProductId, ds.GroupProductId),
+		ds.GroupProductId,
 		ds.DeductedPercentage,
 		ds.DeductedAmount,
 		ds.IsDeductedPercent

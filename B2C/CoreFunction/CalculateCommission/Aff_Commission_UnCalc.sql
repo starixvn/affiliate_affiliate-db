@@ -298,10 +298,9 @@ BEGIN
 	
 		CREATE NONCLUSTERED INDEX IX_MonthDate ON #Commission (MonthDate, AffId, GroupId, ProductId)
 
-		DECLARE @P2P_CutOffDate DATETIME, @GroupProduct_CutOffFDate DATETIME
+		DECLARE @P2P_CutOffDate DATETIME
 
-
-		SELECT  @P2P_CutOffDate = dbo.Aff_f_GetSetting('P2P_CutOffDate'), @GroupProduct_CutOffFDate = dbo.Aff_f_GetSetting('GroupProduct_CutOffDate');
+		SELECT  @P2P_CutOffDate = dbo.Aff_f_GetSetting('P2P_CutOffDate')
 		
 		IF @BeginOfFromMonthDate < @P2P_CutOffDate -- Old formula
 		BEGIN
@@ -411,7 +410,8 @@ BEGIN
 			UPDATE s
 				SET s.GroupProductId = 0
 			FROM @Setting s
-			WHERE s.MonthDate BETWEEN @P2P_CutOffDate AND @GroupProduct_CutOffFDate 
+			WHERE s.MonthDate >= @P2P_CutOffDate 
+				AND EXISTS (SELECT 1 FROM dbo.TierSettingHistory tsh WITH(NOLOCK) WHERE tsh.MonthDate = s.MonthDate AND tsh.GroupId = s.GroupId AND tsh.GroupProductId = 0)
 
 			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, Revenue, GrossWinloss, P2PFee, PlatFormFee, OperationalFee, StraightCommission, IsStraightSetting)
 			SELECT 
@@ -548,69 +548,94 @@ BEGIN
 			LEFT JOIN CTE_Group g ON g.MonthDate = c.MonthDate AND g.AffId = c.AffId AND g.GroupProductId = c.GroupProductId	
 		WHERE c.MonthDate >= @P2P_CutOffDate AND c.ProductId = 0
 
-		IF @IsForJob = 0
-		BEGIN
-			INSERT INTO #Commission
-			(
-				MonthDate,
-				AffId,
-				GroupId,
-				GroupProductId,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Rebate,
-				Turnover,
-				Winloss,
-				Revenue,
-				P2PFee,
-				PlatFormFee,
-				OperationalFee,
-				DepositFee,
-				WithdrawalFee,
-				GrossWinloss,
-				NetWinloss,
-				ActivePlayer,
-				CommissionRate,
-				Commission,
-				StraightCommission,
-				SubAffCommission,
-				IsStraightSetting 
-			)
-			SELECT 
-				MonthDate,
-				AffId,
-				GroupId,
-				0 AS GroupProductId,
-				0 AS ProductId,
-				SUM(Deposit),
-				SUM(Withdrawal),
-				SUM(Bonus),
-				SUM(Rebate),
-				SUM(Turnover),
-				SUM(Winloss),
-				SUM(Revenue),
-				SUM(P2PFee),
-				SUM(PlatFormFee),
-				SUM(OperationalFee),
-				SUM(DepositFee),
-				SUM(WithdrawalFee),
-				SUM(GrossWinloss),
-				SUM(NetWinloss),
-				MAX(ActivePlayer),
-				SUM(CASE WHEN GroupProductId IN (0, 1) THEN CommissionRate ELSE 0 END),
-				SUM(Commission),
-				SUM(StraightCommission),
-				SUM(SubAffCommission),
-				2
-			FROM #Commission
-			WHERE ProductId = 0 AND MonthDate > @P2P_CutOffDate 
-			GROUP BY MonthDate, AffId, GroupId
-	
-			DELETE #Commission WHERE ProductId = 0 AND IsStraightSetting <> 2
-		END
-		
+		UPDATE #Commission
+			SET ProductId = -1
+		WHERE ProductId = 0
+
+		INSERT INTO #Commission
+		(
+			MonthDate,
+			AffId,
+			GroupId,
+			GroupProductId,
+			ProductId,
+			Deposit,
+			Withdrawal,
+			Bonus,
+			Rebate,
+			Turnover,
+			Winloss,
+			Revenue,
+			P2PFee,
+			PlatFormFee,
+			OperationalFee,
+			DepositFee,
+			WithdrawalFee,
+			GrossWinloss,
+			NetWinloss,
+			ActivePlayer,
+			CommissionRate,
+			Commission,
+			StraightCommission,
+			SubAffCommission
+		)
+		SELECT 
+			MonthDate,
+			AffId,
+			GroupId,
+			0 AS GroupProductId,
+			0 AS ProductId,
+			SUM(Deposit),
+			SUM(Withdrawal),
+			SUM(Bonus),
+			SUM(Rebate),
+			SUM(Turnover),
+			SUM(Winloss),
+			SUM(Revenue),
+			SUM(P2PFee),
+			SUM(PlatFormFee),
+			SUM(OperationalFee),
+			SUM(DepositFee),
+			SUM(WithdrawalFee),
+			SUM(GrossWinloss),
+			SUM(NetWinloss),
+			MAX(ActivePlayer),
+			SUM(CASE WHEN GroupProductId IN (0, 1) THEN CommissionRate ELSE 0 END),
+			SUM(Commission),
+			SUM(StraightCommission),
+			SUM(SubAffCommission)
+		FROM #Commission
+		WHERE ProductId = -1 AND MonthDate > @P2P_CutOffDate 
+		GROUP BY MonthDate, AffId, GroupId
+
+		--Update Deposit, Withdrawal, Bonus, Rebate, DepositFee, WithdrawalFee
+		;WITH CTE_GroupProduct AS (SELECT MonthDate, GroupId, COUNT(DISTINCT GroupProductId) AS [NoGroupProduct] FROM @Setting WHERE IsStraightSetting = 0 GROUP BY MonthDate, GroupId)
+		UPDATE c
+			SET c.Deposit			= d.Deposit
+				,c.Withdrawal		= d.Withdrawal
+				,c.Rebate			= d.Rebate
+				,c.Bonus			= d.Bonus
+				,c.DepositFee		= d.DepositFee
+				,c.WithdrawalFee	= d.WithdrawalFee
+		FROM #Commission c
+		LEFT JOIN (
+					SELECT d.MonthDate, d.AffId, d.GroupId
+						,SUM(d.Deposit) AS Deposit
+						,SUM(d.Withdrawal) AS Withdrawal
+						,SUM(d.Bonus) AS Bonus
+						,SUM(d.Rebate) AS Rebate
+						,SUM(d.Deposit * ISNULL(s.DepositFee, 0) + ISNULL(s.DepositAmount, 0)) AS DepositFee
+						,SUM(d.Withdrawal * ISNULL(s.WithdrawalFee, 0) + ISNULL(s.WithdrawalAmount, 0)) AS WithdrawalFee
+					FROM #Data d
+						LEFT JOIN @Setting s ON d.MonthDate = s.MonthDate AND d.GroupId = s.GroupId AND d.ProductId = s.ProductId
+					WHERE d.ProductId = 0 AND d.MonthDate >= @P2P_CutOffDate
+					GROUP BY d.MonthDate, d.AffId, d.GroupId
+				) d ON c.MonthDate = d.MonthDate AND c.AffId = d.AffId AND c.GroupId = d.GroupId
+				LEFT JOIN CTE_GroupProduct e ON c.MonthDate = e.MonthDate AND c.GroupId = e.GroupId 
+		WHERE c.ProductId = 0  AND c.MonthDate >= @P2P_CutOffDate
+
+		IF @IsForJob = 0 OR  @IsSumAll = 1
+			DELETE #Commission WHERE ProductId = -1
 
 		-- Filter by Currencies
 		IF @Currencies <> ''
@@ -872,7 +897,7 @@ BEGIN
 				SUM(GrossWinloss)														AS GrossWinloss,
 				SUM(NetWinloss)															AS NetWinloss,
 				SUM(ActivePlayer)														AS ActivePlayer,
-				SUM(CASE WHEN GroupProductId IN (0, 1) THEN CommissionRate ELSE 0 END)	AS CommissionRate,
+				SUM(CommissionRate)														AS CommissionRate,
 				SUM(Commission)															AS Commission,
 				SUM(StraightCommission)													AS StraightCommission,
 				SUM(SubAffCommission)													AS SubAffCommission,
@@ -937,7 +962,7 @@ BEGIN
 				SUM(GrossWinloss)														AS GrossWinloss,
 				SUM(NetWinloss)															AS NetWinloss,
 				SUM(ActivePlayer)														AS ActivePlayer,
-				SUM(CASE WHEN GroupProductId IN (0, 1) THEN CommissionRate ELSE 0 END)	AS CommissionRate,
+				SUM(CommissionRate)														AS CommissionRate,
 				SUM(Commission)															AS Commission,
 				SUM(StraightCommission)													AS StraightCommission,
 				SUM(SubAffCommission)													AS SubAffCommission,
@@ -968,7 +993,7 @@ BEGIN
 				SUM(GrossWinloss)														AS GrossWinloss,
 				SUM(NetWinloss)															AS NetWinloss,
 				SUM(ActivePlayer)														AS ActivePlayer,
-				SUM(CASE WHEN GroupProductId IN (0, 1) THEN CommissionRate ELSE 0 END)	AS CommissionRate,
+				SUM(CommissionRate)														AS CommissionRate,
 				SUM(Commission)															AS Commission,
 				SUM(StraightCommission)													AS StraightCommission,
 				SUM(SubAffCommission)													AS SubAffCommission,
