@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20220301@Malcolm: Add Hindi Language [RedmineId: #169142]
+		- 20220401@Malcolm: Add Malay Language [RedmineId: #170789]
 */
 
 BEGIN
@@ -55,14 +56,11 @@ BEGIN
 	SELECT  @OldData = 'MessageId=' + ISNULL(CONVERT(VARCHAR(5), m.MsgId), '')
 					+ ',' + 'Message_En=' + ISNULL(m.Message_En, '')
 					+ ',' + 'Message_Cn=' + ISNULL(m.Message_Cn, '')
-					+ ',' + 'Message_Tw=' + ISNULL(m.Message_Tw, '')
-					+ ',' + 'Message_Es=' + ISNULL(m.Message_Es, '')
 					+ ',' + 'Message_Th=' + ISNULL(m.Message_Th, '')
 					+ ',' + 'Message_Id=' + ISNULL(m.Message_Id, '')
 					+ ',' + 'Message_Vi=' + ISNULL(m.Message_Vi, '')
-					+ ',' + 'Message_Kr=' + ISNULL(m.Message_Kr, '')
-					+ ',' + 'Message_Jp=' + ISNULL(m.Message_Jp, '')
 					+ ',' + 'Message_Hi=' + ISNULL(m.Message_Hi, '')
+					+ ',' + 'Message_Ms=' + ISNULL(m.Message_Ms, '')
 					+ ',' + 'Important=' + ISNULL(CONVERT(VARCHAR(5), m.Important), '')
 	FROM dbo.News m WITH (NOLOCK)
 		INNER JOIN @Messages tmp ON m.MsgId = tmp.MessageId

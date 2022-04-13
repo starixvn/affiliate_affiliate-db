@@ -16,6 +16,7 @@ Revisions:
 	- 20130426@LongLuu: Add Japanese Language
 	- 20200220@Percy: Initialize SP for DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G [RedmineID: #128775]
 	- 20220301@Malcolm: Add Hindi Language [RedmineId: #169142]
+	- 20220401@Malcolm: Add Malay Language [RedmineId: #170789]
 Param's Explanation:
 • @MsgID : >0 message id selected
 		   null: select the latest message
@@ -38,6 +39,7 @@ if(coalesce(@MsgID,-1)=-1) -- get the latest message
 		  ,[message_kr]
 		  ,[message_jp]
 		  ,[message_hi]
+		  ,[message_ms]
 		  ,n.creator
 		  ,[posteddate]
 		  ,[msgid]

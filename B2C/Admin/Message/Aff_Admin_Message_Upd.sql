@@ -4,14 +4,11 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Message_Upd]
 	,@MessageId		INT
 	,@MsgEN			NVARCHAR(4000)
 	,@MsgCN			NVARCHAR(4000)
-	,@MsgTW			NVARCHAR(4000)
-	,@MsgES			NVARCHAR(4000)
 	,@MsgTH			NVARCHAR(4000)
 	,@MsgVI			NVARCHAR(4000)
 	,@MsgID			NVARCHAR(4000)
-	,@MsgKR			NVARCHAR(4000)
-	,@MsgJP			NVARCHAR(4000)
 	,@MsgHi			NVARCHAR(4000)
+	,@MsgMs			NVARCHAR(4000)
 	,@IsImportant	BIT
 	,@IP			VARCHAR(20) = ''
 	,@ErrCode		INT = 0 OUTPUT
@@ -26,6 +23,7 @@ AS
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20220301@Malcolm: Add Hindi Language [RedmineId: #169142]
+		- 20220401@Malcolm: Add Malay Language [RedmineId: #170789]
 */
 
 BEGIN
@@ -46,14 +44,11 @@ BEGIN
 	SELECT  @OldData = 'MessageId=' + ISNULL(CONVERT(VARCHAR(5), MsgId), '')
 					+ ',' + 'Message_En=' + ISNULL(Message_En, '')
 					+ ',' + 'Message_Cn=' + ISNULL(Message_Cn, '')
-					+ ',' + 'Message_Tw=' + ISNULL(Message_Tw, '')
-					+ ',' + 'Message_Es=' + ISNULL(Message_Es, '')
 					+ ',' + 'Message_Th=' + ISNULL(Message_Th, '')
 					+ ',' + 'Message_Id=' + ISNULL(Message_Id, '')
 					+ ',' + 'Message_Vi=' + ISNULL(Message_Vi, '')
-					+ ',' + 'Message_Kr=' + ISNULL(Message_Kr, '')
-					+ ',' + 'Message_Jp=' + ISNULL(Message_Jp, '')
 					+ ',' + 'Message_Hi=' + ISNULL(Message_Hi, '')
+					+ ',' + 'Message_Ms=' + ISNULL(Message_Ms, '')
 					+ ',' + 'Important=' + ISNULL(CONVERT(VARCHAR(5), Important), '')
 	FROM dbo.News WITH (NOLOCK)
 	WHERE MsgId = @MessageId
@@ -68,14 +63,11 @@ BEGIN
 		UPDATE dbo.News WITH (ROWLOCK)
 		SET Message_En		= @MsgEn
 			,Message_Cn		= @MsgCn
-			,Message_Tw		= @MsgTw
-			,Message_Es		= @MsgEs
 			,Message_Th		= @MsgTh
 			,Message_Id		= @MsgId
 			,Message_Vi		= @MsgVi
-			,Message_Kr		= @MsgKr
-			,Message_Jp		= @MsgJp
 			,Message_Hi     = @MsgHi
+			,Message_Ms     = @MsgMs
 			,Important		= @IsImportant
 			,UpdatedBy		= @UserId
 			,UpdatedDate	= GETDATE()
@@ -93,14 +85,11 @@ BEGIN
 	SELECT  @NewData = 'MessageId=' + ISNULL(CONVERT(VARCHAR(5), @MessageId), '')
 					+ ',' + 'Message_En=' + ISNULL(@MsgEn, '')
 					+ ',' + 'Message_Cn=' + ISNULL(@MsgCn, '')
-					+ ',' + 'Message_Tw=' + ISNULL(@MsgTw, '')
-					+ ',' + 'Message_Es=' + ISNULL(@MsgEs, '')
 					+ ',' + 'Message_Th=' + ISNULL(@MsgTh, '')
 					+ ',' + 'Message_Id=' + ISNULL(@MsgId, '')
 					+ ',' + 'Message_Vi=' + ISNULL(@MsgVi, '')
-					+ ',' + 'Message_Kr=' + ISNULL(@MsgKr, '')
-					+ ',' + 'Message_Jp=' + ISNULL(@MsgJp, '')
 					+ ',' + 'Message_Hi=' + ISNULL(@MsgHi, '')
+					+ ',' + 'Message_Ms=' + ISNULL(@MsgMs, '')
 					+ ',' + 'Important=' + ISNULL(CONVERT(VARCHAR(5), @IsImportant), '')
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
