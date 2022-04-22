@@ -118,8 +118,9 @@ BEGIN
 				SELECT md.MonthDate, CASE WHEN at.TransType = 205 THEN 201 ELSE at.TransType END AS TransType, ISNULL(at.Amount, 0) AS Amount
 				FROM CTE_MonthDate md
 					OUTER APPLY (
-						SELECT at.TransType, at.Amount
+						SELECT at.TransType, at.Amount * e.Rate AS Amount
 						FROM dbo.AffTrans at WITH (NOLOCK)
+						CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, at.AffCurrency, @BaseCurrency) e
 						WHERE md.MonthDate = at.TransDate
 							AND at.AffId = @AffId
 							AND at.TransType IN (201, 204, 205)
