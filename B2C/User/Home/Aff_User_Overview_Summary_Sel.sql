@@ -15,6 +15,7 @@ AS
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Include P2P Earning into Monthly Earning [RedmineID: #157958]
+		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 */
 
 BEGIN
