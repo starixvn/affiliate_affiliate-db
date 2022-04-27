@@ -32,6 +32,7 @@ AS
 		- 20210914@Percy: Support multiple revenue group filter + Add payment currency filter [RedmineID: #161488]
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20220315@Malcolm: convert BF to base currency [RedmineID: #161540]
+		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -109,7 +110,8 @@ BEGIN
 			CommissionRate		FLOAT,
 			Commission			MONEY,
 			StraightCommission	MONEY,
-			SubAffCommission	MONEY
+			SubAffCommission	MONEY,
+			IsMultiGroupProduct BIT
 		)
 
 		IF @FromDate <= @MaxCommDate
@@ -141,7 +143,8 @@ BEGIN
 				CommissionRate,
 				Commission,
 				StraightCommission,
-				SubAffCommission
+				SubAffCommission,
+				IsMultiGroupProduct
 			)
 			EXEC dbo.Aff_Commission_Calc
 				@AffIds				= 'all',
@@ -182,7 +185,8 @@ BEGIN
 				CommissionRate,
 				Commission,
 				StraightCommission,
-				SubAffCommission
+				SubAffCommission,
+				IsMultiGroupProduct
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= 'all',
@@ -280,33 +284,34 @@ BEGIN
 	BEGIN
 		CREATE TABLE #Result
 		(
-			AffId			INT,
-			Username		NVARCHAR(30),
-			PaymentCurrency	VARCHAR(5),
-			TotalClick		INT,
-			UniqueClick		INT,
-			Signup			INT,
-			FDM				INT,
-			ActivePlayer 	INT,
-			NoOfSubAff		INT,
-			Deposit			MONEY,
-			Withdrawal		MONEY,
-			Turnover		MONEY,
-			GGR				MONEY,
-			Bonus			MONEY,
-			Rebate			MONEY,
-			PlatFormFee		MONEY,
-			OperationalFee	MONEY,
-			DepositFee		MONEY,
-			WithdrawalFee	MONEY,
-			CommissionRate	MONEY,
-			Earning			MONEY,
-			P2PEarning		MONEY,
-			SubAffEarning	MONEY,
-			AffWithdrawal	MONEY,
-			AffAdjustment	MONEY,
-			BFF				MONEY,
-			RowIdx			INT
+			AffId				INT,
+			Username			NVARCHAR(30),
+			PaymentCurrency		VARCHAR(5),
+			TotalClick			INT,
+			UniqueClick			INT,
+			Signup				INT,
+			FDM					INT,
+			ActivePlayer 		INT,
+			NoOfSubAff			INT,
+			Deposit				MONEY,
+			Withdrawal			MONEY,
+			Turnover			MONEY,
+			GGR					MONEY,
+			Bonus				MONEY,
+			Rebate				MONEY,
+			PlatFormFee			MONEY,
+			OperationalFee		MONEY,
+			DepositFee			MONEY,
+			WithdrawalFee		MONEY,
+			CommissionRate		MONEY,
+			IsMultiGroupProduct BIT,
+			Earning				MONEY,
+			P2PEarning			MONEY,
+			SubAffEarning		MONEY,
+			AffWithdrawal		MONEY,
+			AffAdjustment		MONEY,
+			BFF					MONEY,
+			RowIdx				INT
 		)
 		INSERT INTO #Result
 		(
@@ -330,6 +335,7 @@ BEGIN
 			DepositFee,
 			WithdrawalFee,
 			CommissionRate,
+			IsMultiGroupProduct,
 			Earning,
 			P2PEarning,
 			SubAffEarning,
@@ -359,6 +365,7 @@ BEGIN
 			ISNULL(tc.DepositFee, 0)			AS DepositFee,
 			ISNULL(tc.WithdrawalFee, 0)			AS WithdrawalFee,
 			ISNULL(tc.CommissionRate, 0)		AS CommissionRate,
+			ISNULL(tc.IsMultiGroupProduct, 0)   AS IsMultiGroupProduct,
 			ISNULL(tc.Commission, 0)			AS Earning,
 			ISNULL(tc.StraightCommission, 0)	AS P2PEarning,
 			ISNULL(tc.SubAffCommission, 0)		AS SubAffEarning,
@@ -398,6 +405,7 @@ BEGIN
 					SUM(WithdrawalFee)				AS WithdrawalFee,
 					SUM(NetWinloss)					AS NetWinloss,
 					SUM(CommissionRate/@NoOfMonth)	AS CommissionRate,
+					CONVERT(BIT, MAX(CONVERT(TINYINT, IsMultiGroupProduct))) AS IsMultiGroupProduct,
 					SUM(Commission)					AS Commission,
 					SUM(StraightCommission)			AS StraightCommission,
 					SUM(SubAffCommission)			AS SubAffCommission
@@ -441,7 +449,7 @@ BEGIN
 	SELECT AffId, Username, PaymentCurrency, TotalClick, UniqueClick, Signup, FDM, ActivePlayer, NoOfSubAff
 		,Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee
 		,PlatFormFee + OperationalFee + DepositFee + WithdrawalFee AS TotalFee
-		,CommissionRate, P2PEarning, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF
+		,CommissionRate, IsMultiGroupProduct, P2PEarning, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF
 	FROM #Result
 	WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 	ORDER BY RowIdx

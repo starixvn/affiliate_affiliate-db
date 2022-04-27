@@ -15,6 +15,7 @@ AS
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Add column P2P Earning & Treat TO, WL = 0 for P2P Products [RedmineID: #157958]
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
+		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 */
 
 BEGIN
@@ -77,6 +78,7 @@ BEGIN
 			Commission			MONEY,
 			StraightCommission	MONEY,
 			SubAffCommission	MONEY,
+			IsMultiGroupProduct BIT,
 			-- for monthdate -- 0: temporary, 1: uncalculated, 2: calculated
 			CalculatedType		TINYINT DEFAULT ((2))
 		)
@@ -111,7 +113,8 @@ BEGIN
 				CommissionRate,
 				Commission,
 				StraightCommission,
-				SubAffCommission
+				SubAffCommission,
+				IsMultiGroupProduct
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= @AffIds,
@@ -156,7 +159,8 @@ BEGIN
 				CommissionRate,
 				Commission,
 				StraightCommission,
-				SubAffCommission
+				SubAffCommission,
+				IsMultiGroupProduct
 			)
 			EXEC dbo.Aff_Commission_Calc
 				@AffIds				= @AffIds,
@@ -183,6 +187,7 @@ BEGIN
 		d.Bonus,
 		d.Rebate,
 		d.CommissionRate,
+		d.IsMultiGroupProduct,
 		d.Commission,
 		d.StraightCommission AS P2PCommission,
 		d.SubAffCommission,

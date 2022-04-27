@@ -17,6 +17,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Include P2P Earning into Monthly Earning [RedmineID: #157958]
+		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 */
 
 BEGIN
@@ -167,7 +168,8 @@ BEGIN
 				CommissionRate		FLOAT,
 				Commission			MONEY,
 				StraightCommission	MONEY,
-				SubAffCommission	MONEY
+				SubAffCommission	MONEY,
+				IsMultiGroupProduct BIT
 			)
 
 			INSERT INTO #TempCommission
@@ -194,7 +196,8 @@ BEGIN
 				CommissionRate,
 				Commission,
 				StraightCommission,
-				SubAffCommission
+				SubAffCommission,
+				IsMultiGroupProduct
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= @AffIds,

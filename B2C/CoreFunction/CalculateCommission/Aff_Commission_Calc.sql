@@ -19,6 +19,7 @@ AS
 		- 20210317@Percy: Change ExchangeOanda [RedmineID: #151391]
 		- 20210714@Percy: Calculate P2P Fee [RedmineID: #157958]
 		- 20210916@Percy: Use Exchange function [RedmineID: #161540]
+		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 */
 
 BEGIN
@@ -85,7 +86,8 @@ BEGIN
 		CommissionRate		DECIMAL(9,8) DEFAULT (0),
 		Commission			MONEY DEFAULT (0),
 		StraightCommission	MONEY DEFAULT (0),
-		SubAffCommission	MONEY DEFAULT (0)
+		SubAffCommission	MONEY DEFAULT (0),
+		IsMultiGroupProduct BIT DEFAULT (0)
 	)
 
 	BEGIN
@@ -198,6 +200,13 @@ BEGIN
 		DELETE #Commission WHERE ProductId <> 0
 	END
 
+	-- Update Multi Group Products
+	UPDATE c
+		SET c.IsMultiGroupProduct = CASE WHEN ISNULL(l.NoGroupProduct, 0) > 1 THEN 1 ELSE 0 END
+	FROM #Commission c
+		OUTER APPLY (SELECT COUNT(DISTINCT tsh.GroupProductId) AS NoGroupProduct FROM dbo.TierSettingHistory tsh WITH(NOLOCK) WHERE tsh.MonthDate = c.MonthDate AND tsh.GroupId = c.GroupId) AS l
+	WHERE c.ProductId = 0
+
 	-- Return data
 	IF @IsSumAll = 1
 	BEGIN
@@ -224,7 +233,8 @@ BEGIN
 			SUM(CommissionRate)		AS CommissionRate,
 			SUM(Commission)			AS Commission,
 			SUM(StraightCommission)	AS StraightCommission,
-			SUM(SubAffCommission)	AS SubAffCommission
+			SUM(SubAffCommission)	AS SubAffCommission,
+			CONVERT(BIT, MAX(CONVERT(TINYINT, IsMultiGroupProduct))) AS IsMultiGroupProduct
 		FROM #Commission
 		GROUP BY
 			AffId,
@@ -256,7 +266,8 @@ BEGIN
 			CommissionRate,
 			Commission,
 			StraightCommission,
-			SubAffCommission
+			SubAffCommission,
+			IsMultiGroupProduct
 		FROM #Commission
 	END
 

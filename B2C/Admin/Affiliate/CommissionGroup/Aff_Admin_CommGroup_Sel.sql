@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210714@Percy: Output more table for P2P Setting [RedmineID: #157958]
+		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 */
 
 BEGIN
@@ -67,6 +68,7 @@ BEGIN
 		cg.CreatedDate,
 		au.Username AS Creator,
 		cg.Description,
+		ISNULL(s.IsActivePlayerSum, 1) AS IsActivePlayerSum,
 		ISNULL(n.NoAffs, 0) AS NoAffs
 	FROM dbo.CommGroup cg WITH (NOLOCK)
 		INNER JOIN @Group g ON cg.GroupId = g.GroupId
@@ -74,6 +76,9 @@ BEGIN
 		OUTER APPLY (
 			SELECT COUNT(1) AS NoAffs FROM dbo.AffInfo ai WITH (NOLOCK) WHERE ai.GroupId = g.GroupId
 		) AS n
+		OUTER APPLY (
+			SELECT TOP(1) IsActivePlayerSum FROM dbo.TierSetting ts WITH(NOLOCK) WHERE ts.GroupId = cg.GroupId
+		) AS s
 
 	-- Tier List
 	SELECT
@@ -83,11 +88,13 @@ BEGIN
 		gs.MaxAmount,
 		gs.MinAM,
 		gs.MaxAM,
-		gs.Commission
+		gs.Commission,
+		gs.GroupProductId
 	FROM dbo.TierSetting gs WITH (NOLOCK)
 		INNER JOIN @Group g ON gs.GroupId = g.GroupId
 	ORDER BY
 		gs.GroupId,
+		gs.GroupProductId,
 		gs.TierId
 
 	-- Deduction List
@@ -100,13 +107,14 @@ BEGIN
 				FROM dbo.DeductionSetting d WITH (NOLOCK)
 				WHERE ds.GroupId			= d.GroupId
 					AND ds.DeductionId		= d.DeductionId
-					AND ds.GroupProductId	= d.GroupProductId
+					AND ds.GroupProductId = d.GroupProductId
 					AND d.ProductId			<> 0
 				FOR XML PATH (''))
 				, 1, 1, '') AS ProductIds,
 		ds.DeductedPercentage,
 		ds.DeductedAmount,
-		ds.IsDeductedPercent
+		ds.IsDeductedPercent,
+		ds.GroupProductId
 	FROM dbo.DeductionSetting ds WITH (NOLOCK)
 		INNER JOIN dbo.Deductions dt WITH (NOLOCK) ON ds.DeductionId = dt.DeductionId
 		INNER JOIN @Group g ON ds.GroupId = g.GroupId
