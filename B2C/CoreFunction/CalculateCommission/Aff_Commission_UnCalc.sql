@@ -27,6 +27,7 @@ AS
 		- 20210916@Percy: Exclude Jackpot from WL [RedmineID: #161540]
 		- 20211105@Percy: Exclude non-deposited player from active players [RedmineID: #164246]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
+		- 20220427@Malcolm: get tunover for product list [RedmineId: #167335]
 */
 
 BEGIN
@@ -690,14 +691,14 @@ BEGIN
 					,c.Revenue	= ISNULL(d.Revenue, 0)
 				FROM #Commission c
 					LEFT JOIN (
-						SELECT MonthDate, AffId, GroupProductId
+						SELECT MonthDate, AffId
 							,SUM(Turnover)	AS Turnover
 							,SUM(Winloss)	AS Winloss
 							,SUM(Revenue)	AS Revenue
 						FROM #Commission
 						WHERE ',' + @ProductIds + ',' LIKE '%,' + CONVERT(VARCHAR(10), ProductId) + ',%'
-						GROUP BY MonthDate, AffId, GroupProductId
-					) d ON c.MonthDate = d.MonthDate AND c.AffId = d.AffId AND c.GroupProductId = d.GroupProductId
+						GROUP BY MonthDate, AffId
+					) d ON c.MonthDate = d.MonthDate AND c.AffId = d.AffId 
 				WHERE c.ProductId = 0
 
 				IF @GetRowTotalOnly = 0
