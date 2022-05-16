@@ -18,6 +18,7 @@ AS
 	
 	Revisions:
 		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RedmineID: #103658]
+		- 20220516@Malcolm: Replace Lrf_f_StringSplit to STRING_SPLIT [RedmineID: #171831] 
 */
 
 BEGIN
@@ -25,7 +26,7 @@ BEGIN
 	
 	DECLARE @FunctionList TABLE (FunctionID INT)
 	INSERT INTO @FunctionList (FunctionID)
-	SELECT CAST(val AS INT) FROM dbo.Lrf_f_StringSplit(@FunctionIDs, ',')
+	SELECT CAST(value AS INT) FROM STRING_SPLIT(@FunctionIDs, ',')
 
 	SELECT @CreateDate = ISNULL(@CreateDate, GETDATE()),
 		@ModifyDate = ISNULL(@ModifyDate, GETDATE())

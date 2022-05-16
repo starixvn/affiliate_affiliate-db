@@ -15,6 +15,7 @@ AS
 		- 20101214@Peter : Move this SP to DB DB052.Affiliate_MYM
 		- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RedmineID: #103658]
+		- 20220516@Malcolm: Replace strSplit to STRING_SPLIT [RedmineID: #171831] 
 */
 
 BEGIN
@@ -37,7 +38,7 @@ BEGIN
 	INTO #UserPolicy
 	FROM dbo.AffAdmin_f_UserPolicy_Select('',@LicenseeID,'')
 
-	SELECT TOP 1 @GroupID = GroupID FROM #AdminUser WHERE UserID IN (SELECT val FROM dbo.strSplit(@CustIDs,','))
+	SELECT TOP 1 @GroupID = GroupID FROM #AdminUser WHERE UserID IN (SELECT value FROM STRING_SPLIT(@CustIDs,','))
 
 	Declare @Tmp table(funcid int, funcname varchar(50), funcdesc varchar(50), policy tinyint, gpolicy tinyint, parentid int, SubFuncCount int, DisplayOrder int)
 

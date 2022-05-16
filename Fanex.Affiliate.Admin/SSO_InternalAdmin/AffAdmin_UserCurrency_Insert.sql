@@ -16,6 +16,7 @@ AS
 	
 	Revisions:
 		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RedmineID: #103658]
+		- 20220516@Malcolm: Replace Lrf_f_StringSplit to STRING_SPLIT [RedmineID: #171831] 
 */
 
 BEGIN
@@ -26,7 +27,7 @@ BEGIN
 
 	DECLARE @CurrencyList TABLE (CurrencyID INT)
 	INSERT INTO @CurrencyList (CurrencyID)
-	SELECT CAST(val AS INT) FROM dbo.Lrf_f_StringSplit(@currencyIDs, ',')
+	SELECT CAST(value AS INT) FROM STRING_SPLIT(@currencyIDs, ',')
 	
 	INSERT INTO dbo.CurrencyUser (usrID, LicenseeID, CurrencyID, SystemID, isActive)
 	SELECT @UserID, @LicenseeID, CurrencyID, @System, @IsActive -- Affiliate

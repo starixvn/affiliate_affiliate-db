@@ -19,6 +19,7 @@ AS
 		- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RedmineID: #103658]
+		- 20220516@Malcolm: Replace strSplit to STRING_SPLIT [RedmineID: #171831] 
 
 	Param's Explanation:
 		. Format of @MemPolicys: @CustID,@FuncID,@Policy;@CustID,@FuncID,@Policy; ...;
@@ -33,7 +34,7 @@ BEGIN
 	DECLARE @Policy int
 	DECLARE @CustPolicyCount int 
 	DECLARE CustPolicysCur CURSOR
-		FOR SELECT val AS row_index FROM dbo.strSplit(@MemPolicys, ';') ORDER BY row_index	 
+		FOR SELECT value AS row_index FROM STRING_SPLIT(@MemPolicys, ';') ORDER BY row_index	 
 
 	SELECT UserID, FunctionID INTO #UserPolicy FROM dbo.AffAdmin_f_UserPolicy_Select('', @LicenseeID, '')
 

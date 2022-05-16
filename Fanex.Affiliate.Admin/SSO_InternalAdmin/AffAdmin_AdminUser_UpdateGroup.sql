@@ -18,6 +18,7 @@ ALTER PROCEDURE [dbo].[AffAdmin_AdminUser_UpdateGroup]
 		- 20160118@Francis: Add full currency permission for user that is changed to Administrator Group
 		- 20180108@Percy: Fix issue duplicate currency [RedmineID: #89325]
 		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RemineID: #103658]
+		- 20220516@Malcolm: Replace strSplit to STRING_SPLIT [RedmineID: #171831] 
 */
 AS
 BEGIN
@@ -54,8 +55,8 @@ BEGIN
 		SELECT @AffiliateCurrencies = Svalue FROM DBAFF.Affiliate_' + @LicenseeName + '.dbo.SystemSettings WITH (NOLOCK) WHERE Sname = ''AffiliateCurrencies''
 
 		SELECT cc.PartnerExchangeID
-		FROM dbo.strSplit (@AffiliateCurrencies,'','')
-		INNER JOIN DBAFF.Affiliate_' + @LicenseeName + '.dbo.Currency c WITH (NOLOCK) ON c.CurrencyCode = val
+		FROM STRING_SPLIT (@AffiliateCurrencies,'','')
+		INNER JOIN DBAFF.Affiliate_' + @LicenseeName + '.dbo.Currency c WITH (NOLOCK) ON c.CurrencyCode = value
 		LEFT JOIN DBAFF.Affiliate_' + @LicenseeName + '.dbo.CurrencyConverter cc WITH (NOLOCK) on c.CurrencyID = cc.ExchangeID'
 
 		INSERT INTO @Currency (CurrencyID)
