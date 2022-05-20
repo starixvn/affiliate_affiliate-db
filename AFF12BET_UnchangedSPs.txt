@@ -1,3 +1,5 @@
-12BET\Admin\Affiliate\Payment Request\Aff_Admin_AffiliatePaymentRequest_Upd.sql
+Fanex.Affiliate.Admin\UserManagement\AffAdmin_Con_AccountUpd.proc.sql
+Fanex.Affiliate.Admin\GroupManagement\AffAdmin_Con_GroupInfoIns.proc.sql
+Fanex.Affiliate.Admin\UserManagement\AffAdmin_UserCurrencyIns.proc.sql
 
 
