@@ -1,5 +1,30 @@
-Fanex.Affiliate.Admin\UserManagement\AffAdmin_Con_AccountUpd.proc.sql
-Fanex.Affiliate.Admin\GroupManagement\AffAdmin_Con_GroupInfoIns.proc.sql
-Fanex.Affiliate.Admin\UserManagement\AffAdmin_UserCurrencyIns.proc.sql
-
-
+Athena\Admin\AffAdmin_AffiliateCommissionReport.sql
+Athena\Admin\AffAdmin_AffiliateWinLossByProductReport.sql
+Athena\Admin\AffAdmin_AffiliateWinLossReport.sql
+Athena\Admin\AffAdmin_CompanyWinLossByProductReport.sql
+Athena\Admin\AffAdmin_CompanyWinlossReport.sql
+Athena\Admin\AffAdmin_MemberWinLossByProductReport.sql
+Athena\Admin\AffAdmin_MemberWinLossReport.sql
+Athena\Admin\AffAdmin_QualifiedMembersReport.sql
+Athena\Admin\AffAdmin_StatisticsSel.sql
+Athena\Admin\Core\AffAdmin_ProductSelAll.sql
+Athena\Admin\Core\Aff_MonthlyEarning.sql
+Athena\Admin\Task_Aff_MonthlyTransfer_Job.sql
+Athena\User\Aff_User_EarningSelDaily.sql
+Athena\User\Aff_User_EarningSelDetail.sql
+Athena\User\Aff_User_StatisticsSel.sql
+12BET\Admin\Customer\Players Detail\Aff_Admin_PlayersDetail_Sel.sql
+12BET\Core function\Aff_f_GroupProduct.sql
+12BET\Core function\Aff_ProductList_Sel.sql
+12BET\Core function\Calculate Commission\Aff_Commission_Calc.sql
+12BET\Core function\Calculate Commission\Aff_Commission_UnCalc.sql
+12BET\User\Statement History\Aff_DailyEarning_Detail_Sel.sql
+12BET\User\Statement History\Aff_DailyEarning_Sel.sql
+12BET\Admin\Customer\Statistics\Aff_Admin_Statistics_Sel.sql
+12BET\Admin\Home\Aff_Admin_GeneralInfo_Sel.sql
+12BET\Admin\Report\Affiliate Report\Aff_Admin_AffiliateReport_Detail_Sel.sql
+12BET\Admin\Report\Affiliate Report\Aff_Admin_AffiliateReport_Sel.sql
+12BET\User\Commission Report\Aff_User_Rpt_Commission.sql
+12BET\User\Home\Aff_User_Overview_Summary_Sel.sql
+12BET\Admin\Customer\Statement History\Aff_Admin_StatementHistory_Sel.sql
+12BET\User\Statement History\Aff_User_StatementHistory_Sel.sql

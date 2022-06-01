@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20211207@Percy: Initialize function [RedmineID: #165777]
+		- 20220601@Malcolm: Add bitcoin [RedmineID: #172701]
 */
 
 RETURN
@@ -22,4 +23,5 @@ RETURN
 		,CONVERT(VARCHAR(50), 'Sportsbook') AS GroupProductName
 		,CONVERT(VARCHAR(20), 'SB')			AS GroupProductPrefix
 	UNION ALL SELECT 33, 'Sports Lottery', 'SLT', 1, 'Sportsbook', 'SB' -- Sports Lottery
+	UNION ALL SELECT 36, 'Bitcoin', 'BTC', 1, 'Sportsbook', 'SB' -- Bitcoin
 GO

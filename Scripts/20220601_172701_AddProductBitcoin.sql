@@ -37,3 +37,7 @@ VALUES
 	,NULL -- API_Sporttype
 	,NULL -- CreatorName
 )
+
+UPDATE Product WITH(ROWLOCK)
+	SET Description = 'Sportsbook, Sports Lottery, Cash Out, Bitcoin'
+WHERE ProductName = 'Sportsbook'
