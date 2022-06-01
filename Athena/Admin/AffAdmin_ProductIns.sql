@@ -22,6 +22,7 @@ AS
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 		- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
 		- 20211222@Percy: Prevent adding duplicate product [RedmineID: #165777]
+		- 20220601Malcolm: Prevent adding duplicate product (Bitcoin) [RedmineID: #172701]
 
 	Param's Explanation:
 */
@@ -34,6 +35,12 @@ BEGIN
 	IF ISNULL(@ProductName, '') = 'Sports Lottery' OR ISNULL(@API_ProductId, 0) = 63
 	BEGIN
 		SELECT @ErrCode = 105, @ErrMsg = 'Sports Lottery (API Product ID: 63) has been included in Sportsbook''s figures.'
+		RETURN
+	END
+
+	IF ISNULL(@ProductName, '') = 'Bitcoin' OR ISNULL(@API_ProductId, 0) = 69
+	BEGIN
+		SELECT @ErrCode = 105, @ErrMsg = 'Bitcoin (API Product ID: 69) has been included in Sportsbook''s figures.'
 		RETURN
 	END
 	
