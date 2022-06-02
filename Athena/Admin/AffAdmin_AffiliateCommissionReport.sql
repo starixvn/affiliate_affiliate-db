@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet,bodbDownlineNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[AffAdmin_AffiliateCommissionReport]
 	@UserCurrencies 	VARCHAR(MAX)	= ''
 	,@AffName 			NVARCHAR(100) 	= NULL

@@ -30,6 +30,7 @@ AS
 		- 20130806@Jim:  just get Turnover value from  products that have group comm
 		- 20140212@Dan: optimize performance
 		- 20211222@Percy: Merge SLT to SB [RedmineID: #165777]
+		- 20220602@Malcolm: remove products which have IsEnable = 0 [RedmineID: #172701]
 	
 	Param's Explanation:  
 		• @AffID : Affiliate custid  
@@ -47,6 +48,7 @@ BEGIN
 	
 	DECLARE @FromDate SMALLDATETIME = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	DECLARE @ToDate SMALLDATETIME = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate) + 1, 0))
+	DECLARE @EndOfCurrentMonth SMALLDATETIME = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
 
 	-- Get signup/deposit member
 	SELECT @NewSignUp = SUM(CASE WHEN DATEDIFF(MONTH, @MonthDate, mi.RegisteredDate) = 0 THEN 1 ELSE 0 END)
@@ -100,8 +102,9 @@ BEGIN
 	INSERT INTO #tmpData (MonthDate, UserName, ProductId, QualifiedMember, ActivePlayer, Turnover, Deposit, Winlost)
 	SELECT ac.WinlostDate, '', ISNULL(g.GroupProductId, ac.ProductId), SUM(ac.QualifiedMember), MAX(ac.ActivePlayer), SUM(MemberTurnover_aff), SUM(MemberDeposit_aff), SUM(MemberWinlost_aff)
 	FROM dbo.AffCommission ac WITH (NOLOCK)
+		INNER JOIN dbo.Product p WITH(NOLOCK) ON p.ProductID = ac.ProductID
 		LEFT JOIN dbo.Aff_f_GroupProduct() g ON ac.ProductId = g.ProductId
-	WHERE ac.AffId = @AffId
+	WHERE ac.AffId = @AffId AND p.IsEnabled = 1
 		AND ac.WinlostDate >= @MinDate
 	GROUP BY ac.WinlostDate, ISNULL(g.GroupProductId, ac.ProductId)
 
@@ -113,20 +116,23 @@ BEGIN
 
 	DECLARE @ProductList TABLE (GroupProductId INT, ProductId INT, MonthDate SMALLDATETIME, QMTurnover MONEY)
 	INSERT INTO @ProductList (GroupProductId, ProductId, MonthDate, QMTurnover)
-	SELECT DISTINCT ISNULL(g.GroupProductId, gs.ProductId), ISNULL(g.ProductId, gs.ProductId), @ToDate, cg.QualifiedAmount
+	SELECT DISTINCT ISNULL(g.GroupProductId, gs.ProductId), ISNULL(g.ProductId, gs.ProductId), @EndOfCurrentMonth, cg.QualifiedAmount
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupId = cg.GroupId
 		INNER JOIN dbo.GroupSetting gs WITH (NOLOCK) ON ai.GroupId = gs.GroupId
+		INNER JOIN dbo.Product p WITH(NOLOCK) ON p.ProductID = gs.ProductID
 		LEFT JOIN dbo.Aff_f_GroupProduct() g ON gs.ProductId = g.GroupProductId
-	WHERE ai.AffId = @AffId
+	WHERE ai.AffId = @AffId AND p.IsEnabled = 1
 
 	INSERT INTO @ProductList (GroupProductId, ProductId, MonthDate, QMTurnover)
 	SELECT DISTINCT ISNULL(g.GroupProductId, gsh.ProductId), ISNULL(g.ProductId, gsh.ProductId), gsh.MonthDate, cgh.QualifiedAmount
 	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
 		INNER JOIN dbo.CommGroupHistory cgh WITH (NOLOCK) ON agh.GroupId = cgh.GroupId AND agh.MonthDate = cgh.MonthDate
 		INNER JOIN dbo.GroupSettingHistory gsh WITH (NOLOCK) ON agh.GroupId = gsh.GroupId AND agh.MonthDate = gsh.MonthDate
+		INNER JOIN dbo.Product p WITH(NOLOCK) ON p.ProductID = gsh.ProductID
 		LEFT JOIN dbo.Aff_f_GroupProduct() g ON gsh.ProductId = g.GroupProductId
-	WHERE gsh.MonthDate >= @MinDate
+	WHERE gsh.MonthDate >= @MinDate AND p.IsEnabled = 1 AND agh.AffId = @AffId 
+		AND gsh.MonthDate < @EndOfCurrentMonth
 
 	INSERT INTO #tmpData (MonthDate, UserName, ProductId, QualifiedMember, ActivePlayer, Turnover, Deposit, Winlost)
 	SELECT t.MonthDate, t.UserName, p.GroupProductId, MAX(CASE WHEN t.Turnover >= p.QMTurnover THEN 1 ELSE 0 END) AS QualifiedMember, 0 AS ActivePlayer, SUM(t.Turnover), SUM(t.Deposit), SUM(t.Winlost)
@@ -171,7 +177,7 @@ BEGIN
 			WHERE MonthDate = @ToDate
 			GROUP BY ProductId
 		) t ON p.ProductId = t.ProductId
-	WHERE pl.MonthDate = @ToDate
+	WHERE pl.MonthDate = @ToDate AND p.IsEnabled = 1
 
 	DROP TABLE #tmpData
 END

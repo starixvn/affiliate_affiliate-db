@@ -16,6 +16,7 @@ AS
 		- 20141226@bobby.nguyen: Enhance to check product which belongs to comm group setting or not
 		- 20150126@bobby.nguyen: Check for having report data 
 		- 20211222@Percy: Merge SLT to SB [RedmineID: #165777]
+		- 20220602@Malcolm: remove products which have IsEnable = 0 [RedmineID: #172701]
 	
 	Param's Explanation:  
 	• @AffId affliate Id  
@@ -48,6 +49,12 @@ BEGIN
 
 	IF @ProductId > 0
 		DELETE @ProductList WHERE GroupProductId <> @ProductId
+
+	--Delete Products which have IsEnabled = 0
+	DELETE p
+	FROM @ProductList p
+		INNER JOIN dbo.Product pr WITH(NOLOCK) ON pr.ProductID = p.ProductId
+	WHERE pr.IsEnabled = 0
 		
 	-- Output AffCurrency
 	SELECT @AffCurrency = e.CurrencyCode

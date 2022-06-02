@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" selecters="bodbAdminNet" isFunction="1" isNested="1"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" selecters="bodbAdminNet,bodbDownlineNet" isFunction="1" isNested="1"></info>*/
 ALTER FUNCTION [dbo].[Aff_f_GroupProduct] ()
 RETURNS TABLE
 AS

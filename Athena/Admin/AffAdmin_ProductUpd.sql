@@ -39,7 +39,7 @@ BEGIN
 
 	IF ISNULL(@ProductName, '') = 'Bitcoin' OR ISNULL(@API_ProductId, 0) = 69
 	BEGIN
-		SELECT @ErrCode = 105, @ErrMsg = 'Bitcoin (API Product ID: 69) has been included in Sportsbook''s figures.'
+		SELECT @ErrCode = 107, @ErrMsg = 'Bitcoin (API Product ID: 69) has been included in Sportsbook''s figures.'
 		RETURN
 	END
 	
@@ -60,6 +60,12 @@ BEGIN
 	IF EXISTS (SELECT 1 FROM dbo.Product WITH (NOLOCK) WHERE (ProductName = @ProductName OR API_ProductId = ISNULL(@API_ProductId, 0)) AND ProductId <> @ProductId)
 	BEGIN
 		SELECT @ErrCode = 104, @ErrMsg = 'Product Name or API Product ID is existing.'
+		RETURN
+	END
+	
+	IF EXISTS (SELECT 1 FROM dbo.Product WITH (NOLOCK) WHERE API_ProductId = ISNULL(@API_ProductId, 0) AND IsEnabled = 0)
+	BEGIN
+		SELECT @ErrCode = 108, @ErrMsg = 'API Product ID has been removed already.'
 		RETURN
 	END
 	

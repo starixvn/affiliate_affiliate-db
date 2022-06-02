@@ -23,6 +23,7 @@ AS
 		- 20140509:Bobby: update ActiveMember by date
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
+		- 20220602@Malcolm: remove products which have IsEnable = 0 [RedmineID: #172701]
 
 	Param's Explanation:   
 		• @UserId: Admin user id  
@@ -48,6 +49,11 @@ BEGIN
 	DECLARE @LastDateSum SMALLDATETIME
 
 	IF (@FromDate > @ToDate) RETURN
+
+	DECLARE @ProductList TABLE (ProductId INT PRIMARY KEY)
+
+	INSERT INTO @ProductList (ProductId)
+	SELECT ProductID FROM dbo.Product WITH(NOLOCK) WHERE IsEnabled = 1
 
 	DECLARE @AffList AS TABLE (
 		AffId INT
@@ -262,12 +268,10 @@ BEGIN
 				SELECT md.AffId
 					,COUNT(DISTINCT md.UserName) AS ActivePlayers
 				FROM MemberDaily md WITH (NOLOCK)
-				INNER JOIN @AffList ai 
-				ON md.AffId = ai.AffId
-				INNER JOIN MemberInfo mi WITH (NOLOCK)
-				ON md.UserName = mi.UserName
-				WHERE md.Turnover > 0
-				AND AffAffectedDate <= md.Winlostdate
+					INNER JOIN @ProductList p ON p.ProductId = md.ProductID
+					INNER JOIN @AffList ai ON md.AffId = ai.AffId
+					INNER JOIN MemberInfo mi WITH (NOLOCK) ON md.UserName = mi.UserName
+				WHERE md.Turnover > 0 AND AffAffectedDate <= md.Winlostdate
 				GROUP BY md.AffID
 			) AS tmp
 			ON r.AffId = tmp.AffId
@@ -290,10 +294,9 @@ BEGIN
 				,COUNT(DISTINCT md.UserName) AS ActivePlayers
 				,WinlostDate
 			FROM MemberDaily md WITH (NOLOCK)
-				INNER JOIN @AffList ai 
-				ON md.AffId = ai.AffId
-				INNER JOIN MemberInfo mi WITH (NOLOCK)
-				ON md.UserName = mi.UserName
+				INNER JOIN @ProductList p ON p.ProductId = md.ProductID
+				INNER JOIN @AffList ai ON md.AffId = ai.AffId
+				INNER JOIN MemberInfo mi WITH (NOLOCK) ON md.UserName = mi.UserName
 			WHERE md.Winlostdate BETWEEN @FromDate AND @ToDate
 				AND md.Turnover > 0
 				AND AffAffectedDate <= md.Winlostdate
@@ -362,10 +365,9 @@ BEGIN
 				,COUNT(DISTINCT md.UserName) AS ActivePlayers
 				,dateadd(m, datediff(m, 0, Winlostdate), 0) AS WinlostDate
 			FROM MemberDaily md WITH (NOLOCK)
-				INNER JOIN @AffList ai 
-				ON md.AffId = ai.AffId
-				INNER JOIN MemberInfo mi WITH (NOLOCK)
-				ON md.UserName = mi.UserName
+				INNER JOIN @ProductList p ON p.ProductId = md.ProductID
+				INNER JOIN @AffList ai ON md.AffId = ai.AffId
+				INNER JOIN MemberInfo mi WITH (NOLOCK) ON md.UserName = mi.UserName
 			WHERE md.Winlostdate BETWEEN @FromDate AND @ToDate
 				AND md.Turnover > 0
 				AND AffAffectedDate <= md.Winlostdate

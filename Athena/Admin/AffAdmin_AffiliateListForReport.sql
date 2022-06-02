@@ -1,6 +1,4 @@
 ﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" selecters="bodbAdminNet" viewers="" isFunction="1" isNested="1"></info>*/
-USE [Affiliate_Athena000]
-GO
 
 ALTER FUNCTION [dbo].[AffAdmin_AffiliateListForReport] (
 	@UserCurrencies 	VARCHAR(MAX)	= ''
@@ -39,6 +37,7 @@ AS
 		- 20140713@Bobby: Checking filer commgroup: include CommGroupHistory
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
+		- 20220602@Malcolm: remove products which have IsEnable = 0 [RedmineID: #172701]
 
 	Param's Explanation: 
 */
@@ -51,6 +50,10 @@ BEGIN
 	DECLARE @AffTypeList 	TABLE (AffTypeID 	INT)
 	DECLARE @CommGroupList 	TABLE (CommGroupID 	INT)
 	DECLARE @PreferLangList TABLE (LanguageID VARCHAR(8))
+
+	DECLARE @ProductList TABLE (ProductID TINYINT PRIMARY KEY)
+	INSERT INTO @ProductList (ProductID)
+	SELECT p.ProductID FROM dbo.Product p WITH(NOLOCK) WHERE p.IsEnabled = 1
 	
 	--AffName
 	SET @AffName = '%' + ISNULL(@AffName, '') + '%'
@@ -72,9 +75,8 @@ BEGIN
 
 	--SysCurrency
 	SELECT @SysCurrency = C.CurrencyID
-	FROM SystemSettings S WITH(NOLOCK)
-		INNER JOIN Currency C WITH(NOLOCK) 
-		ON C.CurrencyCode = S.SValue
+	FROM dbo.SystemSettings S WITH(NOLOCK)
+		INNER JOIN Currency C WITH(NOLOCK) ON C.CurrencyCode = S.SValue
 	WHERE SName LIKE 'SystemCurrency'
 
 	-- AffType
@@ -87,27 +89,13 @@ BEGIN
 	SELECT GroupID
 	FROM [dbo].[strSplit](@CommGroups, ',') AS tmp
 		INNER JOIN (
-			SELECT cg.GroupId
-				,cg.GroupName
-				,cg.Currency
+			SELECT cg.GroupId, cg.GroupName, cg.Currency
 			FROM dbo.CommGroup cg WITH (NOLOCK)
-				LEFT JOIN dbo.CommGroupHistory ch WITH (NOLOCK) 
-				ON cg.GroupID = ch.GroupID
-			WHERE cg.IsDeleted = 0
-				OR (
-					cg.IsDeleted = 1
-					AND ch.IsDeleted = 0
-					)
-			GROUP BY cg.GroupId
-				,cg.GroupName
-				,cg.Currency
-		) AS CG 
-		ON CG.GroupID = CAST(tmp.val AS INT)
-	WHERE CG.GroupName IN ('NoCommission')
-			OR CG.Currency IN (
-				SELECT CurrencyID
-				FROM @tmpCurrency
-			)
+				LEFT JOIN dbo.CommGroupHistory ch WITH (NOLOCK) ON cg.GroupID = ch.GroupID
+			WHERE cg.IsDeleted = 0 OR (cg.IsDeleted = 1 AND ch.IsDeleted = 0)
+			GROUP BY cg.GroupId, cg.GroupName, cg.Currency
+		) AS CG ON CG.GroupID = CAST(tmp.val AS INT)
+	WHERE CG.GroupName IN ('NoCommission') OR CG.Currency IN (SELECT CurrencyID FROM @tmpCurrency)
 
 	-- Prefer Languages
 	INSERT INTO @PreferLangList
@@ -133,11 +121,9 @@ BEGIN
 			,l.LanguageName
 			,ex.ExchangeId
 			,Code
-			,(CASE 
-				WHEN IsClosed = 1 THEN 'Closed'
-				WHEN IsLocked = 1 THEN 'Locked'
-				ELSE STATUS END
-				) AS STATUS
+			,CASE  WHEN IsClosed = 1 THEN 'Closed'
+				   WHEN IsLocked = 1 THEN 'Locked'
+			 ELSE STATUS END AS STATUS
 			,@CurrentDate AS MonthDate
 			,ai.GroupId
 			,cg.GroupName
@@ -146,63 +132,24 @@ BEGIN
 				SELECT AffId
 					,COUNT(UserName) MemTrans
 				FROM dbo.MemberDaily m WITH (NOLOCK)
+					INNER JOIN @ProductList p ON m.ProductID = p.ProductID
 				WHERE m.WinlostDate >= @FromDate
 					AND m.WinlostDate <= @ToDate
 				GROUP BY AffId
 				HAVING COUNT(UserName) > 0
 			) AS mem ON ai.AffId = mem.AffId
-			INNER JOIN dbo.AffDetail AD(NOLOCK) 
-				ON AD.AffID = AI.AffID
-			INNER JOIN dbo.Exchange ex WITH (NOLOCK) 
-				ON ai.Currency = ex.ExchangeID
-			INNER JOIN dbo.AffType at WITH (NOLOCK) 
-				ON ai.AffType = at.TypeID
-			INNER JOIN dbo.[LANGUAGE] l WITH (NOLOCK) 
-				ON AD.PreferredLanguage = l.LanguageID
-			INNER JOIN dbo.CommGroup cg WITH (NOLOCK) 
-				ON ai.GroupID = cg.GroupID
+			INNER JOIN dbo.AffDetail AD(NOLOCK) ON AD.AffID = AI.AffID
+			INNER JOIN dbo.Exchange ex WITH (NOLOCK) ON ai.Currency = ex.ExchangeID
+			INNER JOIN dbo.AffType at WITH (NOLOCK) ON ai.AffType = at.TypeID
+			INNER JOIN dbo.[LANGUAGE] l WITH (NOLOCK) ON AD.PreferredLanguage = l.LanguageID
+			INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupID = cg.GroupID
 		WHERE ai.STATUS = 'Approved'
 			AND AI.UserName LIKE @AffName
-			AND (
-				@AffTypes IS NULL
-				OR AI.AffType IN (
-					SELECT AffTypeID
-					FROM @AffTypeList
-					)
-				)
-			AND AI.Currency IN (
-				SELECT CurrencyID
-				FROM @tmpCurrency
-				)
-			AND (
-				@CommGroups IS NULL
-				OR AI.GroupID IN (
-					SELECT CommGroupID
-					FROM @CommGroupList
-					)
-				)
-			AND (
-				@PreferLanguages IS NULL
-				OR AD.PreferredLanguage IN (
-					SELECT LanguageID
-					FROM @PreferLangList
-					)
-				)
-			AND (
-				(
-					@ExcludeTest = 1
-					AND AI.TestLevel = 0
-					)
-				OR (
-					@ExcludeTest = 0
-					AND @IsITAdmin = 1
-					)
-				OR (
-					@ExcludeTest = 0
-					AND @IsITAdmin = 0
-					AND AI.TestLevel IN (0, 1)
-					)
-				)
+			AND (@AffTypes IS NULL OR AI.AffType IN (SELECT AffTypeID FROM @AffTypeList))
+			AND AI.Currency IN (SELECT CurrencyID FROM @tmpCurrency)
+			AND (@CommGroups IS NULL OR AI.GroupID IN (SELECT CommGroupID FROM @CommGroupList))
+			AND (@PreferLanguages IS NULL OR AD.PreferredLanguage IN (SELECT LanguageID FROM @PreferLangList))
+			AND ((@ExcludeTest = 1 AND AI.TestLevel = 0) OR (@ExcludeTest = 0 AND @IsITAdmin = 1) OR (@ExcludeTest = 0 AND @IsITAdmin = 0 AND AI.TestLevel IN (0, 1)))
 	END
 
 	IF (@CommGroups IS NOT NULL
@@ -218,11 +165,9 @@ BEGIN
 			,l.LanguageName
 			,ex.ExchangeId
 			,Code
-			,(CASE 
-				WHEN IsClosed = 1 THEN 'Closed'
-				WHEN IsLocked = 1 THEN 'Locked'
-				ELSE STATUS END
-				) AS STATUS
+			,CASE WHEN IsClosed = 1 THEN 'Closed'
+				  WHEN IsLocked = 1 THEN 'Locked'
+		     ELSE STATUS END AS STATUS
 			,tmp.MonthDate
 			,tmp.GroupId
 			,tmp.GroupName
@@ -231,70 +176,33 @@ BEGIN
 				SELECT AffId
 					,COUNT(UserName) MemTrans
 				FROM dbo.MemberDaily m WITH (NOLOCK)
+					INNER JOIN @ProductList p ON p.ProductID = m.ProductID
 				WHERE m.WinlostDate >= @FromDate
 					AND m.WinlostDate <= @ToDate
 				GROUP BY AffId
 				HAVING COUNT(UserName) > 0
-			) AS mem 
-				ON ai.AffId = mem.AffId
-			INNER JOIN dbo.AffDetail AD(NOLOCK) 
-				ON AD.AffID = AI.AffID
-			INNER JOIN dbo.Exchange ex WITH (NOLOCK) 
-				ON ai.Currency = ex.ExchangeID
-			INNER JOIN dbo.AffType at WITH (NOLOCK) 
-				ON ai.AffType = at.TypeID
-			INNER JOIN dbo.[LANGUAGE] l WITH (NOLOCK) 
-				ON AD.PreferredLanguage = l.LanguageID
+			) AS mem ON ai.AffId = mem.AffId
+			INNER JOIN dbo.AffDetail AD(NOLOCK) ON AD.AffID = AI.AffID
+			INNER JOIN dbo.Exchange ex WITH (NOLOCK) ON ai.Currency = ex.ExchangeID
+			INNER JOIN dbo.AffType at WITH (NOLOCK) ON ai.AffType = at.TypeID
+			INNER JOIN dbo.[LANGUAGE] l WITH (NOLOCK) ON AD.PreferredLanguage = l.LanguageID
 			INNER JOIN (
 				SELECT AffId
 					,ag.GroupId
 					,cg.GroupName
 					,ag.MonthDate
 				FROM dbo.AffGroupHistory ag WITH (NOLOCK)
-					INNER JOIN @CommGroupList c 
-						ON ag.GroupId = c.CommGroupID
-					INNER JOIN dbo.CommGroupHistory cg WITH (NOLOCK) 
-						ON ag.GroupID = cg.GroupID
-						AND ag.MonthDate = cg.MonthDate
-				WHERE ag.MonthDate BETWEEN @FromDate
-					AND @toDate
+					INNER JOIN @CommGroupList c ON ag.GroupId = c.CommGroupID
+					INNER JOIN dbo.CommGroupHistory cg WITH (NOLOCK) ON ag.GroupID = cg.GroupID AND ag.MonthDate = cg.MonthDate
+				WHERE ag.MonthDate BETWEEN @FromDate AND @toDate
 			) AS tmp 
 				ON ai.AffID = tmp.AffId
 		WHERE ai.STATUS = 'Approved'
 			AND AI.UserName LIKE @AffName
-			AND (
-				@AffTypes IS NULL
-				OR AI.AffType IN (
-					SELECT AffTypeID
-					FROM @AffTypeList
-					)
-				)
-			AND AI.Currency IN (
-				SELECT CurrencyID
-				FROM @tmpCurrency
-				)
-			AND (
-				@PreferLanguages IS NULL
-				OR AD.PreferredLanguage IN (
-					SELECT LanguageID
-					FROM @PreferLangList
-					)
-				)
-			AND (
-				(
-					@ExcludeTest = 1
-					AND AI.TestLevel = 0
-					)
-				OR (
-					@ExcludeTest = 0
-					AND @IsITAdmin = 1
-					)
-				OR (
-					@ExcludeTest = 0
-					AND @IsITAdmin = 0
-					AND AI.TestLevel IN (0, 1)
-					)
-				)
+			AND (@AffTypes IS NULL OR AI.AffType IN (SELECT AffTypeID FROM @AffTypeList))
+			AND AI.Currency IN (SELECT CurrencyID FROM @tmpCurrency)
+			AND (@PreferLanguages IS NULL OR AD.PreferredLanguage IN (SELECT LanguageID FROM @PreferLangList))
+			AND ((@ExcludeTest = 1 AND AI.TestLevel = 0) OR (@ExcludeTest = 0 AND @IsITAdmin = 1) OR (@ExcludeTest = 0 AND @IsITAdmin = 0 AND AI.TestLevel IN (0, 1)))
 	END
 
 	RETURN
