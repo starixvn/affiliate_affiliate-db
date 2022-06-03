@@ -23,6 +23,13 @@ CREATE TABLE dbo.bettrans_N2
 		betid ASC
 	)
 ) ON [ReportData]
+GO
+
+CREATE CLUSTERED INDEX [CIX_WinlostDate] ON [dbo].[bettrans_N2]
+(
+	[WinlostDate] ASC
+) ON [ReportData]
+GO
 
 
 CREATE TABLE dbo.bettrans_EA
@@ -43,3 +50,10 @@ CREATE TABLE dbo.bettrans_EA
 		betid ASC
 	)
 )  ON [ReportData]
+GO
+
+CREATE CLUSTERED INDEX [CIX_WinlostDate] ON [dbo].[bettrans_EA]
+(
+	[WinlostDate] ASC
+) ON [ReportData]
+GO
