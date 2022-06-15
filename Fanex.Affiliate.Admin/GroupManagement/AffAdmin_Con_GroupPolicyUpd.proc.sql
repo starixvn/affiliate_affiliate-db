@@ -20,6 +20,7 @@ AS
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RedmineID: #103658]
 		- 20220516@Malcolm: Replace strSplit to STRING_SPLIT [RedmineID: #171831] 
+		- 20220615@Malcolm: Hot modify SPs to avoid dump [RedmineID: #174035] 
 */
 
 BEGIN
@@ -34,7 +35,9 @@ BEGIN
 	DECLARE GroupPolicysCur CURSOR
 		FOR SELECT value AS row_index FROM STRING_SPLIT(@GroupPolicys, ';') ORDER BY row_index
 	
-	SELECT GroupID, FunctionID INTO #GroupPolicy FROM dbo.AffAdmin_f_GroupPolicy_Select('','')
+	CREATE TABLE #GroupPolicy (GroupID INT, FunctionID INT)
+	INSERT INTO #GroupPolicy (GroupID, FunctionID)
+	SELECT GroupID, FunctionID FROM dbo.AffAdmin_f_GroupPolicy_Select('','')
 
 	OPEN GroupPolicysCur
 	

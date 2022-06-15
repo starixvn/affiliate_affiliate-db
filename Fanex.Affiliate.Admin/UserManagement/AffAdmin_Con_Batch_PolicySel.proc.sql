@@ -16,26 +16,31 @@ AS
 		- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RedmineID: #103658]
 		- 20220516@Malcolm: Replace strSplit to STRING_SPLIT [RedmineID: #171831] 
+		- 20220615@Malcolm: Hot modify SPs to avoid dump [RedmineID: #174035] 
 */
 
 BEGIN
 
 	SET NOCOUNT ON
 
+	CREATE TABLE #AdminUser (userid INT, username VARCHAR(50), groupid INT)
+	INSERT INTO #AdminUser (userid, username, groupid)
 	SELECT userid, username, groupid
-	INTO #AdminUser
 	FROM dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID)
 	
+	CREATE TABLE #FuncInfo (functionid INT, functionname NVARCHAR(50), functiondesc NVARCHAR(50), functionrender TINYINT, parentid INT, displayorder TINYINT)
+	INSERT INTO #FuncInfo (functionid, functionname, functiondesc, functionrender, parentid, displayorder)
 	SELECT functionid, functionname, functiondesc, functionrender, parentid, displayorder
-	INTO #FuncInfo
 	FROM dbo.AffAdmin_f_FunctionInfo_Select('',@LicenseeID)
 	
+	CREATE TABLE #GroupPolicy (groupid INT, functionid INT, policy TINYINT)
+	INSERT INTO #GroupPolicy (groupid, functionid, policy)
 	SELECT groupid, functionid, policy
-	INTO #GroupPolicy
 	FROM dbo.AffAdmin_f_GroupPolicy_Select('','')
 
+	CREATE TABLE #UserPolicy (userid INT, functionid INT, policy TINYINT)
+	INSERT INTO #UserPolicy (userid, functionid, policy)
 	SELECT userid, functionid, policy
-	INTO #UserPolicy
 	FROM dbo.AffAdmin_f_UserPolicy_Select('',@LicenseeID,'')
 
 	SELECT TOP 1 @GroupID = GroupID FROM #AdminUser WHERE UserID IN (SELECT value FROM STRING_SPLIT(@CustIDs,','))
