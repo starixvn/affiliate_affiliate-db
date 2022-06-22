@@ -1,7 +1,4 @@
 ﻿/*<info serverAlias="DBCUST-bodb_Licensee" executers="bodbLicenseeNet" isFunction="0" isNested="0"></info>*/
-USE [bodb_Licensee]
-GO
-
 ALTER PROCEDURE [dbo].[AffAdmin_Con_PolicyUpd]
 	@LicenseeID INT,
 	@MemPolicys NVARCHAR(4000),
@@ -20,6 +17,7 @@ AS
 		- 20170627@Percy: Remove check permission [RedmineID: #73925]
 		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RedmineID: #103658]
 		- 20220516@Malcolm: Replace strSplit to STRING_SPLIT [RedmineID: #171831] 
+		- 20220615@Malcolm: Hot modify SPs to avoid dump [RedmineID: #174035] 
 
 	Param's Explanation:
 		. Format of @MemPolicys: @CustID,@FuncID,@Policy;@CustID,@FuncID,@Policy; ...;
@@ -36,7 +34,9 @@ BEGIN
 	DECLARE CustPolicysCur CURSOR
 		FOR SELECT value AS row_index FROM STRING_SPLIT(@MemPolicys, ';') ORDER BY row_index	 
 
-	SELECT UserID, FunctionID INTO #UserPolicy FROM dbo.AffAdmin_f_UserPolicy_Select('', @LicenseeID, '')
+	CREATE TABLE #UserPolicy (UserId INT, FunctionID INT)
+	INSERT INTO #UserPolicy (UserId, FunctionID)
+	SELECT UserID, FunctionID FROM dbo.AffAdmin_f_UserPolicy_Select('', @LicenseeID, '')
 
 	OPEN CustPolicysCur
 	FETCH NEXT FROM CustPolicysCur INTO @MemPolicy
@@ -63,5 +63,6 @@ BEGIN
 	DEALLOCATE CustPolicysCur
 
 	DROP TABLE #UserPolicy
+
 END
 GO

@@ -17,6 +17,7 @@ AS
 		- 20101214@Peter : Move this SP to DB DB052.Affiliate_MYM
 		- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee [RedmineID: #103658]
+		- 20220615@Malcolm: Hot modify SPs to avoid dump [RedmineID: #174035] 
 */
 
 BEGIN
@@ -27,9 +28,10 @@ BEGIN
 
 	IF @Username IS NULL SET @Username = '%'
 	IF @FirstChar IS NULL SET @FirstChar = '%'
-
+	
+	CREATE TABLE #AdminUser (userid INT, username VARCHAR(50), firstname NVARCHAR(50), lastname NVARCHAR(50), groupid INT, [status] BIT, createdate DATETIME, Creator INT)
+	INSERT INTO #AdminUser (userid, username, firstname, lastname, groupid, [status], createdate, Creator)
 	SELECT userid, username, firstname, lastname, groupid, [status], createdate, Creator
-	INTO #AdminUser
 	FROM dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID)
 
 	IF @Groupid is null
