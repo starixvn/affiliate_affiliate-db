@@ -18,6 +18,7 @@ AS
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20211105@Percy: Exclude non-deposited player from active players [RedmineID: #164246]
 		- 20220110@Percy: Fix check current date due to different timezone [RedmineID: #167244]
+		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 */
 
 BEGIN
@@ -97,8 +98,7 @@ BEGIN
 			AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
 			AND NOT EXISTS (
 				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-				WHERE mr.CustId = r.CustId
-					AND mr.RemovedDate <= @EndOfMonth
+				WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
 			)
 		GROUP BY r.WinlostDate, r.CustId
 

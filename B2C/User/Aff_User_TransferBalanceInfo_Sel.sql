@@ -11,6 +11,7 @@ AS
 
 	Revisions:
 		- 20211005@Percy: Initialize SP [RedmineID: #153227]
+		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 */
 
 BEGIN
@@ -32,7 +33,7 @@ BEGIN
 
 	-- Player Info
 	SELECT @PlayerId = CustId, @PlayerCurrencyId = Currency
-	FROM dbo.MemberInfo WITH (NOLOCK) WHERE AffId = @AffId AND UserName = @PlayerName
+	FROM dbo.MemberInfo WITH (NOLOCK) WHERE AffId = @AffId AND UserName = @PlayerName AND IsRemoved = 0
 
 	-- Exchange Rate
 	SELECT @PlayerExRate = Rate, @PlayerCurrency = Code
