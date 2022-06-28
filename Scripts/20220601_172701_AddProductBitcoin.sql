@@ -27,7 +27,7 @@ VALUES
 	,69 -- API_ProductID
 	,NULL -- Creator
 	,GETDATE() -- CreatedDate
-	,NULL-- Description
+	,'Bitcoin'-- Description
 	,NULL -- BettypeList
 	,NULL -- QMTurnOver
 	,NULL -- QMDeposit
