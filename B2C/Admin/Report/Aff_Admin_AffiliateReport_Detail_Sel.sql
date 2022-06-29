@@ -27,6 +27,7 @@ AS
 		- 20210714@Percy: Add P2PEarning column [RedmineID: #157958]
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
+		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -333,11 +334,6 @@ BEGIN
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
 	WHERE mi.AffId = @AffId
 		AND mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate)
-		AND NOT EXISTS (
-			SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-			WHERE mi.CustId = mr.CustId
-				AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
-		)
 	GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, RegisteredDate) + 1, 0))
 
 	INSERT INTO @MemberStatistics (MonthDate, FDM)
@@ -345,11 +341,6 @@ BEGIN
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
 	WHERE mi.AffId = @AffId
 		AND mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
-		AND NOT EXISTS (
-			SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-			WHERE mi.CustId = mr.CustId
-				AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
-		)
 	GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, FirstDepositDate) + 1, 0))
 
 	DECLARE @tblSubAff TABLE (MonthDate SMALLDATETIME, NoOfSubAff INT)

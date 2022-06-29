@@ -204,11 +204,6 @@ BEGIN
 		FROM #tmpData d
 			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId
 			OUTER APPLY dbo.Aff_f_ExchangeRate_Sel(m.FirstDepositDate, m.currency, @BaseCurrency) e
-		WHERE NOT EXISTS (
-				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-				WHERE mr.RemovedDate <= @EndOfMonth
-					AND mr.CustId = d.CustId
-				)
 	) r
 	WHERE r.RN BETWEEN @RowStart AND @RowEnd
 	ORDER BY r.RN

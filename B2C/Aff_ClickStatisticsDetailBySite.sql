@@ -21,6 +21,7 @@ AS
 	Revisions:  
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
+		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 */
 
 BEGIN
@@ -114,12 +115,6 @@ BEGIN
 			AND (@Domain IS NULL OR ISNULL(md.DomainReferrer, 'none') = @Domain)
 			AND (@SportCode IS NULL OR ISNULL(md.SportCode, 'none') = @SportCode)
 			AND (@LanguageCode IS NULL OR ISNULL(md.LanguageCode, 'none') = @LanguageCode)
-			AND NOT EXISTS (
-				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-				WHERE
-					mr.CustId = mi.CustId
-					AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
-			)
 		GROUP BY ISNULL(md.URLReferrer, 'none'), ISNULL(md.DeviceType, 0)
 	)
 	INSERT INTO #memberStats (URLReferrer, DeviceType, Signups, FDM)

@@ -15,6 +15,7 @@ AS
 		- 20210714@Percy: Treat TO, WL = 0 for P2P Products [RedmineID: #157958]
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
+		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 */
 
 BEGIN
@@ -263,7 +264,6 @@ BEGIN
 				COUNT(CASE WHEN FirstDepositDate >= @BeginOfCurrentMonth AND FirstDepositDate < DATEADD(DAY, 1, @LastOfCurrentMonth)
 							THEN 1 ELSE NULL END) AS DepositMemMonthNum
 			FROM dbo.MemberInfo WITH (NOLOCK)
-			WHERE IsRemoved = 0
 		) AS depositMembers
 
 		-- payment requests
