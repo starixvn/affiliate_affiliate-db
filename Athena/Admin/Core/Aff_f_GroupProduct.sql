@@ -22,5 +22,5 @@ RETURN
 		,CONVERT(INT, 1)					AS GroupAPI_ProductId
 	UNION ALL
 	SELECT ProductId, ProductName, 1 AS GroupProductId, 'Sportsbook' AS GroupProductName, API_ProductId, 1 AS GroupAPI_ProductId
-	FROM dbo.Product WITH (NOLOCK) WHERE API_ProductId = 63 -- SLT
+	FROM dbo.Product WITH (NOLOCK) WHERE API_ProductId IN (63, 69) -- Sports Lottery, Bitcoin
 GO

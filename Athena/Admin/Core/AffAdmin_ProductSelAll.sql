@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet,bodbDownlineNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[AffAdmin_ProductSelAll]
 	@Name VARCHAR(255) = NULL
 AS
@@ -12,6 +12,7 @@ AS
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
 		- 20211222@Percy: Merge SLT to SB [RedmineID: #165777]
+		- 20220602@Malcolm: remove products which have IsEnable = 0 [RedmineID: #172701]
 */
 
 BEGIN
@@ -32,5 +33,6 @@ BEGIN
 		LEFT JOIN dbo.Aff_f_GroupProduct() g ON p.API_ProductId = g.API_ProductId AND g.API_ProductId <> g.GroupAPI_ProductId
 	WHERE p.ProductName LIKE @Name
 		AND g.API_ProductId IS NULL
+		AND p.IsEnabled = 1
 END
 GO

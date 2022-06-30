@@ -13,6 +13,7 @@ AS
 		- 20140522@Bobby: Update @MonthDate is all [current & history]
 		- 20150512@Bobby: Correct @MonthDate to the end of the month day
 		- 20211222@Percy: Merge SLT to SB [RedmineID: #165777]
+		- 20220602@Malcolm: remove products which have IsEnable = 0 [RedmineID: #172701]
 */
 
 BEGIN
@@ -48,5 +49,6 @@ BEGIN
 	FROM dbo.Product p WITH (NOLOCK)
 		INNER JOIN @ProductSetting ps ON p.ProductId = ps.ProductId
 		LEFT JOIN dbo.RefResources r WITH (NOLOCK) ON r.ResourceKey = p.ProductName AND r.RefId = 'Product' AND r.LanguageCode = @Language
+	WHERE p.IsEnabled = 1
 END
 GO

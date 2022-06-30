@@ -51,13 +51,17 @@ BEGIN
 		SELECT @CurrentMonth AS MonthDate, ds.GroupId, ds.DeductionId, ds.DeductedPercentage
 		FROM dbo.AffInfo ai WITH (NOLOCK)
 			INNER JOIN dbo.DeductionSetting ds WITH (NOLOCK) ON ai.GroupId = ds.GroupId
-		WHERE ai.AffId = @AffId AND @CurrentMonth BETWEEN @FromMonthDate AND @ToMonthDate
+			INNER JOIN dbo.DeductionType dt WITH(NOLOCK) ON dt.DTypeID = ds.DeductionID
+			INNER JOIN dbo.Product p WITH(NOLOCK) ON p.ProductID = dt.ProductID
+		WHERE ai.AffId = @AffId AND @CurrentMonth BETWEEN @FromMonthDate AND @ToMonthDate AND p.IsEnabled = 1
 
 		UNION ALL
 		SELECT dsh.MonthDate, dsh.GroupId, dsh.DeductionId, dsh.DeductedPercentage
 		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
 			INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupId = dsh.GroupId AND agh.MonthDate = dsh.MonthDate
-		WHERE agh.AffId = @AffId AND agh.MonthDate BETWEEN @FromMonthDate AND @ToMonthDate
+			INNER JOIN dbo.DeductionType dt WITH(NOLOCK) ON dt.DTypeID = dsh.DeductionID
+			INNER JOIN dbo.Product p WITH(NOLOCK) ON p.ProductID = dt.ProductID
+		WHERE agh.AffId = @AffId AND agh.MonthDate BETWEEN @FromMonthDate AND @ToMonthDate AND p.IsEnabled = 1
 	) t
 		INNER JOIN dbo.DeductionType dt WITH (NOLOCK) ON t.DeductionId = dt.DTypeId
 	GROUP BY t.MonthDate, t.GroupId, dt.ProductId
@@ -90,19 +94,20 @@ BEGIN
 			,SUM(t.TurnOver)	AS TurnOver
 			,SUM(t.PlayerComm)	AS PlayerComm
 		FROM (
-			SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0)) AS MonthDate
-				,UserName, ProductId
-				,SUM(ISNULL(Winlost, 0)		* ISNULL(AffExRate, 1)) AS Winlost
-				,SUM(ISNULL(Bonus, 0)		* ISNULL(AffExRate, 1)) AS Bonus
-				,SUM(ISNULL(PSP, 0)			* ISNULL(AffExRate, 1)) AS PSP
-				,SUM(ISNULL(Marketing, 0)	* ISNULL(AffExRate, 1)) AS Marketing
-				,SUM(ISNULL(TurnOver, 0)	* ISNULL(AffExRate, 1)) AS TurnOver
-				,SUM(ISNULL(PlayerComm, 0)	* ISNULL(AffExRate, 1)) AS PlayerComm
-			FROM dbo.MemberDaily WITH (NOLOCK)
-			WHERE AffId = @AffId
-				AND WinlostDate BETWEEN @FromMonthDate AND @ToMonthDate
-			GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0))
-				,UserName, ProductId
+			SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, m.WinlostDate) + 1, 0)) AS MonthDate
+				,m.UserName, m.ProductId
+				,SUM(ISNULL(m.Winlost, 0)		* ISNULL(m.AffExRate, 1)) AS Winlost
+				,SUM(ISNULL(m.Bonus, 0)		* ISNULL(m.AffExRate, 1)) AS Bonus
+				,SUM(ISNULL(m.PSP, 0)			* ISNULL(m.AffExRate, 1)) AS PSP
+				,SUM(ISNULL(m.Marketing, 0)	* ISNULL(m.AffExRate, 1)) AS Marketing
+				,SUM(ISNULL(m.TurnOver, 0)	* ISNULL(m.AffExRate, 1)) AS TurnOver
+				,SUM(ISNULL(m.PlayerComm, 0)	* ISNULL(m.AffExRate, 1)) AS PlayerComm
+			FROM dbo.MemberDaily m WITH (NOLOCK)
+				INNER JOIN dbo.Product p WITH(NOLOCK) ON p.ProductID = m.ProductID
+			WHERE m.AffId = @AffId AND p.IsEnabled = 1
+				AND m.WinlostDate BETWEEN @FromMonthDate AND @ToMonthDate
+			GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, m.WinlostDate) + 1, 0))
+				,m.UserName, m.ProductId
 		) t
 			LEFT JOIN dbo.Aff_f_GroupProduct() g ON t.ProductId = g.ProductId
 			LEFT JOIN @GroupSetting gs ON t.MonthDate = gs.MonthDate

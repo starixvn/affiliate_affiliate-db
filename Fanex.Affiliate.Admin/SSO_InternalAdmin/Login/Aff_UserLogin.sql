@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCUST-bodb_licensee" executers="bodbAdminNet,bodbLicenseeNet" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBCUST-bodb_licensee" executers="bodbAdminNet,bodbLicenseeNet,bodbDownlineNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_UserLogin]
 	@UserName		VARCHAR(50),
 	@UserPwd		VARCHAR(50)		= '',	

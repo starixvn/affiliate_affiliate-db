@@ -36,6 +36,7 @@ AS
 		- 20151119@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20180205@Percy: Replace @UserId, @LicenseeId to @UserCurrencies to get list of currencies [RedmineID: #90545]
 		- 20211222@Percy: Merge SLT to SB [RedmineID: #165777]
+		- 20220602@Malcolm: remove products which have IsEnable = 0 [RedmineID: #172701]
                 
 	Param's Explanation: 
 		• @UserId: Admin user id
@@ -90,6 +91,7 @@ BEGIN
 		FROM [dbo].[strSplit](@ProductIds, ',') s
 			INNER JOIN dbo.Product p WITH (NOLOCK) ON s.val = p.ProductId
 			LEFT JOIN dbo.Aff_f_GroupProduct() g ON p.ProductId = g.GroupProductId
+		WHERE p.IsEnabled = 1
 	END
 	ELSE
 	BEGIN
@@ -97,6 +99,7 @@ BEGIN
 		SELECT ISNULL(g.GroupProductId, p.ProductId), ISNULL(g.ProductId, p.ProductId)
 		FROM dbo.Product p WITH (NOLOCK)
 			LEFT JOIN dbo.Aff_f_GroupProduct() g ON p.ProductId = g.ProductId
+		WHERE p.IsEnabled = 1
 	END
 	
 	SELECT @CurrentDate 	= GETDATE()
