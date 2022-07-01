@@ -62,6 +62,23 @@ BEGIN
 		VALUES (@CustId, DATEADD(HOUR, 4 + @TimeZone, @CurrenDate),  @FromDate, @ToDate, @IsInclude, @UserId)
 	END
 
+	IF EXISTS (
+		SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) WHERE mr.CustId = @CustId AND DATEDIFF(MONTH, mr.RemovedDate, @CurrenDate) > 0
+	)
+	BEGIN
+		;WITH CTE AS
+		(
+			SELECT TOP (1) CustId, RemovedDate, mr.ToDate
+			FROM MemberRemoval mr WITH(NOLOCK)
+			WHERE mr.CustId = @CustId AND DATEDIFF(MONTH, mr.RemovedDate, @CurrenDate) > 0
+			ORDER BY mr.RemovedDate DESC
+		)
+		UPDATE mr WITH(ROWLOCK, UPDLOCK)
+			SET mr.ToDate = CASE WHEN mr.ToDate IS NULL THEN NULL ELSE DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @CurrenDate), 0)) END
+		FROM MemberRemoval mr
+			INNER JOIN CTE e ON e.CustId = mr.CustId AND e.RemovedDate = mr.RemovedDate
+	END
+
 	UPDATE dbo.MemberInfo WITH(ROWLOCK)
 		SET IsRemoved = @IsRemoved
 	WHERE CustId = @CustId
