@@ -9,6 +9,8 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Banner_Sel]
 	,@AffType		TINYINT = NULL
 	,@DeviceType	TINYINT = NULL
 	,@Size			VARCHAR(20) = NULL
+	,@CopiedFrom    DATETIME = NULL
+	,@CopiedTo		DATETIME = NULL
 	,@PageIndex		INT = 1
 	,@PageSize		INT = 50
 	,@NRows			INT = 0 OUTPUT
@@ -24,6 +26,7 @@ AS
 		- 20200120@Percy: Return more field: LastUpdate [RedmineID: #127345]
 		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
+		- 20220609@Malcolm: Get number of copies [RedmineID: #173433]
 */
 
 BEGIN
@@ -57,11 +60,23 @@ BEGIN
 		IF @NRows = 0
 			RETURN
 
-		SELECT BannerId,FileName,ImageType,Size,Categories,SubCategories,Language,Currencies,AffTypes,DeviceTypes,UpdatedDate
+		SELECT BannerId,FileName,ImageType,Size,Categories,SubCategories,Language,Currencies,AffTypes,DeviceTypes,UpdatedDate, NumberOfCopies
 		FROM (
-			SELECT BannerId,FileName,ImageType,Size,Categories,SubCategories,Language,Currencies,AffTypes,DeviceTypes,UpdatedDate
+			SELECT BannerId,FileName,ImageType,Size,Categories,SubCategories,Language,Currencies,AffTypes,DeviceTypes,UpdatedDate, ISNULL(n.NumberOfCopies, 0) + ISNULL(l.NumberOfCopies, 0) AS NumberOfCopies
 				,ROW_NUMBER() OVER(ORDER BY BannerId DESC) AS RowNum
 			FROM dbo.Banners b WITH (NOLOCK)
+				OUTER APPLY (
+					SELECT COUNT(1) AS NumberOfCopies
+					FROM dbo.BannerStatistics bs WITH(NOLOCK)
+					WHERE bs.BannerId = b.BannerId AND bs.CopyDate >= @CopiedFrom AND bs.CopyDate < DATEADD(DAY, 1, @CopiedTo) 
+						AND @CopiedFrom IS NOT NULL AND @CopiedTo IS NOT NULL
+				) AS n 
+				OUTER APPLY (
+					SELECT SUM(bss.TotalClick) AS NumberOfCopies
+					FROM dbo.BannerStatisticsSum bss WITH(NOLOCK)
+					WHERE b.BannerId = bss.BannerId AND bss.CopyDate >= @CopiedFrom AND bss.CopyDate < DATEADD(DAY, 1, @CopiedTo)
+						AND @CopiedFrom IS NOT NULL AND @CopiedTo IS NOT NULL
+				) AS l
 			WHERE ImageType <> 'Text'
 				AND ',' + @Languages + ',' LIKE '%,' + b.Language + ',%'
 				AND (@ImageType IS NULL OR ImageType = @ImageType)
