@@ -394,8 +394,9 @@ BEGIN
 		BEGIN
 			MERGE #Commission AS t
 			USING (
-				SELECT MonthDate, AffId, GroupId, GroupProductId, ParentProductId AS ProductId, Turnover, Winloss, PlatFormFee
+				SELECT MonthDate, AffId, GroupId, GroupProductId, ParentProductId AS ProductId, SUM(Turnover) AS Turnover, SUM(Winloss) AS Winloss, SUM(PlatFormFee) AS PlatFormFee
 				FROM #Commission WHERE ProductId <> ParentProductId
+				GROUP BY MonthDate, AffId, GroupId, GroupProductId, ParentProductId
 			) AS s ON t.MonthDate = s.MonthDate AND t.AffId = s.AffId AND t.ProductId = s.ProductId
 			WHEN MATCHED THEN UPDATE
 				SET t.Turnover = t.Turnover + s.Turnover
