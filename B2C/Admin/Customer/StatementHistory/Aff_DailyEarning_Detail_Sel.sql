@@ -19,6 +19,7 @@ AS
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Show TO, WL = 0 for P2P Products [RedmineID: #157958]
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
+		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 */
 
 BEGIN
@@ -68,8 +69,7 @@ BEGIN
 				AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
 				AND NOT EXISTS (
 					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-					WHERE mr.CustId = r.CustId
-						AND mr.RemovedDate <= @EndOfMonth
+					WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
 				)
 				AND (@Currencies = '' OR ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
 			GROUP BY r.CustId

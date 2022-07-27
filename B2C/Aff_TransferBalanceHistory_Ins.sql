@@ -20,6 +20,7 @@ AS
 
 	Revisions:
 		- 20211005@Percy: Initialize SP [RedmineID: #153227]
+		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 */
 
 BEGIN
@@ -54,6 +55,12 @@ BEGIN
 	)
 	BEGIN
 		SELECT @ErrCode = 102, @ErrMsg = 'You have a pending transaction. Please wait until the pending transaction completes and try again.'
+		RETURN
+	END
+
+	IF EXISTS (SELECT 1 FROM dbo.MemberInfo WITH(NOLOCK) WHERE IsRemoved = 1 AND CustId = @PlayerId)
+	BEGIN
+		SELECT @ErrCode = 107, @ErrMsg = 'Player is removed. Please check again.'
 		RETURN
 	END
 

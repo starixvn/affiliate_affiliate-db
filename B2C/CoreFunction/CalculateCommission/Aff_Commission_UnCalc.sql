@@ -28,6 +28,7 @@ AS
 		- 20211105@Percy: Exclude non-deposited player from active players [RedmineID: #164246]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20220427@Malcolm: get tunover for product list [RedmineId: #167335]
+		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 */
 
 BEGIN
@@ -124,15 +125,17 @@ BEGIN
 				,SUM(ISNULL(Turnover, 0))	AS Turnover
 				,SUM(ISNULL(Winloss, 0) - ISNULL(ProgressiveWin, 0) + ISNULL(ProgressiveBet, 0)) AS Winloss
 				,SUM(ISNULL(Revenue, 0))	AS Revenue
-			FROM dbo.rptMemberDaily WITH (NOLOCK)
-			WHERE WinlostDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
+			FROM dbo.rptMemberDaily r WITH (NOLOCK)
+			WHERE r.WinlostDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
 				AND (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), AffId) + ',%')
+				AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+					WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+				)
 			GROUP BY CONVERT(SMALLDATETIME, DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0)))
 				,AffId, CustId, Currency, CASE WHEN ProductId < 0 THEN 0 ELSE ProductId END
 		) r
 			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.MonthDate, r.Currency, @BaseCurrency) e
-			LEFT JOIN dbo.MemberRemoval mr WITH (NOLOCK) ON r.CustId = mr.CustId AND mr.RemovedDate < r.MonthDate
-		WHERE mr.CustId IS NULL
 		GROUP BY r.MonthDate, r.AffId, r.CustId, r.Currency, r.ProductId
 	END
 

@@ -26,6 +26,7 @@ AS
 		- 20210714@Percy: Show TO, WL = 0 for P2P Products [RedmineID: #157958]
 		- 20210819@Percy: Return FirstDepositDate, FirstDepositAmount columns [RedmineID: #160406]
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
+		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -103,9 +104,8 @@ BEGIN
 			AND r.AffId = @AffId
 			AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
 			AND NOT EXISTS (
-				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-				WHERE mr.CustId = r.CustId
-					AND mr.RemovedDate <= @EndOfMonth
+				SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
+				WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate 
 			)
 			AND (@Currencies = '' OR ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
 		GROUP BY r.CustId
@@ -204,11 +204,6 @@ BEGIN
 		FROM #tmpData d
 			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId
 			OUTER APPLY dbo.Aff_f_ExchangeRate_Sel(m.FirstDepositDate, m.currency, @BaseCurrency) e
-		WHERE NOT EXISTS (
-				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-				WHERE mr.RemovedDate <= @EndOfMonth
-					AND mr.CustId = d.CustId
-				)
 	) r
 	WHERE r.RN BETWEEN @RowStart AND @RowEnd
 	ORDER BY r.RN

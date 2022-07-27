@@ -16,6 +16,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210819@Percy: Get all players [RedmineID: #160414]
+		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 
 	Param's Explanation:
 */
@@ -37,13 +38,19 @@ BEGIN
 		BEGIN
 			SELECT @NRows = COUNT(1) FROM dbo.MemberInfo WITH (NOLOCK)
 		
-			SELECT CustId, UserName, IBCUserName, FirstName, LastName, RegisteredDate, 0 AS CurrBalance, AffUserName 
+			SELECT CustId, UserName, IBCUserName, FirstName, LastName, RegisteredDate, 0 AS CurrBalance, AffUserName, IsRemoved, LastAction, IsInclude
 			FROM
 			(
-				SELECT	mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.RegisteredDate, ai.UserName AS AffUserName
+				SELECT	mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.RegisteredDate, ai.UserName AS AffUserName, mi.IsRemoved, mr.LastAction, ISNULL(mr.IsInclude, 1) AS IsInclude
 						,ROW_NUMBER() OVER(ORDER BY mi.RegisteredDate DESC) AS RowNum
 				FROM dbo.MemberInfo mi WITH (NOLOCK)
 					INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
+					OUTER APPLY (
+						SELECT TOP(1) mr.RemovedDate AS LastAction, mr.IsInclude
+						FROM dbo.MemberRemoval mr WITH(NOLOCK)
+						WHERE mr.CustId = mi.CustId 
+						ORDER BY mr.RemovedDate DESC
+					) AS mr
 			) AS r
 			WHERE r.RowNum BETWEEN @RowStart AND @RowEnd
 			ORDER BY r.RowNum
@@ -55,13 +62,19 @@ BEGIN
 			WHERE UserName LIKE '%' + @UserName + '%'
 				AND ISNULL(IBCUserName, '') LIKE '%' + @IBCUserName + '%'
 
-			SELECT CustId, UserName, IBCUserName, FirstName, LastName, RegisteredDate, 0 AS CurrBalance, AffUserName 
+			SELECT CustId, UserName, IBCUserName, FirstName, LastName, RegisteredDate, 0 AS CurrBalance, AffUserName, IsRemoved, LastAction, IsInclude
 			FROM
 			(
-				SELECT	mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.RegisteredDate, ai.UserName AS AffUserName
+				SELECT	mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.RegisteredDate, ai.UserName AS AffUserName, mi.IsRemoved, mr.LastAction, ISNULL(mr.IsInclude, 1) AS IsInclude
 						,ROW_NUMBER() OVER(ORDER BY mi.RegisteredDate DESC) AS RowNum
 				FROM dbo.MemberInfo mi WITH (NOLOCK)
 					INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
+					OUTER APPLY (
+						SELECT TOP(1) mr.RemovedDate AS LastAction, mr.IsInclude
+						FROM dbo.MemberRemoval mr WITH(NOLOCK)
+						WHERE mr.CustId = mi.CustId 
+						ORDER BY mr.RemovedDate DESC
+					) AS mr
 				WHERE mi.UserName LIKE '%' + @UserName + '%'
 					AND ISNULL(mi.IBCUserName, '') LIKE '%' + @IBCUserName + '%'
 			) AS r
@@ -78,13 +91,19 @@ BEGIN
 			AND ISNULL(mi.IBCUserName, '') LIKE '%' + @IBCUserName + '%'
 			AND ai.UserName LIKE '%' + @AffUsername + '%'
 
-		SELECT CustId, UserName, IBCUserName, FirstName, LastName, RegisteredDate, 0 AS CurrBalance, AffUserName 
+		SELECT CustId, UserName, IBCUserName, FirstName, LastName, RegisteredDate, 0 AS CurrBalance, AffUserName, IsRemoved, LastAction, IsInclude
 		FROM
 		(
-			SELECT	mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.RegisteredDate, ai.UserName AS AffUserName
+			SELECT	mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.RegisteredDate, ai.UserName AS AffUserName, mi.IsRemoved, mr.LastAction, ISNULL(mr.IsInclude, 1) AS IsInclude
 					,ROW_NUMBER() OVER(ORDER BY mi.RegisteredDate DESC) AS RowNum
 			FROM dbo.MemberInfo mi WITH (NOLOCK)
 				INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON mi.AffId = ai.AffId
+				OUTER APPLY (
+						SELECT TOP(1) mr.RemovedDate AS LastAction, mr.IsInclude
+						FROM dbo.MemberRemoval mr WITH(NOLOCK)
+						WHERE mr.CustId = mi.CustId 
+						ORDER BY mr.RemovedDate DESC
+					) AS mr
 			WHERE mi.UserName LIKE '%' + @UserName + '%'
 				AND ISNULL(mi.IBCUserName, '') LIKE '%' + @IBCUserName + '%'
 				AND ai.UserName LIKE '%' + @AffUsername + '%'

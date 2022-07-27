@@ -33,6 +33,7 @@ AS
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20220315@Malcolm: convert BF to base currency [RedmineID: #161540]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
+		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -259,11 +260,6 @@ BEGIN
 			,COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate) THEN 1 ELSE NULL END) AS Signup
 			,COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate) THEN 1 ELSE NULL END) AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
-		WHERE NOT EXISTS (
-					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-					WHERE mi.CustId = mr.CustId
-						AND mr.RemovedDate >= @FromDate AND mr.RemovedDate < DATEADD(DAY, 1, @ToDate)
-				)
 		GROUP BY mi.AffId
 
 		-- AffWithdrawal, AffAdjustment

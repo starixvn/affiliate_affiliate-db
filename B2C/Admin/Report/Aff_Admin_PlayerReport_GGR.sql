@@ -19,6 +19,7 @@ AS
 
 	Revisions:
 		- 20210916@Percy: Initialize SP [RedmineID: #161540]
+		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 
 	Param's Explanation:
 		- @ProductIds: list of products, '' = no product
@@ -74,6 +75,10 @@ BEGIN
 	FROM dbo.rptMemberDaily r WITH (NOLOCK)
 		INNER JOIN #ProductSetting a ON r.AffId = a.AffId AND r.ProductId = a.ProductId AND r.WinlostDate BETWEEN a.FromDate AND a.ToDate
 	WHERE r.WinlostDate BETWEEN @FromDate AND @ToDate
+		AND NOT EXISTS (
+			SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
+			WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate 
+		)
 	GROUP BY r.WinlostDate, r.AffId, a.AffUsername, r.CustId, r.Currency, r.ProductId
 
 	CREATE TABLE #Result (AffId INT, AffUsername VARCHAR(50), CustId INT, UserName VARCHAR(50), RegisteredDate DATETIME, FirstDepositDate DATETIME
