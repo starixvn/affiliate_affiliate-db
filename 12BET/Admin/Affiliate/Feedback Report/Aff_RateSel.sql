@@ -12,16 +12,16 @@ AS
 SET NOCOUNT ON
 
 -- 'None' when the user only sends a message and does not choose an emoji.           
-SELECT 0  AS [Rateid], 'None' 	 		  AS [RateName]
+SELECT 0  AS [RateId], 'None' 	 		  AS [RateName]
 UNION ALL                        
-SELECT 1  AS [Rateid], 'Dissatisfaction'  AS [RateName]
+SELECT 1  AS [RateId], 'Dissatisfaction'  AS [RateName]
 UNION ALL                        
-SELECT 2  AS [Rateid], 'Unsatisfied'      AS [RateName]
+SELECT 2  AS [RateId], 'Unsatisfied'      AS [RateName]
 UNION ALL
-SELECT 3  AS [Rateid], 'Neutral' 		  AS [RateName]
+SELECT 3  AS [RateId], 'Neutral' 		  AS [RateName]
 UNION ALL
-SELECT 4  AS [Rateid], 'Satisfied' 		  AS [RateName]
+SELECT 4  AS [RateId], 'Satisfied' 		  AS [RateName]
 UNION ALL
-SELECT 5  AS [Rateid], 'Very Pleased' 	  AS [RateName]
+SELECT 5  AS [RateId], 'Very Pleased' 	  AS [RateName]
 
 GO
