@@ -9,8 +9,6 @@ CREATE PROCEDURE [dbo].[Aff_Admin_Feedback_Sel]
 	,@PageSize			INT = 20
 	,@PageIndex			INT = 1
 	,@NRows				INT = 0 OUTPUT
-	,@ErrCode			INT = 0 OUTPUT
-	,@ErrMsg			NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -41,11 +39,6 @@ BEGIN
 	EXEC dbo.Aff_CheckPermission
 		@CustId		= @AffId
 		,@FuncName	= '[Feedback]'
-		,@ErrCode	= @ErrCode OUTPUT
-		,@ErrMsg	= @ErrMsg OUTPUT
-
-	IF @ErrCode <> 0
-		RETURN
 	-- End check permission
 	
 	SELECT @AffName = ISNULL(@AffName, ''), @RateIds = ISNULL(@RateIds, '')
