@@ -33,6 +33,7 @@ BEGIN
 		,@IsSubmitted = CASE WHEN RateId IN (-1, -2) THEN 0 ELSE 1 END
 		,@RateId = RateId
 	FROM dbo.AffFeedback WITH (NOLOCK)
+	WHERE AffId = @AffId
 	ORDER BY FID DESC
 		
 	IF (@CheckDate < 30 AND @IsSubmitted = 1)
