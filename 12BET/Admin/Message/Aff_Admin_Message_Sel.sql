@@ -18,6 +18,7 @@ AS
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20220811@Malcolm: Add Cambodian Language [RedminID: #176429]
 
 	Param Explanation:
 		- @MessageId:
@@ -49,6 +50,7 @@ BEGIN
 			,m.Message_Vi
 			,m.Message_Kr
 			,m.Message_Jp
+			,m.Message_Kh
 			,m.PostedDate
 			,m.Important
 			,m.UpdatedDate
@@ -84,7 +86,7 @@ BEGIN
 
 		SELECT
 			MessageId, Message_En, Message_Cn, Message_Tw, Message_Es, Message_Th, Message_Id
-			,Message_Vi, Message_Kr, Message_Jp, PostedDate, Important, UpdatedDate, CreatorName, UpdatedName
+			,Message_Vi, Message_Kr, Message_Jp, Message_Kh, PostedDate, Important, UpdatedDate, CreatorName, UpdatedName
 		FROM (
 			SELECT
 				m.MsgId AS MessageId
@@ -97,6 +99,7 @@ BEGIN
 				,m.Message_Vi
 				,m.Message_Kr
 				,m.Message_Jp
+				,m.Message_Kh
 				,m.PostedDate
 				,m.Important
 				,m.UpdatedDate

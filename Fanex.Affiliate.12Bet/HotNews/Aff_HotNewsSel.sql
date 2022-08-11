@@ -19,6 +19,7 @@ AS
 		- 20090920@DungTong : Add new Vietnamese and Indonesia Language
 		- 20130218@LongLuu : Add Korean Language
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20220811@Malcolm: Add Cambodian Language [RedminID: #176429]
 */
 
 BEGIN
@@ -41,11 +42,11 @@ BEGIN
 
 	IF @language IS NULL -- all column
 		SELECT
-			message_en,message_cn,message_tw,message_es,message_th,message_vi,message_id,message_kr
+			message_en,message_cn,message_tw,message_es,message_th,message_vi,message_id,message_kr,message_kh
 			,creator,posteddate,msgid,important,creatorname,updatename,updateddate
 		FROM (
 			SELECT
-				message_en,message_cn,message_tw,message_es,message_th,message_vi,message_id,message_kr
+				message_en,message_cn,message_tw,message_es,message_th,message_vi,message_id,message_kr,message_kh
 				,n.creator,posteddate,msgid,important,C.username AS creatorname,u.username AS updatename
 				,updateddate,ROW_NUMBER() OVER(ORDER BY msgid DESC) AS RowId
 			FROM News n WITH (NOLOCK)
@@ -72,6 +73,7 @@ BEGIN
 					WHEN 'vi-VN' THEN ISNULL(message_vi,message_en)
 					WHEN 'id-ID' THEN ISNULL(message_id,message_en)
 					WHEN 'ko-KR' THEN ISNULL(message_kr,message_en)
+					WHEN 'km-KH' THEN ISNULL(message_kh,message_en)
 					ELSE message_en END AS [message]
 				,posteddate,msgid,important
 				,ROW_NUMBER() OVER(ORDER BY msgid DESC) AS RowId

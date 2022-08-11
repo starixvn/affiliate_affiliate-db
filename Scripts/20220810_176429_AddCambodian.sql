@@ -12,7 +12,7 @@ VALUES ('km-KH', 'Cambodian', N'ខ្មែរ', 'km', 'Cambodian')
 GO
 
 ALTER TABLE News
-ADD Message_Km  NVARCHAR(4000)
+ADD Message_Kh  NVARCHAR(4000)
 GO
 
 

@@ -16,6 +16,7 @@ AS
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20220811@Malcolm: Add Cambodian Language [RedminID: #176429]
 */
 
 BEGIN
@@ -65,6 +66,7 @@ BEGIN
 								   m.Message_Vi AS '@Message_Vi',
 								   m.Message_Kr AS '@Message_Kr',
 								   m.Message_Jp	AS '@Message_Jp',
+								   m.Message_Kh	AS '@Message_Kh',
 								   m.Important AS '@Important'
 								   
 							FROM dbo.News m WITH (NOLOCK)

@@ -24,7 +24,7 @@ BEGIN
 		SELECT @MsgId = MAX(MsgId) FROM dbo.News WITH (NOLOCK)
 
 	SELECT
-		message_en,message_cn,message_tw,message_es,message_th,message_vi,message_id,message_kr, message_km
+		message_en,message_cn,message_tw,message_es,message_th,message_vi,message_id,message_kr, message_kh
 		,n.creator,posteddate,msgid,important,u.UserName as creatorname
 	FROM dbo.News n WITH (NOLOCK)
 		LEFT JOIN dbo.Users u WITH (NOLOCK) ON n.Creator = u.CustId

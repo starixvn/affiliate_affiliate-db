@@ -10,7 +10,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Message_Ins]
 	,@MsgID			NVARCHAR(4000)
 	,@MsgKR			NVARCHAR(4000)
 	,@MsgJP			NVARCHAR(4000)
-	,@MsgKM			NVARCHAR(4000)
+	,@MsgKh			NVARCHAR(4000)
 	,@IsImportant	BIT
 	,@IP			VARCHAR(20) = ''
 	,@ErrCode		INT = 0 OUTPUT
@@ -46,12 +46,12 @@ BEGIN
 	BEGIN TRY
 		INSERT INTO dbo.News
 		(
-			Message_En,Message_Cn,Message_Tw,Message_Es,Message_Th,Message_Id,Message_Vi,Message_Kr,Message_Jp, Message_KM
+			Message_En,Message_Cn,Message_Tw,Message_Es,Message_Th,Message_Id,Message_Vi,Message_Kr,Message_Jp, Message_Kh
 			,Creator,PostedDate,Important
 		)
 		VALUES
 		(
-			@MsgEn,@MsgCn,@MsgTw,@MsgEs,@MsgTh,@MsgId,@MsgVi,@MsgKr,@MsgJp, @MsgKM
+			@MsgEn,@MsgCn,@MsgTw,@MsgEs,@MsgTh,@MsgId,@MsgVi,@MsgKr,@MsgJp, @MsgKh
 			,@UserId,GETDATE(),@IsImportant
 		)
 
@@ -79,7 +79,7 @@ BEGIN
 									 ,@MsgVi AS  '@Message_Vi'
 									 ,@MsgKr AS  '@Message_Kr'
 									 ,@MsgJp AS  '@Message_Jp'
-									 ,@MsgKM AS  '@Message_Km'
+									 ,@MsgKh AS  '@Message_Kh'
 									 ,@IsImportant AS '@IsImportant'
 							FOR XML PATH('row'), ROOT('root')
 						))

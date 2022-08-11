@@ -11,7 +11,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Message_Upd]
 	,@MsgID			NVARCHAR(4000)
 	,@MsgKR			NVARCHAR(4000)
 	,@MsgJP			NVARCHAR(4000)
-	,@MsgKM			NVARCHAR(4000)
+	,@MsgKh			NVARCHAR(4000)
 	,@IsImportant	BIT
 	,@IP			VARCHAR(20) = ''
 	,@ErrCode		INT = 0 OUTPUT
@@ -56,7 +56,7 @@ BEGIN
 								   Message_Vi AS '@Message_Vi',
 								   Message_Kr AS '@Message_Kr',
 								   Message_Jp	AS '@Message_Jp',
-								   Message_Km	AS '@Message_Km',
+								   Message_Kh	AS '@Message_Kh',
 								   Important AS '@Important'
 							FROM dbo.News WITH (NOLOCK)
 							WHERE MsgId = @MessageId
@@ -80,7 +80,7 @@ BEGIN
 			,Message_Vi		= @MsgVi
 			,Message_Kr		= @MsgKr
 			,Message_Jp		= @MsgJp
-			,Message_Km		= @MsgKM
+			,Message_Kh		= @MsgKh
 			,Important		= @IsImportant
 			,UpdatedBy		= @UserId
 			,UpdatedDate	= GETDATE()
@@ -106,7 +106,7 @@ BEGIN
 									,@MsgVi AS  '@Message_Vi'
 									,@MsgKr AS  '@Message_Kr'
 									,@MsgJp AS  '@Message_Jp'
-									,@MsgKM AS  '@Message_Km'
+									,@MsgKh AS  '@Message_Kh'
 									,@IsImportant AS '@IsImportant'
 							FOR XML PATH('row'), ROOT('root')
 						))
