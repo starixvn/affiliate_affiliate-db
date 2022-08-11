@@ -35,12 +35,6 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	-- Check permission
-	EXEC dbo.Aff_CheckPermission
-		@CustId		= @AffId
-		,@FuncName	= '[Feedback]'
-	-- End check permission
-	
 	SELECT @AffName = ISNULL(@AffName, ''), @RateIds = ISNULL(@RateIds, '')
 
 	DECLARE @RowStart INT, @RowEnd INT	
