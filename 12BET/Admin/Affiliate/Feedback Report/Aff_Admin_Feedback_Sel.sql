@@ -20,7 +20,7 @@ AS
 		- 20220808@Eddie: Initialize SP [RedmineID: #175628]
 
 	Param's Explanation:
-		- @RateIds:'0, 1, 2, 3, 4, 5'
+		- @RateIds:'0,1,2,3,4,5'
 			 0 = None
 			 1 = Dissatisfaction
 			 2 = Unsatisfied
