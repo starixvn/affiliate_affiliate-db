@@ -10,6 +10,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Message_Ins]
 	,@MsgID			NVARCHAR(4000)
 	,@MsgKR			NVARCHAR(4000)
 	,@MsgJP			NVARCHAR(4000)
+	,@MsgKh			NVARCHAR(4000)
 	,@IsImportant	BIT
 	,@IP			VARCHAR(20) = ''
 	,@ErrCode		INT = 0 OUTPUT
@@ -24,6 +25,7 @@ AS
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20220811@Malcolm: Add Cambodian Language [RedminID: #176429]
 */
 
 BEGIN
@@ -44,12 +46,12 @@ BEGIN
 	BEGIN TRY
 		INSERT INTO dbo.News
 		(
-			Message_En,Message_Cn,Message_Tw,Message_Es,Message_Th,Message_Id,Message_Vi,Message_Kr,Message_Jp
+			Message_En,Message_Cn,Message_Tw,Message_Es,Message_Th,Message_Id,Message_Vi,Message_Kr,Message_Jp, Message_Kh
 			,Creator,PostedDate,Important
 		)
 		VALUES
 		(
-			@MsgEn,@MsgCn,@MsgTw,@MsgEs,@MsgTh,@MsgId,@MsgVi,@MsgKr,@MsgJp
+			@MsgEn,@MsgCn,@MsgTw,@MsgEs,@MsgTh,@MsgId,@MsgVi,@MsgKr,@MsgJp, @MsgKh
 			,@UserId,GETDATE(),@IsImportant
 		)
 
@@ -77,6 +79,7 @@ BEGIN
 									 ,@MsgVi AS  '@Message_Vi'
 									 ,@MsgKr AS  '@Message_Kr'
 									 ,@MsgJp AS  '@Message_Jp'
+									 ,@MsgKh AS  '@Message_Kh'
 									 ,@IsImportant AS '@IsImportant'
 							FOR XML PATH('row'), ROOT('root')
 						))
