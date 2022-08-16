@@ -7,10 +7,10 @@
 
 DECLARE @MonthDate DATETIME
 
-SELECT @MonthDate = '2022-07-31'
+SELECT @MonthDate = '2022-08-31'
 
 INSERT INTO Products (ProductId,ProductName,ProductPrefix,IsIBC,TransferType,Enabled,IsTest,EndOfSupportDate,ReleasedDate)
-VALUES (39, 'Vgaming', 'VGA', 1, 0, 1, 0, NULL, '2022-07-01')
+VALUES (39, 'Vgaming', 'VGA', 1, 0, 1, 0, NULL, '2022-08-01')
 
 ;WITH CTE_Products (ProductId) AS
 (

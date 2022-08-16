@@ -1,9 +1,9 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET"></info>*/
 
 /*
-	Created: 20210823@Percy
+	Created: 20220816@Malcolm
 	DB: DBAFF12BET-Affiliate_12BET
-	Task: Integrate Skywind product
+	Task: Integrate BG product
 */
 CREATE TABLE dbo.bettrans_BG_LiveCasino
 (
@@ -51,13 +51,13 @@ GO
 
 INSERT INTO dbo.APIProductSettings (ProductId, SettingName, SettingValue)
 VALUES (37, 'LastQueueId', '0')
-		,(37, 'LaunchDate', '2022-07-01')
+		,(37, 'LaunchDate', '2022-08-01')
 		,(37, 'SourceTable', 'APIProduct_ImportQueue')
 GO
 
 INSERT INTO dbo.APIProductSettings (ProductId, SettingName, SettingValue)
 VALUES (38, 'LastQueueId', '0')
-		,(38, 'LaunchDate', '2022-07-01')
+		,(38, 'LaunchDate', '2022-08-01')
 		,(38, 'SourceTable', 'APIProduct_ImportQueue')
 GO
 
@@ -86,7 +86,7 @@ GO
 	SELECT 38 AS ProductId
 )
 INSERT INTO dbo.DeductionSettingHistory (GroupID,MonthDate,DeductionID,DeductedPercentage,ProductId,GroupProductId)
-SELECT GroupID,'2022-07-31',DeductionID,DeductedPercentage,e.ProductId,GroupProductId
+SELECT GroupID,'2022-08-31',DeductionID,DeductedPercentage,e.ProductId,GroupProductId
 FROM (
 	SELECT GroupID,DeductionID,DeductedPercentage,GroupProductId
 		,ROW_NUMBER() OVER(PARTITION BY GroupId ORDER BY GroupProductId, ProductId) AS RN
