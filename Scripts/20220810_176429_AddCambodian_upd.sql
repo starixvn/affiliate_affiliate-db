@@ -6,6 +6,6 @@
 
 */
 
-UPDATE Market
-SET MarketNativeName = N'ខ្មែរ', ShortedCode = 'kh'
+UPDATE Market WITH(ROWLOCK)
+SET ShortedCode = 'kh'
 WHERE MarketName = 'Cambodian'
