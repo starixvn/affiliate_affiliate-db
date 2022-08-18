@@ -22,7 +22,7 @@ BEGIN
 
 	SET NOCOUNT ON
 	
-	DECLARE @CheckDate INT = 0, @CheckTime INT = 0, @RateId INT = -100, @IsSubmitted BIT = 0
+	DECLARE @CheckDate INT = 0, @RateId INT = -100, @IsSubmitted BIT = 0
 	DECLARE @CurrentTime DATETIME = current_timestamp
 	SET @IsShowPopup = 1
 	
@@ -46,13 +46,9 @@ BEGIN
 	END
 	ELSE
 	BEGIN
-		IF @RateId = -1
+		IF @RateId = -1 AND @CheckDate < 7 -- the popup is shown up again on next 7 days
 		BEGIN
-			IF @CheckDate >= 7 -- the popup is shown up again on next 7 days
-			BEGIN
-				SELECT @IsShowPopup = 1
-			END
-			ELSE SELECT @IsShowPopup = 0
+			SELECT @IsShowPopup = 0
 		END
 	END
 END        
