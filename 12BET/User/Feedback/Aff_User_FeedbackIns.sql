@@ -1,5 +1,5 @@
 ﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="1"></info>*/
-CREATE PROCEDURE [dbo].[Aff_FeedbackIns]
+CREATE PROCEDURE [dbo].[Aff_User_FeedbackIns]
 	@AffId		INT,
 	@RateId		INT = -1,
 	@Message	NVARCHAR(4000) = '',
@@ -18,7 +18,6 @@ AS
 	Param's Explanation:
 		- @AffId  : Id of affiliate in the system.
 		- @RateId : 
-					-2 = the popup is closed
 					-1 = the popup is turned off
 					0  = 'None'
 					1  = 'Dissatisfaction'
