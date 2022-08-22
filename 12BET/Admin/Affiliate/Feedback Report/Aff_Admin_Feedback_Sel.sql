@@ -1,7 +1,6 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_Feedback_Sel]
-	@AffId				INT
-	,@AffName			NVARCHAR(50) = ''
+	@AffName			NVARCHAR(50) = ''
 	,@RateIds			VARCHAR(100) = ''
 	,@FromDate			SMALLDATETIME
 	,@ToDate			SMALLDATETIME

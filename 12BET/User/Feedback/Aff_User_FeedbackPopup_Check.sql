@@ -29,8 +29,7 @@ BEGIN
 	
 	SELECT TOP(1) 
 		@CheckDate = DATEDIFF(DAY, SentDate, @CurrentTime)
-		,@CheckTime = DATEDIFF(MINUTE, SentDate, @CurrentTime)
-		,@IsSubmitted = CASE WHEN RateId IN ( -1 ) THEN 0 ELSE 1 END
+		,@IsSubmitted = CASE WHEN RateId = -1 THEN 0 ELSE 1 END
 		,@RateId = RateId
 	FROM dbo.AffFeedback WITH (NOLOCK)
 	WHERE AffId = @AffId
