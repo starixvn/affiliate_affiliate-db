@@ -29,6 +29,8 @@ AS
 		- @IsExportExcel
 			 0 = Feedback cannot be extracted in Excel file.
 			 1 = Feedback can be extracted in Excel file.
+	Example:
+		EXEC [dbo].[Aff_Admin_Feedback_Sel_xtest] @AffName = '12BETAFF005', @RateIds = '0,1,2,3,4,5',@FromDate = '2022-05-29 00:00:00', @ToDate = '2022-09-29 00:00:00'
 */
 
 BEGIN
