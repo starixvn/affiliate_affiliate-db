@@ -85,6 +85,6 @@ BEGIN
 			AND af.SentDate >= @FromDate AND af.SentDate < DATEADD(DAY, 1, @ToDate)
 	) AS n
 	WHERE n.RowIdx BETWEEN @RowStart AND @RowEnd
-	ORDER BY n.RowIdx DESC, UserName ASC
+	ORDER BY n.RowIdx ASC, UserName ASC
 END
 GO
