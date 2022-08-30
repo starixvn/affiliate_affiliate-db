@@ -22,7 +22,7 @@ GO
 
 CREATE NONCLUSTERED INDEX [IX_SentDate] ON [dbo].[AffFeedback]
 (
-	[AffId]    ASC,
-	[SentDate] ASC
+	[SentDate] ASC,
+	[AffId]    ASC
 )ON [DATA]
 GO
