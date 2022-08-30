@@ -10,17 +10,19 @@ CREATE TABLE [dbo].[AffFeedback](
 	[SentDate] [datetime] NULL,
 	[RateId] [int] NULL,
 	[Message] [nvarchar](4000) NOT NULL,
- CONSTRAINT [PK_AffFeedback] PRIMARY KEY CLUSTERED 
-(
-	[FId] ASC
-),
- INDEX [INC_AffFeedback] NONCLUSTERED 
-(
-	[AffId]    ASC,
-	[SentDate] ASC
-)
+	CONSTRAINT [PK_AffFeedback] PRIMARY KEY CLUSTERED 
+	(
+		[FId] ASC
+	)
 ) ON [DATA]
 GO
 
 ALTER TABLE [dbo].[AffFeedback] ADD  CONSTRAINT [DF_Affiliate_Feedback_SentDate]  DEFAULT (getdate()) FOR [SentDate]
+GO
+
+CREATE NONCLUSTERED INDEX [IX_SentDate] ON [dbo].[AffFeedback]
+(
+	[AffId]    ASC,
+	[SentDate] ASC
+)ON [DATA]
 GO
