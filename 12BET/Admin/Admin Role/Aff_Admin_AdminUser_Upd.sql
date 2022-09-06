@@ -25,6 +25,7 @@ AS
 	Revisions:
 		- 20200731@Percy: Initialize SP [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20220831@Malcolm: Get the name and id of the changed user [RedmineId : #177311]
 
 	Param's Explanation:
 		@Market:
@@ -242,9 +243,6 @@ BEGIN
 				WHERE u.CustId = @CustId AND u.IsDeleted = 0
 				FOR XML PATH('row'), ROOT('UserInfo')
 			))
-
-	IF CONVERT(NVARCHAR(MAX), @NewUserInfo) = CONVERT(NVARCHAR(MAX), @OldUserInfo)
-		SELECT @NewUserInfo = '', @OldUserInfo = ''
 
 	SELECT @OldData = CONVERT(NVARCHAR(MAX), (SELECT @OldUserInfo, @OldFunction, @OldMarket FOR XML PATH ('row'), ROOT('root')))
 	SELECT @NewData = CONVERT(NVARCHAR(MAX), (SELECT @NewUserInfo, @NewFunction, @NewMarket FOR XML PATH ('row'), ROOT('root')))
