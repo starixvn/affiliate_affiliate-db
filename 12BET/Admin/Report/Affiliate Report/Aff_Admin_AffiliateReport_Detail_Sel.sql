@@ -411,6 +411,7 @@ BEGIN
 		SUM(ISNULL(tc.Commission, 0)) AS Earning,
 		SUM(ISNULL(at.AffWithdrawal, 0)) AS AffWithdrawal,
 		SUM(ISNULL(at.AffAdjustment, 0)) AS AffAdjustment,
+		SUM(ISNULL(CASE WHEN md.MonthDate = @ToDate THEN at.PreviousBFF ELSE 0 END, 0)) AS PreviousBFF, -- Previous of BFF
 		SUM(ISNULL(CASE WHEN md.MonthDate = @ToDate THEN at.BFF ELSE 0 END, 0)) AS BFF -- the last month by running total
 	FROM @MonthDate md
 		LEFT JOIN #TempCommission tc ON md.MonthDate = tc.MonthDate
