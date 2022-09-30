@@ -23,6 +23,7 @@ AS
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20211222@Malcolm: Split transfer out of bettrans [RedmineID: #165095]
+		- 20211222@Malcolm: get transid from Get_Bettrans_TransID [RedmineID: #175407]
 */
 
 BEGIN
@@ -80,20 +81,21 @@ BEGIN
 	DECLARE @TransID1 BIGINT, @TransID2 BIGINT = NULL, @Amount MONEY
 	SELECT  @Amount = ABS(@AffPayout)
 
+	EXEC Get_Bettrans_TransID @TransID = @TransID1 OUTPUT
+
 	-- Add money to player
 	BEGIN TRY
 		INSERT INTO dbo.Transfer
 		(
-			custid, username, refno, transdate, bettype, transdesc, winlost, actual_stake, winlostdate
+			TransId, custid, username, refno, transdate, bettype, transdesc, winlost, actual_stake, winlostdate
 			,creator, recommend, mrecommend, srecommend, currency, actualrate, currencyName, ip, StatusID
 		)
 		VALUES
 		(
-			@Player_IBCCustID, @Player_UserName, @RefID, @TransDate, @BetType, @TransDesc, @Amount, 0, @WinlostDate
+			@TransID1, @Player_IBCCustID, @Player_UserName, @RefID, @TransDate, @BetType, @TransDesc, @Amount, 0, @WinlostDate
 			,@UserID, @Player_Recommend, @Player_MRecommend, @Player_SRecommend, @Player_Currency, @Player_ExRate, @Player_CurrencyName, @ip, @StatusID
 		)
 	
-		SELECT @TransID1 = SCOPE_IDENTITY()
 	END TRY
 	BEGIN CATCH 
 		SELECT @ErrCode = 4003, @ErrMsg = 'Insert transaction failed.'
@@ -111,20 +113,21 @@ BEGIN
 		RETURN
 	END
 
+	EXEC Get_Bettrans_TransID @TransID = @TransID2 OUTPUT
+
 	-- Deduct balance account
 	BEGIN TRY
 		INSERT INTO dbo.Transfer
 		(
-			custid, username, refno, transdate, bettype, transdesc, winlost, actual_stake, winlostdate
+			TransId, custid, username, refno, transdate, bettype, transdesc, winlost, actual_stake, winlostdate
 			,creator, recommend, mrecommend, srecommend, currency, actualrate, currencyName, ip, StatusID
 		)
 		VALUES
 		(
-			@Ballance_CustID, @Ballance_UserName, @RefID, @TransDate, @BetType, @TransDesc, 0, @Amount, @WinlostDate
+			@TransID2, @Ballance_CustID, @Ballance_UserName, @RefID, @TransDate, @BetType, @TransDesc, 0, @Amount, @WinlostDate
 			,@UserID, @Ballance_Recommend, @Ballance_MRecommend, @Ballance_SRecommend, @Player_Currency, @Player_ExRate, @Player_CurrencyName, @ip, @StatusID
 		)
-    
-		SELECT @TransID2 = SCOPE_IDENTITY()
+   
 	END TRY
 	BEGIN CATCH 
 		DELETE dbo.Transfer WITH (ROWLOCK, UPDLOCK)
