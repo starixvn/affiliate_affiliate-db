@@ -24,6 +24,7 @@ AS
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 		- 20191101@Percy: Fix wrong FDM value [RedmineID: #123134]
 		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
+		- 20220831@Eddie: Add new column 'Previous month's balance B/F' [RedmineID: #177178]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -303,28 +304,42 @@ BEGIN
 			INNER JOIN CTE_RowNum rn ON md.MonthDate = rn.MonthDate
 	END
 
-	DECLARE @tblAffStatistics TABLE (MonthDate SMALLDATETIME, AffWithdrawal MONEY, AffAdjustment MONEY, BFF MONEY)
-	INSERT INTO @tblAffStatistics (MonthDate, AffWithdrawal, AffAdjustment, BFF)
-	SELECT md.MonthDate, ISNULL(at.AffWithdrawal, 0), ISNULL(at.AffAdjustment, 0), ISNULL(at.BFF, 0)
-	FROM @MonthDate md
+	DECLARE @PreviousFromDate	SMALLDATETIME = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0))
+	
+	DECLARE @tblAffStatistics TABLE (MonthDate SMALLDATETIME, AffWithdrawal MONEY, AffAdjustment MONEY, PreviousBFF MONEY, BFF MONEY)
+	
+	;WITH Pre_MonthDate as (
+	SELECT MonthDate
+	FROM @MonthDate
+	UNION ALL
+	SELECT @PreviousFromDate
+	)
+	INSERT INTO @tblAffStatistics (MonthDate, AffWithdrawal, AffAdjustment, PreviousBFF, BFF)
+	SELECT md.MonthDate, ISNULL(at.AffWithdrawal, 0), ISNULL(at.AffAdjustment, 0), 0, ISNULL(at.BFF, 0)
+	FROM Pre_MonthDate md
 		LEFT JOIN (
 			SELECT
-				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, CASE WHEN TransDate < @FromDate THEN @FromDate ELSE TransDate END) + 1, 0)) AS MonthDate,
-				SUM(CASE WHEN TransType = 202 AND TransDate >= @FromDate THEN ABS(Amount) ELSE 0 END) AS AffWithdrawal,
-				SUM(CASE WHEN TransType = 203 AND TransDate >= @FromDate THEN Amount ELSE 0 END) AS AffAdjustment,
+				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, CASE WHEN TransDate < @PreviousFromDate THEN @PreviousFromDate ELSE TransDate END) + 1, 0)) AS MonthDate,
+				SUM(CASE WHEN TransType = 202 AND TransDate >= @PreviousFromDate THEN ABS(Amount) ELSE 0 END) AS AffWithdrawal,
+				SUM(CASE WHEN TransType = 203 AND TransDate >= @PreviousFromDate THEN Amount ELSE 0 END) AS AffAdjustment,
 				SUM(Amount) AS BFF
 			FROM dbo.AffTrans WITH (NOLOCK)
 			WHERE AffId = @AffId
 				AND TransDate < DATEADD(DAY, 1, @ToDate)
 				AND Status IN ('Pending', 'Approved', 'Completed')
-			GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, CASE WHEN TransDate < @FromDate THEN @FromDate ELSE TransDate END) + 1, 0))
+			GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, CASE WHEN TransDate < @PreviousFromDate THEN @PreviousFromDate ELSE TransDate END) + 1, 0))
 		) AS at ON md.MonthDate = at.MonthDate
 
 	UPDATE md1
 	SET md1.BFF = ISNULL(md.BFF, 0)
 	FROM @tblAffStatistics md1
 		CROSS APPLY (SELECT SUM(md2.BFF) AS BFF FROM @tblAffStatistics md2 WHERE md2.MonthDate <= md1.MonthDate) AS md
-
+		
+	UPDATE md1
+	SET md1.PreviousBFF = ISNULL(md2.BFF, 0)
+	FROM @tblAffStatistics md1
+		INNER JOIN @tblAffStatistics md2 ON md2.MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md1.MonthDate), 0))
+	
 	-- Return detail
 	SELECT
 		md.MonthDate,
@@ -351,6 +366,7 @@ BEGIN
 		ISNULL(tc.Commission, 0)		AS Earning,
 		ISNULL(at.AffWithdrawal, 0)		AS AffWithdrawal,
 		ISNULL(at.AffAdjustment, 0)		AS AffAdjustment,
+		ISNULL(at.PreviousBFF, 0)				AS PreviousBFF,
 		ISNULL(at.BFF, 0)				AS BFF
 	FROM @MonthDate md
 		LEFT JOIN #TempCommission tc ON md.MonthDate = tc.MonthDate
@@ -395,6 +411,7 @@ BEGIN
 		SUM(ISNULL(tc.Commission, 0)) AS Earning,
 		SUM(ISNULL(at.AffWithdrawal, 0)) AS AffWithdrawal,
 		SUM(ISNULL(at.AffAdjustment, 0)) AS AffAdjustment,
+		SUM(ISNULL(CASE WHEN md.MonthDate = @ToDate THEN at.PreviousBFF ELSE 0 END, 0)) AS PreviousBFF, -- Previous of BFF
 		SUM(ISNULL(CASE WHEN md.MonthDate = @ToDate THEN at.BFF ELSE 0 END, 0)) AS BFF -- the last month by running total
 	FROM @MonthDate md
 		LEFT JOIN #TempCommission tc ON md.MonthDate = tc.MonthDate
