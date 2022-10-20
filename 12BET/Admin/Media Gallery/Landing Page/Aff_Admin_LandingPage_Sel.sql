@@ -17,15 +17,19 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	; WITH CTE_LandingPage AS(
-		SELECT PageId, PageName, PageCode,
-			CASE WHEN PageName <> 'Sportsbook' THEN ( CASE WHEN PageName <> 'Exchange' THEN 2 ELSE 3 END) ELSE 1 END AS TypeID
-		FROM dbo.LandingPage WITH (NOLOCK)
-		WHERE IsDeleted = 0  
-			AND (@PageId IS NULL OR PageId = @PageId)  
-	)
-	SELECT PageId, PageName, PageCode  
-	FROM CTE_LandingPage
+	;WITH CTE_LandingPage AS (  
+		SELECT 
+		PageId
+		,PageName
+		,PageCode  
+		,CASE PageName WHEN 'Sportsbook' THEN 1
+					   WHEN 'Exchange'   THEN 3
+					   ELSE 2 END AS TypeID  
+	    FROM dbo.LandingPage WITH (NOLOCK)  
+		WHERE IsDeleted = 0 AND (@PageId IS NULL OR PageId = @PageId)    
+	)  
+	SELECT PageId, PageName, PageCode    
+	FROM CTE_LandingPage  
 	ORDER BY TypeID, PageId DESC
 END
 GO
