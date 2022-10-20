@@ -19,7 +19,7 @@ BEGIN
 	
 	; WITH CTE_LandingPage AS(
 		SELECT PageId, PageName, PageCode,
-			CASE WHEN PageName <> 'Sportbook' THEN ( CASE WHEN PageName <> 'Exchange' THEN 2 ELSE 3 END) ELSE 1 END AS TypeID
+			CASE WHEN PageName <> 'Sportsbook' THEN ( CASE WHEN PageName <> 'Exchange' THEN 2 ELSE 3 END) ELSE 1 END AS TypeID
 		FROM dbo.LandingPage WITH (NOLOCK)
 		WHERE IsDeleted = 0  
 			AND (@PageId IS NULL OR PageId = @PageId)  
