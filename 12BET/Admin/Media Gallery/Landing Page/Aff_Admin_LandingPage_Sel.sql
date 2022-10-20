@@ -11,15 +11,21 @@ AS
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102399]
 		- 20191127@Percy: Sort by newest landing page [RedmineID: #118992]
+		- 20221020@Eddie: Change order of Exchange & Sportsbook [RedmineID: #179392]
 */
 
 BEGIN
 	SET NOCOUNT ON
-
-	SELECT PageId, PageName, PageCode
-	FROM dbo.LandingPage WITH (NOLOCK)
-	WHERE IsDeleted = 0
-		AND (@PageId IS NULL OR PageId = @PageId)
-	ORDER BY PageId DESC
+	
+	; WITH CTE_LandingPage AS(
+		SELECT PageId, PageName, PageCode,
+			CASE WHEN PageName <> 'Sportbook' THEN ( CASE WHEN PageName <> 'Exchange' THEN 2 ELSE 3 END) ELSE 1 END AS TypeID
+		FROM dbo.LandingPage WITH (NOLOCK)
+		WHERE IsDeleted = 0  
+			AND (@PageId IS NULL OR PageId = @PageId)  
+	)
+	SELECT PageId, PageName, PageCode  
+	FROM CTE_LandingPage
+	ORDER BY TypeID, PageId DESC
 END
 GO
