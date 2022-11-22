@@ -18,6 +18,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20190115@Walter: Remove Locking action [RedmineID: #104884]
 		- 20190125@Walter: Store user device info [RedmineID: #104884]
+		- 20221101@Malcolm: Update login information [RedmineID: #177552]
 */
 
 BEGIN
@@ -52,6 +53,10 @@ BEGIN
 
 	-- Update login info
 	BEGIN TRY
+		UPDATE dbo.AffDetail WITH(ROWLOCK)
+			SET LastLoginIP = @IpAddress, LastLoginDate = @CurrentTime
+		WHERE AffId = @AffId
+
 		IF(EXISTS (SELECT TOP 1 1 FROM dbo.AffUserLoginInfo WITH (NOLOCK) WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo))
 		BEGIN
 			UPDATE dbo.AffUserLoginInfo WITH (ROWLOCK, UPDLOCK)

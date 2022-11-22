@@ -15,6 +15,7 @@ AS
 
 	Revisions:
 		- 20190304@Walter: Initiliaze SP [RedmineID: #104884]
+		- 20221101@Malcolm: Update login information [RedmineID: #177552]
 
 	Parameter's Explanation:
 */
@@ -26,7 +27,11 @@ BEGIN
 
     BEGIN TRY
         INSERT INTO dbo.AffUserLoginInfo (AffId, IP, DeviceInfo, FailedLoginCount, LastLoginDate, VerificationCount, LastVerificationDate)
-			VALUES (@AffId, @IpAddress, @DeviceInfo, 0, @CurrentTime, 1, @CurrentTime)
+		VALUES (@AffId, @IpAddress, @DeviceInfo, 0, @CurrentTime, 1, @CurrentTime)
+
+		UPDATE dbo.AffDetail WITH(ROWLOCK)
+			SET LastLoginIP = @IpAddress, LastLoginDate = @CurrentTime
+		WHERE AffId = @AffId 
     END TRY
     BEGIN CATCH
         SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
