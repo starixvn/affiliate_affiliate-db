@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20190509@Percy: Initiliaze function [RedmineID: #104884]
+		- 20220811@Malcolm: Add Cambodian Language [RedminID: #176429]
 */
 
 RETURN
