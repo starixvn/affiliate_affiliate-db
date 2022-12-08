@@ -16,6 +16,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20221214@Malcolm: change messageId [RedmineId : #176429]
 */
 
 BEGIN
@@ -57,7 +58,7 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		-- Failed to delete group! Please try again!
-		SELECT @ErrCode = 103, @ErrMsg = dbo.Aff_f_GetMessageById(1010, @Language)
+		SELECT @ErrCode = 103, @ErrMsg = dbo.Aff_f_GetMessageById(1009, @Language)
 
 		RETURN
 	END CATCH

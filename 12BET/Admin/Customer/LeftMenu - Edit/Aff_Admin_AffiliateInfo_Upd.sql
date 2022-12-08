@@ -60,6 +60,7 @@ AS
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210223@Percy: Change permission function [RedmineID: #149213]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20221214@Malcolm: change messageId [RedmineId : #176429]
 */
 
 BEGIN
@@ -265,7 +266,7 @@ BEGIN
 		IF @Status NOT IN ('Pending', 'Approved', 'Disapproved')
 		BEGIN
 			-- Invalid status
-			SELECT @ErrCode = 1004, @ErrMsg = dbo.Aff_f_GetMessageById(305, @Language)
+			SELECT @ErrCode = 1004, @ErrMsg = dbo.Aff_f_GetMessageById(306, @Language)
 			RETURN
 		END
 
