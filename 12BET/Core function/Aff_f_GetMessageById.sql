@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20180601@Percy: Initialize function [RedmineID: #87923]
+		- 20220811@Malcolm: Add Cambodian Language [RedminID: #176429]
 
 	Parameter's Explanation:
 */
@@ -36,6 +37,7 @@ BEGIN
 		WHEN 'ja-JP' THEN MessageContentJP
 		WHEN 'hi-IN' THEN MessageContentHIEN
 		WHEN 'eneuro' THEN MessageContentENEURO
+		WHEN 'km-KH' THEN MessageContentKH
 		ELSE MessageContentEN END
 	FROM dbo.Messages WITH (NOLOCK)
 	WHERE MessageId = @MessageId
