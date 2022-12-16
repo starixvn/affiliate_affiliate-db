@@ -22,6 +22,8 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
+		- 20221214@Malcolm: Get statistics by affid [RedmineID: #181651]
+		- 20221215@Malcolm: Group by URLReferrer [RedmineID: #181651]
 */
 
 BEGIN
@@ -29,13 +31,8 @@ BEGIN
 
 	IF (@FromDate > @ToDate) RETURN
 
-	DECLARE @Result TABLE
-	(
-		UrlReferrer		NVARCHAR(300),
-		DeviceType		TINYINT,
-		TotalClick		INT,
-		UniqueClick		INT
-	)
+	DECLARE @Result TABLE (UrlReferrer NVARCHAR(300), DeviceType TINYINT, TotalClick INT, UniqueClick INT)
+	DECLARE @SumResult TABLE (UrlReferrer NVARCHAR(300), DeviceType TINYINT, TotalClick INT, UniqueClick INT)
 
 	SELECT	@FromDate = CONVERT(VARCHAR(10), @FromDate, 120),
 			@ToDate = CONVERT(VARCHAR(10), DATEADD(DAY, 1, @ToDate), 120)
@@ -72,6 +69,7 @@ BEGIN
 			SELECT URLReferrer, ISNULL(DeviceType, 0) AS DeviceType, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 			FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
 			WHERE [Date] >= @FromDate AND [Date] < @ToDate
+				AND AffId = @AffID
 				AND [Date] <= @ArchiveDate
 				AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
 				AND SportCode = ISNULL(@SportCode, SportCode)
@@ -81,8 +79,18 @@ BEGIN
 		GROUP BY URLReferrer, DeviceType
 	END
 
+	;WITH CTE AS
+	(
+		SELECT URLReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
+		FROM @Result
+		GROUP BY URLReferrer, DeviceType
+	)
+	INSERT INTO @SumResult (URLReferrer, DeviceType, TotalClick, UniqueClick)
+	SELECT URLReferrer, DeviceType, TotalClick, UniqueClick
+	FROM CTE
+
 	--count nrows
-	SELECT @NRows = COUNT(1) FROM (SELECT URLReferrer FROM @Result WHERE DeviceType = @DeviceType GROUP BY URLReferrer) AS r
+	SELECT @NRows = COUNT(1) FROM (SELECT URLReferrer FROM @SumResult WHERE DeviceType = @DeviceType GROUP BY URLReferrer) AS r
 
 	IF ISNULL(@NRows, 0) = 0
 		RETURN
@@ -130,7 +138,7 @@ BEGIN
 		FROM (
 			SELECT DISTINCT URLReferrer
 			FROM (
-				SELECT TOP (@RowEnd) URLReferrer FROM @Result WHERE DeviceType = @DeviceType ORDER BY URLReferrer
+				SELECT TOP (@RowEnd) URLReferrer FROM @SumResult WHERE DeviceType = @DeviceType ORDER BY URLReferrer
 				UNION ALL
 				SELECT TOP (@RowEnd) URLReferrer FROM #memberStats WHERE DeviceType = @DeviceType ORDER BY URLReferrer
 			) A
@@ -144,7 +152,7 @@ BEGIN
 		ISNULL(m.Signups, 0) Signups,
 		ISNULL(m.FDM, 0) FDM
 	FROM CTE_UrlReferrer c
-		LEFT JOIN @Result r ON c.URLReferrer = r.URLReferrer AND r.DeviceType = @DeviceType
+		LEFT JOIN @SumResult r ON c.URLReferrer = r.URLReferrer AND r.DeviceType = @DeviceType
 		LEFT JOIN #memberStats m ON c.URLReferrer = m.URLReferrer AND m.DeviceType = @DeviceType
 	WHERE c.TheCount BETWEEN @RowStart AND @RowEnd
 
