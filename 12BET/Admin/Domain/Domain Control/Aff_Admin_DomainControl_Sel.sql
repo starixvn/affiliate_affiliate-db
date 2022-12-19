@@ -1,7 +1,7 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_DomainControl_Sel]
 	@DomainControlId	INT = 0
-	,@MarketIds			VARCHAR(400) = ''
+	,@MarketIds			NVARCHAR(400) = ''
 AS
 
 /*  
