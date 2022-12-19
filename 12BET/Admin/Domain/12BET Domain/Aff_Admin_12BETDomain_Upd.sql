@@ -1,10 +1,11 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-ALTER PROCEDURE [dbo].[Aff_Admin_12BETDomain_Upd]
+CREATE PROCEDURE [dbo].[Aff_Admin_12BETDomain_Upd]
 	@UserId			INT
 	,@DomainId		INT
 	,@DomainName	NVARCHAR(50)
 	,@IsSSL			BIT = 0
 	,@IP			NVARCHAR(15) = ''
+	,@BlockMarket	VARCHAR(400)
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
@@ -18,13 +19,17 @@ AS
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20221108@Eddie: Support Block Market [RedmineID: #179537]
+	Param's Explanation:
+		- @BlockMarket = 'en-GB,en-US,es-ES,hi-IN,id-ID,ja-JP,km-KH,ko-KR,th-TH,vi-VN,zh-CN,zh-TW'
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	SET @DomainName = RTRIM(LTRIM(ISNULL(@DomainName, '')))
-	SET @IsSSL = ISNULL(@IsSSL, 0)
+	SET @DomainName  = RTRIM(LTRIM(ISNULL(@DomainName, '')))
+	SET @IsSSL 		 = ISNULL(@IsSSL, 0)
+	SET @BlockMarket = ISNULL(@BlockMarket, '')
 
 	IF @DomainName = ''
 	BEGIN
@@ -50,42 +55,57 @@ BEGIN
 	
 	IF EXISTS (SELECT 1 FROM dbo.[12BetDomain] WITH (NOLOCK) WHERE DomainID <> @DomainID AND DomainName = @DomainName AND IsDeleted = 0)
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'This 12Bet domain has been existed!'
+		SELECT @ErrCode = 102, @ErrMsg = 'This 12Bet domain has been existed!'
 		RETURN
 	END
-
+	
+	IF EXISTS (SELECT 1 FROM dbo.AffDomainControl WITH (NOLOCK) WHERE [12BetDomainID] = @DomainId AND IsDeleted = 0 AND MarketID IN (SELECT value FROM STRING_SPLIT(@BlockMarket, ',')))
+	BEGIN
+		SELECT @ErrCode = 105, @ErrMsg = 'Please reload. Update unsuccessfully.'
+		RETURN
+	END
+	
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
 	SELECT  @OldData = CONVERT(NVARCHAR(MAX),
 					   (
 							SELECT 
-								DomainId AS '@DomainId', 
-								DomainName AS '@DomainName', 
-								IsSSL AS '@IsSSL'
+								DomainId 	  AS '@DomainId'
+								,DomainName   AS '@DomainName'
+								,IsSSL 		  AS '@IsSSL'
+								,BlockMarket  AS '@BlockMarket'
 							FROM dbo.[12BetDomain] WITH (NOLOCK) 
 							WHERE DomainId = @DomainId AND IsDeleted = 0
 							FOR XML PATH('row'), ROOT('root')
 					   ))
 
-	SELECT @NewData = CONVERT(NVARCHAR(MAX),(SELECT @DomainId AS '@DomainId', @DomainName AS '@DomainName', @IsSSL AS '@IsSSL' FOR XML PATH('row'), ROOT('root')))
+	SELECT @NewData = CONVERT(NVARCHAR(MAX),
+					  (
+							SELECT @DomainId 	 AS '@DomainId'
+								   ,@DomainName  AS '@DomainName'
+								   ,@IsSSL 		 AS '@IsSSL'
+								   ,@BlockMarket AS '@BlockMarket'
+							FOR XML PATH('row'), ROOT('root')
+					   ))
 
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'This 12Bet domain does not exists!'
+		SELECT @ErrCode = 103, @ErrMsg = 'This 12Bet domain does not exists!'
 		RETURN
 	END
 	
 	BEGIN TRY
 		UPDATE dbo.[12BetDomain] WITH (ROWLOCK)
-		SET ModifyDate	= GETDATE()
-			,DomainName	= @DomainName
-			,Creator	= @UserId
-			,W3Prefix	= @W3Prefix
-			,IsSSL		= @IsSSL
-		WHERE DomainID  = @DomainID
+		SET ModifyDate	 = GETDATE()
+			,DomainName	 = @DomainName
+			,Creator	 = @UserId
+			,W3Prefix	 = @W3Prefix
+			,IsSSL		 = @IsSSL
+			,BlockMarket = @BlockMarket
+		WHERE DomainID   = @DomainID
 	END TRY
 	BEGIN CATCH
-		SELECT @Errcode = 103, @ErrMsg = N'Error occurs. Update unsuccessfully.'
+		SELECT @Errcode = 104, @ErrMsg = N'Error occurs. Update unsuccessfully.'
 		RETURN
 	END CATCH
 

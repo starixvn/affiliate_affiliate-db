@@ -1,5 +1,5 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-ALTER PROCEDURE [dbo].[Aff_Admin_DomainControl_Upd]
+CREATE PROCEDURE [dbo].[Aff_Admin_DomainControl_Upd]
 	@UserId				INT
 	,@DomainControlId	INT
 	,@AffDomainId		INT
@@ -39,10 +39,10 @@ BEGIN
 
 	SELECT  @OldData = CONVERT(NVARCHAR(MAX), 
 					   (
-							SELECT AffDomainId AS '@AffDomainId'
-									,[12BetDomainId] AS '@_12BetDomainId'
-									,MarketId AS '@MarketId'
-									,Status AS '@Status'
+							SELECT AffDomainId 		AS '@AffDomainId'
+								   ,[12BetDomainId] AS '@_12BetDomainId'
+								   ,MarketId 		AS '@MarketId'
+								   ,Status 			AS '@Status'
 							FROM dbo.AffDomainControl WITH (NOLOCK)
 							WHERE Id = @DomainControlId AND IsDeleted = 0
 							FOR XML PATH('row'), ROOT('root')
