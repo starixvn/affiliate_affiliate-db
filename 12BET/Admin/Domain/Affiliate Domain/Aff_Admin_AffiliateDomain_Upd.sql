@@ -4,7 +4,7 @@ CREATE PROCEDURE [dbo].[Aff_Admin_AffiliateDomain_Upd]
 	,@DomainId		INT
 	,@DomainName	NVARCHAR(50)
 	,@IsSSL			BIT = 0
-	,@IP			NVARCHAR(40) = ''
+	,@IP			VARCHAR(50) = ''
 	,@BlockMarket	VARCHAR(400)
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT

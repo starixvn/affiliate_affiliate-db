@@ -6,7 +6,7 @@ CREATE PROCEDURE [dbo].[Aff_Admin_DomainControl_Upd]
 	,@12BetDomainId		INT
 	,@MarketId			NVARCHAR(10)
 	,@Status			BIT
-	,@IP				NVARCHAR(40) = ''
+	,@IP				VARCHAR(50) = ''
 	,@ErrCode			INT = 0 OUTPUT
 	,@ErrMsg			NVARCHAR(4000) = '' OUTPUT
 AS

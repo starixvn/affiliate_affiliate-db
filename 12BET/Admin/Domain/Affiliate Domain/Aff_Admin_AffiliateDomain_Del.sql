@@ -2,7 +2,7 @@
 CREATE PROCEDURE [dbo].[Aff_Admin_AffiliateDomain_Del]
 	@UserId			INT
 	,@DomainId		INT
-	,@IP			NVARCHAR(40) = ''
+	,@IP			VARCHAR(50) = ''
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
