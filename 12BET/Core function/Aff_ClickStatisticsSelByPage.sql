@@ -3,11 +3,13 @@ ALTER PROCEDURE [dbo].[Aff_ClickStatisticsSelByPage]
 	@AffId			INT
 	,@FromDate		DATETIME
 	,@ToDate		DATETIME
-	,@SportCode		VARCHAR(50) = NULL
-	,@LanguageCodes	VARCHAR(MAX)
-	,@DeviceType	TINYINT = 0
-	,@TotalSignUps	INT = 0 OUTPUT
-	,@TotalFDMs		INT = 0 OUTPUT
+	,@ReportBy		VARCHAR(10)   = 'Country'
+	,@CountryCodes 	NVARCHAR(MAX) = NULL
+	,@SportCode		VARCHAR(50)   = NULL
+	,@LanguageCodes	VARCHAR(MAX)  = NULL
+	,@DeviceType	TINYINT 	  = 0
+	,@TotalSignUps	INT 		  = 0 OUTPUT
+	,@TotalFDMs		INT 		  = 0 OUTPUT
 AS
 
 /*  
@@ -22,256 +24,244 @@ AS
 		- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
 		- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
 		- 20200731@Percy: Check permission market (language) by user login [RedmineID: #121975]
+		- 20220926@Eddie: Add Country info [RedmineID: #176390]
+	Param's Explanation:
+		- @ReportBy: 'Country' or 'Language'
+		- @CountryCodes: N'-,AL,AR,...' OR N''
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	IF @FromDate > @ToDate
-		RETURN
+	IF (@FromDate > @ToDate) RETURN
 
-	CREATE TABLE #tmpResult
-	(
-		SportCode		VARCHAR(50),
-		LanguageCode	VARCHAR(10),
-		DeviceType		TINYINT,
-		TotalClick		INT,
-		UniqueClick		INT,
-		Signups			INT,
-		FDM				INT,
-		Sort			TINYINT DEFAULT (0)
-	)
+	CREATE TABLE #tmpResult (CountryCode VARCHAR(2), SportCode VARCHAR(50), LanguageCode VARCHAR(10), DeviceType TINYINT, TotalClick INT, UniqueClick INT, Signups INT, FDM INT)
+
+	DECLARE @Result TABLE (CountryCode VARCHAR(2), SportCode VARCHAR(50), LanguageCode VARCHAR(10), DeviceType TINYINT, TotalClick INT, UniqueClick INT)
 	
-	-- TotalClick, UniqueClick --
-		-- Old --
-	DECLARE @MaxSumDate SMALLDATETIME, @tmpFromDate SMALLDATETIME, @tmpToDate SMALLDATETIME
-	SELECT  @MaxSumDate = MAX(Date) FROM dbo.ClickStatisticsSum WITH(NOLOCK)
+	DECLARE @BeginRegenData SMALLDATETIME, @LastDateSum DATETIME
 
-	DECLARE @OldResult TABLE
-	(
-		TotalClick INT,
-		UniqueClick INT
-	)
+	SELECT @BeginRegenData = SValue FROM dbo.SystemSettings WITH(NOLOCK) WHERE SName = 'AFF_OldClickStatisticsDate'
 
-	DECLARE @Result TABLE
-	(
-		SportCode		VARCHAR(50),
-		LanguageCode	VARCHAR(10),
-		DeviceType		TINYINT,
-		TotalClick		INT,
-		UniqueClick		INT
-	)
-	
-	IF @FromDate < @MaxSumDate
+	SELECT @LastDateSum = MAX(DATE) FROM dbo.ClickStatistics1Sum WITH(NOLOCK)
+
+	SELECT @FromDate = CONVERT(VARCHAR(10), @FromDate, 120), @ToDate = DATEADD(SECOND, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, DATEADD(MONTH, 1, @ToDate)), 0))
+
+	IF (@LastDateSum < @FromDate) 
 	BEGIN
-		IF DAY(@FromDate) = 1
-		BEGIN
-			SELECT @tmpFromDate = @FromDate
-		END
-		ELSE
-		BEGIN
-			SELECT @tmpFromDate = DATEADD(MONTH, DATEDIFF(MONTH, -1, @FromDate), 0) -- the first day of next month
-		END
-
-		IF DATEADD(DAY, 1, @ToDate) > @MaxSumDate
-		BEGIN
-			SELECT @tmpToDate = @MaxSumDate
-		END
-		ELSE
-		BEGIN
-			SELECT @tmpToDate = DATEADD(MONTH, DATEDIFF(MONTH, -1, DATEADD(DAY, 1, @ToDate))-1, -1) -- the last day of previous month
-		END
-		
-		INSERT INTO @OldResult
-		SELECT
-			SUM(TotalClick),
-			SUM(UniqueClick)
-		FROM dbo.ClickStatisticsSum WITH(NOLOCK)
-		WHERE Date BETWEEN @tmpFromDate AND @tmpToDate
-			AND IsForMonth = 1
-			AND TrackingID = 0 -- sum for months
-			AND AffID = @AffID
-
-		IF @FromDate < @tmpFromDate
-		BEGIN
-			INSERT INTO @OldResult
+		INSERT INTO @Result(CountryCode, SportCode, LanguageCode, DeviceType, TotalClick, UniqueClick)
+		SELECT r.CountryCode, r.SportCode, r.LanguageCode, r.DeviceType, r.TotalClick, r.UniqueClick
+		FROM
+		(
+			SELECT 
+				ISNULL(CASE WHEN @ReportBy = 'Country' THEN ISNULL(Country, '-') END, '-') AS CountryCode
+				,SportCode
+				,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE ISNULL(LanguageCode, 'none') END AS LanguageCode
+				,DeviceType
+				,SUM(1) AS TotalClick
+				,COUNT(DISTINCT IP) AS UniqueClick
+			FROM ClickStatistics1 c WITH (NOLOCK)
+			WHERE [Date] BETWEEN @FromDate AND @ToDate
+				AND AffId = @AffID
+				AND SportCode = ISNULL(@SportCode, SportCode)
+				AND (( ',' + @CountryCodes + ',' LIKE '%,' + Country + ',%') OR (',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'))
+			GROUP BY SportCode
+				,CASE WHEN @ReportBy = 'Country' THEN ISNULL(Country, '-') END
+				,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE ISNULL(LanguageCode, 'none') END
+				,DeviceType
+				,[Date]
+		) AS r
+	END
+	ELSE IF (@LastDateSum > @ToDate) 
+	BEGIN
+		INSERT INTO @Result(CountryCode, SportCode, LanguageCode, DeviceType, TotalClick, UniqueClick)
+		SELECT r.CountryCode, r.SportCode, r.LanguageCode, r.DeviceType, r.TotalClick, r.UniqueClick
+		FROM
+		(
+			SELECT 
+				ISNULL(CASE WHEN @ReportBy = 'Country' THEN ISNULL(CountryCode, '-') END, '-') AS CountryCode
+				,SportCode
+				,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE ISNULL(LanguageCode, 'none') END AS LanguageCode
+				,DeviceType
+				,SUM(TotalClick) AS TotalClick
+				,SUM(UniqueClick) AS UniqueClick
+			FROM ClickStatistics1Sum WITH (NOLOCK)
+			WHERE [Date] BETWEEN @FromDate AND @ToDate
+				AND AffId = @AffID
+				AND SportCode = ISNULL(@SportCode, SportCode)
+				AND (( ',' + @CountryCodes + ',' LIKE '%,' + CountryCode + ',%') OR (',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'))
+			GROUP BY 
+				CASE WHEN @ReportBy = 'Country' THEN ISNULL(CountryCode, '-') END
+				,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE ISNULL(LanguageCode, 'none') END
+				,SportCode
+				,DeviceType
+		) AS r 
+	END
+	ELSE 
+	BEGIN
+		INSERT INTO @Result(CountryCode, SportCode, LanguageCode, DeviceType, TotalClick, UniqueClick)
+		SELECT r.CountryCode, r.SportCode, r.LanguageCode, r.DeviceType, r.TotalClick, r.UniqueClick
+		FROM
+		(
 			SELECT
-				COUNT(1) AS TotalClick,
-				COUNT(DISTINCT s.IP) AS UniqueClick
-			FROM dbo.ClickStatistics s WITH(NOLOCK)
-			WHERE s.Date >= @FromDate AND s.Date < @tmpFromDate
-				AND EXISTS (SELECT 1 FROM dbo.TrackingCode t WITH(NOLOCK)
-							WHERE t.AffID = @AffID AND t.TrackingID = s.TrackingID)
-			GROUP BY s.Date
-		END
-
-		IF @tmpToDate < @ToDate
-		BEGIN
-			INSERT INTO @OldResult
-			SELECT
-				COUNT(1) AS TotalClick,
-				COUNT(DISTINCT s.IP) AS UniqueClick
-			FROM dbo.ClickStatistics s WITH(NOLOCK)
-			WHERE s.Date > @tmpToDate AND s.Date <= @ToDate
-				AND EXISTS (SELECT 1 FROM dbo.TrackingCode t WITH(NOLOCK)
-							WHERE t.AffID = @AffID AND t.TrackingID = s.TrackingID)
-			GROUP BY s.Date
-		END
+				ISNULL(CASE WHEN @ReportBy = 'Country' THEN ISNULL(CountryCode, '-') END, '-') AS CountryCode
+				,SportCode
+				,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE ISNULL(LanguageCode, 'none') END AS LanguageCode
+				,DeviceType
+				,SUM(TotalClick) AS TotalClick
+				,SUM(UniqueClick) AS UniqueClick
+			FROM ClickStatistics1Sum WITH (NOLOCK)
+			WHERE [Date] BETWEEN @FromDate AND @LastDateSum
+				AND AffId = @AffID
+				AND SportCode = ISNULL(@SportCode, SportCode)
+				AND (( ',' + @CountryCodes + ',' LIKE '%,' + CountryCode + ',%') OR (',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'))
+			GROUP BY SportCode
+				,CASE WHEN @ReportBy = 'Country' THEN ISNULL(CountryCode, '-') END
+				,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE ISNULL(LanguageCode, 'none') END
+				,DeviceType
+			UNION ALL
+			SELECT 
+				ISNULL(CASE WHEN @ReportBy = 'Country' THEN ISNULL(Country, '-') END, '-') AS CountryCode
+				,SportCode
+				,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE ISNULL(LanguageCode, 'none') END AS LanguageCode
+				,DeviceType
+				,COUNT(1) AS TotalClick
+				,COUNT(DISTINCT IP) AS UniqueClick
+			FROM ClickStatistics1 c WITH (NOLOCK)
+			WHERE [Date] BETWEEN @LastDateSum AND @ToDate
+				AND AffId = @AffID
+				AND SportCode = ISNULL(@SportCode, SportCode)
+				AND (( ',' + @CountryCodes + ',' LIKE '%,' + Country + ',%') OR (',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'))
+			GROUP BY SportCode
+				,CASE WHEN @ReportBy = 'Country' THEN ISNULL(Country, '-') END
+				,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE ISNULL(LanguageCode, 'none') END
+				,DeviceType
+				,[Date]
+		) AS r
 	END
-	ELSE
-	BEGIN
-		INSERT INTO @OldResult
-		SELECT
-			COUNT(1) AS TotalClick,
-			COUNT(DISTINCT s.IP) AS UniqueClick
-		FROM dbo.ClickStatistics s WITH(NOLOCK)
-		WHERE s.Date >= @FromDate AND s.Date < DATEADD(DAY, 1, @ToDate)
-			AND EXISTS (SELECT 1 FROM dbo.TrackingCode t WITH(NOLOCK)
-					WHERE t.AffID = @AffID AND t.TrackingID = s.TrackingID)
-		GROUP BY s.Date
-	END
-		-- End Old --
 
-		-- New --
-	DECLARE @LastDateSum DATETIME
-
-	SELECT @ToDate = DATEADD(S, -1, DATEADD(M, DATEDIFF(M, 0, DATEADD(M, 1, @ToDate)), 0))
-
-	SELECT @LastDateSum = MAX(DATE) FROM ClickStatistics1Sum WITH(NOLOCK)
-
-	SELECT	@LastDateSum = ISNULL(@LastDateSum, DATEADD(DAY, -1, @FromDate)),
-			@FromDate = CONVERT(VARCHAR(10), @FromDate, 120)
-
-	IF (@LastDateSum < @FromDate) --get from main table
-	BEGIN
-		INSERT INTO @Result
-		SELECT SportCode, LanguageCode, DeviceType, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
-		FROM ClickStatistics1 c WITH (NOLOCK)
-		WHERE [Date] BETWEEN @FromDate AND @ToDate
-			AND AffId = @AffID
-			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND ',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'
-		GROUP BY SportCode, LanguageCode, DeviceType, [Date]
-	END
-	ELSE IF (@LastDateSum > @ToDate) --get from summary table
-	BEGIN
-		INSERT INTO @Result
-		SELECT SportCode, LanguageCode, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
-		FROM ClickStatistics1Sum c WITH (NOLOCK)
-		WHERE [Date] BETWEEN @FromDate AND @ToDate
-			AND AffId = @AffID
-			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND ',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'
-		GROUP BY SportCode, LanguageCode, DeviceType
-	END
-	ELSE --@fromdate < @LastDateSum < @ToDate
-	BEGIN
-		INSERT INTO @Result
-		SELECT SportCode, LanguageCode, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
-		FROM ClickStatistics1Sum c WITH (NOLOCK)
-		WHERE [Date] BETWEEN @FromDate
-				AND @LastDateSum
-			AND AffId = @AffID
-			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND ',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'
-		GROUP BY SportCode, LanguageCode, DeviceType, [Date]
-			
-		UNION ALL
-
-		SELECT SportCode, LanguageCode, DeviceType, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
-		FROM ClickStatistics1 c WITH (NOLOCK)
-		WHERE [Date] BETWEEN @LastDateSum AND @ToDate
-			AND AffId = @AffID
-			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND ',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'
-		GROUP BY SportCode, LanguageCode, DeviceType, [Date]
-	END
-		-- End New --
-
-	INSERT INTO #tmpResult (SportCode, LanguageCode, DeviceType, TotalClick, UniqueClick, Signups, FDM, Sort)
-	SELECT 'Old URL', 'none', 0, SUM(ISNULL(TotalClick, 0)), SUM(ISNULL(UniqueClick, 0)), 0, 0, 1 FROM @OldResult
-	UNION ALL
-	SELECT ISNULL(SportCode, 'none'), ISNULL(LanguageCode, 'none'), ISNULL(DeviceType, 0), SUM(ISNULL(TotalClick, 0)), SUM(ISNULL(UniqueClick, 0)), 0, 0, 0 FROM @Result
-	GROUP BY ISNULL(SportCode, 'none'), ISNULL(LanguageCode, 'none'), ISNULL(DeviceType, 0)
-
-	-- End TotalClick, UniqueClick --
-
-	-- Signups, FDM --
-	INSERT INTO #tmpResult (SportCode, LanguageCode, DeviceType, TotalClick, UniqueClick, Signups, FDM)
-	SELECT
-		ISNULL(md.SportCode, 'none')	AS SportCode,
-		ISNULL(md.LanguageCode, 'none')	AS LanguageCode,
-		ISNULL(md.DeviceType, 0)		AS DeviceType,
-		0								AS TotalClick,
-		0								AS UniqueClick,
-		0								AS Signups,
-		COUNT(1)						AS FDM
-	FROM dbo.MemberInfo mi WITH (NOLOCK)
-		LEFT JOIN dbo.MemberClickDetail md WITH (NOLOCK) ON md.IBCCustID = mi.IBCCustID
-	WHERE mi.CreatedDate BETWEEN @FromDate AND @ToDate
-		AND mi.AffId = @AffID
-		AND (@SportCode IS NULL OR ISNULL(SportCode, 'none') = @SportCode)
-		AND ',' + @LanguageCodes + ',' LIKE '%,' + md.LanguageCode + ',%'
-		AND NOT EXISTS (
-			SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-			WHERE
-				mr.IBCCustID = mi.IBCCustID
-				AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
-		)
-	GROUP BY
-		ISNULL(md.SportCode, 'none'),
-		ISNULL(md.LanguageCode, 'none'),
-		ISNULL(md.DeviceType, 0)
+	INSERT INTO #tmpResult (CountryCode, SportCode, LanguageCode, DeviceType, TotalClick, UniqueClick, Signups, FDM)
+	SELECT tr.CountryCode, tr.SportCode, tr.LanguageCode, tr.DeviceType, tr.TotalClick, tr.UniqueClick, tr.Signups, tr.FDM
+	FROM
+	(
+		SELECT 
+			ISNULL(CASE WHEN @ReportBy = 'Country' THEN CountryCode END, '-') AS CountryCode
+			,ISNULL(SportCode, 'none') 	 AS SportCode
+			,CASE WHEN @ReportBy = 'Country'  THEN 'none' ELSE LanguageCode END AS LanguageCode
+			,ISNULL(DeviceType, 0) 		 AS DeviceType
+			,SUM(ISNULL(TotalClick, 0))  AS TotalClick
+			,SUM(ISNULL(UniqueClick, 0)) AS UniqueClick
+			,0 							 AS Signups
+			,0 							 AS FDM
+		FROM @Result
+		GROUP BY CASE WHEN @ReportBy = 'Country' THEN CountryCode END
+			,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE LanguageCode END
+			,ISNULL(SportCode, 'none')
+			,ISNULL(DeviceType, 0)
+	) AS tr
 
 	DECLARE @tmp TABLE (ClickID BIGINT)
+	
+	INSERT INTO #tmpResult (CountryCode, SportCode, LanguageCode, DeviceType, TotalClick, UniqueClick, Signups, FDM)
+	SELECT tr.CountryCode, tr.SportCode, tr.LanguageCode, tr.DeviceType, tr.TotalClick, tr.UniqueClick, tr.Signups, tr.FDM
+	FROM
+	(
+		SELECT
+			ISNULL(CASE WHEN @ReportBy = 'Country' THEN ISNULL(c.Country, CASE WHEN csk.Date >= @BeginRegenData THEN ISNULL(csk.Country, '-') ELSE '-' END) END, '-') AS CountryCode
+			,ISNULL(md.SportCode, 'none') AS SportCode
+			,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE ISNULL(md.LanguageCode, 'none') END AS LanguageCode
+			,ISNULL(md.DeviceType, 0) 	  AS DeviceType
+			,0 						  	  AS TotalClick
+			,0 						  	  AS UniqueClick
+			,0 						  	  AS Signups
+			,COUNT(1) 				  	  AS FDM
+		FROM dbo.MemberInfo mi WITH (NOLOCK)
+			LEFT JOIN dbo.MemberClickDetail md WITH (NOLOCK) ON md.IBCCustID = mi.IBCCustID
+			LEFT JOIN ClickStatistics1 c WITH (NOLOCK) ON c.ClickID = md.ClickID
+			LEFT JOIN ClickStatistics1_bk csk WITH (NOLOCK) ON csk.ClickID = md.ClickID
+		WHERE mi.CreatedDate BETWEEN @FromDate AND @ToDate
+			AND mi.AffId = @AffID
+			AND (@SportCode IS NULL OR ISNULL(md.SportCode, 'none') = @SportCode)
+			AND (( ',' + @CountryCodes + ',' LIKE '%,' + COALESCE(c.Country, csk.Country, '-') + ',%') OR (',' + @LanguageCodes + ',' LIKE '%,' + md.LanguageCode + ',%'))
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+				WHERE mr.IBCCustID = mi.IBCCustID AND mr.RemovedDate BETWEEN @FromDate AND @ToDate
+			)
+		GROUP BY 
+			CASE WHEN @ReportBy = 'Country' THEN ISNULL(c.Country, CASE WHEN csk.Date >= @BeginRegenData THEN ISNULL(csk.Country, '-') ELSE '-' END) END
+			,ISNULL(md.SportCode, 'none')
+			,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE ISNULL(md.LanguageCode, 'none') END
+			,ISNULL(md.DeviceType, 0)
+	) AS tr
+
 	INSERT INTO @tmp (ClickID)
 	SELECT ISNULL(ClickID, 0)
 	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH(NOLOCK)
-	WHERE creatdate BETWEEN @FromDate AND @ToDate
-		AND AffiliateID = @AffID
+	WHERE creatdate BETWEEN @FromDate AND @ToDate AND AffiliateID = @AffID
 
-	INSERT INTO #tmpResult (SportCode, LanguageCode, DeviceType, TotalClick, UniqueClick, Signups, FDM)
-	SELECT
-		ISNULL(SportCode, 'none')		AS SportCode,
-		ISNULL(LanguageCode, 'none')	AS LanguageCode,
-		ISNULL(DeviceType, 0)			AS DeviceType,
-		0								AS TotalClick,
-		0								AS UniqueClick,
-		COUNT(1)						AS Signups,
-		0								AS FDM
-	FROM @tmp tmp
-		LEFT JOIN dbo.ClickStatistics1 c WITH (NOLOCK) ON tmp.ClickID = c.ClickID
-	WHERE (@SportCode IS NULL OR ISNULL(SportCode, 'none') = @SportCode)
-		AND ',' + @LanguageCodes + ',' LIKE '%,' + c.LanguageCode + ',%'
-	GROUP BY
-		ISNULL(SportCode, 'none'),
-		ISNULL(LanguageCode, 'none'),
-		ISNULL(DeviceType, 0)
-	-- End Signups, FDM --
-
-	-- Return data --
-	IF (SELECT COUNT(1) FROM #tmpResult WHERE SportCode <> 'Old URL' AND DeviceType = @DeviceType) = 0
+	INSERT INTO #tmpResult (CountryCode, SportCode, LanguageCode, DeviceType, TotalClick, UniqueClick, Signups, FDM)
+	SELECT tr.CountryCode, tr.SportCode, tr.LanguageCode, tr.DeviceType, tr.TotalClick, tr.UniqueClick, tr.Signups, tr.FDM
+	FROM
+	(
+		SELECT
+			ISNULL(CASE WHEN @ReportBy = 'Country' THEN ISNULL(c.Country, CASE WHEN csk.Date >= @BeginRegenData THEN ISNULL(csk.Country, '-') ELSE '-' END) END, '-') AS CountryCode
+			,COALESCE(c.SportCode, csk.SportCode, 'none') AS SportCode
+			,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE COALESCE(c.LanguageCode, csk.LanguageCode, 'none') END AS LanguageCode
+			,COALESCE(c.DeviceType, csk.DeviceType, 0) 	  AS DeviceType
+			,0 										   	  AS TotalClick
+			,0 										   	  AS UniqueClick
+			,COUNT(1) 								   	  AS Signups
+			,0 										   	  AS FDM
+		FROM @tmp tmp
+			LEFT JOIN dbo.ClickStatistics1 c 	  WITH (NOLOCK) ON tmp.ClickID = c.ClickID
+			LEFT JOIN dbo.ClickStatistics1_bk csk WITH (NOLOCK) ON tmp.ClickID = csk.ClickID
+		WHERE (@SportCode IS NULL OR COALESCE(c.SportCode, csk.SportCode, 'none') = @SportCode)
+			AND ',' + @LanguageCodes + ',' LIKE '%,' + COALESCE(c.LanguageCode, csk.LanguageCode, 'none') + ',%'
+		GROUP BY
+			CASE WHEN @ReportBy = 'Country' THEN ISNULL(c.Country, CASE WHEN csk.Date >= @BeginRegenData THEN ISNULL(csk.Country, '-') ELSE '-' END) END
+			,COALESCE(c.SportCode, csk.SportCode, 'none')
+			,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE COALESCE(c.LanguageCode, csk.LanguageCode, 'none') END
+			,COALESCE(c.DeviceType, csk.DeviceType, 0)
+	) AS tr
+	
+	IF @ReportBy = 'Country'
 	BEGIN
-		DELETE #tmpResult
-		WHERE SportCode = 'Old URL'
-			AND (ISNULL(TotalClick, 0) = 0 AND ISNULL(UniqueClick, 0) = 0 AND ISNULL(Signups, 0) = 0 AND ISNULL(FDM, 0) = 0)
+		SELECT
+			tr.CountryCode 		 AS CountryCode
+			,CASE WHEN tr.CountryCode <> '-' THEN c.CountryName ELSE 'Unknown' END AS Country
+			,tr.SportCode 		 AS [Page]
+			,SUM(tr.TotalClick)  AS TotalClick
+			,SUM(tr.UniqueClick) AS UniqueClick
+			,SUM(tr.Signups) 	 AS Signups
+			,SUM(tr.FDM) 		 AS FDM
+			,CASE WHEN tr.CountryCode <> '-' THEN 0 ELSE 1 END AS ordered
+		FROM #tmpResult tr
+			LEFT JOIN Country c WITH (NOLOCK) ON c.CountryCode = tr.CountryCode
+		WHERE tr.DeviceType = @DeviceType
+		GROUP BY tr.CountryCode
+				,CASE WHEN tr.CountryCode <> '-' THEN c.CountryName ELSE 'Unknown' END
+				,tr.SportCode
+		ORDER BY ordered, Country
+	END
+	ELSE
+	BEGIN
+		SELECT
+			tr.SportCode 					AS [Page]
+			,tr.LanguageCode 				AS LanguageCode
+			,ISNULL(m.MarketName, 'none') 	AS [Language]
+			,SUM(tr.TotalClick) 			AS TotalClick
+			,SUM(tr.UniqueClick) 			AS UniqueClick
+			,SUM(tr.Signups) 				AS Signups
+			,SUM(tr.FDM) 					AS FDM
+		FROM #tmpResult tr
+			LEFT JOIN dbo.Market m WITH (NOLOCK) on m.ShortedCode = tr.LanguageCode
+		WHERE tr.DeviceType = @DeviceType
+		GROUP BY tr.SportCode, tr.LanguageCode, m.MarketName
 	END
 
-	SELECT
-		SportCode,
-		LanguageCode,
-		SUM(TotalClick)		AS TotalClick,
-		SUM(UniqueClick)	AS UniqueClick,
-		SUM(Signups)		AS Signups,
-		SUM(FDM)			AS FDM
-	FROM #tmpResult
+	SELECT @TotalSignUps = SUM(Signups), @TotalFDMs = SUM(FDM)
+	FROM #tmpResult 
 	WHERE DeviceType = @DeviceType
-	GROUP BY SportCode, LanguageCode, Sort
-	ORDER BY Sort
-
-	SELECT	@TotalSignUps = SUM(Signups), @TotalFDMs = SUM(FDM)
-	FROM	#tmpResult
-	WHERE	DeviceType = @DeviceType
 
 	DROP TABLE #tmpResult
 END
