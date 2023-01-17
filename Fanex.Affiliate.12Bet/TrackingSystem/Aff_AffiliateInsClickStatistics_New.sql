@@ -8,7 +8,7 @@ ALTER PROCEDURE [dbo].[Aff_AffiliateInsClickStatistics_New]
 	,--Url is showed in affiliate site
 	@PageCode VARCHAR(50) = 'sportsbook'
 	,@LanguageCode VARCHAR(6) = 'en'
-	,@IP VARCHAR(20) = ''
+	,@IP VARCHAR(45) = ''
 	,@Browser NVARCHAR(50) = ''
 	,@URLReferrer NVARCHAR(300) = NULL
 	,@DomainReferrer NVARCHAR(300) = NULL
@@ -42,6 +42,7 @@ Revisions:
 	- 20161215@Bobby : #68815 - Update new link formation for promotion page
 	- 20180420@Percy : Change indiancricket to cricket when insert data [RedmineID: #92544]
 	- 20180504@Walter: Exclude query by DeviceType [#94324]
+	- 20220919@Eddie : Get country code by IP [RedmineID: #176390]
 	 
 Param's Explanation:   
 	- @DeviceType: 0-PC & 1-Mobile
@@ -181,17 +182,9 @@ BEGIN
 	END
 	
 	-- process aff link
-	DECLARE @CountryCode VARCHAR(5)
-		,@IPNum BIGINT
+	DECLARE @CountryCode VARCHAR(2)
 
-	SELECT @IPNum = [dbo].[Aff_IPConvertToNumber](@IP)
-
-	SET @CountryCode = (
-			SELECT TOP (1) Code3
-			FROM IPv4Addresses(NOLOCK)
-			WHERE @IPNum BETWEEN [From]
-					AND [To]
-			)
+	SELECT @CountryCode = [dbo].[Aff_f_IP_GetCountryCode](@IP)
 
 	--Temporarily hard code afftype, will be removed soon
 	IF @AffType <= 2
@@ -255,7 +248,7 @@ BEGIN
 		,@BrowserResolution
 		,@BrowserLanguage
 		,@UserAgent
-		,coalesce(@CountryCode, '(not set)', @Country)
+		,ISNULL(@CountryCode, '-')
 		,(CASE 
 			WHEN @LanguageCode = 'vi' THEN 'vn'
 			ELSE @LanguageCode END
