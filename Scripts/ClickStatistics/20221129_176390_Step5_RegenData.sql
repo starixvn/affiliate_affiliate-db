@@ -2,7 +2,7 @@
 /*
 	Created: 20220920@Eddie
 	DB: 	 DBAFF12BET-Affiliate_12BET
-	Task: 	 Add new columns for ClickStatistics1Sum [RedmineId : #176390]
+	Task: 	 Regen data for ClickStatistics1Sum [RedmineId : #176390]
 */
 
 DECLARE @BeginRegenData SMALLDATETIME = CONVERT(SMALLDATETIME, '2020-08-01') --Regen data country since 01/Aug/2020
@@ -17,33 +17,36 @@ WHILE 1 = 1
 BEGIN
 	INSERT INTO dbo.ClickStatistics1Sum
 	(
-		AffID,
-		DomainReferrer,
-		Date,
-		SportCode,
-		LanguageCode,
-		TotalClick,
-		UniqueClick,
-		DeviceType
+		AffID
+		,DomainReferrer
+		,Date
+		,SportCode
+		,LanguageCode
+		,TotalClick
+		,UniqueClick
+		,DeviceType
+		,CountryCode
 	)
 	SELECT
-		AffId,
-		DomainReferrer,
-		Date,
-		SportCode,
-		LanguageCode,
-		COUNT(1) AS TotalClick,
-		COUNT (DISTINCT IP) AS UniqueClick,
-		DeviceType
+		AffId
+		,DomainReferrer
+		,Date
+		,SportCode
+		,LanguageCode
+		,COUNT(1) AS TotalClick
+		,COUNT (DISTINCT IP) AS UniqueClick
+		,DeviceType
+		,Country
 	FROM dbo.ClickStatistics1_bk WITH (NOLOCK)
 	WHERE Date BETWEEN @FirstDayOfMonth AND @LastDayOfMonth
 	GROUP BY
-		AffId,
-		DomainReferrer,
-		Date,
-		SportCode,
-		LanguageCode,
-		DeviceType
+		AffId
+		,DomainReferrer
+		,Date
+		,SportCode
+		,LanguageCode
+		,DeviceType
+		,Country
 
 	SELECT 
 		@MonthDate = DATEADD(MONTH, 1, @MonthDate)
