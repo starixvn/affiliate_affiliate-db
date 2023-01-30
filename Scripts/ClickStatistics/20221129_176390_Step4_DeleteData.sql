@@ -2,7 +2,7 @@
 /*
 	Created: 20220920@Eddie
 	DB: 	 DBAFF12BET-Affiliate_12BET
-	Task: 	 Add new columns for ClickStatistics1Sum [RedmineId : #176390]
+	Task: 	 Delete data for ClickStatistics1Sum since 01/Aug/2020 [RedmineId : #176390]
 */
 
 DECLARE @BeginRegenData SMALLDATETIME = CONVERT(SMALLDATETIME, '2020-08-01') --Regen data country since 01/Aug/2020

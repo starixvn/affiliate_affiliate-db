@@ -2,7 +2,7 @@
 /*
 	Created: 20220920@Eddie
 	DB: 	 DBAFF12BET-Affiliate_12BET
-	Task: 	 Add new columns for ClickStatistics1Sum [RedmineId : #176390]
+	Task: 	 Add new column for ClickStatistics1Sum and change datatype for IP [RedmineId : #176390]
 */
 
 ALTER TABLE [dbo].[ClickStatistics1]
