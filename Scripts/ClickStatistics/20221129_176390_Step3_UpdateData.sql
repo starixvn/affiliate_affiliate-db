@@ -11,7 +11,7 @@ CREATE TABLE #CountryCode
 (
 	CountryName NVARCHAR(100)
 	,Code2 		VARCHAR(2)
-	,Code3 		VARCHAR(3)
+	,Code3 		VARCHAR(10)
 )
 
 CREATE CLUSTERED INDEX Cix_Code2 ON #CountryCode (Code2)
