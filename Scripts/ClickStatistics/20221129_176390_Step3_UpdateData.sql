@@ -14,9 +14,7 @@ CREATE TABLE #CountryCode
 	,Code3 		VARCHAR(10)
 )
 
-CREATE CLUSTERED INDEX Cix_Code2 ON #CountryCode (Code2)
-
-CREATE NONCLUSTERED INDEX Ix_Code3 ON #CountryCode (Code3)
+CREATE CLUSTERED INDEX Ix_Code3 ON #CountryCode (Code3)
 
 INSERT INTO #CountryCode(CountryName, Code2, Code3)
 VALUES
@@ -283,12 +281,12 @@ BEGIN
 		SET c.Country = ctr.Code2
 	FROM ClickStatistics1_bk c WITH(ROWLOCK, UPDLOCK)
 		INNER JOIN #CountryCode ctr ON ctr.Code3 = c.Country
-	WHERE c.ClickID >= @ClickID AND c.ClickID < @ClickID + 2000
+	WHERE c.ClickID >= @ClickID AND c.ClickID < @ClickID + 5000
 
 	IF @@ROWCOUNT = 0
 		BREAK
 
-	SET @ClickID += 2000
+	SET @ClickID += 5000
 END
 
 SELECT @ClickID = MIN(ClickId) FROM dbo.ClickStatistics1 WITH(NOLOCK)
