@@ -19,8 +19,8 @@ CREATE TABLE [dbo].[CSSumByCountryCode](
 		[Date]   ASC
 		,[AffID] ASC
 		,[DomainReferrer] ASC
-		,[DeviceType] 	ASC
-		,[CountryCode]  ASC
+		,[DeviceType]  ASC
+		,[CountryCode] ASC
 	)
 ) ON [DATA]
 GO
@@ -37,7 +37,7 @@ CREATE TABLE [dbo].[CSSumByCountryCodeandSportCode](
 	,[TotalSignup]    INT NULL
 	,[TotalDeposit]   INT NULL
 	,[DeviceType] 	  TINYINT NOT NULL
-	,[SportCode] 	  NVARCHAR(50)  NOT NULL
+	,[SportCode] 	  NVARCHAR(50) NOT NULL
 	,[CountryCode] 	  VARCHAR(2) NOT NULL
 	,CONSTRAINT [PK_SumByCountryCodeandSportCode] PRIMARY KEY CLUSTERED 
 	(
@@ -61,7 +61,3 @@ GO
 ALTER TABLE [dbo].[ClickStatistics1Sum]
 ADD CONSTRAINT [PK_Affiliate_ClickStatistics1Sum] PRIMARY KEY ([Date], [AffID], [DomainReferrer], [DeviceType], [SportCode], [LanguageCode])
 GO
-
-
-
-    
