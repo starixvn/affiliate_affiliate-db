@@ -1,25 +1,23 @@
 /*
 	Created: 20230209@Eddie
 	DB: 	 DBAFF12BET-Affiliate_12BET
-	Task: 	 Create new table sum and ALter primary key [RedmineId : #177639]
+	Task: 	 Create new table sum[RedmineId : #177639]
 */
--- table clickstatistics sum by countrycode 
+-- table clickstatistics sum by DomainReferrer and Countrycode 
 CREATE TABLE [dbo].[CSSumByCountryCode](
 	[AffID] 		  INT NOT NULL
-	,[DomainReferrer] NVARCHAR(300) NOT NULL
 	,[Date] 		  SMALLDATETIME NOT NULL
 	,[TotalClick]     INT NULL
 	,[UniqueClick]    INT NULL
-	,[TotalSignup]    INT NULL
-	,[TotalDeposit]   INT NULL
 	,[DeviceType] 	  TINYINT NOT NULL
+	,[DomainReferrer] NVARCHAR(300) NOT NULL
 	,[CountryCode] 	  VARCHAR(2) NOT NULL
 	,CONSTRAINT [PK_SumByCountryCode] PRIMARY KEY CLUSTERED
 	(
 		[Date]   ASC
 		,[AffID] ASC
-		,[DomainReferrer] ASC
 		,[DeviceType]  ASC
+		,[DomainReferrer] ASC
 		,[CountryCode] ASC
 	)
 ) ON [DATA]
@@ -34,18 +32,16 @@ CREATE TABLE [dbo].[CSSumByCountryCodeandSportCode](
 	,[Date] 		  SMALLDATETIME NOT NULL
 	,[TotalClick]     INT NULL
 	,[UniqueClick]    INT NULL
-	,[TotalSignup]    INT NULL
-	,[TotalDeposit]   INT NULL
 	,[DeviceType] 	  TINYINT NOT NULL
-	,[SportCode] 	  NVARCHAR(50) NOT NULL
 	,[CountryCode] 	  VARCHAR(2) NOT NULL
+	,[SportCode] 	  NVARCHAR(50) NOT NULL
 	,CONSTRAINT [PK_SumByCountryCodeandSportCode] PRIMARY KEY CLUSTERED 
 	(
 		[Date]   ASC
 		,[AffID] ASC
 		,[DeviceType]  ASC
-		,[SportCode]   ASC
 		,[CountryCode] ASC
+		,[SportCode]   ASC
 	)
 ) ON [DATA]
 GO
@@ -53,11 +49,25 @@ GO
 ALTER TABLE [dbo].[CSSumByCountryCodeandSportCode] ADD CONSTRAINT [DF_CSSumByCountryCodeandSportCode_DeviceType] DEFAULT ((0)) FOR [DeviceType]
 GO
 
--- Alter primary key
-ALTER TABLE [dbo].[ClickStatistics1Sum]
-DROP CONSTRAINT [PK_Affiliate_ClickStatistics1Sum]
+-- table clickstatistics sum by SportCode and LanguageCode 
+CREATE TABLE [dbo].[CSSumBySportCodeandLanguageCode](
+	[AffID] 		  INT NOT NULL
+	,[Date] 		  SMALLDATETIME NOT NULL
+	,[TotalClick]     INT NULL
+	,[UniqueClick]    INT NULL
+	,[DeviceType] 	  TINYINT NOT NULL
+	,[SportCode] 	  NVARCHAR(50) NOT NULL
+	,[LanguageCode]   NVARCHAR(10) NOT NULL
+	,CONSTRAINT [PK_SumBySportCodeandLanguageCode] PRIMARY KEY CLUSTERED 
+	(
+		[Date]   ASC
+		,[AffID] ASC
+		,[DeviceType]   ASC
+		,[SportCode]    ASC
+		,[LanguageCode] ASC
+	)
+) ON [DATA]
 GO
 
-ALTER TABLE [dbo].[ClickStatistics1Sum]
-ADD CONSTRAINT [PK_Affiliate_ClickStatistics1Sum] PRIMARY KEY ([Date], [AffID], [DomainReferrer], [DeviceType], [SportCode], [LanguageCode])
+ALTER TABLE [dbo].[CSSumBySportCodeandLanguageCode] ADD CONSTRAINT [DF_CSSumBySportCodeandLanguageCode_DeviceType] DEFAULT ((0)) FOR [DeviceType]
 GO
