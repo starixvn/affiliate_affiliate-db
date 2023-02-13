@@ -24,6 +24,7 @@ AS
 		- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
 		- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
 		- 20220919@Eddie: Add Country info [RedmineID: #176390]
+		- 20230209@Eddie: Change from 'ClickStatistics1Sum' to 'CSSumByCountryCode' sum table  [RedmineID: #177639]
 	
 	Param's Explanation:
 		- @CountryCodes: '-,AL,AR,...'
