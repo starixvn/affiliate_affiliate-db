@@ -24,6 +24,7 @@ AS
 		- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
 		- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
 		- 20220919@Eddie: Add Country info [RedmineID: #176390]
+		- 20230213@Eddie: Change 'ClickStatistics1Sum' to 'CSSumByCountryCode' sum table [RedmineID: #177639]
 	
 	Param's Explanation:
 		- @CountryCodes: '-,AL,AR,...'
@@ -42,7 +43,7 @@ BEGIN
 
 	SELECT @BeginRegenData = SValue FROM dbo.SystemSettings WITH(NOLOCK) WHERE SName = 'AFF_OldClickStatisticsDate'
 
-	SELECT @LastDateSum = MAX(DATE) FROM ClickStatistics1Sum WITH(NOLOCK)
+	SELECT @LastDateSum = MAX(DATE) FROM CSSumByCountryCode WITH(NOLOCK)
 
 	SELECT @FromDate = FORMAT(@FromDate, 'yyyy-MM-dd'), @ToDate = DATEADD(SECOND, -1, DATEADD(MONTH, 1, FORMAT(@ToDate, 'yyyy-MM-01')))
 
@@ -68,7 +69,7 @@ BEGIN
 		FROM
 		(
 			SELECT CountryCode, DomainReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
-			FROM ClickStatistics1Sum WITH (NOLOCK)
+			FROM CSSumByCountryCode WITH (NOLOCK)
 			WHERE [Date] BETWEEN @FromDate AND @ToDate
 				AND AffId = @AffID
 				AND ( ',' + @CountryCodes + ',' LIKE '%,' + CountryCode + ',%')
@@ -83,7 +84,7 @@ BEGIN
 		FROM
 		(
 			SELECT CountryCode, DomainReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
-			FROM ClickStatistics1Sum WITH (NOLOCK)
+			FROM CSSumByCountryCode WITH (NOLOCK)
 			WHERE [Date] BETWEEN @FromDate AND @LastDateSum
 				AND AffId = @AffID
 				AND ( ',' + @CountryCodes + ',' LIKE '%,' + CountryCode + ',%')
