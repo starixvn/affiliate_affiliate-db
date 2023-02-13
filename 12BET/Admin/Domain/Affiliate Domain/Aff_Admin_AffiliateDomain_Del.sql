@@ -1,8 +1,8 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateDomain_Del]
+CREATE PROCEDURE [dbo].[Aff_Admin_AffiliateDomain_Del]
 	@UserId			INT
 	,@DomainId		INT
-	,@IP			NVARCHAR(40) = ''
+	,@IP			VARCHAR(50) = ''
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
@@ -16,6 +16,7 @@ AS
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20221111@Eddie: Support Block Market [RedmineId : #179537]
 */
 
 BEGIN
@@ -26,7 +27,7 @@ BEGIN
 		@CustId		= @UserId
 		,@FuncName	= '[Domain]'
 		,@ErrCode	= @ErrCode OUTPUT
-		,@ErrMsg	= @ErrMsg OUTPUT
+		,@ErrMsg	= @ErrMsg  OUTPUT
 
 	IF @ErrCode <> 0
 		RETURN
@@ -41,9 +42,10 @@ BEGIN
 
 	SELECT  @OldData = CONVERT(NVARCHAR(MAX), 
 					   (
-						  SELECT DomainId AS '@DomainId'
-								,DomainName AS '@DomainName'
-								,IsSSL AS '@IsSSL'
+						  SELECT DomainId     AS '@DomainId'
+								,DomainName   AS '@DomainName'
+								,IsSSL        AS '@IsSSL'
+								,BlockMarket  AS '@BlockMarket'
 						  FROM dbo.AffDomain WITH (NOLOCK) 
 						  WHERE DomainId = @DomainId AND IsDeleted = 0
 						  FOR XML PATH('row'), ROOT('root')

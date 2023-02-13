@@ -1,12 +1,12 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-ALTER PROCEDURE [dbo].[Aff_Admin_DomainControl_Upd]
+CREATE PROCEDURE [dbo].[Aff_Admin_DomainControl_Upd]
 	@UserId				INT
 	,@DomainControlId	INT
 	,@AffDomainId		INT
 	,@12BetDomainId		INT
 	,@MarketId			NVARCHAR(10)
 	,@Status			BIT
-	,@IP				NVARCHAR(40) = ''
+	,@IP				VARCHAR(50) = ''
 	,@ErrCode			INT = 0 OUTPUT
 	,@ErrMsg			NVARCHAR(4000) = '' OUTPUT
 AS
@@ -20,6 +20,7 @@ AS
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20221219@Eddie: Change format code [RedmineID: #179537]
 */
 
 BEGIN
@@ -39,10 +40,10 @@ BEGIN
 
 	SELECT  @OldData = CONVERT(NVARCHAR(MAX), 
 					   (
-							SELECT AffDomainId AS '@AffDomainId'
-									,[12BetDomainId] AS '@_12BetDomainId'
-									,MarketId AS '@MarketId'
-									,Status AS '@Status'
+							SELECT AffDomainId 		AS '@AffDomainId'
+								   ,[12BetDomainId] AS '@_12BetDomainId'
+								   ,MarketId 		AS '@MarketId'
+								   ,Status 			AS '@Status'
 							FROM dbo.AffDomainControl WITH (NOLOCK)
 							WHERE Id = @DomainControlId AND IsDeleted = 0
 							FOR XML PATH('row'), ROOT('root')

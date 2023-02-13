@@ -5,7 +5,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_DomainControl_Ins]
 	,@AffDomainId	INT
 	,@12BetDomainId	INT
 	,@Status		BIT
-	,@IP			NVARCHAR(40) = ''
+	,@IP			VARCHAR(50) = ''
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
@@ -19,6 +19,7 @@ AS
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20221219@Eddie: Change datatype of @IP [RedmineID: #179537]
 */
 
 BEGIN
