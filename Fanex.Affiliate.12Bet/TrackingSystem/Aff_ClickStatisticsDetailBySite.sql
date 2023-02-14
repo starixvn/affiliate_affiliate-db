@@ -28,6 +28,7 @@ AS
 		- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
 		- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
 		- 20220927@Eddie: Add Country info [RedmineID: #176390]
+		- 20230214@Eddie: Site and Page are case by case [RedmineID: #177639]
 */
 
 BEGIN
@@ -39,7 +40,7 @@ BEGIN
 
 	DECLARE @Result TABLE (UrlReferrer NVARCHAR(300), DeviceType TINYINT, TotalClick INT, UniqueClick INT)
 
-	SELECT	@LastDateSum = MAX(DATE) FROM dbo.ClickStatistics1Sum (NOLOCK)
+	SELECT	@LastDateSum = MAX(DATE) FROM dbo.CSSumByCountryCode (NOLOCK) -- maybe use table sum 'CSSumByCountryCodeandSportCode' or 'CSSumBySportCodeandLanguageCode'
 
 	SELECT	@FromDate = CONVERT(VARCHAR(10), @FromDate, 120)
 			,@ToDate  = DATEADD(MILLISECOND, -3, DATEADD(DAY, DATEDIFF(DAY, 0, @ToDate) + 1, 0)) -- the end of @ToDate
