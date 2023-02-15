@@ -17,6 +17,7 @@ AS
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Include P2P Earning into Monthly Earning [RedmineID: #157958]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
+		- 20230130@Malcolm: Correct the total number of output lines [RedmineId: #181455]
 */
 
 BEGIN
@@ -259,7 +260,7 @@ BEGIN
 	END
 
 	-- Return data
-	SELECT @NRows = COUNT(1) FROM #tempData WHERE TransType <> 204
+	SELECT @NRows = COUNT(1) FROM #tempData WHERE ISNULL(TransType, 0) <> 204
 
 	DECLARE @RowStart INT, @RowEnd INT
 
