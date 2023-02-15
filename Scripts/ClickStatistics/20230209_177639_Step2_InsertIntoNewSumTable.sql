@@ -5,7 +5,7 @@
 	Task: 	 Insert into 3 tables CSSumByCountryCode, CSSumByCountryCodeandSportCode and CSSumBySportCodeandLanguageCode [RedmineId : #177639]
 */
 
-DECLARE @BeginRegenData SMALLDATETIME = CONVERT(SMALLDATETIME, '2020-08-01') --Regen data country since 01/Aug/2020
+DECLARE @BeginRegenData SMALLDATETIME = CONVERT(SMALLDATETIME, '2015-01-01') --Insert data country since 01/Jan/2015
 
 DECLARE @MonthDate DATETIME, @FirstDayOfMonth SMALLDATETIME, @LastDayOfMonth SMALLDATETIME
 
