@@ -13,6 +13,7 @@ AS
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 		- 20221129@Malcolm: Remove UniqueClickByMonth, TotalClickByMonth [RedmineID: #176390]
+		- 20230215@Eddie: Change 'ClickStatistics1Sum' to 'CSSumByCountryCode' sum table [RedmineID: #177639]
 */
 
 BEGIN
@@ -199,30 +200,31 @@ BEGIN
 
 	DECLARE @ArchiveDate SMALLDATETIME
 	
-	SELECT  @ArchiveDate = MAX(Date) FROM dbo.ClickStatistics1Sum WITH (NOLOCK)
+	SELECT  @ArchiveDate = MAX(Date) FROM dbo.CSSumByCountryCode WITH (NOLOCK)
 	;WITH CTE_Device AS (
 		SELECT DeviceType, SUM(TotalClick) AS TotalClickByMonth, SUM(UniqueClick) AS UniqueClicks
 		FROM (
 			SELECT
-				ISNULL(c.DeviceType, 0) AS DeviceType,
-				COUNT(1) AS TotalClick,
-				COUNT(DISTINCT c.IP) AS UniqueClick
-			FROM dbo.ClickStatistics1 c WITH (NOLOCK)
-			WHERE c.AffId = @AffId
-				AND c.Date >= @FromBeginMonth AND c.Date < @ToNextMonth
-				AND c.Date > @ArchiveDate
-			GROUP BY ISNULL(c.DeviceType, 0), c.Date
+				ISNULL(DeviceType, 0) AS DeviceType
+				,COUNT(1) 			  AS TotalClick
+				,COUNT(DISTINCT IP)   AS UniqueClick
+			FROM dbo.ClickStatistics1 WITH (NOLOCK)
+			WHERE AffId = @AffId
+				AND Date >= @FromBeginMonth AND Date < @ToNextMonth
+				AND Date > @ArchiveDate
+			GROUP BY Country, DomainReferrer, ISNULL(DeviceType, 0), Date
 
 			UNION ALL
+			
 			SELECT
-				ISNULL(c.DeviceType, 0) AS DeviceType,
-				SUM(TotalClick) AS TotalClick,
-				SUM(UniqueClick) AS UniqueClick
-			FROM dbo.ClickStatistics1Sum c WITH (NOLOCK)
-			WHERE c.AffId = @AffId
-				AND c.Date >= @FromBeginMonth AND c.Date < @ToNextMonth
-				AND c.Date <= @ArchiveDate
-			GROUP BY ISNULL(c.DeviceType, 0), c.Date
+				ISNULL(DeviceType, 0) AS DeviceType
+				,SUM(TotalClick)      AS TotalClick
+				,SUM(UniqueClick)     AS UniqueClick
+			FROM dbo.CSSumByCountryCode WITH (NOLOCK)
+			WHERE AffId = @AffId
+				AND Date >= @FromBeginMonth AND Date < @ToNextMonth
+				AND Date <= @ArchiveDate
+			GROUP BY CountryCode, DomainReferrer, ISNULL(DeviceType, 0), Date
 		) AS A
 		GROUP BY DeviceType
 	)
