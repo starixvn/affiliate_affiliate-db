@@ -2,7 +2,7 @@
 /*
 	Created: 20230209@Eddie
 	DB: 	 DBAFF12BET-Affiliate_12BET
-	Task: 	 Insert into 3 tables CSSumByCountryCode, CSSumByCountryCodeandSportCode and CSSumBySportCodeandLanguageCode [RedmineId : #177639]
+	Task: 	 Insert into 3 tables Sum [RedmineId : #177639]
 */
 
 DECLARE @BeginRegenData SMALLDATETIME = CONVERT(SMALLDATETIME, '2015-01-01') --Insert data country since 01/Jan/2015
@@ -15,8 +15,8 @@ SELECT @MonthDate = @BeginRegenData
 
 WHILE 1 = 1
 BEGIN
-	-- table: CSSumByCountryCode
-	INSERT INTO [dbo].[CSSumByCountryCode]
+	-- table: ClickStatisticsSum_Country_Domain
+	INSERT INTO [dbo].[ClickStatisticsSum_Country_Domain]
 	(
 		AffID
 		,Date
@@ -43,8 +43,8 @@ BEGIN
 		,DomainReferrer
 		,Country
 	
-	-- table: CSSumByCountryCodeandSportCode
-	INSERT INTO [dbo].[CSSumByCountryCodeandSportCode]
+	-- table: ClickStatisticsSum_Country_Sport
+	INSERT INTO [dbo].[ClickStatisticsSum_Country_Sport]
 	(
 		AffID
 		,Date
@@ -71,8 +71,8 @@ BEGIN
 		,Country
 		,SportCode
 	
--- table: CSSumBySportCodeandLanguageCode	
-	INSERT INTO [dbo].[CSSumBySportCodeandLanguageCode]
+-- table: ClickStatisticsSum_Sport_Language	
+	INSERT INTO [dbo].[ClickStatisticsSum_Sport_Language]
 	(
 		AffID
 		,Date
