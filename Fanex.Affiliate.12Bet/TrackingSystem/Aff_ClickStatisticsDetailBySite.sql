@@ -40,7 +40,7 @@ BEGIN
 
 	DECLARE @Result TABLE (UrlReferrer NVARCHAR(300), DeviceType TINYINT, TotalClick INT, UniqueClick INT)
 
-	SELECT	@LastDateSum = MAX(DATE) FROM dbo.CSSumByCountryCode (NOLOCK) -- maybe use table sum 'CSSumByCountryCodeandSportCode' or 'CSSumBySportCodeandLanguageCode'
+	SELECT	@LastDateSum = MAX(DATE) FROM dbo.ClickStatisticsSum_Country_Domain (NOLOCK) -- maybe use table sum 'ClickStatisticsSum_Country_Sport' or 'ClickStatisticsSum_Sport_Language'
 
 	SELECT	@FromDate = CONVERT(VARCHAR(10), @FromDate, 120)
 			,@ToDate  = DATEADD(MILLISECOND, -3, DATEADD(DAY, DATEDIFF(DAY, 0, @ToDate) + 1, 0)) -- the end of @ToDate

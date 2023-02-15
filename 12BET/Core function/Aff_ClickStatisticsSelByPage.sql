@@ -44,7 +44,7 @@ BEGIN
 
 	SELECT @BeginRegenData = SValue FROM dbo.SystemSettings WITH(NOLOCK) WHERE SName = 'AFF_OldClickStatisticsDate'
 
-	SELECT @LastDateSum = MAX(DATE) FROM dbo.CSSumByCountryCodeandSportCode WITH(NOLOCK) -- maybe use table sum 'CSSumByCountryCode' or 'CSSumBySportCodeandLanguageCode'
+	SELECT @LastDateSum = MAX(DATE) FROM dbo.ClickStatisticsSum_Country_Sport WITH(NOLOCK) -- maybe use table sum 'ClickStatisticsSum_Country_Domain' or 'ClickStatisticsSum_Sport_Language'
 
 	SELECT @FromDate = CONVERT(VARCHAR(10), @FromDate, 120), @ToDate = DATEADD(SECOND, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, DATEADD(MONTH, 1, @ToDate)), 0))
 
@@ -88,7 +88,7 @@ BEGIN
 					,DeviceType
 					,SUM(TotalClick)  AS TotalClick
 					,SUM(UniqueClick) AS UniqueClick
-				FROM CSSumByCountryCodeandSportCode WITH (NOLOCK)
+				FROM ClickStatisticsSum_Country_Sport WITH (NOLOCK)
 				WHERE [Date] BETWEEN @FromDate AND @ToDate
 					AND AffId = @AffID
 					AND SportCode = ISNULL(@SportCode, SportCode)
@@ -109,7 +109,7 @@ BEGIN
 					,DeviceType
 					,SUM(TotalClick)  AS TotalClick
 					,SUM(UniqueClick) AS UniqueClick
-				FROM CSSumBySportCodeandLanguageCode WITH (NOLOCK)
+				FROM ClickStatisticsSum_Sport_Language WITH (NOLOCK)
 				WHERE [Date] BETWEEN @FromDate AND @ToDate
 					AND AffId = @AffID
 					AND SportCode = ISNULL(@SportCode, SportCode)
@@ -133,7 +133,7 @@ BEGIN
 					,DeviceType
 					,SUM(TotalClick)  AS TotalClick
 					,SUM(UniqueClick) AS UniqueClick
-				FROM CSSumByCountryCodeandSportCode WITH (NOLOCK)
+				FROM ClickStatisticsSum_Country_Sport WITH (NOLOCK)
 				WHERE [Date] BETWEEN @FromDate AND @LastDateSum
 					AND AffId = @AffID
 					AND SportCode = ISNULL(@SportCode, SportCode)
@@ -174,7 +174,7 @@ BEGIN
 					,DeviceType
 					,SUM(TotalClick)  AS TotalClick
 					,SUM(UniqueClick) AS UniqueClick
-				FROM CSSumBySportCodeandLanguageCode WITH (NOLOCK)
+				FROM ClickStatisticsSum_Sport_Language WITH (NOLOCK)
 				WHERE [Date] BETWEEN @FromDate AND @LastDateSum
 					AND AffId = @AffID
 					AND SportCode = ISNULL(@SportCode, SportCode)
