@@ -4,7 +4,7 @@
 	Task: 	 Create new table sum[RedmineId : #177639]
 */
 -- table clickstatistics sum by DomainReferrer and Countrycode 
-CREATE TABLE [dbo].[CSSumByCountryCode](
+CREATE TABLE [dbo].[ClickStatisticsSum_Country_Domain](
 	[AffID] 		  INT NOT NULL
 	,[Date] 		  SMALLDATETIME NOT NULL
 	,[TotalClick]     INT NULL
@@ -12,7 +12,7 @@ CREATE TABLE [dbo].[CSSumByCountryCode](
 	,[DeviceType] 	  TINYINT NOT NULL
 	,[DomainReferrer] NVARCHAR(300) NOT NULL
 	,[CountryCode] 	  VARCHAR(2) NOT NULL
-	,CONSTRAINT [PK_SumByCountryCode] PRIMARY KEY CLUSTERED
+	,CONSTRAINT [PK_ClickStatisticsSum_Country_Domain] PRIMARY KEY CLUSTERED
 	(
 		[Date]   ASC
 		,[AffID] ASC
@@ -23,11 +23,8 @@ CREATE TABLE [dbo].[CSSumByCountryCode](
 ) ON [DATA]
 GO
 
-ALTER TABLE [dbo].[CSSumByCountryCode] ADD CONSTRAINT [DF_CSSumByCountryCode_DeviceType] DEFAULT ((0)) FOR [DeviceType]
-GO
-
 -- table clickstatistics sum by CountryCode and SportCode 
-CREATE TABLE [dbo].[CSSumByCountryCodeandSportCode](
+CREATE TABLE [dbo].[ClickStatisticsSum_Country_Sport](
 	[AffID] 		  INT NOT NULL
 	,[Date] 		  SMALLDATETIME NOT NULL
 	,[TotalClick]     INT NULL
@@ -35,7 +32,7 @@ CREATE TABLE [dbo].[CSSumByCountryCodeandSportCode](
 	,[DeviceType] 	  TINYINT NOT NULL
 	,[CountryCode] 	  VARCHAR(2) NOT NULL
 	,[SportCode] 	  NVARCHAR(50) NOT NULL
-	,CONSTRAINT [PK_SumByCountryCodeandSportCode] PRIMARY KEY CLUSTERED 
+	,CONSTRAINT [PK_ClickStatisticsSum_Country_Sport] PRIMARY KEY CLUSTERED 
 	(
 		[Date]   ASC
 		,[AffID] ASC
@@ -46,11 +43,8 @@ CREATE TABLE [dbo].[CSSumByCountryCodeandSportCode](
 ) ON [DATA]
 GO
 
-ALTER TABLE [dbo].[CSSumByCountryCodeandSportCode] ADD CONSTRAINT [DF_CSSumByCountryCodeandSportCode_DeviceType] DEFAULT ((0)) FOR [DeviceType]
-GO
-
 -- table clickstatistics sum by SportCode and LanguageCode 
-CREATE TABLE [dbo].[CSSumBySportCodeandLanguageCode](
+CREATE TABLE [dbo].[ClickStatisticsSum_Sport_Language](
 	[AffID] 		  INT NOT NULL
 	,[Date] 		  SMALLDATETIME NOT NULL
 	,[TotalClick]     INT NULL
@@ -58,7 +52,7 @@ CREATE TABLE [dbo].[CSSumBySportCodeandLanguageCode](
 	,[DeviceType] 	  TINYINT NOT NULL
 	,[SportCode] 	  NVARCHAR(50) NOT NULL
 	,[LanguageCode]   NVARCHAR(10) NOT NULL
-	,CONSTRAINT [PK_SumBySportCodeandLanguageCode] PRIMARY KEY CLUSTERED 
+	,CONSTRAINT [PK_ClickStatisticsSum_Sport_Language] PRIMARY KEY CLUSTERED 
 	(
 		[Date]   ASC
 		,[AffID] ASC
@@ -67,7 +61,4 @@ CREATE TABLE [dbo].[CSSumBySportCodeandLanguageCode](
 		,[LanguageCode] ASC
 	)
 ) ON [DATA]
-GO
-
-ALTER TABLE [dbo].[CSSumBySportCodeandLanguageCode] ADD CONSTRAINT [DF_CSSumBySportCodeandLanguageCode_DeviceType] DEFAULT ((0)) FOR [DeviceType]
 GO
