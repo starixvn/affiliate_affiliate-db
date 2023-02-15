@@ -120,12 +120,12 @@ BEGIN
 	END
 	ELSE 
 	BEGIN
-		INSERT INTO @Result(CountryCode, SportCode, LanguageCode, DeviceType, TotalClick, UniqueClick)
-		SELECT r.CountryCode, r.SportCode, r.LanguageCode, r.DeviceType, r.TotalClick, r.UniqueClick
-		FROM
-		(
-			IF @ReportBy = 'Country'
-			BEGIN
+		IF @ReportBy = 'Country'
+		BEGIN
+			INSERT INTO @Result(CountryCode, SportCode, LanguageCode, DeviceType, TotalClick, UniqueClick)
+			SELECT r.CountryCode, r.SportCode, r.LanguageCode, r.DeviceType, r.TotalClick, r.UniqueClick
+			FROM
+			(
 				SELECT
 					SportCode
 					,CountryCode
@@ -139,9 +139,34 @@ BEGIN
 					AND SportCode = ISNULL(@SportCode, SportCode)
 					AND ( ',' + @CountryCodes + ',' LIKE '%,' + CountryCode + ',%')
 				GROUP BY CountryCode, SportCode, DeviceType
-			END
-			ELSE
-			BEGIN
+
+				UNION ALL
+				
+				SELECT 
+					SportCode
+					,ISNULL(CASE WHEN @ReportBy = 'Country' THEN ISNULL(Country, '-') END, '-') AS CountryCode
+					,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE ISNULL(LanguageCode, 'none') END AS LanguageCode
+					,DeviceType
+					,COUNT(1) AS TotalClick
+					,COUNT(DISTINCT IP) AS UniqueClick
+				FROM ClickStatistics1 c WITH (NOLOCK)
+				WHERE [Date] BETWEEN @LastDateSum AND @ToDate
+					AND AffId = @AffID
+					AND SportCode = ISNULL(@SportCode, SportCode)
+					AND (( ',' + @CountryCodes + ',' LIKE '%,' + Country + ',%') OR (',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'))
+				GROUP BY SportCode
+					,CASE WHEN @ReportBy = 'Country' THEN ISNULL(Country, '-') END
+					,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE ISNULL(LanguageCode, 'none') END
+					,DeviceType
+					,[Date]
+			) AS r
+		END
+		ELSE
+		BEGIN
+			INSERT INTO @Result(CountryCode, SportCode, LanguageCode, DeviceType, TotalClick, UniqueClick)
+			SELECT r.CountryCode, r.SportCode, r.LanguageCode, r.DeviceType, r.TotalClick, r.UniqueClick
+			FROM
+			(
 				SELECT 
 					SportCode
 					,'-' AS CountryCode
@@ -155,26 +180,28 @@ BEGIN
 					AND SportCode = ISNULL(@SportCode, SportCode)
 					AND (',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%')
 				GROUP BY LanguageCode, SportCode, DeviceType
-			END
-			UNION ALL
-			SELECT 
-				SportCode
-				,ISNULL(CASE WHEN @ReportBy = 'Country' THEN ISNULL(Country, '-') END, '-') AS CountryCode
-				,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE ISNULL(LanguageCode, 'none') END AS LanguageCode
-				,DeviceType
-				,COUNT(1) AS TotalClick
-				,COUNT(DISTINCT IP) AS UniqueClick
-			FROM ClickStatistics1 c WITH (NOLOCK)
-			WHERE [Date] BETWEEN @LastDateSum AND @ToDate
-				AND AffId = @AffID
-				AND SportCode = ISNULL(@SportCode, SportCode)
-				AND (( ',' + @CountryCodes + ',' LIKE '%,' + Country + ',%') OR (',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'))
-			GROUP BY SportCode
-				,CASE WHEN @ReportBy = 'Country' THEN ISNULL(Country, '-') END
-				,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE ISNULL(LanguageCode, 'none') END
-				,DeviceType
-				,[Date]
-		) AS r
+				
+				UNION ALL
+				
+				SELECT 
+					SportCode
+					,ISNULL(CASE WHEN @ReportBy = 'Country' THEN ISNULL(Country, '-') END, '-') AS CountryCode
+					,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE ISNULL(LanguageCode, 'none') END AS LanguageCode
+					,DeviceType
+					,COUNT(1) AS TotalClick
+					,COUNT(DISTINCT IP) AS UniqueClick
+				FROM ClickStatistics1 c WITH (NOLOCK)
+				WHERE [Date] BETWEEN @LastDateSum AND @ToDate
+					AND AffId = @AffID
+					AND SportCode = ISNULL(@SportCode, SportCode)
+					AND (( ',' + @CountryCodes + ',' LIKE '%,' + Country + ',%') OR (',' + @LanguageCodes + ',' LIKE '%,' + LanguageCode + ',%'))
+				GROUP BY SportCode
+					,CASE WHEN @ReportBy = 'Country' THEN ISNULL(Country, '-') END
+					,CASE WHEN @ReportBy = 'Country' THEN 'none' ELSE ISNULL(LanguageCode, 'none') END
+					,DeviceType
+					,[Date]
+			) AS r
+		END
 	END
 
 	INSERT INTO #tmpResult (CountryCode, SportCode, LanguageCode, DeviceType, TotalClick, UniqueClick, Signups, FDM)
