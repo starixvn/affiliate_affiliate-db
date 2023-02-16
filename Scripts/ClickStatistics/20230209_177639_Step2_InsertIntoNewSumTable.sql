@@ -16,8 +16,18 @@ SELECT @MonthDate = @BeginRegenData
 	   ,@FirstDayOfMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
        ,@LastDayOfMonth  = DATEADD(DAY, -1, DATEADD(MONTH, 1, @FirstDayOfMonth))
 
+CREATE TABLE #tmpClickStatistics1_bk([AffID] INT, [Date] SMALLDATETIME, [IP] VARCHAR(45), [DeviceType] TINYINT, [DomainReferrer] NVARCHAR(300), [CountryCode] NVARCHAR(256), [SportCode] NVARCHAR(50), [LanguageCode] NVARCHAR(10))
+
+CREATE CLUSTERED INDEX Ix_tmpClickStatistics1 ON #tmpClickStatistics1_bk ([Date])
+
 WHILE 1 = 1
 BEGIN
+	
+	INSERT INTO #tmpClickStatistics1_bk([AffID], [Date], [IP], [DeviceType], [DomainReferrer], [CountryCode], [SportCode], [LanguageCode])
+	SELECT [AffID], [Date], [IP], [DeviceType], [DomainReferrer], [Country], [SportCode], [LanguageCode]
+	FROM dbo.ClickStatistics1_bk WITH (NOLOCK)
+	WHERE Date BETWEEN @FirstDayOfMonth AND @LastDayOfMonth
+	
 	-- table: ClickStatisticsSum_Country_Domain
 	INSERT INTO [dbo].[ClickStatisticsSum_Country_Domain]
 	(
@@ -36,15 +46,9 @@ BEGIN
 		,COUNT (DISTINCT IP) AS UniqueClick
 		,DeviceType
 		,DomainReferrer
-		,CASE WHEN Date >= @BeginRegenData THEN Country ELSE '-' END AS CountryCode
-	FROM dbo.ClickStatistics1_bk WITH (NOLOCK)
-	WHERE Date BETWEEN @FirstDayOfMonth AND @LastDayOfMonth
-	GROUP BY
-		AffId
-		,Date
-		,DeviceType
-		,DomainReferrer
-		,Country
+		,CASE WHEN Date >= @BeginRegenData THEN CountryCode ELSE '-' END AS CountryCode
+	FROM #tmpClickStatistics1_bk
+	GROUP BY AffId, Date, DeviceType, DomainReferrer, CountryCode
 	
 	-- table: ClickStatisticsSum_Country_Sport
 	INSERT INTO [dbo].[ClickStatisticsSum_Country_Sport]
@@ -63,16 +67,10 @@ BEGIN
 		,COUNT(1) AS TotalClick
 		,COUNT (DISTINCT IP) AS UniqueClick
 		,DeviceType
-		,CASE WHEN Date >= @BeginRegenData THEN Country ELSE '-' END AS CountryCode
+		,CASE WHEN Date >= @BeginRegenData THEN CountryCode ELSE '-' END AS CountryCode
 		,SportCode
-	FROM dbo.ClickStatistics1_bk WITH (NOLOCK)
-	WHERE Date BETWEEN @FirstDayOfMonth AND @LastDayOfMonth
-	GROUP BY
-		AffId
-		,Date
-		,DeviceType
-		,Country
-		,SportCode
+	FROM #tmpClickStatistics1_bk
+	GROUP BY AffId, Date, DeviceType, CountryCode, SportCode
 	
 -- table: ClickStatisticsSum_Sport_Language	
 	INSERT INTO [dbo].[ClickStatisticsSum_Sport_Language]
@@ -93,14 +91,10 @@ BEGIN
 		,DeviceType
 		,SportCode
 		,LanguageCode
-	FROM dbo.ClickStatistics1_bk WITH (NOLOCK)
-	WHERE Date BETWEEN @FirstDayOfMonth AND @LastDayOfMonth
-	GROUP BY
-		AffId
-		,Date
-		,DeviceType
-		,SportCode
-		,LanguageCode
+	FROM #tmpClickStatistics1_bk
+	GROUP BY AffId, Date, DeviceType, SportCode, LanguageCode
+	
+	TRUNCATE TABLE #tmpClickStatistics1_bk
 
 	SELECT 
 		@MonthDate = DATEADD(MONTH, 1, @MonthDate)
