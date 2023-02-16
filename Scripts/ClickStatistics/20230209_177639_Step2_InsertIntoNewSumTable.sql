@@ -18,8 +18,6 @@ SELECT @MonthDate = @BeginRegenData
 
 CREATE TABLE #tmpClickStatistics1_bk([AffID] INT, [Date] SMALLDATETIME, [IP] VARCHAR(45), [DeviceType] TINYINT, [DomainReferrer] NVARCHAR(300), [CountryCode] NVARCHAR(256), [SportCode] NVARCHAR(50), [LanguageCode] NVARCHAR(10))
 
-CREATE CLUSTERED INDEX Ix_tmpClickStatistics1 ON #tmpClickStatistics1_bk ([Date])
-
 WHILE 1 = 1
 BEGIN
 	
