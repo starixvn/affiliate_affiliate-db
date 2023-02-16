@@ -37,16 +37,20 @@ BEGIN
 		,DomainReferrer
 		,CountryCode
 	)
-	SELECT
-		AffId
-		,Date
-		,COUNT(1) AS TotalClick
-		,COUNT (DISTINCT IP) AS UniqueClick
-		,DeviceType
-		,DomainReferrer
-		,CASE WHEN Date >= @BeginRegenData THEN CountryCode ELSE '-' END AS CountryCode
-	FROM #tmpClickStatistics1_bk
-	GROUP BY AffId, Date, DeviceType, DomainReferrer, CountryCode
+	SELECT r.AffId, r.Date, SUM(r.TotalClick) as TotalClick, SUM(r.UniqueClick) AS UniqueClick, r.DeviceType, r.DomainReferrer, r.CountryCode
+	FROM (
+		SELECT
+			AffId
+			,Date
+			,COUNT(1) AS TotalClick
+			,COUNT (DISTINCT IP) AS UniqueClick
+			,DeviceType
+			,DomainReferrer
+			,CASE WHEN Date >= @BeginRegenData THEN CountryCode ELSE '-' END AS CountryCode
+		FROM #tmpClickStatistics1_bk
+		GROUP BY AffId, Date, DeviceType, DomainReferrer, CountryCode
+	) AS r
+	GROUP BY r.AffId, r.Date, r.DeviceType, r.DomainReferrer, r.CountryCode
 	
 	-- table: ClickStatisticsSum_Country_Sport
 	INSERT INTO [dbo].[ClickStatisticsSum_Country_Sport]
@@ -59,16 +63,20 @@ BEGIN
 		,CountryCode
 		,SportCode
 	)
-	SELECT
-		AffId
-		,Date
-		,COUNT(1) AS TotalClick
-		,COUNT (DISTINCT IP) AS UniqueClick
-		,DeviceType
-		,CASE WHEN Date >= @BeginRegenData THEN CountryCode ELSE '-' END AS CountryCode
-		,SportCode
-	FROM #tmpClickStatistics1_bk
-	GROUP BY AffId, Date, DeviceType, CountryCode, SportCode
+	SELECT r.AffId, r.Date, SUM(r.TotalClick) as TotalClick, SUM(r.UniqueClick) AS UniqueClick, r.DeviceType, r.CountryCode, r.SportCode
+	FROM (
+		SELECT
+			AffId
+			,Date
+			,COUNT(1) AS TotalClick
+			,COUNT (DISTINCT IP) AS UniqueClick
+			,DeviceType
+			,CASE WHEN Date >= @BeginRegenData THEN CountryCode ELSE '-' END AS CountryCode
+			,SportCode
+		FROM #tmpClickStatistics1_bk
+		GROUP BY AffId, Date, DeviceType, CountryCode, SportCode
+	) AS r
+	GROUP BY r.AffId, r.Date, r.DeviceType, r.CountryCode, r.SportCode
 	
 -- table: ClickStatisticsSum_Sport_Language	
 	INSERT INTO [dbo].[ClickStatisticsSum_Sport_Language]
