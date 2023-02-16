@@ -5,14 +5,14 @@
 	Task: 	 Insert into 3 tables Sum [RedmineId : #177639]
 */
 
-DECLARE @BeginRegenData SMALLDATETIME = CONVERT(SMALLDATETIME, '2015-01-01') --Insert data country since 01/Jan/2015
+DECLARE @BeginInsertData SMALLDATETIME = CONVERT(SMALLDATETIME, '2015-01-01') --Insert data country since 01/Jan/2015
 
 DECLARE @BeginRegenData SMALLDATETIME
 SELECT @BeginRegenData = SValue FROM dbo.SystemSettings WITH(NOLOCK) WHERE SName = 'AFF_OldClickStatisticsDate'--Regen data country since 01/Aug/2020
 
 DECLARE @MonthDate DATETIME, @FirstDayOfMonth SMALLDATETIME, @LastDayOfMonth SMALLDATETIME
 
-SELECT @MonthDate = @BeginRegenData 
+SELECT @MonthDate = @BeginInsertData 
 	   ,@FirstDayOfMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
        ,@LastDayOfMonth  = DATEADD(DAY, -1, DATEADD(MONTH, 1, @FirstDayOfMonth))
 
