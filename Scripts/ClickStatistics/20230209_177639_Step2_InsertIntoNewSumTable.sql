@@ -7,6 +7,9 @@
 
 DECLARE @BeginRegenData SMALLDATETIME = CONVERT(SMALLDATETIME, '2015-01-01') --Insert data country since 01/Jan/2015
 
+DECLARE @BeginRegenData SMALLDATETIME
+SELECT @BeginRegenData = SValue FROM dbo.SystemSettings WITH(NOLOCK) WHERE SName = 'AFF_OldClickStatisticsDate'--Regen data country since 01/Aug/2020
+
 DECLARE @MonthDate DATETIME, @FirstDayOfMonth SMALLDATETIME, @LastDayOfMonth SMALLDATETIME
 
 SELECT @MonthDate = @BeginRegenData 
@@ -33,7 +36,7 @@ BEGIN
 		,COUNT (DISTINCT IP) AS UniqueClick
 		,DeviceType
 		,DomainReferrer
-		,Country
+		,CASE WHEN Date >= @BeginRegenData THEN Country ELSE '-' END AS CountryCode
 	FROM dbo.ClickStatistics1_bk WITH (NOLOCK)
 	WHERE Date BETWEEN @FirstDayOfMonth AND @LastDayOfMonth
 	GROUP BY
@@ -60,7 +63,7 @@ BEGIN
 		,COUNT(1) AS TotalClick
 		,COUNT (DISTINCT IP) AS UniqueClick
 		,DeviceType
-		,Country
+		,CASE WHEN Date >= @BeginRegenData THEN Country ELSE '-' END AS CountryCode
 		,SportCode
 	FROM dbo.ClickStatistics1_bk WITH (NOLOCK)
 	WHERE Date BETWEEN @FirstDayOfMonth AND @LastDayOfMonth
