@@ -1,3 +1,4 @@
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET"></info>*/
 /*
 	Created: 20230209@Eddie
 	DB: 	 DBAFF12BET-Affiliate_12BET
