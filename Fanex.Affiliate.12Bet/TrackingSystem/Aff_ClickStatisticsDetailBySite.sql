@@ -37,6 +37,10 @@ BEGIN
 	DECLARE @LastDateSum SMALLDATETIME
 
 	IF (@FromDate > @ToDate) RETURN
+	
+	DECLARE @BeginRegenData SMALLDATETIME
+
+	SELECT @BeginRegenData = SValue FROM dbo.SystemSettings WITH(NOLOCK) WHERE SName = 'AFF_OldClickStatisticsDate'
 
 	DECLARE @Result TABLE (UrlReferrer NVARCHAR(300), DeviceType TINYINT, TotalClick INT, UniqueClick INT)
 
@@ -74,7 +78,7 @@ BEGIN
 			WHERE [Date] BETWEEN @FromDate AND @ToDate
 				AND AffId 			= @AffID
 				AND DomainReferrer 	= ISNULL(@Domain, DomainReferrer)
-				AND Country 		= ISNULL(@CountryCode, Country)
+				AND (CASE WHEN [Date] >= @BeginRegenData OR @LanguageCode IS NOT NULL  THEN Country ELSE '-' END) = ISNULL(@CountryCode, Country )
 				AND SportCode 		= ISNULL(@SportCode, SportCode)
 				AND LanguageCode 	= ISNULL(@LanguageCode, LanguageCode)
 			GROUP BY URLReferrer, ISNULL(DeviceType, 0), [Date]
@@ -92,7 +96,7 @@ BEGIN
 			WHERE [Date] BETWEEN @FromDate AND @LastDateSum
 				AND AffId 			= @AffID
 				AND DomainReferrer 	= ISNULL(@Domain, DomainReferrer)
-				AND Country 		= ISNULL(@CountryCode, Country)
+				AND (CASE WHEN [Date] >= @BeginRegenData OR @LanguageCode IS NOT NULL  THEN Country ELSE '-' END) = ISNULL(@CountryCode, Country)
 				AND SportCode 		= ISNULL(@SportCode, SportCode)
 				AND LanguageCode 	= ISNULL(@LanguageCode, LanguageCode)
 			GROUP BY URLReferrer, ISNULL(DeviceType, 0), [Date]
