@@ -45,7 +45,9 @@ BEGIN
 
 	SELECT @LastDateSum = MAX(DATE) FROM ClickStatisticsSum_Country_Domain WITH(NOLOCK)
 
-	SELECT @FromDate = FORMAT(@FromDate, 'yyyy-MM-dd'), @ToDate = DATEADD(SECOND, -1, DATEADD(MONTH, 1, FORMAT(@ToDate, 'yyyy-MM-01')))
+	SELECT @FromDate = FORMAT(@FromDate, 'yyyy-MM-dd')
+	, @ToDate  = DATEADD(MILLISECOND, -3, DATEADD(DAY, DATEDIFF(DAY, 0, @ToDate) + 1, 0)) -- the end of day "@ToDate"
+	, @LastDateSum = DATEADD(SECOND, -1, DATEADD(MONTH, 1, FORMAT(@LastDateSum, 'yyyy-MM-01'))) -- the end of month "@LastDateSum"
 
 	IF (@LastDateSum < @FromDate) 
 	BEGIN

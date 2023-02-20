@@ -46,7 +46,9 @@ BEGIN
 
 	SELECT @LastDateSum = MAX(DATE) FROM dbo.ClickStatisticsSum_Country_Sport WITH(NOLOCK) -- maybe use table sum 'ClickStatisticsSum_Country_Domain' or 'ClickStatisticsSum_Sport_Language'
 
-	SELECT @FromDate = CONVERT(VARCHAR(10), @FromDate, 120), @ToDate = DATEADD(SECOND, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, DATEADD(MONTH, 1, @ToDate)), 0))
+	SELECT @FromDate = CONVERT(VARCHAR(10), @FromDate, 120)
+		   , @ToDate  = DATEADD(MILLISECOND, -3, DATEADD(DAY, DATEDIFF(DAY, 0, @ToDate) + 1, 0)) -- the end of day "@ToDate"
+		   , @LastDateSum = DATEADD(SECOND, -1, DATEADD(MONTH, 1, FORMAT(@LastDateSum, 'yyyy-MM-01'))) -- the end of month "@LastDateSum"
 
 	IF (@LastDateSum < @FromDate) 
 	BEGIN
