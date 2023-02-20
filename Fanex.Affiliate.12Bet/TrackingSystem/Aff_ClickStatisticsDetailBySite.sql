@@ -69,37 +69,52 @@ BEGIN
 	END
 	ELSE IF (@LastDateSum > @ToDate) 
 	BEGIN
+		;WITH CTE_Date AS (
+              SELECT @FromDate AS [Date]
+              UNION ALL
+              SELECT DATEADD(DAY, 1, [Date])
+              FROM CTE_Date
+              WHERE [Date] <= @ToDate
+        )
 		INSERT INTO @Result(UrlReferrer, DeviceType, TotalClick, UniqueClick)
 		SELECT URLReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
 		FROM
 		(
 			SELECT URLReferrer, ISNULL(DeviceType, 0) AS DeviceType, COUNT(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 			FROM ClickStatistics1_bk c WITH (NOLOCK)
-			WHERE [Date] BETWEEN @FromDate AND @ToDate
-				AND AffId 			= @AffID
+				INNER JOIN CTE_Date t ON t.[Date] = c.[Date]
+			WHERE AffId 			= @AffID
 				AND DomainReferrer 	= ISNULL(@Domain, DomainReferrer)
-				AND (CASE WHEN [Date] >= @BeginRegenData OR @LanguageCode IS NOT NULL  THEN Country ELSE '-' END) = ISNULL(@CountryCode, Country )
+				AND (CASE WHEN c.[Date] >= @BeginRegenData OR @LanguageCode IS NOT NULL  THEN Country ELSE '-' END) = ISNULL(@CountryCode, Country )
 				AND SportCode 		= ISNULL(@SportCode, SportCode)
 				AND LanguageCode 	= ISNULL(@LanguageCode, LanguageCode)
-			GROUP BY URLReferrer, ISNULL(DeviceType, 0), [Date]
+			GROUP BY URLReferrer, ISNULL(DeviceType, 0), c.[Date]
 		) AS t
 		GROUP BY URLReferrer, DeviceType
+		OPTION(MAXRECURSION 0)
 	END
 	ELSE 
 	BEGIN
+		;WITH CTE_Date AS (
+              SELECT @FromDate AS [Date]
+              UNION ALL
+              SELECT DATEADD(DAY, 1, [Date])
+              FROM CTE_Date
+              WHERE [Date] <= @LastDateSum
+        )
 		INSERT INTO @Result(UrlReferrer, DeviceType, TotalClick, UniqueClick)
 		SELECT URLReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
 		FROM
 		(
 			SELECT URLReferrer, ISNULL(DeviceType, 0) AS DeviceType, COUNT(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 			FROM ClickStatistics1_bk c WITH (NOLOCK)
-			WHERE [Date] BETWEEN @FromDate AND @LastDateSum
-				AND AffId 			= @AffID
+				INNER JOIN CTE_Date t ON t.[Date] = c.[Date]
+			WHERE AffId 			= @AffID
 				AND DomainReferrer 	= ISNULL(@Domain, DomainReferrer)
-				AND (CASE WHEN [Date] >= @BeginRegenData OR @LanguageCode IS NOT NULL  THEN Country ELSE '-' END) = ISNULL(@CountryCode, Country)
+				AND (CASE WHEN c.[Date] >= @BeginRegenData OR @LanguageCode IS NOT NULL  THEN Country ELSE '-' END) = ISNULL(@CountryCode, Country)
 				AND SportCode 		= ISNULL(@SportCode, SportCode)
 				AND LanguageCode 	= ISNULL(@LanguageCode, LanguageCode)
-			GROUP BY URLReferrer, ISNULL(DeviceType, 0), [Date]
+			GROUP BY URLReferrer, ISNULL(DeviceType, 0), c.[Date]
 			UNION ALL
 			SELECT URLReferrer, DeviceType, COUNT(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 			FROM ClickStatistics1 WITH (NOLOCK)
@@ -112,6 +127,7 @@ BEGIN
 			GROUP BY URLReferrer, DeviceType, [Date]
 		) AS t
 		GROUP BY URLReferrer, DeviceType
+		OPTION(MAXRECURSION 0)
 	END
 
 	SELECT @NRows = COUNT(DISTINCT URLReferrer) FROM @Result WHERE DeviceType = @DeviceType
