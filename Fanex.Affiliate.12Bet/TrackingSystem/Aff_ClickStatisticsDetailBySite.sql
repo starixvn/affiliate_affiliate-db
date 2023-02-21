@@ -163,7 +163,7 @@ BEGIN
 			LEFT JOIN dbo.ClickStatistics1 c  WITH (NOLOCK) ON tmp.ClickID = c.ClickID
 			LEFT JOIN ClickStatistics1_bk csk WITH (NOLOCK) ON tmp.ClickID = csk.ClickID
 		WHERE 	ISNULL(c.DomainReferrer, csk.DomainReferrer) = COALESCE(@Domain, c.DomainReferrer, csk.DomainReferrer)
-			AND ISNULL(c.Country, csk.Country)				 = COALESCE(@CountryCode, c.Country, csk.Country)
+			AND ISNULL(c.Country, CASE WHEN csk.Date >= @BeginRegenData THEN ISNULL(csk.Country, '-') ELSE '-' END)				 = COALESCE(@CountryCode, c.Country, CASE WHEN csk.Date >= @BeginRegenData THEN ISNULL(csk.Country, '-') ELSE '-' END)
 			AND ISNULL(c.SportCode, csk.SportCode)  		 = COALESCE(@SportCode, c.SportCode, csk.SportCode)
 			AND ISNULL(c.LanguageCode, csk.LanguageCode) 	 = COALESCE(@LanguageCode, c.LanguageCode, csk.LanguageCode)
 		GROUP BY
@@ -184,7 +184,7 @@ BEGIN
 		WHERE mi.CreatedDate BETWEEN @FromDate AND @ToDate
 			AND mi.AffId = @AffID
 			AND (@Domain IS NULL OR ISNULL(md.DomainReferrer, 'none') = @Domain)
-			AND (@CountryCode IS NULL OR COALESCE(c.Country, csk.Country, '-') = @CountryCode)
+			AND (@CountryCode IS NULL OR COALESCE(c.Country, CASE WHEN csk.Date >= @BeginRegenData THEN ISNULL(csk.Country, '-') ELSE '-' END, '-') = @CountryCode)
 			AND (@SportCode IS NULL OR ISNULL(md.SportCode, 'none') = @SportCode)
 			AND (@LanguageCode IS NULL OR ISNULL(md.LanguageCode, 'none') = @LanguageCode)
 			AND NOT EXISTS (
