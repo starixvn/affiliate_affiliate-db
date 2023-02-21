@@ -178,7 +178,7 @@ BEGIN
 			,0 								AS Signups
 			,COUNT(mi.IBCCustID) 			AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
-			LEFT JOIN dbo.MemberClickDetail md WITH (NOLOCK) ON md.IBCCustID = mi.IBCCustID
+			LEFT JOIN dbo.MemberClickDetail md WITH (NOLOCK) ON md.IBCCustID = mi.IBCCustID AND md.AffID = @AffID
 			LEFT JOIN ClickStatistics1 c 	   WITH (NOLOCK) ON c.ClickID    = md.ClickID
 			LEFT JOIN ClickStatistics1_bk csk  WITH (NOLOCK) ON csk.ClickID  = md.ClickID
 		WHERE mi.CreatedDate BETWEEN @FromDate AND @ToDate
