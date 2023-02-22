@@ -163,7 +163,7 @@ BEGIN
 			LEFT JOIN dbo.ClickStatistics1 c  WITH (NOLOCK) ON tmp.ClickID = c.ClickID
 			LEFT JOIN ClickStatistics1_bk csk WITH (NOLOCK) ON tmp.ClickID = csk.ClickID
 		WHERE 	ISNULL(c.DomainReferrer, csk.DomainReferrer) = COALESCE(@Domain, c.DomainReferrer, csk.DomainReferrer)
-			AND ISNULL(c.Country, CASE WHEN csk.Date >= @BeginRegenData THEN ISNULL(csk.Country, '-') ELSE '-' END)				 = COALESCE(@CountryCode, c.Country, CASE WHEN csk.Date >= @BeginRegenData THEN ISNULL(csk.Country, '-') ELSE '-' END)
+			AND ISNULL(c.Country, CASE WHEN csk.Date >= @BeginRegenData THEN ISNULL(csk.Country, '-') ELSE '-' END) = COALESCE(@CountryCode, c.Country, CASE WHEN csk.Date >= @BeginRegenData THEN ISNULL(csk.Country, '-') ELSE '-' END)
 			AND ISNULL(c.SportCode, csk.SportCode)  		 = COALESCE(@SportCode, c.SportCode, csk.SportCode)
 			AND ISNULL(c.LanguageCode, csk.LanguageCode) 	 = COALESCE(@LanguageCode, c.LanguageCode, csk.LanguageCode)
 		GROUP BY
