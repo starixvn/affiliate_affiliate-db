@@ -2,7 +2,7 @@
 ALTER PROCEDURE [dbo].[Aff_ClickStatisticsDetailBySite] 
 	@AffID 			INT
 	,@Domain 		NVARCHAR(300) = NULL
-	,@CountryCode 	VARCHAR(2)    = NULL
+	,@CountryCode 	VARCHAR(10)   = NULL
 	,@SportCode 	VARCHAR(50)   = NULL
 	,@LanguageCode 	VARCHAR(10)   = NULL
 	,@FromDate 		DATETIME
