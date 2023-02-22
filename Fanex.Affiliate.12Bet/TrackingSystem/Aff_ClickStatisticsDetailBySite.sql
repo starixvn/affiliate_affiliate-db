@@ -74,7 +74,7 @@ BEGIN
               UNION ALL
               SELECT DATEADD(DAY, 1, [Date])
               FROM CTE_Date
-              WHERE [Date] <= @ToDate
+              WHERE DATEADD(DAY, 1, [Date]) <= @ToDate
         )
 		INSERT INTO @Result(UrlReferrer, DeviceType, TotalClick, UniqueClick)
 		SELECT URLReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
@@ -100,7 +100,7 @@ BEGIN
               UNION ALL
               SELECT DATEADD(DAY, 1, [Date])
               FROM CTE_Date
-              WHERE [Date] <= @LastDateSum
+              WHERE DATEADD(DAY, 1, [Date]) <= @LastDateSum
         )
 		INSERT INTO @Result(UrlReferrer, DeviceType, TotalClick, UniqueClick)
 		SELECT URLReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
