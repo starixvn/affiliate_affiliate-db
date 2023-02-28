@@ -98,7 +98,6 @@ BEGIN
 			,TotalClick
 			,UniqueClick
 			,DeviceType
-			,CountryCode
 		)
 		SELECT
 			AffId
@@ -109,7 +108,6 @@ BEGIN
 			,COUNT(1) AS TotalClick
 			,COUNT (DISTINCT IP) AS UniqueClick
 			,DeviceType
-			,CountryCode
 		FROM #tmpClickStatistics1_bk
 		GROUP BY
 			AffId
@@ -118,7 +116,6 @@ BEGIN
 			,SportCode
 			,LanguageCode
 			,DeviceType
-			,CountryCode
 			
 	PRINT 'done: ClickStatistics1Sum'
 	TRUNCATE TABLE #tmpClickStatistics1_bk
