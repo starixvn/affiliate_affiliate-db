@@ -2,7 +2,7 @@
 ALTER PROCEDURE [dbo].[Aff_ClickStatisticsDetailBySite] 
 	@AffID 			INT
 	,@Domain 		NVARCHAR(300) = NULL
-	,@CountryCode 	VARCHAR(2)    = NULL
+	,@CountryCode 	VARCHAR(10)   = NULL
 	,@SportCode 	VARCHAR(50)   = NULL
 	,@LanguageCode 	VARCHAR(10)   = NULL
 	,@FromDate 		DATETIME
@@ -28,6 +28,7 @@ AS
 		- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
 		- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
 		- 20220927@Eddie: Add Country info [RedmineID: #176390]
+		- 20230214@Eddie: Site and Page are case by case [RedmineID: #177639]
 */
 
 BEGIN
@@ -36,13 +37,17 @@ BEGIN
 	DECLARE @LastDateSum SMALLDATETIME
 
 	IF (@FromDate > @ToDate) RETURN
+	
+	DECLARE @BeginRegenData SMALLDATETIME
+
+	SELECT @BeginRegenData = SValue FROM dbo.SystemSettings WITH(NOLOCK) WHERE SName = 'AFF_OldClickStatisticsDate'
 
 	DECLARE @Result TABLE (UrlReferrer NVARCHAR(300), DeviceType TINYINT, TotalClick INT, UniqueClick INT)
 
-	SELECT	@LastDateSum = MAX(DATE) FROM dbo.ClickStatistics1Sum (NOLOCK)
+	SELECT	@LastDateSum = MAX(DATE) FROM dbo.ClickStatisticsSum_Country_Domain (NOLOCK) -- maybe use table sum 'ClickStatisticsSum_Country_Sport' or 'ClickStatisticsSum_Sport_Language'
 
 	SELECT	@FromDate = CONVERT(VARCHAR(10), @FromDate, 120)
-			,@ToDate  = DATEADD(MILLISECOND, -3, DATEADD(DAY, DATEDIFF(DAY, 0, @ToDate) + 1, 0)) -- the end of @ToDate
+			,@ToDate  = DATEADD(MILLISECOND, -3, DATEADD(DAY, DATEDIFF(DAY, 0, @ToDate) + 1, 0)) -- the end of day "@ToDate"
 
 	IF (@LastDateSum < @FromDate) 
 	BEGIN
@@ -64,37 +69,52 @@ BEGIN
 	END
 	ELSE IF (@LastDateSum > @ToDate) 
 	BEGIN
+		;WITH CTE_Date AS (
+              SELECT @FromDate AS [Date]
+              UNION ALL
+              SELECT DATEADD(DAY, 1, [Date])
+              FROM CTE_Date
+              WHERE DATEADD(DAY, 1, [Date]) < @ToDate
+        )
 		INSERT INTO @Result(UrlReferrer, DeviceType, TotalClick, UniqueClick)
 		SELECT URLReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
 		FROM
 		(
 			SELECT URLReferrer, ISNULL(DeviceType, 0) AS DeviceType, COUNT(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 			FROM ClickStatistics1_bk c WITH (NOLOCK)
-			WHERE [Date] BETWEEN @FromDate AND @ToDate
-				AND AffId 			= @AffID
+				INNER JOIN CTE_Date t ON t.[Date] = c.[Date]
+			WHERE AffId 			= @AffID
 				AND DomainReferrer 	= ISNULL(@Domain, DomainReferrer)
-				AND Country 		= ISNULL(@CountryCode, Country)
+				AND (CASE WHEN c.[Date] >= @BeginRegenData OR @LanguageCode IS NOT NULL  THEN Country ELSE '-' END) = ISNULL(@CountryCode, Country )
 				AND SportCode 		= ISNULL(@SportCode, SportCode)
 				AND LanguageCode 	= ISNULL(@LanguageCode, LanguageCode)
-			GROUP BY URLReferrer, ISNULL(DeviceType, 0), [Date]
+			GROUP BY URLReferrer, ISNULL(DeviceType, 0), c.[Date]
 		) AS t
 		GROUP BY URLReferrer, DeviceType
+		OPTION(MAXRECURSION 0)
 	END
 	ELSE 
 	BEGIN
+		;WITH CTE_Date AS (
+              SELECT @FromDate AS [Date]
+              UNION ALL
+              SELECT DATEADD(DAY, 1, [Date])
+              FROM CTE_Date
+              WHERE DATEADD(DAY, 1, [Date]) <= @LastDateSum
+        )
 		INSERT INTO @Result(UrlReferrer, DeviceType, TotalClick, UniqueClick)
 		SELECT URLReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
 		FROM
 		(
 			SELECT URLReferrer, ISNULL(DeviceType, 0) AS DeviceType, COUNT(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 			FROM ClickStatistics1_bk c WITH (NOLOCK)
-			WHERE [Date] BETWEEN @FromDate AND @LastDateSum
-				AND AffId 			= @AffID
+				INNER JOIN CTE_Date t ON t.[Date] = c.[Date]
+			WHERE AffId 			= @AffID
 				AND DomainReferrer 	= ISNULL(@Domain, DomainReferrer)
-				AND Country 		= ISNULL(@CountryCode, Country)
+				AND (CASE WHEN c.[Date] >= @BeginRegenData OR @LanguageCode IS NOT NULL  THEN Country ELSE '-' END) = ISNULL(@CountryCode, Country)
 				AND SportCode 		= ISNULL(@SportCode, SportCode)
 				AND LanguageCode 	= ISNULL(@LanguageCode, LanguageCode)
-			GROUP BY URLReferrer, ISNULL(DeviceType, 0), [Date]
+			GROUP BY URLReferrer, ISNULL(DeviceType, 0), c.[Date]
 			UNION ALL
 			SELECT URLReferrer, DeviceType, COUNT(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 			FROM ClickStatistics1 WITH (NOLOCK)
@@ -107,6 +127,7 @@ BEGIN
 			GROUP BY URLReferrer, DeviceType, [Date]
 		) AS t
 		GROUP BY URLReferrer, DeviceType
+		OPTION(MAXRECURSION 0)
 	END
 
 	SELECT @NRows = COUNT(DISTINCT URLReferrer) FROM @Result WHERE DeviceType = @DeviceType
@@ -142,7 +163,7 @@ BEGIN
 			LEFT JOIN dbo.ClickStatistics1 c  WITH (NOLOCK) ON tmp.ClickID = c.ClickID
 			LEFT JOIN ClickStatistics1_bk csk WITH (NOLOCK) ON tmp.ClickID = csk.ClickID
 		WHERE 	ISNULL(c.DomainReferrer, csk.DomainReferrer) = COALESCE(@Domain, c.DomainReferrer, csk.DomainReferrer)
-			AND ISNULL(c.Country, csk.Country)				 = COALESCE(@CountryCode, c.Country, csk.Country)
+			AND ISNULL(c.Country, CASE WHEN csk.Date >= @BeginRegenData THEN ISNULL(csk.Country, '-') ELSE '-' END) = COALESCE(@CountryCode, c.Country, CASE WHEN csk.Date >= @BeginRegenData THEN ISNULL(csk.Country, '-') ELSE '-' END)
 			AND ISNULL(c.SportCode, csk.SportCode)  		 = COALESCE(@SportCode, c.SportCode, csk.SportCode)
 			AND ISNULL(c.LanguageCode, csk.LanguageCode) 	 = COALESCE(@LanguageCode, c.LanguageCode, csk.LanguageCode)
 		GROUP BY
@@ -157,13 +178,13 @@ BEGIN
 			,0 								AS Signups
 			,COUNT(mi.IBCCustID) 			AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
-			LEFT JOIN dbo.MemberClickDetail md WITH (NOLOCK) ON md.IBCCustID = mi.IBCCustID
+			LEFT JOIN dbo.MemberClickDetail md WITH (NOLOCK) ON md.IBCCustID = mi.IBCCustID AND md.AffID = @AffID
 			LEFT JOIN ClickStatistics1 c 	   WITH (NOLOCK) ON c.ClickID    = md.ClickID
 			LEFT JOIN ClickStatistics1_bk csk  WITH (NOLOCK) ON csk.ClickID  = md.ClickID
 		WHERE mi.CreatedDate BETWEEN @FromDate AND @ToDate
 			AND mi.AffId = @AffID
 			AND (@Domain IS NULL OR ISNULL(md.DomainReferrer, 'none') = @Domain)
-			AND (@CountryCode IS NULL OR COALESCE(c.Country, csk.Country, '-') = @CountryCode)
+			AND (@CountryCode IS NULL OR COALESCE(c.Country, CASE WHEN csk.Date >= @BeginRegenData THEN ISNULL(csk.Country, '-') ELSE '-' END, '-') = @CountryCode)
 			AND (@SportCode IS NULL OR ISNULL(md.SportCode, 'none') = @SportCode)
 			AND (@LanguageCode IS NULL OR ISNULL(md.LanguageCode, 'none') = @LanguageCode)
 			AND NOT EXISTS (

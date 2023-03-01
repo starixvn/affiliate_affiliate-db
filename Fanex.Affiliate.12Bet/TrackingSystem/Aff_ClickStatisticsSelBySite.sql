@@ -24,6 +24,7 @@ AS
 		- 20170214@Percy: Fix FDM/Signup issue [RedmineID: #70507]
 		- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
 		- 20220919@Eddie: Add Country info [RedmineID: #176390]
+		- 20230213@Eddie: Change 'ClickStatistics1Sum' to 'ClickStatisticsSum_Country_Domain' sum table [RedmineID: #177639]
 	
 	Param's Explanation:
 		- @CountryCodes: '-,AL,AR,...'
@@ -42,9 +43,11 @@ BEGIN
 
 	SELECT @BeginRegenData = SValue FROM dbo.SystemSettings WITH(NOLOCK) WHERE SName = 'AFF_OldClickStatisticsDate'
 
-	SELECT @LastDateSum = MAX(DATE) FROM ClickStatistics1Sum WITH(NOLOCK)
+	SELECT @LastDateSum = MAX(DATE) FROM ClickStatisticsSum_Country_Domain WITH(NOLOCK)
 
-	SELECT @FromDate = FORMAT(@FromDate, 'yyyy-MM-dd'), @ToDate = DATEADD(SECOND, -1, DATEADD(MONTH, 1, FORMAT(@ToDate, 'yyyy-MM-01')))
+	SELECT @FromDate = FORMAT(@FromDate, 'yyyy-MM-dd')
+	, @ToDate  = DATEADD(MILLISECOND, -3, DATEADD(DAY, DATEDIFF(DAY, 0, @ToDate) + 1, 0)) -- the end of day "@ToDate"
+	, @LastDateSum = DATEADD(SECOND, -1, DATEADD(MONTH, 1, FORMAT(@LastDateSum, 'yyyy-MM-01'))) -- the end of month "@LastDateSum"
 
 	IF (@LastDateSum < @FromDate) 
 	BEGIN
@@ -68,7 +71,7 @@ BEGIN
 		FROM
 		(
 			SELECT CountryCode, DomainReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
-			FROM ClickStatistics1Sum WITH (NOLOCK)
+			FROM ClickStatisticsSum_Country_Domain WITH (NOLOCK)
 			WHERE [Date] BETWEEN @FromDate AND @ToDate
 				AND AffId = @AffID
 				AND ( ',' + @CountryCodes + ',' LIKE '%,' + CountryCode + ',%')
@@ -83,7 +86,7 @@ BEGIN
 		FROM
 		(
 			SELECT CountryCode, DomainReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
-			FROM ClickStatistics1Sum WITH (NOLOCK)
+			FROM ClickStatisticsSum_Country_Domain WITH (NOLOCK)
 			WHERE [Date] BETWEEN @FromDate AND @LastDateSum
 				AND AffId = @AffID
 				AND ( ',' + @CountryCodes + ',' LIKE '%,' + CountryCode + ',%')
@@ -125,7 +128,7 @@ BEGIN
 		,0 		  						   AS Signups
 		,COUNT(1) 						   AS FDM
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
-		LEFT JOIN dbo.MemberClickDetail md WITH (NOLOCK) ON md.IBCCustID = mi.IBCCustID
+		LEFT JOIN dbo.MemberClickDetail md WITH (NOLOCK) ON md.IBCCustID = mi.IBCCustID AND md.AffID = @AffID
 		LEFT JOIN ClickStatistics1 c 	   WITH (NOLOCK) ON c.ClickID    = md.ClickID
 		LEFT JOIN ClickStatistics1_bk csk  WITH (NOLOCK) ON csk.ClickID  = md.ClickID
 	WHERE mi.CreatedDate BETWEEN @FromDate AND @ToDate
