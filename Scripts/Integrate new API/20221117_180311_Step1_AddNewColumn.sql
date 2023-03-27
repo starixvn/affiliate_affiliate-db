@@ -7,23 +7,11 @@
 */
 
 ALTER TABLE APIProduct_ImportQueue
-ADD TpType INT NOT NULL DEFAULT -1
-GO
-
-ALTER TABLE APIProduct_ImportQueue
-ADD SubItem VARCHAR(200) NOT NULL DEFAULT ''
+ADD TpType INT NOT NULL DEFAULT -1, SubItem VARCHAR(200) NOT NULL DEFAULT '', JsonData NVARCHAR(MAX)
 GO
 
 ALTER TABLE APIProduct_TimeTracker
-ADD TpType INT NOT NULL DEFAULT -1
-GO
-
-ALTER TABLE APIProduct_TimeTracker
-ADD SubItem VARCHAR(200) NOT NULL DEFAULT ''
-GO
-
-ALTER TABLE APIProduct_ImportQueue
-ADD JsonData NVARCHAR(MAX)
+ADD TpType INT NOT NULL DEFAULT -1, SubItem VARCHAR(200) NOT NULL DEFAULT ''
 GO
 
 CREATE NONCLUSTERED INDEX IX_CheckInTime ON dbo.APIProduct_ImportQueue (CheckInTime)
@@ -55,11 +43,6 @@ BEGIN
 
 	SET @MinQueueId = @MinQueueId + 2000
 END
-GO
-
-UPDATE Products WITH(ROWLOCK, UPDLOCK)
-	SET ProductName = '12Emerald - Playtech'
-WHERE ProductName = 'Playtech Casino'
 GO
 
 UPDATE Products WITH(ROWLOCK, UPDLOCK)

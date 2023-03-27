@@ -31,11 +31,11 @@ GO
 USE [msdb]
 GO
 
-/****** Object:  Job [Affiliate_12BET: Clean Data]    Script Date: 12/2/2022 10:58:25 AM ******/
+
 BEGIN TRANSACTION
 DECLARE @ReturnCode INT
 SELECT @ReturnCode = 0
-/****** Object:  JobCategory [[Uncategorized (Local)]]    Script Date: 12/2/2022 10:58:25 AM ******/
+
 IF NOT EXISTS (SELECT name FROM msdb.dbo.syscategories WHERE name=N'[Uncategorized (Local)]' AND category_class=1)
 BEGIN
 EXEC @ReturnCode = msdb.dbo.sp_add_category @class=N'JOB', @type=N'LOCAL', @name=N'[Uncategorized (Local)]'
@@ -55,7 +55,7 @@ EXEC @ReturnCode =  msdb.dbo.sp_add_job @job_name=N'Affiliate_12BET: Clean Data'
 		@category_name=N'[Uncategorized (Local)]', 
 		@owner_login_name=N'sa', @job_id = @jobId OUTPUT
 IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
-/****** Object:  Step [Delete data of APIProduct_ImportQueue table]    Script Date: 12/2/2022 10:58:26 AM ******/
+
 EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'Delete data of APIProduct_ImportQueue table', 
 		@step_id=1, 
 		@cmdexec_success_code=0, 
