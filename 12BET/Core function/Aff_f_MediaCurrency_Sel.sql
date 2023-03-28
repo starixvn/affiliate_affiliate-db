@@ -12,6 +12,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20230323@Eddie: Add new 'BDT' Currency [RedmineID: #185446]
 */
 
 RETURN
@@ -29,5 +30,6 @@ RETURN
 			,(9, 'INR')
 			,(10, 'MKK')
 			,(11, 'KHR')
+			,(12, 'BDT')
 	) AS MediaCurrency (CurrencyId, Currency)
 GO

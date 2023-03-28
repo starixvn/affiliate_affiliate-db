@@ -12,6 +12,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Message_Upd]
 	,@MsgKR			NVARCHAR(4000)
 	,@MsgJP			NVARCHAR(4000)
 	,@MsgKh			NVARCHAR(4000)
+	,@MsgBn			NVARCHAR(4000)
 	,@IsImportant	BIT
 	,@IP			VARCHAR(20) = ''
 	,@ErrCode		INT = 0 OUTPUT
@@ -27,6 +28,7 @@ AS
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20220811@Malcolm: Add Cambodian Language [RedminID: #176429]
+		- 20230323@Eddie: Add Bangladesh Language [RedminID: #185446]
 */
 
 BEGIN
@@ -55,8 +57,9 @@ BEGIN
 								   Message_Id AS '@Message_Id',
 								   Message_Vi AS '@Message_Vi',
 								   Message_Kr AS '@Message_Kr',
-								   Message_Jp	AS '@Message_Jp',
-								   Message_Kh	AS '@Message_Kh',
+								   Message_Jp AS '@Message_Jp',
+								   Message_Kh AS '@Message_Kh',
+								   Message_Bn AS '@Message_Bn',
 								   Important AS '@Important'
 							FROM dbo.News WITH (NOLOCK)
 							WHERE MsgId = @MessageId
@@ -81,6 +84,7 @@ BEGIN
 			,Message_Kr		= @MsgKr
 			,Message_Jp		= @MsgJp
 			,Message_Kh		= @MsgKh
+			,Message_Bn		= @MsgBn
 			,Important		= @IsImportant
 			,UpdatedBy		= @UserId
 			,UpdatedDate	= GETDATE()
@@ -107,6 +111,7 @@ BEGIN
 									,@MsgKr AS  '@Message_Kr'
 									,@MsgJp AS  '@Message_Jp'
 									,@MsgKh AS  '@Message_Kh'
+									,@MsgBn AS  '@Message_Bn'
 									,@IsImportant AS '@IsImportant'
 							FOR XML PATH('row'), ROOT('root')
 						))
