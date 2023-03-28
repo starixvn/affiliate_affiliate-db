@@ -15,7 +15,6 @@
 12BET\Admin\Customer\LeftMenu - Edit\Aff_Admin_Affiliate_Approved.sql
 12BET\Admin\Customer\Note\Aff_Admin_AffiliateNote_Ins.sql
 12BET\Admin\Customer\Note\Aff_Admin_AffiliateNote_Upd.sql
-12BET\Core function\Aff_f_GetMessageById.sql
 12BET\Core function\Policy\Aff_CheckPermission.sql
 12BET\User\Affiliate\Aff_User_UserInfoUpd.sql
 12BET\User\Password\Aff_User_ForgotPassword.sql
@@ -23,7 +22,6 @@
 12BET\User\Payment\Aff_User_PaymentRequest_Upd.sql
 12BET\User\Signup\Aff_User_Affiliate_Ins.sql
 12BET\Admin\Customer\LeftMenu - Edit\Aff_Admin_AffiliateInfo_Sel.sql
-12BET\Admin\Customer\LeftMenu - Edit\Aff_Admin_AffiliateInfo_Upd.sql
 12BET\User\Login\Aff_f_Get_SecurityQuestions.sql
 12BET\User\Login\Aff_User_SecurityQuestions_Sel.sql
-12BET\User\Signup\Aff_User_Affiliate_Ins.sql
+12BET\Core function\Aff_Admin_MediaCurrency_Sel.sql
