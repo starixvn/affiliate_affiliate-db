@@ -9,6 +9,8 @@ AS
 	Task: Admin - Admin Role - User detail
 	Revisions:
 		- 20200731@Percy: Initialize SP [RedmineID: #121975]
+		- 20230330@Eddie: Change order of Bangladesh Language [RedmineID: #186108]
+	Note: Order of English always is 1st
 */
 
 BEGIN
@@ -24,9 +26,15 @@ BEGIN
 	WHERE CustId = @CustId
 
 	-- Language
+	;WITH CTE_Language AS(
+		SELECT MarketId, MarketName, MarketNativeName, ShortedCode, DisplayName,
+			   CASE WHEN MarketId = 'en-US' THEN 1 ELSE 2 END AS TypeId
+		FROM dbo.Market WITH (NOLOCK)
+	)
 	SELECT m.MarketId, m.MarketName, CASE WHEN um.MarketId IS NULL THEN 0 ELSE 1 END AS Status
-	FROM dbo.Market m WITH (NOLOCK)
+	FROM CTE_Language m
 		LEFT JOIN dbo.UserMarket um WITH (NOLOCK) ON m.MarketId = um.MarketId AND um.CustId = @CustId
+	ORDER BY m.TypeId, m.MarketId ASC
 
 	-- Function
 	SELECT f.AllParentIds, f.ParentId, f.FuncId, f.FuncName, f.DisplayName, ISNULL(rf.Policy, 0) AS RolePolicy, ISNULL(uf.Policy, 0) AS UserPolicy
