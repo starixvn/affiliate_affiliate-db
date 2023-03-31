@@ -10,6 +10,8 @@ AS
 
 	Revisions:
 		- 20200731@Percy: Initialize SP [RedmineID: #121975]
+		- 20230330@Eddie: Change order of Bangladesh Language [RedmineID: #186108]
+	Note: Order of English always is 1st
 */
 
 BEGIN
@@ -17,13 +19,29 @@ BEGIN
 
 	-- Policy: 0: Not allow, 1: Read, 3: Host
 	IF ISNULL(@RoleId, 0) = 0
+	BEGIN
+		;WITH CTE_Language AS(
+			SELECT MarketId, MarketName, MarketNativeName, ShortedCode, DisplayName,
+				   CASE WHEN MarketId = 'en-US' THEN 1 ELSE 2 END AS TypeId
+			FROM dbo.Market WITH (NOLOCK)
+		)		
 		SELECT r.RoleId, m.MarketId, m.MarketName, CASE WHEN rm.RoleId IS NULL THEN 0 ELSE 1 END AS Status
 		FROM dbo.Roles r WITH (NOLOCK)
-			CROSS JOIN dbo.Market m WITH (NOLOCK)
+			CROSS JOIN CTE_Language m 
 			LEFT JOIN dbo.RoleMarket rm WITH (NOLOCK) ON r.RoleId = rm.RoleId AND m.MarketId = rm.MarketId
+		ORDER BY r.RoleId, m.TypeId, m.MarketId ASC
+	END
 	ELSE
+	BEGIN
+		;WITH CTE_Language AS(
+			SELECT MarketId, MarketName, MarketNativeName, ShortedCode, DisplayName,
+				   CASE WHEN MarketId = 'en-US' THEN 1 ELSE 2 END AS TypeId
+			FROM dbo.Market WITH (NOLOCK)
+		)
 		SELECT @RoleId AS RoleId, m.MarketId, m.MarketName, CASE WHEN rm.RoleId IS NULL THEN 0 ELSE 1 END AS Status
-		FROM dbo.Market m WITH (NOLOCK)
+		FROM CTE_Language m
 			LEFT JOIN dbo.RoleMarket rm WITH (NOLOCK) ON m.MarketId = rm.MarketId AND rm.RoleId = @RoleId
+		ORDER BY m.TypeId, m.MarketId ASC
+	END
 END
 GO

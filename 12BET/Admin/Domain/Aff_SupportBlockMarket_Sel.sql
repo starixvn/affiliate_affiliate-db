@@ -11,6 +11,8 @@ AS
 
 	Revisions:
 		- 20221114@Eddie: Initialize SP [RedmineID: #179537]
+		- 20230330@Eddie: Change order of Bangladesh Language [RedmineID: #186108]
+	Note: Order of English always is 1st
 */
 BEGIN
 	SET NOCOUNT ON
@@ -94,9 +96,10 @@ BEGIN
 		FROM dbo.Market WITH (NOLOCK)
 	END
 	
-	SELECT MarketId, MarketName, Status
+	SELECT MarketId, MarketName, Status,
+		CASE WHEN MarketId = 'en-US' THEN 1 ELSE 2 END AS TypeId
 	FROM #GridOfBlockMarket
-	ORDER BY MarketId ASC
+	ORDER BY TypeId, MarketId ASC
 	
 	DROP TABLE #GridOfBlockMarket
 END
