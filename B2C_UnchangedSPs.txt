@@ -2,6 +2,9 @@ B2C\Admin\Customer\StatementHistory\Aff_Admin_StatementHistory_Sel.sql
 B2C\Admin\Customer\StatementHistory\Aff_SubAffiliate_Commission_Sel.sql
 B2C\Admin\Customer\Statistics\Aff_Admin_Statistics_Sel.sql
 B2C\Admin\Home\Aff_Admin_GeneralInfo_Sel.sql
+B2C\Admin\Report\Aff_Admin_AffiliateReport_Detail_Sel.sql
+B2C\Admin\Report\Aff_Admin_AffiliateReport_Sel.sql
+B2C\API\Aff_API_AffiliateInfo_Sel.sql
 B2C\User\CommissionReport\Aff_User_Rpt_Commission.sql
 B2C\User\Home\Aff_User_Overview_SubAffiliate_Sel.sql
 B2C\User\Home\Aff_User_Overview_Summary_Sel.sql

@@ -2,6 +2,7 @@
 ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Ins]
 	@UserId				INT
 	,@GroupId			INT = 0 OUTPUT
+	,@SubCommRate		DECIMAL(9,8)
 	,@IsPrivate			BIT = 0
 	,@GroupName			NVARCHAR(100) = ''
 	,@Description		NVARCHAR(100) = NULL
@@ -23,6 +24,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210714@Percy: Add @StraightList for P2P Setting [RedmineID: #157958]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
+		- 20230404@Malcolm: Add sub commission rate [RedmineID: #185481]
 
 	Parameter's Explanation:
 		- @DeductionList:
@@ -220,6 +222,9 @@ BEGIN
 			DELETE dbo.CommGroup WITH (ROWLOCK, UPDLOCK)
 			WHERE GroupId = @ExistsGroupId
 
+			DELETE dbo.CommGroupHistory WITH (ROWLOCK, UPDLOCK)
+			WHERE GroupId = @ExistsGroupId
+
 			DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
 			WHERE GroupId = @ExistsGroupId
 
@@ -236,10 +241,14 @@ BEGIN
 
 	BEGIN TRY
 		-- General information
-		INSERT INTO dbo.CommGroup (GroupName, CreatedDate, Creator, IsPrivate, Description)
-		VALUES (@GroupName, GETDATE(), @UserId, @IsPrivate, @Description)
+		INSERT INTO dbo.CommGroup (GroupName, CreatedDate, Creator, IsPrivate, SubCommRate, Description)
+		VALUES (@GroupName, GETDATE(), @UserId, @IsPrivate, @SubCommRate, @Description)
 
 		SELECT @GroupId = SCOPE_IDENTITY()
+
+		--History Group
+		INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate)
+		VALUES (@GroupId, @MonthDate, @SubCommRate)
 
 		-- Tier List
 		INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum)
@@ -265,6 +274,7 @@ BEGIN
 	BEGIN CATCH
 		-- Rollback manually
 		DELETE dbo.CommGroup WHERE GroupId = @GroupId
+		DELETE dbo.CommGroupHistory WITH(ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId 
 		DELETE dbo.TierSetting WHERE GroupId = @GroupId
 		DELETE dbo.TierSettingHistory WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 		DELETE dbo.DeductionSetting WHERE GroupId = @GroupId
@@ -292,7 +302,8 @@ BEGIN
 		'DeductionList='+ ISNULL(CONVERT(NVARCHAR(MAX), @DeductionList), '') + ',' +
 		'TierList='		+ ISNULL(CONVERT(NVARCHAR(MAX), @TierList), '') + ',' +
 		'IsActivePlayerSum='+ ISNULL(CONVERT(NVARCHAR(MAX), @IsActivePlayerSum), '') + ',' +
-		'StraightList='	+ ISNULL(CONVERT(NVARCHAR(MAX), @StraightList), '')
+		'StraightList='	+ ISNULL(CONVERT(NVARCHAR(MAX), @StraightList), '') + ',' +
+		'SubCommRate='	+ ISNULL(CONVERT(NVARCHAR(MAX), @SubCommRate), '')
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,

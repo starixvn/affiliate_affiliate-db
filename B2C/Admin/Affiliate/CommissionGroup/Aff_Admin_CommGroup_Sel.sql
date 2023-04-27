@@ -16,6 +16,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210714@Percy: Output more table for P2P Setting [RedmineID: #157958]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
+		- 20230404@Malcolm: Get sub commission rate [RedmineID: #185481]
 */
 
 BEGIN
@@ -68,6 +69,7 @@ BEGIN
 		cg.CreatedDate,
 		au.Username AS Creator,
 		cg.Description,
+		cg.SubCommRate,
 		ISNULL(s.IsActivePlayerSum, 1) AS IsActivePlayerSum,
 		ISNULL(n.NoAffs, 0) AS NoAffs
 	FROM dbo.CommGroup cg WITH (NOLOCK)
