@@ -16,6 +16,8 @@ AS
 		- 20210714@Percy: Add column P2P Earning & Treat TO, WL = 0 for P2P Products [RedmineID: #157958]
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
+		- 20230404@Malcolm: Get sub commission rate [RedmineID: #185481]
+
 */
 
 BEGIN
@@ -174,6 +176,13 @@ BEGIN
 	END
 
 	-- Return Data
+	;WITH CTE_SubCommRate AS
+	(
+		SELECT cgh.MonthDate, cgh.SubCommRate
+		FROM dbo.AffGroupHistory agh WITH(NOLOCK)
+			INNER JOIN dbo.CommGroupHistory cgh WITH(NOLOCK) ON cgh.GroupId = agh.GroupId AND agh.MonthDate = cgh.MonthDate
+		WHERE agh.AffId = @AffId AND agh.MonthDate BETWEEN @FromDate AND DATEADD(MONTH, 1, @ToDate)
+	)
 	SELECT
 		d.MonthDate,
 		d.ProductId,
@@ -191,13 +200,15 @@ BEGIN
 		d.Commission,
 		d.StraightCommission AS P2PCommission,
 		d.SubAffCommission,
+		s.SubCommRate,
 		d.CalculatedType
 	FROM #TempCommission d
+		LEFT JOIN CTE_SubCommRate s ON s.MonthDate = d.MonthDate
 		LEFT JOIN dbo.Products p WITH (NOLOCK) ON d.ProductId = p.ProductId
 	ORDER BY
 		MonthDate DESC,
 		d.ProductId ASC
-	
+
 	DROP TABLE #TempCommission
 END
 GO

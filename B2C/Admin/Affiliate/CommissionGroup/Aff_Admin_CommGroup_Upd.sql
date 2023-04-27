@@ -3,6 +3,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Upd]
 	@UserId				INT
 	,@GroupId			INT
 	,@GroupName			NVARCHAR(100) = NULL
+	,@SubCommRate		DECIMAL(9,8)
 	,@Description		NVARCHAR(100) = NULL
 	,@DeductionList		XML = NULL
 	,@TierList			XML = NULL
@@ -22,6 +23,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210714@Percy: Add @StraightList for P2P Setting [RedmineID: #157958]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
+		- 20230404@Malcolm: Add sub commission rate [RedmineID: #185481]
 
 	Parameter's Explanation:
 		- @DeductionList:
@@ -222,6 +224,7 @@ BEGIN
 		-- 1: general, 2: tier, 3: deduction, 4: straight
 		TypeId					TINYINT
 		-- General information
+		,SubCommRate			DECIMAL(9,8)
 		,GroupName				NVARCHAR(100)
 		,Description			NVARCHAR(100)
 		,IsDeductedPercent		BIT
@@ -244,10 +247,16 @@ BEGIN
 	BEGIN TRY
 		-- General information
 		UPDATE dbo.CommGroup WITH (ROWLOCK)
-		SET GroupName = @GroupName, Description = @Description
-			OUTPUT DELETED.GroupName, DELETED.Description, 1
-			INTO @updateData (GroupName, Description, TypeId)
+		SET GroupName = @GroupName, Description = @Description, SubCommRate = @SubCommRate
+			OUTPUT DELETED.GroupName, DELETED.SubCommRate, DELETED.Description, 1
+			INTO @updateData (GroupName, SubCommRate, Description, TypeId)
 		WHERE GroupId = @GroupId
+
+		DELETE dbo.CommGroupHistory WITH(ROWLOCK)
+		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
+
+		INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate)
+		SELECT @GroupId, @MonthDate, @SubCommRate
 
 		-- Tier List
 		DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
@@ -294,6 +303,7 @@ BEGIN
 	BEGIN CATCH
 		-- Rollback manually
 		IF EXISTS (SELECT 1 FROM @updateData WHERE TypeId = 1)
+		BEGIN
 			UPDATE cg WITH (ROWLOCK)
 			SET GroupName			= up.GroupName,
 				Description			= up.Description
@@ -301,6 +311,13 @@ BEGIN
 				CROSS APPLY @updateData up
 			WHERE cg.GroupId = @GroupId
 				AND TypeId = 1
+
+			DELETE dbo.CommGroupHistory WITH(ROWLOCK, UPDLOCK) 
+			WHERE GroupId = @GroupId AND MonthDate = @MonthDate
+
+			INSERT INTO dbo.CommGroupHistory (GroupId, SubCommRate, MonthDate)
+			SELECT @GroupId, SubCommRate, @MonthDate FROM @updateData WHERE TypeId = 1
+		END
 
 		IF EXISTS (SELECT 1 FROM @updateData WHERE TypeId = 2)
 		BEGIN

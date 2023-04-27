@@ -21,6 +21,7 @@ AS
 		- 20210506@Percy: Max Sub Affiliate Commission Setting [RedmineID: #153465]
 		- 20210714@Percy: Include P2P Earning into Monthly Earning [RedmineID: #157958]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
+		- 20230404@Malcolm: Get sub commission rate [RedmineID: #185481]
 */
 
 BEGIN
@@ -34,16 +35,24 @@ BEGIN
 	DECLARE @AffCurrency INT
 	SELECT  @AffCurrency = dbo.Aff_f_GetSetting('AffCurrency')
 	
-	DECLARE @SubAffCommRate FLOAT = 0.1 -- 10%
+	DECLARE @SubAffCommRate FLOAT -- 10%
+
+	SELECT @SubAffCommRate = g.SubCommRate
+	FROM dbo.AffGroupHistory agh WITH(NOLOCK) 
+		INNER JOIN dbo.CommGroupHistory g WITH(NOLOCK) ON g.GroupId = agh.GroupId AND g.MonthDate = agh.MonthDate
+	WHERE agh.AffId = @AffId AND agh.MonthDate = @MonthDate
+
+	DECLARE @tmpSubAff TABLE (AffId INT PRIMARY KEY, Level INT, SubCommRate DECIMAL(9, 8))
 
 	DECLARE @tblSubAffCommission TABLE (AffId INT, UserName NVARCHAR(50), Commission MONEY, SubAffCommission MONEY)
 
 	-- Calculated months
 	BEGIN
 		DECLARE @AffIds VARCHAR(MAX)
-		SELECT  @AffIds = COALESCE(@AffIds + ',', '') + CONVERT(VARCHAR(20), AffId)
-		FROM dbo.AffInfo WITH (NOLOCK)
-		WHERE ParentAffId = @AffId
+		
+		SELECT @AffIds = ISNULL(STRING_AGG(CONVERT(VARCHAR(MAX), AffId), ','), '')
+		FROM dbo.AffGroupHistory WITH(NOLOCK)
+		WHERE MonthDate = @MonthDate AND ParentAffid = @AffId
 		
 		CREATE TABLE #TempCommission
 		(
@@ -116,13 +125,10 @@ BEGIN
 		SELECT
 			ai.AffId
 			,ai.UserName
-			,SUM(tc.Commission + tc.StraightCommission + tc.SubAffCommission) AS Commission
-			,SUM(tc.Commission + tc.StraightCommission + tc.SubAffCommission) * @SubAffCommRate AS SubAffCommission
+			,(c.Commission + c.StraightCommission + c.SubAffCommission) AS Commission
+			,(c.Commission + c.StraightCommission + c.SubAffCommission) * @SubAffCommRate AS SubAffCommission
 		FROM dbo.AffInfo ai WITH (NOLOCK)
-			INNER JOIN #TempCommission tc ON ai.AffId = tc.AffId
-		GROUP BY
-			ai.AffId
-			,ai.UserName
+			INNER JOIN #TempCommission c ON ai.AffId = c.AffId
 
 		DROP TABLE #TempCommission
 	END

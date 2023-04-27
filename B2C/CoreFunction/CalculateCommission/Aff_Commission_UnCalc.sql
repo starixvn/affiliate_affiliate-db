@@ -29,6 +29,7 @@ AS
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20220427@Malcolm: get tunover for product list [RedmineId: #167335]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
+		- 20230404@Malcolm: calculate sub commission monthly [RedmineID: #185481]
 */
 
 BEGIN
@@ -722,7 +723,6 @@ BEGIN
 	END
 
 	-- Sub Affiliate Commission
-	DECLARE @SubAffCommRate FLOAT = 0.1 -- 10%
 	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME, AffId INT)
 
 	IF EXISTS (SELECT 1 FROM #Commission WHERE ProductId = 0)
@@ -774,15 +774,30 @@ BEGIN
 			WHERE c.AffId IS NULL
 		END
 
-		;WITH CTE_SubAffCommission AS
+		;WITH CTE_SubCommRateDirect AS 
 		(
-			SELECT c.MonthDate, f.val AS AffId
-				,SUM(CASE WHEN f.Id <= @MaxSubAff THEN POWER(@SubAffCommRate, f.Id) * (c.Commission + c.StraightCommission) ELSE 0 END) AS SubAffCommission
-			FROM #Commission c
-				INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON agh.MonthDate = c.MonthDate AND agh.AffId = c.AffId
+			SELECT agh.MonthDate, agh.AffId AS SubAffId, af.AffId, cgh.SubCommRate, f.Id AS Level
+			FROM dbo.AffGroupHistory agh WITH(NOLOCK)
 				CROSS APPLY dbo.Aff_f_StringSplit(agh.AllParentAffId, ',') f
-			WHERE c.ProductId = 0
-			GROUP BY c.MonthDate, f.val
+				INNER JOIN dbo.AffGroupHistory af WITH(NOLOCK) ON f.val = af.Affid AND af.MonthDate = agh.MonthDate
+				INNER JOIN dbo.CommGroupHistory cgh WITH(NOLOCK) ON cgh.GroupId = af.Groupid AND cgh.MonthDate = agh.MonthDate
+			WHERE agh.MonthDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
+		),CTE_SubCommRate AS
+		(
+			SELECT t.MonthDate, t.SubAffId, t.AffId, n.SubCommRate, t.Level
+			FROM CTE_SubCommRateDirect t
+			CROSS APPLY (
+				SELECT EXP(SUM(LOG(t1.SubCommRate))) AS SubCommRate
+				FROM CTE_SubCommRateDirect t1
+				WHERE t1.SubAffId = t.SubAffId AND t.Level >= t1.Level AND t.MonthDate = t1.MonthDate
+			) AS n
+		),CTE_SubAffCommission AS
+		(
+			SELECT s.MonthDate, s.AffId, SUM(CASE WHEN s.Level <= @MaxSubAff THEN s.SubCommRate * (c.Commission + c.StraightCommission) ELSE 0 END) AS SubAffCommission
+			FROM #Commission c 
+				INNER JOIN CTE_SubCommRate s ON s.SubAffId = c.AffId AND s.MonthDate = c.MonthDate
+			WHERE ProductId = 0
+			GROUP BY s.MonthDate, s.AffId
 		)
 		UPDATE c
 		SET c.SubAffCommission = s.SubAffCommission
