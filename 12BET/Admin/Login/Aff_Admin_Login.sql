@@ -19,17 +19,18 @@ AS
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20210506@Malcolm: Raise error when account is closed [RedmineId : #152449]
+		- 20230523@Eddie: Fix returned error message [RedmineId : #188593]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @LogData NVARCHAR(MAX)
-	DECLARE @FailedCount INT
+	DECLARE @FailedCount INT = 0
 
 	IF ISNULL(@UserName, '') = '' OR ISNULL(@UserPwd, '') = ''
 	BEGIN
-		SELECT @LogData = @LogData + 'Failed(User_Not_Found)'
+		SELECT @LogData = 'Failed(User_Not_Found)'
 	END
 
 	SELECT	@UserId = custid
@@ -44,7 +45,7 @@ BEGIN
 
 	IF ISNULL(@UserId, 0) = 0
 	BEGIN
-		SELECT @LogData = @LogData + 'Failed(User_Not_Found)'
+		SELECT @LogData = 'Failed(User_Not_Found)'
 	END
 
 	IF @LogData IS NOT NULL -- Login Failed
@@ -87,6 +88,11 @@ BEGIN
 		WHERE custid = @UserId
 
 		SET @LogData = 'Success'
+	END
+	
+	IF @ErrCode <> 0
+	BEGIN
+	SELECT @ErrCode, @ErrMsg
 	END
 
 	DECLARE @NewData NVARCHAR(MAX) 
