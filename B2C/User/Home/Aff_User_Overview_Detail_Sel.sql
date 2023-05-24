@@ -19,6 +19,7 @@ AS
 		- 20211105@Percy: Exclude non-deposited player from active players [RedmineID: #164246]
 		- 20220110@Percy: Fix check current date due to different timezone [RedmineID: #167244]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
+		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 */
 
 BEGIN
@@ -40,6 +41,12 @@ BEGIN
 
 	IF @ToNextMonth < DATEADD(DAY, 1, @FromBeginMonth)
 		RETURN
+
+	--Get BaseCurrency mapping
+	DECLARE @BaseExchangeId INT = @BaseCurrency
+	SELECT @BaseExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @BaseCurrency
 
 	DECLARE @Products TABLE (ProductId INT, IsStraightSetting BIT)
 		
@@ -92,7 +99,8 @@ BEGIN
 			,MAX(CASE WHEN r.ProductId > 0 THEN 1 ELSE 0 END)
 		FROM dbo.rptMemberDaily r WITH (NOLOCK)
 			LEFT JOIN @Products p ON r.ProductId = p.ProductId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (r.WinlostDate, r.Currency, @BaseCurrency) e
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (r.WinlostDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
 		WHERE r.WinlostDate BETWEEN @FromBeginMonth AND @ToNextMonth
 			AND r.AffId = @AffId
 			AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)

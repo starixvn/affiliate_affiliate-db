@@ -12,6 +12,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #87923]
 		- 20201026@Percy: Add AffCode [RedmineID: #143852]
 		- 20211005@Percy: Support Transfer Balance For Player [RedmineID: #153227]
+		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 */
 
 BEGIN
@@ -20,7 +21,13 @@ BEGIN
 	DECLARE @AffCurrency INT, @AffCurrencyCode VARCHAR(5)
 	SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
 
-	SELECT  @AffCurrencyCode = Code FROM dbo.Exchange WITH (NOLOCK) WHERE ExchangeId = @AffCurrency
+	---Get affCurrency mapping
+	DECLARE @AffExchangeId INT = @AffCurrency
+	SELECT  @AffExchangeId = t.ExchangeId 
+	FROM dbo.TpExchange t WITH (NOLOCK) 
+	WHERE t.TpExchangeId = @AffCurrency
+
+	SELECT  @AffCurrencyCode = Code FROM dbo.Exchange WITH (NOLOCK) WHERE ExchangeId = @AffExchangeId
 
 	SELECT
 		ai.AffId,

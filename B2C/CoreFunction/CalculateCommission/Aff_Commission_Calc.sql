@@ -20,6 +20,7 @@ AS
 		- 20210714@Percy: Calculate P2P Fee [RedmineID: #157958]
 		- 20210916@Percy: Use Exchange function [RedmineID: #161540]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
+		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 */
 
 BEGIN
@@ -37,8 +38,22 @@ BEGIN
 	DECLARE @AffCurrency INT
 	SELECT  @AffCurrency = dbo.Aff_f_GetSetting('AffCurrency')
 
+	-- AffCurrency Mapping
+	DECLARE @AffExchangeId INT = @AffCurrency
+	SELECT  @AffExchangeId = tp.ExchangeId
+	FROM dbo.TpExchange tp WITH (NOLOCK)
+	WHERE tp.TpExchangeId = @AffCurrency
+
+	-- Get BaseCurrency mapping
+	DECLARE @BaseExchangeId INT = @BaseCurrency
 	IF @BaseCurrency = 0
-		SET @BaseCurrency = @AffCurrency
+		SET @BaseExchangeId = @AffExchangeId
+	ELSE
+	BEGIN
+		SELECT @BaseExchangeId = tp.ExchangeId
+		FROM dbo.TpExchange tp WITH (NOLOCK)
+		WHERE tp.TpExchangeId = @BaseCurrency
+	END 
 
 	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME)
 	
@@ -58,7 +73,7 @@ BEGIN
 	INSERT INTO #ExchangeOanda (MonthDate, Rate)
 	SELECT m.MonthDate, e.Rate
 	FROM @MonthDate m
-		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(m.MonthDate, @AffCurrency, @BaseCurrency) e
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(m.MonthDate, @AffExchangeId, @BaseExchangeId) e
 
 	CREATE TABLE #Commission
 	(

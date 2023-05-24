@@ -18,6 +18,8 @@ AS
 		- 20210714@Percy: Include P2P Earning into Monthly Earning [RedmineID: #157958]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20230130@Malcolm: Correct the total number of output lines [RedmineId: #181455]
+		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+
 */
 
 BEGIN
@@ -29,6 +31,12 @@ BEGIN
 	WHERE SName = 'MaxSubLevel'
 
 	SELECT @MaxSubLevel = ISNULL(@MaxSubLevel, 0)
+
+	--Get Base currency mapping
+	DECLARE @BaseExchangeId INT = @BaseCurrency
+	SELECT @BaseExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @BaseCurrency
 
 	IF EXISTS (
 		SELECT 1
@@ -70,7 +78,8 @@ BEGIN
 			CASE at.TransType WHEN 202 THEN ap.AffDesc WHEN 203 THEN '' ELSE at.Description END AS Description
 		FROM dbo.AffTrans at WITH (NOLOCK)
 			LEFT JOIN dbo.AffPayout ap WITH (NOLOCK) ON at.RefID = ap.RefID AND at.TransType = 202
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, at.AffCurrency, @BaseCurrency) e
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
 		WHERE at.AffId = @AffId
 			AND at.TransType IN (202, 203)
 	END
@@ -121,7 +130,8 @@ BEGIN
 					OUTER APPLY (
 						SELECT at.TransType, at.Amount * e.Rate AS Amount
 						FROM dbo.AffTrans at WITH (NOLOCK)
-						CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, at.AffCurrency, @BaseCurrency) e
+							LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId 
+							CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
 						WHERE md.MonthDate = at.TransDate
 							AND at.AffId = @AffId
 							AND at.TransType IN (201, 204, 205)

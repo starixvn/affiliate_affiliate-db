@@ -22,10 +22,17 @@ AS
 
 	Revisions:
 		- 20211005@Percy: Initialize SP [RedmineID: #153227]
+		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 */
 
 BEGIN
 	SET NOCOUNT ON
+
+	--Get base currency mapping
+	DECLARE @BaseExchangeId INT = @BaseCurrency
+	SELECT @BaseExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @BaseCurrency
 
 	SELECT @AffId = ISNULL(@AffId, 0), @AffName = ISNULL(@AffName, ''), @PlayerName = ISNULL(@PlayerName, '')
 		,@TransId = ISNULL(@TransId, 0)
@@ -60,7 +67,8 @@ BEGIN
 	UPDATE t
 	SET t.BasedAmount = t.Amount * e.Rate
 	FROM #tmpData t
-		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(t.TransTime, t.Currency, @BaseCurrency) e
+		LEFT JOIN dbo.TpExchange tp WITH (NOLOCK) ON t.Currency = tp.TpExchangeId
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(t.TransTime, ISNULL(tp.ExchangeId, t.Currency), @BaseExchangeId) e
 
 	SELECT @NRows = COUNT(1), @TotalBasedAmount = SUM(BasedAmount), @TotalAffPlayerAmount = SUM(AffPlayerAmount) FROM #tmpData
 	

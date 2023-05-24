@@ -23,6 +23,7 @@ AS
 		- 20210819@Percy: Return FirstDepositDate column [RedmineID: #160406]
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
+		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -47,6 +48,12 @@ BEGIN
 	DECLARE @BeginOfMonth SMALLDATETIME, @EndOfMonth SMALLDATETIME
 	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
+
+	--Get base currency mapping
+	DECLARE @BaseExchangeId INT = @BaseCurrency
+	SELECT @BaseExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @BaseCurrency
 
 	CREATE TABLE #tmpData (CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, GGR MONEY, Bonus MONEY, Rebate MONEY)
 
@@ -81,7 +88,8 @@ BEGIN
 			,SUM(r.Rebate * e.Rate)
 		FROM dbo.rptMemberDaily r WITH (NOLOCK)
 			LEFT JOIN @Products p ON r.ProductId = p.ProductId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (r.WinlostDate, r.Currency, @BaseCurrency) e
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (r.WinlostDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
 		WHERE r.WinlostDate BETWEEN @BeginOfMonth AND @EndOfMonth
 			AND r.AffId = @AffId
 			AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
@@ -115,7 +123,12 @@ BEGIN
 	BEGIN
 		DECLARE @AffCurrency INT, @Rate FLOAT
 		SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
-		SELECT  @Rate = Rate FROM dbo.Aff_f_ExchangeRate_Sel(@EndOfMonth, @AffCurrency, @BaseCurrency)
+		---Get currency mapping
+		SELECT @AffCurrency = t.ExchangeId
+		FROM dbo.TpExchange t WITH (NOLOCK)
+		WHERE t.TpExchangeId = @AffCurrency
+
+		SELECT  @Rate = Rate FROM dbo.Aff_f_ExchangeRate_Sel(@EndOfMonth, @AffCurrency, @BaseExchangeId)
 
 		SELECT  @DepositAmount = @DepositAmount * @Rate
 				,@WithdrawalAmount = @WithdrawalAmount * @Rate

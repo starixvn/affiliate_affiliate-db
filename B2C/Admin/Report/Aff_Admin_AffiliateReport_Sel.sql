@@ -34,6 +34,7 @@ AS
 		- 20220315@Malcolm: convert BF to base currency [RedmineID: #161540]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
+		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -43,6 +44,12 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
+
+	--Get base currency mapping
+	DECLARE @BaseExchangeId INT = @BaseCurrency
+	SELECT @BaseExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @BaseCurrency
 
 	IF @FromDate IS NULL OR @ToDate IS NULL
 		RETURN
@@ -270,7 +277,8 @@ BEGIN
 			SUM((CASE WHEN at.TransType = 203 AND at.TransDate >= @FromDate THEN at.Amount ELSE 0 END) * e.Rate) AS AffAdjustment,
 			SUM(Amount * e.Rate) AS BFF
 		FROM dbo.AffTrans at WITH (NOLOCK)
-		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, at.AffCurrency, @BaseCurrency) e
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
 		WHERE TransDate < DATEADD(DAY, 1, @ToDate)
 			AND Status IN ('Pending', 'Approved', 'Completed')
 		GROUP BY AffId
