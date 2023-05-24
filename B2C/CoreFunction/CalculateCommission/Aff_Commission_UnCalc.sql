@@ -31,6 +31,10 @@ AS
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 		- 20230404@Malcolm: calculate sub commission monthly [RedmineID: #185481]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+
+	Param's Explanation:
+		- @BaseCurrency : Currency of B2C
+		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
 */
 
 BEGIN
@@ -71,7 +75,7 @@ BEGIN
 	DECLARE @AffCurrency INT
 	SELECT  @AffCurrency = dbo.Aff_f_GetSetting('AffCurrency')
 
-	-- AffCurrency Mapping
+	-- Get affcurrency mapping
 	DECLARE @AffExchangeId INT = @AffCurrency
 	SELECT  @AffExchangeId = tp.ExchangeId
 	FROM dbo.TpExchange tp WITH (NOLOCK)
@@ -661,6 +665,15 @@ BEGIN
 		-- Filter by Currencies
 		IF @Currencies <> ''
 		BEGIN
+			--Get list currencies maping
+			DECLARE @ListCurrencies VARCHAR(MAX) = ''
+			SELECT @ListCurrencies = COALESCE(@ListCurrencies + ',', '') + CONVERT(VARCHAR(20), t.TpExchangeId)
+			FROM string_split(@Currencies, ',') f
+				CROSS APPLY(
+					SELECT TpExchangeId
+					FROM dbo.Aff_f_TpExchange_Sel(f.value)
+				)t
+
 			UPDATE c
 			SET c.Turnover	= ISNULL(d.Turnover, 0)
 				,c.Winloss	= ISNULL(d.Winloss, 0)
@@ -673,7 +686,7 @@ BEGIN
 						,SUM(Revenue)	AS Revenue
 					FROM #Data
 					WHERE ProductId > 0
-						AND ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), Currency) + ',%'
+						AND ',' + @ListCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), Currency) + ',%'
 					GROUP BY MonthDate, AffId, ProductId
 				) d ON c.MonthDate = d.MonthDate AND c.AffId = d.AffId AND c.ProductId = d.ProductId
 			WHERE c.ProductId > 0

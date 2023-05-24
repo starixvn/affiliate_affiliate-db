@@ -21,6 +21,10 @@ AS
 		- 20210916@Percy: Use Exchange function [RedmineID: #161540]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+
+	Param's Explanation:
+		- @BaseCurrency : Currency of B2C
+
 */
 
 BEGIN

@@ -20,6 +20,10 @@ AS
 		- 20220110@Percy: Fix check current date due to different timezone [RedmineID: #167244]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+
+	Param's Explanation:
+		. @BaseCurrency : Currency of B2C
+
 */
 
 BEGIN
@@ -41,8 +45,8 @@ BEGIN
 
 	IF @ToNextMonth < DATEADD(DAY, 1, @FromBeginMonth)
 		RETURN
-
-	--Get BaseCurrency mapping
+	
+	-- Get basecurrency mapping
 	DECLARE @BaseExchangeId INT = @BaseCurrency
 	SELECT @BaseExchangeId = t.ExchangeId
 	FROM dbo.TpExchange t WITH (NOLOCK)

@@ -18,6 +18,10 @@ AS
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210916@Percy: Change Base Currency ID of THB, IDR [RedmineID: #161540]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+
+	Param's Explanation:
+		- @BaseCurrency : Currency of maindb
+
 */
 
 RETURN

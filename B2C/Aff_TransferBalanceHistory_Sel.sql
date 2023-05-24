@@ -23,12 +23,16 @@ AS
 	Revisions:
 		- 20211005@Percy: Initialize SP [RedmineID: #153227]
 		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+
+	Param's Explanation:
+		- @BaseCurrency : Currency of B2C
+
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	--Get base currency mapping
+	-- Get basecurrency mapping
 	DECLARE @BaseExchangeId INT = @BaseCurrency
 	SELECT @BaseExchangeId = t.ExchangeId
 	FROM dbo.TpExchange t WITH (NOLOCK)
@@ -38,7 +42,7 @@ BEGIN
 		,@TransId = ISNULL(@TransId, 0)
 		,@FromDate = CONVERT(DATE, @FromDate), @ToDate = CONVERT(DATE, @ToDate) -- get date only
 		,@IsExportExcel = ISNULL(@IsExportExcel, 0)
-
+	
 	IF @AffId <> 0
 		SET @AffName = ''
 

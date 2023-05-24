@@ -34,16 +34,13 @@ AS
 		- @SortType: 1: Month, 2: Turnover, 3: GGR, 4: Earning (Commission)
 		- @SortDirectionType: 0: ASC (ascending), 1: DESC (descending)
 		- @ProductIds: list of products
+		- @BaseCurrency : Currency of B2C
+		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
+
 */
 
 BEGIN
 	SET NOCOUNT ON
-
-	--Get base currency mapping
-	DECLARE @BaseExchangeId INT = @BaseCurrency
-	SELECT @BaseExchangeId = t.ExchangeId
-	FROM dbo.TpExchange t WITH (NOLOCK)
-	WHERE t.TpExchangeId = @BaseCurrency
 
 	SELECT  @Username = ISNULL(LTRIM(RTRIM(@Username)), '')
 
@@ -99,6 +96,12 @@ BEGIN
 	SELECT  @MaxCommDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
 	DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
+
+	-- Get basecurrency mapping
+	DECLARE @BaseExchangeId INT = @BaseCurrency
+	SELECT @BaseExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @BaseCurrency
 
 	/*
 		===== Get data =====

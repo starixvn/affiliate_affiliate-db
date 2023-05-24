@@ -21,21 +21,26 @@ AS
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+
+	Param's Explanation:
+		- @BaseCurrency : Currency of B2C
+		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
+
 */
 
 BEGIN
 	SET NOCOUNT ON
+	
+	-- Get basecurrency mapping
+	DECLARE @BaseExchangeId INT = @BaseCurrency
+	SELECT @BaseExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @BaseCurrency
 
 	-- date range for get data whole month of @MonthDate
 	DECLARE @BeginOfMonth SMALLDATETIME, @EndOfMonth SMALLDATETIME
 	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
-
-	--Get base currency mapping
-	DECLARE @BaseExchangeId INT = @BaseCurrency
-	SELECT @BaseExchangeId = t.ExchangeId
-	FROM dbo.TpExchange t WITH (NOLOCK)
-	WHERE t.TpExchangeId = @BaseCurrency
 
 	-- Get Data
 	BEGIN

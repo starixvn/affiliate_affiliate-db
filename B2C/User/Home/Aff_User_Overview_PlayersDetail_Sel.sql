@@ -39,6 +39,7 @@ AS
 					   11 = First Deposit Date
 		- @IsSortAsc:	0 = DESC
 						1 = ASC
+		- @BaseCurrency : Currency of B2C
 */
 
 BEGIN
@@ -49,7 +50,7 @@ BEGIN
 	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
 
-	--Get base currency mapping
+	-- Get basecurrency mapping
 	DECLARE @BaseExchangeId INT = @BaseCurrency
 	SELECT @BaseExchangeId = t.ExchangeId
 	FROM dbo.TpExchange t WITH (NOLOCK)
@@ -122,13 +123,14 @@ BEGIN
 	IF @BaseCurrency <> 0
 	BEGIN
 		DECLARE @AffCurrency INT, @Rate FLOAT
-		SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
-		---Get currency mapping
-		SELECT @AffCurrency = t.ExchangeId
-		FROM dbo.TpExchange t WITH (NOLOCK)
-		WHERE t.TpExchangeId = @AffCurrency
+		SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'		
+		-- Get affcurrency mapping
+		DECLARE @AffExchangeId INT = @AffCurrency
+		SELECT  @AffExchangeId = tp.ExchangeId
+		FROM dbo.TpExchange tp WITH (NOLOCK)
+		WHERE tp.TpExchangeId = @AffCurrency
 
-		SELECT  @Rate = Rate FROM dbo.Aff_f_ExchangeRate_Sel(@EndOfMonth, @AffCurrency, @BaseExchangeId)
+		SELECT  @Rate = Rate FROM dbo.Aff_f_ExchangeRate_Sel(@EndOfMonth, @AffExchangeId, @BaseExchangeId)
 
 		SELECT  @DepositAmount = @DepositAmount * @Rate
 				,@WithdrawalAmount = @WithdrawalAmount * @Rate

@@ -56,7 +56,7 @@ BEGIN
 			,@Status		= ai.STATUS
 	FROM AffInfo ai WITH (NOLOCK)
 		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON ai.Currency = t.TpExchangeId
-		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@currentDate, ISNULL(T.ExchangeId, ai.Currency), 0) e
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@currentDate, ISNULL(t.ExchangeId, ai.Currency), 0) e
 	WHERE ai.AffID = @AffID
 
 	IF @@ROWCOUNT = 0

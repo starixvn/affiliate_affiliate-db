@@ -61,6 +61,7 @@ AS
 		- 20200107@Percy: Add suspended status [RedmineID: #148373]
 		- 20201215@Percy: Add AffMediaLink [RedmineID: #146201]
 		- 20210223@Percy: Do not update ApprovedDate if change from Suspended [RedmineID: #150493]
+		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 */
 
 BEGIN
@@ -442,10 +443,16 @@ BEGIN
 			RETURN
 		END
 
-		DECLARE @Player_CurrencyName NVARCHAR(50), @Player_CurrencyCode VARCHAR(3)
-		SELECT  @Player_CurrencyName = currency, @Player_CurrencyCode = CASE WHEN ExchangeId = 20 THEN 'UUS' ELSE Code END
-		FROM bodb02.dbo.Exchange WITH (NOLOCK)
-		WHERE ExchangeId = @Player_Currency
+		DECLARE @Player_CurrencyName NVARCHAR(50), @Player_CurrencyCode VARCHAR(3),  @Player_ExchangeId INT = @Player_Currency
+
+		---Get player currency mapping
+		SELECT @Player_ExchangeId = t.ExchangeId
+		FROM dbo.TpExchange t WITH (NOLOCK)
+		WHERE t.TpExchangeId = @Player_Currency
+
+		SELECT  @Player_CurrencyName = currency, @Player_CurrencyCode = CASE WHEN e.ExchangeId = 20 THEN 'UUS' ELSE Code END
+		FROM bodb02.dbo.Exchange e WITH (NOLOCK)
+		WHERE e.ExchangeId = @Player_ExchangeId
 
 		BEGIN TRY
 			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)

@@ -45,6 +45,8 @@ AS
 					   13 = First Deposit Amount
 		- @IsSortAsc:	0 = DESC
 						1 = ASC
+		- @BaseCurrency : Currency of B2C
+		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
 */
 
 BEGIN
@@ -55,12 +57,21 @@ BEGIN
 	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
 
-	--Get base currency mapping
+	-- Get basecurrency mapping
 	DECLARE @BaseExchangeId INT = @BaseCurrency
 	SELECT @BaseExchangeId = t.ExchangeId
 	FROM dbo.TpExchange t WITH (NOLOCK)
 	WHERE t.TpExchangeId = @BaseCurrency
 
+	--Get list currencies maping
+	DECLARE @ListCurrencies	VARCHAR(MAX) = ''
+	SELECT @ListCurrencies = COALESCE(@ListCurrencies + ',', '') + CONVERT(VARCHAR(20), t.TpExchangeId)
+	FROM string_split(@Currencies, ',') f
+		CROSS APPLY(
+			SELECT TpExchangeId
+			FROM dbo.Aff_f_TpExchange_Sel(f.value)
+		)t
+	
 	CREATE TABLE #tmpData (CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, GGR MONEY, Bonus MONEY, Rebate MONEY)
 
 	DECLARE @Products TABLE (ProductId INT, IsStraightSetting BIT)
@@ -115,7 +126,7 @@ BEGIN
 				SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
 				WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate 
 			)
-			AND (@Currencies = '' OR ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
+			AND (@ListCurrencies = '' OR ',' + @ListCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
 		GROUP BY r.CustId
 
 		DELETE #tmpData WHERE Deposit = 0 AND Withdrawal = 0 AND Bonus = 0 AND Rebate = 0 AND Turnover = 0 AND GGR = 0
@@ -145,12 +156,15 @@ BEGIN
 			IF @BaseCurrency <> 0
 			BEGIN
 				DECLARE @AffCurrency INT, @Rate FLOAT
-				SELECT  @AffCurrency = ISNULL(t.ExchangeId, CONVERT(INT,s.SValue)) 
-				FROM dbo.SystemSettings s WITH (NOLOCK)
-					LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON CONVERT(INT,s.SValue) = t.TpExchangeId
-				WHERE SName = 'AffCurrency'
+				SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
 
-				SELECT  @Rate = Rate FROM dbo.Aff_f_ExchangeRate_Sel(@EndOfMonth, @AffCurrency, @BaseExchangeId)
+				--Get AffCurrency mapping
+				DECLARE @AffExchangeId INT = @AffCurrency
+				SELECT @AffExchangeId = t.ExchangeId
+				FROM dbo.TpExchange t WITH (NOLOCK)
+				WHERE t.TpExchangeId = @AffCurrency
+
+				SELECT  @Rate = Rate FROM dbo.Aff_f_ExchangeRate_Sel(@EndOfMonth, @AffExchangeId, @BaseExchangeId)
 			
 				SELECT  @DepositAmount = @DepositAmount * @Rate
 						,@WithdrawalAmount = @WithdrawalAmount * @Rate

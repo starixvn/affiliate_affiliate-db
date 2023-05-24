@@ -24,6 +24,7 @@ AS
 
 	Param's Explanation:
 		- @ProductIds: list of products, '' = no product
+		- @BaseCurrency : Currency of B2C
 */
 
 BEGIN
@@ -33,7 +34,7 @@ BEGIN
 
 	DECLARE @LastDayOfToDate SMALLDATETIME = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0))
 
-	--Get base currency mapping
+	-- Get basecurrency mapping
 	DECLARE @BaseExchangeId INT = @BaseCurrency
 	SELECT @BaseExchangeId = t.ExchangeId
 	FROM dbo.TpExchange t WITH (NOLOCK)

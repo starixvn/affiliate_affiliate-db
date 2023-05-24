@@ -21,11 +21,11 @@ BEGIN
 	DECLARE @AffCurrency INT, @AffCurrencyCode VARCHAR(5)
 	SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
 
-	---Get affCurrency mapping
+	-- Get affcurrency mapping
 	DECLARE @AffExchangeId INT = @AffCurrency
-	SELECT  @AffExchangeId = t.ExchangeId 
-	FROM dbo.TpExchange t WITH (NOLOCK) 
-	WHERE t.TpExchangeId = @AffCurrency
+	SELECT  @AffExchangeId = tp.ExchangeId
+	FROM dbo.TpExchange tp WITH (NOLOCK)
+	WHERE tp.TpExchangeId = @AffCurrency
 
 	SELECT  @AffCurrencyCode = Code FROM dbo.Exchange WITH (NOLOCK) WHERE ExchangeId = @AffExchangeId
 

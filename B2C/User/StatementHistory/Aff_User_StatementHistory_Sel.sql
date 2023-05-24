@@ -20,6 +20,9 @@ AS
 		- 20230130@Malcolm: Correct the total number of output lines [RedmineId: #181455]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 
+	Param's Explanation:
+		- @BaseCurrency : Currency of B2C
+
 */
 
 BEGIN
