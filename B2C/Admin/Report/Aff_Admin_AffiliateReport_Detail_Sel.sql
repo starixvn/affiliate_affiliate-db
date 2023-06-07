@@ -28,16 +28,20 @@ AS
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
+		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: GGR, 4: Earning (Commission)
 		- @SortDirectionType: 0: ASC (ascending), 1: DESC (descending)
 		- @ProductIds: list of products
+		- @BaseCurrency : Currency of B2C
+		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
+
 */
 
 BEGIN
 	SET NOCOUNT ON
-	
+
 	SELECT  @Username = ISNULL(LTRIM(RTRIM(@Username)), '')
 
 	DECLARE @AffId INT
@@ -92,6 +96,12 @@ BEGIN
 	SELECT  @MaxCommDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
 	DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
+
+	-- Get basecurrency mapping
+	DECLARE @BaseExchangeId INT = @BaseCurrency
+	SELECT @BaseExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @BaseCurrency
 
 	/*
 		===== Get data =====
@@ -315,7 +325,8 @@ BEGIN
 				SUM(CASE WHEN at.TransType = 203 AND at.TransDate >= @FromDate THEN at.Amount * e.Rate ELSE 0 END) AS AffAdjustment,
 				SUM(at.Amount * e.Rate) AS BFF
 			FROM dbo.AffTrans at WITH (NOLOCK)
-				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, at.AffCurrency, @BaseCurrency) e
+				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
 			WHERE at.AffId = @AffId
 				AND at.TransDate < DATEADD(DAY, 1, @ToDate)
 				AND at.Status IN ('Pending', 'Approved', 'Completed')

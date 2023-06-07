@@ -34,11 +34,15 @@ AS
 		- 20220315@Malcolm: convert BF to base currency [RedmineID: #161540]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
+		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
 		- @SortDirectionType: 0: ASC (ascending), 1: DESC (descending)
 		- @ProductIds: list of products
+		- @BaseCurrency : Currency of B2C
+		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
+		- @PaymentCurrencies : Currency of B2C, 72: represent for USD( currency 72, 3)
 */
 
 BEGIN
@@ -80,6 +84,21 @@ BEGIN
 	SELECT  @MaxCommDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
 	DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
+
+	-- Get basecurrency mapping
+	DECLARE @BaseExchangeId INT = @BaseCurrency
+	SELECT @BaseExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @BaseCurrency
+
+	--Get list payment currency mapping TpExchange
+	DECLARE @ListPaymentCurrencies	VARCHAR(MAX) = ''
+	SELECT @ListPaymentCurrencies = COALESCE(@ListPaymentCurrencies + ',', '') + CONVERT(VARCHAR(20), t.TpExchangeId)
+	FROM string_split(@PaymentCurrencies, ',') f
+		CROSS APPLY(
+			SELECT TpExchangeId
+			FROM dbo.Aff_f_TpExchange_Sel(f.value)
+		)t
 
 	/*
 		===== Get data =====
@@ -270,7 +289,8 @@ BEGIN
 			SUM((CASE WHEN at.TransType = 203 AND at.TransDate >= @FromDate THEN at.Amount ELSE 0 END) * e.Rate) AS AffAdjustment,
 			SUM(Amount * e.Rate) AS BFF
 		FROM dbo.AffTrans at WITH (NOLOCK)
-		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, at.AffCurrency, @BaseCurrency) e
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
 		WHERE TransDate < DATEADD(DAY, 1, @ToDate)
 			AND Status IN ('Pending', 'Approved', 'Completed')
 		GROUP BY AffId
@@ -418,7 +438,7 @@ BEGIN
 		WHERE ai.Status = 'Approved'
 			AND ai.Username LIKE '%' + @Username + '%'
 			AND (@PreferredLanguage = '' OR ad.PreferredLanguage = @PreferredLanguage)
-			AND ',' + @PaymentCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(20), ad.Player_Currency) + ',%'
+			AND ',' + @ListPaymentCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(20), ad.Player_Currency) + ',%'
 			AND (
 				@GroupIds = 'all'
 				OR EXISTS (

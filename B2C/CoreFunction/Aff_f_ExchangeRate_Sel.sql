@@ -17,6 +17,11 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210916@Percy: Change Base Currency ID of THB, IDR [RedmineID: #161540]
+		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+
+	Param's Explanation:
+		- @BaseCurrency : Currency of maindb
+
 */
 
 RETURN
@@ -25,8 +30,9 @@ RETURN
 		SELECT @ExchangeId AS ExchangeId, CONVERT(SMALLDATETIME, DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ExchangeDate) + 1, 0))) AS ExchangeDate
 	), CTE_BaseCurrency AS
 	(
-		SELECT @ExchangeId AS ExchangeId, CASE WHEN @BaseCurrency = 0 THEN CONVERT(INT, SValue) ELSE @BaseCurrency END AS BaseCurrency
-		FROM dbo.SystemSettings WITH (NOLOCK)
+		SELECT @ExchangeId AS ExchangeId, CASE WHEN @BaseCurrency = 0 THEN ISNULL(t.ExchangeId, CONVERT(INT, SValue)) ELSE @BaseCurrency END AS BaseCurrency
+		FROM dbo.SystemSettings s WITH (NOLOCK)
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON CONVERT(INT, SValue) = t.TpExchangeId
 		WHERE SName = 'AffCurrency'
 	)
 	SELECT e.ExchangeDate, e.ExchangeId, e.Code,

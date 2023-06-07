@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 */
 
 BEGIN
@@ -36,7 +37,8 @@ BEGIN
 		,ap.AffDesc
 	FROM dbo.AffTrans at WITH (NOLOCK)
 		INNER JOIN dbo.AffPayout ap WITH (NOLOCK) ON at.RefID = ap.RefID
-		INNER JOIN dbo.Exchange e WITH (NOLOCK) ON ap.Player_Currency = e.ExchangeId
+		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON ap.Player_Currency = t.TpExchangeId
+		INNER JOIN dbo.Exchange e WITH (NOLOCK) ON ISNULL(t.ExchangeId, ap.Player_Currency) = e.ExchangeId
 		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON at.AffID = ai.AffID
 		LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON at.creator = au.custid
 	WHERE at.TransId = @TransId

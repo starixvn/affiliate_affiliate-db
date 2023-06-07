@@ -20,6 +20,12 @@ AS
 		- 20210714@Percy: Show TO, WL = 0 for P2P Products [RedmineID: #157958]
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
+		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+
+	Param's Explanation:
+		- @BaseCurrency : Currency of B2C
+		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
+
 */
 
 BEGIN
@@ -27,6 +33,21 @@ BEGIN
 
 	DECLARE @EndOfMonth SMALLDATETIME
 	SELECT  @EndOfMonth = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate) + 1, 0))
+
+	-- Get basecurrency mapping
+	DECLARE @BaseExchangeId INT = @BaseCurrency
+	SELECT @BaseExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @BaseCurrency
+
+	--List list currencies maping
+	DECLARE @ListCurrencies	VARCHAR(MAX) = ''
+	SELECT @ListCurrencies = COALESCE(@ListCurrencies + ',', '') + CONVERT(VARCHAR(20), t.TpExchangeId)
+	FROM string_split(@Currencies, ',') f
+		CROSS APPLY(
+			SELECT TpExchangeId
+			FROM dbo.Aff_f_TpExchange_Sel(f.value)
+		)t
 
 	-- Get Data
 	BEGIN
@@ -63,7 +84,8 @@ BEGIN
 								ELSE -(r.Winloss - ISNULL(r.ProgressiveWin, 0)) - ISNULL(r.ProgressiveBet, 0) END * e.Rate, 0)) AS GGR
 			FROM dbo.rptMemberDaily r WITH (NOLOCK)
 				LEFT JOIN @Products p ON r.ProductId = p.ProductId
-				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, r.Currency, @BaseCurrency) e
+				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.currency = t.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
 			WHERE r.AffId = @AffId
 				AND r.WinlostDate = @MonthDate
 				AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
@@ -71,7 +93,7 @@ BEGIN
 					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 					WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
 				)
-				AND (@Currencies = '' OR ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
+				AND (@ListCurrencies = '' OR ',' + @ListCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
 			GROUP BY r.CustId
 		) r
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON r.CustId = mi.CustId

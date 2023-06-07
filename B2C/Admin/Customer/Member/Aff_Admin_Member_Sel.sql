@@ -18,6 +18,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
+		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 	
 	Param's Explanation:
 		@MemberType:
@@ -75,7 +76,8 @@ BEGIN
 		SELECT mi.CustId, mi.UserName, mi.FirstName, mi.LastName, mi.Email, e.Currency, mi.RegisteredDate,
 			ROW_NUMBER() OVER(ORDER BY mi.RegisteredDate DESC) AS RowNum
 		FROM #MemberInfo mi
-			LEFT JOIN bodb02.dbo.Exchange e WITH (NOLOCK) ON mi.Currency = e.ExchangeID
+			LEFT JOIN TpExchange t WITH (NOLOCK) ON t.TpExchangeId = mi.Currency
+			LEFT JOIN bodb02.dbo.Exchange e WITH (NOLOCK) ON ISNULL(t.ExchangeId, mi.Currency) = e.ExchangeID
 	) AS result
 	WHERE RowNum BETWEEN @RowStart AND @RowEnd
 

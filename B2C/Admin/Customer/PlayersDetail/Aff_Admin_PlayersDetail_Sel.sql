@@ -1,5 +1,5 @@
 /*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-ALTER PROCEDURE [dbo].[Aff_Admin_PlayersDetail_Sel]
+AlTER PROCEDURE [dbo].[Aff_Admin_PlayersDetail_Sel]
 	@AffId			INT
 	,@ProductId		INT = 0
 	,@MonthDate		SMALLDATETIME
@@ -27,6 +27,7 @@ AS
 		- 20210819@Percy: Return FirstDepositDate, FirstDepositAmount columns [RedmineID: #160406]
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
+		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -44,6 +45,8 @@ AS
 					   13 = First Deposit Amount
 		- @IsSortAsc:	0 = DESC
 						1 = ASC
+		- @BaseCurrency : Currency of B2C
+		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
 */
 
 BEGIN
@@ -54,6 +57,21 @@ BEGIN
 	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
 
+	-- Get basecurrency mapping
+	DECLARE @BaseExchangeId INT = @BaseCurrency
+	SELECT @BaseExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @BaseCurrency
+
+	--Get list currencies maping
+	DECLARE @ListCurrencies	VARCHAR(MAX) = ''
+	SELECT @ListCurrencies = COALESCE(@ListCurrencies + ',', '') + CONVERT(VARCHAR(20), t.TpExchangeId)
+	FROM string_split(@Currencies, ',') f
+		CROSS APPLY(
+			SELECT TpExchangeId
+			FROM dbo.Aff_f_TpExchange_Sel(f.value)
+		)t
+	
 	CREATE TABLE #tmpData (CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, GGR MONEY, Bonus MONEY, Rebate MONEY)
 
 	DECLARE @Products TABLE (ProductId INT, IsStraightSetting BIT)
@@ -99,7 +117,8 @@ BEGIN
 							ELSE -(r.Winloss - ISNULL(ProgressiveWin, 0)) - ISNULL(ProgressiveBet, 0) END * e.Rate, 0)) AS GGR
 		FROM dbo.rptMemberDaily r WITH (NOLOCK)
 			LEFT JOIN @Products p ON r.ProductId = p.ProductId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, r.Currency, @BaseCurrency) e
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, ISNULL(T.ExchangeId,r.Currency), @BaseExchangeId) e
 		WHERE r.WinlostDate BETWEEN @BeginOfMonth AND @EndOfMonth
 			AND r.AffId = @AffId
 			AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
@@ -107,7 +126,7 @@ BEGIN
 				SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
 				WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate 
 			)
-			AND (@Currencies = '' OR ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
+			AND (@ListCurrencies = '' OR ',' + @ListCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
 		GROUP BY r.CustId
 
 		DELETE #tmpData WHERE Deposit = 0 AND Withdrawal = 0 AND Bonus = 0 AND Rebate = 0 AND Turnover = 0 AND GGR = 0
@@ -138,8 +157,15 @@ BEGIN
 			BEGIN
 				DECLARE @AffCurrency INT, @Rate FLOAT
 				SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
-				SELECT  @Rate = Rate FROM dbo.Aff_f_ExchangeRate_Sel(@EndOfMonth, @AffCurrency, @BaseCurrency)
 
+				--Get AffCurrency mapping
+				DECLARE @AffExchangeId INT = @AffCurrency
+				SELECT @AffExchangeId = t.ExchangeId
+				FROM dbo.TpExchange t WITH (NOLOCK)
+				WHERE t.TpExchangeId = @AffCurrency
+
+				SELECT  @Rate = Rate FROM dbo.Aff_f_ExchangeRate_Sel(@EndOfMonth, @AffExchangeId, @BaseExchangeId)
+			
 				SELECT  @DepositAmount = @DepositAmount * @Rate
 						,@WithdrawalAmount = @WithdrawalAmount * @Rate
 			END
@@ -203,7 +229,8 @@ BEGIN
 			) AS RN
 		FROM #tmpData d
 			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId
-			OUTER APPLY dbo.Aff_f_ExchangeRate_Sel(m.FirstDepositDate, m.currency, @BaseCurrency) e
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON m.currency = t.TpExchangeId
+			OUTER APPLY dbo.Aff_f_ExchangeRate_Sel(m.FirstDepositDate, ISNULL(t.ExchangeId, m.currency), @BaseExchangeId) e
 	) r
 	WHERE r.RN BETWEEN @RowStart AND @RowEnd
 	ORDER BY r.RN

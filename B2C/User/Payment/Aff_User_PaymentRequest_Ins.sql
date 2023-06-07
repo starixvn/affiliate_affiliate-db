@@ -16,6 +16,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initiliaze SP [RedmineID: #128775]
+		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 */
 
 BEGIN
@@ -64,8 +65,10 @@ BEGIN
 		,@Player_Currency		INT
 		,@Player_CurrencyName	NVARCHAR(50)
 		,@Player_CurrencyCode	VARCHAR(3)
+		,@Player_ExchangeId		INT
 		,@AffCurrency			INT
 		,@AffCurrencyName		VARCHAR(50)
+		,@AffExchangeId			INT
 		,@AffRate				FLOAT
 		,@MinAmount				MONEY
 		,@AffPayout				MONEY
@@ -78,14 +81,22 @@ BEGIN
 		,@Player_Currency		= ad.Player_Currency
 		,@Player_CurrencyName	= ad.Player_CurrencyName
 		,@Player_CurrencyCode	= ad.Player_CurrencyCode
+		,@Player_ExchangeId		= ad.Player_Currency
 		,@AffCurrency			= ai.Currency
 		,@AffCurrencyName		= ai.CurrencyName
+		,@AffExchangeId			= ISNULL(t.ExchangeId, ai.Currency)
 		,@AffRate				= e.Rate
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
-		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@currentDate, ai.Currency, 0) e
+		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON ai.Currency = t.TpExchangeId
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@currentDate, ISNULL(t.ExchangeId, ai.Currency), 0) e
 	WHERE ai.AffId = @AffId
-	
+
+	---Get Player Currency mapping
+	SELECT @Player_ExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @Player_Currency
+
 	IF ISNULL(@PreferredPayment, '') <> 'Player'
 	BEGIN
 		-- Sorry, only Player Account method is supported. Please contact your Administrator.
@@ -107,11 +118,11 @@ BEGIN
 	DECLARE @TransDate DATETIME, @RefId BIGINT
 	SET @TransDate = GETDATE()
 
-	IF @Player_Currency = 20 -- UUS
+	IF @Player_ExchangeId = 20 -- UUS
 		SELECT @AffPayout = @Amount
 	ELSE
 		SELECT @AffPayout = CASE WHEN Rate = 0 THEN 0 ELSE @Amount / Rate END
-		FROM dbo.Aff_f_ExchangeRate_Sel(@currentDate, @Player_Currency, @AffCurrency)
+		FROM dbo.Aff_f_ExchangeRate_Sel(@currentDate, @Player_ExchangeId, @AffExchangeId)
 
 	BEGIN TRY
 		INSERT INTO dbo.AffPayout(AffId,TransDate,Status,Amount,AffPayout,AffCurrency,AffRate,PreferredPayment,Player_CustId,Player_Username,Player_Currency,Player_CurrencyName,Player_CurrencyCode)

@@ -20,9 +20,11 @@ AS
 	Revisions:
 		- 20210916@Percy: Initialize SP [RedmineID: #161540]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
+		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 
 	Param's Explanation:
 		- @ProductIds: list of products, '' = no product
+		- @BaseCurrency : Currency of B2C
 */
 
 BEGIN
@@ -31,6 +33,12 @@ BEGIN
 	SELECT @AffUsername = ISNULL(@AffUsername, ''), @Username = ISNULL(@Username, '')
 
 	DECLARE @LastDayOfToDate SMALLDATETIME = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0))
+
+	-- Get basecurrency mapping
+	DECLARE @BaseExchangeId INT = @BaseCurrency
+	SELECT @BaseExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @BaseCurrency
 
 	-- Get Affiliate Info
 	DECLARE @AffInfo TABLE (AffId INT PRIMARY KEY, AffUsername VARCHAR(50))
@@ -86,7 +94,8 @@ BEGIN
 	INSERT INTO #Result (AffId, AffUsername, CustId, ProductId, Turnover, GGR)
 	SELECT d.AffId, d.AffUsername, d.CustId, d.ProductId, SUM(d.Turnover * e.Rate), SUM(d.GGR * e.Rate)
 	FROM #tmpData d
-		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(d.WinlostDate, d.Currency, @BaseCurrency) e
+		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON d.Currency = t.TpExchangeId
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(d.WinlostDate, ISNULL(t.ExchangeId, d.Currency), @BaseExchangeId) e
 	GROUP BY d.AffId, d.AffUsername, d.CustId, d.ProductId
 
 	IF @Username <> ''

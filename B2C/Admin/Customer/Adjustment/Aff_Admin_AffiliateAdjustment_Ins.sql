@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 */
 
 BEGIN
@@ -54,7 +55,8 @@ BEGIN
 			,@AffRate		= e.Rate
 			,@Status		= ai.STATUS
 	FROM AffInfo ai WITH (NOLOCK)
-		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@currentDate, ai.Currency, 0) e
+		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON ai.Currency = t.TpExchangeId
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@currentDate, ISNULL(t.ExchangeId, ai.Currency), 0) e
 	WHERE ai.AffID = @AffID
 
 	IF @@ROWCOUNT = 0

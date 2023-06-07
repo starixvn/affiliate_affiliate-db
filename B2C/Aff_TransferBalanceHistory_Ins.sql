@@ -21,6 +21,7 @@ AS
 	Revisions:
 		- 20211005@Percy: Initialize SP [RedmineID: #153227]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
+		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 */
 
 BEGIN
@@ -32,16 +33,28 @@ BEGIN
 
 	DECLARE @currentTime DATETIME = DATEADD(HOUR, 4 + @TimeZone, GETDATE())
 	DECLARE @currentDate DATETIME = CONVERT(DATE, @currentTime)
-	
+
+	--Get payment account currency mapping
+	DECLARE @PaymentAccountExchangeId INT = @PaymentAccountCurrencyId
+	SELECT @PaymentAccountExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @PaymentAccountCurrencyId
+
+	--Get player currency mapping
+	DECLARE @PlayerExchangeId INT = @PlayerCurrencyId
+	SELECT @PlayerExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @PlayerCurrencyId
+
 	-- Check Exchange Rate
 	IF NOT EXISTS (
 		SELECT 1
-		FROM dbo.Aff_f_ExchangeRate_Sel(@currentDate, @PlayerCurrencyId, @PaymentAccountCurrencyId)
+		FROM dbo.Aff_f_ExchangeRate_Sel(@currentDate, @PlayerExchangeId, @PaymentAccountExchangeId)
 		WHERE CONVERT(DECIMAL(20, 5), Rate) = ISNULL(@PlayerExRate, 0)
 	)
 		OR NOT EXISTS (
 		SELECT 1
-		FROM dbo.Aff_f_ExchangeRate_Sel(@currentDate, @PaymentAccountCurrencyId, @PlayerCurrencyId)
+		FROM dbo.Aff_f_ExchangeRate_Sel(@currentDate, @PaymentAccountExchangeId, @PlayerExchangeId)
 		WHERE CONVERT(DECIMAL(20, 5), Rate) = ISNULL(@PaymentAccountExRate, 0)
 	)
 	BEGIN
@@ -101,7 +114,8 @@ BEGIN
 			,m.CustId,m.UserName,m.Currency,e.Code,@Amount,@PlayerExRate
 		FROM dbo.AffDetail a WITH (NOLOCK)
 			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON a.AffId = m.AffId
-			INNER JOIN dbo.Exchange e WITH (NOLOCK) ON m.Currency = e.ExchangeId
+			LEFT JOIN dbo.TpExchange tp WITH (NOLOCK) ON m.Currency = tp.TpExchangeId
+			INNER JOIN dbo.Exchange e WITH (NOLOCK) ON ISNULL(tp.ExchangeId, m.Currency) = e.ExchangeId
 		WHERE a.AffId = @AffId AND m.CustId = @PlayerId
 			AND a.Player_CustId = @PaymentAccountId
 			AND a.Player_Currency = @PaymentAccountCurrencyId

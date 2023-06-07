@@ -30,6 +30,11 @@ AS
 		- 20220427@Malcolm: get tunover for product list [RedmineId: #167335]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 		- 20230404@Malcolm: calculate sub commission monthly [RedmineID: #185481]
+		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+
+	Param's Explanation:
+		- @BaseCurrency : Currency of B2C
+		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
 */
 
 BEGIN
@@ -70,8 +75,22 @@ BEGIN
 	DECLARE @AffCurrency INT
 	SELECT  @AffCurrency = dbo.Aff_f_GetSetting('AffCurrency')
 
+	-- Get affcurrency mapping
+	DECLARE @AffExchangeId INT = @AffCurrency
+	SELECT  @AffExchangeId = tp.ExchangeId
+	FROM dbo.TpExchange tp WITH (NOLOCK)
+	WHERE tp.TpExchangeId = @AffCurrency
+
+	-- Get BaseCurrency mapping
+	DECLARE @BaseExchangeId INT = @BaseCurrency
 	IF @BaseCurrency = 0
-		SET @BaseCurrency = @AffCurrency
+		SET @BaseExchangeId = @AffExchangeId
+	ELSE
+	BEGIN
+		SELECT @BaseExchangeId = tp.ExchangeId
+		FROM dbo.TpExchange tp WITH (NOLOCK)
+		WHERE tp.TpExchangeId = @BaseCurrency
+	END 
 
 	-- Get data
 	BEGIN
@@ -136,7 +155,8 @@ BEGIN
 			GROUP BY CONVERT(SMALLDATETIME, DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0)))
 				,AffId, CustId, Currency, CASE WHEN ProductId < 0 THEN 0 ELSE ProductId END
 		) r
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.MonthDate, r.Currency, @BaseCurrency) e
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.MonthDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
 		GROUP BY r.MonthDate, r.AffId, r.CustId, r.Currency, r.ProductId
 	END
 
@@ -240,7 +260,7 @@ BEGIN
 			s.DepositAmount = s.DepositAmount * e.Rate,
 			s.WithdrawalAmount = s.WithdrawalAmount * e.Rate
 		FROM @Setting s
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(s.MonthDate, @AffCurrency, @BaseCurrency) e
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(s.MonthDate, @AffExchangeId, @BaseExchangeId) e
 
 		;WITH CTE_Group AS (SELECT DISTINCT MonthDate, GroupId FROM @AffGroupInfo)
 		INSERT INTO @Setting (MonthDate, GroupId, ProductId, GroupProductId, PlatFormFee, StraightCommission, IsStraightSetting)
@@ -525,7 +545,7 @@ BEGIN
 			OUTER APPLY (
 				SELECT gsh.TierId
 				FROM dbo.TierSettingHistory gsh WITH (NOLOCK)
-					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(gsh.MonthDate, @AffCurrency, @BaseCurrency) e
+					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(gsh.MonthDate, @AffExchangeId, @BaseExchangeId) e
 				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId AND c.GroupProductId = gsh.GroupProductId
 					AND FLOOR(ABS(c.NetWinloss)) BETWEEN gsh.MinAmount * e.Rate AND gsh.MaxAmount * e.Rate
 			) AS t
@@ -645,6 +665,15 @@ BEGIN
 		-- Filter by Currencies
 		IF @Currencies <> ''
 		BEGIN
+			--Get list currencies maping
+			DECLARE @ListCurrencies VARCHAR(MAX) = ''
+			SELECT @ListCurrencies = COALESCE(@ListCurrencies + ',', '') + CONVERT(VARCHAR(20), t.TpExchangeId)
+			FROM string_split(@Currencies, ',') f
+				CROSS APPLY(
+					SELECT TpExchangeId
+					FROM dbo.Aff_f_TpExchange_Sel(f.value)
+				)t
+
 			UPDATE c
 			SET c.Turnover	= ISNULL(d.Turnover, 0)
 				,c.Winloss	= ISNULL(d.Winloss, 0)
@@ -657,7 +686,7 @@ BEGIN
 						,SUM(Revenue)	AS Revenue
 					FROM #Data
 					WHERE ProductId > 0
-						AND ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), Currency) + ',%'
+						AND ',' + @ListCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), Currency) + ',%'
 					GROUP BY MonthDate, AffId, ProductId
 				) d ON c.MonthDate = d.MonthDate AND c.AffId = d.AffId AND c.ProductId = d.ProductId
 			WHERE c.ProductId > 0
