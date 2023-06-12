@@ -21,6 +21,7 @@ AS
 		- 20210916@Percy: Use Exchange function [RedmineID: #161540]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+		- 20230612@Sally: Enhance Share % Commission in Report [RedmineID: #189425]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -249,7 +250,7 @@ BEGIN
 			SUM(GrossWinloss)		AS GrossWinloss,
 			SUM(NetWinloss)			AS NetWinloss,
 			SUM(ActivePlayer)		AS ActivePlayer,
-			SUM(CommissionRate)		AS CommissionRate,
+			MAX(CommissionRate)		AS CommissionRate,
 			SUM(Commission)			AS Commission,
 			SUM(StraightCommission)	AS StraightCommission,
 			SUM(SubAffCommission)	AS SubAffCommission,

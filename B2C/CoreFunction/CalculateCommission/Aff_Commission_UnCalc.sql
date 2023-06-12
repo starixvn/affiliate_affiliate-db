@@ -31,6 +31,7 @@ AS
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 		- 20230404@Malcolm: calculate sub commission monthly [RedmineID: #185481]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+		- 20230612@Sally: Enhance Share % Commission in Report [RedmineID: #189425]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -625,7 +626,7 @@ BEGIN
 			SUM(GrossWinloss),
 			SUM(NetWinloss),
 			MAX(ActivePlayer),
-			SUM(CASE WHEN GroupProductId IN (0, 1) THEN CommissionRate ELSE 0 END),
+			MAX(CASE WHEN GroupProductId = 0 AND IsStraightSetting = 1 THEN 0 ELSE CommissionRate END),
 			SUM(Commission),
 			SUM(StraightCommission),
 			SUM(SubAffCommission)

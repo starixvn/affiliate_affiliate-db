@@ -29,6 +29,7 @@ AS
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+		- 20230612@Sally: Enhance Share % Commission in Report [RedmineID: #189425]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -440,7 +441,7 @@ BEGIN
 		SUM(ISNULL(tc.DepositFee, 0))				AS DepositFee,
 		SUM(ISNULL(tc.WithdrawalFee, 0))			AS WithdrawalFee,
 		SUM(ISNULL(tc.PlatFormFee, 0) + ISNULL(tc.P2PFee, 0) + ISNULL(tc.OperationalFee, 0) + ISNULL(tc.DepositFee, 0) + ISNULL(tc.WithdrawalFee, 0)) AS TotalFee,
-		AVG(ISNULL(tc.CommissionRate, 0))			AS CommissionRate,
+		0											AS CommissionRate,
 		CONVERT(BIT, MAX(CONVERT(TINYINT, ISNULL(tc.IsMultiGroupProduct, 0)))) AS IsMultiGroupProduct,
 		SUM(ISNULL(tc.Commission, 0))				AS Earning,
 		SUM(ISNULL(tc.StraightCommission, 0))		AS P2PEarning,
