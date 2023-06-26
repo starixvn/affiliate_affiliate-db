@@ -35,6 +35,7 @@ AS
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+		- 20230612@Sally: Enhance Share % Commission in Report [RedmineID: #189425]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -420,7 +421,7 @@ BEGIN
 					SUM(DepositFee)					AS DepositFee,
 					SUM(WithdrawalFee)				AS WithdrawalFee,
 					SUM(NetWinloss)					AS NetWinloss,
-					SUM(CommissionRate/@NoOfMonth)	AS CommissionRate,
+					MAX(CommissionRate)				AS CommissionRate,
 					CONVERT(BIT, MAX(CONVERT(TINYINT, IsMultiGroupProduct))) AS IsMultiGroupProduct,
 					SUM(Commission)					AS Commission,
 					SUM(StraightCommission)			AS StraightCommission,

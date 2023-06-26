@@ -6,3 +6,4 @@ B2C\API\Aff_API_AffiliateInfo_Sel.sql
 B2C\User\CommissionReport\Aff_User_Rpt_Commission.sql
 B2C\User\Home\Aff_User_Overview_SubAffiliate_Sel.sql
 B2C\User\Home\Aff_User_Overview_Summary_Sel.sql
+B2C\User\StatementHistory\Aff_User_StatementHistory_Sel.sql
