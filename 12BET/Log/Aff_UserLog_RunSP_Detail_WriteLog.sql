@@ -1,12 +1,13 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbAdminNet,bodbDownlineNet" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Aff_UserLog_RunSP_Detail_WriteLog]
-	@SPName		VARCHAR(200),
-	@UserId		INT,
-	@AffId		INT = 0,
-	@OldData	NVARCHAR(MAX) = NULL,
-	@NewData	NVARCHAR(MAX) = NULL,
-	@IP			VARCHAR(50) = '',
-	@Language	VARCHAR(20) = 'en-US'
+	@SPName		VARCHAR(200)
+	,@UserId	INT
+	,@AffId		INT = 0
+	,@OldData	NVARCHAR(MAX) = NULL
+	,@NewData	NVARCHAR(MAX) = NULL
+	,@IP		VARCHAR(50) = ''
+	,@Language	VARCHAR(20) = 'en-US'
+	,@IsShow	BIT = 1
 AS
 
 /*
@@ -17,6 +18,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20200731@Percy: Set default param value [RedmineID: #121975]
+		- 20230705@Eddie: Add param @IsShow [RedmineID: #189465]
 */
 
 BEGIN
@@ -42,29 +44,31 @@ BEGIN
 
 	INSERT INTO dbo.UserLog_RunSP_Detail
 	(
-		LogTypeId,
-		LogActionId,
-		SPName,
-		UserId,
-		AffId,
-		LogDate,
-		OldData,
-		NewData,
-		IP,
-		Language
+		LogTypeId
+		,LogActionId
+		,SPName
+		,UserId
+		,AffId
+		,LogDate
+		,OldData
+		,NewData
+		,IP
+		,Language
+		,IsShow
 	)
 	VALUES
 	(
-		@LogTypeId,
-		@LogActionId,
-		@SPName,
-		@UserId,
-		@AffId,
-		GETDATE(),
-		@OldData,
-		@NewData,
-		@IP,
-		@Language
+		@LogTypeId
+		,@LogActionId
+		,@SPName
+		,@UserId
+		,@AffId
+		,GETDATE()
+		,@OldData
+		,@NewData
+		,@IP
+		,@Language
+		,@IsShow
 	)
 END
 GO

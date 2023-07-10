@@ -20,6 +20,7 @@ AS
 		- 20210219@Malcolm: get old data and new data [RedmineId : #149209]
 		- 20210325@Malcolm: get description [RedmineId : #149209]
 		- 20210325@Malcolm: get multiple actions[RedmineId : #149209]
+		- 20230705@Eddie: Enhance show view log [RedmineID: #189465]
 */
 
 BEGIN
@@ -46,7 +47,8 @@ BEGIN
 			INNER JOIN dbo.LogAction lt WITH (NOLOCK) ON ul.LogActionId = lt.ActionId
 		WHERE LogDate >= @FromDate AND LogDate < DATEADD(DAY, 1, @ToDate)
 			AND AffID = @AffID
-			AND (@LogActionIds = '' OR ul.LogActionId IN (SELECT val FROM dbo.Aff_f_StringSplit(@LogActionIds, ',')))
+			AND (@LogActionIds = '' OR ul.LogActionId IN (SELECT value FROM STRING_SPLIT(@LogActionIds, ',')))
+			AND ul.IsShow = 1
 	) AS t
 
 	IF @NRows = 0
@@ -89,7 +91,8 @@ BEGIN
 				LEFT JOIN dbo.Users u WITH (NOLOCK) ON ul.UserId = u.CustId
 			WHERE ul.LogDate >= @FromDate AND ul.LogDate < DATEADD(DAY, 1, @ToDate)
 				AND ul.AffID = @AffID
-				AND (@LogActionIds = '' OR ul.LogActionId IN (SELECT val FROM dbo.Aff_f_StringSplit(@LogActionIds, ',')))
+				AND (@LogActionIds = '' OR ul.LogActionId IN (SELECT value FROM STRING_SPLIT(@LogActionIds, ',')))
+				AND ul.IsShow = 1
 		) AS l
 	) AS r
 	WHERE RowNum BETWEEN @RowStart AND @RowEnd
