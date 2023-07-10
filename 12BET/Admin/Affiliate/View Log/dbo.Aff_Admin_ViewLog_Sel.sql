@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20210303@Malcolm: Initialize SP [RedmineID: #147902]
+		- 20230705@Eddie: Enhance show view log [RedmineID: #189465]
 	Param's Explanation
 
 */
@@ -36,7 +37,7 @@ BEGIN
 	SELECT d.AffId, COUNT(1) AS NumberOfAction, MAX(d.LogDate), MAX(d.LogId),1
 	FROM UserLog_RunSP_Detail d WITH(NOLOCK)
 	WHERE d.LogDate >= @FromDate AND d.LogDate < DATEADD(DAY, 1, @ToDate)
-		AND (d.LogActionId IN (SELECT val FROM dbo.Aff_f_StringSplit(@LogActionIds, ',')) OR (@LogActionIds = '')) AND d.AffId <> 0
+		AND (d.LogActionId IN (SELECT value FROM STRING_SPLIT(@LogActionIds, ',')) OR (@LogActionIds = '')) AND d.AffId <> 0 AND d.IsShow = 1
 	GROUP BY d.AffId
 
 	INSERT INTO #Log (AffId, NumberOfAction, LogDate, LogId, [Type])
@@ -91,7 +92,7 @@ BEGIN
 	OUTER APPLY(
 		SELECT d.LogActionId, d.UserId, 1 AS [Type]
 		FROM UserLog_RunSP_Detail d WITH(NOLOCK)
-		WHERE d.LogId = r.LogId AND r.[Type] = 1
+		WHERE d.LogId = r.LogId AND r.[Type] = 1 AND d.IsShow = 1
 	) AS m
 	OUTER APPLY(
 		SELECT ul.TypeID, ul.Creator, 2 AS [Type]

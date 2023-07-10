@@ -1,13 +1,16 @@
 ﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliatePaymentRequest_Upd]
 	@TransID	BIGINT
-	,@Status	VARCHAR(30) = NULL
-	,@AdminDesc	NVARCHAR(300) = NULL
-	,@AffDesc	NVARCHAR(300) = NULL
+	,@Status	VARCHAR(30)   	= NULL
+	,@AdminDesc	NVARCHAR(300) 	= NULL
+	,@AffDesc	NVARCHAR(300) 	= NULL
 	,@UserID	INT
-	,@IP		VARCHAR(50) = ''
-	,@ErrCode	INT = 0 OUTPUT
-	,@ErrMsg	NVARCHAR(4000) = '' OUTPUT
+	,@IP		VARCHAR(50)   	= ''
+	,@DetailXML XML				= NULL OUTPUT
+	,@OldData 	NVARCHAR(4000)	= ''   OUTPUT
+	,@NewData   NVARCHAR(4000)	= ''   OUTPUT
+	,@ErrCode	INT 			= 0    OUTPUT
+	,@ErrMsg	NVARCHAR(4000) 	= ''   OUTPUT
 AS
 
 /*
@@ -20,6 +23,7 @@ AS
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20211222@Malcolm: Split transfer out of bettrans [RedmineID: #165095]
+		- 20230621@Eddie: Migrate 12Bet to SiteDB02 [RedmineID: #189465]
 */
 
 BEGIN
@@ -34,7 +38,7 @@ BEGIN
 		@CustId		= @UserId
 		,@FuncName	= '[Payment]'
 		,@ErrCode	= @ErrCode OUTPUT
-		,@ErrMsg	= @ErrMsg OUTPUT
+		,@ErrMsg	= @ErrMsg  OUTPUT
 
 	IF @ErrCode <> 0
 		RETURN
@@ -43,7 +47,7 @@ BEGIN
 	IF @Status IS NULL OR @Status = 'Pending'
 	BEGIN
 		IF ISNULL(@AdminDesc, '') = '' AND ISNULL(@AffDesc, '') = ''
-			RETURN
+		RETURN
 	END
 	ELSE IF @Status NOT IN ('Approved', 'Rejected')
 	BEGIN
@@ -59,7 +63,7 @@ BEGIN
 			,@Player_Username		NVARCHAR(50)
 			,@Player_Currency		INT
 			,@Player_CurrencyName	VARCHAR(50)
-			,@Ballance_CustID	INT
+			,@Ballance_CustID		INT
 			,@Ballance_UserName		NVARCHAR(50)
 			,@AffPayout				MONEY
 	
@@ -80,8 +84,11 @@ BEGIN
 	END
 
 	SELECT @AffUserName = username FROM dbo.AffInfo WITH (NOLOCK) WHERE AffID = @AffID
+	
 	SELECT @Player_CurrencyName = currency FROM bodb02.dbo.Exchange WITH (NOLOCK) WHERE exchangeid = @Player_Currency
+	
 	SELECT @Ballance_UserName = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_BalPlayer' + @Player_CurrencyName
+	
 	SELECT @Ballance_CustID = custid FROM bodb02.dbo.Customer WITH (NOLOCK) WHERE username = @Ballance_UserName
 
 	IF @Ballance_CustID IS NULL
@@ -104,13 +111,13 @@ BEGIN
 	END
 
 	-- For Log
-	DECLARE @OldData NVARCHAR(4000), @NewData NVARCHAR(4000), @SPName VARCHAR(50)
-
+	DECLARE @SPName VARCHAR(50)
+	
 	SELECT @OldData = CONVERT(NVARCHAR(MAX),
 					  (
-						 SELECT	Status AS '@Status', 
-							    AdminDesc AS '@AdminDesc', 
-							    AffDesc AS '@AffDesc' 
+						 SELECT	Status 		AS '@Status', 
+							    AdminDesc 	AS '@AdminDesc', 
+							    AffDesc 	AS '@AffDesc'
 						 FROM dbo.AffPayout WITH (NOLOCK) 
 						 WHERE AffID = @AffID AND RefID = @RefID 
 						 FOR XML PATH ('row'), ROOT('root')
@@ -118,9 +125,9 @@ BEGIN
 
 	SELECT @NewData = CONVERT(NVARCHAR(MAX), 
 					  (
-							SELECT @Status AS '@Status', 
-								   @AdminDesc AS '@AdminDesc', 
-								   @AffDesc AS '@AffDesc' 
+							SELECT @Status 		AS '@Status', 
+								   @AdminDesc 	AS '@AdminDesc', 
+								   @AffDesc 	AS '@AffDesc' 
 						    FOR XML PATH('row'), ROOT('root')
 					  ))
 
@@ -174,48 +181,43 @@ BEGIN
 
 	IF @Status = 'Approved'
 	BEGIN
-		EXEC DBTXN.bodb02.dbo.Aff_Admin_AffiliatePaymentRequest_Approve
-			@RefID				= @RefID
-			,@AffUserName		= @AffUserName
-			,@Player_IBCCustID	= @Player_IBCCustID
-			,@Player_Currency	= @Player_Currency
-			,@Ballance_CustID	= @Ballance_CustID
-			,@AffPayout			= @AffPayout
-			,@UserID			= @UserID
-			,@IP				= @IP
-			,@ErrCode			= @ErrCode OUTPUT
-			,@ErrMsg			= @ErrMsg OUTPUT
-
-		IF @ErrCode <> 0
-		BEGIN
-			UPDATE p WITH (ROWLOCK)
-				SET p.Status		= t.Status,
-					p.CompletedDate = t.CompletedDate,
-					p.AdminDesc		= t.AdminDesc,
-					p.AffDesc		= t.AffDesc
-			FROM dbo.AffPayout p
-				CROSS JOIN @Tmp t 
-			WHERE p.AffID = @AffID AND p.RefID = @RefID AND t.TypeId = 1
-
-			UPDATE at 
-				SET at.Status			= t.Status,
-					at.CompletedDate	= t.CompletedDate,
-					at.Creator			= t.Creator
-			FROM dbo.AffTrans at WITH(ROWLOCK)
-				CROSS JOIN @Tmp t 
-			WHERE TransID = @TransID AND t.TypeId = 2
-			RETURN
-		END
+		SELECT @DetailXML = CONVERT(NVARCHAR(MAX),
+				(
+					SELECT @Status				AS '@NewStatus'
+						   ,@CompletedDate		AS '@NewCompletedDate'
+						   ,@AdminDesc			AS '@NewAdminDesc'
+						   ,@AffDesc			AS '@NewAffDesc'
+						   ,@TransID			AS '@TransID'
+						   ,@AffID				AS '@AffID'
+						   ,@RefID				AS '@RefID'
+						   ,@AffUserName		AS '@AffUserName'
+						   ,@Player_IBCCustID	AS '@Player_IBCCustID'
+						   ,@Player_Currency	AS '@Player_Currency'
+						   ,@Ballance_CustID	AS '@Ballance_CustID'
+						   ,@AffPayout			AS '@AffPayout'
+						   ,@UserID				AS '@UserID'
+						   ,@IP					AS '@IP'
+						   ,Status 				AS '@OldStatus'
+						   ,CompletedDate 		AS '@OldCompletedDate'
+						   ,AdminDesc 			AS '@OldAdminDesc'
+						   ,AffDesc 			AS '@OldAffDesc'
+						   ,Creator 			AS '@OldCreator'
+						   ,TypeId  			AS '@OldTypeId'
+					FROM @Tmp
+					FOR XML PATH('row'), ROOT('root')
+				))
+		-- Write Log for status approve
+		DECLARE @LogData NVARCHAR(4000)
+		SELECT @LogData = CONVERT(NVARCHAR(4000), @DetailXML)
+		EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog  
+		@UserId  	= @UserId
+		,@AffId   	= @AffID
+		,@SPName 	= 'Aff_Admin_AffiliatePaymentRequest_Upd'
+		,@NewData 	= @LogData
+		,@IP   		= @IP
+		,@Language 	= @Language
+		,@IsShow	= 0 -- unshown this log
 	END
-
-	-- Write Log
-	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
-		@UserId		= @UserId,
-		@AffId		= @AffID,
-		@SPName		= @SPName,
-		@OldData	= @OldData,
-		@NewData	= @NewData,
-		@IP			= @IP,
-		@Language	= @Language
+    
 END
 GO
