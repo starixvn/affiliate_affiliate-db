@@ -9,6 +9,8 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Message_Upd]
 	,@MsgID			NVARCHAR(4000)
 	,@MsgHi			NVARCHAR(4000)
 	,@MsgMs			NVARCHAR(4000)
+	,@MsgKh			NVARCHAR(4000)
+    ,@MsgBn			NVARCHAR(4000)
 	,@IsImportant	BIT
 	,@IP			VARCHAR(20) = ''
 	,@ErrCode		INT = 0 OUTPUT
@@ -24,6 +26,8 @@ AS
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20220301@Malcolm: Add Hindi Language [RedmineId: #169142]
 		- 20220401@Malcolm: Add Malay Language [RedmineId: #170789]
+		- 20230801@Sally: Support 3 more Languages Cambodian, Bangladeshi and Vietnamese [RedmineId: #191310]
+
 */
 
 BEGIN
@@ -49,6 +53,8 @@ BEGIN
 					+ ',' + 'Message_Vi=' + ISNULL(Message_Vi, '')
 					+ ',' + 'Message_Hi=' + ISNULL(Message_Hi, '')
 					+ ',' + 'Message_Ms=' + ISNULL(Message_Ms, '')
+					+ ',' + 'Message_Kh=' + ISNULL(Message_Kh, '')
+					+ ',' + 'Message_Bn=' + ISNULL(Message_Bn, '')
 					+ ',' + 'Important=' + ISNULL(CONVERT(VARCHAR(5), Important), '')
 	FROM dbo.News WITH (NOLOCK)
 	WHERE MsgId = @MessageId
@@ -68,6 +74,8 @@ BEGIN
 			,Message_Vi		= @MsgVi
 			,Message_Hi     = @MsgHi
 			,Message_Ms     = @MsgMs
+			,Message_Kh		= @MsgKh
+			,Message_Bn		= @MsgBn
 			,Important		= @IsImportant
 			,UpdatedBy		= @UserId
 			,UpdatedDate	= GETDATE()
@@ -90,6 +98,8 @@ BEGIN
 					+ ',' + 'Message_Vi=' + ISNULL(@MsgVi, '')
 					+ ',' + 'Message_Hi=' + ISNULL(@MsgHi, '')
 					+ ',' + 'Message_Ms=' + ISNULL(@MsgMs, '')
+					+ ',' + 'Message_Kh=' + ISNULL(@MsgKh, '')
+					+ ',' + 'Message_Bn=' + ISNULL(@MsgBn, '')
 					+ ',' + 'Important=' + ISNULL(CONVERT(VARCHAR(5), @IsImportant), '')
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
