@@ -20,3 +20,5 @@ B2C\User\Password\Aff_User_RecoverPassWord.sql
 B2C\User\Payment\Aff_User_PaymentRequest_Ins.sql
 B2C\User\Payment\Aff_User_PaymentRequest_Upd.sql
 B2C\User\Signup\Aff_User_Affiliate_Ins.sql
+B2C\Admin\Customer\LeftPanel\Aff_Admin_AffiliateInfo_Sel.sql
+B2C\User\Login\Aff_User_SecurityQuestions_Sel.sql
