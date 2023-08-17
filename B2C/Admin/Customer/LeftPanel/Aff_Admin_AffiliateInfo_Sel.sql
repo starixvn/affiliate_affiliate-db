@@ -16,6 +16,8 @@ AS
 		- 20201026@Percy: Add AffCode [RedmineID: #143852]
 		- 20200107@Percy: Add suspended status [RedmineID: #148373]
 		- 20211005@Percy: Support Transfer Balance For Player [RedmineID: #153227]
+		- 20230809@Sally: Add Player_CustId [RedmineID: #192191]
+
 */
 
 BEGIN
@@ -82,6 +84,7 @@ BEGIN
 		-- Payment Information
 		ad.PreferredPayment, -- Player, Neteller, Moneybookers, Wire (Bank Transfer)
 			-- Player
+		ad.Player_CustId		AS PlayerCustId,
 		ad.Player_Username		AS PlayerUsername,
 		ad.Player_CurrencyCode	AS PlayerCurrency,
 		ad.TransferLimit,
