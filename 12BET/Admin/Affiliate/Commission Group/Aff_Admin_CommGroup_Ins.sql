@@ -8,6 +8,8 @@ ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Ins]
 	@TierList		XML,
 	@QMTurnover		MONEY,
 	@IP				NVARCHAR(20) = '',
+	@IsApplyBonus	BIT,
+	@FDMTierList	XML = NULL,
 	@ErrCode		INT = 0 OUTPUT,
 	@ErrMsg			NVARCHAR(4000) = '' OUTPUT
 AS
@@ -21,6 +23,8 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
+		
 
 	Parameter's Explanation:
 		- @GroupId:
@@ -86,6 +90,13 @@ BEGIN
 
 			DELETE dbo.DeductionSettingHistory WITH (ROWLOCK, UPDLOCK)
 			WHERE GroupId = @GroupId AND MonthDate = @MonthDate
+
+			--FDMTier
+			DELETE dbo.FDMTierSetting WITH (ROWLOCK, UPDLOCK)
+			WHERE GroupId = @GroupId
+
+			DELETE dbo.FDMTierSettingHistory WITH (ROWLOCK, UPDLOCK)
+			WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 		END
 	END
 	ELSE
@@ -132,7 +143,8 @@ BEGIN
 	OPTION (OPTIMIZE FOR (@DeductionList = NULL), MAXRECURSION 0)
 
 	-- Tier Setting
-	DECLARE @TierSetting TABLE (TierID TINYINT, MinAmount MONEY, MaxAmount MONEY, MinQM INT, MaxQM INT, Commission DECIMAL(9,8))
+	DECLARE @Infinity_Amount MONEY = 100000000000000, @Inifinity_QM INT = 1000000000;
+	DECLARE @TierSetting TABLE (TierID TINYINT, MinAmount MONEY, MaxAmount MONEY, MinQM INT, MaxQM INT, Commission DECIMAL(9,8));
 	
 	INSERT INTO @TierSetting (TierID, MinAmount, MaxAmount, MinQM, MaxQM, Commission)
 	SELECT
@@ -153,8 +165,7 @@ BEGIN
 
 		RETURN
 	END
-
-	DECLARE @Infinity_Amount MONEY = 100000000000000, @Inifinity_QM INT = 1000000000
+	
 	IF EXISTS
 		(
 			SELECT 1
@@ -177,8 +188,57 @@ BEGIN
 		RETURN
 	END
 
-	-- General information
+	
+	BEGIN --FDMTierSetting
+		DECLARE @FDMTierSetting TABLE (TierID TINYINT, MinFDM INT, MaxFDM INT, MinAmount MONEY, MaxAmount MONEY, LimitAmount MONEY, Commission DECIMAL(9,8))
+	
+		INSERT INTO @FDMTierSetting (TierID, MinFDM, MaxFDM, MinAmount, MaxAmount, LimitAmount, Commission)
+		SELECT
+			t.c.value('@id', 'TINYINT'),
+			t.c.value('@minfdm', 'INT'),
+			t.c.value('@maxfdm', 'INT'),
+			t.c.value('@minamount', 'MONEY'),
+			t.c.value('@maxamount', 'MONEY'),
+			t.c.value('@limitamount', 'MONEY'),
+			t.c.value('@commission', 'DECIMAL(9,8)')
+		FROM @FDMTierList.nodes('/root/row') AS t(c)
+		OPTION (OPTIMIZE FOR (@FDMTierList = NULL))
+
+		-- Check valid FDM tier setting
+		IF (SELECT COUNT(1) FROM @FDMTierSetting) > 50
+		BEGIN
+			-- Oops, maximum of 50 tiers are allowed!
+			SELECT @ErrCode = 103, @ErrMsg = dbo.Aff_f_GetMessageById(1003, @Language)
+
+			RETURN
+		END
+
+		IF EXISTS
+			(
+				SELECT 1
+				FROM @FDMTierSetting ts1
+					INNER JOIN @FDMTierSetting ts2 ON ts1.TierID + 1 = ts2.TierID
+				WHERE ts1.MaxAmount + 1 <> ts2.MinAmount
+			)
+			OR NOT EXISTS
+			(
+				SELECT 1 FROM @FDMTierSetting WHERE MaxAmount = @Infinity_Amount
+			)
+			OR NOT EXISTS
+			(
+				SELECT 1 FROM @FDMTierSetting WHERE TierId = 1 AND MinAmount = 0
+			)
+		BEGIN
+			-- Error! Invalid FDM Tier Setting!
+			SELECT @ErrCode = 104, @ErrMsg = dbo.Aff_f_GetMessageById(1004, @Language)
+
+			RETURN
+		END
+	END
+
+	--TODO: Insert comm setting
 	BEGIN TRY
+		-- General information
 		INSERT INTO dbo.CommGroup
 		(
 			GroupId,
@@ -188,7 +248,8 @@ BEGIN
 			IsDeleted,
 			Description,
 			QMTurnover,
-			NextQMTurnover
+			NextQMTurnover,
+			IsApplyBonus
 		)
 		VALUES
 		(
@@ -199,7 +260,8 @@ BEGIN
 			0,
 			@Description,
 			@QMTurnover,
-			@QMTurnover -- default of next = current
+			@QMTurnover, -- default of next = current
+			@IsApplyBonus
 		)
 
 		INSERT INTO dbo.CommGroupHistory
@@ -211,7 +273,8 @@ BEGIN
 			Creator,
 			IsDeleted,
 			Description,
-			QMTurnover
+			QMTurnover,
+			IsApplyBonus
 		)
 		VALUES
 		(
@@ -222,25 +285,12 @@ BEGIN
 			@UserId,
 			0,
 			@Description,
-			@QMTurnover
+			@QMTurnover,
+			@IsApplyBonus
 		)
-	END TRY
-	BEGIN CATCH
-		-- Rollback manually
-		DELETE dbo.CommGroup WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId
+	
 
-		DELETE dbo.CommGroupHistory WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-
-		-- Failed to insert new group! Please try again!
-		SELECT @ErrCode = 105, @ErrMsg = dbo.Aff_f_GetMessageById(1005, @Language)
-
-		RETURN
-	END CATCH
-
-	-- Tier List
-	BEGIN TRY
+		-- Tier List
 		INSERT INTO dbo.TierSetting
 		(
 			GroupId,
@@ -282,29 +332,8 @@ BEGIN
 			MaxQM,
 			Commission
 		FROM @TierSetting
-	END TRY
-	BEGIN CATCH
-		-- Rollback manually
-		DELETE dbo.CommGroup WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId
-
-		DELETE dbo.CommGroupHistory WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-
-		DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId
-
-		DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-
-		-- Failed to insert new group! Please try again!
-		SELECT @ErrCode = 105, @ErrMsg = dbo.Aff_f_GetMessageById(1005, @Language)
-
-		RETURN
-	END CATCH
-
-	-- Deduction List
-	BEGIN TRY
+	
+		-- Deduction List
 		INSERT INTO dbo.DeductionSetting
 		(
 			GroupId,
@@ -342,6 +371,54 @@ BEGIN
 			ProductId,
 			DeductedPercentage
 		FROM @DeductionSetting
+
+		--FDMTierSetting
+		INSERT INTO dbo.FDMTierSetting
+		(
+			GroupId,
+			TierId,
+			MinFDM,
+			MaxFDM,
+			MinAmount,
+			MaxAmount,
+			LimitAmount,
+			Commission
+		)
+		SELECT
+			@GroupId,
+			TierId,
+			MinFDM,
+			MaxFDM,
+			MinAmount,
+			MaxAmount,
+			LimitAmount,
+			Commission
+		FROM @FDMTierSetting
+
+		INSERT INTO dbo.FDMTierSettingHistory
+		(
+			GroupId,
+			MonthDate,
+			TierId,
+			MinFDM,
+			MaxFDM,
+			MinAmount,
+			MaxAmount,
+			LimitAmount,
+			Commission
+		)
+		SELECT
+			@GroupId,
+			@MonthDate,
+			TierId,
+			MinFDM,
+			MaxFDM,
+			MinAmount,
+			MaxAmount,
+			LimitAmount,
+			Commission
+		FROM @FDMTierSetting
+	
 	END TRY
 	BEGIN CATCH
 		-- Rollback manually
@@ -363,6 +440,13 @@ BEGIN
 		DELETE dbo.DeductionSettingHistory WITH (ROWLOCK, UPDLOCK)
 		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
+		--FDMTier
+		DELETE dbo.FDMTierSetting WITH (ROWLOCK, UPDLOCK)
+		WHERE GroupId = @GroupId
+
+		DELETE dbo.FDMTierSettingHistory WITH (ROWLOCK, UPDLOCK)
+		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
+
 		-- Failed to insert new group! Please try again!
 		SELECT @ErrCode = 105, @ErrMsg = dbo.Aff_f_GetMessageById(1005, @Language)
 
@@ -380,8 +464,10 @@ BEGIN
 						SELECT @GroupName AS '@GroupName'
 							   ,@Description AS '@Description'
 							   ,@QMTurnover AS '@QMTurnover'
+							   ,@IsApplyBonus AS '@IsApplyBonus'
 							   ,CONVERT(XML,(SELECT t.c.query('.') FROM @DeductionList.nodes('/root/row') T(c) FOR XML PATH(''))) AS DeductionList
 							   ,CONVERT(XML,(SELECT t.c.query('.') FROM @TierList.nodes('/root/row') T(c) FOR XML PATH(''))) AS TierList
+							   ,CONVERT(XML,(SELECT t.c.query('.') FROM @FDMTierList.nodes('/root/row') T(c) FOR XML PATH(''))) AS FDMTierList
 						FOR XML PATH('row'), ROOT('root')
 					))
 

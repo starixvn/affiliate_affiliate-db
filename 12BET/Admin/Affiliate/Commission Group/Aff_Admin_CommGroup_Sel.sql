@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 */
 
 BEGIN
@@ -66,6 +67,7 @@ BEGIN
 		cg.Description,
 		cg.QMTurnover,
 		cg.NextQMTurnover,
+		ISNULL(cg.IsApplyBonus, 1) AS IsApplyBonus,
 		ISNULL(n.NoAffs, 0) AS NoAffs
 	FROM dbo.CommGroup cg WITH (NOLOCK)
 		INNER JOIN @Group g ON cg.GroupId = g.GroupId
@@ -119,5 +121,21 @@ BEGIN
 		ds.NextGroupProductId,
 		ds.DeductedPercentage,
 		ds.NextDeductedPercentage
+
+	--FDM TierList
+	SELECT
+		fdm.GroupId,
+		fdm.TierId,
+		fdm.MinFDM,
+		fdm.MaxFDM,
+		fdm.MinAmount,
+		fdm.MaxAmount,
+		fdm.LimitAmount,
+		fdm.Commission
+	FROM dbo.FDMTierSetting fdm WITH (NOLOCK)
+		INNER JOIN @Group g ON fdm.GroupId = g.GroupId
+	ORDER BY
+		fdm.GroupId,
+		fdm.TierId
 END
 GO
