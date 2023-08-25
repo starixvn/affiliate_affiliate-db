@@ -1,10 +1,9 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_ActiveMember_CheckStatus]
-	@Username	NVARCHAR(MAX) = ''
-	,@ErrCode	INT = 0 OUTPUT
-	,@ErrMsg	NVARCHAR(4000) = '' OUTPUT
+	@DepositUsernames	NVARCHAR(MAX) = ''
+	,@ErrCode			INT = 0 OUTPUT
+	,@ErrMsg			NVARCHAR(4000) = '' OUTPUT
 AS
-
 /*  
 	Created: 20191010@Percy
 	DB: DBAFF12BET.Affiliate_12BET
@@ -13,21 +12,23 @@ AS
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20191210@Percy: Correct column name accstatus to actstatus [RedmineID: #125216]
-		- 20240321@Eddie: Change Link Server and metadata "bodbAdminNet" [RedmineID: #202712]
+		- 20230824@Eddie: Show column 'Affiliate' [RedmineID: #180516]
+	Param's Explanation:
+		- @DepositUsernames: check status of member's username who deposited/be actived already or not yet
 */
 
 BEGIN
 	SET NOCOUNT ON
-
-	SELECT @Username = LTRIM(RTRIM(ISNULL(@Username, '')))
+	
+	SELECT @DepositUsernames = LTRIM(RTRIM(ISNULL(@DepositUsernames, '')))
 	SELECT @ErrCode = 0, @ErrMsg = ''
-
-	IF @Username = ''
+	
+	IF @DepositUsernames = ''
 		RETURN
 
 	DECLARE @tblUsernames TABLE (Username NVARCHAR(MAX))
 	INSERT INTO @tblUsernames (Username)
-	SELECT DISTINCT LTRIM(RTRIM(val)) FROM dbo.strSplit(@Username, ',')
+	SELECT DISTINCT LTRIM(RTRIM(value)) FROM STRING_SPLIT(@DepositUsernames, ',')
 
 	IF @@ROWCOUNT > 100
 	BEGIN
@@ -45,24 +46,26 @@ BEGIN
 		RETURN
 	END
 
-	-- Reset param @Username due to LTRIM/RTRIM
-	SELECT @Username = NULL
-	SELECT @Username = COALESCE(@Username + ',', '') + Username FROM @tblUsernames
+	-- Reset param @DepositUsernames due to LTRIM/RTRIM
+	SELECT @DepositUsernames = NULL
+	SELECT @DepositUsernames = COALESCE(@DepositUsernames + ',', '') + Username FROM @tblUsernames
 
 	-- Activated members
-	DECLARE @ActivedMembers TABLE (Username NVARCHAR(50), IBCUsername NVARCHAR(50), Firstname NVARCHAR(50), Lastname NVARCHAR(50), IBCCustId INT, CreatedDate DATETIME)
-	INSERT INTO @ActivedMembers (Username, IBCUsername, Firstname, Lastname, IBCCustId, CreatedDate)
-	SELECT u.Username, c.username AS IBCUsername, c.Firstname, c.Lastname, c.custid AS IBCCustId, c.creatdate AS CreatedDate
+	DECLARE @ActivedMembers TABLE (Username NVARCHAR(50), IBCUsername NVARCHAR(50), Firstname NVARCHAR(50), Lastname NVARCHAR(50), IBCCustId INT, CreatedDate DATETIME, AffUserName NVARCHAR(30))
+	INSERT INTO @ActivedMembers (Username, IBCUsername, Firstname, Lastname, IBCCustId, CreatedDate, AffUserName)
+	SELECT DISTINCT u.Username, c.username AS IBCUsername, c.Firstname, c.Lastname, c.custid AS IBCCustId, c.creatdate AS CreatedDate, ISNULL(ai.UserName, '') AS AffUserName
 	FROM bodb02.dbo.Customer c WITH (NOLOCK)
 		CROSS APPLY (SELECT u.Username FROM @tblUsernames u WHERE c.username2 = CONVERT(VARCHAR(50), '12BET$' + u.Username)) u
+		LEFT JOIN dbo.MemberInfo mi WITH (NOLOCK) ON mi.UserName = c.username2
+		LEFT JOIN dbo.AffInfo ai WITH (NOLOCK) ON ai.AffID = mi.AffID 
 
 	-- Inactivated members
 	DECLARE @InactivedMembers TABLE (Username NVARCHAR(50), Firstname NVARCHAR(50), Lastname NVARCHAR(50))
 	DECLARE @sql NVARCHAR(MAX)
 	SELECT  @sql = 'SELECT Username, Firstname, Lastname
-					FROM OPENQUERY(DBDEPOSIT2, ''SELECT Username, Firstname, Lastname
-												FROM Deposit_DB.dbo.v_Aff_DepCust WITH (NOLOCK)
-												WHERE username IN (''''' + REPLACE(@Username, ',', ''''',''''') + ''''')
+					FROM OPENQUERY(DBDEPOSIT, ''SELECT Username, Firstname, Lastname
+												FROM Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+												WHERE username IN (''''' + REPLACE(@DepositUsernames, ',', ''''',''''') + ''''')
 													AND actstatus NOT IN (2, 9)
 												''
 									)'
@@ -86,7 +89,7 @@ BEGIN
 
 	-- Return result
 		-- Activated members
-	SELECT Username, IBCUsername, Firstname, Lastname, IBCCustId, CreatedDate
+	SELECT Username, IBCUsername, Firstname, Lastname, IBCCustId, CreatedDate, AffUserName
 	FROM @ActivedMembers
 			
 		-- Inactivated members
