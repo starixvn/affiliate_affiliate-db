@@ -101,7 +101,7 @@ BEGIN
 	WHERE RegisteredDate IS NOT NULL
 	
 	-- Write log info
-	DECLARE @LogData NVARCHAR(4000), @SPName VARCHAR(100), @CurrencyName NVARCHAR(50)
+	DECLARE @LogData NVARCHAR(4000), @LogData1 NVARCHAR(4000), @SPName VARCHAR(100), @CurrencyName NVARCHAR(50)
 	
 	SELECT @CurrencyName = ec.Currency  
 	FROM dbo.Exchange_Current ec WITH (NOLOCK)
@@ -129,6 +129,12 @@ BEGIN
 							FROM #depositMember
 							FOR XML PATH('row'), ROOT('root')
 						))
+						
+	SELECT @LogData1 = 	CONVERT(NVARCHAR(MAX), 
+						(	
+							SELECT @DepositUsername AS '@MemberUserName'
+							FOR XML PATH('row'), ROOT('root')
+						))
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId
@@ -136,6 +142,16 @@ BEGIN
 		,@SPName	= @SPName
 		,@OldData	= ''
 		,@NewData	= @LogData
+		,@IP		= '127.0.0.1',
+		,@IsShow	= 0
+		
+	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
+		@UserId		= @UserId
+		,@AffId		= @AffId
+		,@SPName	= @SPName
+		,@OldData	= ''
+		,@NewData	= @LogData1
+		,@IP		= '127.0.0.1'
 	
 	DROP TABLE #depositMember
 END
