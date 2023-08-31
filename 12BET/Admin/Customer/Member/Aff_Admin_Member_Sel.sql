@@ -1,13 +1,13 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Member_Sel]
-	@AffId		INT,
-	@MemberType	SMALLINT = 0,
-	@FromDate	SMALLDATETIME = NULL,
-	@ToDate		SMALLDATETIME = NULL,
-	@IsGetAll	BIT = 0,
-	@PageSize	INT = 50,
-	@PageIndex	INT = 1,
-	@NRows		INT = 0 OUTPUT
+	@AffId			INT
+	,@MemberType	SMALLINT = 0
+	,@FromDate		SMALLDATETIME = NULL
+	,@ToDate		SMALLDATETIME = NULL
+	,@IsGetAll		BIT = 0
+	,@PageSize		INT = 50
+	,@PageIndex		INT = 1
+	,@NRows			INT = 0 OUTPUT
 AS
 
 /*
@@ -19,6 +19,7 @@ AS
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 		- 20191127@Percy: Sort by Registered Date Descending [RedmineID: #118992]
 		- 20240321@Eddie: Change Link Server and metadata "bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" [RedmineID: #202712]
+		- 20231016@Eddie: Show member after being assigned affiliate [RedmineID: #180516]
 	
 	Param's Explanation:
 		@MemberType:
@@ -34,13 +35,13 @@ BEGIN
 
 	CREATE TABLE #MemberInfo
 	(
-		IBCCustId INT,
-		UserName VARCHAR(50),
-		FirstName NVARCHAR(50),
-		LastName NVARCHAR(50),
-		Email NVARCHAR(200),
-		Currency INT,
-		RegisteredDate DATETIME
+		IBCCustId 		INT
+		,UserName 		VARCHAR(50)
+		,FirstName 		NVARCHAR(50)
+		,LastName 		NVARCHAR(50)
+		,Email 			NVARCHAR(200)
+		,Currency 		INT
+		,RegisteredDate DATETIME
 	)
 
 	IF @IsGetAll = 1
@@ -51,7 +52,7 @@ BEGIN
 			SELECT IBCCustId, UserName, FirstName, LastName, Email, Currency, creatdate AS RegisteredDate
 			FROM DBDEPOSIT2.Deposit_DB.dbo.v_Aff_DepCust WITH (NOLOCK)
 			WHERE AffiliateId = @AffId
-				AND IBCCustId IS NULL
+			  AND IBCCustId IS NULL
 		END
 		
 		IF @MemberType IN (0, 2)
@@ -60,7 +61,7 @@ BEGIN
 			SELECT IBCCustId, UserName, FirstName, LastName, Email, Currency, RegisteredDate
 			FROM dbo.MemberInfo WITH (NOLOCK)
 			WHERE AffId = @AffId
-				AND IsRemoved = 0
+			  AND IsRemoved = 0
 		END
 	END
 	ELSE
@@ -81,7 +82,7 @@ BEGIN
 			SELECT IBCCustId, UserName, FirstName, LastName, Email, Currency, RegisteredDate
 			FROM dbo.MemberInfo mi WITH (NOLOCK)
 			WHERE AffId = @AffId
-				AND CreatedDate >= @FromDate AND CreatedDate < DATEADD(DAY, 1, @ToDate)
+				AND AssignDate >= @FromDate AND AssignDate < DATEADD(DAY, 1, @ToDate)
 				AND NOT EXISTS (
 					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 					WHERE mi.IBCCustID = mr.IBCCustID

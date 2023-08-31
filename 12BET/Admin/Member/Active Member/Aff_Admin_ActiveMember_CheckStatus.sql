@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_ActiveMember_CheckStatus]
 	@DepositUsernames	NVARCHAR(MAX) = ''
 	,@ErrCode			INT = 0 OUTPUT
@@ -12,6 +12,7 @@ AS
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20191210@Percy: Correct column name accstatus to actstatus [RedmineID: #125216]
+		- 20240321@Eddie: Change Link Server and metadata "bodbAdminNet" [RedmineID: #202712]
 		- 20230824@Eddie: Show column 'Affiliate' [RedmineID: #180516]
 	Param's Explanation:
 		- @DepositUsernames: check status of member's username who deposited/be actived already or not yet
@@ -63,8 +64,8 @@ BEGIN
 	DECLARE @InactivedMembers TABLE (Username NVARCHAR(50), Firstname NVARCHAR(50), Lastname NVARCHAR(50))
 	DECLARE @sql NVARCHAR(MAX)
 	SELECT  @sql = 'SELECT Username, Firstname, Lastname
-					FROM OPENQUERY(DBDEPOSIT, ''SELECT Username, Firstname, Lastname
-												FROM Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+					FROM OPENQUERY(DBDEPOSIT2, ''SELECT Username, Firstname, Lastname
+												FROM Deposit_DB.dbo.v_Aff_DepCust WITH (NOLOCK)
 												WHERE username IN (''''' + REPLACE(@DepositUsernames, ',', ''''',''''') + ''''')
 													AND actstatus NOT IN (2, 9)
 												''
