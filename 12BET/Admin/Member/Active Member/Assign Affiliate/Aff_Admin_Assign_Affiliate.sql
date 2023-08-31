@@ -103,7 +103,7 @@ BEGIN
 	-- Write log info
 	DECLARE @LogData NVARCHAR(4000), @SPName VARCHAR(100), @CurrencyName NVARCHAR(50)
 	
-	SELECT @CurrencyName = dm.Currency  
+	SELECT @CurrencyName = ec.Currency  
 	FROM dbo.Exchange_Current ec WITH (NOLOCK)
 		INNER JOIN #depositMember dm ON dm.Currency = ec.ExchangeID
 
