@@ -5,13 +5,21 @@
 
 	Task: Affiliate - Support VND, BDT, INR currency on Base Currency filter [RedmineID: #193235]
 	Step 1:
-		- Table ExchangeOanda add column  BDT, INR
+		- Config base currencies BDT, INR, VND
 */
 -- Run only Affiliate_N88
-use Affiliate_N88
+USE Affiliate_N88
+GO
+	IF NOT EXISTS(
+		SELECT 1
+		FROM dbo.SystemSettings WITH (NOLOCK)
+		WHERE SName IN ('AFF_BaseCurrencies')
+			AND SValue LIKE '%,74:BDT,61:INR,51:VND%'
+	)
+	BEGIN
+		UPDATE S SET S.SValue = SValue + ',74:BDT,61:INR,51:VND'
+		FROM dbo.SystemSettings S WITH (ROWLOCK)
+		WHERE SName IN ('AFF_BaseCurrencies')
+	END
 GO
 
-UPDATE S SET S.SValue = SValue + ',74:BDT, 61:INR'
-FROM dbo.SystemSettings S WITH (UPDLOCK, ROWLOCK)
-WHERE SName IN ('AFF_BaseCurrencies')
-GO
