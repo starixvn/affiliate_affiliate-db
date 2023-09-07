@@ -9,12 +9,20 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20230801@Sally: Support 3 more Languages Cambodian, Bangladeshi and Vietnamese [RedmineId: #191310]
 */
 
 BEGIN
 	SET NOCOUNT ON
-
+	
+	;WITH CTE_Market AS (
+		SELECT MarketId, MarketName, MarketNativeName, DisplayName, ShortedCode
+			,CASE WHEN MarketId = 'en-US' THEN 1 ELSE 2 END AS SortTypeId
+		FROM dbo.Market WITH (NOLOCK)
+	)
 	SELECT MarketId, MarketName, MarketNativeName, DisplayName, ShortedCode
-	FROM dbo.Market WITH (NOLOCK)
+	FROM CTE_Market
+	ORDER BY SortTypeId, MarketId 
+
 END
 GO

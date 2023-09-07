@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize function [RedmineID: #87923]
 		- 20220401@Malcolm: Add Malay Language [RedmineId: #170789]
+		- 20230801@Sally: Support 3 more Languages Cambodian, Bangladeshi and Vietnamese [RedmineId: #191310]
 
 	Parameter's Explanation:
 */
@@ -35,6 +36,8 @@ BEGIN
 		WHEN 'hi-IN' THEN ISNULL(MessageContentHIEN, MessageContentEN)
 		WHEN 'eneuro' THEN ISNULL(MessageContentENEURO, MessageContentEN)
 		WHEN 'ms-MY' THEN ISNULL(MessageContentMS, MessageContentEN)
+		WHEN 'km-KH' THEN ISNULL(MessageContentKH, MessageContentEN)
+		WHEN 'bn-BD' THEN ISNULL(MessageContentBN, MessageContentEN)
 		ELSE MessageContentEN END
 	FROM dbo.Messages WITH (NOLOCK)
 	WHERE MessageId = @MessageId

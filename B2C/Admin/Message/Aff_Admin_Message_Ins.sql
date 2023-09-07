@@ -8,6 +8,8 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Message_Ins]
 	,@MsgID			NVARCHAR(4000)
 	,@MsgHI			NVARCHAR(4000)
 	,@MsgMS			NVARCHAR(4000)
+	,@MsgKh			NVARCHAR(4000)
+	,@MsgBn			NVARCHAR(4000)
 	,@IsImportant	BIT
 	,@IP			VARCHAR(20) = ''
 	,@ErrCode		INT = 0 OUTPUT
@@ -23,6 +25,8 @@ AS
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20220301@Malcolm: Add Hindi Language [RedmineId: #169142]
 		- 20220401@Malcolm: Add Malay Language [RedmineId: #170789]
+		- 20230801@Sally: Support 3 more Languages Cambodian, Bangladeshi and Vietnamese [RedmineId: #191310]
+
 */
 
 BEGIN
@@ -43,12 +47,12 @@ BEGIN
 	BEGIN TRY
 		INSERT INTO dbo.News
 		(
-			Message_En, Message_Cn, Message_Th, Message_Id, Message_Vi, Message_Hi, Message_Ms
+			Message_En, Message_Cn, Message_Th, Message_Id, Message_Vi, Message_Hi, Message_Ms, Message_Kh, Message_Bn
 			,Creator, PostedDate, Important
 		)
 		VALUES
 		(
-			@MsgEn, @MsgCn, @MsgTh, @MsgId, @MsgVi, @MsgHI, @MsgMs
+			@MsgEn, @MsgCn, @MsgTh, @MsgId, @MsgVi, @MsgHI, @MsgMs, @MsgKh, @MsgBn 
 			,@UserId, GETDATE(), @IsImportant
 		)
 
@@ -72,6 +76,8 @@ BEGIN
 					+ ',' + 'Message_Vi=' + ISNULL(@MsgVi, '')
 					+ ',' + 'Message_Hi=' + ISNULL(@MsgHI, '')
 					+ ',' + 'Message_Ms=' + ISNULL(@MsgMS, '')
+					+ ',' + 'Message_Kh=' + ISNULL(@MsgKh, '')
+					+ ',' + 'Message_Bn=' + ISNULL(@MsgBn, '')
 					+ ',' + 'Important=' + ISNULL(CONVERT(VARCHAR(5), @IsImportant), '')
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog

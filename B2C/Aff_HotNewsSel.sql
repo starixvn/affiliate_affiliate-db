@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_HotNewsSel]
 	@FromDate	DATETIME = NULL,
 	@ToDate		DATETIME = NULL,
@@ -19,6 +19,8 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20220301@Malcolm: Add Hindi Language [RedmineId: #169142]
 		- 20220401@Malcolm: Add Malay Language [RedmineId: #170789]
+		- 20230801@Sally: Support 3 more Languages Cambodian, Bangladeshi and Vietnamese [RedmineId: #191310]
+
 */
 
 BEGIN
@@ -53,10 +55,12 @@ BEGIN
 		SELECT
 			msgid, creator, posteddate, important, creatorname, updatename, updateddate
 			,message_en, message_cn, message_tw, message_es, message_th, message_vi, message_id, message_kr, message_jp, message_hi, message_ms
+			,Message_Kh, Message_Bn
 		FROM (
 			SELECT
 				n.msgid, n.creator, n.posteddate, n.important, c.username AS creatorname, u.username AS updatename, n.updateddate
 				,n.message_en, n.message_cn, n.message_tw, n.message_es, n.message_th, n.message_vi, n.message_id, n.message_kr, n.message_jp, n.message_hi, n.message_ms
+				,n.Message_Kh, n.Message_Bn
 				,ROW_NUMBER() OVER(ORDER BY n.posteddate DESC) AS RowNum
 			FROM dbo.News n WITH (NOLOCK)
 				LEFT JOIN dbo.Affiliate_User c WITH (NOLOCK) ON n.Creator = c.custid
@@ -89,7 +93,8 @@ BEGIN
 						WHEN 'ko-KR' THEN ISNULL(message_kr, message_en)
 						WHEN 'ja-JP' THEN ISNULL(message_jp, message_en)
 						WHEN 'hi-IN' THEN ISNULL(message_hi, message_en)
-						WHEN 'ms-MY' THEN ISNULL(message_ms, message_en)
+						WHEN 'km-KH' THEN ISNULL(Message_Kh, message_en)
+						WHEN 'bn-BD' THEN ISNULL(Message_Bn, message_en)
 						ELSE message_en END AS [message]
 				,posteddate
 				,msgid
