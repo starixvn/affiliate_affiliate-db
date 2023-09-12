@@ -25,10 +25,34 @@ AS
 		- 20211222@Malcolm: Split transfer out of bettrans [RedmineID: #165095]
 		- 20211222@Malcolm: get transid from Get_Bettrans_TransID [RedmineID: #175407]
 		- 20230621@Eddie: Migrate 12Bet to SiteDB02 [RedmineID: #189465]
+		- 20230911@Eddie: Check the SiteDBGroupID of CustID and Server is match [RedmineID: #193769]
 */
 
 BEGIN
-
+	DECLARE @Cust_SiteDBGroupID SMALLINT, @Server_SiteDBGroupID SMALLINT
+	
+	DECLARE @SiteGroupInfo TABLE  
+	(   
+		SiteDBGroupID 		SMALLINT
+		,LinkedServerName  	VARCHAR(512)
+		,ClientAccessName 	VARCHAR(512) 
+		,AGIP 				VARCHAR (50)  
+	)
+	
+	INSERT INTO @SiteGroupInfo (SiteDBGroupID, LinkedServerName, ClientAccessName, AGIP)  
+	EXEC DBCUST.CustDB.dbo.Acc_SiteDBConfigSel @CustID = @Player_IBCCustID
+	
+	SELECT @Cust_SiteDBGroupID = SiteDBGroupID FROM @SiteGroupInfo
+	
+	SELECT @Server_SiteDBGroupID = dbo.f_Get_SiteDBGroupID()
+	
+	--Check the SiteDBGroupID of CustID and Server is match  
+	IF ISNULL(@Cust_SiteDBGroupID, -1) <> @Server_SiteDBGroupID
+	BEGIN  
+		SELECT @ErrCode = 4004, @ErrMsg = 'Executing on invalid server. Please check SiteDBGroupID information.'   
+		RETURN    
+	END
+	
 	DECLARE @Player_UserName		NVARCHAR(50)
 			,@Player_recommend		INT
 			,@Player_mrecommend		INT
