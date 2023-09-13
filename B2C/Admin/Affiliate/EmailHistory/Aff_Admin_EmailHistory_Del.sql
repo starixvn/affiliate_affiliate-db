@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
+		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 
 	Param's Explanation:
 		- @MIDs: List of Mail ID
@@ -52,6 +53,7 @@ BEGIN
 	DECLARE @tblMailID TABLE (MID INT NOT NULL PRIMARY KEY)
 	INSERT INTO @tblMailID (MID)
 	SELECT DISTINCT val FROM dbo.Aff_f_StringSplit (@MIDs, ',')
+	OPTION(MAXRECURSION 0)
 
 	IF EXISTS (
 		SELECT 1

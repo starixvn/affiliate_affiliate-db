@@ -21,6 +21,7 @@ AS
 		- 20210916@Percy: Initialize SP [RedmineID: #161540]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 
 	Param's Explanation:
 		- @ProductIds: list of products, '' = no product
@@ -52,6 +53,7 @@ BEGIN
 	DECLARE @Products TABLE (ProductId INT)
 	INSERT INTO @Products (ProductId)
 	SELECT ProductId FROM dbo.Products WITH (NOLOCK) WHERE ProductId IN (SELECT val FROM dbo.Aff_f_StringSplit(@ProductIds, ','))
+	OPTION(MAXRECURSION 0)
 
 	CREATE TABLE #ProductSetting (AffId INT, AffUsername VARCHAR(50), ProductId INT, FromDate SMALLDATETIME, ToDate SMALLDATETIME, IsStraightSetting BIT)
 	INSERT INTO #ProductSetting (AffId, AffUsername, ProductId, FromDate, ToDate, IsStraightSetting)

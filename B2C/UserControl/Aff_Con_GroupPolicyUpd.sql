@@ -1,11 +1,11 @@
-﻿/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Con_GroupPolicyUpd]
 	@GroupPolicys NVARCHAR(4000),
-	@UserID int, 
+	@UserID INT, 
 	@Language VARCHAR(2)= 'E', 
-	@ErrCode int = 0 OUTPUT,
-	@ErrMsg nvarchar(200) = '' OUTPUT,
-	@IP varchar(15) = ''
+	@ErrCode INT = 0 OUTPUT,
+	@ErrMsg NVARCHAR(200) = '' OUTPUT,
+	@IP VARCHAR(15) = ''
 AS
 /*
 	DB: DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G	
@@ -15,23 +15,26 @@ AS
 		-- Format of @GroupPolicys: @GroupID,@FuncID,@Policy;@GroupID,@FuncID,@Policy; ...;
 		-- 20101214@Peter : Move this SP to DB DB052.Affiliate_12BET
 		-- 20200220@Percy: Initialize SP for DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G [RedmineID: #128775]
+		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
+
 */
 
 BEGIN
-	EXEC [dbo].[Aff_Con_CheckPermission] @custid=@UserID,@funcname='[UserControl]',@ErrCode=@ErrCode output,@ErrMsg=@ErrMsg output
+	EXEC [dbo].[Aff_Con_CheckPermission] @custid=@UserID,@funcname='[UserControl]',@ErrCode=@ErrCode OUTPUT,@ErrMsg=@ErrMsg OUTPUT
 	
-	If @ErrCode <> 0
+	IF @ErrCode <> 0
 		RETURN
 	
-	DECLARE @GroupPolicy nvarchar(4000)
+	DECLARE @GroupPolicy NVARCHAR(4000)
 	DECLARE @GroupID INT
 	DECLARE @FuncID INT
-	DECLARE @Policy int
-	DECLARE @GroupPolicyCount int 
+	DECLARE @Policy INT
+	DECLARE @GroupPolicyCount INT 
 	DECLARE GroupPolicysCur CURSOR FOR 
-		SELECT val as row_index 
-		  FROM dbo.Aff_f_StringSplit(@GroupPolicys, ';')
-		 ORDER BY row_index
+		SELECT val AS row_index 
+		FROM dbo.Aff_f_StringSplit(@GroupPolicys, ';')
+		ORDER BY row_index
+		OPTION (MAXRECURSION 0)
 	
 	OPEN GroupPolicysCur
 	FETCH NEXT FROM GroupPolicysCur INTO @GroupPolicy
@@ -41,7 +44,7 @@ BEGIN
 		SET @GroupID = dbo.Aff_SplitIndex(@GroupPolicy, ',', 1)
 		SET @FuncID = dbo.Aff_SplitIndex(@GroupPolicy, ',', 2)
 		SET	@Policy = dbo.Aff_SplitIndex(@GroupPolicy, ',', 3)
-		SET @GroupPolicyCount = (SELECT COUNT(1) FROM AffGroupPolicy with (nolock) WHERE GroupID = @GroupID AND funcid = @FuncID)
+		SET @GroupPolicyCount = (SELECT COUNT(1) FROM AffGroupPolicy WITH (NOLOCK) WHERE GroupID = @GroupID AND funcid = @FuncID)
 
 		IF(@GroupPolicyCount = 0)
 			BEGIN
@@ -59,8 +62,8 @@ BEGIN
 				   AND funcid = @FuncID
 			END
 		
-		DECLARE @SPName varchar(50), @LogData nvarchar(200)
-		select @SPName = OBJECT_NAME(@@ProcID)
+		DECLARE @SPName VARCHAR(50), @LogData NVARCHAR(200)
+		SELECT @SPName = OBJECT_NAME(@@ProcID)
 
 		SELECT @LogData = '[AFFILIATE] UPDATE (multiple) Policy = ' + dbo.Aff_ToString(@Policy) + ' of Function ' + dbo.Aff_ToString(@Funcid) +  ' for Group ' + dbo.Aff_ToString(@GroupID)
 		

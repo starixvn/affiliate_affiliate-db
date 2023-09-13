@@ -19,6 +19,7 @@ AS
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20230130@Malcolm: Correct the total number of output lines [RedmineId: #181455]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -44,7 +45,10 @@ BEGIN
 	IF EXISTS (
 		SELECT 1
 		FROM dbo.AffInfo ai WITH (NOLOCK)
-			CROSS APPLY (SELECT COUNT(1) AS SubLevel FROM dbo.Aff_f_StringSplit(ai.AllParentAffId, ',')) l
+			CROSS APPLY (
+				SELECT COUNT(1) AS SubLevel 
+				FROM STRING_SPLIT(ai.AllParentAffId, ',') s
+			)l
 		WHERE ai.AffId = @AffId
 			AND l.SubLevel = @MaxSubLevel
 	)

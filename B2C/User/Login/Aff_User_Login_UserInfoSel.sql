@@ -14,6 +14,7 @@ AS
 		- 20200107@Percy: Add suspended status [RedmineID: #148373]
 		- 20210426@Percy: Convert data type output column: IsMaxSubLevel [RedmineID: #153465]
 		- 20211005@Percy: Support Transfer Balance For Player [RedmineID: #153227]
+		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 
 	Parameter's Explanation:
 		- @UserName: username
@@ -66,5 +67,6 @@ BEGIN
 		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupID = cg.GroupID
 		OUTER APPLY (SELECT COUNT(1) AS SubLevel FROM dbo.Aff_f_StringSplit(ai.AllParentAffId, ',')) l
 	WHERE ai.AffId = @AffId
+	OPTION (MAXRECURSION 0)
 END
 GO
