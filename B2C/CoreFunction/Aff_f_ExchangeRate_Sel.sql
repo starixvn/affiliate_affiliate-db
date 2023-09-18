@@ -18,6 +18,7 @@ AS
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210916@Percy: Change Base Currency ID of THB, IDR [RedmineID: #161540]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+		- 20230829@Sally: Support Base Currency INH, BDT, INR [RedmineID: #193235]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of maindb
@@ -45,6 +46,8 @@ RETURN
 			WHEN 15 THEN e.IDR / 1000.0
 			WHEN 20 THEN 1 -- cheat code for UAT testing
 			WHEN 51 THEN e.VND / 1000.0
+			WHEN 97 THEN e.BDT
+			WHEN 61 THEN e.INR
 			ELSE 0 END AS Rate
 	FROM dbo.ExchangeOanda e WITH (NOLOCK)
 		INNER JOIN CTE_BaseCurrency bc ON e.ExchangeId = bc.ExchangeId
