@@ -15,6 +15,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 
 	Param's Explanation:
 		- @TargetId:
@@ -46,6 +47,7 @@ BEGIN
 				ON		s.val = m.MediaId
 					AND m.ImageType = 'Text'
 					AND (@TargetId = 0 OR m.TargetId = @TargetId)
+		OPTION(MAXRECURSION 0)
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = 101, @ErrMsg = 'Sorry, your input banner id is invalid. Please recheck it again.'

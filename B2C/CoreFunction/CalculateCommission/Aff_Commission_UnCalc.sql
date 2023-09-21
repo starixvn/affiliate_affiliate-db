@@ -32,6 +32,7 @@ AS
 		- 20230404@Malcolm: calculate sub commission monthly [RedmineID: #185481]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 		- 20230612@Sally: Enhance Share % Commission in Report [RedmineID: #189425]
+		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -70,6 +71,7 @@ BEGIN
 		SELECT @AffIds = COALESCE(@AffIds + ',', '') + CONVERT(VARCHAR(20), ai.AffId)
 		FROM dbo.Aff_f_StringSplit(@AffIds, ',') f
 			INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON ',' + ai.AllParentAffId + ',' LIKE '%,' + f.val + ',%'
+		OPTION(MAXRECURSION 0)
 	END
 
 	-- AffCurrency
@@ -834,6 +836,7 @@ BEGIN
 		FROM #Commission c
 			INNER JOIN CTE_SubAffCommission s ON s.MonthDate = c.MonthDate AND s.AffId = c.AffId
 		WHERE c.ProductId = 0 AND c.GroupProductId = 0
+		OPTION (MAXRECURSION 0)
 
 		IF @AffIds <>  'all'
 		BEGIN

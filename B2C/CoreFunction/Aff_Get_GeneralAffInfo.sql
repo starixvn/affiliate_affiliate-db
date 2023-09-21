@@ -11,6 +11,7 @@ AS
 
 	Revisions:
 		- 20201026@Percy: Initialize SP [RedmineID: #143852]
+		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 */
 
 BEGIN
@@ -30,5 +31,6 @@ BEGIN
 		OUTER APPLY (SELECT COUNT(1) AS SubAffLevel FROM dbo.Aff_f_StringSplit(ai.AllParentAffId, ',')) s
 	WHERE AffId = @AffId
 		AND IsClosed = 0
+	OPTION (MAXRECURSION 0)
 END
 GO

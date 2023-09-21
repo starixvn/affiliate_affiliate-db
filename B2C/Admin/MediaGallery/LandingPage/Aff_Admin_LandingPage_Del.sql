@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102399]
+		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 */
 
 BEGIN
@@ -42,6 +43,7 @@ BEGIN
 	FROM dbo.LandingPage lp
 	WHERE EXISTS (SELECT 1 FROM dbo.Aff_f_StringSplit (@PageIds, ',') f WHERE lp.PageId = f.val)
 		AND lp.IsDeleted = 0
+	OPTION(MAXRECURSION 0)
 
 	IF @@ROWCOUNT = 0
 		RETURN

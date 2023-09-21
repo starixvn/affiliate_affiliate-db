@@ -17,6 +17,7 @@ AS
 		- 20220301@Malcolm: Add Hindi Language [RedmineId: #169142]
 		- 20220401@Malcolm: Add Malay Language [RedmineId: #170789]
 		- 20230801@Sally: Support 3 more Languages Cambodian, Bangladeshi and Vietnamese [RedmineId: #191310]
+		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 
 */
 
@@ -41,6 +42,7 @@ BEGIN
 		SELECT s.val, CASE WHEN m.MsgId IS NULL THEN 0 ELSE 1 END
 		FROM dbo.Aff_f_StringSplit (@MessageIds, ',') s
 			LEFT JOIN dbo.News m WITH (NOLOCK) ON s.val = m.MsgId
+		OPTION(MAXRECURSION 0)
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = 101, @ErrMsg = 'Sorry, your input banner id is invalid. Please recheck it again.'

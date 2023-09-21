@@ -46,6 +46,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [Redmine: #128775]
 		- 20201026@Percy: Replace ParentAffId to AffCode [RedmineID: #143852]
+		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 */
 
 BEGIN
@@ -98,7 +99,7 @@ BEGIN
 
 		SELECT @MaxSubLevel = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'MaxSubLevel'
 
-		IF (SELECT COUNT(1) + 1 AS SubLevel FROM dbo.Aff_f_StringSplit(@AllParentAffId, ',')) > @MaxSubLevel
+		IF (SELECT COUNT(1) + 1 AS SubLevel FROM STRING_SPLIT(@AllParentAffId, ',')) > @MaxSubLevel
 		BEGIN
 			-- The information you have entered is invalid. Please check again.
 			SELECT @ErrCode = 102, @ErrMsg = dbo.Aff_f_GetMessageById(105, @Language)
