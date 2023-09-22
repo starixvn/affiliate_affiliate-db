@@ -12,6 +12,7 @@ AS
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
+		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 */
 
 BEGIN
@@ -23,6 +24,7 @@ BEGIN
 			@FDMTotal					INT,
 			@ActivePlayersByMonth		INT,
 			@QualifiedMembersByMonth	INT,
+			@FDMDepositByMonth			MONEY,
 			@DepositByMonth				MONEY,
 			@DepositTotal				MONEY,
 			@TurnoverByMonth			MONEY,
@@ -34,7 +36,8 @@ BEGIN
 			@UniqueClickPCByMonth		INT,
 			@TotalClickPCByMonth		INT,
 			@UniqueClickMobileByMonth	INT,
-			@TotalClickMobileByMonth	INT
+			@TotalClickMobileByMonth	INT,
+			@FDMDepositTotal			MONEY
 
 	DECLARE @FromBeginMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME
 	SELECT	@FromBeginMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
@@ -52,6 +55,7 @@ BEGIN
 
 		DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
 
+		DROP TABLE IF EXISTS #TempCommission;
 		CREATE TABLE #TempCommission
 		(
 			MonthDate				SMALLDATETIME,
@@ -78,7 +82,13 @@ BEGIN
 			QualifiedMember			INT,
 			QMTurnover				MONEY,
 			CommissionRate			FLOAT,
-			Commission				MONEY
+			Commission				MONEY,
+			-----FDM & Bonus
+			IsApplyBonus			BIT,
+			FDMCount				INT,
+			FDMDeposit				MONEY,
+			FDMCommissionRate		DECIMAL(9, 8),
+			FDMCommission			MONEY
 		)
 
 		-- Uncalculated Months
@@ -112,7 +122,13 @@ BEGIN
 				QualifiedMember,
 				QMTurnOver,
 				CommissionRate,
-				Commission
+				Commission,
+				---FDM & Bonus
+				IsApplyBonus,		
+				FDMCount,			
+				FDMDeposit,			
+				FDMCommissionRate,
+				FDMCommission		
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= @AffIds,
@@ -154,7 +170,13 @@ BEGIN
 				QualifiedMember,
 				QMTurnOver,
 				CommissionRate,
-				Commission
+				Commission,
+				---FDM & Bonus
+				IsApplyBonus,		
+				FDMCount,			
+				FDMDeposit,			
+				FDMCommissionRate,
+				FDMCommission		
 			)
 			EXEC dbo.Aff_Commission_Calc
 				@AffIds				= @AffIds,
@@ -174,10 +196,11 @@ BEGIN
 		@WinlostByMonth				= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Winloss, 0) ELSE 0 END),
 		@DepositTotal				= SUM(ISNULL(Deposit, 0)),
 		@TurnoverTotal				= SUM(ISNULL(Turnover, 0)),
-		@WinlostTotal				= SUM(ISNULL(Winloss, 0))
-	FROM #TempCommission
+		@WinlostTotal				= SUM(ISNULL(Winloss, 0)),
+		@FDMDepositTotal			= SUM(ISNULL(FDMDeposit, 0)),
+		@FDMDepositByMonth			= SUM(ISNULL(FDMDeposit, 0))
 
-	DROP TABLE #TempCommission
+	FROM #TempCommission
 
 	SELECT
 		@SignupsTotal	= COUNT(1),
@@ -278,6 +301,7 @@ BEGIN
 		ISNULL(@UniqueClickPCByMonth, 0)		AS UniqueClickPCByMonth,
 		ISNULL(@TotalClickPCByMonth, 0)			AS TotalClickPCByMonth,
 		ISNULL(@TotalClickMobileByMonth, 0)		AS TotalClickMobileByMonth,
-		ISNULL(@UniqueClickMobileByMonth, 0)	AS UniqueClickMobileByMonth
+		ISNULL(@UniqueClickMobileByMonth, 0)	AS UniqueClickMobileByMonth,
+		ISNULL(@FDMDepositByMonth, 0)			AS FDMDepositByMonth
 END
 GO

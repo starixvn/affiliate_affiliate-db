@@ -21,6 +21,7 @@ AS
 		- 20181012@Percy: Missing data today [RedmineID: #103143]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 */
 
 BEGIN
@@ -145,13 +146,13 @@ BEGIN
 			SELECT
 				ISNULL(at.TransId, 0),
 				md.MonthDate,
-				201 AS TransType,
+				ISNULL(at.TransType, 201) AS TransType,
 				ISNULL(at.Amount, 0),
 				'B/F' AS Status,
 				'System' AS Creator,
-				'Monthly Earning' AS Description
+				ISNULL(at.[Description], 'Monthly Earning') AS [Description]
 			FROM CTE_MonthDate md
-				LEFT JOIN dbo.AffTrans at WITH (NOLOCK) ON md.MonthDate = at.TransDate AND at.AffId = @AffId AND at.TransType = 201
+				LEFT JOIN dbo.AffTrans at WITH (NOLOCK) ON md.MonthDate = at.TransDate AND at.AffId = @AffId AND at.TransType IN (201, 205)
 			OPTION (MAXRECURSION 0)
 		END
 
@@ -190,7 +191,13 @@ BEGIN
 				QualifiedMember			INT,
 				QMTurnover				MONEY,
 				CommissionRate			FLOAT,
-				Commission				MONEY
+				Commission				MONEY,
+				-----FDM & Bonus
+				IsApplyBonus			BIT,
+				FDMCount				INT,
+				FDMDeposit				MONEY,
+				FDMCommissionRate		DECIMAL(9, 8),
+				FDMCommission			MONEY
 			)
 
 			INSERT INTO #TempCommission
@@ -217,7 +224,12 @@ BEGIN
 				QualifiedMember,
 				QMTurnOver,
 				CommissionRate,
-				Commission
+				Commission,
+				IsApplyBonus,		
+				FDMCount,			
+				FDMDeposit,			
+				FDMCommissionRate,
+				FDMCommission		
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= @AffIds,
@@ -240,11 +252,21 @@ BEGIN
 			SELECT
 				0 AS TransId,
 				MonthDate,
-				0 AS TransType,
+				201 AS TransType,
 				Commission AS Amount,
 				'Current' AS Status,
 				'' AS Creator,
-				CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current Month Statistics' ELSE 'UnCalculated Month' END AS Description
+				CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current Monthly Earning' ELSE 'UnCalculated Monthly Earning' END AS Description
+			FROM #TempCommission
+			UNION ALL
+			SELECT
+				0 AS TransId,
+				MonthDate,
+				205 AS TransType,
+				FDMCommission AS Amount,
+				'Current' AS Status,
+				'' AS Creator,
+				CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current New FDM Commission Bonus' ELSE 'Uncalculated New FDM Commission Bonus' END AS Description
 			FROM #TempCommission
 
 			DROP TABLE #TempCommission

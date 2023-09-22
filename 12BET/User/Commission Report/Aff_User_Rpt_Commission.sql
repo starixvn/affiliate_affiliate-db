@@ -12,6 +12,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
+		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 */
 
 BEGIN
@@ -49,6 +50,7 @@ BEGIN
 		DECLARE @AffIds VARCHAR(MAX)
 		SELECT  @AffIds = CONVERT(VARCHAR(20), @AffId)
 
+		DROP TABLE IF EXISTS #TempCommission;
 		CREATE TABLE #TempCommission
 		(
 			MonthDate				SMALLDATETIME,
@@ -76,8 +78,14 @@ BEGIN
 			QMTurnover				MONEY,
 			CommissionRate			FLOAT,
 			Commission				MONEY,
+			-----FDM & Bonus
+			IsApplyBonus			BIT,
+			FDMCount				INT,
+			FDMDeposit				MONEY,
+			FDMCommissionRate		DECIMAL(9, 8),
+			FDMCommission			MONEY,
 			-- for monthdate -- 0: temporary, 1: uncalculated, 2: calculated
-			CalculatedType	TINYINT DEFAULT ((2))
+			CalculatedType	TINYINT DEFAULT ((2)),
 		)
 
 		-- Uncalculated Months
@@ -110,7 +118,13 @@ BEGIN
 				QualifiedMember,
 				QMTurnOver,
 				CommissionRate,
-				Commission
+				Commission,
+				---FDM & Bonus
+				IsApplyBonus,		
+				FDMCount,			
+				FDMDeposit,			
+				FDMCommissionRate,
+				FDMCommission
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= @AffIds,
@@ -154,7 +168,13 @@ BEGIN
 				QualifiedMember,
 				QMTurnOver,
 				CommissionRate,
-				Commission
+				Commission,
+				---FDM & Bonus
+				IsApplyBonus,		
+				FDMCount,			
+				FDMDeposit,			
+				FDMCommissionRate,
+				FDMCommission
 			)
 			EXEC dbo.Aff_Commission_Calc
 				@AffIds				= @AffIds,
@@ -179,13 +199,12 @@ BEGIN
 		d.Bonus,
 		d.CommissionRate,
 		d.Commission,
+		ISNULL(d.FDMCommission, 0) AS FDMCommission,
 		d.CalculatedType
 	FROM #TempCommission d
 		LEFT JOIN dbo.Products p WITH (NOLOCK) ON d.ProductId = p.ProductId
 	ORDER BY
 		MonthDate DESC,
 		d.ProductId ASC
-	
-	DROP TABLE #TempCommission
 END
 GO

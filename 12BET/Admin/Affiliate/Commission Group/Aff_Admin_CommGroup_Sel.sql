@@ -67,7 +67,7 @@ BEGIN
 		cg.Description,
 		cg.QMTurnover,
 		cg.NextQMTurnover,
-		ISNULL(cg.IsApplyBonus, 1) AS IsApplyBonus,
+		ISNULL(cg.IsApplyBonus, 0) AS IsApplyBonus,
 		ISNULL(n.NoAffs, 0) AS NoAffs
 	FROM dbo.CommGroup cg WITH (NOLOCK)
 		INNER JOIN @Group g ON cg.GroupId = g.GroupId

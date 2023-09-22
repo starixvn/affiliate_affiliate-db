@@ -171,13 +171,14 @@ BEGIN
 		-- Check valid FDM tier setting
 		IF (SELECT COUNT(1) FROM @FDMTierSetting) > 50
 		BEGIN
-			-- Oops, maximum of 50 tiers are allowed!
-			SELECT @ErrCode = 103, @ErrMsg = dbo.Aff_f_GetMessageById(1003, @Language)
+			-- Oops, maximum of 50 FDM tiers are allowed!
+			SELECT @ErrCode = 110, @ErrMsg = dbo.Aff_f_GetMessageById(1010, @Language)
 
 			RETURN
 		END
 
-		IF EXISTS
+		IF EXISTS (SELECT 1 FROM @FDMTierSetting)
+			AND ( EXISTS
 			(
 				SELECT 1
 				FROM @FDMTierSetting ts1
@@ -192,9 +193,10 @@ BEGIN
 			(
 				SELECT 1 FROM @FDMTierSetting WHERE TierId = 1 AND MinAmount = 0
 			)
+		)
 		BEGIN
 			-- Error! Invalid FDM Tier Setting!
-			SELECT @ErrCode = 104, @ErrMsg = dbo.Aff_f_GetMessageById(1004, @Language)
+			SELECT @ErrCode = 111, @ErrMsg = dbo.Aff_f_GetMessageById(1011, @Language)
 
 			RETURN
 		END
@@ -203,7 +205,7 @@ BEGIN
 
 	DECLARE @updateData TABLE
 	(
-		-- 1: general, 2: tier, 3: deduction
+		-- 1: general, 2: tier, 3: deduction, 4: FDM tier
 		TypeId					TINYINT,
 		-- General information
 		GroupName				NVARCHAR(100),
@@ -263,7 +265,6 @@ BEGIN
 		FROM @TierSetting
 
 		--FDM TierSetting
-		IF EXISTS(SELECT 1 FROM @FDMTierSetting)
 		BEGIN
 			DELETE dbo.FDMTierSetting WITH (ROWLOCK, UPDLOCK)
 			OUTPUT DELETED.TierId,DELETED.MinFDM,DELETED.MaxFDM,DELETED.MinAmount,DELETED.MaxAmount,DELETED.LimitAmount,DELETED.Commission,4
@@ -273,13 +274,16 @@ BEGIN
 			DELETE dbo.FDMTierSettingHistory WITH (ROWLOCK, UPDLOCK)
 			WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
-			INSERT INTO dbo.FDMTierSetting (GroupId,TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission)
-			SELECT @GroupId,TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission
-			FROM @FDMTierSetting
+			IF EXISTS(SELECT 1 FROM @FDMTierSetting)
+			BEGIN
+				INSERT INTO dbo.FDMTierSetting (GroupId,TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission)
+				SELECT @GroupId,TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission
+				FROM @FDMTierSetting
 
-			INSERT INTO dbo.FDMTierSettingHistory (GroupId,MonthDate,TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission)
-			SELECT @GroupId,@MonthDate,TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission
-			FROM @FDMTierSetting
+				INSERT INTO dbo.FDMTierSettingHistory (GroupId,MonthDate,TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission)
+				SELECT @GroupId,@MonthDate,TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission
+				FROM @FDMTierSetting
+			END
 		END
 
 		-- Deduction List

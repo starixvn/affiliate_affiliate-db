@@ -208,29 +208,32 @@ BEGIN
 		IF (SELECT COUNT(1) FROM @FDMTierSetting) > 50
 		BEGIN
 			-- Oops, maximum of 50 tiers are allowed!
-			SELECT @ErrCode = 103, @ErrMsg = dbo.Aff_f_GetMessageById(1003, @Language)
+			SELECT @ErrCode = 1010, @ErrMsg = dbo.Aff_f_GetMessageById(1010, @Language)
 
 			RETURN
 		END
 
-		IF EXISTS
-			(
-				SELECT 1
-				FROM @FDMTierSetting ts1
-					INNER JOIN @FDMTierSetting ts2 ON ts1.TierID + 1 = ts2.TierID
-				WHERE ts1.MaxAmount + 1 <> ts2.MinAmount
-			)
-			OR NOT EXISTS
-			(
-				SELECT 1 FROM @FDMTierSetting WHERE MaxAmount = @Infinity_Amount
-			)
-			OR NOT EXISTS
-			(
-				SELECT 1 FROM @FDMTierSetting WHERE TierId = 1 AND MinAmount = 0
-			)
+		IF EXISTS (SELECT 1 FROM @FDMTierSetting)
+			AND (
+				EXISTS
+				(
+					SELECT 1
+					FROM @FDMTierSetting ts1
+						INNER JOIN @FDMTierSetting ts2 ON ts1.TierID + 1 = ts2.TierID
+					WHERE ts1.MaxAmount + 1 <> ts2.MinAmount
+				)
+				OR NOT EXISTS
+				(
+					SELECT 1 FROM @FDMTierSetting WHERE MaxAmount = @Infinity_Amount
+				)
+				OR NOT EXISTS
+				(
+					SELECT 1 FROM @FDMTierSetting WHERE TierId = 1 AND MinAmount = 0
+				)
+		)
 		BEGIN
 			-- Error! Invalid FDM Tier Setting!
-			SELECT @ErrCode = 104, @ErrMsg = dbo.Aff_f_GetMessageById(1004, @Language)
+			SELECT @ErrCode = 111, @ErrMsg = dbo.Aff_f_GetMessageById(1011, @Language)
 
 			RETURN
 		END

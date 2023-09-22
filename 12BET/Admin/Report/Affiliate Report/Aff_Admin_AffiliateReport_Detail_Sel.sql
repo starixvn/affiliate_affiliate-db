@@ -25,6 +25,8 @@ AS
 		- 20191101@Percy: Fix wrong FDM value [RedmineID: #123134]
 		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
 		- 20220831@Eddie: Add new column 'Previous month's balance B/F' [RedmineID: #177178]
+		- 20210528@Malcolm: Get data daily [RedmineID: #149210]
+		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -93,6 +95,10 @@ BEGIN
 	/*
 		===== Get data =====
 	*/
+	DROP TABLE IF EXISTS #TempCommission
+	DROP TABLE IF EXISTS #Signup
+	DROP TABLE IF EXISTS #Statistics
+
 	BEGIN
 		DECLARE @AffIds VARCHAR(MAX)
 		SELECT  @AffIds = CONVERT(VARCHAR(20), @AffId)
@@ -123,7 +129,13 @@ BEGIN
 			QualifiedMember			INT,
 			QMTurnover				MONEY,
 			CommissionRate			FLOAT,
-			Commission				MONEY
+			Commission				MONEY,
+			-----FDM & Bonus
+			IsApplyBonus			BIT,
+			FDMCount				INT,
+			FDMDeposit				MONEY,
+			FDMCommissionRate		DECIMAL(9, 8),
+			FDMCommission			MONEY
 		)
 
 		IF @FromDate <= @MaxCommDate
@@ -155,7 +167,13 @@ BEGIN
 				QualifiedMember,
 				QMTurnOver,
 				CommissionRate,
-				Commission
+				Commission,
+				---FDM & Bonus
+				IsApplyBonus,		
+				FDMCount,			
+				FDMDeposit,			
+				FDMCommissionRate,
+				FDMCommission
 			)
 			EXEC dbo.Aff_Commission_Calc
 				@AffIds				= @AffIds,
@@ -195,7 +213,13 @@ BEGIN
 				QualifiedMember,
 				QMTurnOver,
 				CommissionRate,
-				Commission
+				Commission,
+				---FDM & Bonus
+				IsApplyBonus,		
+				FDMCount,			
+				FDMDeposit,			
+				FDMCommissionRate,
+				FDMCommission
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= @AffIds,
@@ -309,10 +333,10 @@ BEGIN
 	DECLARE @tblAffStatistics TABLE (MonthDate SMALLDATETIME, AffWithdrawal MONEY, AffAdjustment MONEY, PreviousBFF MONEY, BFF MONEY)
 	
 	;WITH Pre_MonthDate as (
-	SELECT MonthDate
-	FROM @MonthDate
-	UNION ALL
-	SELECT @PreviousFromDate
+		SELECT MonthDate
+		FROM @MonthDate
+		UNION ALL
+		SELECT @PreviousFromDate
 	)
 	INSERT INTO @tblAffStatistics (MonthDate, AffWithdrawal, AffAdjustment, PreviousBFF, BFF)
 	SELECT md.MonthDate, ISNULL(at.AffWithdrawal, 0), ISNULL(at.AffAdjustment, 0), 0, ISNULL(at.BFF, 0)
@@ -367,7 +391,9 @@ BEGIN
 		ISNULL(at.AffWithdrawal, 0)		AS AffWithdrawal,
 		ISNULL(at.AffAdjustment, 0)		AS AffAdjustment,
 		ISNULL(at.PreviousBFF, 0)				AS PreviousBFF,
-		ISNULL(at.BFF, 0)				AS BFF
+		ISNULL(at.BFF, 0)				AS BFF,
+		ISNULL(tc.FDMCommissionRate, 0)	AS FDMCommissionRate,
+		ISNULL(tc.FDMCommission, 0)		AS FDMEarning
 	FROM @MonthDate md
 		LEFT JOIN #TempCommission tc ON md.MonthDate = tc.MonthDate
 		LEFT JOIN (
@@ -413,6 +439,8 @@ BEGIN
 		SUM(ISNULL(at.AffAdjustment, 0)) AS AffAdjustment,
 		SUM(ISNULL(CASE WHEN md.MonthDate = @ToDate THEN at.PreviousBFF ELSE 0 END, 0)) AS PreviousBFF, -- Previous of BFF
 		SUM(ISNULL(CASE WHEN md.MonthDate = @ToDate THEN at.BFF ELSE 0 END, 0)) AS BFF -- the last month by running total
+		,AVG(ISNULL(tc.FDMCommissionRate, 0)) AS FDMCommissionRate,
+		SUM(ISNULL(tc.FDMCommission, 0)) AS FDMEarning
 	FROM @MonthDate md
 		LEFT JOIN #TempCommission tc ON md.MonthDate = tc.MonthDate
 		LEFT JOIN (
@@ -432,9 +460,5 @@ BEGIN
 			GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, mi.CreatedDate) + 1, 0))
 		) mi ON md.MonthDate = mi.MonthDate
 		LEFT JOIN @tblAffStatistics at ON md.MonthDate = at.MonthDate
-
-	DROP TABLE #TempCommission
-	DROP TABLE #Signup
-	DROP TABLE #Statistics
 END
 GO

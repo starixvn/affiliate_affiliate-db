@@ -13,6 +13,7 @@ AS
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
+		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 */
 
 BEGIN
@@ -29,6 +30,7 @@ BEGIN
 
 		DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
 
+		DROP TABLE IF EXISTS #TempCommission;
 		CREATE TABLE #TempCommission
 		(
 			MonthDate				SMALLDATETIME,
@@ -55,7 +57,13 @@ BEGIN
 			QualifiedMember			INT,
 			QMTurnover				MONEY,
 			CommissionRate			FLOAT,
-			Commission				MONEY
+			Commission				MONEY,
+			-----FDM & Bonus
+			IsApplyBonus			BIT,
+			FDMCount				INT,
+			FDMDeposit				MONEY,
+			FDMCommissionRate		DECIMAL(9, 8),
+			FDMCommission			MONEY
 		)
 
 		-- Uncalculated Months
@@ -87,7 +95,13 @@ BEGIN
 				QualifiedMember,
 				QMTurnOver,
 				CommissionRate,
-				Commission
+				Commission,
+				---FDM & Bonus
+				IsApplyBonus,		
+				FDMCount,			
+				FDMDeposit,			
+				FDMCommissionRate,
+				FDMCommission		
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= 'all',
@@ -127,7 +141,13 @@ BEGIN
 				QualifiedMember,
 				QMTurnOver,
 				CommissionRate,
-				Commission
+				Commission,
+				---FDM & Bonus
+				IsApplyBonus,		
+				FDMCount,			
+				FDMDeposit,			
+				FDMCommissionRate,
+				FDMCommission		
 			)
 			EXEC dbo.Aff_Commission_Calc
 				@AffIds				= 'all',
@@ -140,7 +160,7 @@ BEGIN
 
 		DECLARE @DepositAll MONEY, @WinlostAll MONEY, @BonusAll MONEY, @PSPFeeAll MONEY, @NetWinlostAll MONEY
 				,@DepositMonth MONEY, @WinlostMonth MONEY, @BonusMonth MONEY, @PSPFeeMonth MONEY, @NetWinlostMonth MONEY
-
+				,@FDMByMonth INT, @FDMDepositMonth MONEY;
 		SELECT
 			@DepositAll			= SUM(ISNULL(Deposit, 0))
 			,@WinlostAll		= SUM(ISNULL(Winloss, 0))
@@ -152,6 +172,8 @@ BEGIN
 			,@BonusMonth		= SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Bonus, 0) ELSE 0 END)
 			,@PSPFeeMonth		= SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(BankingFee, 0) ELSE 0 END)
 			,@NetWinlostMonth	= SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(NetWinloss, 0) ELSE 0 END)
+			,@FDMByMonth		= SUM(FDMCount)
+			,@FDMDepositMonth	= SUM(FDMDeposit)
 		FROM #TempCommission t
 			INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON t.AffId = ad.AffId AND ',' + @Languages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
 
@@ -260,5 +282,8 @@ BEGIN
 		,@PSPFeeMonth			AS PSPFeeMonth
 		,0						AS AdjustmentMonth
 		,@NetWinlostMonth		AS NetWinlostMonth
+		---FDM  & Bonus
+		,@FDMByMonth			AS FDMByMonth
+		,@FDMDepositMonth		AS FDMDepositMonth
 END
 GO

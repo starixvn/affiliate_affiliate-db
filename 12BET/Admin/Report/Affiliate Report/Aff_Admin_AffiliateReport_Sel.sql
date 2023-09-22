@@ -27,7 +27,7 @@ AS
 		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
 		- 20210223@Percy: Do not show affiliate with all value is zero [149213]
 		- 20210423@Malcolm: Fix Number of Affiliates in a page don't equal PageSize [RedmineId: #152957]
-		- 20210528@Malcolm: Get data daily [RedmineID: #149210]
+		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -86,6 +86,14 @@ BEGIN
 	/*
 		===== Get data =====
 	*/
+
+	DROP TABLE IF EXISTS #AffTrans
+	DROP TABLE IF EXISTS #FDM
+	DROP TABLE IF EXISTS #Result
+	DROP TABLE IF EXISTS #Signup
+	DROP TABLE IF EXISTS #Statistics
+	DROP TABLE IF EXISTS #TempCommission
+
 	BEGIN
 		CREATE TABLE #TempCommission
 		(
@@ -113,7 +121,13 @@ BEGIN
 			QualifiedMember			INT,
 			QMTurnover				MONEY,
 			CommissionRate			FLOAT,
-			Commission				MONEY
+			Commission				MONEY,
+			-----FDM & Bonus
+			IsApplyBonus			BIT,
+			FDMCount				INT,
+			FDMDeposit				MONEY,
+			FDMCommissionRate		DECIMAL(9, 8),
+			FDMCommission			MONEY
 		)
 		
 		IF @FromDate <>  DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0)
@@ -159,7 +173,13 @@ BEGIN
 				QualifiedMember,
 				QMTurnOver,
 				CommissionRate,
-				Commission
+				Commission,
+				---FDM & Bonus
+				IsApplyBonus,		
+				FDMCount,			
+				FDMDeposit,			
+				FDMCommissionRate,
+				FDMCommission		
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= 'all',
@@ -196,7 +216,13 @@ BEGIN
 				QualifiedMember,
 				QMTurnOver,
 				CommissionRate,
-				Commission
+				Commission,
+				---FDM & Bonus
+				IsApplyBonus,		
+				FDMCount,			
+				FDMDeposit,			
+				FDMCommissionRate,
+				FDMCommission		
 			)
 			EXEC dbo.Aff_Commission_Calc
 				@AffIds				= 'all',
@@ -234,7 +260,13 @@ BEGIN
 					QualifiedMember,
 					QMTurnOver,
 					CommissionRate,
-					Commission
+					Commission,
+					---FDM & Bonus
+					IsApplyBonus,		
+					FDMCount,			
+					FDMDeposit,			
+					FDMCommissionRate,
+					FDMCommission		
 				)
 				EXEC dbo.Aff_Commission_UnCalc
 					@AffIds				= 'all',
@@ -274,7 +306,13 @@ BEGIN
 					QualifiedMember,
 					QMTurnOver,
 					CommissionRate,
-					Commission
+					Commission,
+					---FDM & Bonus
+					IsApplyBonus,		
+					FDMCount,			
+					FDMDeposit,			
+					FDMCommissionRate,
+					FDMCommission		
 				)
 				EXEC dbo.Aff_Commission_UnCalc
 					@AffIds				= 'all',
@@ -407,7 +445,9 @@ BEGIN
 			AffAdjustment	MONEY,
 			BFF				MONEY,
 			RowIdx			INT,
-			PreferredLanguage VARCHAR(100)
+			PreferredLanguage VARCHAR(100),
+			FDMCommissionRate	DECIMAL(9, 8),
+			FDMEarning			MONEY
 		)
 		INSERT INTO #Result
 		(
@@ -432,7 +472,9 @@ BEGIN
 			Earning,
 			AffWithdrawal,
 			AffAdjustment,
-			BFF
+			BFF,
+			FDMCommissionRate,
+			FDMEarning
 		)
 		SELECT
 			ai.AffId,
@@ -456,7 +498,9 @@ BEGIN
 			ISNULL(tc.Commission, 0)		AS Earning,
 			ISNULL(at.AffWithdrawal, 0)		AS AffWithdrawal,
 			ISNULL(at.AffAdjustment, 0)		AS AffAdjustment,
-			ISNULL(at.BFF, 0)				AS BFF			
+			ISNULL(at.BFF, 0)				AS BFF,	
+			ISNULL(tc.FDMCommissionRate, 0)	AS CommissionRate,
+			ISNULL(tc.FDMCommission, 0)		AS Earning
 		FROM dbo.AffInfo ai WITH (NOLOCK)
 			LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 			LEFT JOIN #Signup su ON ai.AffId = su.AffId
@@ -482,7 +526,9 @@ BEGIN
 					SUM(BankingFee)					AS BankingFee,
 					SUM(NetWinloss)					AS NetWinloss,
 					SUM(CommissionRate/@NoOfMonth)	AS CommissionRate,
-					SUM(Commission)					AS Commission
+					SUM(Commission)					AS Commission,
+					SUM(FDMCommissionRate/@NoOfMonth)	AS FDMCommissionRate,
+					SUM(FDMCommission)					AS FDMCommission
 				FROM #TempCommission
 				GROUP BY AffId
 			) tc ON ai.AffId = tc.AffId
@@ -554,6 +600,7 @@ BEGIN
 		,Deposit, Withdrawal, Turnover, Winlost, Bonus, PlatFormFee, OperationalFee, BankingFee
 		,PlatFormFee + OperationalFee + BankingFee AS TotalFee
 		,CommissionRate, Earning, AffWithdrawal, AffAdjustment, BFF, PreferredLanguage AS [Language]
+		,FDMCommissionRate, FDMEarning
 	FROM #Result
 	WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 	ORDER BY RowIdx
@@ -580,13 +627,8 @@ BEGIN
 		,SUM(AffWithdrawal)		AS AffWithdrawal
 		,SUM(AffAdjustment)		AS AffAdjustment
 		,SUM(BFF)				AS BFF
+		,0	AS FDMCommissionRate
+		,SUM(FDMEarning)		AS FDMEarning
 	FROM #Result
-
-	DROP TABLE #AffTrans
-	DROP TABLE #FDM
-	DROP TABLE #Result
-	DROP TABLE #Signup
-	DROP TABLE #Statistics
-	DROP TABLE #TempCommission
 END
 GO
