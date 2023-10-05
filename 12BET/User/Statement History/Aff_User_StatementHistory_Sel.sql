@@ -258,10 +258,12 @@ BEGIN
 			Amount,
 			Status,
 			Description,
-			ROW_NUMBER() OVER(ORDER BY MonthDate DESC) AS Rownum
+			DENSE_RANK() OVER(ORDER BY MonthDate DESC, TransType ASC) AS RowNum
 		FROM #tempData
 	) AS result
 	WHERE Rownum BETWEEN @RowStart AND @RowEnd
+	ORDER BY MonthDate DESC,
+			TransType
 
 	DROP TABLE #tempData
 END

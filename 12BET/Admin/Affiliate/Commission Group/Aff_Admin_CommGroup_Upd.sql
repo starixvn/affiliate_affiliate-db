@@ -85,9 +85,10 @@ BEGIN
 	DECLARE @MonthDate SMALLDATETIME
 	SELECT  @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
 
-	-- QMTurnover
-	DECLARE @NextQMTurnover MONEY
+	-- QMTurnover vs IsApplyBonus
+	DECLARE @NextQMTurnover MONEY, @NextIsApplyBonus BIT;
 	SELECT  @NextQMTurnover = @QMTurnover -- update next only
+		,@NextIsApplyBonus = @IsApplyBonus
 
 	-- Deductions
 	DECLARE @DeductionSetting TABLE (NextGroupProductId TINYINT, DeductionId TINYINT, ProductId INT, NextDeductedPercentage DECIMAL(9,8))
@@ -236,7 +237,7 @@ BEGIN
 		SET GroupName = @GroupName,
 			Description = @Description,
 			NextQMTurnover = ISNULL(@NextQMTurnover, 0),
-			IsApplyBonus = @IsApplyBonus
+			IsApplyBonus = ISNULL(@NextIsApplyBonus, 0)
 		OUTPUT DELETED.GroupName,DELETED.Description,DELETED.NextQMTurnover,DELETED.IsApplyBonus,1
 		INTO @updateData (GroupName,Description,NextQMTurnover,IsApplyBonus,TypeId)
 		WHERE GroupId = @GroupId
@@ -441,7 +442,7 @@ BEGIN
 								   ,GroupName AS '@GroupName'
 								   ,Description AS '@Description'
 								   ,NextQMTurnover AS '@NextQMTurnover'
-								   ,IsApplyBonus AS '@IsApplyBonus'
+								   ,IsApplyBonus AS '@NextIsApplyBonus'
 								   ,@OldDeductionList
 								   ,@OldTierList
 								   ,@OldFDMTierList
@@ -456,7 +457,7 @@ BEGIN
 							      ,@GroupName AS '@GroupName'
 							      ,@Description AS '@Description'
 							      ,@NextQMTurnover AS '@NextQMTurnover'
-								  ,@IsApplyBonus AS '@IsApplyBonus'
+								  ,@NextIsApplyBonus AS '@NextIsApplyBonus'
 							      ,CONVERT(XML,(SELECT t.c.query('.') FROM @DeductionList.nodes('/root/row') T(c) FOR XML PATH(''))) AS DeductionList
 							      ,CONVERT(XML,(SELECT t.c.query('.') FROM @TierList.nodes('/root/row') T(c) FOR XML PATH(''))) AS TierList
 								  ,CONVERT(XML,(SELECT t.c.query('.') FROM @FDMTierList.nodes('/root/row') T(c) FOR XML PATH(''))) AS FDMTierList

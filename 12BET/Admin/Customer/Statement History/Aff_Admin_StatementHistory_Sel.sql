@@ -301,10 +301,12 @@ BEGIN
 			Status,
 			Creator,
 			Description,
-			ROW_NUMBER() OVER(ORDER BY MonthDate DESC) AS Rownum
+			DENSE_RANK() OVER(ORDER BY MonthDate DESC, CASE WHEN TransType IN (201, 205) THEN 0 ELSE TransId END DESC) AS RowNum
 		FROM #tempData
 	) AS result
 	WHERE Rownum BETWEEN @RowStart AND @RowEnd
+	ORDER BY MonthDate DESC,
+			TransType
 
 	DROP TABLE #tempData
 END

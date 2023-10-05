@@ -198,7 +198,7 @@ BEGIN
 		@TurnoverTotal				= SUM(ISNULL(Turnover, 0)),
 		@WinlostTotal				= SUM(ISNULL(Winloss, 0)),
 		@FDMDepositTotal			= SUM(ISNULL(FDMDeposit, 0)),
-		@FDMDepositByMonth			= SUM(ISNULL(FDMDeposit, 0))
+		@FDMDepositByMonth			= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(FDMDeposit, 0) ELSE 0 END)
 
 	FROM #TempCommission
 
