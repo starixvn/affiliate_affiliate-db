@@ -27,6 +27,7 @@ AS
 		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
 		- 20220609@Malcolm: Get number of copies [RedmineID: #173433]
+		- 20231006@Eddie: Fix to Size filter field working properly [RedmineID: #195147]
 */
 
 BEGIN
@@ -56,6 +57,7 @@ BEGIN
 			AND (@Currency IS NULL OR ',' + Currencies + ',' LIKE '%,' + @Currency + ',%')
 			AND (@AffType IS NULL OR ',' + AffTypes + ',' LIKE '%,' + CONVERT(VARCHAR(5), @AffType) + ',%')
 			AND (@DeviceType IS NULL OR ',' + DeviceTypes + ',' LIKE '%,' + CONVERT(VARCHAR(5), @DeviceType) + ',%')
+			AND (@Size IS NULL OR Size = @Size)
 
 		IF @NRows = 0
 			RETURN
@@ -85,6 +87,7 @@ BEGIN
 				AND (@Currency IS NULL OR ',' + Currencies + ',' LIKE '%,' + @Currency + ',%')
 				AND (@AffType IS NULL OR ',' + AffTypes + ',' LIKE '%,' + CONVERT(VARCHAR(5), @AffType) + ',%')
 				AND (@DeviceType IS NULL OR ',' + DeviceTypes + ',' LIKE '%,' + CONVERT(VARCHAR(5), @DeviceType) + ',%')
+				AND (@Size IS NULL OR Size = @Size)
 		) AS r
 		WHERE RowNum BETWEEN @RowStart AND @RowEnd
 	END
