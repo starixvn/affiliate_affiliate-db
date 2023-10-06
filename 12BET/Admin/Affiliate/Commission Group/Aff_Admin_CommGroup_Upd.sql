@@ -242,27 +242,14 @@ BEGIN
 		INTO @updateData (GroupName,Description,NextQMTurnover,IsApplyBonus,TypeId)
 		WHERE GroupId = @GroupId
 
-		UPDATE dbo.CommGroupHistory WITH (ROWLOCK, UPDLOCK)
-		SET GroupName = GroupName,
-			Description = @Description
-		WHERE GroupId = @GroupId
-			AND MonthDate = @MonthDate
-	
 		-- Tier List
 		DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
 			OUTPUT DELETED.TierId,DELETED.MinAmount,DELETED.MaxAmount,DELETED.MinQM,DELETED.MaxQM,DELETED.Commission,2
 			INTO @updateData (TierId,MinAmount,MaxAmount,MinQM,MaxQM,Commission,TypeId)
 		WHERE GroupId = @GroupId
 
-		DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-
 		INSERT INTO dbo.TierSetting (GroupId,TierId,MinAmount,MaxAmount,MinQM,MaxQM,Commission)
 		SELECT @GroupId,TierId,MinAmount,MaxAmount,MinQM,MaxQM,Commission
-		FROM @TierSetting
-
-		INSERT INTO dbo.TierSettingHistory (GroupId,MonthDate,TierId,MinAmount,MaxAmount,MinQM,MaxQM,Commission)
-		SELECT @GroupId,@MonthDate,TierId,MinAmount,MaxAmount,MinQM,MaxQM,Commission
 		FROM @TierSetting
 
 		--FDM TierSetting
@@ -272,17 +259,10 @@ BEGIN
 			INTO @updateData (TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission,TypeId)
 			WHERE GroupId = @GroupId
 
-			DELETE dbo.FDMTierSettingHistory WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-
 			IF EXISTS(SELECT 1 FROM @FDMTierSetting)
 			BEGIN
 				INSERT INTO dbo.FDMTierSetting (GroupId,TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission)
 				SELECT @GroupId,TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission
-				FROM @FDMTierSetting
-
-				INSERT INTO dbo.FDMTierSettingHistory (GroupId,MonthDate,TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission)
-				SELECT @GroupId,@MonthDate,TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission
 				FROM @FDMTierSetting
 			END
 		END
@@ -322,26 +302,11 @@ BEGIN
 		WHERE cg.GroupId = @GroupId
 			AND up.TypeId = 1
 
-		UPDATE cg WITH (ROWLOCK, UPDLOCK)
-		SET Description = up.Description
-		FROM dbo.CommGroupHistory cg
-			CROSS APPLY @updateData up
-		WHERE cg.GroupId = @GroupId AND cg.MonthDate = @MonthDate
-			AND up.TypeId = 1
-
 		DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
 		WHERE GroupId = @GroupId
 
-		DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-
 		INSERT INTO dbo.TierSetting (GroupId,TierId,MinAmount,MaxAmount,MinQM,MaxQM,Commission)
 		SELECT @GroupId,TierId,MinAmount,MaxAmount,MinQM,MaxQM,Commission
-		FROM @updateData
-		WHERE TypeId = 2
-
-		INSERT INTO dbo.TierSettingHistory (GroupId,MonthDate,TierId,MinAmount,MaxAmount,MinQM,MaxQM,Commission)
-		SELECT @GroupId,@MonthDate,TierId,MinAmount,MaxAmount,MinQM,MaxQM,Commission
 		FROM @updateData
 		WHERE TypeId = 2
 
@@ -349,16 +314,8 @@ BEGIN
 		DELETE dbo.FDMTierSetting WITH (ROWLOCK, UPDLOCK)
 		WHERE GroupId = @GroupId
 
-		DELETE dbo.FDMTierSettingHistory WITH (ROWLOCK, UPDLOCK)
-		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-
 		INSERT INTO dbo.FDMTierSetting (GroupId,TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission)
 		SELECT @GroupId,TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission
-		FROM @updateData
-		WHERE TypeId = 4
-
-		INSERT INTO dbo.FDMTierSettingHistory (GroupId,MonthDate,TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission)
-		SELECT @GroupId,@MonthDate,TierId,MinFDM,MaxFDM,MinAmount,MaxAmount,LimitAmount,Commission
 		FROM @updateData
 		WHERE TypeId = 4
 
