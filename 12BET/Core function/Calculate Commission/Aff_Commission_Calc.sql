@@ -106,7 +106,7 @@ BEGIN
 			FROM @MonthDate md
 				CROSS APPLY (
 					SELECT TOP (@n)
-						ac.MonthDate, ac.AffId, ac.GroupId, ISNULL(g.GroupProductId, ac.ProductId) AS ProductId, ISNULL(IsApplyBonus, 1) AS IsApplyBonus
+						ac.MonthDate, ac.AffId, ac.GroupId, ISNULL(g.GroupProductId, ac.ProductId) AS ProductId, ISNULL(IsApplyBonus, 0) AS IsApplyBonus
 						,SUM(ac.Deposit) AS Deposit
 						,SUM(ac.Withdrawal) AS Withdrawal
 						,SUM(ac.Bonus) AS Bonus
@@ -213,7 +213,7 @@ BEGIN
 			FROM @MonthDate md
 				CROSS APPLY (
 					SELECT TOP (@n)
-						ac.MonthDate, ac.AffId, ac.GroupId, ISNULL(g.GroupProductId, ac.ProductId) AS ProductId, ISNULL(IsApplyBonus, 1) AS IsApplyBonus
+						ac.MonthDate, ac.AffId, ac.GroupId, ISNULL(g.GroupProductId, ac.ProductId) AS ProductId, ISNULL(IsApplyBonus, 0) AS IsApplyBonus
 						,SUM(ac.Deposit) AS Deposit
 						,SUM(ac.Withdrawal) AS Withdrawal
 						,SUM(ac.Bonus) AS Bonus
@@ -368,13 +368,7 @@ BEGIN
 				CROSS APPLY (
 					SELECT TOP (@n)
 						MonthDate,AffId,GroupId,SportId AS ProductId,MemberDeposit AS Deposit,MemberWithdrawal AS Withdrawal,MemberBonus AS Bonus,MemberTurnover AS Turnover,MemberWinlost AS Winloss,
-						ActivePlayer,QualifiedMember,-MemberSum AS NetWinloss,Commission AS CommissionRate,AffWinlost AS Commission,
-						---FDM & Bonus
-						IsApplyBonus,		
-						FDMCount,			
-						FDMDeposit,			
-						FDMCommissionRate,
-						FDMCommission	
+						ActivePlayer,QualifiedMember,-MemberSum AS NetWinloss,Commission AS CommissionRate,AffWinlost AS Commission
 					FROM dbo.AffCommission ac WITH (NOLOCK)
 					WHERE ac.WinlostDate = md.MonthDate
 						AND ac.AffId = md.AffId

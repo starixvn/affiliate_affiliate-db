@@ -43,7 +43,7 @@ BEGIN
 	-- Active Players, Qualified Active Players, Turnover, Deposit, Commission
 	BEGIN
 		DECLARE @ActivePlayers INT, @QualifiedActivePlayers INT, @Turnover MONEY, @Deposit MONEY, @Commission MONEY
-			,@FDMDeposit MONEY;
+			,@FDMDeposit MONEY, @FDMCommission	MONEY;
 
 		DROP TABLE IF EXISTS #TempCommission;
 		CREATE TABLE #TempCommission
@@ -177,6 +177,7 @@ BEGIN
 			,@Deposit					= SUM(ISNULL(Deposit, 0))
 			,@Commission				= SUM(ISNULL(Commission, 0))
 			,@FDMDeposit				= SUM(ISNULL(FDMDeposit, 0))
+			,@FDMCommission				= SUM(ISNULL(FDMCommission, 0))
 		FROM #TempCommission
 
 	END
@@ -193,5 +194,6 @@ BEGIN
 			,ISNULL(@Deposit, 0)				AS Deposit
 			,ISNULL(@Commission, 0)				AS Commission
 			,ISNULL(@FDMDeposit, 0)				AS FDMDeposit
+			,ISNULL(@FDMCommission, 0)			AS FDMCommission
 	END
 END
