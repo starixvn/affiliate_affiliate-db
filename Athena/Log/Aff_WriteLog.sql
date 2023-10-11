@@ -18,6 +18,16 @@ AS
 		- 20230929@Eddie: Add metadata and write log with rollback transaction case [RedmineID: #194605]
 */
 SET NOCOUNT ON
+
+IF @SPName LIKE '%_xtest'
+	SELECT @SPName = LEFT(@SPName, LEN(@SPName) - 6)
+ELSE IF @SPName LIKE '%_xpre'
+	 OR @SPName LIKE '%_UAT1'
+	 OR @SPName LIKE '%_UAT2'
+	 OR @SPName LIKE '%_UAT3'
+	 OR @SPName LIKE '%_UAT4'
+	SELECT @SPName = LEFT(@SPName, LEN(@SPName) - 5)
+	
 BEGIN TRANSACTION
 	BEGIN TRY
 		IF( @RefNo IS NULL OR @RefNo = 0 )
