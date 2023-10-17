@@ -1,10 +1,10 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Commission_Calc]
 	@AffIds				VARCHAR(MAX) = 'all',
-	@FromMonthDate		SMALLDATETIME,
-	@ToMonthDate		SMALLDATETIME,
+	@FromMonthDate		SMALLDATETIME = '20230801',
+	@ToMonthDate		SMALLDATETIME = '20230901',
 	@ProductIds			VARCHAR(MAX) = '0',
-	@IsSumAll			BIT = 0,
+	@IsSumAll			BIT = 1,
 	@GetRowTotalOnly	BIT = 0
 AS
 
@@ -18,6 +18,7 @@ AS
 		- 20181120@Percy: Change way to get amount of fees [RedmineID: #104963]
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 		- 20211207@Percy: Apply core function Group Product [RedmineID: #165777]
+		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 */
 
 BEGIN
@@ -34,6 +35,7 @@ BEGIN
 
 	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME, AffId INT, GroupId INT)
 
+	DROP TABLE IF EXISTS #AffCommission;
 	CREATE TABLE #AffCommission
 	(
 		MonthDate				SMALLDATETIME,
@@ -58,9 +60,16 @@ BEGIN
 		QualifiedMember			INT,
 		QMTurnover				MONEY,
 		CommissionRate			DECIMAL(9,8),
-		Commission				MONEY
+		Commission				MONEY,
+		-----------FDM & Bonus
+		IsApplyBonus			BIT,
+		FDMCount				INT,
+		FDMDeposit				MONEY DEFAULT (0),
+		FDMCommissionRate		DECIMAL(9,8) DEFAULT (0),
+		FDMCommission			MONEY DEFAULT (0)
 	)
-
+	
+	-- TODO: Suport FDM & Bonus on AffCommission table
 	IF @tempToMonth > @CutOffDate
 	BEGIN
 		DELETE @MonthDate
@@ -84,16 +93,20 @@ BEGIN
 
 			INSERT INTO #AffCommission
 			(
-				MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,AWinloss,AComm,
-				GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission,PlatFormFee
+				MonthDate,AffId,GroupId,ProductId,IsApplyBonus,
+				Deposit,Withdrawal,Bonus,Turnover,Winloss,AWinloss,AComm,
+				GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission,PlatFormFee,
+				FDMCount,FDMDeposit,FDMCommissionRate,FDMCommission
 			)
 			SELECT
-				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Turnover,dt.Winloss,dt.AWinloss,dt.AComm,
-				dt.GrossWinloss,dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,0 AS Commission,dt.PlatFormFee
+				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,IsApplyBonus,
+				dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Turnover,dt.Winloss,dt.AWinloss,dt.AComm,
+				dt.GrossWinloss,dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,0 AS Commission,dt.PlatFormFee,
+				FDMCount,FDMDeposit,FDMCommissionRate,FDMCommission
 			FROM @MonthDate md
 				CROSS APPLY (
 					SELECT TOP (@n)
-						ac.MonthDate, ac.AffId, ac.GroupId, ISNULL(g.GroupProductId, ac.ProductId) AS ProductId
+						ac.MonthDate, ac.AffId, ac.GroupId, ISNULL(g.GroupProductId, ac.ProductId) AS ProductId, ISNULL(IsApplyBonus, 0) AS IsApplyBonus
 						,SUM(ac.Deposit) AS Deposit
 						,SUM(ac.Withdrawal) AS Withdrawal
 						,SUM(ac.Bonus) AS Bonus
@@ -108,12 +121,17 @@ BEGIN
 						,SUM(ac.QMTurnover) AS QMTurnover
 						,SUM(ac.CommissionRate) AS CommissionRate
 						,SUM(ISNULL(ad.Amount, 0)) AS PlatFormFee
+						---- FDM
+						,SUM(FDMCount) AS FDMCount
+						,SUM(FDMDeposit) AS FDMDeposit
+						,SUM(FDMCommissionRate) AS FDMCommissionRate
+						,SUM(FDMCommission) AS FDMCommission
 					FROM dbo.rptAffCommission ac WITH (NOLOCK)
 						LEFT JOIN dbo.rptAffDeduction ad WITH (NOLOCK) ON ac.MonthDate = ad.MonthDate AND ac.AffId = ad.AffId AND ac.ProductId = ad.ProductId
 																			AND ad.DeductionId = 10 AND ad.ProductId > 0
 						LEFT JOIN dbo.Aff_f_GroupProduct() g ON ac.ProductId = g.ProductId
 					WHERE ac.MonthDate = md.MonthDate
-					GROUP BY ac.MonthDate, ac.AffId, ac.GroupId, ISNULL(g.GroupProductId, ac.ProductId)
+					GROUP BY ac.MonthDate, ac.AffId, ac.GroupId, ISNULL(g.GroupProductId, ac.ProductId), IsApplyBonus
 				) AS dt
 			OPTION (OPTIMIZE FOR (@n=1))
 
@@ -182,16 +200,20 @@ BEGIN
 
 			INSERT INTO #AffCommission
 			(
-				MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,AWinloss,AComm,
-				GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission,PlatFormFee
+				MonthDate,AffId,GroupId,ProductId,IsApplyBonus,
+				Deposit,Withdrawal,Bonus,Turnover,Winloss,AWinloss,AComm,
+				GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission,PlatFormFee,
+				FDMCount,FDMDeposit,FDMCommissionRate,FDMCommission
 			)
 			SELECT
-				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Turnover,dt.Winloss,dt.AWinloss,dt.AComm,
-				dt.GrossWinloss,dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,0 AS Commission,dt.PlatFormFee
+				dt.MonthDate,dt.AffId,dt.GroupId,dt.ProductId,IsApplyBonus,
+				dt.Deposit,dt.Withdrawal,dt.Bonus,dt.Turnover,dt.Winloss,dt.AWinloss,dt.AComm,
+				dt.GrossWinloss,dt.NetWinloss,dt.ActivePlayer,dt.QualifiedMember,dt.QMTurnover,dt.CommissionRate,0 AS Commission,dt.PlatFormFee,
+				FDMCount,FDMDeposit,FDMCommissionRate,FDMCommission
 			FROM @MonthDate md
 				CROSS APPLY (
 					SELECT TOP (@n)
-						ac.MonthDate, ac.AffId, ac.GroupId, ISNULL(g.GroupProductId, ac.ProductId) AS ProductId
+						ac.MonthDate, ac.AffId, ac.GroupId, ISNULL(g.GroupProductId, ac.ProductId) AS ProductId, ISNULL(IsApplyBonus, 0) AS IsApplyBonus
 						,SUM(ac.Deposit) AS Deposit
 						,SUM(ac.Withdrawal) AS Withdrawal
 						,SUM(ac.Bonus) AS Bonus
@@ -206,13 +228,18 @@ BEGIN
 						,SUM(ac.QMTurnover) AS QMTurnover
 						,SUM(ac.CommissionRate) AS CommissionRate
 						,SUM(ISNULL(ad.Amount, 0)) AS PlatFormFee
+						---- FDM
+						,SUM(FDMCount) AS FDMCount
+						,SUM(FDMDeposit) AS FDMDeposit
+						,SUM(FDMCommissionRate) AS FDMCommissionRate
+						,SUM(FDMCommission) AS FDMCommission
 					FROM dbo.rptAffCommission ac WITH (NOLOCK)
 						LEFT JOIN dbo.rptAffDeduction ad WITH (NOLOCK) ON ac.MonthDate = ad.MonthDate AND ac.AffId = ad.AffId AND ac.ProductId = ad.ProductId
 																			AND ad.DeductionId = 10 AND ad.ProductId > 0
 						LEFT JOIN dbo.Aff_f_GroupProduct() g ON ac.ProductId = g.ProductId
 					WHERE ac.MonthDate = md.MonthDate
 						AND ac.AffId = md.AffId
-					GROUP BY ac.MonthDate, ac.AffId, ac.GroupId, ISNULL(g.GroupProductId, ac.ProductId)
+					GROUP BY ac.MonthDate, ac.AffId, ac.GroupId, ISNULL(g.GroupProductId, ac.ProductId), IsApplyBonus
 				) AS dt
 			OPTION (OPTIMIZE FOR (@n=1))
 
@@ -267,6 +294,7 @@ BEGIN
 		END
 	END
 
+	-- NOT suport FDM & Bonus on AffCommission table
 	IF @tempFromMonth <= @CutOffDate
 	BEGIN
 		DELETE @MonthDate
@@ -358,18 +386,22 @@ BEGIN
 		SELECT
 			MonthDate,AffId,GroupId,ProductId,0 AS Deposit,0 AS Withdrawal,0 AS Bonus,SUM(Turnover),SUM(Winloss),
 			0 AS NetWinloss,0 AS ActivePlayer,0 AS QualifiedMember,0 AS QMTurnover,0 AS CommissionRate,0 AS Commission
+
 		FROM @tempData
 		GROUP BY MonthDate,AffId,GroupId,ProductId
 
 		-- Total
 		INSERT INTO #AffCommission
 		(
-			MonthDate,AffId,GroupId,ProductId,Deposit,Withdrawal,Bonus,Turnover,Winloss,AWinloss,AComm,
+			MonthDate,AffId,GroupId,ProductId,
+			Deposit,Withdrawal,Bonus,Turnover,Winloss,AWinloss,AComm,
 			GrossWinloss,NetWinloss,ActivePlayer,QualifiedMember,QMTurnover,CommissionRate,Commission
 		)
 		SELECT
-			MonthDate,AffId,MAX(GroupId) AS GroupId,0 AS ProductId,SUM(ISNULL(Deposit, 0)),SUM(ISNULL(Withdrawal, 0)),SUM(ISNULL(Bonus, 0)),SUM(ISNULL(Turnover, 0)),SUM(ISNULL(Winloss, 0)),0 AS AWinloss,0 AS AComm,
+			MonthDate,AffId,MAX(GroupId) AS GroupId,0 AS ProductId,
+			SUM(ISNULL(Deposit, 0)),SUM(ISNULL(Withdrawal, 0)),SUM(ISNULL(Bonus, 0)),SUM(ISNULL(Turnover, 0)),SUM(ISNULL(Winloss, 0)),0 AS AWinloss,0 AS AComm,
 			0 AS GrossWinloss,SUM(ISNULL(NetWinloss, 0)),SUM(ISNULL(ActivePlayer, 0)),SUM(ISNULL(QualifiedMember, 0)),100 AS QMTurnover,AVG(ISNULL(CommissionRate, 0)),SUM(ISNULL(Commission, 0))
+
 		FROM @tempData
 		GROUP BY MonthDate, AffId
 	END
@@ -433,12 +465,19 @@ BEGIN
 			SUM(QualifiedMember)	AS QualifiedMember,
 			SUM(QMTurnOver)			AS QMTurnOver,
 			SUM(CommissionRate)		AS CommissionRate,
-			SUM(Commission)			AS Commission
+			SUM(Commission)			AS Commission,
+			---FDM & Bonus
+			IsApplyBonus,
+			SUM(FDMCount)			AS FDMCount,			
+			SUM(FDMDeposit)			AS FDMDeposit,			
+			SUM(FDMCommissionRate)	AS FDMCommissionRate,
+			SUM(FDMCommission)		AS FDMCommission	
 		FROM #AffCommission
 		GROUP BY
 			AffId,
 			GroupId,
-			ProductId
+			ProductId,
+			IsApplyBonus
 	END
 	ELSE
 	BEGIN
@@ -465,10 +504,14 @@ BEGIN
 			QualifiedMember,
 			QMTurnOver,
 			CommissionRate,
-			Commission
+			Commission,
+			---FDM & Bonus
+			IsApplyBonus,
+			FDMCount,			
+			FDMDeposit,			
+			FDMCommissionRate,
+			FDMCommission	
 		FROM #AffCommission
 	END
-
-	DROP TABLE #AffCommission
 END
 GO

@@ -15,13 +15,15 @@ AS
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @IsTest BIT
+	DECLARE @IsTest BIT, @MonthDate SMALLDATETIME 
 	SELECT  @IsTest = dbo.f_Aff_CheckSPVersion(@@PROCID)
+		, @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
 
 	DECLARE @RowStart INT, @RowEnd INT
 
@@ -66,6 +68,8 @@ BEGIN
 		cg.Description,
 		cg.QMTurnover,
 		cg.NextQMTurnover,
+		ISNULL(his.IsApplyBonus, 0) AS IsApplyBonus,
+		ISNULL(cg.IsApplyBonus, 0) AS NextIsApplyBonus,
 		ISNULL(n.NoAffs, 0) AS NoAffs
 	FROM dbo.CommGroup cg WITH (NOLOCK)
 		INNER JOIN @Group g ON cg.GroupId = g.GroupId
@@ -73,6 +77,11 @@ BEGIN
 		OUTER APPLY (
 			SELECT COUNT(1) AS NoAffs FROM dbo.AffInfo ai WITH (NOLOCK) WHERE ai.GroupId = g.GroupId
 		) AS n
+		OUTER APPLY (
+			SELECT TOP 1 his.IsApplyBonus
+			FROM dbo.CommGroupHistory his WITH (NOLOCK) 
+			WHERE his.GroupId = cg.GroupId AND his.MonthDate = @MonthDate
+		) AS his
 
 	-- Tier List
 	SELECT
@@ -119,5 +128,21 @@ BEGIN
 		ds.NextGroupProductId,
 		ds.DeductedPercentage,
 		ds.NextDeductedPercentage
+
+	--FDM TierList
+	SELECT
+		fdm.GroupId,
+		fdm.TierId,
+		fdm.MinFDM,
+		fdm.MaxFDM,
+		fdm.MinAmount,
+		fdm.MaxAmount,
+		fdm.LimitAmount,
+		fdm.Commission
+	FROM dbo.FDMTierSetting fdm WITH (NOLOCK)
+		INNER JOIN @Group g ON fdm.GroupId = g.GroupId
+	ORDER BY
+		fdm.GroupId,
+		fdm.TierId
 END
 GO

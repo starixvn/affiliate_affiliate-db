@@ -11,6 +11,7 @@ AS
 
 	Revisions:
 		- 20191210@Percy: Initialize SP [RedmineID: #121971]
+		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 */
 
 BEGIN
@@ -42,6 +43,9 @@ BEGIN
 	-- Active Players, Qualified Active Players, Turnover, Deposit, Commission
 	BEGIN
 		DECLARE @ActivePlayers INT, @QualifiedActivePlayers INT, @Turnover MONEY, @Deposit MONEY, @Commission MONEY
+			,@FDMDeposit MONEY, @FDMCommission	MONEY;
+
+		DROP TABLE IF EXISTS #TempCommission;
 		CREATE TABLE #TempCommission
 		(
 			MonthDate				SMALLDATETIME,
@@ -68,7 +72,13 @@ BEGIN
 			QualifiedMember			INT,
 			QMTurnover				MONEY,
 			CommissionRate			FLOAT,
-			Commission				MONEY
+			Commission				MONEY,
+			-----FDM & Bonus
+			IsApplyBonus			BIT,
+			FDMCount				INT,
+			FDMDeposit				MONEY,
+			FDMCommissionRate		DECIMAL(9, 8),
+			FDMCommission			MONEY
 		)
 
 		DECLARE @MaxCommDate SMALLDATETIME, @AffIds VARCHAR(MAX)
@@ -101,7 +111,13 @@ BEGIN
 				QualifiedMember,
 				QMTurnOver,
 				CommissionRate,
-				Commission
+				Commission,
+				---FDM & Bonus
+				IsApplyBonus,		
+				FDMCount,			
+				FDMDeposit,			
+				FDMCommissionRate,
+				FDMCommission
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= @AffIds,
@@ -137,7 +153,13 @@ BEGIN
 				QualifiedMember,
 				QMTurnOver,
 				CommissionRate,
-				Commission
+				Commission,
+				---FDM & Bonus
+				IsApplyBonus,		
+				FDMCount,			
+				FDMDeposit,			
+				FDMCommissionRate,
+				FDMCommission
 			)
 			EXEC dbo.Aff_Commission_Calc
 				@AffIds				= @AffIds,
@@ -154,9 +176,10 @@ BEGIN
 			,@Turnover					= SUM(ISNULL(Turnover, 0))
 			,@Deposit					= SUM(ISNULL(Deposit, 0))
 			,@Commission				= SUM(ISNULL(Commission, 0))
+			,@FDMDeposit				= SUM(ISNULL(FDMDeposit, 0))
+			,@FDMCommission				= SUM(ISNULL(FDMCommission, 0))
 		FROM #TempCommission
 
-		DROP TABLE #TempCommission
 	END
 
 	-- Return result
@@ -170,5 +193,7 @@ BEGIN
 			,ISNULL(@Turnover, 0)				AS Turnover
 			,ISNULL(@Deposit, 0)				AS Deposit
 			,ISNULL(@Commission, 0)				AS Commission
+			,ISNULL(@FDMDeposit, 0)				AS FDMDeposit
+			,ISNULL(@FDMCommission, 0)			AS FDMCommission
 	END
 END
