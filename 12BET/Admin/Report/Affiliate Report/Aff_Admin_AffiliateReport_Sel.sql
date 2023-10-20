@@ -1,17 +1,17 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
-	@Username			NVARCHAR(50) = NULL,
-	@FromDate			SMALLDATETIME,
-	@ToDate				SMALLDATETIME,
-	@PreferredLanguages	VARCHAR(MAX),
-	@ProductIds			VARCHAR(MAX) = '0',
-	@SortType			TINYINT = 1,
-	@SortDirectionType	BIT = 0,
-	@IsExportExcel		BIT = 0,
-	@IsGetMonthly       BIT = 1,
-	@PageIndex			INT = 1,
-	@PageSize			INT = 50,
-	@NRows				INT = 0 OUTPUT
+	@Username				NVARCHAR(50) = NULL
+	,@FromDate				SMALLDATETIME
+	,@ToDate				SMALLDATETIME
+	,@PreferredLanguages	VARCHAR(MAX)
+	,@ProductIds			VARCHAR(MAX) = '0'
+	,@SortType				TINYINT = 1
+	,@SortDirectionType		BIT = 0
+	,@IsExportExcel			BIT = 0
+	,@IsGetMonthly       	BIT = 1
+	,@PageIndex				INT = 1
+	,@PageSize				INT = 50
+	,@NRows					INT = 0 OUTPUT
 AS
 
 /*
@@ -27,6 +27,7 @@ AS
 		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
 		- 20210223@Percy: Do not show affiliate with all value is zero [149213]
 		- 20210423@Malcolm: Fix Number of Affiliates in a page don't equal PageSize [RedmineId: #152957]
+		- 20210528@Malcolm: Get data daily [RedmineID: #149210]
 		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 
 	Param's Explanation:
@@ -49,9 +50,9 @@ BEGIN
 	
 	IF @IsGetMonthly = 1
 	BEGIN
-		SELECT  @FromDate			= DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0), -- Begin Of Month
-				@ToDate				= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0)), -- End Of Month	        
-		        @MinReportDate		= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MinReportDate), 0)
+		SELECT  @FromDate			= DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0) -- Begin Of Month
+			   ,@ToDate				= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0)) -- End Of Month	        
+		       ,@MinReportDate		= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MinReportDate), 0)
 	END
 	
 
@@ -97,37 +98,37 @@ BEGIN
 	BEGIN
 		CREATE TABLE #TempCommission
 		(
-			MonthDate				SMALLDATETIME,
-			AffId					INT,
-			GroupId					INT,
-			ProductId				INT,
-			Deposit					MONEY,
-			Withdrawal				MONEY,
-			Bonus					MONEY,
-			Turnover				MONEY,
-			Winloss					MONEY,
-			AWinloss				MONEY,
-			AComm					MONEY,
+			MonthDate				SMALLDATETIME
+			,AffId					INT
+			,GroupId				INT
+			,ProductId				INT
+			,Deposit				MONEY
+			,Withdrawal				MONEY
+			,Bonus					MONEY
+			,Turnover				MONEY
+			,Winloss				MONEY
+			,AWinloss				MONEY
+			,AComm					MONEY
 			-- Fees
-			PlatFormFee				MONEY,
-			OperationalFee			MONEY,
-			BankingFee				MONEY,
-			ExchangeWinlossShare	MONEY,
-			ExchangeCommShare		MONEY,
+			,PlatFormFee			MONEY
+			,OperationalFee			MONEY
+			,BankingFee				MONEY
+			,ExchangeWinlossShare	MONEY
+			,ExchangeCommShare		MONEY
 			-- Calculation
-			GrossWinloss			MONEY,
-			NetWinloss				MONEY,
-			ActivePlayer			INT,
-			QualifiedMember			INT,
-			QMTurnover				MONEY,
-			CommissionRate			FLOAT,
-			Commission				MONEY,
+			,GrossWinloss			MONEY
+			,NetWinloss				MONEY
+			,ActivePlayer			INT
+			,QualifiedMember		INT
+			,QMTurnover				MONEY
+			,CommissionRate			FLOAT
+			,Commission				MONEY
 			-----FDM & Bonus
-			IsApplyBonus			BIT,
-			FDMCount				INT,
-			FDMDeposit				MONEY,
-			FDMCommissionRate		DECIMAL(9, 8),
-			FDMCommission			MONEY
+			,IsApplyBonus			BIT
+			,FDMCount				INT
+			,FDMDeposit				MONEY
+			,FDMCommissionRate		DECIMAL(9, 8)
+			,FDMCommission			MONEY
 		)
 		
 		IF @FromDate <>  DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0)
@@ -151,86 +152,86 @@ BEGIN
 		BEGIN
 			INSERT INTO #TempCommission
 			(
-				MonthDate,
-				AffId,
-				GroupId,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Turnover,
-				Winloss,
-				AWinloss,
-				AComm,
-				PlatFormFee,
-				OperationalFee,
-				BankingFee,
-				ExchangeWinlossShare,
-				ExchangeCommShare,
-				GrossWinloss,
-				NetWinloss,
-				ActivePlayer,
-				QualifiedMember,
-				QMTurnOver,
-				CommissionRate,
-				Commission,
+				MonthDate
+				,AffId
+				,GroupId
+				,ProductId
+				,Deposit
+				,Withdrawal
+				,Bonus
+				,Turnover
+				,Winloss
+				,AWinloss
+				,AComm
+				,PlatFormFee
+				,OperationalFee
+				,BankingFee
+				,ExchangeWinlossShare
+				,ExchangeCommShare
+				,GrossWinloss
+				,NetWinloss
+				,ActivePlayer
+				,QualifiedMember
+				,QMTurnOver
+				,CommissionRate
+				,Commission
 				---FDM & Bonus
-				IsApplyBonus,		
-				FDMCount,			
-				FDMDeposit,			
-				FDMCommissionRate,
-				FDMCommission		
+				,IsApplyBonus
+				,FDMCount
+				,FDMDeposit
+				,FDMCommissionRate
+				,FDMCommission
 			)
 			EXEC dbo.Aff_Commission_UnCalc
-				@AffIds				= 'all',
-				@FromMonthDate		= @FromDate,
-				@ToMonthDate		= @ToDate,
-				@IsGetMonthly		= 0,
-				@ProductIds			= @ProductIds,
-				@IsSumAll			= 1,
-				@GetRowTotalOnly	= 1
+				@AffIds				= 'all'
+				,@FromMonthDate		= @FromDate
+				,@ToMonthDate		= @ToDate
+				,@IsGetMonthly		= 0
+				,@ProductIds		= @ProductIds
+				,@IsSumAll			= 1
+				,@GetRowTotalOnly	= 1
 		END
 		ELSE 
 		BEGIN
 			INSERT INTO #TempCommission
 			(
-				MonthDate,
-				AffId,
-				GroupId,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Turnover,
-				Winloss,
-				AWinloss,
-				AComm,
-				PlatFormFee,
-				OperationalFee,
-				BankingFee,
-				ExchangeWinlossShare,
-				ExchangeCommShare,
-				GrossWinloss,
-				NetWinloss,
-				ActivePlayer,
-				QualifiedMember,
-				QMTurnOver,
-				CommissionRate,
-				Commission,
+				MonthDate
+				,AffId
+				,GroupId
+				,ProductId
+				,Deposit
+				,Withdrawal
+				,Bonus
+				,Turnover
+				,Winloss
+				,AWinloss
+				,AComm
+				,PlatFormFee
+				,OperationalFee
+				,BankingFee
+				,ExchangeWinlossShare
+				,ExchangeCommShare
+				,GrossWinloss
+				,NetWinloss
+				,ActivePlayer
+				,QualifiedMember
+				,QMTurnOver
+				,CommissionRate
+				,Commission
 				---FDM & Bonus
-				IsApplyBonus,		
-				FDMCount,			
-				FDMDeposit,			
-				FDMCommissionRate,
-				FDMCommission		
+				,IsApplyBonus
+				,FDMCount
+				,FDMDeposit
+				,FDMCommissionRate
+				,FDMCommission
 			)
 			EXEC dbo.Aff_Commission_Calc
-				@AffIds				= 'all',
-				@FromMonthDate		= @threshold1,
-				@ToMonthDate		= @threshold2,
-				@ProductIds			= @ProductIds,
-				@IsSumAll			= 1,
-				@GetRowTotalOnly	= 1
+				@AffIds				= 'all'
+				,@FromMonthDate		= @threshold1
+				,@ToMonthDate		= @threshold2
+				,@ProductIds		= @ProductIds
+				,@IsSumAll			= 1
+				,@GetRowTotalOnly	= 1
 			
 			IF @FromDate <> @threshold1
 			BEGIN
@@ -238,44 +239,44 @@ BEGIN
 
 				INSERT INTO #TempCommission
 				(
-					MonthDate,
-					AffId,
-					GroupId,
-					ProductId,
-					Deposit,
-					Withdrawal,
-					Bonus,
-					Turnover,
-					Winloss,
-					AWinloss,
-					AComm,
-					PlatFormFee,
-					OperationalFee,
-					BankingFee,
-					ExchangeWinlossShare,
-					ExchangeCommShare,
-					GrossWinloss,
-					NetWinloss,
-					ActivePlayer,
-					QualifiedMember,
-					QMTurnOver,
-					CommissionRate,
-					Commission,
+					MonthDate
+					,AffId
+					,GroupId
+					,ProductId
+					,Deposit
+					,Withdrawal
+					,Bonus
+					,Turnover
+					,Winloss
+					,AWinloss
+					,AComm
+					,PlatFormFee
+					,OperationalFee
+					,BankingFee
+					,ExchangeWinlossShare
+					,ExchangeCommShare
+					,GrossWinloss
+					,NetWinloss
+					,ActivePlayer
+					,QualifiedMember
+					,QMTurnOver
+					,CommissionRate
+					,Commission
 					---FDM & Bonus
-					IsApplyBonus,		
-					FDMCount,			
-					FDMDeposit,			
-					FDMCommissionRate,
-					FDMCommission		
+					,IsApplyBonus	
+					,FDMCount	
+					,FDMDeposit
+					,FDMCommissionRate
+					,FDMCommission
 				)
 				EXEC dbo.Aff_Commission_UnCalc
-					@AffIds				= 'all',
-					@FromMonthDate		= @FromDate,
-					@ToMonthDate		= @threshold1,
-					@IsGetMonthly		= 0,
-					@ProductIds			= @ProductIds,
-					@IsSumAll			= 1,
-					@GetRowTotalOnly	= 1
+					@AffIds				= 'all'
+					,@FromMonthDate		= @FromDate
+					,@ToMonthDate		= @threshold1
+					,@IsGetMonthly		= 0
+					,@ProductIds		= @ProductIds
+					,@IsSumAll			= 1
+					,@GetRowTotalOnly	= 1
 			 END
 				
 			 IF @ToDate <> @threshold2
@@ -284,44 +285,44 @@ BEGIN
 
 				INSERT INTO #TempCommission
 				(
-					MonthDate,
-					AffId,
-					GroupId,
-					ProductId,
-					Deposit,
-					Withdrawal,
-					Bonus,
-					Turnover,
-					Winloss,
-					AWinloss,
-					AComm,
-					PlatFormFee,
-					OperationalFee,
-					BankingFee,
-					ExchangeWinlossShare,
-					ExchangeCommShare,
-					GrossWinloss,
-					NetWinloss,
-					ActivePlayer,
-					QualifiedMember,
-					QMTurnOver,
-					CommissionRate,
-					Commission,
+					MonthDate
+					,AffId
+					,GroupId
+					,ProductId
+					,Deposit
+					,Withdrawal
+					,Bonus
+					,Turnover
+					,Winloss
+					,AWinloss
+					,AComm
+					,PlatFormFee
+					,OperationalFee
+					,BankingFee
+					,ExchangeWinlossShare
+					,ExchangeCommShare
+					,GrossWinloss
+					,NetWinloss
+					,ActivePlayer
+					,QualifiedMember
+					,QMTurnOver
+					,CommissionRate
+					,Commission
 					---FDM & Bonus
-					IsApplyBonus,		
-					FDMCount,			
-					FDMDeposit,			
-					FDMCommissionRate,
-					FDMCommission		
+					,IsApplyBonus
+					,FDMCount
+					,FDMDeposit
+					,FDMCommissionRate
+					,FDMCommission		
 				)
 				EXEC dbo.Aff_Commission_UnCalc
-					@AffIds				= 'all',
-					@FromMonthDate		= @threshold2,
-					@ToMonthDate		= @ToDate,
-					@IsGetMonthly		= 0,
-					@ProductIds			= @ProductIds,
-					@IsSumAll			= 1,
-					@GetRowTotalOnly	= 1
+					@AffIds				= 'all'
+					,@FromMonthDate		= @threshold2
+					,@ToMonthDate		= @ToDate
+					,@IsGetMonthly		= 0
+					,@ProductIds		= @ProductIds
+					,@IsSumAll			= 1
+					,@GetRowTotalOnly	= 1
 			 END
 		END	
 		-- Signup
@@ -356,15 +357,14 @@ BEGIN
 			FROM 
 			(
 				SELECT
-					AffId,
-					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0)) AS MonthDate,
-					COUNT(1) AS TotalClick,
-					COUNT(DISTINCT IP) AS UniqueClick
+					AffId
+					,DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0)) AS MonthDate
+					,COUNT(1) AS TotalClick
+					,COUNT(DISTINCT IP) AS UniqueClick
 				FROM dbo.ClickStatistics1 WITH (NOLOCK)
 				WHERE Date BETWEEN @tempFromDate AND @tempToDate
-				GROUP BY
-					AffId,
-					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0))
+				GROUP BY AffId
+						,DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0))
 			) AS c
 			GROUP BY AffId
 		END
@@ -379,16 +379,15 @@ BEGIN
 			FROM
 			(
 				SELECT
-					AffId,
-					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0)) AS MonthDate,
-					IP,
-					COUNT(1) AS TotalClick
+					AffId
+					,DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0)) AS MonthDate
+					,IP
+					,COUNT(1) AS TotalClick
 				FROM dbo.ClickStatistics1_bk WITH (NOLOCK)
 				WHERE Date BETWEEN @tempFromDate AND @tempToDate
-				GROUP BY
-					AffId,
-					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0)),
-					IP
+				GROUP BY AffId
+						,DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0))
+						,IP
 			) AS c
 			GROUP BY AffId
 		END
@@ -409,13 +408,13 @@ BEGIN
 		-- AffWithdrawal, AffAdjustment
 		CREATE TABLE #AffTrans (AffId INT, AffWithdrawal MONEY, AffAdjustment MONEY, BFF MONEY)
 		INSERT INTO #AffTrans (AffId, AffWithdrawal, AffAdjustment, BFF)
-		SELECT AffId,
-			SUM(CASE WHEN TransType = 202 AND TransDate >= @FromDate THEN ABS(Amount) ELSE 0 END) AS AffWithdrawal,
-			SUM(CASE WHEN TransType = 203 AND TransDate >= @FromDate THEN Amount ELSE 0 END) AS AffAdjustment,
-			SUM(Amount) AS BFF
+		SELECT AffId
+			  ,SUM(CASE WHEN TransType = 202 AND TransDate >= @FromDate THEN ABS(Amount) ELSE 0 END) AS AffWithdrawal
+			  ,SUM(CASE WHEN TransType = 203 AND TransDate >= @FromDate THEN Amount ELSE 0 END) AS AffAdjustment
+			  ,SUM(Amount) AS BFF
 		FROM dbo.AffTrans WITH (NOLOCK)
 		WHERE TransDate < DATEADD(DAY, 1, @ToDate)
-			AND Status IN ('Pending', 'Approved', 'Completed')
+		  AND Status IN ('Pending', 'Approved', 'Completed')
 		GROUP BY AffId
 	END
 	
@@ -423,84 +422,84 @@ BEGIN
 	BEGIN
 		CREATE TABLE #Result
 		(
-			AffId			INT,
-			Username		NVARCHAR(30),
-			TotalClick		INT,
-			UniqueClick		INT,
-			Signup			INT,
-			FDM				INT,
-			ActiveMember	INT,
-			QualifiedMember INT,
-			Deposit			MONEY,
-			Withdrawal		MONEY,
-			Turnover		MONEY,
-			Winlost			MONEY,
-			Bonus			MONEY,
-			PlatFormFee		MONEY,
-			OperationalFee	MONEY,
-			BankingFee		MONEY,
-			CommissionRate	MONEY,
-			Earning			MONEY,
-			AffWithdrawal	MONEY,
-			AffAdjustment	MONEY,
-			BFF				MONEY,
-			RowIdx			INT,
-			PreferredLanguage VARCHAR(100),
-			FDMCommissionRate	DECIMAL(9, 8),
-			FDMEarning			MONEY
+			AffId				INT
+			,Username			NVARCHAR(30)
+			,TotalClick			INT
+			,UniqueClick		INT
+			,Signup				INT
+			,FDM				INT
+			,ActiveMember		INT
+			,QualifiedMember 	INT
+			,Deposit			MONEY
+			,Withdrawal			MONEY
+			,Turnover			MONEY
+			,Winlost			MONEY
+			,Bonus				MONEY
+			,PlatFormFee		MONEY
+			,OperationalFee		MONEY
+			,BankingFee			MONEY
+			,CommissionRate		MONEY
+			,Earning			MONEY
+			,AffWithdrawal		MONEY
+			,AffAdjustment		MONEY
+			,BFF				MONEY
+			,RowIdx				INT
+			,PreferredLanguage 	VARCHAR(100)
+			,FDMCommissionRate	DECIMAL(9, 8)
+			,FDMEarning			MONEY
 		)
 		INSERT INTO #Result
 		(
-			AffId,
-			Username,
-			PreferredLanguage,
-			TotalClick,
-			UniqueClick,
-			Signup,
-			FDM,
-			ActiveMember,
-			QualifiedMember,
-			Deposit,
-			Withdrawal,
-			Turnover,
-			Winlost,
-			Bonus,
-			PlatFormFee,
-			OperationalFee,
-			BankingFee,
-			CommissionRate,
-			Earning,
-			AffWithdrawal,
-			AffAdjustment,
-			BFF,
-			FDMCommissionRate,
-			FDMEarning
+			AffId
+			,Username
+			,PreferredLanguage
+			,TotalClick
+			,UniqueClick
+			,Signup
+			,FDM
+			,ActiveMember
+			,QualifiedMember
+			,Deposit
+			,Withdrawal
+			,Turnover
+			,Winlost
+			,Bonus
+			,PlatFormFee
+			,OperationalFee
+			,BankingFee
+			,CommissionRate
+			,Earning
+			,AffWithdrawal
+			,AffAdjustment
+			,BFF
+			,FDMCommissionRate
+			,FDMEarning
 		)
 		SELECT
-			ai.AffId,
-			ai.Username,
-			ad.PreferredLanguage,
-			ISNULL(s.TotalClick, 0)			AS TotalClick,
-			ISNULL(s.UniqueClick, 0)		AS UniqueClick,
-			ISNULL(su.Signup, 0)			AS Signup,
-			ISNULL(fdm.FDM, 0)				AS FDM,
-			ISNULL(tc.ActivePlayer, 0)		AS ActiveMember,
-			ISNULL(tc.QualifiedMember, 0)	AS QualifiedMember,
-			ISNULL(tc.Deposit, 0)			AS Deposit,
-			ISNULL(tc.Withdrawal, 0)		AS Withdrawal,
-			ISNULL(tc.Turnover, 0)			AS Turnover,
-			ISNULL(tc.Winloss, 0)			AS Winlost,
-			ISNULL(tc.Bonus, 0)				AS Bonus,
-			ISNULL(tc.PlatFormFee, 0)		AS PlatFormFee,
-			ISNULL(tc.OperationalFee, 0)	AS OperationalFee,
-			ISNULL(tc.BankingFee, 0)		AS BankingFee,
-			ISNULL(tc.CommissionRate, 0)	AS CommissionRate,
-			ISNULL(tc.Commission, 0)		AS Earning,
-			ISNULL(at.AffWithdrawal, 0)		AS AffWithdrawal,
-			ISNULL(at.AffAdjustment, 0)		AS AffAdjustment,
-			ISNULL(at.BFF, 0)				AS BFF,	
-			ISNULL(tc.FDMCommissionRate, 0)	AS CommissionRate,
-			ISNULL(tc.FDMCommission, 0)		AS Earning
+			ai.AffId
+			,ai.Username
+			,ad.PreferredLanguage
+			,ISNULL(s.TotalClick, 0)			AS TotalClick
+			,ISNULL(s.UniqueClick, 0)			AS UniqueClick
+			,ISNULL(su.Signup, 0)				AS Signup
+			,ISNULL(fdm.FDM, 0)					AS FDM
+			,ISNULL(tc.ActivePlayer, 0)			AS ActiveMember
+			,ISNULL(tc.QualifiedMember, 0)		AS QualifiedMember
+			,ISNULL(tc.Deposit, 0)				AS Deposit
+			,ISNULL(tc.Withdrawal, 0)			AS Withdrawal
+			,ISNULL(tc.Turnover, 0)				AS Turnover
+			,ISNULL(tc.Winloss, 0)				AS Winlost
+			,ISNULL(tc.Bonus, 0)				AS Bonus
+			,ISNULL(tc.PlatFormFee, 0)			AS PlatFormFee
+			,ISNULL(tc.OperationalFee, 0)		AS OperationalFee
+			,ISNULL(tc.BankingFee, 0)			AS BankingFee
+			,ISNULL(tc.CommissionRate, 0)		AS CommissionRate
+			,ISNULL(tc.Commission, 0)			AS Earning
+			,ISNULL(at.AffWithdrawal, 0)		AS AffWithdrawal
+			,ISNULL(at.AffAdjustment, 0)		AS AffAdjustment
+			,ISNULL(at.BFF, 0)					AS BFF
+			,ISNULL(tc.FDMCommissionRate, 0)	AS CommissionRate
+			,ISNULL(tc.FDMCommission, 0)		AS Earning
 		FROM dbo.AffInfo ai WITH (NOLOCK)
 			LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 			LEFT JOIN #Signup su ON ai.AffId = su.AffId
@@ -513,22 +512,22 @@ BEGIN
 			) s ON ai.AffId = s.AffId
 			LEFT JOIN
 			(
-				SELECT AffId,
-					SUM(ActivePlayer)				AS ActivePlayer,
-					SUM(QualifiedMember)			AS QualifiedMember,
-					SUM(Deposit)					AS Deposit,
-					SUM(Withdrawal)					AS Withdrawal,
-					SUM(Turnover)					AS Turnover,
-					SUM(Winloss)					AS Winloss,
-					SUM(Bonus)						AS Bonus,
-					SUM(PlatFormFee)				AS PlatFormFee,
-					SUM(OperationalFee)				AS OperationalFee,
-					SUM(BankingFee)					AS BankingFee,
-					SUM(NetWinloss)					AS NetWinloss,
-					SUM(CommissionRate/@NoOfMonth)	AS CommissionRate,
-					SUM(Commission)					AS Commission,
-					SUM(FDMCommissionRate/@NoOfMonth)	AS FDMCommissionRate,
-					SUM(FDMCommission)					AS FDMCommission
+				SELECT AffId
+					  ,SUM(ActivePlayer)					AS ActivePlayer
+					  ,SUM(QualifiedMember)					AS QualifiedMember
+					  ,SUM(Deposit)							AS Deposit
+					  ,SUM(Withdrawal)						AS Withdrawal
+					  ,SUM(Turnover)						AS Turnover
+					  ,SUM(Winloss)							AS Winloss
+					  ,SUM(Bonus)							AS Bonus
+					  ,SUM(PlatFormFee)						AS PlatFormFee
+					  ,SUM(OperationalFee)					AS OperationalFee
+					  ,SUM(BankingFee)						AS BankingFee
+					  ,SUM(NetWinloss)						AS NetWinloss
+					  ,SUM(CommissionRate/@NoOfMonth)		AS CommissionRate
+					  ,SUM(Commission)						AS Commission
+					  ,SUM(FDMCommissionRate/@NoOfMonth)	AS FDMCommissionRate
+					  ,SUM(FDMCommission)					AS FDMCommission
 				FROM #TempCommission
 				GROUP BY AffId
 			) tc ON ai.AffId = tc.AffId
@@ -596,11 +595,7 @@ BEGIN
 		SELECT @RowStart = 1, @RowEnd = @NRows
 
 	-- Return detail
-	SELECT AffId, Username, TotalClick, UniqueClick, Signup, FDM, ActiveMember, QualifiedMember
-		,Deposit, Withdrawal, Turnover, Winlost, Bonus, PlatFormFee, OperationalFee, BankingFee
-		,PlatFormFee + OperationalFee + BankingFee AS TotalFee
-		,CommissionRate, Earning, AffWithdrawal, AffAdjustment, BFF, PreferredLanguage AS [Language]
-		,FDMCommissionRate, FDMEarning
+	SELECT AffId, Username, TotalClick, UniqueClick, Signup, FDM, ActiveMember, QualifiedMember, Deposit, Withdrawal, Turnover, Winlost, Bonus, PlatFormFee, OperationalFee, BankingFee, PlatFormFee + OperationalFee + BankingFee AS TotalFee, CommissionRate, Earning, AffWithdrawal, AffAdjustment, BFF, PreferredLanguage AS [Language], FDMCommissionRate, FDMEarning
 	FROM #Result
 	WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 	ORDER BY RowIdx
@@ -627,8 +622,15 @@ BEGIN
 		,SUM(AffWithdrawal)		AS AffWithdrawal
 		,SUM(AffAdjustment)		AS AffAdjustment
 		,SUM(BFF)				AS BFF
-		,0	AS FDMCommissionRate
+		,0						AS FDMCommissionRate
 		,SUM(FDMEarning)		AS FDMEarning
 	FROM #Result
+	
+	DROP TABLE #AffTrans
+	DROP TABLE #FDM
+	DROP TABLE #Result
+	DROP TABLE #Signup
+	DROP TABLE #Statistics
+	DROP TABLE #TempCommission
 END
 GO
