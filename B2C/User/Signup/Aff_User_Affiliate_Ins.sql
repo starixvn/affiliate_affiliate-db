@@ -47,6 +47,8 @@ AS
 		- 20200220@Percy: Initialize SP [Redmine: #128775]
 		- 20201026@Percy: Replace ParentAffId to AffCode [RedmineID: #143852]
 		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
+		- 20231109@Sally: Retrieved Correctly Player_currencyCode Player_CurrencyName Values
+
 */
 
 BEGIN
@@ -119,10 +121,22 @@ BEGIN
 
 	SELECT  @SiteName = dbo.Aff_f_GetSetting('SiteName')
 			,@AffCurrency = dbo.Aff_f_GetSetting('AffCurrency')
+	
+	-- Get Currency mapping
+	DECLARE @AffExchangeId INT = @AffCurrency
+		,@Player_ExchangeId INT = @Player_Currency
+
+	SELECT @AffExchangeId = te.ExchangeId
+	FROM dbo.TpExchange te WITH (NOLOCK)
+	WHERE te.TpExchangeId = @AffCurrency
+
+	SELECT @Player_ExchangeId = te.ExchangeId
+	FROM dbo.TpExchange te WITH (NOLOCK)
+	WHERE te.TpExchangeId = @Player_Currency
 
 	-- Get Player_IBCCustId from Player_Username
-	SELECT @AffCurrencyName = Currency, @AffCurrencyCode = Code FROM bodb02.dbo.Exchange WITH (NOLOCK) WHERE ExchangeId = @AffCurrency
-	SELECT @Player_CurrencyName = Currency, @Player_CurrencyCode = Code FROM bodb02.dbo.Exchange WITH (NOLOCK) WHERE ExchangeId = @Player_Currency
+	SELECT @AffCurrencyName = Currency, @AffCurrencyCode = Code FROM bodb02.dbo.Exchange WITH (NOLOCK) WHERE ExchangeId = @AffExchangeId
+	SELECT @Player_CurrencyName = Currency, @Player_CurrencyCode = Code FROM bodb02.dbo.Exchange WITH (NOLOCK) WHERE ExchangeId = @Player_ExchangeId
 
 	DECLARE @PrefixName VARCHAR(30)
 	SELECT  @PrefixName = @SiteName + 'AFF'
