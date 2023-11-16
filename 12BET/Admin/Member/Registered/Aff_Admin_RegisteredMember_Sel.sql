@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20210528@Malcolm: Initialize SP [RedmineID: #149210]
+		- 20231116@Eddie: Enhance performance [RedmineID: #196930]
 		
 */
 
@@ -27,7 +28,7 @@ BEGIN
 			,@RowEnd	= @RowStart + @PageSize - 1
 
 	-- Inactivated members
-	DECLARE @InactivedMembers TABLE (Username NVARCHAR(50), Firstname NVARCHAR(50), Lastname NVARCHAR(50), CreatedDate DATETIME, AffId INT, Currency TINYINT)
+	CREATE TABLE #InactivedMembers(Username NVARCHAR(50), Firstname NVARCHAR(50), Lastname NVARCHAR(50), CreatedDate DATETIME, AffId INT, Currency TINYINT)
 
 	DECLARE @sql NVARCHAR(MAX)
 	SELECT  @sql = 'SELECT Username, Firstname, Lastname, creatdate, AffiliateID, currency
@@ -37,15 +38,16 @@ BEGIN
 								   )'
 
 	BEGIN TRY
-		INSERT INTO @InactivedMembers (Username, Firstname, Lastname, CreatedDate, AffId,currency)
+		INSERT INTO #InactivedMembers (Username, Firstname, Lastname, CreatedDate, AffId,currency)
 		EXEC (@sql)
 	END TRY
 	BEGIN CATCH
 	END CATCH
 
+	CREATE CLUSTERED INDEX CIX_AffId_Currency_CreatedDate_Username ON #InactivedMembers(AffId, Currency, CreatedDate DESC, Username ASC)
 	
 	SELECT @NRows = COUNT(1)
-	FROM @InactivedMembers m
+	FROM #InactivedMembers m
 		LEFT JOIN dbo.AffInfo ai WITH(NOLOCK) ON m.AffId = ai.AffID
 	WHERE ai.UserName LIKE '%' + @AffName + '%' OR @AffName = ''
 	
@@ -53,11 +55,13 @@ BEGIN
 	FROM
 	(
 		SELECT m.Username, m.Firstname, m.Lastname, m.CreatedDate, ai.UserName AS AffName, e.Currency, ROW_NUMBER() OVER(ORDER BY m.CreatedDate DESC, m.Username ASC) AS Rn
-		FROM @InactivedMembers m
+		FROM #InactivedMembers m
 			LEFT JOIN Exchange_Current e ON e.ExchangeID = m.Currency
 			LEFT JOIN dbo.AffInfo ai WITH(NOLOCK) ON m.AffId = ai.AffID
 		WHERE ai.UserName LIKE '%' + @AffName + '%' OR @AffName = ''
 	) r
 	WHERE r.Rn >= @RowStart AND r.Rn <= @RowEnd
+	
+	DROP TABLE #InactivedMembers
 END
 GO
