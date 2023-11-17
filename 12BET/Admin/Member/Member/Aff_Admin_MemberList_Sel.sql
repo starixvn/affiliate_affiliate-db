@@ -1,7 +1,7 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_MemberList_Sel]
 	@AffUsername	NVARCHAR(50) = ''
-	,@Username		NVARCHAR(30) = ''
+	,@Username		VARCHAR(50)  = ''
 	,@IBCUserName	NVARCHAR(50) = ''
 	,@PageSize		INT = 50
 	,@PageIndex		INT = 1
@@ -16,6 +16,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20210528@Malcolm: Correct paging [RedmineID: #149210]
+		- 20231116@Eddie: Change Datatype of @Username [RedmineID: #196948]
 
 	Param's Explanation:
 */
