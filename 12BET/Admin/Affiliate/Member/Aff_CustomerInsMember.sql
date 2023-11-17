@@ -1,8 +1,8 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
 CREATE PROCEDURE [dbo].[Aff_CustomerInsMember] 
 	@IBCCustID 			INT
 	,@AffID 			INT
-	,@Username 			VARCHAR(30)
+	,@Username 			VARCHAR(50)
 	,@IBCUsername 		VARCHAR(30)
 	,@DepositCustID 	INT
 	,@FirstName 		NVARCHAR(50)
@@ -24,45 +24,43 @@ Revisions:
 	- 20151013@Bobby: Check for validation of member affiliate
 	- 20210416@Malcolm: Change format when writing logs [RedmineId : #152449]
 	- 20210423@Malcolm: Get currency name[RedmineId : #152449]
+	- 20231116@Eddie: Change Datatype of @Username [RedmineID: #196948]
 */
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @RegisteredDate DATETIME
-		,@ClickId 			BIGINT
-		,@CurrencyName		NVARCHAR(50)
+	DECLARE @RegisteredDate DATETIME, @ClickId	BIGINT, @CurrencyName	NVARCHAR(50)
 	
 	SELECT @AffId			= ISNULL(@AffId, 0)
 		, @IBCCustID		= ISNULL(@IBCCustID, 0)
 	
 	IF(@AffId <= 0 	OR  @IBCCustID <=0 ) RETURN;
 	
-	SELECT TOP(1) @IBCCustID AS IBCCustID
-		,@AffID AS AffID
-		,@UserName AS UserName
-		,@IBCUserName AS IBCUserName
-		,CURRENT_TIMESTAMP AS CreatedDate
-		,0 AS IsRemoved
-		,@DepositCustID AS DepositCustID
-		,@FirstName AS FirstName
-		,@LastName AS LastName
-		,@Currency AS Currency
-		,@Recommend AS Recommend
-		,@Email AS Email
-		,d.creatdate AS RegisteredDate
+	SELECT TOP(1) @IBCCustID 	AS IBCCustID
+		,@AffID 				AS AffID
+		,@UserName 				AS UserName
+		,@IBCUserName 			AS IBCUserName
+		,CURRENT_TIMESTAMP 		AS CreatedDate
+		,0 						AS IsRemoved
+		,@DepositCustID 		AS DepositCustID
+		,@FirstName 			AS FirstName
+		,@LastName 				AS LastName
+		,@Currency 				AS Currency
+		,@Recommend 			AS Recommend
+		,@Email 				AS Email
+		,d.creatdate 			AS RegisteredDate
 		,d.ClickId
-		,ISNULL(c.DomainReferrer, 'none') AS DomainReferrer
-		,ISNULL(c.RedirectURL, 'none') AS URLRedirect
-		,ISNULL(c.SportCode, 'none') AS SportCode
-		,ISNULL(c.LanguageCode, 'none') AS LanguageCode
-		,ISNULL(c.URLReferrer, 'none') AS URLReferrer
-		,ISNULL(c.DeviceType, 0) AS DeviceType
+		,ISNULL(c.DomainReferrer, 'none') 	AS DomainReferrer
+		,ISNULL(c.RedirectURL, 'none') 		AS URLRedirect
+		,ISNULL(c.SportCode, 'none') 		AS SportCode
+		,ISNULL(c.LanguageCode, 'none') 	AS LanguageCode
+		,ISNULL(c.URLReferrer, 'none') 		AS URLReferrer
+		,ISNULL(c.DeviceType, 0) 			AS DeviceType
 	INTO #depositMember
 	FROM [DBDeposit].deposit_db.dbo.Deposit_Customer d WITH (NOLOCK)
-		LEFT JOIN dbo.ClickStatistics1 c WITH (NOLOCK)
-		ON d.ClickID = c.ClickID
+		LEFT JOIN dbo.ClickStatistics1 c WITH (NOLOCK) ON d.ClickID = c.ClickID
 	WHERE d.custid = @DepositCustID
-		AND d.AffiliateID = @AffId
+	  AND d.AffiliateID = @AffId
 	
 	-- MemberInfo
 	INSERT INTO MemberInfo (
@@ -138,7 +136,7 @@ BEGIN
 	
 	-- get info to write log
 	SELECT @RegisteredDate = RegisteredDate
-		,@ClickId = ClickId
+		  ,@ClickId = ClickId
 	FROM #depositMember
 	
 	DROP TABLE #depositMember
@@ -156,29 +154,29 @@ BEGIN
 	SELECT @LogData = 	CONVERT(NVARCHAR(MAX), 
 						(	
 							SELECT 
-								@IbcCustID AS '@IBCCustID'
-								,@UserName AS '@UserName'
-								,@IBCUserName AS '@IBCUserName'
-								,@DepositCustID AS '@DepositCustID'
-								,@FirstName AS '@FirstName'
-								,@LastName AS '@LastName'
-								,@CurrencyName AS '@Currency'
-								,@Recommend AS '@Recommend'
-								,@Email AS '@Email'
-								,@RegisteredDate AS '@RegisteredDate'
-								,@ClickId AS '@ClickId'
+								@IbcCustID 			AS '@IBCCustID'
+								,@UserName 			AS '@UserName'
+								,@IBCUserName 		AS '@IBCUserName'
+								,@DepositCustID 	AS '@DepositCustID'
+								,@FirstName 		AS '@FirstName'
+								,@LastName 			AS '@LastName'
+								,@CurrencyName 		AS '@Currency'
+								,@Recommend 		AS '@Recommend'
+								,@Email 			AS '@Email'
+								,@RegisteredDate 	AS '@RegisteredDate'
+								,@ClickId 			AS '@ClickId'
 								,CASE WHEN @RegisteredDate IS NULL THEN 'Failed' ELSE 'Success' END AS '@Status'
 							FOR XML PATH('row'), ROOT('root')
 						))
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
-		@UserId		= @AffID,
-		@AffId		= @AffID,
-		@SPName		= @SPName,
-		@OldData	= '',
-		@NewData	= @LogData,
-		@IP			= '127.0.0.1',
-		@Language	= 'en-US'
+		@UserId		= @AffID
+		,@AffId		= @AffID
+		,@SPName	= @SPName
+		,@OldData	= ''
+		,@NewData	= @LogData
+		,@IP		= '127.0.0.1'
+		,@Language	= 'en-US'
 END
 GO
 

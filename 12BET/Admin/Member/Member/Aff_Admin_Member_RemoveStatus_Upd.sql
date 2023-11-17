@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20231116@Eddie: Change Datatype of @Username [RedmineID: #196948]
 */
 
 BEGIN
@@ -34,7 +35,7 @@ BEGIN
 	IF @ErrCode <> 0
 		RETURN
 
-	DECLARE @UserName VARCHAR(30), @Old_IsRemoved BIT, @LogAffId INT
+	DECLARE @UserName VARCHAR(50), @Old_IsRemoved BIT, @LogAffId INT
 	SELECT  @UserName = UserName, @Old_IsRemoved = ISNULL(IsRemoved, 0), @AffId = AffId, @LogAffId = AffID, @DepositCustId = DepositCustId
 	FROM dbo.MemberInfo WITH (NOLOCK)
 	WHERE IBCCustId = @IBCCustId
@@ -78,6 +79,7 @@ BEGIN
 	-- Write log
 	DECLARE @SPName VARCHAR(200), @OldData VARCHAR(MAX), @NewData VARCHAR(MAX)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
+
 	SELECT  @OldData = (SELECT @UserName AS '@UserName', @Old_IsRemoved AS 'RemoveStatus' FOR XML PATH('row'), ROOT('root'))
 	SELECT  @NewData = (SELECT @UserName AS '@UserName', @IsRemoved AS 'RemoveStatus' FOR XML PATH('row'), ROOT('root'))
 
