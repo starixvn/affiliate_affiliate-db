@@ -1,11 +1,11 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_User_PaymentRequest_Upd]
 	@UserId		INT,
 	@TransId	BIGINT,
-	@IP			VARCHAR(20),
+	@IP			VARCHAR(50),
 	@Language	VARCHAR(10),
 	@Status		VARCHAR(20),
 	@ErrCode	INT = 0 OUTPUT,
@@ -20,6 +20,7 @@ AS
 	Revisions:
 		- 20180601@Percy: Initiliaze SP [RedmineID: #87923]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
 */
 
 BEGIN

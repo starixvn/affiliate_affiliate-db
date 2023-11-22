@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Message_Upd]
 	@UserId			INT
 	,@MessageId		INT
@@ -14,7 +14,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Message_Upd]
 	,@MsgKh			NVARCHAR(4000)
 	,@MsgBn			NVARCHAR(4000)
 	,@IsImportant	BIT
-	,@IP			VARCHAR(20) = ''
+	,@IP			VARCHAR(50) = ''
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
@@ -29,6 +29,7 @@ AS
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20220811@Malcolm: Add Cambodian Language [RedminID: #176429]
 		- 20230323@Eddie: Add Bangladesh Language [RedminID: #185446]
+		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
 */
 
 BEGIN

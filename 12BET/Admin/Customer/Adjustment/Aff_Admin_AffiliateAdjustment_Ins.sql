@@ -6,7 +6,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateAdjustment_Ins]
 	,@AdminDesc	NVARCHAR(300) = ''
 	,@AffDesc	NVARCHAR(300) = ''
 	,@TransID	BIGINT = 0 OUTPUT
-	,@IP		VARCHAR(20) = ''
+	,@IP		VARCHAR(50) = ''
 	,@ErrCode	INT = 0 OUTPUT
 	,@ErrMsg	NVARCHAR(4000) = '' OUTPUT
 AS
@@ -21,6 +21,7 @@ AS
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20240605@Eddie: Enhance Adjustment Function with description for user's view [RedmineId : #205432]
+		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
 */
 
 BEGIN

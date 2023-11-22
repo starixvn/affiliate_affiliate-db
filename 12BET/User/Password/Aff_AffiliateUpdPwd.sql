@@ -1,10 +1,10 @@
-﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbDownlineNet,bodbDownlineNetView" viewers="" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" viewers="" isFunction="0" isNested="0"></info>*/
 Alter PROC [dbo].[Aff_AffiliateUpdPwd]  
  @AffID int,  
  @OldPwd nvarchar(50)=null,  
  @AffPwd nvarchar(50),  
  @UserID int = null,  
- @IP varchar(20),  
+ @IP varchar(50),  
  @Language varchar(20) = 'en-US',  
  @ErrCode int = 0 OUTPUT,  
  @ErrMsg nvarchar(200) = '' OUTPUT  
@@ -17,6 +17,7 @@ AS
  Revisions:  
    - 20090930@VinhTrinh: Admin Change Affiliate Password  
    - 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+   - 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
  Param's Explanation:  
  •   
 */  

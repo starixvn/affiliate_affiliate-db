@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_EmailHistoryIns]
 	@MID		INT OUTPUT,
 	@creator	INT=-1,
@@ -7,7 +7,7 @@ ALTER PROCEDURE [dbo].[Aff_EmailHistoryIns]
 	@affiliate	VARCHAR(30)=NULL,
 	@email		NVARCHAR(50),
 	@subject	NVARCHAR(2000),
-	@ip			NVARCHAR(15),
+	@ip			VARCHAR(50),
 	@browser	NVARCHAR(100),
 	@sessionid	NVARCHAR(100),
 	@ErrCode	INT = 0 OUTPUT,
@@ -22,7 +22,7 @@ BEGIN
 
 	Revisions:
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
-
+		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
 
 	Param's Explanation:
 	.@MID: OUTPUT of mail id,

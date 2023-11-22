@@ -1,10 +1,10 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_User_Login_ResultUpd]
 	@AffId			INT,
-    @IpAddress  	NVARCHAR(25),
+    @IpAddress  	VARCHAR(50),
 	@DeviceInfo  	NVARCHAR(100),
 	@Language		VARCHAR(20) = 'en-US',
 	@IsSuccessful	BIT,
@@ -22,6 +22,7 @@ AS
 		- 20190115@Walter: Remove Locking action [RedmineID: #104884]
 		- 20190125@Walter: Store user device info [RedmineID: #104884]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
 */
 
 BEGIN

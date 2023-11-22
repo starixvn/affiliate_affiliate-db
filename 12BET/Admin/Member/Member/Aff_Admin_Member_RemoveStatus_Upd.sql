@@ -1,11 +1,11 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Member_RemoveStatus_Upd]
 	@UserId			INT
 	,@IBCCustId		INT
 	,@IsRemoved		BIT
 	,@DepositCustId	INT = 0 OUTPUT
 	,@AffId			INT = 0 OUTPUT
-	,@IP			VARCHAR(20)
+	,@IP			VARCHAR(50)
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
@@ -18,6 +18,7 @@ AS
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20231116@Eddie: Change Datatype of @Username [RedmineID: #196948]
+		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
 */
 
 BEGIN

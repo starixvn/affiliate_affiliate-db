@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Ins]
 	@UserId			INT,
 	@GroupId		INT = 0 OUTPUT, -- using for private group
@@ -7,7 +7,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Ins]
 	@DeductionList	XML,
 	@TierList		XML,
 	@QMTurnover		MONEY,
-	@IP				NVARCHAR(20) = '',
+	@IP				VARCHAR(50) = '',
 	@IsApplyBonus	BIT,
 	@FDMTierList	XML = NULL,
 	@ErrCode		INT = 0 OUTPUT,
@@ -25,6 +25,7 @@ AS
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 		- 20240326@Eddie: Change metadata "bodbAdminNet" [RedmineID: #201095]
+		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
 		
 
 	Parameter's Explanation:

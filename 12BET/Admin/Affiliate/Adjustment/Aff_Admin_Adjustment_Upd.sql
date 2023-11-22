@@ -1,8 +1,8 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_Adjustment_Upd]
 	@XmlData	XML
 	,@UserId	INT
-	,@IP		VARCHAR(20) = ''
+	,@IP		VARCHAR(50) = ''
 	,@ErrCode	INT = 0 OUTPUT
 	,@ErrMsg	NVARCHAR(4000) = '' OUTPUT
 	,@Language	VARCHAR(10) = 'en-US'
@@ -17,6 +17,7 @@ AS
 		- 20210113@Malcolm: Initialize SP [RedmineID: #147902]
 		- 20210128@Malcolm: Convert amount from varchar(max) to money [RedmineID: #147902]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
 
 	Param's Explanation
 		.@XmlData = <root><r Username="" Amount="" Description=""/></root>

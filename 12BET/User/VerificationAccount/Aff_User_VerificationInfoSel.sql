@@ -1,10 +1,10 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbDownlineNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_User_VerificationInfoSel]
 	@AffId		INT,
-    @IpAddress  NVARCHAR(25),
+    @IpAddress  VARCHAR(50),
 	@DeviceInfo  NVARCHAR(100)
 AS
 
@@ -15,6 +15,7 @@ AS
 
 	Revisions:
 		- 20190125@Walter: Initiliaze SP [RedmineID: #104884]
+		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
 
 	Parameter's Explanation:
 */
