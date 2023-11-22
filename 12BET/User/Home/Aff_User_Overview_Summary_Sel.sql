@@ -12,6 +12,7 @@ AS
 	Revisions:
 		- 20191210@Percy: Initialize SP [RedmineID: #121971]
 		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
+		- 20230804@Eddie: 'ExchangeWinlossShare' and 'ExchangeCommShare' out of use [RedmineID: #189569]
 */
 
 BEGIN
@@ -42,43 +43,40 @@ BEGIN
 
 	-- Active Players, Qualified Active Players, Turnover, Deposit, Commission
 	BEGIN
-		DECLARE @ActivePlayers INT, @QualifiedActivePlayers INT, @Turnover MONEY, @Deposit MONEY, @Commission MONEY
-			,@FDMDeposit MONEY, @FDMCommission	MONEY;
+		DECLARE @ActivePlayers INT, @QualifiedActivePlayers INT, @Turnover MONEY, @Deposit MONEY, @Commission MONEY, @FDMDeposit MONEY, @FDMCommission MONEY;
 
 		DROP TABLE IF EXISTS #TempCommission;
 		CREATE TABLE #TempCommission
 		(
-			MonthDate				SMALLDATETIME,
-			AffId					INT,
-			GroupId					INT,
-			ProductId				INT,
-			Deposit					MONEY,
-			Withdrawal				MONEY,
-			Bonus					MONEY,
-			Turnover				MONEY,
-			Winloss					MONEY,
-			AWinloss				MONEY,
-			AComm					MONEY,
+			MonthDate			SMALLDATETIME
+			,AffId				INT
+			,GroupId			INT
+			,ProductId			INT
+			,Deposit			MONEY
+			,Withdrawal			MONEY
+			,Bonus				MONEY
+			,Turnover			MONEY
+			,Winloss			MONEY
+			,AWinloss			MONEY
+			,AComm				MONEY
 			-- Fees
-			PlatFormFee				MONEY,
-			OperationalFee			MONEY,
-			BankingFee				MONEY,
-			ExchangeWinlossShare	MONEY,
-			ExchangeCommShare		MONEY,
+			,PlatFormFee		MONEY
+			,OperationalFee		MONEY
+			,BankingFee			MONEY
 			-- Calculation
-			GrossWinloss			MONEY,
-			NetWinloss				MONEY,
-			ActivePlayer			INT,
-			QualifiedMember			INT,
-			QMTurnover				MONEY,
-			CommissionRate			FLOAT,
-			Commission				MONEY,
+			,GrossWinloss		MONEY
+			,NetWinloss			MONEY
+			,ActivePlayer		INT
+			,QualifiedMember	INT
+			,QMTurnover			MONEY
+			,CommissionRate		FLOAT
+			,Commission			MONEY
 			-----FDM & Bonus
-			IsApplyBonus			BIT,
-			FDMCount				INT,
-			FDMDeposit				MONEY,
-			FDMCommissionRate		DECIMAL(9, 8),
-			FDMCommission			MONEY
+			,IsApplyBonus		BIT
+			,FDMCount			INT
+			,FDMDeposit			MONEY
+			,FDMCommissionRate	DECIMAL(9, 8)
+			,FDMCommission		MONEY
 		)
 
 		DECLARE @MaxCommDate SMALLDATETIME, @AffIds VARCHAR(MAX)
@@ -89,85 +87,81 @@ BEGIN
 		BEGIN
 			INSERT INTO #TempCommission
 			(
-				MonthDate,
-				AffId,
-				GroupId,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Turnover,
-				Winloss,
-				AWinloss,
-				AComm,
-				PlatFormFee,
-				OperationalFee,
-				BankingFee,
-				ExchangeWinlossShare,
-				ExchangeCommShare,
-				GrossWinloss,
-				NetWinloss,
-				ActivePlayer,
-				QualifiedMember,
-				QMTurnOver,
-				CommissionRate,
-				Commission,
+				MonthDate
+				,AffId
+				,GroupId
+				,ProductId
+				,Deposit
+				,Withdrawal
+				,Bonus
+				,Turnover
+				,Winloss
+				,AWinloss
+				,AComm
+				,PlatFormFee
+				,OperationalFee
+				,BankingFee
+				,GrossWinloss
+				,NetWinloss
+				,ActivePlayer
+				,QualifiedMember
+				,QMTurnOver
+				,CommissionRate
+				,Commission
 				---FDM & Bonus
-				IsApplyBonus,		
-				FDMCount,			
-				FDMDeposit,			
-				FDMCommissionRate,
-				FDMCommission
+				,IsApplyBonus
+				,FDMCount
+				,FDMDeposit
+				,FDMCommissionRate
+				,FDMCommission
 			)
 			EXEC dbo.Aff_Commission_UnCalc
-				@AffIds				= @AffIds,
-				@FromMonthDate		= @FromBeginMonth,
-				@ToMonthDate		= @FromBeginMonth,
-				@ProductIds			= '0',
-				@IsSumAll			= 1,
-				@GetRowTotalOnly	= 1
+				@AffIds				= @AffIds
+				,@FromMonthDate		= @FromBeginMonth
+				,@ToMonthDate		= @FromBeginMonth
+				,@ProductIds		= '0'
+				,@IsSumAll			= 1
+				,@GetRowTotalOnly	= 1
 		END
 		ELSE
 		BEGIN
 			INSERT INTO #TempCommission
 			(
-				MonthDate,
-				AffId,
-				GroupId,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Turnover,
-				Winloss,
-				AWinloss,
-				AComm,
-				PlatFormFee,
-				OperationalFee,
-				BankingFee,
-				ExchangeWinlossShare,
-				ExchangeCommShare,
-				GrossWinloss,
-				NetWinloss,
-				ActivePlayer,
-				QualifiedMember,
-				QMTurnOver,
-				CommissionRate,
-				Commission,
+				MonthDate
+				,AffId
+				,GroupId
+				,ProductId
+				,Deposit
+				,Withdrawal
+				,Bonus
+				,Turnover
+				,Winloss
+				,AWinloss
+				,AComm
+				,PlatFormFee
+				,OperationalFee
+				,BankingFee
+				,GrossWinloss
+				,NetWinloss
+				,ActivePlayer
+				,QualifiedMember
+				,QMTurnOver
+				,CommissionRate
+				,Commission
 				---FDM & Bonus
-				IsApplyBonus,		
-				FDMCount,			
-				FDMDeposit,			
-				FDMCommissionRate,
-				FDMCommission
+				,IsApplyBonus	
+				,FDMCount
+				,FDMDeposit
+				,FDMCommissionRate
+				,FDMCommission
 			)
 			EXEC dbo.Aff_Commission_Calc
-				@AffIds				= @AffIds,
-				@FromMonthDate		= @FromBeginMonth,
-				@ToMonthDate		= @FromBeginMonth,
-				@ProductIds			= '0',
-				@IsSumAll			= 1,
-				@GetRowTotalOnly	= 1
+				@AffIds				= @AffIds
+				,@FromMonthDate		= @FromBeginMonth
+				,@ToMonthDate		= @FromBeginMonth
+				,@ProductIds		= '0'
+				,@IsSumAll			= 1
+				,@GetRowTotalOnly	= 1
 		END
 
 		SELECT
@@ -180,6 +174,7 @@ BEGIN
 			,@FDMCommission				= SUM(ISNULL(FDMCommission, 0))
 		FROM #TempCommission
 
+		DROP TABLE #TempCommission
 	END
 
 	-- Return result

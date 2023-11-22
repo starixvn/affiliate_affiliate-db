@@ -15,6 +15,7 @@ AS
 		- 20221129@Malcolm: Remove UniqueClickByMonth, TotalClickByMonth [RedmineID: #176390]
 		- 20230215@Eddie: Change 'ClickStatistics1Sum' to 'ClickStatisticsSum_Country_Domain' sum table [RedmineID: #177639]
 		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
+		- 20230731@Eddie: 'ExchangeWinlossShare' and 'ExchangeCommShare' out of use [RedmineID: #189569]
 */
 
 BEGIN
@@ -58,37 +59,35 @@ BEGIN
 		DROP TABLE IF EXISTS #TempCommission;
 		CREATE TABLE #TempCommission
 		(
-			MonthDate				SMALLDATETIME
-			,AffId					INT
-			,GroupId				INT
-			,ProductId				INT
-			,Deposit				MONEY
-			,Withdrawal				MONEY
-			,Bonus					MONEY
-			,Turnover				MONEY
-			,Winloss				MONEY
-			,AWinloss				MONEY
-			,AComm					MONEY
+			MonthDate			SMALLDATETIME
+			,AffId				INT
+			,GroupId			INT
+			,ProductId			INT
+			,Deposit			MONEY
+			,Withdrawal			MONEY
+			,Bonus				MONEY
+			,Turnover			MONEY
+			,Winloss			MONEY
+			,AWinloss			MONEY
+			,AComm				MONEY
 			-- Fees
-			,PlatFormFee			MONEY
-			,OperationalFee			MONEY
-			,BankingFee				MONEY
-			,ExchangeWinlossShare	MONEY
-			,ExchangeCommShare		MONEY
+			,PlatFormFee		MONEY
+			,OperationalFee		MONEY
+			,BankingFee			MONEY
 			-- Calculation
-			,GrossWinloss			MONEY
-			,NetWinloss				MONEY
-			,ActivePlayer			INT
-			,QualifiedMember		INT
-			,QMTurnover				MONEY
-			,CommissionRate			FLOAT
-			,Commission				MONEY
+			,GrossWinloss		MONEY
+			,NetWinloss			MONEY
+			,ActivePlayer		INT
+			,QualifiedMember	INT
+			,QMTurnover			MONEY
+			,CommissionRate		FLOAT
+			,Commission			MONEY
 			-----FDM & Bonus
-			,IsApplyBonus			BIT
-			,FDMCount				INT
-			,FDMDeposit				MONEY
-			,FDMCommissionRate		DECIMAL(9, 8)
-			,FDMCommission			MONEY
+			,IsApplyBonus		BIT
+			,FDMCount			INT
+			,FDMDeposit			MONEY
+			,FDMCommissionRate	DECIMAL(9, 8)
+			,FDMCommission		MONEY
 		)
 
 		-- Uncalculated Months
@@ -114,8 +113,6 @@ BEGIN
 				,PlatFormFee
 				,OperationalFee
 				,BankingFee
-				,ExchangeWinlossShare
-				,ExchangeCommShare
 				,GrossWinloss
 				,NetWinloss
 				,ActivePlayer
@@ -125,10 +122,10 @@ BEGIN
 				,Commission
 				---FDM & Bonus
 				,IsApplyBonus
-				,FDMCount	
-				,FDMDeposit	
+				,FDMCount
+				,FDMDeposit
 				,FDMCommissionRate
-				,FDMCommission		
+				,FDMCommission
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= @AffIds
@@ -162,8 +159,6 @@ BEGIN
 				,PlatFormFee
 				,OperationalFee
 				,BankingFee
-				,ExchangeWinlossShare
-				,ExchangeCommShare
 				,GrossWinloss
 				,NetWinloss
 				,ActivePlayer
@@ -176,7 +171,7 @@ BEGIN
 				,FDMCount
 				,FDMDeposit
 				,FDMCommissionRate
-				,FDMCommission		
+				,FDMCommission
 			)
 			EXEC dbo.Aff_Commission_Calc
 				@AffIds				= @AffIds
@@ -200,12 +195,12 @@ BEGIN
 		,@FDMDepositTotal			= SUM(ISNULL(FDMDeposit, 0))
 		,@FDMDepositByMonth			= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(FDMDeposit, 0) ELSE 0 END)
 	FROM #TempCommission
-	
+
 	DROP TABLE #TempCommission
 
-	SELECT @SignupsTotal	= COUNT(1)
-		   ,@FDMTotal		= COUNT(IBCCustID)
-		   ,@SignupsByMonth = COUNT(CASE WHEN creatdate >= @FromBeginMonth AND creatdate < @ToNextMonth THEN 1 ELSE NULL END)
+	SELECT 	@SignupsTotal	 = COUNT(1)
+			,@FDMTotal		 = COUNT(IBCCustID)
+			,@SignupsByMonth = COUNT(CASE WHEN creatdate >= @FromBeginMonth AND creatdate < @ToNextMonth THEN 1 ELSE NULL END)
 	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
 	WHERE AffiliateId = @AffId
 
@@ -225,9 +220,9 @@ BEGIN
 	;WITH CTE_Device AS (
 		SELECT DeviceType, SUM(TotalClick) AS TotalClickByMonth, SUM(UniqueClick) AS UniqueClicks
 		FROM (
-			SELECT ISNULL(DeviceType, 0)  AS DeviceType
-				  ,COUNT(1) 			  AS TotalClick
-				  ,COUNT(DISTINCT IP) 	  AS UniqueClick
+			SELECT ISNULL(DeviceType, 0) AS DeviceType
+				  ,COUNT(1) 			 AS TotalClick
+				  ,COUNT(DISTINCT IP)	 AS UniqueClick
 			FROM dbo.ClickStatistics1 WITH (NOLOCK)
 			WHERE AffId = @AffId
 				AND Date >= @FromBeginMonth AND Date < @ToNextMonth
@@ -237,8 +232,8 @@ BEGIN
 			UNION ALL
 			
 			SELECT ISNULL(DeviceType, 0) AS DeviceType
-				  ,SUM(TotalClick) 		 AS TotalClick
-				  ,SUM(UniqueClick) 	 AS UniqueClick
+				  ,SUM(TotalClick)       AS TotalClick
+				  ,SUM(UniqueClick)		 AS UniqueClick
 			FROM dbo.ClickStatisticsSum_Country_Domain WITH (NOLOCK)
 			WHERE AffId = @AffId
 				AND Date >= @FromBeginMonth AND Date < @ToNextMonth
@@ -247,10 +242,10 @@ BEGIN
 		) AS A
 		GROUP BY DeviceType
 	)
-	SELECT @TotalClickPCByMonth			= SUM(CASE WHEN DeviceType = 0 THEN ISNULL(TotalClickByMonth, 0) ELSE 0 END)
-		  ,@UniqueClickPCByMonth		= SUM(CASE WHEN DeviceType = 0 THEN ISNULL(UniqueClicks, 0) ELSE 0 END)
-		  ,@TotalClickMobileByMonth		= SUM(CASE WHEN DeviceType = 1 THEN ISNULL(TotalClickByMonth, 0) ELSE 0 END)
-		  ,@UniqueClickMobileByMonth	= SUM(CASE WHEN DeviceType = 1 THEN ISNULL(UniqueClicks, 0) ELSE 0 END)
+	SELECT @TotalClickPCByMonth		 = SUM(CASE WHEN DeviceType = 0 THEN ISNULL(TotalClickByMonth, 0) ELSE 0 END)
+		  ,@UniqueClickPCByMonth	 = SUM(CASE WHEN DeviceType = 0 THEN ISNULL(UniqueClicks, 0) ELSE 0 END)
+		  ,@TotalClickMobileByMonth	 = SUM(CASE WHEN DeviceType = 1 THEN ISNULL(TotalClickByMonth, 0) ELSE 0 END)
+		  ,@UniqueClickMobileByMonth = SUM(CASE WHEN DeviceType = 1 THEN ISNULL(UniqueClicks, 0) ELSE 0 END)
 	FROM CTE_Device
 
 

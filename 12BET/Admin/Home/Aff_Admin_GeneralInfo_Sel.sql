@@ -14,6 +14,7 @@ AS
 		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
 		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
+		- 20230802@Eddie: 'ExchangeWinlossShare' and 'ExchangeCommShare' out of use [RedmineID: #189569]
 */
 
 BEGIN
@@ -33,37 +34,35 @@ BEGIN
 		DROP TABLE IF EXISTS #TempCommission;
 		CREATE TABLE #TempCommission
 		(
-			MonthDate				SMALLDATETIME,
-			AffId					INT,
-			GroupId					INT,
-			ProductId				INT,
-			Deposit					MONEY,
-			Withdrawal				MONEY,
-			Bonus					MONEY,
-			Turnover				MONEY,
-			Winloss					MONEY,
-			AWinloss				MONEY,
-			AComm					MONEY,
+			MonthDate			SMALLDATETIME
+			,AffId				INT
+			,GroupId			INT
+			,ProductId			INT
+			,Deposit			MONEY
+			,Withdrawal			MONEY
+			,Bonus				MONEY
+			,Turnover			MONEY
+			,Winloss			MONEY
+			,AWinloss			MONEY
+			,AComm				MONEY
 			-- Fees
-			PlatFormFee				MONEY,
-			OperationalFee			MONEY,
-			BankingFee				MONEY,
-			ExchangeWinlossShare	MONEY,
-			ExchangeCommShare		MONEY,
+			,PlatFormFee		MONEY
+			,OperationalFee		MONEY
+			,BankingFee			MONEY
 			-- Calculation
-			GrossWinloss			MONEY,
-			NetWinloss				MONEY,
-			ActivePlayer			INT,
-			QualifiedMember			INT,
-			QMTurnover				MONEY,
-			CommissionRate			FLOAT,
-			Commission				MONEY,
+			,GrossWinloss		MONEY
+			,NetWinloss			MONEY
+			,ActivePlayer		INT
+			,QualifiedMember	INT
+			,QMTurnover			MONEY
+			,CommissionRate		FLOAT
+			,Commission			MONEY
 			-----FDM & Bonus
-			IsApplyBonus			BIT,
-			FDMCount				INT,
-			FDMDeposit				MONEY,
-			FDMCommissionRate		DECIMAL(9, 8),
-			FDMCommission			MONEY
+			,IsApplyBonus		BIT
+			,FDMCount			INT
+			,FDMDeposit			MONEY
+			,FDMCommissionRate	DECIMAL(9, 8)
+			,FDMCommission		MONEY
 		)
 
 		-- Uncalculated Months
@@ -73,43 +72,41 @@ BEGIN
 
 			INSERT INTO #TempCommission
 			(
-				MonthDate,
-				AffId,
-				GroupId,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Turnover,
-				Winloss,
-				AWinloss,
-				AComm,
-				PlatFormFee,
-				OperationalFee,
-				BankingFee,
-				ExchangeWinlossShare,
-				ExchangeCommShare,
-				GrossWinloss,
-				NetWinloss,
-				ActivePlayer,
-				QualifiedMember,
-				QMTurnOver,
-				CommissionRate,
-				Commission,
+				MonthDate
+				,AffId
+				,GroupId
+				,ProductId
+				,Deposit
+				,Withdrawal
+				,Bonus
+				,Turnover
+				,Winloss
+				,AWinloss
+				,AComm
+				,PlatFormFee
+				,OperationalFee
+				,BankingFee
+				,GrossWinloss
+				,NetWinloss
+				,ActivePlayer
+				,QualifiedMember
+				,QMTurnOver
+				,CommissionRate
+				,Commission
 				---FDM & Bonus
-				IsApplyBonus,		
-				FDMCount,			
-				FDMDeposit,			
-				FDMCommissionRate,
-				FDMCommission		
+				,IsApplyBonus
+				,FDMCount
+				,FDMDeposit
+				,FDMCommissionRate
+				,FDMCommission
 			)
 			EXEC dbo.Aff_Commission_UnCalc
-				@AffIds				= 'all',
-				@FromMonthDate		= @tempFromDate,
-				@ToMonthDate		= @tempToDate,
-				@ProductIds			= '0',
-				@IsSumAll			= 0,
-				@GetRowTotalOnly	= 1
+				@AffIds				= 'all'
+				,@FromMonthDate		= @tempFromDate
+				,@ToMonthDate		= @tempToDate
+				,@ProductIds		= '0'
+				,@IsSumAll			= 0
+				,@GetRowTotalOnly	= 1
 		END
 
 		-- Calculated Months
@@ -119,57 +116,54 @@ BEGIN
 
 			INSERT INTO #TempCommission
 			(
-				MonthDate,
-				AffId,
-				GroupId,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Turnover,
-				Winloss,
-				AWinloss,
-				AComm,
-				PlatFormFee,
-				OperationalFee,
-				BankingFee,
-				ExchangeWinlossShare,
-				ExchangeCommShare,
-				GrossWinloss,
-				NetWinloss,
-				ActivePlayer,
-				QualifiedMember,
-				QMTurnOver,
-				CommissionRate,
-				Commission,
+				MonthDate
+				,AffId
+				,GroupId
+				,ProductId
+				,Deposit
+				,Withdrawal
+				,Bonus
+				,Turnover
+				,Winloss
+				,AWinloss
+				,AComm
+				,PlatFormFee
+				,OperationalFee
+				,BankingFee
+				,GrossWinloss
+				,NetWinloss
+				,ActivePlayer
+				,QualifiedMember
+				,QMTurnOver
+				,CommissionRate
+				,Commission
 				---FDM & Bonus
-				IsApplyBonus,		
-				FDMCount,			
-				FDMDeposit,			
-				FDMCommissionRate,
-				FDMCommission		
+				,IsApplyBonus
+				,FDMCount
+				,FDMDeposit
+				,FDMCommissionRate
+				,FDMCommission
 			)
 			EXEC dbo.Aff_Commission_Calc
-				@AffIds				= 'all',
-				@FromMonthDate		= @tempFromDate,
-				@ToMonthDate		= @tempToDate,
-				@ProductIds			= '0',
-				@IsSumAll			= 1,
-				@GetRowTotalOnly	= 1
+				@AffIds				= 'all'
+				,@FromMonthDate		= @tempFromDate
+				,@ToMonthDate		= @tempToDate
+				,@ProductIds		= '0'
+				,@IsSumAll			= 1
+				,@GetRowTotalOnly	= 1
 		END
 
-		DECLARE @DepositAll MONEY, @WinlostAll MONEY, @BonusAll MONEY, @PSPFeeAll MONEY, @NetWinlostAll MONEY
-				,@DepositMonth MONEY, @WinlostMonth MONEY, @BonusMonth MONEY, @PSPFeeMonth MONEY, @NetWinlostMonth MONEY
-				,@FDMByMonth INT, @FDMDepositMonth MONEY;
+		DECLARE @DepositAll MONEY, @WinlostAll MONEY, @BonusAll MONEY, @PSPFeeAll MONEY, @NetWinlostAll MONEY, @DepositMonth MONEY, @WinlostMonth MONEY, @BonusMonth MONEY, @PSPFeeMonth MONEY, @NetWinlostMonth MONEY, @FDMByMonth INT, @FDMDepositMonth MONEY;
+
 		SELECT
 			@DepositAll			= SUM(ISNULL(Deposit, 0))
 			,@WinlostAll		= SUM(ISNULL(Winloss, 0))
 			,@BonusAll			= SUM(ISNULL(Bonus, 0))
 			,@PSPFeeAll			= SUM(ISNULL(BankingFee, 0))
 			,@NetWinlostAll		= SUM(ISNULL(NetWinloss, 0))
-			,@DepositMonth		= SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Deposit, 0) ELSE 0 END)
-			,@WinlostMonth		= SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Winloss, 0) ELSE 0 END)
-			,@BonusMonth		= SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Bonus, 0) ELSE 0 END)
+			,@DepositMonth		= SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Deposit, 0)    ELSE 0 END)
+			,@WinlostMonth		= SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Winloss, 0)    ELSE 0 END)
+			,@BonusMonth		= SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(Bonus, 0) 	   ELSE 0 END)
 			,@PSPFeeMonth		= SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(BankingFee, 0) ELSE 0 END)
 			,@NetWinlostMonth	= SUM(CASE WHEN MonthDate = @LastOfCurrentMonth THEN ISNULL(NetWinloss, 0) ELSE 0 END)
 			,@FDMByMonth		= SUM(FDMCount)
@@ -193,15 +187,14 @@ BEGIN
 
 	-- affiliate
 	BEGIN
-		DECLARE @AffInProAllNum INT, @PendingAllNum INT, @ApprovedAllNum INT, @DisapprovedAllNum INT, @ClosedAllNum INT
-				,@AffInProMonthNum INT, @PendingMonthNum INT, @ApprovedMonthNum INT, @DisapprovedMonthNum INT, @ClosedMonthNum INT
+		DECLARE @AffInProAllNum INT, @PendingAllNum INT, @ApprovedAllNum INT, @DisapprovedAllNum INT, @ClosedAllNum INT, @AffInProMonthNum INT, @PendingMonthNum INT, @ApprovedMonthNum INT, @DisapprovedMonthNum INT, @ClosedMonthNum INT
 		SELECT
 			-- total
-			@AffInProAllNum		= SUM(Total)
-			,@PendingAllNum		= SUM(Pending)
-			,@ApprovedAllNum	= SUM(Approved)
-			,@DisapprovedAllNum	= SUM(Disapproved)
-			,@ClosedAllNum		= SUM(Closed)
+			@AffInProAllNum			= SUM(Total)
+			,@PendingAllNum			= SUM(Pending)
+			,@ApprovedAllNum		= SUM(Approved)
+			,@DisapprovedAllNum		= SUM(Disapproved)
+			,@ClosedAllNum			= SUM(Closed)
 			-- current month
 			,@AffInProMonthNum		= SUM(Total * CurrentMonth)
 			,@PendingMonthNum		= SUM(Pending * CurrentMonth)
@@ -210,12 +203,12 @@ BEGIN
 			,@ClosedMonthNum		= SUM(Closed * CurrentMonth)
 		FROM
 		(
-			SELECT CASE WHEN RegisteredDate < @BeginOfCurrentMonth THEN 0 ELSE 1 END AS CurrentMonth,
-				SUM(1) AS Total,
-				SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS Pending,
-				SUM(CASE WHEN status = 'Approved' AND IsClosed = 0 THEN 1 ELSE 0 END) AS Approved,
-				SUM(CASE WHEN status = 'Disapproved' THEN 1 ELSE 0 END) AS Disapproved,
-				SUM(CASE WHEN status = 'Approved' AND IsClosed = 1 THEN 1 ELSE 0 END) AS Closed
+			SELECT CASE WHEN RegisteredDate < @BeginOfCurrentMonth THEN 0 ELSE 1 END AS CurrentMonth
+				,SUM(1) AS Total
+				,SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS Pending
+				,SUM(CASE WHEN status = 'Approved' AND IsClosed = 0 THEN 1 ELSE 0 END) AS Approved
+				,SUM(CASE WHEN status = 'Disapproved' THEN 1 ELSE 0 END) AS Disapproved
+				,SUM(CASE WHEN status = 'Approved' AND IsClosed = 1 THEN 1 ELSE 0 END) AS Closed
 			FROM dbo.AffInfo ai WITH (NOLOCK)
 				INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId AND ',' + @Languages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
 			GROUP BY CASE WHEN RegisteredDate < @BeginOfCurrentMonth THEN 0 ELSE 1 END
@@ -242,7 +235,7 @@ BEGIN
 			@BannerNum			= SUM(CASE WHEN ImageType <> 'Text' THEN 1 ELSE 0 END)
 			,@ImageBannerNum	= SUM(CASE WHEN ImageType = 'Image' THEN 1 ELSE 0 END)
 			,@FlashBannerNum	= SUM(CASE WHEN ImageType = 'Flash' THEN 1 ELSE 0 END)
-			,@TextBannerNum		= SUM(CASE WHEN ImageType = 'Text' THEN 1 ELSE 0 END)
+			,@TextBannerNum		= SUM(CASE WHEN ImageType = 'Text'  THEN 1 ELSE 0 END)
 		FROM dbo.Banners WITH (NOLOCK)
 		WHERE ',' + @LanguageNames + ',' LIKE '%,' + Language + ',%'
 	END
@@ -250,25 +243,25 @@ BEGIN
 	-- return
 	SELECT
 		-- payment
-		@PaymentReqNum		AS PaymentReqNum
-		-- banner
-		,@BannerNum			AS BannerNum
-		,@ImageBannerNum	AS ImageBannerNum
-		,@FlashBannerNum	AS FlashBannerNum
-		,@TextBannerNum		AS TextBannerNum
+		@PaymentReqNum			AS PaymentReqNum
+		-- banner	
+		,@BannerNum				AS BannerNum
+		,@ImageBannerNum		AS ImageBannerNum
+		,@FlashBannerNum		AS FlashBannerNum
+		,@TextBannerNum			AS TextBannerNum
 		-- all
-		,@AffInProAllNum	AS AffInProAllNum
-		,@PendingAllNum		AS PendingAllNum
-		,@ApprovedAllNum	AS ApprovedAllNum
-		,@DisapprovedAllNum	AS DisapprovedAllNum
-		,@DepositMemAllNum	AS DepositMemAllNum
-		,@ClosedAllNum		AS ClosedAllNum
-		,@DepositAll		AS DepositAll
-		,@WinlostAll		AS WinlostAll
-		,@BonusAll			AS BonusAll
-		,@PSPFeeAll			AS PSPFeeAll
-		,0					AS AdjustmentAll
-		,@NetWinlostAll		AS NetWinlostAll
+		,@AffInProAllNum		AS AffInProAllNum
+		,@PendingAllNum			AS PendingAllNum
+		,@ApprovedAllNum		AS ApprovedAllNum
+		,@DisapprovedAllNum		AS DisapprovedAllNum
+		,@DepositMemAllNum		AS DepositMemAllNum
+		,@ClosedAllNum			AS ClosedAllNum
+		,@DepositAll			AS DepositAll
+		,@WinlostAll			AS WinlostAll
+		,@BonusAll				AS BonusAll
+		,@PSPFeeAll				AS PSPFeeAll
+		,0						AS AdjustmentAll
+		,@NetWinlostAll			AS NetWinlostAll
 		-- current month
 		,@AffInProMonthNum		AS AffInProMonthNum
 		,@PendingMonthNum		AS PendingMonthNum

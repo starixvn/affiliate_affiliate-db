@@ -1,11 +1,11 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_StatementHistory_Sel]
-	@UserId		INT = NULL, -- for internal login
-	@AffId		INT,
-	@PageIndex	INT = 1,
-	@PageSize	INT = 50,
-	@TotalPages INT = 0 OUTPUT,
-	@NRows		INT = 0 OUTPUT
+	@UserId			INT = NULL -- for internal login
+	,@AffId			INT
+	,@PageIndex		INT = 1
+	,@PageSize		INT = 50
+	,@TotalPages 	INT = 0 OUTPUT
+	,@NRows			INT = 0 OUTPUT
 AS
 
 /*
@@ -20,6 +20,7 @@ AS
 		- 20190808@Percy: Add Exchange [RedmineID: #106504]
 		- 20200731@Percy: Check permission payment/adjustment info by user login [RedmineID: #121975]
 		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
+		- 20230804@Eddie: 'ExchangeWinlossShare' and 'ExchangeCommShare' out of use [RedmineID: #189569]
 */
 
 BEGIN
@@ -56,11 +57,11 @@ BEGIN
 
 	CREATE TABLE #tempData
 	(
-		MonthDate	SMALLDATETIME,
-		TransType	INT,
-		Amount		MONEY,
-		Status		VARCHAR(10),
-		Description	NVARCHAR(2000)
+		MonthDate		SMALLDATETIME
+		,TransType		INT
+		,Amount			MONEY
+		,Status			VARCHAR(10)
+		,Description	NVARCHAR(2000)
 	)
 
 	-- Payment, Adjustment info (TransType = 202, 203)
@@ -68,18 +69,20 @@ BEGIN
 	BEGIN
 		INSERT INTO #tempData
 		(
-			MonthDate,
-			TransType,
-			Amount,
-			Status,
-			Description
+			MonthDate
+			,TransType
+			,Amount
+			,Status
+			,Description
 		)
 		SELECT
-			at.TransDate,
-			at.TransType,
-			CASE WHEN at.TransType = 202 THEN ABS(at.Amount) ELSE at.Amount END AS Amount,
-			CASE WHEN at.TransType = 202 THEN at.Status ELSE 'B/F' END AS Status,
-			CASE at.TransType WHEN 202 THEN ap.AffDesc WHEN 203 THEN '' ELSE at.Description END AS Description
+			at.TransDate
+			,at.TransType
+			,CASE WHEN at.TransType = 202 THEN ABS(at.Amount) ELSE at.Amount END AS Amount
+			,CASE WHEN at.TransType = 202 THEN at.Status 	  ELSE 'B/F' 	 END AS Status
+			,CASE at.TransType WHEN 202 THEN ap.AffDesc 
+							   WHEN 203 THEN '' 
+							   ELSE at.Description END AS Description
 		FROM dbo.AffTrans at WITH (NOLOCK)
 			LEFT JOIN dbo.AffPayout ap WITH (NOLOCK) ON at.RefID = ap.RefID AND at.TransType = 202
 		WHERE at.AffId = @AffId
@@ -108,18 +111,18 @@ BEGIN
 			)
 			INSERT INTO #tempData
 			(
-				MonthDate,
-				TransType,
-				Amount,
-				Status,
-				Description
+				MonthDate
+				,TransType
+				,Amount
+				,Status
+				,Description
 			)
 			SELECT
-				md.MonthDate,
-				ISNULL(at.TransType, 201) AS TransType,
-				ISNULL(at.Amount, 0),
-				'B/F' AS [Status],
-				ISNULL(at.[Description], 'Monthly Earning') AS Description
+				md.MonthDate
+				,ISNULL(at.TransType, 201) AS TransType
+				,ISNULL(at.Amount, 0)
+				,'B/F' AS [Status]
+				,ISNULL(at.[Description], 'Monthly Earning') AS Description
 			FROM CTE_MonthDate md
 				LEFT JOIN dbo.AffTrans at WITH (NOLOCK) ON md.MonthDate = at.TransDate AND at.AffId = @AffId AND at.TransType IN (201, 205)
 			OPTION (MAXRECURSION 0)
@@ -135,100 +138,95 @@ BEGIN
 		DROP TABLE IF EXISTS #TempCommission;
 		CREATE TABLE #TempCommission
 		(
-			MonthDate				SMALLDATETIME,
-			AffId					INT,
-			GroupId					INT,
-			ProductId				INT,
-			Deposit					MONEY,
-			Withdrawal				MONEY,
-			Bonus					MONEY,
-			Turnover				MONEY,
-			Winloss					MONEY,
-			AWinloss				MONEY,
-			AComm					MONEY,
+			MonthDate			SMALLDATETIME
+			,AffId				INT
+			,GroupId			INT
+			,ProductId			INT
+			,Deposit			MONEY
+			,Withdrawal			MONEY
+			,Bonus				MONEY
+			,Turnover			MONEY
+			,Winloss			MONEY
+			,AWinloss			MONEY
+			,AComm				MONEY
 			-- Fees
-			PlatFormFee				MONEY,
-			OperationalFee			MONEY,
-			BankingFee				MONEY,
-			ExchangeWinlossShare	MONEY,
-			ExchangeCommShare		MONEY,
+			,PlatFormFee		MONEY
+			,OperationalFee		MONEY
+			,BankingFee			MONEY
 			-- Calculation
-			GrossWinloss			MONEY,
-			NetWinloss				MONEY,
-			ActivePlayer			INT,
-			QualifiedMember			INT,
-			QMTurnover				MONEY,
-			CommissionRate			FLOAT,
-			Commission				MONEY,
+			,GrossWinloss		MONEY
+			,NetWinloss			MONEY
+			,ActivePlayer		INT
+			,QualifiedMember	INT
+			,QMTurnover			MONEY
+			,CommissionRate		FLOAT
+			,Commission			MONEY
 			-----FDM & Bonus
-			IsApplyBonus			BIT,
-			FDMCount				INT,
-			FDMDeposit				MONEY,
-			FDMCommissionRate		DECIMAL(9, 8),
-			FDMCommission			MONEY
+			,IsApplyBonus		BIT
+			,FDMCount			INT
+			,FDMDeposit			MONEY
+			,FDMCommissionRate	DECIMAL(9, 8)
+			,FDMCommission		MONEY
 		)
 
 		INSERT INTO #TempCommission
 		(
-			MonthDate,
-			AffId,
-			GroupId,
-			ProductId,
-			Deposit,
-			Withdrawal,
-			Bonus,
-			Turnover,
-			Winloss,
-			AWinloss,
-			AComm,
-			PlatFormFee,
-			OperationalFee,
-			BankingFee,
-			ExchangeWinlossShare,
-			ExchangeCommShare,
-			GrossWinloss,
-			NetWinloss,
-			ActivePlayer,
-			QualifiedMember,
-			QMTurnOver,
-			CommissionRate,
-			Commission,
-			IsApplyBonus,
-			FDMCount,			
-			FDMDeposit,			
-			FDMCommissionRate,	
-			FDMCommission
+			MonthDate
+			,AffId
+			,GroupId
+			,ProductId
+			,Deposit
+			,Withdrawal
+			,Bonus
+			,Turnover
+			,Winloss
+			,AWinloss
+			,AComm
+			,PlatFormFee
+			,OperationalFee
+			,BankingFee
+			,GrossWinloss
+			,NetWinloss
+			,ActivePlayer
+			,QualifiedMember
+			,QMTurnOver
+			,CommissionRate
+			,Commission
+			-----FDM & Bonus
+			,IsApplyBonus
+			,FDMCount
+			,FDMDeposit
+			,FDMCommissionRate
+			,FDMCommission
 		)
 		EXEC dbo.Aff_Commission_UnCalc
-			@AffIds				= @AffIds,
-			@FromMonthDate		= @tempFromDate,
-			@ToMonthDate		= @tempToDate,
-			@ProductIds			= '0',
-			@IsSumAll			= 0,
-			@GetRowTotalOnly	= 1
+			@AffIds				= @AffIds
+			,@FromMonthDate		= @tempFromDate
+			,@ToMonthDate		= @tempToDate
+			,@ProductIds		= '0'
+			,@IsSumAll			= 0
+			,@GetRowTotalOnly	= 1
 		
 		INSERT INTO #tempData
 		(
-			MonthDate,
-			TransType,
-			Amount,
-			Status,
-			Description
+			MonthDate
+			,TransType
+			,Amount
+			,Status
+			,Description
 		)
-		SELECT
-			MonthDate,
-			201 AS TransType,
-			Commission AS Amount,
-			'Current' AS Status,
-			CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current Monthly Earning' ELSE 'UnCalculated Monthly Earning' END AS Description
+		SELECT MonthDate
+			  ,201 AS TransType
+			  ,Commission AS Amount
+			  ,'Current' AS Status
+			  ,CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current Monthly Earning' ELSE 'UnCalculated Monthly Earning' END AS Description
 		FROM #TempCommission
 		UNION ALL
-		SELECT
-			MonthDate,
-			205 AS TransType,
-			FDMCommission AS Amount,
-			'Current' AS Status,
-			CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current New FDM Commission Bonus' ELSE 'Uncalculated New FDM Commission Bonus' END AS Description
+		SELECT MonthDate
+			  ,205 AS TransType
+			  ,FDMCommission AS Amount
+			  ,'Current' AS Status
+			  ,CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current New FDM Commission Bonus' ELSE 'Uncalculated New FDM Commission Bonus' END AS Description
 		FROM #TempCommission
 
 		DROP TABLE #TempCommission
@@ -245,25 +243,24 @@ BEGIN
 	SELECT  @RowEnd = @RowStart + @PageSize - 1
 
 	SELECT
-		MonthDate,
-		TransType,
-		Amount,
-		Status,
-		Description
+		MonthDate
+		,TransType
+		,Amount
+		,Status
+		,Description
 	FROM
 	(
 		SELECT
-			MonthDate,
-			TransType,
-			Amount,
-			Status,
-			Description,
-			DENSE_RANK() OVER(ORDER BY MonthDate DESC, TransType ASC) AS RowNum
+			MonthDate
+			,TransType
+			,Amount
+			,Status
+			,Description
+			,DENSE_RANK() OVER(ORDER BY MonthDate DESC, TransType ASC) AS RowNum
 		FROM #tempData
 	) AS result
 	WHERE Rownum BETWEEN @RowStart AND @RowEnd
-	ORDER BY MonthDate DESC,
-			TransType
+	ORDER BY MonthDate DESC, TransType
 
 	DROP TABLE #tempData
 END
