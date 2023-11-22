@@ -1,13 +1,13 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Commission_UnCalc]
-	@AffIds				VARCHAR(MAX) = 'all',
-	@FromMonthDate		SMALLDATETIME,
-	@ToMonthDate		SMALLDATETIME,
-	@ProductIds			VARCHAR(MAX) = '0',
-	@IsGetMonthly       BIT = 1,
-	@IsSumAll			BIT = 0,
-	@GetRowTotalOnly	BIT = 0,
-	@IsGroupProduct		BIT = 1
+	@AffIds				VARCHAR(MAX) = 'all'
+	,@FromMonthDate		SMALLDATETIME
+	,@ToMonthDate		SMALLDATETIME
+	,@ProductIds		VARCHAR(MAX) = '0'
+	,@IsGetMonthly      BIT = 1
+	,@IsSumAll			BIT = 0
+	,@GetRowTotalOnly	BIT = 0
+	,@IsGroupProduct	BIT = 1
 AS
 
 /*
@@ -25,6 +25,7 @@ AS
 		- 20211207@Percy: Apply core function Group Product [RedmineID: #165777]
 		- 20211222@Malcolm: remove move bet date  [RedmineID: #165095]
 		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
+		- 20230731@Eddie: Change WL formula Of Exchange Product [RedmineID: #189569]
 */
 
 BEGIN
@@ -46,36 +47,36 @@ BEGIN
 		DROP TABLE IF EXISTS #Data;
 		CREATE TABLE #Data
 		(
-			MonthDate		SMALLDATETIME,
-			AffId			INT,
-			IBCCustId		INT,
-			IsFDM			BIT,
-			ProductId		INT,
-			ParentProductId	INT, -- GroupProductId
-			Deposit			MONEY,
-			Withdrawal		MONEY,
-			Bonus			MONEY,
-			Turnover		MONEY,
-			Winloss			MONEY,
-			AWinloss		MONEY,
-			AComm			MONEY
+			MonthDate			SMALLDATETIME
+			,AffId				INT
+			,IBCCustId			INT
+			,IsFDM				BIT
+			,ProductId			INT
+			,ParentProductId	INT -- GroupProductId
+			,Deposit			MONEY
+			,Withdrawal			MONEY
+			,Bonus				MONEY
+			,Turnover			MONEY
+			,Winloss			MONEY
+			,AWinloss			MONEY
+			,AComm				MONEY
 		)
 
 		INSERT INTO #Data
 		(
-			MonthDate,
-			AffId,
-			IBCCustId,
-			IsFDM,
-			ProductId,
-			ParentProductId,
-			Deposit,
-			Withdrawal,
-			Bonus,
-			Turnover,
-			Winloss,
-			AWinloss,
-			AComm
+			MonthDate
+			,AffId
+			,IBCCustId
+			,IsFDM
+			,ProductId
+			,ParentProductId
+			,Deposit
+			,Withdrawal
+			,Bonus
+			,Turnover
+			,Winloss
+			,AWinloss
+			,AComm
 		)
 		SELECT
 			DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, md.WinlostDate) + 1, 0)) AS MonthDate
@@ -114,11 +115,11 @@ BEGIN
 	BEGIN
 		DECLARE @AffGroupInfo TABLE
 		(
-			MonthDate	SMALLDATETIME
-			,AffId		INT
-			,GroupId	INT
-			,QMTurnOver	MONEY
-			,IsApplyBonus BIT
+			MonthDate		SMALLDATETIME
+			,AffId			INT
+			,GroupId		INT
+			,QMTurnOver		MONEY
+			,IsApplyBonus 	BIT
 		)
 		INSERT INTO @AffGroupInfo (MonthDate, AffId, GroupId, QMTurnOver, IsApplyBonus)
 		SELECT DISTINCT agh.MonthDate, agh.AffId, agh.GroupId, qm.QMTurnOver, qm.IsApplyBonus
@@ -132,54 +133,44 @@ BEGIN
 
 		DECLARE @Setting TABLE
 		(
-			MonthDate				SMALLDATETIME
-			,GroupId				INT
-			,ProductId				INT
-			,GroupProductId			TINYINT -- for setting
-			,PlatFormFee			DECIMAL(9,8) DEFAULT (0)
-			,OperationalFee			DECIMAL(9,8) DEFAULT (0)
-			,BankingFee				DECIMAL(9,8) DEFAULT (0)
-			,ExchangeWinlossShare	DECIMAL(9,8) DEFAULT (0)
-			,ExchangeCommShare		DECIMAL(9,8) DEFAULT (0)
+			MonthDate			SMALLDATETIME
+			,GroupId			INT
+			,ProductId			INT
+			,GroupProductId		TINYINT -- for setting
+			,PlatFormFee		DECIMAL(9,8) DEFAULT (0)
+			,OperationalFee		DECIMAL(9,8) DEFAULT (0)
+			,BankingFee			DECIMAL(9,8) DEFAULT (0)
 		)
 	
 		INSERT INTO @Setting
 		(
-			MonthDate,
-			GroupId,
-			ProductId,
-			GroupProductId,
-			PlatFormFee,
-			OperationalFee,
-			BankingFee,
-			ExchangeWinlossShare,
-			ExchangeCommShare
+			MonthDate
+			,GroupId
+			,ProductId
+			,GroupProductId
+			,PlatFormFee
+			,OperationalFee
+			,BankingFee
 		)
 		SELECT
-			a.MonthDate,
-			a.GroupId,
-			ds.ProductId,
-			ds.GroupProductId,
-			ds.PlatFormFee,
-			ds.OperationalFee,
-			ds.BankingFee,
-			ds.ExchangeWinlossShare,
-			ds.ExchangeCommShare
+			a.MonthDate
+			,a.GroupId
+			,ds.ProductId
+			,ds.GroupProductId
+			,ds.PlatFormFee
+			,ds.OperationalFee
+			,ds.BankingFee
 		FROM @AffGroupInfo a
 			CROSS APPLY (
 				SELECT
-					dsh.ProductId,
-					dsh.GroupProductId,
-					SUM(CASE WHEN dsh.DeductionId = 10 THEN dsh.DeductedPercentage ELSE 0 END) AS PlatFormFee,
-					SUM(CASE WHEN dsh.DeductionId = 11 THEN dsh.DeductedPercentage ELSE 0 END) AS OperationalFee,
-					SUM(CASE WHEN dsh.DeductionId = 12 THEN dsh.DeductedPercentage ELSE 0 END) AS BankingFee,
-					SUM(CASE WHEN dsh.DeductionId = 13 THEN dsh.DeductedPercentage ELSE 0 END) AS ExchangeWinlossShare,
-					SUM(CASE WHEN dsh.DeductionId = 14 THEN dsh.DeductedPercentage ELSE 0 END) AS ExchangeCommShare
+					dsh.ProductId
+					,dsh.GroupProductId
+					,SUM(CASE WHEN dsh.DeductionId = 10 THEN dsh.DeductedPercentage ELSE 0 END) AS PlatFormFee
+					,SUM(CASE WHEN dsh.DeductionId = 11 THEN dsh.DeductedPercentage ELSE 0 END) AS OperationalFee
+					,SUM(CASE WHEN dsh.DeductionId = 12 THEN dsh.DeductedPercentage ELSE 0 END) AS BankingFee
 				FROM dbo.DeductionSettingHistory dsh WITH (NOLOCK)
 				WHERE a.MonthDate = dsh.MonthDate AND a.GroupId = dsh.GroupId
-				GROUP BY
-					dsh.ProductId,
-					dsh.GroupProductId
+				GROUP BY dsh.ProductId, dsh.GroupProductId
 			) AS ds
 	END
 
@@ -188,40 +179,37 @@ BEGIN
 		DROP TABLE IF EXISTS #Commission;
 		CREATE TABLE #Commission
 		(
-			MonthDate				SMALLDATETIME,
-			AffId					INT,
-			GroupId					INT,
-			ProductId				INT,
-			ParentProductId			INT,
-			GroupProductId			TINYINT,
-			Deposit					MONEY DEFAULT (0),
-			Withdrawal				MONEY DEFAULT (0),
-			Bonus					MONEY DEFAULT (0),
-			Turnover				MONEY DEFAULT (0),
-			Winloss					MONEY DEFAULT (0),
-			AWinloss				MONEY DEFAULT (0),
-			AComm					MONEY DEFAULT (0),
+			MonthDate				SMALLDATETIME
+			,AffId					INT
+			,GroupId				INT
+			,ProductId				INT
+			,ParentProductId		INT
+			,GroupProductId			TINYINT
+			,Deposit				MONEY DEFAULT (0)
+			,Withdrawal				MONEY DEFAULT (0)
+			,Bonus					MONEY DEFAULT (0)
+			,Turnover				MONEY DEFAULT (0)
+			,Winloss				MONEY DEFAULT (0)
+			,AWinloss				MONEY DEFAULT (0)
+			,AComm					MONEY DEFAULT (0)
 			-- Fees
-			PlatFormFee				MONEY DEFAULT (0),
-			OperationalFee			MONEY DEFAULT (0),
-			BankingFee				MONEY DEFAULT (0),
-			-- Exchange Share
-			ExchangeWinlossShare	MONEY DEFAULT (0),
-			ExchangeCommShare		MONEY DEFAULT (0),
+			,PlatFormFee			MONEY DEFAULT (0)
+			,OperationalFee			MONEY DEFAULT (0)
+			,BankingFee				MONEY DEFAULT (0)
 			-- Calculation
-			GrossWinloss			MONEY DEFAULT (0),
-			NetWinloss				MONEY DEFAULT (0),
-			ActivePlayer			INT DEFAULT (0),
-			QualifiedMember			INT DEFAULT (0),
-			QMTurnover				MONEY DEFAULT (0),
-			CommissionRate			DECIMAL(9,8) DEFAULT (0),
-			Commission				MONEY DEFAULT (0),
+			,GrossWinloss			MONEY DEFAULT (0)
+			,NetWinloss				MONEY DEFAULT (0)
+			,ActivePlayer			INT   DEFAULT (0)
+			,QualifiedMember		INT   DEFAULT (0)
+			,QMTurnover				MONEY DEFAULT (0)
+			,CommissionRate			DECIMAL(9,8) DEFAULT (0)
+			,Commission				MONEY DEFAULT (0)
 			---------------------------------
-			IsApplyBonus			BIT,
-			FDMCount				INT,
-			FDMDeposit				MONEY DEFAULT (0),
-			FDMCommissionRate		DECIMAL(9,8) DEFAULT (0),
-			FDMCommission			MONEY DEFAULT (0)
+			,IsApplyBonus			BIT
+			,FDMCount				INT
+			,FDMDeposit				MONEY DEFAULT (0)
+			,FDMCommissionRate		DECIMAL(9,8) DEFAULT (0)
+			,FDMCommission			MONEY DEFAULT (0)
 		)
 	
 		CREATE NONCLUSTERED INDEX IX_MonthDate ON #Commission (MonthDate, AffId, GroupId, ProductId)
@@ -229,14 +217,14 @@ BEGIN
 		-- Group by Product
 		INSERT INTO #Commission
 		(
-			MonthDate,
-			AffId,
-			ProductId,
-			ParentProductId,
-			Turnover,
-			Winloss,
-			AWinloss,
-			AComm
+			MonthDate
+			,AffId
+			,ProductId
+			,ParentProductId
+			,Turnover
+			,Winloss
+			,AWinloss
+			,AComm
 		)
 		SELECT MonthDate, AffId, ProductId, ParentProductId
 			,SUM(Turnover)	AS Turnover
@@ -252,7 +240,7 @@ BEGIN
 		(
 			SELECT MonthDate, AffId, IBCCustId
 				,SUM(Turnover) AS Turnover
-				,SUM(Deposit) AS Deposit
+				,SUM(Deposit)  AS Deposit
 				,SUM(CASE WHEN IsFDM = 1 THEN 1 ELSE 0 END) AS FDMCount
 				,SUM(CASE WHEN IsFDM = 1 THEN Deposit ELSE 0 END) AS FDMDeposit
 			FROM #Data
@@ -260,38 +248,38 @@ BEGIN
 		)
 		INSERT INTO #Commission
 		(
-			MonthDate,
-			AffId,
-			ProductId,
-			ParentProductId,
-			Deposit,
-			Withdrawal,
-			Bonus,
-			Turnover,
-			Winloss,
-			AWinloss,
-			AComm,
-			ActivePlayer,
-			QualifiedMember,
-			QMTurnover,
-			IsApplyBonus,
-			FDMCount,
-			FDMDeposit
+			MonthDate
+			,AffId
+			,ProductId
+			,ParentProductId
+			,Deposit
+			,Withdrawal
+			,Bonus
+			,Turnover
+			,Winloss
+			,AWinloss
+			,AComm
+			,ActivePlayer
+			,QualifiedMember
+			,QMTurnover
+			,IsApplyBonus
+			,FDMCount
+			,FDMDeposit
 		)
-		SELECT MonthDate, AffId, 0 AS ProductId, 0 AS ParentProductId,
-			SUM(Deposit)			AS Deposit,
-			SUM(Withdrawal)			AS Withdrawal,
-			SUM(Bonus)				AS Bonus,
-			SUM(Turnover)			AS Turnover,
-			SUM(Winloss)			AS Winloss,
-			SUM(AWinloss)			AS AWinloss,
-			SUM(AComm)				AS AComm,
-			SUM(ActivePlayer)		AS ActivePlayer,
-			SUM(QualifiedMember)	AS QualifiedMember,
-			SUM(QMTurnover)			AS QMTurnover,
-			MAX(IsApplyBonus)		AS IsApplyBonus,
-			SUM(FDMCount)			AS FDMCount,
-			SUM(FDMDeposit)			AS FDMDeposit
+		SELECT MonthDate, AffId, 0 AS ProductId, 0 AS ParentProductId
+			,SUM(Deposit)			AS Deposit
+			,SUM(Withdrawal)		AS Withdrawal
+			,SUM(Bonus)				AS Bonus
+			,SUM(Turnover)			AS Turnover
+			,SUM(Winloss)			AS Winloss
+			,SUM(AWinloss)			AS AWinloss
+			,SUM(AComm)				AS AComm
+			,SUM(ActivePlayer)		AS ActivePlayer
+			,SUM(QualifiedMember)	AS QualifiedMember
+			,SUM(QMTurnover)		AS QMTurnover
+			,MAX(IsApplyBonus)		AS IsApplyBonus
+			,SUM(FDMCount)			AS FDMCount
+			,SUM(FDMDeposit)		AS FDMDeposit
 		FROM
 		(
 			SELECT dt.MonthDate, dt.AffId, a.QMTurnover, a.IsApplyBonus
@@ -329,50 +317,37 @@ BEGIN
 		GROUP BY MonthDate, AffId
 
 		-- Calculate fees
-		DECLARE @ExchangeWinlossShare	MONEY,
-				@ExchangeCommShare		MONEY,
-				@GrossWinLoss			MONEY
+		DECLARE @GrossWinLoss MONEY
 		
 		UPDATE c
-		SET @ExchangeWinlossShare	= c.AWinloss * s.ExchangeWinlossShare,
-			@ExchangeCommShare		= c.AComm * s.ExchangeCommShare,
-			@GrossWinLoss			= CASE WHEN c.ProductId = 19 THEN @ExchangeWinlossShare + @ExchangeCommShare ELSE - c.Winloss END,
-			c.GroupId				= s.GroupId,
-			c.GroupProductId		= s.GroupProductId,
-			c.ExchangeWinlossShare	= @ExchangeWinlossShare,
-			c.ExchangeCommShare		= @ExchangeCommShare,
-			c.GrossWinloss			= @GrossWinLoss,
-			c.PlatFormFee			= @GrossWinLoss * s.PlatFormFee,
-			c.OperationalFee		= ABS(@GrossWinLoss) * s.OperationalFee,
-			c.BankingFee			= (c.Deposit + c.Withdrawal) * s.BankingFee,
-			c.IsApplyBonus			= a.IsApplyBonus
+		SET @GrossWinLoss			= - c.Winloss
+			,c.GroupId				= s.GroupId
+			,c.GroupProductId		= s.GroupProductId
+			,c.GrossWinloss			= @GrossWinLoss
+			,c.PlatFormFee			= @GrossWinLoss * s.PlatFormFee
+			,c.OperationalFee		= ABS(@GrossWinLoss) * s.OperationalFee
+			,c.BankingFee			= (c.Deposit + c.Withdrawal) * s.BankingFee
+			,c.IsApplyBonus			= a.IsApplyBonus
 		FROM #Commission c
 			INNER JOIN @AffGroupInfo a ON c.AffId = a.AffId AND c.MonthDate = a.MonthDate
 			INNER JOIN @Setting s ON a.GroupId = s.GroupId AND c.MonthDate = s.MonthDate AND c.ParentProductId = s.ProductId
 
 		;WITH CTE_PlatFormFee AS
 		(
-			SELECT
-				MonthDate,
-				AffId,
-				SUM(ABS(PlatFormFee)) AS PlatFormFee
+			SELECT 	MonthDate
+					,AffId
+					,SUM(ABS(PlatFormFee)) AS PlatFormFee
 			FROM
 			(
-				SELECT
-					MonthDate,
-					AffId,
-					GroupProductId,
-					SUM(PlatFormFee) AS PlatFormFee
+				SELECT 	MonthDate
+						,AffId
+						,GroupProductId
+						,SUM(PlatFormFee) AS PlatFormFee
 				FROM #Commission
 				WHERE ProductId > 0
-				GROUP BY
-					MonthDate,
-					AffId,
-					GroupProductId
+				GROUP BY MonthDate, AffId, GroupProductId
 			) AS pf
-			GROUP BY
-				MonthDate,
-				AffId
+			GROUP BY MonthDate, AffId
 		)
 		UPDATE c
 		SET c.PlatFormFee = pf.PlatFormFee
@@ -380,21 +355,15 @@ BEGIN
 			INNER JOIN CTE_PlatFormFee pf ON c.MonthDate = pf.MonthDate AND c.AffId = pf.AffId
 		WHERE c.ProductId = 0
 
-		-- Exchange Winloss Share, Exchange Comm Share, Total Gross Winloss, Total Net Winloss
+		-- Total Gross Winloss, Total Net Winloss
 		UPDATE c
-		SET c.ExchangeWinlossShare	= e.ExchangeWinlossShare,
-			c.ExchangeCommShare		= e.ExchangeCommShare,
-			c.GrossWinloss			= e.GrossWinloss,
-			c.NetWinloss			= e.GrossWinloss - (c.PlatFormFee + c.OperationalFee + c.BankingFee)
+		SET c.GrossWinloss	= e.GrossWinloss,
+			c.NetWinloss	= e.GrossWinloss - (c.PlatFormFee + c.OperationalFee + c.BankingFee)
 		FROM #Commission c
 			CROSS APPLY (
-				SELECT
-					SUM(ExchangeWinlossShare)	AS ExchangeWinlossShare,
-					SUM(ExchangeCommShare)		AS ExchangeCommShare,
-					SUM(GrossWinloss)			AS GrossWinloss
+				SELECT SUM(GrossWinloss) AS GrossWinloss
 				FROM #Commission e
-				WHERE c.MonthDate = e.MonthDate AND c.AffId = e.AffId
-					AND e.ProductId > 0
+				WHERE c.MonthDate = e.MonthDate AND c.AffId = e.AffId AND e.ProductId > 0
 			) AS e
 		WHERE c.ProductId = 0
 	
@@ -507,75 +476,67 @@ BEGIN
 	IF @IsSumAll = 1
 	BEGIN
 		SELECT
-			DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate) + 1, 0)) AS MonthDate,
-			c.AffId,
-			c.GroupId,
-			c.ProductId,
-			SUM(c.Deposit)				AS Deposit,
-			SUM(c.Withdrawal)			AS Withdrawal,
-			SUM(c.Bonus)				AS Bonus,
-			SUM(c.Turnover)				AS Turnover,
-			SUM(c.Winloss)				AS Winloss,
-			SUM(c.AWinloss)				AS AWinloss,
-			SUM(c.AComm)				AS AComm,
-			SUM(c.PlatFormFee)			AS PlatFormFee,
-			SUM(c.OperationalFee)		AS OperationalFee,
-			SUM(c.BankingFee)			AS BankingFee,
-			SUM(c.ExchangeWinlossShare) AS ExchangeWinlossShare,
-			SUM(c.ExchangeCommShare)	AS ExchangeCommShare,
-			SUM(c.GrossWinloss)			AS GrossWinloss,
-			SUM(c.NetWinloss)			AS NetWinloss,
-			SUM(c.ActivePlayer)			AS ActivePlayer,
-			SUM(c.QualifiedMember)		AS QualifiedMember,
-			SUM(c.QMTurnOver)			AS QMTurnOver,
-			SUM(c.CommissionRate)		AS CommissionRate,
-			SUM(c.Commission)			AS Commission,
+			DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate) + 1, 0)) AS MonthDate
+			,c.AffId
+			,c.GroupId
+			,c.ProductId
+			,SUM(c.Deposit)				AS Deposit
+			,SUM(c.Withdrawal)			AS Withdrawal
+			,SUM(c.Bonus)				AS Bonus
+			,SUM(c.Turnover)			AS Turnover
+			,SUM(c.Winloss)				AS Winloss
+			,SUM(c.AWinloss)			AS AWinloss
+			,SUM(c.AComm)				AS AComm
+			,SUM(c.PlatFormFee)			AS PlatFormFee
+			,SUM(c.OperationalFee)		AS OperationalFee
+			,SUM(c.BankingFee)			AS BankingFee
+			,SUM(c.GrossWinloss)		AS GrossWinloss
+			,SUM(c.NetWinloss)			AS NetWinloss
+			,SUM(c.ActivePlayer)		AS ActivePlayer
+			,SUM(c.QualifiedMember)		AS QualifiedMember
+			,SUM(c.QMTurnOver)			AS QMTurnOver
+			,SUM(c.CommissionRate)		AS CommissionRate
+			,SUM(c.Commission)			AS Commission
 			----------------FDM
-			c.IsApplyBonus,
-			SUM(c.FDMCount)				AS FDMCount,
-			SUM(c.FDMDeposit)			AS FDMDeposit,
-			SUM(c.FDMCommissionRate)	AS FDMCommissionRate,
-			SUM(c.FDMCommission)		AS FDMCommission
+			,c.IsApplyBonus
+			,SUM(c.FDMCount)			AS FDMCount
+			,SUM(c.FDMDeposit)			AS FDMDeposit
+			,SUM(c.FDMCommissionRate)	AS FDMCommissionRate
+			,SUM(c.FDMCommission)		AS FDMCommission
 		FROM #Commission c
 			INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON c.AffId = ai.AffId
-		GROUP BY
-			c.AffId,
-			c.GroupId,
-			c.ProductId,
-			c.IsApplyBonus
+		GROUP BY c.AffId, c.GroupId, c.ProductId, c.IsApplyBonus
 	END
 	ELSE
 	BEGIN
 		SELECT
-			c.MonthDate,
-			c.AffId,
-			c.GroupId,
-			c.ProductId,
-			c.Deposit,
-			c.Withdrawal,
-			c.Bonus,
-			c.Turnover,
-			c.Winloss,
-			c.AWinloss,
-			c.AComm,
-			c.PlatFormFee,
-			c.OperationalFee,
-			c.BankingFee,
-			c.ExchangeWinlossShare,
-			c.ExchangeCommShare,
-			c.GrossWinloss,
-			c.NetWinloss,
-			c.ActivePlayer,
-			c.QualifiedMember,
-			c.QMTurnOver,
-			c.CommissionRate,
-			c.Commission,
+			c.MonthDate
+			,c.AffId
+			,c.GroupId
+			,c.ProductId
+			,c.Deposit
+			,c.Withdrawal
+			,c.Bonus
+			,c.Turnover
+			,c.Winloss
+			,c.AWinloss
+			,c.AComm
+			,c.PlatFormFee
+			,c.OperationalFee
+			,c.BankingFee
+			,c.GrossWinloss
+			,c.NetWinloss
+			,c.ActivePlayer
+			,c.QualifiedMember
+			,c.QMTurnOver
+			,c.CommissionRate
+			,c.Commission
 			----------------FDM
-			c.IsApplyBonus,
-			c.FDMCount,
-			c.FDMDeposit,
-			c.FDMCommissionRate,
-			c.FDMCommission
+			,c.IsApplyBonus
+			,c.FDMCount
+			,c.FDMDeposit
+			,c.FDMCommissionRate
+			,c.FDMCommission
 		FROM #Commission c
 			INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON c.AffId = ai.AffId
 	END

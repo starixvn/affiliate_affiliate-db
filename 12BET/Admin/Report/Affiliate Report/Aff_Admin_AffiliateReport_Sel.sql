@@ -29,6 +29,7 @@ AS
 		- 20210423@Malcolm: Fix Number of Affiliates in a page don't equal PageSize [RedmineId: #152957]
 		- 20210528@Malcolm: Get data daily [RedmineID: #149210]
 		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
+		- 20230802@Eddie: 'ExchangeWinlossShare' and 'ExchangeCommShare' out of use [RedmineID: #189569]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -50,9 +51,9 @@ BEGIN
 	
 	IF @IsGetMonthly = 1
 	BEGIN
-		SELECT  @FromDate			= DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0) -- Begin Of Month
-			   ,@ToDate				= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0)) -- End Of Month	        
-		       ,@MinReportDate		= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MinReportDate), 0)
+		SELECT  @FromDate 		= DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0) -- Begin Of Month
+				,@ToDate  		= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0)) -- End Of Month	        
+		        ,@MinReportDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MinReportDate), 0)
 	END
 	
 
@@ -84,6 +85,7 @@ BEGIN
 	SELECT  @MaxCommDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
 	DECLARE @threshold1 DATETIME, @threshold2 DATETIME, @tempFromDate DATETIME, @tempToDate DATETIME
+
 	/*
 		===== Get data =====
 	*/
@@ -98,37 +100,35 @@ BEGIN
 	BEGIN
 		CREATE TABLE #TempCommission
 		(
-			MonthDate				SMALLDATETIME
-			,AffId					INT
-			,GroupId				INT
-			,ProductId				INT
-			,Deposit				MONEY
-			,Withdrawal				MONEY
-			,Bonus					MONEY
-			,Turnover				MONEY
-			,Winloss				MONEY
-			,AWinloss				MONEY
-			,AComm					MONEY
+			MonthDate			SMALLDATETIME
+			,AffId				INT
+			,GroupId			INT
+			,ProductId			INT
+			,Deposit			MONEY
+			,Withdrawal			MONEY
+			,Bonus				MONEY
+			,Turnover			MONEY
+			,Winloss			MONEY
+			,AWinloss			MONEY
+			,AComm				MONEY
 			-- Fees
-			,PlatFormFee			MONEY
-			,OperationalFee			MONEY
-			,BankingFee				MONEY
-			,ExchangeWinlossShare	MONEY
-			,ExchangeCommShare		MONEY
+			,PlatFormFee		MONEY
+			,OperationalFee		MONEY
+			,BankingFee			MONEY
 			-- Calculation
-			,GrossWinloss			MONEY
-			,NetWinloss				MONEY
-			,ActivePlayer			INT
-			,QualifiedMember		INT
-			,QMTurnover				MONEY
-			,CommissionRate			FLOAT
-			,Commission				MONEY
+			,GrossWinloss		MONEY
+			,NetWinloss			MONEY
+			,ActivePlayer		INT
+			,QualifiedMember	INT
+			,QMTurnover			MONEY
+			,CommissionRate		FLOAT
+			,Commission			MONEY
 			-----FDM & Bonus
-			,IsApplyBonus			BIT
-			,FDMCount				INT
-			,FDMDeposit				MONEY
-			,FDMCommissionRate		DECIMAL(9, 8)
-			,FDMCommission			MONEY
+			,IsApplyBonus		BIT
+			,FDMCount			INT
+			,FDMDeposit			MONEY
+			,FDMCommissionRate	DECIMAL(9, 8)
+			,FDMCommission		MONEY
 		)
 		
 		IF @FromDate <>  DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0)
@@ -166,8 +166,6 @@ BEGIN
 				,PlatFormFee
 				,OperationalFee
 				,BankingFee
-				,ExchangeWinlossShare
-				,ExchangeCommShare
 				,GrossWinloss
 				,NetWinloss
 				,ActivePlayer
@@ -209,8 +207,6 @@ BEGIN
 				,PlatFormFee
 				,OperationalFee
 				,BankingFee
-				,ExchangeWinlossShare
-				,ExchangeCommShare
 				,GrossWinloss
 				,NetWinloss
 				,ActivePlayer
@@ -253,8 +249,6 @@ BEGIN
 					,PlatFormFee
 					,OperationalFee
 					,BankingFee
-					,ExchangeWinlossShare
-					,ExchangeCommShare
 					,GrossWinloss
 					,NetWinloss
 					,ActivePlayer
@@ -299,8 +293,6 @@ BEGIN
 					,PlatFormFee
 					,OperationalFee
 					,BankingFee
-					,ExchangeWinlossShare
-					,ExchangeCommShare
 					,GrossWinloss
 					,NetWinloss
 					,ActivePlayer
@@ -313,7 +305,7 @@ BEGIN
 					,FDMCount
 					,FDMDeposit
 					,FDMCommissionRate
-					,FDMCommission		
+					,FDMCommission
 				)
 				EXEC dbo.Aff_Commission_UnCalc
 					@AffIds				= 'all'
@@ -479,27 +471,27 @@ BEGIN
 			ai.AffId
 			,ai.Username
 			,ad.PreferredLanguage
-			,ISNULL(s.TotalClick, 0)			AS TotalClick
-			,ISNULL(s.UniqueClick, 0)			AS UniqueClick
-			,ISNULL(su.Signup, 0)				AS Signup
-			,ISNULL(fdm.FDM, 0)					AS FDM
-			,ISNULL(tc.ActivePlayer, 0)			AS ActiveMember
-			,ISNULL(tc.QualifiedMember, 0)		AS QualifiedMember
-			,ISNULL(tc.Deposit, 0)				AS Deposit
-			,ISNULL(tc.Withdrawal, 0)			AS Withdrawal
-			,ISNULL(tc.Turnover, 0)				AS Turnover
-			,ISNULL(tc.Winloss, 0)				AS Winlost
-			,ISNULL(tc.Bonus, 0)				AS Bonus
-			,ISNULL(tc.PlatFormFee, 0)			AS PlatFormFee
-			,ISNULL(tc.OperationalFee, 0)		AS OperationalFee
-			,ISNULL(tc.BankingFee, 0)			AS BankingFee
-			,ISNULL(tc.CommissionRate, 0)		AS CommissionRate
-			,ISNULL(tc.Commission, 0)			AS Earning
-			,ISNULL(at.AffWithdrawal, 0)		AS AffWithdrawal
-			,ISNULL(at.AffAdjustment, 0)		AS AffAdjustment
-			,ISNULL(at.BFF, 0)					AS BFF
-			,ISNULL(tc.FDMCommissionRate, 0)	AS CommissionRate
-			,ISNULL(tc.FDMCommission, 0)		AS Earning
+			,ISNULL(s.TotalClick, 0)		 AS TotalClick
+			,ISNULL(s.UniqueClick, 0)		 AS UniqueClick
+			,ISNULL(su.Signup, 0)			 AS Signup
+			,ISNULL(fdm.FDM, 0)				 AS FDM
+			,ISNULL(tc.ActivePlayer, 0)		 AS ActiveMember
+			,ISNULL(tc.QualifiedMember, 0)	 AS QualifiedMember
+			,ISNULL(tc.Deposit, 0)			 AS Deposit
+			,ISNULL(tc.Withdrawal, 0)		 AS Withdrawal
+			,ISNULL(tc.Turnover, 0)			 AS Turnover
+			,ISNULL(tc.Winloss, 0)			 AS Winlost
+			,ISNULL(tc.Bonus, 0)			 AS Bonus
+			,ISNULL(tc.PlatFormFee, 0)		 AS PlatFormFee
+			,ISNULL(tc.OperationalFee, 0)	 AS OperationalFee
+			,ISNULL(tc.BankingFee, 0)		 AS BankingFee
+			,ISNULL(tc.CommissionRate, 0)	 AS CommissionRate
+			,ISNULL(tc.Commission, 0)		 AS Earning
+			,ISNULL(at.AffWithdrawal, 0)	 AS AffWithdrawal
+			,ISNULL(at.AffAdjustment, 0)	 AS AffAdjustment
+			,ISNULL(at.BFF, 0)				 AS BFF
+			,ISNULL(tc.FDMCommissionRate, 0) AS CommissionRate
+			,ISNULL(tc.FDMCommission, 0)	 AS Earning
 		FROM dbo.AffInfo ai WITH (NOLOCK)
 			LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 			LEFT JOIN #Signup su ON ai.AffId = su.AffId
@@ -513,21 +505,21 @@ BEGIN
 			LEFT JOIN
 			(
 				SELECT AffId
-					  ,SUM(ActivePlayer)					AS ActivePlayer
-					  ,SUM(QualifiedMember)					AS QualifiedMember
-					  ,SUM(Deposit)							AS Deposit
-					  ,SUM(Withdrawal)						AS Withdrawal
-					  ,SUM(Turnover)						AS Turnover
-					  ,SUM(Winloss)							AS Winloss
-					  ,SUM(Bonus)							AS Bonus
-					  ,SUM(PlatFormFee)						AS PlatFormFee
-					  ,SUM(OperationalFee)					AS OperationalFee
-					  ,SUM(BankingFee)						AS BankingFee
-					  ,SUM(NetWinloss)						AS NetWinloss
-					  ,SUM(CommissionRate/@NoOfMonth)		AS CommissionRate
-					  ,SUM(Commission)						AS Commission
-					  ,SUM(FDMCommissionRate/@NoOfMonth)	AS FDMCommissionRate
-					  ,SUM(FDMCommission)					AS FDMCommission
+					   ,SUM(ActivePlayer)				  AS ActivePlayer
+					   ,SUM(QualifiedMember)			  AS QualifiedMember
+					   ,SUM(Deposit)					  AS Deposit
+					   ,SUM(Withdrawal)					  AS Withdrawal
+					   ,SUM(Turnover)					  AS Turnover
+					   ,SUM(Winloss)					  AS Winloss
+					   ,SUM(Bonus)						  AS Bonus
+					   ,SUM(PlatFormFee)				  AS PlatFormFee
+					   ,SUM(OperationalFee)				  AS OperationalFee
+					   ,SUM(BankingFee)					  AS BankingFee
+					   ,SUM(NetWinloss)					  AS NetWinloss
+					   ,SUM(CommissionRate/@NoOfMonth)	  AS CommissionRate
+					   ,SUM(Commission)					  AS Commission
+					   ,SUM(FDMCommissionRate/@NoOfMonth) AS FDMCommissionRate
+					   ,SUM(FDMCommission)				  AS FDMCommission
 				FROM #TempCommission
 				GROUP BY AffId
 			) tc ON ai.AffId = tc.AffId
@@ -571,14 +563,14 @@ BEGIN
 		(
 			SELECT	RowIdx,
 					ROW_NUMBER() OVER(ORDER BY
-					CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN Username	END ASC,
-					CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN Username	END DESC,
-					CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN Turnover	END ASC,
-					CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN Turnover	END DESC,
-					CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN Winlost		END ASC,
-					CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN Winlost		END DESC,
-					CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN Earning		END ASC,
-					CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN Earning		END DESC) AS NewRowIdx
+					CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN Username END ASC,
+					CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN Username END DESC,
+					CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN Turnover END ASC,
+					CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN Turnover END DESC,
+					CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN Winlost	 END ASC,
+					CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN Winlost	 END DESC,
+					CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN Earning	 END ASC,
+					CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN Earning	 END DESC) AS NewRowIdx
 			FROM #Result
 		) x
 	END
@@ -625,7 +617,7 @@ BEGIN
 		,0						AS FDMCommissionRate
 		,SUM(FDMEarning)		AS FDMEarning
 	FROM #Result
-	
+
 	DROP TABLE #AffTrans
 	DROP TABLE #FDM
 	DROP TABLE #Result
