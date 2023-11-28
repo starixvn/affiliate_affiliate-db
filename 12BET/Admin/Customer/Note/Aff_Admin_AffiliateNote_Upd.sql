@@ -4,7 +4,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateNote_Upd]
 	,@Note		NVARCHAR(1000)
 	,@AffID		INT
 	,@UserID	INT
-	,@IP		VARCHAR(20)
+	,@IP		VARCHAR(50)
 	,@ErrCode	INT = 0 OUTPUT
 	,@ErrMsg	NVARCHAR(4000) = '' OUTPUT
 AS
@@ -18,6 +18,7 @@ AS
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20231115@Eddie: Change format when writing logs [RedmineID: #195391]
 */
 
 BEGIN
@@ -39,19 +40,24 @@ BEGIN
 
 	-- For Log
 	DECLARE @OldData NVARCHAR(4000), @NewData NVARCHAR(4000), @SPName VARCHAR(50)
-	
-	SELECT  @OldData	= '<root><row NoteId="'+ CONVERT(VARCHAR(20), @NoteID) +'" Note="'+ ISNULL(Note, '') +'"></row></root>'
-			,@NewData	= '<root><row NoteId="'+ CONVERT(VARCHAR(20), @NoteID) +'" Note="'+ ISNULL(@Note, '') +'"></row></root>'
-			,@SPName	= OBJECT_NAME(@@PROCID)
-	FROM dbo.AdminNotes WITH (NOLOCK)
-	WHERE NoteID = @NoteID
 
-	IF @@ROWCOUNT = 0
-	BEGIN
-		-- Invalid Note!
-		SELECT @ErrCode = 101, @ErrMsg = dbo.Aff_f_GetMessageById(1201, @Language)
-		RETURN
-	END
+	SELECT @SPName	= OBJECT_NAME(@@PROCID)
+
+	SELECT  @OldData = CONVERT(NVARCHAR(MAX),
+					   (
+							SELECT NoteID AS '@NoteId'
+							     , Note   AS '@Note'
+							FROM dbo.AdminNotes WITH (NOLOCK)
+							WHERE NoteID = @NoteID
+							FOR XML PATH('row'), root('root')
+					    ))
+
+	SELECT  @NewData = CONVERT(NVARCHAR(MAX),
+					   (
+							SELECT @NoteID AS '@NoteId'
+							     , @Note   AS '@Note'
+							FOR XML PATH('row'), root('root')
+					    ))
 
 	IF @OldData = @NewData
 		RETURN
@@ -62,6 +68,12 @@ BEGIN
 			,UpdatedBy = @UserID
 			,UpdatedDate = GETDATE()
 		WHERE NoteID = @NoteID
+		
+		IF @@ROWCOUNT = 0
+		BEGIN
+			SELECT @ErrCode = 101, @ErrMsg = 'Invalid Note!'
+			RETURN
+		END
 	END TRY
 	BEGIN CATCH
 		-- Update process is unsuccessful. Please try again!
@@ -71,12 +83,12 @@ BEGIN
 
 	-- Write Log
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
-		@UserID		= @UserID,
-		@AffID		= @AffID,
-		@SPName		= @SPName,
-		@OldData	= @OldData,
-		@NewData	= @NewData,
-		@IP			= @IP,
-		@Language	= @Language
+		@UserID		= @UserID
+		,@AffID		= @AffID
+		,@SPName	= @SPName
+		,@OldData	= @OldData
+		,@NewData	= @NewData
+		,@IP		= @IP
+		,@Language	= @Language
 END
 GO
