@@ -1,6 +1,7 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbAdminNet,bodbDownlineNet" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Aff_LogAction_Sel]
 	@IsShow BIT = 1
+   ,@ActionName VARCHAR(200) = NULL
 AS
 
 /*
@@ -11,6 +12,7 @@ AS
 	Revisions:
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20210219@Malcolm: get action name and actionIds [RedmineId : #149209]
+		- 20231115@Eddie: Action Search function [RedmineID: #195391]
 */
 
 BEGIN
@@ -37,6 +39,7 @@ BEGIN
 						),1,1,''
 					)
 	) _(ActionIds)
+	WHERE (@ActionName IS NULL OR e.Description LIKE '%' + CONVERT(NVARCHAR(4000), @ActionName) + '%')
 	ORDER BY e.Description ASC
 
 END

@@ -9,19 +9,21 @@ AS
 /*
 	Created: 20190614@Percy
 	DB: DBAFF12BET.Affiliate_12BET
-	Task: Admin - Customer - Note - View all notes
+	Task: Admin - Customer - Note - View of Note
 
 	Revisions:
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
+		- 20231115@Eddie: Add new Marketing Note Function [RedmineID: #195391]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @tblNote TABLE (NoteId INT PRIMARY KEY)
+
 	INSERT INTO @tblNote (NoteId)
-	SELECT NoteId FROM dbo.AdminNotes WITH (NOLOCK) WHERE AffId = @AffId
+	SELECT NoteId FROM dbo.AdminNotes WITH (NOLOCK) WHERE AffId = @AffId AND NoteType = 0 -- 0 (note) and 1 (marketing team note)
 
 	SELECT @NRows = COUNT(1) FROM @tblNote
 

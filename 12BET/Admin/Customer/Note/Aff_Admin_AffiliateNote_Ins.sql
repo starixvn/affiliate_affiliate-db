@@ -3,7 +3,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateNote_Ins]
 	@Note		NVARCHAR(1000)
 	,@AffID		INT
 	,@UserID	INT
-	,@IP		VARCHAR(20)
+	,@IP		VARCHAR(50)
 	,@ErrCode	INT = 0 OUTPUT
 	,@ErrMsg	NVARCHAR(4000) = '' OUTPUT
 AS
@@ -17,6 +17,7 @@ AS
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20231115@Eddie: Add new Marketing Note Function [RedmineID: #195391]
 */
 
 BEGIN
@@ -37,8 +38,8 @@ BEGIN
 		RETURN
 
 	BEGIN TRY
-		INSERT INTO dbo.AdminNotes (AffID, Note, UpdatedBy, UpdatedDate)
-			VALUES (@AffID, @Note, @UserID, GETDATE())
+		INSERT INTO dbo.AdminNotes (AffID, Note, UpdatedBy, UpdatedDate, NoteType)
+			VALUES (@AffID, @Note, @UserID, GETDATE(), 0)-- NoteType : 0 (note) and 1 (marketing team note)
 
 		SELECT @NoteID = SCOPE_IDENTITY()
 	END TRY
@@ -53,15 +54,20 @@ BEGIN
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
 	DECLARE @LogData NVARCHAR(MAX)
-	SELECT  @LogData = CONVERT(NVARCHAR(MAX), (SELECT @NoteID AS '@NoteId', @Note AS '@Content' FOR XML PATH('row'), root('root')))
+	SELECT  @LogData = CONVERT(NVARCHAR(MAX),
+					  (
+							SELECT @NoteID AS '@NoteId'
+							     , @Note   AS '@Content'
+							FOR XML PATH('row'), root('root')
+					   ))
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
-		@UserId		= @UserId,
-		@AffId		= @AffId,
-		@SPName		= @SPName,
-		@OldData	= '',
-		@NewData	= @LogData,
-		@IP			= @IP,
-		@Language	= @Language
+		@UserId		= @UserId
+		,@AffId		= @AffId
+		,@SPName	= @SPName
+		,@OldData	= ''
+		,@NewData	= @LogData
+		,@IP		= @IP
+		,@Language	= @Language
 END
 GO
