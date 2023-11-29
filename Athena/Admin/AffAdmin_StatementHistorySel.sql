@@ -21,6 +21,7 @@ AS
 		- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20180208@Alex  : Support Liecnsee admin portal #90545
 		- 20211222@Percy: Merge SLT to SB [RedmineID: #165777]
+		- 20230515@Eddie: Data show matching with selected statuses[RedmineID: #188218]
 
 	Param's Explanation:    
 		• @AffID: Affiliate custid    
@@ -88,7 +89,7 @@ BEGIN
 				END
 		AND ',' + @TransType + ',' LIKE '%,' + CONVERT(VARCHAR(15), at.TransType) + ',%'
 
-	DELETE @AffTrans WHERE ',' + @Status + ',' LIKE '%,' + Status + ',%'
+	DELETE @AffTrans WHERE (',' + @Status + ',' NOT LIKE '%,' + Status + ',%') OR  (ISNULL(@Status, '') = '')
 
 	-- Uncalculated months
 	IF @DateOption IN (0, 1)
