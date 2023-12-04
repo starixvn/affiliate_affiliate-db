@@ -19,6 +19,8 @@ AS
 */
 SET NOCOUNT ON
 
+DECLARE @ErrorMSG NVARCHAR(4000)
+
 IF @SPName LIKE '%_xtest'
 	SELECT @SPName = LEFT(@SPName, LEN(@SPName) - 6)
 ELSE IF @SPName LIKE '%_xpre'
@@ -42,6 +44,8 @@ BEGIN TRANSACTION
 
 	END TRY
 	BEGIN CATCH
+			SELECT @ErrorMSG = ERROR_MESSAGE()
+			
 			ROLLBACK TRANSACTION
 
 			IF( @RefNo IS NULL OR @RefNo = 0 )
@@ -50,13 +54,13 @@ BEGIN TRANSACTION
 				FROM Ref WITH (NOLOCK)
 				WHERE RefName = 'Log'
 				
-				INSERT INTO dbo.UserLogIsRollbacked(RefNo, TypeID, Typename, Creator, AffID, LoggedDate, SPName, IP, Details)
-				VALUES (@RefNo, dbo.Aff_GetLogType(@Typename), @Typename, @Creator, @AffID, CURRENT_TIMESTAMP, @SPName, @IP, @Details)
+				INSERT INTO dbo.UserLogIsRollbacked(RefNo, TypeID, Typename, Creator, AffID, LoggedDate, SPName, IP, Details, ErrorMsg)
+				VALUES (@RefNo, dbo.Aff_GetLogType(@Typename), @Typename, @Creator, @AffID, CURRENT_TIMESTAMP, @SPName, @IP, @Details, @ErrorMSG)
 			END
 			ELSE
 			BEGIN
-				INSERT INTO dbo.UserLogIsRollbacked(RefNo, TypeID, Typename, Creator, AffID, LoggedDate, SPName, IP, Details)
-				VALUES (@RefNo, dbo.Aff_GetLogType(@Typename), @Typename, @Creator, @AffID, CURRENT_TIMESTAMP, @SPName, @IP, @Details)
+				INSERT INTO dbo.UserLogIsRollbacked(RefNo, TypeID, Typename, Creator, AffID, LoggedDate, SPName, IP, Details, ErrorMsg)
+				VALUES (@RefNo, dbo.Aff_GetLogType(@Typename), @Typename, @Creator, @AffID, CURRENT_TIMESTAMP, @SPName, @IP, @Details, @ErrorMSG)
 			END
 
 			RETURN
