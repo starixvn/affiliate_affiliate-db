@@ -17,6 +17,7 @@ AS
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20221111@Eddie: Support Block Market [RedmineId : #179537]
+		- 20231101@Eddie: Change BlockMarket to BlockTargetCountry [RedmineID: #181590]
 */
 
 BEGIN
@@ -42,24 +43,27 @@ BEGIN
 	SELECT  @OldData = CONVERT(NVARCHAR(MAX),
 					   (
 							SELECT 
-								DomainId      AS '@DomainId'
-								,DomainName   AS '@DomainName'
-								,IsSSL        AS '@IsSSL'
-								,BlockMarket  AS '@BlockMarket'
+								DomainId      		 AS '@DomainId'
+								,DomainName   		 AS '@DomainName'
+								,IsSSL        		 AS '@IsSSL'
+								,BlockTargetCountry  AS '@BlockTargetCountry'
 							FROM dbo.[12BetDomain] WITH (NOLOCK) 
 							WHERE DomainId = @DomainId AND IsDeleted = 0
 							FOR XML PATH('row'), ROOT('root')
 					   ))
-	IF @@ROWCOUNT = 0
-	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'This 12Bet domain does not exists!'
-		RETURN
-	END
 
 	BEGIN TRY
+
 		UPDATE dbo.[12BetDomain] WITH (ROWLOCK)
 		SET IsDeleted = 1
 		WHERE DomainId = @DomainId
+
+		IF @@ROWCOUNT = 0
+		BEGIN
+			SELECT @ErrCode = 102, @ErrMsg = 'This 12Bet domain does not exists!'
+			RETURN
+		END
+
 	END TRY
 	BEGIN CATCH
 		SELECT @Errcode = 103, @ErrMsg = N'Error occurs. Delete unsuccessfully.'

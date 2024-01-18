@@ -15,6 +15,7 @@ AS
 		- 20200731@Percy: Change way to input Language [RedmineID: #121975]
 		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 		- 20230802@Eddie: 'ExchangeWinlossShare' and 'ExchangeCommShare' out of use [RedmineID: #189569]
+		- 20231108@Eddie: Remove 'image banners' and 'flash banners' statistics [RedmineID: #181590]
 */
 
 BEGIN
@@ -22,7 +23,7 @@ BEGIN
 
 	DECLARE @BeginOfCurrentMonth SMALLDATETIME, @LastOfCurrentMonth SMALLDATETIME
 	SELECT	@BeginOfCurrentMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)
-	SELECT	@LastOfCurrentMonth = DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfCurrentMonth))
+	SELECT	@LastOfCurrentMonth  = DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfCurrentMonth))
 
 	-- member statistics
 	BEGIN
@@ -230,12 +231,9 @@ BEGIN
 	WHERE ',' + @Languages + ',' LIKE '%,' + MarketId + ',%'
 	
 	BEGIN
-		DECLARE @BannerNum INT, @ImageBannerNum INT, @FlashBannerNum INT, @TextBannerNum INT
-		SELECT
-			@BannerNum			= SUM(CASE WHEN ImageType <> 'Text' THEN 1 ELSE 0 END)
-			,@ImageBannerNum	= SUM(CASE WHEN ImageType = 'Image' THEN 1 ELSE 0 END)
-			,@FlashBannerNum	= SUM(CASE WHEN ImageType = 'Flash' THEN 1 ELSE 0 END)
-			,@TextBannerNum		= SUM(CASE WHEN ImageType = 'Text'  THEN 1 ELSE 0 END)
+		DECLARE @BannerNum INT
+
+		SELECT @BannerNum = SUM(CASE WHEN ImageType <> 'Text' THEN 1 ELSE 0 END)
 		FROM dbo.Banners WITH (NOLOCK)
 		WHERE ',' + @LanguageNames + ',' LIKE '%,' + Language + ',%'
 	END
@@ -246,9 +244,6 @@ BEGIN
 		@PaymentReqNum			AS PaymentReqNum
 		-- banner	
 		,@BannerNum				AS BannerNum
-		,@ImageBannerNum		AS ImageBannerNum
-		,@FlashBannerNum		AS FlashBannerNum
-		,@TextBannerNum			AS TextBannerNum
 		-- all
 		,@AffInProAllNum		AS AffInProAllNum
 		,@PendingAllNum			AS PendingAllNum

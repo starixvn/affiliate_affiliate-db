@@ -1,10 +1,10 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Banner_Del]
-	@UserId			INT
-	,@BannerIds		VARCHAR(MAX)
-	,@IP			VARCHAR(20) = ''
-	,@ErrCode		INT = 0 OUTPUT
-	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+	@UserId		INT
+	,@BannerIds	VARCHAR(MAX)
+	,@IP		VARCHAR(20) = ''
+	,@ErrCode	INT = 0 OUTPUT
+	,@ErrMsg	NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -17,6 +17,7 @@ AS
 		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20231109@Eddie: Use TargetProduct for banner and change function strSplit to STRING_SPLIT [RedmineID: #181590]
 */
 
 BEGIN
@@ -37,9 +38,9 @@ BEGIN
 
 	BEGIN TRY
 		INSERT INTO @Banners (BannerId, IsValid)
-		SELECT s.val, CASE WHEN b.BannerId IS NULL THEN 0 ELSE 1 END
-		FROM dbo.strSplit (@BannerIds, ',') s
-			LEFT JOIN dbo.Banners b WITH (NOLOCK) ON s.val = b.BannerId AND b.ImageType <> 'Text'
+		SELECT s.value, CASE WHEN b.BannerId IS NULL THEN 0 ELSE 1 END
+		FROM STRING_SPLIT(@BannerIds, ',') s
+			LEFT JOIN dbo.Banners b WITH (NOLOCK) ON s.value = b.BannerId AND b.ImageType <> 'Text'
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = 101, @ErrMsg = 'Sorry, your input banner id is invalid. Please recheck it again.'
@@ -56,16 +57,13 @@ BEGIN
 	DECLARE @OldData NVARCHAR(MAX)
 	SELECT  @OldData = CONVERT(NVARCHAR(MAX),
 					   (
-							SELECT 
-								BannerId AS '@BannerId'
-								,FileName AS '@FileName'
-								,ImageType AS '@ImageType'
-								,Size AS '@Size'
-								,Categories AS '@Categories'
-								,Language AS '@Language'
-								,Currencies AS '@Currencies'
-								,AffTypes AS '@AffTypes'
-								,DeviceTypes AS '@DeviceTypes'
+							SELECT BannerId 		AS '@BannerId'
+								  ,FileName 		AS '@FileName'
+								  ,ImageType 		AS '@ImageType'
+								  ,Size 			AS '@Size'
+								  ,Language 		AS '@Language'
+								  ,AffTypes 		AS '@AffTypes'
+								  ,TargetProductIds	AS '@TargetProductIds'
 							FROM dbo.Banners b WITH (NOLOCK)
 							WHERE ImageType <> 'Text'
 								AND EXISTS (SELECT 1 FROM @Banners tmp WHERE b.BannerId = tmp.BannerId)
@@ -78,7 +76,7 @@ BEGIN
 		WHERE EXISTS (SELECT 1 FROM @Banners tmp WHERE b.BannerId = tmp.BannerId)
 	END TRY
 	BEGIN CATCH
-		SELECT @ErrCode = 102, @ErrMsg = 'Error occurs. Delete unsuccessfully.'
+		SELECT @ErrCode = 103, @ErrMsg = 'Error occurs. Delete unsuccessfully.'
 		RETURN
 	END CATCH
 

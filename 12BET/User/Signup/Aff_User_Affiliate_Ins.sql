@@ -23,6 +23,7 @@ ALTER PROCEDURE [dbo].[Aff_User_Affiliate_Ins]
 	@MoreSiteUrls		VARCHAR(MAX) = NULL, -- Add new website URL
 	@NoSiteDesc			NVARCHAR(MAX) = NULL,
 	-- Preferrence
+	@TargetCountryCode	VARCHAR(2),
 	@PreferredLanguage	VARCHAR(100),
 	@QuestionID			TINYINT,
 	@Answer				NVARCHAR(600),
@@ -47,13 +48,17 @@ AS
 		- 20180601@Percy: Initialize SP [Redmine: #87923]
 		- 20190509@Percy: Enhance Security Questions [RedmineID: #104884]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20231025@Eddie: Enhance Preference Part by adding Target Country [RedmineId : #181590]
+		
+	Parameter's Explaination:
+		- @TargetCountryCode: in values ('BD', 'MY', 'IN', 'ID', 'JP', 'KH', 'KR', 'TH', 'VN', 'CN') of table [TargetCountry]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @AffId INT, @Player_IBCCustId INT, @GenderName NVARCHAR(20), @MailOptionName NVARCHAR(300), @Question NVARCHAR(400),@AffTypeName NVARCHAR(100)
-
+	
 	-- Check exists email
 	IF EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE Email = @Email)
 	BEGIN
@@ -99,29 +104,29 @@ BEGIN
 		(
 			AffId, UserName,
 			-- Contact Information
-			Gender,MailOption,Phone,ContactApps,Fax,
+			Gender, MailOption, Phone, ContactApps, Fax,
 			-- Mailing Information
-			Address,City,State,Postal,Country,
+			Address, City, State, Postal, Country,
 			-- Website Information
-			SiteUrl,MoreSiteUrls,NoSiteDesc,
+			SiteUrl, MoreSiteUrls, NoSiteDesc,
 			-- Preferrence
-			PreferredLanguage,QuestionID,Answer,
+			TargetCountryCode, PreferredLanguage, QuestionID, Answer,
 			-- Payment Information
-			PreferredPayment,Player_IBCCustID,Player_UserName
+			PreferredPayment, Player_IBCCustID, Player_UserName
 		)
 		VALUES
 		(
 			@AffId, @UserName,
 			-- Contact Information
-			@Gender,0,@Phone,@ContactApps,'',
+			@Gender, 0, @Phone, @ContactApps, '',
 			-- Mailing Information
-			@Address,@City,@State,@Postal,@Country,
+			@Address, @City, @State, @Postal, @Country,
 			-- Website Information
-			@SiteUrl,@MoreSiteUrls,@NoSiteDesc,
+			@SiteUrl, @MoreSiteUrls, @NoSiteDesc,
 			-- Preferrence
-			@PreferredLanguage,@QuestionID,@Answer,
+			@TargetCountryCode, @PreferredLanguage, @QuestionID, @Answer,
 			-- Payment Information
-			@PreferredPayment,@Player_IBCCustId,@Player_UserName
+			@PreferredPayment, @Player_IBCCustId, @Player_UserName
 		)
 	END TRY
 	BEGIN CATCH
@@ -147,38 +152,39 @@ BEGIN
 	DECLARE @NewData NVARCHAR(MAX)		
 	SELECT @NewData = CONVERT(NVARCHAR(MAX), 
 					  (
-							SELECT @AffTypeName AS '@AffType'
-								   ,@AffId AS '@AffId'
-								   ,@UserName AS '@UserName'
-								   ,@FirstName AS '@FirstName'
-								   ,@LastName AS '@LastName'
-								   ,@GenderName AS '@Gender'
-								   ,'Html Format' AS '@MailOption'
-								   ,@Email AS '@Email'
-								   ,@Phone AS '@Phone'
-								   ,@ContactApps AS '@ContactApps'
-								   ,@Address AS '@Address'
-								   ,@City AS '@City'
-								   ,@State AS '@State'
-								   ,@Postal AS '@Postal'
-								   ,@Country AS '@Country'
-								   ,@SiteUrl AS '@SiteUrl'
-								   ,@MoreSiteUrls AS '@MoreSiteUrls'
-								   ,@NoSiteDesc AS '@NoSiteDesc'
-								   ,@PreferredLanguage AS '@PreferredLanguage'
-								   ,@Question AS '@Question'
-								   ,@Answer AS '@Answer'
-								   ,@PreferredPayment AS '@PreferredPayment'
-								   ,@Player_UserName AS '@Player_UserName'
+							SELECT @AffTypeName 		AS '@AffType'
+								   ,@AffId 				AS '@AffId'
+								   ,@UserName 			AS '@UserName'
+								   ,@FirstName 			AS '@FirstName'
+								   ,@LastName 			AS '@LastName'
+								   ,@GenderName 		AS '@Gender'
+								   ,'Html Format' 		AS '@MailOption'
+								   ,@Email 				AS '@Email'
+								   ,@Phone 				AS '@Phone'
+								   ,@ContactApps 		AS '@ContactApps'
+								   ,@Address 			AS '@Address'
+								   ,@City 				AS '@City'
+								   ,@State 				AS '@State'
+								   ,@Postal 			AS '@Postal'
+								   ,@Country 			AS '@Country'
+								   ,@SiteUrl 			AS '@SiteUrl'
+								   ,@MoreSiteUrls 		AS '@MoreSiteUrls'
+								   ,@NoSiteDesc 		AS '@NoSiteDesc'
+								   ,@TargetCountryCode 	AS '@TargetCountryCode'
+								   ,@PreferredLanguage 	AS '@PreferredLanguage'
+								   ,@Question 			AS '@Question'
+								   ,@Answer 			AS '@Answer'
+								   ,@PreferredPayment 	AS '@PreferredPayment'
+								   ,@Player_UserName 	AS '@Player_UserName'
 							FOR XML PATH('row'), ROOT('root')
 					  ))
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
-		@UserId		= @AffId,
-		@AffId		= @AffId,
-		@SPName		= @SPName,
-		@NewData	= @NewData,
-		@IP			= @IP,
-		@Language	= @Language
+		@UserId		= @AffId
+		,@AffId		= @AffId
+		,@SPName	= @SPName
+		,@NewData	= @NewData
+		,@IP		= @IP
+		,@Language	= @Language
 END
 GO

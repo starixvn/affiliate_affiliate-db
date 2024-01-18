@@ -1,7 +1,7 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_DomainControl_Sel]
-	@DomainControlId	INT = 0
-	,@MarketIds			NVARCHAR(400) = ''
+	@DomainControlId		INT = 0
+	,@TargetCountryCodes	VARCHAR(100) = ''
 AS
 
 /*  
@@ -13,20 +13,23 @@ AS
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20221110@Eddie: Support Block Market [RedmineID: #179537]
+		- 20231027@Eddie: Change Markets to TargetCountries [RedmineID: #181590]
 	Param's Explanation:
-		- @MarketIds = 'en-GB,en-US,es-ES,hi-IN,id-ID,ja-JP,km-KH,ko-KR,th-TH,vi-VN,zh-CN,zh-TW'
+		- @MarketIds = 'en-GB,en-US,es-ES,hi-IN,id-ID,ja-JP,km-KH,ko-KR,th-TH,vi-VN,zh-CN,zh-TW' >>>>> removed
+		- @TargetCountryCodes = 'MY,BD,IN,ID,JP,KH,KR,TH,VN,CN'
+			Note: old data of TargetCountryCode is empty with language belong to ( 'English (Europe)', 'Spanish' )
 */
 
 BEGIN
 	SET NOCOUNT ON
 	
-	SET @MarketIds = ISNULL(@MarketIds, '')
+	SET @TargetCountryCodes = ISNULL(@TargetCountryCodes, '')
 
 	IF @DomainControlId <> 0
 		SELECT
 			a.Id 			AS DomainControlId
-			,a.MarketId
-			,d.MarketName
+			,tc.CountryCode AS TargetCountryCode
+			,tc.CountryName	AS TargetCountryName
 			,b.DomainId		AS AffDomainId
 			,b.DomainName	AS AffDomain
 			,c.DomainId		AS RedirectDomainId
@@ -37,15 +40,15 @@ BEGIN
 		FROM dbo.AffDomainControl a WITH (NOLOCK)
 			INNER JOIN dbo.AffDomain b WITH (NOLOCK) ON a.AffDomainId = b.DomainId
 			INNER JOIN dbo.[12BetDomain] c WITH (NOLOCK) ON a.[12BetDomainId] = c.DomainId
-			INNER JOIN Market d WITH (NOLOCK) ON a.MarketId = d.MarketId
+			INNER JOIN dbo.TargetCountry tc WITH (NOLOCK) ON a.MarketID = tc.MarketID AND a.TargetCountryCode = tc.CountryCode
 			LEFT JOIN Users e WITH (NOLOCK) ON a.Creator = e.CustId
 		WHERE a.Id = @DomainControlId
-			AND a.IsDeleted = 0
+		  AND a.IsDeleted = 0
 	ELSE
 		SELECT
 			a.Id 			AS DomainControlId
-			,a.MarketId
-			,d.MarketName
+			,tc.CountryCode AS TargetCountryCode
+			,tc.CountryName	AS TargetCountryName
 			,b.DomainId		AS AffDomainId
 			,b.DomainName	AS AffDomain
 			,c.DomainId		AS RedirectDomainId
@@ -56,12 +59,10 @@ BEGIN
 		FROM dbo.AffDomainControl a WITH (NOLOCK)
 			INNER JOIN dbo.AffDomain b WITH (NOLOCK) ON a.AffDomainId = b.DomainId
 			INNER JOIN dbo.[12BetDomain] c WITH (NOLOCK) ON a.[12BetDomainId] = c.DomainId
-			INNER JOIN Market d WITH (NOLOCK) ON a.MarketId = d.MarketId
+			INNER JOIN dbo.TargetCountry tc WITH (NOLOCK) ON a.MarketID = tc.MarketID AND a.TargetCountryCode = tc.CountryCode
 			LEFT JOIN Users e WITH (NOLOCK) ON a.Creator = e.CustId
-		WHERE (',' + @MarketIds + ',' LIKE '%,' + a.MarketID + ',%')
-			AND a.IsDeleted = 0
-		ORDER BY
-			d.MarketName
-			,b.DomainName
+		WHERE (',' + @TargetCountryCodes + ',' LIKE '%,' + tc.CountryCode + ',%')
+		  AND a.IsDeleted = 0
+		ORDER BY tc.CountryName ,b.DomainName
 END
 GO

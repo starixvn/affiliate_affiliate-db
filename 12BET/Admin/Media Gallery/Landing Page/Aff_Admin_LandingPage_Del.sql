@@ -1,10 +1,10 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_LandingPage_Del]
-	@UserId		INT,
-	@PageIds	VARCHAR(MAX),
-	@IP			NVARCHAR(15) = '',
-	@ErrCode	INT = 0 OUTPUT,
-	@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+	@UserId		INT
+	,@PageIds	VARCHAR(MAX)
+	,@IP		NVARCHAR(15) = ''
+	,@ErrCode	INT = 0 OUTPUT
+	,@ErrMsg	NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -16,6 +16,7 @@ AS
 		- 20181001@Percy: Initialize SP [RedmineID: #102399]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20231107@Eddie: change function Aff_f_StringSplit to STRING_SPLIT [RedmineID: #181590]
 */
 
 BEGIN
@@ -42,8 +43,8 @@ BEGIN
 	SET lp.IsDeleted = 1
 	OUTPUT DELETED.PageId INTO @LandingPage (PageId)
 	FROM dbo.LandingPage lp
-	WHERE EXISTS (SELECT 1 FROM dbo.Aff_f_StringSplit (@PageIds, ',') f WHERE lp.PageId = f.val)
-		AND lp.IsDeleted = 0
+	WHERE EXISTS (SELECT 1 FROM STRING_SPLIT(@PageIds, ',') f WHERE lp.PageId = f.value)
+	  AND lp.IsDeleted = 0
 
 	IF @@ROWCOUNT = 0
 		RETURN
@@ -54,14 +55,19 @@ BEGIN
 
 	DECLARE @OldData NVARCHAR(MAX)
 
-	SELECT  @OldData = CONVERT(NVARCHAR(MAX),(SELECT PageId AS '@PageId' FROM @LandingPage FOR XML PATH('row'), ROOT('root')))
+	SELECT  @OldData = CONVERT(NVARCHAR(MAX),
+					   (
+							SELECT PageId AS '@PageId'
+							FROM @LandingPage
+							FOR XML PATH('row'), ROOT('root')
+						))
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
-		@UserId		= @UserId,
-		@AffId		= 0,
-		@SPName		= @SPName,
-		@OldData	= @OldData,
-		@IP			= @IP,
-		@Language	= @Language
+		@UserId		= @UserId
+		,@AffId		= 0
+		,@SPName	= @SPName
+		,@OldData	= @OldData
+		,@IP		= @IP
+		,@Language	= @Language
 END
 GO

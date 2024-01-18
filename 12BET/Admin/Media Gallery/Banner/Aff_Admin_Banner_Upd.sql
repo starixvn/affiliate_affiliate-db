@@ -1,17 +1,14 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Banner_Upd]
-	@UserId			INT
-	,@BannerId		INT
-	,@Files			XML
-	,@Categories	VARCHAR(MAX)
-	,@SubCategories	VARCHAR(MAX)
-	,@Language		VARCHAR(50)
-	,@Currencies	VARCHAR(MAX)
-	,@AffTypes		VARCHAR(MAX)
-	,@DeviceTypes	VARCHAR(MAX)
-	,@IP			VARCHAR(20) = ''
-	,@ErrCode		INT = 0 OUTPUT
-	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+	@UserId			   INT
+	,@BannerId		   INT
+	,@Files			   XML
+	,@TargetProductIds VARCHAR(100)
+	,@Language		   VARCHAR(50)
+	,@AffTypes		   VARCHAR(MAX)
+	,@IP			   VARCHAR(20) = ''
+	,@ErrCode		   INT = 0 OUTPUT
+	,@ErrMsg		   NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -24,6 +21,10 @@ AS
 		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20231109@Eddie: Use TargetProduct for banner [RedmineID: #181590]
+
+	Param's Explanation:
+		- @TargetProductIds: '1,2,3,4,5,6,7,8,9,10,11' from table TargetProduct
 */
 
 BEGIN
@@ -58,72 +59,71 @@ BEGIN
 	-- Check input params
 	IF (SELECT COUNT(1) FROM @tblBanner) > 1
 	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'Error occurs. Invalid input params.'
+		SELECT @ErrCode = 101, @ErrMsg = 'Error occurs. Invalid input params.'
 		RETURN
 	END
 
 	DECLARE @FileName NVARCHAR(200), @ImageType VARCHAR(50), @Size VARCHAR(50)
-	SELECT  @FileName = FileName, @ImageType = ImageType, @Size= Size FROM @tblBanner
+	SELECT  @FileName = FileName, @ImageType = ImageType, @Size = Size FROM @tblBanner
+
+	IF ISNULL(@ImageType, '') = 'Text'
+	BEGIN
+		SELECT @ErrCode = 102, @ErrMsg = 'Error occurs. Invalid Image Type.'
+		RETURN
+	END
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 	SELECT  @OldData = CONVERT(NVARCHAR(MAX),
 					   (
-							SELECT 
-								BannerId AS '@BannerId'
-								,FileName AS '@FileName'
-								,ImageType AS '@ImageType'
-								,Size AS '@Size'
-								,Categories AS '@Categories'
-								,Language AS '@Language'
-								,Currencies AS '@Currencies'
-								,AffTypes AS '@AffTypes'
-								,DeviceTypes AS '@DeviceTypes'
+							SELECT BannerId 		AS '@BannerId'
+								  ,FileName 		AS '@FileName'
+								  ,ImageType 		AS '@ImageType'
+								  ,Size 			AS '@Size'
+								  ,Language 		AS '@Language'
+								  ,AffTypes 		AS '@AffTypes'
+								  ,TargetProductIds AS '@TargetProductIds'
 							FROM dbo.Banners WITH (NOLOCK)
 							WHERE BannerId = @BannerId
-								AND ImageType <> 'Text'
+							  AND ImageType <> 'Text'
 							FOR XML PATH('row'), ROOT('root')
 					   ))
-			
-	IF @OldData IS NULL
-	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'Error occurs. Banner does not exist.'
-		RETURN
-	END
 
 	BEGIN TRY
 		UPDATE dbo.Banners WITH (ROWLOCK)
-		SET FileName		= @FileName
-			,ImageType		= @ImageType
-			,Size			= @Size
-			,Categories		= @Categories
-			,SubCategories	= @SubCategories
-			,Language		= @Language
-			,Currencies		= @Currencies
-			,AffTypes		= @AffTypes
-			,DeviceTypes	= @DeviceTypes
-			,UpdatedBy		= @UserId
-			,UpdatedDate	= GETDATE()
-		WHERE BannerId		= @BannerId
+		SET FileName		  = @FileName
+			,ImageType		  = @ImageType
+			,Size			  = @Size
+			,Language		  = @Language
+			,AffTypes		  = @AffTypes
+			,UpdatedBy		  = @UserId
+			,UpdatedDate	  = GETDATE()
+			,TargetProductIds = @TargetProductIds
+		WHERE BannerId = @BannerId
+	
+		IF @@ROWCOUNT = 0
+		BEGIN
+			SELECT @ErrCode = 103, @ErrMsg = 'Error occurs. Banner does not exist!'
+			RETURN
+		END
 	END TRY
 	BEGIN CATCH
-		SELECT @ErrCode = 102, @ErrMsg = 'Error occurs. Update unsuccessfully.'
+		SELECT @ErrCode = 104, @ErrMsg = 'Error occurs. Update unsuccessfully.'
 		RETURN
 	END CATCH
 
 	-- Write log
 	DECLARE @SPName VARCHAR(200)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
+
 	SELECT  @NewData = CONVERT(NVARCHAR(MAX),
 					  (
-						SELECT	@BannerId AS '@BannerId', 
-								@FileName AS '@FileName',
-								@ImageType AS '@ImageType', 
-								@Size AS '@Size', 
-								@Categories AS '@Categories', 
-								@Language AS '@Language', 
-								@Currencies AS '@Currencies',
-								@AffTypes AS '@AffTypes',
-								@DeviceTypes AS '@DeviceTypes'
+						SELECT	@BannerId 			AS '@BannerId'
+								,@FileName 			AS '@FileName'
+								,@ImageType 		AS '@ImageType'
+								,@Size 				AS '@Size'
+								,@Language 			AS '@Language'
+								,@AffTypes 			AS '@AffTypes'
+								,@TargetProductIds 	AS '@TargetProductIds'
 						FOR XML PATH('row'), ROOT('root')
 					  ))
 	

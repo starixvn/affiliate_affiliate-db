@@ -1,19 +1,20 @@
 ﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Affiliate_Sel] 
-	@UserId 			INT,
-	@GroupID 			INT				= 0,
-	@PreferredLanguages	VARCHAR(MAX),
-	@AffId				INT				= 0,
-	@UserName 			NVARCHAR(50) 	= '',
-	@Status				VARCHAR(30)		= '',
-	@ProcessingStatus	VARCHAR(30)		= '',
-	@Email 				NVARCHAR(50) 	= '',
-	@SortType			TINYINT			= 1,
-	@SortDirectionType	BIT				= 0,
-	@IsExportExcel		BIT				= 0,
-	@PageSize 			INT 			= 50,
-	@PageIndex 			INT 			= 1,
-	@NRows 				INT 			= 0 OUTPUT
+	@UserId 			 INT
+	,@GroupID 			 INT			= 0
+	,@TargetCountryCodes VARCHAR(100)
+	,@PreferredLanguages VARCHAR(MAX)
+	,@AffId				 INT			= 0
+	,@UserName 			 NVARCHAR(50)	= ''
+	,@Status			 VARCHAR(30)	= ''
+	,@ProcessingStatus	 VARCHAR(30)	= ''
+	,@Email 			 NVARCHAR(50) 	= ''
+	,@SortType			 TINYINT	  	= 1
+	,@SortDirectionType	 BIT			= 0
+	,@IsExportExcel		 BIT			= 0
+	,@PageSize 			 INT 		 	= 50
+	,@PageIndex 		 INT 		 	= 1
+	,@NRows 			 INT 		 	= 0 OUTPUT
 AS
 
 /*
@@ -30,16 +31,25 @@ AS
 		- 20210126@Malcolm: Get Balance Brought Forward for affiliates who haven't members [RedmineID: #147902]
 		- 20210817@Malcolm: Get processing request [RedmineID: #159570]
 		- 20220214@Malcolm: Exclude Status Rejected and Cancelled when getting BFF  [RedmineID: #1]
+		- 20231027@Eddie: Get TargetCountry [RedmineId : #181590]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
 		- @SortDirectionType: 0: ASC (ascending), 1: DESC (descending)
+		- @TargetCountryCodes: 'MY,BD,IN,ID,JP,KH,KR,TH,VN,CN'
+			Note: old data of TargetCountryCode is empty with language belong to ('Spanish')
 */
 
 BEGIN
 	SET NOCOUNT ON
 
+	SELECT @TargetCountryCodes = ISNULL(@TargetCountryCodes, '')
 	SELECT @PreferredLanguages = ISNULL(@PreferredLanguages, '')
+	
+	IF @PreferredLanguages = 'es-ES' -- not use Spanish
+	BEGIN
+		SELECT @TargetCountryCodes = ''
+	END
 
 	SELECT @NRows = COUNT(1)
 	FROM dbo.AffInfo ai WITH (NOLOCK)
@@ -60,6 +70,7 @@ BEGIN
 							WHEN @Status = 'Closed' THEN 1
 							ELSE ai.IsClosed END
 		AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
+		AND ',' + @TargetCountryCodes + ',' LIKE '%,' + ad.TargetCountryCode + ',%'
 		AND ',' + @PreferredLanguages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
 		AND (ISNULL(@GroupID, 0) = 0 OR ai.GroupID = @GroupID)
 		AND (EXISTS(SELECT 1 FROM dbo.ProcessingRequest pr WITH(NOLOCK) WHERE pr.AffId = ai.AffID AND pr.Status = @ProcessingStatus)
@@ -85,50 +96,52 @@ BEGIN
 	SELECT  @MinSmalldatetime = '1900-01-01', @MaxSmalldatetime = '2079-06-06', @MinMoney = -1000000000, @MaxMoney = 1000000000, @MaxInt = 1000000000
 
 	SELECT
-		AffId,
-		Username,
-		FirstName,
-		LastName,
-		Status,
-		IsClosed,
-		PreferredLanguage,
-		Email,
-		RegisteredDate,
-		ApprovedDate,
-		CasinoJoinedDate,
-		GroupName,
-		NoOfMember,
-		BFF,
-		IsFavorite,
-		Currency,
-		PlayerCurrency,
-		Phone,
-		Player_Username,
-		ProcessingStatus
+		AffId
+		,Username
+		,FirstName
+		,LastName
+		,Status
+		,IsClosed
+		,TargetCountryCode
+		,PreferredLanguage
+		,Email
+		,RegisteredDate
+		,ApprovedDate
+		,CasinoJoinedDate
+		,GroupName
+		,NoOfMember
+		,BFF
+		,IsFavorite
+		,Currency
+		,PlayerCurrency
+		,Phone
+		,Player_Username
+		,ProcessingStatus
 	FROM
 	(
 		SELECT
-			ai.AffId,
-			ai.Username,
-			ai.FirstName,
-			ai.LastName,
-			CASE WHEN ai.Status = 'Approved' AND ai.IsClosed = 1 THEN 'Closed' ELSE ai.Status END AS Status,
-			ai.IsClosed,
-			ad.PreferredLanguage,
-			ai.Email,
-			ai.RegisteredDate,
-			ai.ApprovedDate,
-			ai.CasinoJoinedDate,
-			cg.GroupName,
-			CASE WHEN ai.Status IN ('Pending', 'Disapproved') THEN NULL ELSE ISNULL(mi.NoOfMember, 0) END AS NoOfMember,
-			CASE WHEN ai.Status IN ('Pending', 'Disapproved') THEN NULL ELSE ISNULL(at.BFF, 0) END AS BFF,
-			CASE WHEN af.AffId IS NOT NULL THEN 1 ELSE 0 END AS IsFavorite,
-			e1.Currency,
-			e2.Currency AS PlayerCurrency,
-			ad.Phone,
-			ad.Player_Username,
-			CONVERT(VARCHAR(10), ISNULL(pr.Draft, 0)) + '/' + CONVERT(VARCHAR(10), ISNULL(pr.Submitted, 0)) + '/' +  CONVERT(VARCHAR(10), ISNULL(pr.Approved,0)) + '/' +  CONVERT(VARCHAR(10), ISNULL(pr.Rejected, 0)) AS ProcessingStatus,
-			ROW_NUMBER() OVER (ORDER BY
+			ai.AffId
+			,ai.Username
+			,ai.FirstName
+			,ai.LastName
+			,CASE WHEN ai.Status = 'Approved' AND ai.IsClosed = 1 THEN 'Closed' ELSE ai.Status END AS Status
+			,ai.IsClosed
+			,ad.TargetCountryCode
+			,ad.PreferredLanguage
+			,ai.Email
+			,ai.RegisteredDate
+			,ai.ApprovedDate
+			,ai.CasinoJoinedDate
+			,cg.GroupName
+			,CASE WHEN ai.Status IN ('Pending', 'Disapproved') THEN NULL ELSE ISNULL(mi.NoOfMember, 0) END AS NoOfMember
+			,CASE WHEN ai.Status IN ('Pending', 'Disapproved') THEN NULL ELSE ISNULL(at.BFF, 0) END AS BFF
+			,CASE WHEN af.AffId IS NOT NULL THEN 1 ELSE 0 END AS IsFavorite
+			,e1.Currency
+			,e2.Currency AS PlayerCurrency
+			,ad.Phone
+			,ad.Player_Username
+			,CONVERT(VARCHAR(10), ISNULL(pr.Draft, 0)) + '/' + CONVERT(VARCHAR(10), ISNULL(pr.Submitted, 0)) + '/' +  CONVERT(VARCHAR(10), ISNULL(pr.Approved,0)) + '/' +  CONVERT(VARCHAR(10), ISNULL(pr.Rejected, 0)) AS ProcessingStatus
+			,ROW_NUMBER() OVER (ORDER BY
 						CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN ai.Username END ASC,
 						CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN ai.Username END DESC,
 						CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN ai.RegisteredDate END ASC,
@@ -182,6 +195,7 @@ BEGIN
 								WHEN @Status = 'Closed' THEN 1
 								ELSE ai.IsClosed END
 			AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
+			AND ',' + @TargetCountryCodes + ',' LIKE '%,' + ad.TargetCountryCode + ',%'
 			AND ',' + @PreferredLanguages + ',' LIKE '%,' + ad.PreferredLanguage + ',%'
 			AND (ISNULL(@GroupID, 0) = 0 OR ai.GroupID = @GroupID)
 			AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
