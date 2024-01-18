@@ -1,12 +1,13 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_LandingPage_Upd]
-	@UserId		INT,
-	@PageId		SMALLINT,
-	@PageName	NVARCHAR(200),
-	@PageCode	NVARCHAR(100),
-	@IP			NVARCHAR(15) = '',
-	@ErrCode	INT = 0 OUTPUT,
-	@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+	@UserId					INT
+	,@PageId				SMALLINT
+	,@PageName				NVARCHAR(200)
+	,@PageCode				NVARCHAR(100)
+	,@ExcludedTargetCountry VARCHAR(100)
+	,@IP		 			NVARCHAR(15) = ''
+	,@ErrCode	 			INT = 0 OUTPUT
+	,@ErrMsg	 			NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -18,6 +19,10 @@ AS
 		- 20181001@Percy: Initialize SP [RedmineID: #102399]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20231106@Eddie: Support ExcludedTargetCountry for Landing Page [RedmineID: #181590]
+
+	Param's Explanation:
+		- @ExcludedTargetCountry = 'MY,BD,IN,ID,JP,KH,KR,TH,VN,CN'
 */
 
 BEGIN
@@ -35,7 +40,7 @@ BEGIN
 	IF @ErrCode <> 0
 		RETURN
 	
-	SELECT @PageName = ISNULL(LTRIM(LTRIM(@PageName)), ''), @PageCode = ISNULL(LTRIM(LTRIM(@PageCode)), '')
+	SELECT @PageName = ISNULL(LTRIM(RTRIM(@PageName)), ''), @PageCode = ISNULL(LTRIM(RTRIM(@PageCode)), '')
 
 	IF @PageName = '' OR @PageCode = ''
 	BEGIN
@@ -43,8 +48,12 @@ BEGIN
 		RETURN
 	END
 
-	DECLARE @OldPageName NVARCHAR(200), @OldPageCode VARCHAR(100)
-	SELECT  @OldPageName = PageName, @OldPageCode = PageCode FROM dbo.LandingPage WITH (NOLOCK) WHERE PageId = @PageId
+	DECLARE @OldPageName NVARCHAR(200), @OldPageCode VARCHAR(100), @OldExcludedTargetCountry VARCHAR(100)
+
+	SELECT  @OldPageName 			  = PageName
+		   ,@OldPageCode 			  = PageCode
+		   ,@OldExcludedTargetCountry = BlockTargetCountry
+	FROM dbo.LandingPage WITH (NOLOCK) WHERE PageId = @PageId
 
 	IF @OldPageName IS NULL
 	BEGIN
@@ -52,7 +61,7 @@ BEGIN
 		RETURN
 	END
 
-	IF @OldPageName = @PageName AND @OldPageCode = @PageCode
+	IF @OldPageName = @PageName AND @OldPageCode = @PageCode AND @OldExcludedTargetCountry = @ExcludedTargetCountry
 	BEGIN
 		SELECT @ErrCode = 103, @ErrMsg = 'This landing page does not changes'
 		RETURN
@@ -64,36 +73,52 @@ BEGIN
 		RETURN
 	END
 
-	UPDATE dbo.LandingPage WITH (ROWLOCK, UPDLOCK)
-	SET PageName = @PageName,
-		PageCode = @PageCode
-	WHERE PageId = @PageId
+	BEGIN TRY
+	
+		UPDATE dbo.LandingPage WITH (ROWLOCK, UPDLOCK)
+		SET PageName  			= @PageName
+			,PageCode 			= @PageCode
+			,BlockTargetCountry = @ExcludedTargetCountry
+		WHERE PageId = @PageId
 
-	IF @@ERROR <> 0
-	BEGIN
+		IF @@ROWCOUNT = 0
+		BEGIN
+			SELECT @ErrCode = 102, @ErrMsg = 'This landing page does not exists!'
+			RETURN
+		END
+
+	END TRY
+	BEGIN CATCH
 		SELECT @ErrCode = 105, @ErrMsg = 'Insert failed'
 		RETURN
-	END
+	END CATCH
 
 	-- Write log
-	DECLARE @SPName VARCHAR(200)
+	DECLARE @SPName VARCHAR(200), @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
-	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
+	SELECT  @OldData = CONVERT(NVARCHAR(MAX),
+					  (
+							SELECT @OldPageName 			 AS '@PageName'
+								 , @OldPageCode 			 AS '@PageCode'
+								 , @OldExcludedTargetCountry AS '@ExcludedTargetCountry'
+							FOR XML PATH('row'), ROOT('root')
+					   ))
+	SELECT	@NewData = CONVERT(NVARCHAR(MAX),
+					  (
+							SELECT @PageName 			  AS '@PageName'
+								 , @PageCode 			  AS '@PageCode'
+								 , @ExcludedTargetCountry AS '@ExcludedTargetCountry'
+							FOR XML PATH('row'), ROOT('root')
+					   ))
 
-	SELECT  @OldData = 'PageName=' + @OldPageName + ',' + 'PageCode=' + @OldPageCode,
-			@NewData = 'PageName=' + @PageName + ',' + 'PageCode=' + @PageCode
-
-	SELECT  @OldData = CONVERT(NVARCHAR(MAX), (SELECT @OldPageName AS '@PageName', @OldPageCode AS '@PageCode' FOR XML PATH('row'), ROOT('root')))
-			,@NewData = CONVERT(NVARCHAR(MAX), (SELECT @PageName AS '@PageName', @PageCode AS '@PageCode' FOR XML PATH('row'), ROOT('root')))
-	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
-		@UserId		= @UserId,
-		@AffId		= 0,
-		@SPName		= @SPName,
-		@OldData	= @OldData,
-		@NewData	= @NewData,
-		@IP			= @IP,
-		@Language	= @Language
+		@UserId		= @UserId
+		,@AffId		= 0
+		,@SPName	= @SPName
+		,@OldData	= @OldData
+		,@NewData	= @NewData
+		,@IP		= @IP
+		,@Language	= @Language
 END
 GO

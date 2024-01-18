@@ -17,6 +17,7 @@ AS
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20221219@Eddie: Change format code [RedmineID: #179537]
+		- 20231030@Eddie: Write log TargetCountry additionally [RedmineID: #181590]
 */
 
 BEGIN
@@ -36,24 +37,27 @@ BEGIN
 
 	SELECT  @OldData = CONVERT(NVARCHAR(MAX), 
 					   (
-							SELECT AffDomainId 		AS '@AffDomainId'
-								   ,[12BetDomainId] AS '@_12BetDomainId'
-								   ,MarketId 		AS '@MarketId'
+							SELECT AffDomainId 			AS '@AffDomainId'
+								   ,[12BetDomainId] 	AS '@_12BetDomainId'
+								   ,TargetCountryCode	AS '@TargetCountryCode'
+								   ,MarketId 			AS '@MarketId'
 							FROM dbo.AffDomainControl WITH (NOLOCK) 
 							WHERE Id = @DomainControlId AND IsDeleted = 0
 							FOR XML PATH('row'), ROOT('root')
 					   ))
 
-	IF @@ROWCOUNT = 0
-	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'This domain setting does not exists!'
-		RETURN
-	END
-
 	BEGIN TRY
+
 		UPDATE dbo.AffDomainControl WITH (ROWLOCK)
 		SET IsDeleted = 1
 		WHERE Id = @DomainControlId
+
+		IF @@ROWCOUNT = 0
+		BEGIN
+			SELECT @ErrCode = 101, @ErrMsg = 'This domain setting does not exists!'
+			RETURN
+		END
+
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = 102, @ErrMsg = N'Error occurs. Delete unsuccessfully.'

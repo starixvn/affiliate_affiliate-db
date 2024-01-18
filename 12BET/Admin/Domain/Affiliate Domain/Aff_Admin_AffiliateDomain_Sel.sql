@@ -13,6 +13,7 @@ AS
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20221101@Eddie: Support Block Market [RedmineID: #179537]
+		- 20231031@Eddie: Change BlockMarket to BlockTargetCountry [RedmineID: #181590]
 */
 
 BEGIN
@@ -26,10 +27,10 @@ BEGIN
 			  ,ad.DomainName
 			  ,ad.CreateDate
 			  ,ad.ModifyDate
-			  ,u.UserName 		AS Creator
+			  ,u.UserName AS Creator
 			  ,ad.IsDeleted
 			  ,ad.IsSSL
-			  ,ad.BlockMarket
+			  ,ad.BlockTargetCountry
 		FROM dbo.AffDomain ad WITH (NOLOCK)
 			LEFT JOIN Users u WITH (NOLOCK) ON u.CustId = ad.Creator
 		WHERE ad.DomainID = @DomainID
@@ -37,15 +38,24 @@ BEGIN
 	END
 	ELSE
 	BEGIN
-		SELECT a.DomainID, a.DomainName, b.UserName AS Creator, a.CreateDate, CONVERT(BIT, ISNULL(a.IsSSL, 0)) AS IsSSL, ISNULL(oam.BlockMarket, '') AS BlockMarket
+		SELECT a.DomainID
+			  ,a.DomainName
+			  ,b.UserName AS Creator
+			  ,a.CreateDate
+			  ,CONVERT(BIT, ISNULL(a.IsSSL, 0)) AS IsSSL
+			  ,ISNULL(oam.BlockTargetCountry, '') AS BlockTargetCountry
 		FROM dbo.AffDomain a WITH (NOLOCK)
 			LEFT JOIN dbo.Users b WITH (NOLOCK) ON a.Creator = b.CustId
 			OUTER APPLY(
-				SELECT STRING_AGG(m.MarketName, ', ') AS BlockMarket
-				FROM dbo.UserMarket um WITH (NOLOCK)
-					INNER JOIN dbo.Market m WITH (NOLOCK) ON m.MarketId = um.MarketId
-					INNER JOIN STRING_SPLIT(a.BlockMarket, ',') s ON s.value = m.MarketId
-				WHERE um.CustId = @UserId
+				SELECT STRING_AGG(t.CountryName, ', ') AS BlockTargetCountry
+				FROM(
+					SELECT tc.CountryName
+					FROM dbo.UserMarket um WITH (NOLOCK)
+						INNER JOIN dbo.TargetCountry tc WITH (NOLOCK) ON tc.MarketID = um.MarketId
+						INNER JOIN STRING_SPLIT(a.BlockTargetCountry, ',') s ON s.value = tc.CountryCode
+					WHERE um.CustId = @UserId
+					GROUP BY tc.CountryName
+				) AS t
 			) As oam
 		WHERE a.IsDeleted = 0
 		ORDER BY a.DomainName

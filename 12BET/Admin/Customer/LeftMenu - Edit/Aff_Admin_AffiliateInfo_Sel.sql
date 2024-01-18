@@ -1,8 +1,8 @@
 /*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateInfo_Sel]
-	@UserId		INT = 0,
-	@AffId		INT = NULL,
-	@Username	NVARCHAR(50) = NULL
+	@UserId		INT = 0
+	,@AffId		INT = NULL
+	,@Username	NVARCHAR(50) = NULL
 AS
 
 /*
@@ -17,6 +17,7 @@ AS
 		- 20190509@Percy: Enhance Security Questions [RedmineID: #104884]
 		- 20190614@Percy: Remove IsCasino [RedmineID: #109008]
 		- 20200731@Percy: Check permission market (language) by user login [RedmineID: #121975]
+		- 20231026@Eddie: Get TargetCountry [RedmineId : #181590]
 */
 
 BEGIN
@@ -45,63 +46,66 @@ BEGIN
 			RETURN
 	END
 
-	SELECT
-		ai.AffId,
-		ai.AffType,
-		ai.Status,
-		ai.IsClosed AS Closed,
-		ai.IsLocked,
-		ad.LastLoginDate,
-		ad.LastLoginIP,
+	SELECT TOP(1)
+		ai.AffId
+		,ai.AffType
+		,ai.Status
+		,ai.IsClosed AS Closed
+		,ai.IsLocked
+		,ad.LastLoginDate
+		,ad.LastLoginIP
 		-- Personal Information
-		ai.UserName,
-		ai.UserName2,
-		ai.FirstName,
-		ai.LastName,
-		ISNULL(ad.Gender, 0) AS Gender,
-		ai.Email,
-		ad.Phone,
-		ad.ContactApps,
+		,ai.UserName
+		,ai.UserName2
+		,ai.FirstName
+		,ai.LastName
+		,ISNULL(ad.Gender, 0) AS Gender
+		,ai.Email
+		,ad.Phone
+		,ad.ContactApps
 		-- Additional Information
-		ad.Address,
-		ad.City,
-		ad.State,
-		ad.Postal,
-		ad.Country,
-		ad.QuestionId,
-		ISNULL(q.Question, ad.Question) AS Question,
-		ad.Answer,
+		,ad.Address
+		,ad.City
+		,ad.State
+		,ad.Postal
+		,ad.Country
+		,ad.QuestionId
+		,ISNULL(q.Question, ad.Question) AS Question
+		,ad.Answer
 		-- Email Format Preference
-		ad.MailOption,
+		,ad.MailOption
 		-- Website Information
-		ad.SiteURL ,
-		ad.MoreSiteURLs,
-		ad.NoSiteDesc,
+		,ad.SiteURL
+		,ad.MoreSiteURLs
+		,ad.NoSiteDesc
 		-- Commission Group Information
-		ISNULL(cg.GroupId, 0) AS GroupId,
-		ISNULL(cg.GroupName, '') AS GroupName,
-		ISNULL(b.BalBroughtForward, 0) AS BalBroughtForward,
+		,ISNULL(cg.GroupId, 0) 			AS GroupId
+		,ISNULL(cg.GroupName, '') 		AS GroupName
+		,ISNULL(b.BalBroughtForward, 0) AS BalBroughtForward
+		-- Target Country
+		,ISNULL(tc.CountryName, '') 	AS TargetCountryName
 		-- Language
-		ad.PreferredLanguage,
+		,ad.PreferredLanguage
 		-- Payment Information
-		ad.PreferredPayment, -- Player, Neteller, Moneybookers, Wire (Bank Transfer)
+		,ad.PreferredPayment -- Player, Neteller, Moneybookers, Wire (Bank Transfer)
 			-- Player
-		ad.Player_Username		AS PlayerUsername,
+		,ad.Player_Username		AS PlayerUsername
 			-- Netteller
-		ad.Neteller_AccountID	AS NetellerAccountId,
+		,ad.Neteller_AccountID	AS NetellerAccountId
 			-- Moneybookers
-		ad.Moneybookers_Email	AS MoneybookersEmail,
+		,ad.Moneybookers_Email	AS MoneybookersEmail
 			-- Wire (Bank Transfer)
-		ad.Wire_BankName	AS BankName,
-		ad.Wire_BankAddress AS BankAddress,
-		ad.Wire_SwiftCode	AS BankSwiftCode,
-		ad.Wire_AccountName AS BankAccountName,
-		ad.Wire_AccountNo	AS BankAccountNo
+		,ad.Wire_BankName		AS BankName
+		,ad.Wire_BankAddress 	AS BankAddress
+		,ad.Wire_SwiftCode		AS BankSwiftCode
+		,ad.Wire_AccountName 	AS BankAccountName
+		,ad.Wire_AccountNo		AS BankAccountNo
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 		OUTER APPLY dbo.Aff_f_GetBalBroughtForward (@AffId) b
 		LEFT JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupId = cg.GroupId
 		LEFT JOIN dbo.Aff_f_Get_SecurityQuestions (1, 'en-US') q ON ad.QuestionID = q.QuestionID
+		LEFT JOIN dbo.TargetCountry tc WITH (NOLOCK) ON tc.CountryCode = ad.TargetCountryCode
 	WHERE ai.AffId = @AffId
 END
 GO
