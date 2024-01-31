@@ -12,6 +12,7 @@ AS
 		- 20200303@Percy: Return more columns [RedmineID: #121973]
 		- 20221110@Eddie: Support Block Market [RedmineID: #179537]
 		- 20230330@Eddie: Change order of Bangladesh Language [RedmineID: #186108]
+		- 20240124@Eddie: reorder market [RedmineID: #200168]
 	Note: Order of English always is 1st
 */
 BEGIN
@@ -23,7 +24,13 @@ BEGIN
 	BEGIN
 		;WITH CTE_Language AS(
 			SELECT MarketId, MarketName, MarketNativeName, ShortedCode, DisplayName,
-				   CASE WHEN MarketId = 'en-US' THEN 1 ELSE 2 END AS TypeId
+				   CASE MarketId WHEN 'en-US' THEN 1
+								 WHEN 'bn-BD' THEN 2
+								 WHEN 'en-GB' THEN 3
+								 WHEN 'hi-IN' THEN 4
+								 WHEN 'hi'    THEN 5
+								 WHEN 'te-IN' THEN 6
+				   ELSE 7 END AS TypeId
 			FROM dbo.Market WITH (NOLOCK)
 		)
 		SELECT m.MarketId, m.MarketName, m.MarketNativeName, m.ShortedCode, m.DisplayName
@@ -37,7 +44,13 @@ BEGIN
 	BEGIN
 		;WITH CTE_Language AS(
 			SELECT MarketId, MarketName, MarketNativeName, ShortedCode, DisplayName,
-				   CASE WHEN MarketId = 'en-US' THEN 1 ELSE 2 END AS TypeId
+				   CASE MarketId WHEN 'en-US' THEN 1
+								 WHEN 'bn-BD' THEN 2
+								 WHEN 'en-GB' THEN 3
+								 WHEN 'hi-IN' THEN 4
+								 WHEN 'hi'    THEN 5
+								 WHEN 'te-IN' THEN 6
+				   ELSE 7 END AS TypeId
 			FROM dbo.Market WITH (NOLOCK)
 		)
 		SELECT MarketId, MarketName, MarketNativeName, ShortedCode, DisplayName

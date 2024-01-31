@@ -45,6 +45,7 @@ Revisions:
 	- 20180504@Walter: Exclude query by DeviceType [#94324]
 	- 20220919@Eddie : Get country code by IP [RedmineID: #176390]
 	- 20231124@Eddie: use TargetCountryCode to check AffDomain and PageCode [RedmineID: #181590]
+	- 20240129@Eddie: remove hardcoding for 'promotion' pagecode [RedmineID: #200168]
 	 
 Param's Explanation:   
 	- @DeviceType: 0-PC & 1-Mobile
@@ -206,10 +207,6 @@ BEGIN
 			BEGIN
 				SET @RedirectPage = REPLACE(@RedirectPage, @DomainName, @EUDomain)
 			END
-		END
-		IF(@PageCode IN ('promotion') AND @LanguageCode IN ('hien'))
-		BEGIN
-			SELECT @RedirectPage = REPLACE(@RedirectPage, 'hien', 'hi')
 		END
 	END
 	

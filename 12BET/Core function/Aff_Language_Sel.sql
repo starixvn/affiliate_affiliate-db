@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20231025@Eddie: Initialize SP [RedmineID: #181590]
+		- 20240124@Eddie: reorder market [RedmineID: #200168]
 */
 BEGIN
 	SET NOCOUNT ON
@@ -20,8 +21,14 @@ BEGIN
 	IF @UserId <> 0
 	BEGIN
 		;WITH CTE_Language AS(
-			SELECT DISTINCT tc.CountryCode, tc.MarketID, tc.MarketName, m.MarketNativeName, m.ShortedCode, m.DisplayName
-				,CASE WHEN tc.MarketID = 'en-US' THEN 1 ELSE 2 END AS OrderID
+			SELECT tc.CountryCode, tc.MarketID, tc.MarketName, m.MarketNativeName, m.ShortedCode, m.DisplayName
+				,CASE tc.MarketID WHEN 'en-US' THEN 1
+								  WHEN 'bn-BD' THEN 2
+								  WHEN 'en-GB' THEN 3
+								  WHEN 'hi-IN' THEN 4
+								  WHEN 'hi'    THEN 5
+								  WHEN 'te-IN' THEN 6
+				ELSE 7 END AS OrderID
 			FROM dbo.TargetCountry tc WITH (NOLOCK)
 				INNER JOIN dbo.Market  m WITH (NOLOCK) ON m.MarketID = tc.MarketID
 			WHERE (tc.CountryCode = @TargetCountryCode) OR (@TargetCountryCode = '')
@@ -36,8 +43,14 @@ BEGIN
 	ELSE
 	BEGIN
 		;WITH CTE_Language AS(
-			SELECT DISTINCT tc.CountryCode, tc.MarketID, tc.MarketName, m.MarketNativeName, m.ShortedCode, m.DisplayName
-				,CASE WHEN tc.MarketID = 'en-US' THEN 1 ELSE 2 END AS OrderID
+			SELECT tc.CountryCode, tc.MarketID, tc.MarketName, m.MarketNativeName, m.ShortedCode, m.DisplayName
+				,CASE tc.MarketID WHEN 'en-US' THEN 1
+								  WHEN 'bn-BD' THEN 2
+								  WHEN 'en-GB' THEN 3
+								  WHEN 'hi-IN' THEN 4
+								  WHEN 'hi'    THEN 5
+								  WHEN 'te-IN' THEN 6
+				ELSE 7 END AS OrderID
 			FROM dbo.TargetCountry tc WITH (NOLOCK)
 				INNER JOIN dbo.Market  m WITH (NOLOCK) ON m.MarketID = tc.MarketID
 			WHERE (tc.CountryCode = @TargetCountryCode) OR (@TargetCountryCode = '')
