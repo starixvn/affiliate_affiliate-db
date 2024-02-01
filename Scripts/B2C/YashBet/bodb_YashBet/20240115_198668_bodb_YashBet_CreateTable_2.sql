@@ -132,35 +132,6 @@ CREATE CLUSTERED INDEX [CIX_BonusInfo] ON [dbo].[BonusInfo]
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [ReportData]
 GO
 
-/****** Object:  Table [dbo].[CustBonusSummary]    Script Date: 1/8/2024 12:02:30 AM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[CustBonusSummary](
-	[Id] [int] IDENTITY(1,1) NOT NULL,
-	[CustId] [int] NULL,
-	[CurrencyId] [int] NULL,
-	[SiteId] [int] NULL,
-	[DataSource] [varchar](128) NULL,
-	[BonusType] [smallint] NULL,
-	[BonusStatus] [tinyint] NULL,
-	[BonusCode] [varchar](50) NULL,
-	[BonusTime] [datetime] NULL,
-	[BonusAmount] [money] NULL,
- CONSTRAINT [PK_CustBonusSummary] PRIMARY KEY NONCLUSTERED 
-(
-	[Id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [ReportData]
-) ON [ReportData]
-GO
-/****** Object:  Index [CIX_CustBonusSummary]    Script Date: 1/8/2024 12:02:30 AM ******/
-CREATE CLUSTERED INDEX [CIX_CustBonusSummary] ON [dbo].[CustBonusSummary]
-(
-	[BonusTime] ASC,
-	[SiteId] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [ReportData]
-GO
 
 /****** Object:  Table [dbo].[Customer]    Script Date: 1/8/2024 12:02:30 AM ******/
 SET ANSI_NULLS ON
@@ -483,7 +454,25 @@ CREATE TABLE [dbo].[TpWager9W](
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [ReportData]
 ) ON [ReportData]
 GO
-
+/****** Object:  Table [dbo].[ServerInfo]    Script Date: 1/8/2024 12:02:30 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ServerInfo](
+	[SiteId] [int] NOT NULL,
+	[SiteName] [varchar](50) NULL,
+	[LicenseeName] [varchar](50) NULL,
+	[LangList] [nvarchar](max) NULL,
+	[CurrencyList] [nvarchar](max) NULL,
+	[DefLang] [varchar](4) NULL,
+	[DefCurrency] [int] NULL,
+ CONSTRAINT [PK_ServerInfo] PRIMARY KEY CLUSTERED 
+(
+	[SiteId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [SettingData]
+) ON [SettingData] TEXTIMAGE_ON [SettingData]
+GO
 /****** Object:  Table [dbo].[WithdrawalInfo]    Script Date: 1/8/2024 12:02:31 AM ******/
 SET ANSI_NULLS ON
 GO
@@ -604,8 +593,6 @@ GO
 ALTER TABLE [dbo].[API_Queue] ADD  CONSTRAINT [DF_API_Queue_CheckInTime]  DEFAULT (getdate()) FOR [CheckInTime]
 GO
 ALTER TABLE [dbo].[API_Queue] ADD  CONSTRAINT [DF_API_Queue_IsFinished]  DEFAULT ((0)) FOR [IsFinished]
-GO
-ALTER TABLE [dbo].[CustBonusSummary] ADD  CONSTRAINT [DF_CustBonusSummary_BonusStatus]  DEFAULT ((0)) FOR [BonusStatus]
 GO
 ALTER TABLE [dbo].[Customer] ADD  CONSTRAINT [DF_Customer_UpdatedTime]  DEFAULT (getdate()) FOR [UpdatedTime]
 GO
