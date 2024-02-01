@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCUST-bodb_Licensee"></info>*/
 /*
 	Created: 20240201@Sally
-	DB: DBAFFYASHBET-Affiliate_YashBet
+	DB: DBCUST-bodb_Licensee
 	Task: Support new Aff Yashbet
 		- Update BrandName for YashBet Licensee
 */
