@@ -16,6 +16,7 @@ AS
 
 	Revisions:
 		- 20240115@Sally: Initialize SP [RedmineID: #198909]
+		- 20240222@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -187,6 +188,8 @@ BEGIN
 		END
 		ELSE
 		BEGIN
+			SET @ProductIds = dbo.Aff_f_AddRelatedProducts(@ProductIds)
+
 			UPDATE c
 				SET c.Turnover	= ISNULL(d.Turnover, 0)
 					,c.Winloss	= ISNULL(d.Winloss, 0)

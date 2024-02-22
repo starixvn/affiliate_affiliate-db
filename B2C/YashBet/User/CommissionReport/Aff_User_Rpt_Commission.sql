@@ -12,6 +12,7 @@ AS
 
 	Revisions:
 		- 20240115@Sally: Initialize SP [RedmineID: #198909]
+		- 20240222@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 
 */
 
@@ -170,21 +171,52 @@ BEGIN
 		END
 	END
 
-	-- Return Data
+-- Return Data
 	;WITH CTE_SubCommRate AS
 	(
 		SELECT cgh.MonthDate, cgh.SubCommRate
 		FROM dbo.AffGroupHistory agh WITH(NOLOCK)
 			INNER JOIN dbo.CommGroupHistory cgh WITH(NOLOCK) ON cgh.GroupId = agh.GroupId AND agh.MonthDate = cgh.MonthDate
 		WHERE agh.AffId = @AffId AND agh.MonthDate BETWEEN @FromDate AND DATEADD(MONTH, 1, @ToDate)
+	),
+	CTE_CommResult AS(
+		SELECT
+			d.MonthDate,
+			ISNULL(t.GroupProductId,d.ProductId) AS ProductId,
+			p.ProductName,
+			SUM(d.Turnover) AS Turnover,
+			SUM(-d.Winloss + d.Revenue) AS GGR,
+			SUM(d.P2PFee + d.PlatformFee) AS PlatformFee,
+			SUM(d.OperationalFee) AS OperationalFee,
+			SUM(d.DepositFee) AS DepositFee,
+			SUM(d.WithdrawalFee) AS WithdrawalFee,
+			SUM(d.Bonus) AS Bonus,
+			SUM(d.Rebate) AS Rebate,
+			d.CommissionRate,
+			d.IsMultiGroupProduct,
+			SUM(d.Commission) AS Commission,
+			SUM(d.StraightCommission) AS P2PCommission,
+			SUM(d.SubAffCommission) AS SubAffCommission,
+			s.SubCommRate,
+			d.CalculatedType
+		FROM #TempCommission d
+			LEFT JOIN CTE_SubCommRate s ON s.MonthDate = d.MonthDate
+			LEFT JOIN [dbo].[Aff_f_GroupProduct]() t ON d.ProductId = t.ProductId
+			LEFT JOIN dbo.Products p WITH (NOLOCK) ON  ISNULL(t.GroupProductId,d.ProductId) = p.ProductId
+		GROUP BY d.MonthDate,
+			ISNULL(t.GroupProductId,d.ProductId),
+			p.ProductName,
+			d.CommissionRate,
+			d.IsMultiGroupProduct,
+			s.SubCommRate,
+			d.CalculatedType
 	)
-	SELECT
-		d.MonthDate,
+	SELECT d.MonthDate,
 		d.ProductId,
-		p.ProductName,
+		d.ProductName,
 		d.Turnover,
-		-d.Winloss + d.Revenue AS GGR,
-		d.P2PFee + d.PlatformFee AS PlatformFee,
+		d.GGR,
+		d.PlatformFee,
 		d.OperationalFee,
 		d.DepositFee,
 		d.WithdrawalFee,
@@ -193,16 +225,12 @@ BEGIN
 		d.CommissionRate,
 		d.IsMultiGroupProduct,
 		d.Commission,
-		d.StraightCommission AS P2PCommission,
+		d.P2PCommission,
 		d.SubAffCommission,
-		s.SubCommRate,
+		d.SubCommRate,
 		d.CalculatedType
-	FROM #TempCommission d
-		LEFT JOIN CTE_SubCommRate s ON s.MonthDate = d.MonthDate
-		LEFT JOIN dbo.Products p WITH (NOLOCK) ON d.ProductId = p.ProductId
-	ORDER BY
-		MonthDate DESC,
-		d.ProductId ASC
+	FROM CTE_CommResult d
+	ORDER BY d.MonthDate DESC, d.ProductId ASC
 
 	DROP TABLE #TempCommission
 END

@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20240115@Sally: Initialize SP [RedmineID: #198909]
+		- 20240220@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 */
 
 BEGIN
@@ -104,9 +105,12 @@ BEGIN
 		STUFF(
 			(SELECT	',' + CONVERT(VARCHAR(10), d.ProductId)
 				FROM dbo.DeductionSetting d WITH (NOLOCK)
-				WHERE ds.GroupId			= d.GroupId
+					LEFT JOIN dbo.Aff_f_GroupProduct() gp ON d.ProductID = gp.ProductId 
+														AND gp.ProductId <> gp.GroupProductId 										
+				WHERE gp.ProductId IS NULL
+					AND ds.GroupId			= d.GroupId
 					AND ds.DeductionId		= d.DeductionId
-					AND ds.GroupProductId = d.GroupProductId
+					AND ds.GroupProductId	= d.GroupProductId
 					AND d.ProductId			<> 0
 				FOR XML PATH (''))
 				, 1, 1, '') AS ProductIds,
@@ -133,7 +137,11 @@ BEGIN
 		STUFF(
 			(SELECT	',' + CONVERT(VARCHAR(10), s.ProductId)
 				FROM dbo.StraightSetting s WITH (NOLOCK)
-				WHERE ss.GroupId			= s.GroupId
+					LEFT JOIN dbo.Aff_f_GroupProduct() gp 
+										ON s.ProductID = gp.ProductId 
+										AND gp.ProductId <> gp.GroupProductId 										
+				WHERE gp.ProductId IS NULL
+					AND ss.GroupId			= s.GroupId
 					AND ss.GroupProductId	= s.GroupProductId
 					AND s.ProductId			<> 0
 				FOR XML PATH (''))

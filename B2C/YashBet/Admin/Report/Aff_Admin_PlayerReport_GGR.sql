@@ -19,6 +19,7 @@ AS
 
 	Revisions:
 		- 20240115@Sally: Initialize SP [RedmineID: #198909]
+		- 20240220@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 
 	Param's Explanation:
 		- @ProductIds: list of products, '' = no product
@@ -27,6 +28,8 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
+	
+	SET @ProductIds = dbo.Aff_f_AddRelatedProducts(@ProductIds)
 
 	SELECT @AffUsername = ISNULL(@AffUsername, ''), @Username = ISNULL(@Username, '')
 
@@ -110,9 +113,10 @@ BEGIN
 	-- Total row
 	CREATE TABLE #Total (ProductId INT, Turnover MONEY, GGR MONEY)
 	INSERT INTO #Total (ProductId, Turnover, GGR)
-	SELECT ProductId, SUM(Turnover), SUM(GGR)
-	FROM #Result
-	GROUP BY ProductId
+	SELECT ISNULL(t.GroupProductId,r.ProductId) AS ProductId, SUM(Turnover), SUM(GGR)
+	FROM #Result r
+		LEFT JOIN [dbo].[Aff_f_GroupProduct]() t ON r.ProductId = t.ProductId
+	GROUP BY ISNULL(t.GroupProductId,r.ProductId)
 
 	IF @IsExportExcel = 0
 	BEGIN
@@ -144,9 +148,12 @@ BEGIN
 
 	DECLARE @OutputColumns VARCHAR(MAX)
 	SELECT  @OutputColumns = COALESCE(@OutputColumns + ', ', '')
-		+ '[' + CONVERT(VARCHAR(20), ProductId) + '_Turnover]'
-		+ ', [' + CONVERT(VARCHAR(20), ProductId) + '_GGR]'
-	FROM @Products
+		+ '[' + CONVERT(VARCHAR(20), p.ProductId) + '_Turnover]'
+		+ ', [' + CONVERT(VARCHAR(20), p.ProductId) + '_GGR]'
+	FROM @Products p
+		LEFT JOIN [dbo].[Aff_f_GroupProduct]() t ON p.ProductId = t.ProductId
+													AND t.ProductId <> t.GroupProductId
+	WHERE t.ProductId IS NULL
 
 	SELECT @OutputColumns = '[Total_Turnover], [Total_GGR]' + ISNULL(', ' + @OutputColumns, '')
 

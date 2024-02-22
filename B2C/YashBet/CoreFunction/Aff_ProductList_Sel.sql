@@ -9,6 +9,7 @@ AS
 
 	Revisions:
 		- 20240115@Sally: Initialize SP [RedmineID: #198909]
+		- 20240222@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 
 */
 
@@ -18,14 +19,16 @@ BEGIN
 	DECLARE @IsTest BIT
 	SELECT  @IsTest = dbo.f_Aff_CheckSPVersion(@@PROCID)
 
-	SELECT
-		ProductId,
-		ProductName,
-		EndOfSupportDate,
-		ISNULL(IsP2P, 0) AS IsP2P
-	FROM dbo.Products WITH (NOLOCK)
-	WHERE IsTest <= @IsTest
-	ORDER BY
-		ProductId
+	SELECT 
+		p.ProductId,
+		p.ProductName,
+		p.EndOfSupportDate,
+		ISNULL(p.IsP2P, 0) AS IsP2P
+	FROM dbo.Products p WITH (NOLOCK)
+		LEFT JOIN dbo.Aff_f_GroupProduct() gp ON p.ProductID = gp.ProductId 
+										AND gp.ProductId <> gp.GroupProductId 
+	WHERE IsTest <= @IsTest 
+		AND gp.ProductId IS NULL
+	ORDER BY ProductId
 END
 GO
