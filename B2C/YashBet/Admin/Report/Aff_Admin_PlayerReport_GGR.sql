@@ -94,11 +94,12 @@ BEGIN
 	CREATE TABLE #Result (AffId INT, AffUsername VARCHAR(50), CustId INT, UserName VARCHAR(50), RegisteredDate DATETIME, FirstDepositDate DATETIME
 		,ProductId INT, Turnover MONEY, GGR MONEY)
 	INSERT INTO #Result (AffId, AffUsername, CustId, ProductId, Turnover, GGR)
-	SELECT d.AffId, d.AffUsername, d.CustId, d.ProductId, SUM(d.Turnover * e.Rate), SUM(d.GGR * e.Rate)
+	SELECT d.AffId, d.AffUsername, d.CustId, ISNULL(tp.GroupProductId, d.ProductId) AS ProductId, SUM(d.Turnover * e.Rate), SUM(d.GGR * e.Rate)
 	FROM #tmpData d
 		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON d.Currency = t.TpExchangeId
 		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(d.WinlostDate, ISNULL(t.ExchangeId, d.Currency), @BaseExchangeId) e
-	GROUP BY d.AffId, d.AffUsername, d.CustId, d.ProductId
+		LEFT JOIN [dbo].[Aff_f_GroupProduct]() tp ON d.ProductId = tp.ProductId
+	GROUP BY d.AffId, d.AffUsername, d.CustId, ISNULL(tp.GroupProductId, d.ProductId)
 
 	IF @Username <> ''
 		DELETE r
@@ -113,10 +114,9 @@ BEGIN
 	-- Total row
 	CREATE TABLE #Total (ProductId INT, Turnover MONEY, GGR MONEY)
 	INSERT INTO #Total (ProductId, Turnover, GGR)
-	SELECT ISNULL(t.GroupProductId,r.ProductId) AS ProductId, SUM(Turnover), SUM(GGR)
-	FROM #Result r
-		LEFT JOIN [dbo].[Aff_f_GroupProduct]() t ON r.ProductId = t.ProductId
-	GROUP BY ISNULL(t.GroupProductId,r.ProductId)
+	SELECT ProductId, SUM(Turnover), SUM(GGR)
+	FROM #Result 
+	GROUP BY ProductId
 
 	IF @IsExportExcel = 0
 	BEGIN
