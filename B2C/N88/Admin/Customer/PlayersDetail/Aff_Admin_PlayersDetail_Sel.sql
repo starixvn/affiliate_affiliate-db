@@ -28,6 +28,7 @@ AS
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -93,8 +94,16 @@ BEGIN
 		AND agh.AffID = @AffId
 		
 	IF @ProductId <> 0
-		DELETE @Products WHERE ProductId <> @ProductId
-
+	BEGIN
+		;WITH CTE_GProducts AS(
+			SELECT CONVERT(INT,f.Value) AS ProductId
+			FROM STRING_SPLIT(dbo.Aff_f_AddRelatedProducts(CONVERT(VARCHAR(10),@ProductId)), ',')f
+		)
+		DELETE p
+		FROM @Products p
+			LEFT JOIN CTE_GProducts gp ON gp.ProductId = p.ProductId
+		WHERE gp.ProductId IS NULL
+	END
 	-- Get data
 	BEGIN
 		INSERT INTO #tmpData
