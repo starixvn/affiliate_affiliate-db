@@ -51,8 +51,8 @@ FROM (
 WHERE ss.SValue IS NULL
 GO
 -- Initial Products info
-INSERT INTO dbo.Products (ProductId,ProductName,ProductPrefix,IsIBC,Enabled,IsTest,ReleasedDate,RefProductId,DataSource)
-	SELECT Type AS ProductId, TypeName AS ProductName,'',0,1,0,'2024-01-01',Type AS RefProductId,'TpBetRecord' AS DataSource
+INSERT INTO dbo.Products (ProductId,ProductName,ProductPrefix,IsIBC,Enabled,IsTest,ReleasedDate,RefProductId,DataSource, IsP2P)
+	SELECT Type AS ProductId, TypeName AS ProductName,'',0,1,0,'2024-01-01',Type AS RefProductId,'TpBetRecord' AS DataSource, CASE WHEN  t.Type IN (41, 42) THEN 1 ELSE 0 END AS IsP2P
 	FROM bodb_YashBet.dbo.TpGameType t WITH (NOLOCK)
 		LEFT JOIN dbo.Products p  WITH (NOLOCK) ON p.ProductId = t.Type
 	WHERE p.ProductId IS NULL
