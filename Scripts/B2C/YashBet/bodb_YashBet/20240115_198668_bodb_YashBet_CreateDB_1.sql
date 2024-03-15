@@ -163,17 +163,17 @@ GO
 /****** Object:  User [rdsvntrack]    Script Date: 1/8/2024 12:02:30 AM ******/
 CREATE USER [rdsvntrack] FOR LOGIN [rdsvntrack] WITH DEFAULT_SCHEMA=[dbo]
 GO
-/****** Object:  User [bodbLicenseeNet]    Script Date: 1/8/2024 12:02:30 AM ******/
-CREATE USER [bodbLicenseeNet] FOR LOGIN [bodbLicenseeNet] WITH DEFAULT_SCHEMA=[dbo]
+/****** Object:  User [wsv_lap]    Script Date: 1/8/2024 12:02:30 AM ******/
+CREATE USER [wsv_lap] FOR LOGIN [wsv_lap] WITH DEFAULT_SCHEMA=[dbo]
 GO
-/****** Object:  User [bodbDownlineNetView]    Script Date: 1/8/2024 12:02:30 AM ******/
-CREATE USER [bodbDownlineNetView] FOR LOGIN [bodbDownlineNetView] WITH DEFAULT_SCHEMA=[dbo]
+/****** Object:  User [wsv_alpv]    Script Date: 1/8/2024 12:02:30 AM ******/
+CREATE USER [wsv_alpv] FOR LOGIN [wsv_alpv] WITH DEFAULT_SCHEMA=[dbo]
 GO
-/****** Object:  User [bodbDownlineNet]    Script Date: 1/8/2024 12:02:30 AM ******/
-CREATE USER [bodbDownlineNet] FOR LOGIN [bodbDownlineNet] WITH DEFAULT_SCHEMA=[dbo]
+/****** Object:  User [wsv_alp]    Script Date: 1/8/2024 12:02:30 AM ******/
+CREATE USER [wsv_alp] FOR LOGIN [wsv_alp] WITH DEFAULT_SCHEMA=[dbo]
 GO
-/****** Object:  User [bodbAdminNet]    Script Date: 1/8/2024 12:02:30 AM ******/
-CREATE USER [bodbAdminNet] FOR LOGIN [bodbAdminNet] WITH DEFAULT_SCHEMA=[dbo]
+/****** Object:  User [wsv_nap]    Script Date: 1/8/2024 12:02:30 AM ******/
+CREATE USER [wsv_nap] FOR LOGIN [wsv_nap] WITH DEFAULT_SCHEMA=[dbo]
 GO
 /****** Object:  User [aff_b2c]    Script Date: 1/8/2024 12:02:30 AM ******/
 CREATE USER [aff_b2c] FOR LOGIN [aff_b2c] WITH DEFAULT_SCHEMA=[dbo]

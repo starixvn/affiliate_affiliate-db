@@ -28,11 +28,11 @@ FROM (
 	SELECT 'AFF_BalPlayerUS$' AS SName, 'N8YAFFPlayerUS$' AS SValue UNION ALL
 	SELECT 'AFF_BalPlayerUUS' AS SName, 'N8YAFFPlayerUUS' AS SValue UNION ALL
 	SELECT 'AFF_BalPlayerWON' AS SName, 'N8YAFFPlayerWON' AS SValue UNION ALL
-	SELECT 'AFF_BaseCurrencies' AS SName, '61:INR,74:BDT' AS SValue UNION ALL
+	SELECT 'AFF_BaseCurrencies' AS SName, '61:INR,74:BDT,3:USD' AS SValue UNION ALL
 	SELECT 'AFF_CommissionDate' AS SName, '2023-12-31' AS SValue UNION ALL
 	SELECT 'AFF_PaymentCurrencies' AS SName, '61:INR,74:BDT' AS SValue UNION ALL
 	SELECT 'AFF_SupportedCurrencies' AS SName, '61:INR,74:BDT' AS SValue UNION ALL
-	SELECT 'AffCurrency' AS SName, '61' AS SValue UNION ALL
+	SELECT 'AffCurrency' AS SName, '3' AS SValue UNION ALL
 	SELECT 'BrandName' AS SName, 'YashBet' AS SValue UNION ALL
 	SELECT 'LastImportedTime_ExchangeOanda' AS SName, '2024-01-01' AS SValue UNION ALL
 	SELECT 'LaunchDate' AS SName, '2024-01-01' AS SValue UNION ALL

@@ -101,8 +101,8 @@ GO
 /****** Object:  User [rdsvntrack]    Script Date: 1/11/2024 10:40:30 PM ******/
 CREATE USER [rdsvntrack] FOR LOGIN [rdsvntrack] WITH DEFAULT_SCHEMA=[dbo]
 GO
-/****** Object:  User [bodbLicenseeNet]    Script Date: 1/11/2024 10:40:30 PM ******/
-CREATE USER [bodbLicenseeNet] FOR LOGIN [bodbLicenseeNet] WITH DEFAULT_SCHEMA=[dbo]
+/****** Object:  User [wsv_lap]    Script Date: 1/11/2024 10:40:30 PM ******/
+CREATE USER [wsv_lap] FOR LOGIN [wsv_lap] WITH DEFAULT_SCHEMA=[dbo]
 GO
 ALTER ROLE [db_datareader] ADD MEMBER [vnteam]
 GO
