@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="wsv_alp,wsv_alpv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_Rpt_MarketingPage_Statistics]
 	@AffId				INT
 	,@FromDate			SMALLDATETIME

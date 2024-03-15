@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_API_AffiliateDetailInfo_Sel]
 	@PageIndex			INT = 1
 	,@PageSize			INT = 50

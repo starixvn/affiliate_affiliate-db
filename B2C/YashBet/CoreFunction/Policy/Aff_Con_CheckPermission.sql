@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
+/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="wsv_nap" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Con_CheckPermission]
 	@CustID		INT, 
 	@FuncID		INT = NULL,

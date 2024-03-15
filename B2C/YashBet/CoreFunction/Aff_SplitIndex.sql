@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="bodbAdminNet" isFunction="1" isNested="1"></info>*/
+/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="wsv_nap" isFunction="1" isNested="1"></info>*/
 ALTER FUNCTION [dbo].[Aff_SplitIndex]
 (
 	@string		NVARCHAR(4000),

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBEXT-bodb02" executers="wsv_nap,wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_API_ExchangeDailyOanda_Sel]
 	@ExchangeDate	SMALLDATETIME
 	,@ExchangeIds	VARCHAR(MAX)

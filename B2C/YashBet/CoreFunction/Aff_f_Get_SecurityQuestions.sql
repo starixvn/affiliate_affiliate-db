@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" selecters="bodbAdminNet,bodbDownlineNet" isFunction="1" isNested="1"></info>*/
+﻿/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" selecters="wsv_nap,wsv_alp" isFunction="1" isNested="1"></info>*/
 ALTER FUNCTION [dbo].[Aff_f_Get_SecurityQuestions]
 (
 	@Language VARCHAR(20) = 'en-US'

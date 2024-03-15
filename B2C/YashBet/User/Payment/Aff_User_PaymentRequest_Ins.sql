@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="bodbDownlineNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="wsv_alp" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_PaymentRequest_Ins]
 	@AffId		INT
 	,@Amount	MONEY

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="1"></info>*/
+/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="wsv_nap,wsv_alp,wsv_alpv" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Commission_Calc]
 	@AffIds				VARCHAR(MAX) = 'all'
 	,@FromMonthDate		SMALLDATETIME

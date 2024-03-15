@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" selecters="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="1" isNested="1"></info>*/
+/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" selecters="wsv_nap,wsv_alp,wsv_alpv" isFunction="1" isNested="1"></info>*/
 ALTER FUNCTION [dbo].[Aff_f_ExchangeRate_Sel]
 (
 	@ExchangeDate	SMALLDATETIME
