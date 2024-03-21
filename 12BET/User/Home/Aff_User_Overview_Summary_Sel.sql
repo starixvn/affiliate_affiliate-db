@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_Overview_Summary_Sel]
 	@AffId		INT,
 	@MonthDate	SMALLDATETIME
@@ -13,6 +13,7 @@ AS
 		- 20191210@Percy: Initialize SP [RedmineID: #121971]
 		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 		- 20230804@Eddie: 'ExchangeWinlossShare' and 'ExchangeCommShare' out of use [RedmineID: #189569]
+		- 20240321@Eddie: Change Link Server and metadata "bodbDownlineNet,bodbDownlineNetView" [RedmineID: #202712]
 */
 
 BEGIN
@@ -27,7 +28,7 @@ BEGIN
 	BEGIN
 		DECLARE @Signups INT, @DepositedMembers INT
 
-		SELECT  @Signups = COUNT(1) FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+		SELECT  @Signups = COUNT(1) FROM DBDEPOSIT2.Deposit_DB.dbo.v_Aff_DepCust WITH (NOLOCK)
 		WHERE AffiliateID = @AffID AND creatdate >= @FromBeginMonth AND creatdate < @ToNextMonth
 
 		SELECT  @DepositedMembers = COUNT(1) FROM dbo.MemberInfo WITH (NOLOCK)

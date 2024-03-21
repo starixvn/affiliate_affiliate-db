@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Member_Sel]
 	@AffId		INT,
 	@MemberType	SMALLINT = 0,
@@ -18,6 +18,7 @@ AS
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 		- 20191127@Percy: Sort by Registered Date Descending [RedmineID: #118992]
+		- 20240321@Eddie: Change Link Server and metadata "bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" [RedmineID: #202712]
 	
 	Param's Explanation:
 		@MemberType:
@@ -48,7 +49,7 @@ BEGIN
 		BEGIN
 			INSERT INTO #MemberInfo (IBCCustId, UserName, FirstName, LastName, Email, Currency, RegisteredDate)
 			SELECT IBCCustId, UserName, FirstName, LastName, Email, Currency, creatdate AS RegisteredDate
-			FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+			FROM DBDEPOSIT2.Deposit_DB.dbo.v_Aff_DepCust WITH (NOLOCK)
 			WHERE AffiliateId = @AffId
 				AND IBCCustId IS NULL
 		END
@@ -68,7 +69,7 @@ BEGIN
 		BEGIN
 			INSERT INTO #MemberInfo (IBCCustId, UserName, FirstName, LastName, Email, Currency, RegisteredDate)
 			SELECT IBCCustId, UserName, FirstName, LastName, Email, Currency, creatdate AS RegisteredDate
-			FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+			FROM DBDEPOSIT2.Deposit_DB.dbo.v_Aff_DepCust WITH (NOLOCK)
 			WHERE AffiliateId = @AffId
 				AND IBCCustId IS NULL
 				AND creatdate >= @FromDate AND creatdate < DATEADD(DAY, 1, @ToDate)

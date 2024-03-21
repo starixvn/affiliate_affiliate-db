@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Statistics_Sel] 
 	@AffID		INT,
 	@MonthDate	SMALLDATETIME
@@ -16,6 +16,7 @@ AS
 		- 20230215@Eddie: Change 'ClickStatistics1Sum' to 'ClickStatisticsSum_Country_Domain' sum table [RedmineID: #177639]
 		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 		- 20230731@Eddie: 'ExchangeWinlossShare' and 'ExchangeCommShare' out of use [RedmineID: #189569]
+		- 20240321@Eddie: Change Link Server and metadata "bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" [RedmineID: #202712]
 */
 
 BEGIN
@@ -201,7 +202,7 @@ BEGIN
 	SELECT 	@SignupsTotal	 = COUNT(1)
 			,@FDMTotal		 = COUNT(IBCCustID)
 			,@SignupsByMonth = COUNT(CASE WHEN creatdate >= @FromBeginMonth AND creatdate < @ToNextMonth THEN 1 ELSE NULL END)
-	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+	FROM DBDEPOSIT2.Deposit_DB.dbo.v_Aff_DepCust WITH (NOLOCK)
 	WHERE AffiliateId = @AffId
 
 	SELECT @FDMByMonth = COUNT(1)

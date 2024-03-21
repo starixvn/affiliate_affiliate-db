@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_ClickStatisticsSelBySite] 
 	@AffID 			INT
 	,@CountryCodes 	NVARCHAR(MAX)
@@ -25,6 +25,7 @@ AS
 		- 20170515@Percy: New Signup Statistic [RedmineID: #76507]
 		- 20220919@Eddie: Add Country info [RedmineID: #176390]
 		- 20230213@Eddie: Change 'ClickStatistics1Sum' to 'ClickStatisticsSum_Country_Domain' sum table [RedmineID: #177639]
+		- 20240321@Eddie: Change Link Server and metadata "bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" [RedmineID: #202712]
 	
 	Param's Explanation:
 		- @CountryCodes: '-,AL,AR,...'
@@ -147,7 +148,7 @@ BEGIN
 
 	INSERT INTO @tmp (ClickID)
 	SELECT ISNULL(ClickID, 0)
-	FROM DBDeposit.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+	FROM DBDEPOSIT2.Deposit_DB.dbo.v_Aff_DepCust WITH (NOLOCK)
 	WHERE creatdate BETWEEN @FromDate AND @ToDate 
 		AND AffiliateID = @AffID
 
