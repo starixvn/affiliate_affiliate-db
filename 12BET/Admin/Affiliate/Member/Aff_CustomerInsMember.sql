@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff" isFunction="0" isNested="1"></info>*/
 CREATE PROCEDURE [dbo].[Aff_CustomerInsMember] 
 	@IBCCustID 			INT
 	,@AffID 			INT
@@ -25,6 +25,7 @@ Revisions:
 	- 20210416@Malcolm: Change format when writing logs [RedmineId : #152449]
 	- 20210423@Malcolm: Get currency name[RedmineId : #152449]
 	- 20231116@Eddie: Change Datatype of @Username [RedmineID: #196948]
+	- 20240321@Eddie: Change Link Server and metadata "bodbAdminNet" [RedmineID: #202712]
 */
 BEGIN
 	SET NOCOUNT ON
@@ -57,7 +58,7 @@ BEGIN
 		,ISNULL(c.URLReferrer, 'none') 		AS URLReferrer
 		,ISNULL(c.DeviceType, 0) 			AS DeviceType
 	INTO #depositMember
-	FROM [DBDeposit].deposit_db.dbo.Deposit_Customer d WITH (NOLOCK)
+	FROM [DBDEPOSIT2].deposit_db.dbo.v_Aff_DepCust d WITH (NOLOCK)
 		LEFT JOIN dbo.ClickStatistics1 c WITH (NOLOCK) ON d.ClickID = c.ClickID
 	WHERE d.custid = @DepositCustID
 	  AND d.AffiliateID = @AffId
