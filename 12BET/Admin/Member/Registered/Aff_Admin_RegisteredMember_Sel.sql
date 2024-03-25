@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_RegisteredMember_Sel]
 	@AffName		NVARCHAR(50) =''
 	,@Username		NVARCHAR(50) =''
@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20210528@Malcolm: Initialize SP [RedmineID: #149210]
 		- 20231116@Eddie: Enhance performance [RedmineID: #196930]
+		- 20240321@Eddie: Change Link Server and metadata "bodbAdminNet" [RedmineID: #202712]
 		
 */
 
@@ -32,8 +33,8 @@ BEGIN
 
 	DECLARE @sql NVARCHAR(MAX)
 	SELECT  @sql = 'SELECT Username, Firstname, Lastname, creatdate, AffiliateID, currency
-					FROM OPENQUERY(DBDEPOSIT, ''SELECT Username, Firstname, Lastname, creatdate, AffiliateID, currency
-											   FROM Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+					FROM OPENQUERY(DBDEPOSIT2, ''SELECT Username, Firstname, Lastname, creatdate, AffiliateID, currency
+											   FROM Deposit_DB.dbo.v_Aff_DepCust WITH (NOLOCK)
 											   WHERE actstatus NOT IN (2, 9) AND (Username LIKE '''''+ @Username +''''' OR '''''+ @Username+''''' = '''''''')''
 								   )'
 

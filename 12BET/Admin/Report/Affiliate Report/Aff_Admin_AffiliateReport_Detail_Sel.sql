@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Detail_Sel]
 	@Username			NVARCHAR(50)
 	,@FromDate			SMALLDATETIME
@@ -27,6 +27,7 @@ AS
 		- 20220831@Eddie: Add new column 'Previous month's balance B/F' [RedmineID: #177178]
 		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 		- 20230802@Eddie: 'ExchangeWinlossShare' and 'ExchangeCommShare' out of use [RedmineID: #189569]
+		- 20240321@Eddie: Change Link Server and metadata "bodbAdminNet" [RedmineID: #202712]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: Winloss, 4: Earning (Commission)
@@ -229,9 +230,9 @@ BEGIN
 
 		DECLARE @sql NVARCHAR(MAX)
 		SELECT  @sql = 'SELECT a.MonthDate, a.Signup
-						FROM OPENQUERY(DBDEPOSIT, ''SELECT
+						FROM OPENQUERY(DBDEPOSIT2, ''SELECT
 														DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, creatdate) + 1, 0)) AS MonthDate,
-														COUNT(1) AS Signup FROM Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+														COUNT(1) AS Signup FROM Deposit_DB.dbo.v_Aff_DepCust WITH (NOLOCK)
 													WHERE AffiliateId = ' + @AffIds + ' AND creatdate >= ''''' + CONVERT(VARCHAR(10), @FromDate, 120) + ''''' AND
 														creatdate < ''''' + + CONVERT(VARCHAR(10), DATEADD(DAY, 1, @ToDate), 120) + '''''
 													GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, creatdate) + 1, 0))'') AS a'

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_Overview_Detail_Sel]
 	@AffId		INT,
 	@MonthDate	SMALLDATETIME
@@ -13,6 +13,7 @@ AS
 		- 20191210@Percy: Initialize SP [RedmineID: #121971]
 		- 20200303@Percy: Fix issue wrongly count Active Members and Qualified Members [RedmineID: #121974]
 		- 20210412@Malcolm: Fix wrong number of Deposited member [RedmineID: #152957]
+		- 20240321@Eddie: Change Link Server and metadata "bodbDownlineNet,bodbDownlineNetView" [RedmineID: #202712]
 */
 
 BEGIN
@@ -49,7 +50,7 @@ BEGIN
 
 		INSERT INTO @Signups (WinlostDate, Signups)
 		SELECT CONVERT(DATE, creatdate) AS WinlostDate, COUNT(1) AS Signups
-		FROM DBDEPOSIT.Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+		FROM DBDEPOSIT2.Deposit_DB.dbo.v_Aff_DepCust WITH (NOLOCK)
 		WHERE AffiliateID = @AffId
 			AND creatdate >= @FromBeginMonth AND creatdate < @ToNextMonth
 		GROUP BY CONVERT(DATE, creatdate)

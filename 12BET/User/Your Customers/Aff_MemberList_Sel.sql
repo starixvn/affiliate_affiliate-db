@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_12BET]
 GO
 
@@ -22,6 +22,7 @@ AS
 	
 	Revisions:
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
+		- 20240321@Eddie: Change Link Server and metadata "bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" [RedmineID: #202712]
 
 	Param's Explanation:
 		@MemberType:
@@ -54,8 +55,8 @@ BEGIN
 	
 	DECLARE @sql NVARCHAR(MAX)
 	SELECT  @sql = 'SELECT IBCCustId,CustId,creatdate AS RegisteredDate,firstname,lastname,username,email,currency,phone
-					FROM OPENQUERY(DBDEPOSIT, ''SELECT IBCCustId,CustId,creatdate,firstname,lastname,username,email,currency,phone
-												FROM Deposit_DB.dbo.Deposit_Customer WITH (NOLOCK)
+					FROM OPENQUERY(DBDEPOSIT2, ''SELECT IBCCustId,CustId,creatdate,firstname,lastname,username,email,currency,phone
+												FROM Deposit_DB.dbo.v_Aff_DepCust WITH (NOLOCK)
 												WHERE AffiliateID = ' + CONVERT(VARCHAR(10), @AffId)
 	
 	-- Non-deposit
