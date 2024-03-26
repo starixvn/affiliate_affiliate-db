@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Assign]
 	@UserId		INT,
 	@AffId		INT,
@@ -18,6 +18,7 @@ AS
 		- 20190614@Percy: Add @AffId into log [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20240326@Eddie: Change metadata "bodbAdminNet" [RedmineID: #201095]
 */
 
 BEGIN
