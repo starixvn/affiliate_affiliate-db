@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,wsv_nap" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,wsv_afinet" isFunction="0" isNested="0"></info>*/
 AlTER PROCEDURE [dbo].[Aff_Admin_PlayersDetail_Sel]
 	@AffId			INT
 	,@ProductId		INT = 0
