@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" selecters="wsv_nap" isFunction="1" isNested="1"></info>*/
+/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" selecters="wsv_afinet" isFunction="1" isNested="1"></info>*/
 ALTER FUNCTION [dbo].[Aff_f_MediaType_Sel]
 (
 )

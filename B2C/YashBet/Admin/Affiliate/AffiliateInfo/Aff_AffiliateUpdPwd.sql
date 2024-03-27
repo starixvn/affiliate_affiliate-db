@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="wsv_nap,wsv_alp" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_AffiliateUpdPwd]
 	@AffID INT,
 	@OldPwd NVARCHAR(50) = NULL,

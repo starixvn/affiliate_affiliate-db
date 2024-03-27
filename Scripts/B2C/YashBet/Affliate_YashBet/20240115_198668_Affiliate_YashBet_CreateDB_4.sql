@@ -120,14 +120,11 @@ GO
 /****** Object:  User [wsv_lap]    Script Date: 1/8/2024 12:01:16 AM ******/
 CREATE USER [wsv_lap] FOR LOGIN [wsv_lap] WITH DEFAULT_SCHEMA=[dbo]
 GO
-/****** Object:  User [wsv_alpv]    Script Date: 1/8/2024 12:01:16 AM ******/
-CREATE USER [wsv_alpv] FOR LOGIN [wsv_alpv] WITH DEFAULT_SCHEMA=[dbo]
+/****** Object:  User [wsv_afinet]    Script Date: 1/8/2024 12:01:16 AM ******/
+CREATE USER [wsv_afinet] FOR LOGIN [wsv_afinet] WITH DEFAULT_SCHEMA=[dbo]
 GO
-/****** Object:  User [wsv_alp]    Script Date: 1/8/2024 12:01:16 AM ******/
-CREATE USER [wsv_alp] FOR LOGIN [wsv_alp] WITH DEFAULT_SCHEMA=[dbo]
-GO
-/****** Object:  User [wsv_nap]    Script Date: 1/8/2024 12:01:16 AM ******/
-CREATE USER [wsv_nap] FOR LOGIN [wsv_nap] WITH DEFAULT_SCHEMA=[dbo]
+/****** Object:  User [wsv_afinetv]    Script Date: 1/8/2024 12:01:16 AM ******/
+CREATE USER [wsv_afinetv] FOR LOGIN [wsv_afinetv] WITH DEFAULT_SCHEMA=[dbo]
 GO
 /****** Object:  User [aff_b2c]    Script Date: 1/8/2024 12:01:16 AM ******/
 CREATE USER [aff_b2c] FOR LOGIN [aff_b2c] WITH DEFAULT_SCHEMA=[dbo]

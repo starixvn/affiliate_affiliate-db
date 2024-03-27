@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="wsv_nap" isFunction="0" isNested="1"></info>*/
+/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="wsv_afinet" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE  [dbo].[Aff_Con_AdminGroupUpd]
 	@CustID INT,
 	@UserID INT,
