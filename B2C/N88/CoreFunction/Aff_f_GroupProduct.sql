@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" selecters="bodbAdminNet,wsv_afinet" isFunction="1" isNested="1"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" selecters="bodbAdminNet,wsv_afinet,wsv_aff" isFunction="1" isNested="1"></info>*/
 ALTER FUNCTION [dbo].[Aff_f_GroupProduct]
 (
 )

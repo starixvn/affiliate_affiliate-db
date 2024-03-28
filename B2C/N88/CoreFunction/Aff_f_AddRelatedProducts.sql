@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView,wsv_afinet,wsv_afinetv" isFunction="1" isNested="1"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView,wsv_afinet,wsv_afinetv,wsv_aff,wsv_affv" isFunction="1" isNested="1"></info>*/
 ALTER FUNCTION [dbo].[Aff_f_AddRelatedProducts]
 (
 	@ProductIds VARCHAR(MAX) = ''
