@@ -145,23 +145,8 @@ GO
 /****** Object:  User [vnteam]    Script Date: 1/8/2024 12:02:30 AM ******/
 CREATE USER [vnteam] FOR LOGIN [vnteam] WITH DEFAULT_SCHEMA=[dbo]
 GO
-/****** Object:  User [vnSol]    Script Date: 1/8/2024 12:02:30 AM ******/
-CREATE USER [vnSol] FOR LOGIN [vnSol] WITH DEFAULT_SCHEMA=[dbo]
-GO
-/****** Object:  User [vnDBA]    Script Date: 1/8/2024 12:02:30 AM ******/
-CREATE USER [vnDBA] FOR LOGIN [vnDBA] WITH DEFAULT_SCHEMA=[dbo]
-GO
-/****** Object:  User [vnBrice]    Script Date: 1/8/2024 12:02:30 AM ******/
-CREATE USER [vnBrice] FOR LOGIN [vnBrice] WITH DEFAULT_SCHEMA=[dbo]
-GO
-/****** Object:  User [vnBilly]    Script Date: 1/8/2024 12:02:30 AM ******/
-CREATE USER [vnBilly] FOR LOGIN [vnBilly] WITH DEFAULT_SCHEMA=[dbo]
-GO
 /****** Object:  User [SqlLink]    Script Date: 1/8/2024 12:02:30 AM ******/
 CREATE USER [SqlLink] FOR LOGIN [SqlLink] WITH DEFAULT_SCHEMA=[dbo]
-GO
-/****** Object:  User [rdsvntrack]    Script Date: 1/8/2024 12:02:30 AM ******/
-CREATE USER [rdsvntrack] FOR LOGIN [rdsvntrack] WITH DEFAULT_SCHEMA=[dbo]
 GO
 /****** Object:  User [wsv_lap]    Script Date: 1/8/2024 12:02:30 AM ******/
 CREATE USER [wsv_lap] FOR LOGIN [wsv_lap] WITH DEFAULT_SCHEMA=[dbo]
@@ -172,24 +157,11 @@ GO
 /****** Object:  User [wsv_afinetv]    Script Date: 1/8/2024 12:02:30 AM ******/
 CREATE USER [wsv_afinetv] FOR LOGIN [wsv_afinetv] WITH DEFAULT_SCHEMA=[dbo]
 GO
-/****** Object:  User [aff_b2c]    Script Date: 1/8/2024 12:02:30 AM ******/
-CREATE USER [aff_b2c] FOR LOGIN [aff_b2c] WITH DEFAULT_SCHEMA=[dbo]
-GO
 ALTER ROLE [db_datareader] ADD MEMBER [vnteam]
-GO
-ALTER ROLE [db_datareader] ADD MEMBER [vnSol]
-GO
-ALTER ROLE [db_datareader] ADD MEMBER [vnDBA]
-GO
-ALTER ROLE [db_owner] ADD MEMBER [vnBrice]
-GO
-ALTER ROLE [db_datareader] ADD MEMBER [vnBilly]
 GO
 ALTER ROLE [db_owner] ADD MEMBER [SqlLink]
 GO
 ALTER ROLE [db_denydatawriter] ADD MEMBER [SqlLink]
-GO
-ALTER ROLE [db_datareader] ADD MEMBER [aff_b2c]
 GO
 
 /****** Object:  PartitionFunction [PF_YashBet_SumWinloss_Monthly]    Script Date: 1/8/2024 12:02:30 AM ******/

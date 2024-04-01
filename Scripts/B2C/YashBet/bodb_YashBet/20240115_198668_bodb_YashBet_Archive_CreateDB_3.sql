@@ -92,27 +92,15 @@ GO
 /****** Object:  User [vnteam]    Script Date: 1/11/2024 10:40:30 PM ******/
 CREATE USER [vnteam] FOR LOGIN [vnteam] WITH DEFAULT_SCHEMA=[dbo]
 GO
-/****** Object:  User [vnDBA]    Script Date: 1/11/2024 10:40:30 PM ******/
-CREATE USER [vnDBA] FOR LOGIN [vnDBA] WITH DEFAULT_SCHEMA=[dbo]
-GO
 /****** Object:  User [SqlLink]    Script Date: 1/11/2024 10:40:30 PM ******/
 CREATE USER [SqlLink] FOR LOGIN [SqlLink] WITH DEFAULT_SCHEMA=[dbo]
 GO
-/****** Object:  User [rdsvntrack]    Script Date: 1/11/2024 10:40:30 PM ******/
-CREATE USER [rdsvntrack] FOR LOGIN [rdsvntrack] WITH DEFAULT_SCHEMA=[dbo]
-GO
-/****** Object:  User [wsv_lap]    Script Date: 1/11/2024 10:40:30 PM ******/
-CREATE USER [wsv_lap] FOR LOGIN [wsv_lap] WITH DEFAULT_SCHEMA=[dbo]
-GO
 ALTER ROLE [db_datareader] ADD MEMBER [vnteam]
-GO
-ALTER ROLE [db_datareader] ADD MEMBER [vnDBA]
 GO
 ALTER ROLE [db_owner] ADD MEMBER [SqlLink]
 GO
 ALTER ROLE [db_denydatawriter] ADD MEMBER [SqlLink]
 GO
-
 /****** Object:  Table [dbo].[TpBetRecord_bk]    Script Date: 1/11/2024 10:40:30 PM ******/
 SET ANSI_NULLS ON
 GO
