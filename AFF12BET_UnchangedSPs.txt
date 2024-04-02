@@ -1,27 +1,4 @@
-12BET\Admin\Affiliate\Adjustment\Aff_Admin_Adjustment_Upd.sql
-12BET\Admin\Affiliate\Affiliate Info\Aff_Admin_Affiliate_Favorite_Upd.sql
-12BET\Admin\Affiliate\Affiliate Info\Aff_Admin_Affiliate_Password_Upd.sql
-12BET\Admin\Affiliate\Commission Group\Aff_Admin_CommGroup_Assign.sql
-12BET\Admin\Affiliate\Commission Group\Aff_Admin_CommGroup_Del.sql
-12BET\Admin\Affiliate\Commission Group\Aff_Admin_CommGroup_Ins.sql
-12BET\Admin\Affiliate\Commission Group\Aff_Admin_CommGroup_Upd.sql
-12BET\Admin\Affiliate\Payment Request\Aff_Admin_AffiliatePaymentRequest_Upd.sql
-12BET\Admin\Customer\Adjustment\Aff_Admin_AffiliateAdjustment_Ins.sql
-12BET\Admin\Customer\LeftMenu - Edit\Aff_Admin_AffiliateAffType_Upd.sql
-12BET\Admin\Customer\LeftMenu - Edit\Aff_Admin_AffiliateClosed_Upd.sql
-12BET\Admin\Customer\LeftMenu - Edit\Aff_Admin_AffiliateInfo_Upd.sql
-12BET\Admin\Customer\LeftMenu - Edit\Aff_Admin_AffiliatePreferredLanguage_Upd.sql
-12BET\Admin\Customer\LeftMenu - Edit\Aff_Admin_AffiliateStatus_Upd.sql
-12BET\Admin\Customer\LeftMenu - Edit\Aff_Admin_Affiliate_Approved.sql
-12BET\Admin\Customer\Note\Aff_Admin_AffiliateNote_Ins.sql
-12BET\Admin\Customer\Note\Aff_Admin_AffiliateNote_Upd.sql
-12BET\Core function\Policy\Aff_CheckPermission.sql
-12BET\User\Affiliate\Aff_User_UserInfoUpd.sql
-12BET\User\Password\Aff_User_ForgotPassword.sql
-12BET\User\Password\Aff_User_RecoverPassWord.sql
-12BET\User\Payment\Aff_User_PaymentRequest_Upd.sql
-12BET\User\Signup\Aff_User_Affiliate_Ins.sql
-12BET\Admin\Customer\LeftMenu - Edit\Aff_Admin_AffiliateInfo_Sel.sql
-12BET\User\Login\Aff_f_Get_SecurityQuestions.sql
-12BET\User\Login\Aff_User_SecurityQuestions_Sel.sql
-12BET\Core function\Aff_Admin_MediaCurrency_Sel.sql
+12BET\Admin\Customer\Statistics\Aff_Admin_Statistics_Sel.sql
+12BET\Admin\Report\Affiliate Report\Aff_Admin_AffiliateReport_Detail_Sel.sql
+12BET\Admin\Report\Affiliate Report\Aff_Admin_AffiliateReport_Sel.sql
+12BET\User\Home\Aff_User_Overview_Summary_Sel.sql
