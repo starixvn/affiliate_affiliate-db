@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_DailyEarning_Sel]
 	@AffId		INT,
 	@ProductId	INT = 0,
@@ -17,6 +17,7 @@ AS
 		- 20191210@Percy: Remove get data on bettrans [RedmineID: #121971]
 		- 20210526@Malcolm: Get turnover [RedmineID: #149210]
 		- 20211207@Percy: Apply core function Group Product [RedmineID: #165777]
+		- 20240325@Eddie: Merge VS2 into Virtual Sports and change metadata "bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" [RedmineID: #201095]
 */
 
 BEGIN

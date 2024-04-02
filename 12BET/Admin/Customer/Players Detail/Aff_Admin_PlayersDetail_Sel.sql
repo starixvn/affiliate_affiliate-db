@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_PlayersDetail_Sel]
 	@AffId			INT
 	,@ProductId		INT = 0
@@ -26,6 +26,7 @@ AS
 		- 20210223@Percy: Exclude removed member [RedmineID: #149213]
 		- 20210528@Malcolm: Add filter Date range [RedmineID: #149210]
 		- 20211207@Percy: Apply core function Group Product [RedmineID: #165777]
+		- 20240325@Eddie: Merge VS2 into Virtual Sports and change metadata "bodbAdminNet" [RedmineID: #201095]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
