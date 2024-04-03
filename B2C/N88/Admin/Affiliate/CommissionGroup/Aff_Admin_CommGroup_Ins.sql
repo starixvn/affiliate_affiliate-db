@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,wsv_afinet,wsv_aff" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Ins]
 	@UserId				INT
 	,@GroupId			INT = 0 OUTPUT
@@ -25,6 +25,7 @@ AS
 		- 20210714@Percy: Add @StraightList for P2P Setting [RedmineID: #157958]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20230404@Malcolm: Add sub commission rate [RedmineID: #185481]
+		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 
 	Parameter's Explanation:
 		- @DeductionList:
@@ -104,7 +105,7 @@ BEGIN
 	INSERT INTO @DeductionSetting (GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
 	SELECT GroupProductId, ds.DeductionId, ISNULL(CONVERT(INT, f.val), 0), ISNULL(ds.DeductedPercentage, 0), ISNULL(ds.DeductedAmount, 0), ISNULL(ds.IsDeductedPercent, 0)
 	FROM CTE_DeductionSetting ds
-		OUTER APPLY dbo.Aff_f_StringSplit(ds.ProductIds, ',') f
+		OUTER APPLY dbo.Aff_f_StringSplit(dbo.Aff_f_AddRelatedProducts(ds.ProductIds), ',') f
 	OPTION (OPTIMIZE FOR (@DeductionList = NULL), MAXRECURSION 0)
 
 	UPDATE @DeductionSetting
@@ -191,7 +192,7 @@ BEGIN
 	INSERT INTO @StraightSetting (ProductId, GroupProductId, DeductedPercentage, Commission)
 	SELECT ISNULL(CONVERT(INT, f.val), 0), s.GroupProductId, ISNULL(s.DeductedPercentage, 0), ISNULL(s.Commission, 0)
 	FROM CTE_StraightSetting s
-		OUTER APPLY dbo.Aff_f_StringSplit(s.ProductIds, ',') f
+		OUTER APPLY dbo.Aff_f_StringSplit(dbo.Aff_f_AddRelatedProducts(s.ProductIds), ',') f
 	OPTION (OPTIMIZE FOR (@StraightList = NULL), MAXRECURSION 0)
 
 	-- Check full products

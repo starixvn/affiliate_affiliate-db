@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,wsv_afinet,wsv_aff" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Sel]
 	@GroupId INT = 0,
 	@GroupName NVARCHAR(100) = NULL,
@@ -17,6 +17,7 @@ AS
 		- 20210714@Percy: Output more table for P2P Setting [RedmineID: #157958]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20230404@Malcolm: Get sub commission rate [RedmineID: #185481]
+		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 */
 
 BEGIN
@@ -107,9 +108,12 @@ BEGIN
 		STUFF(
 			(SELECT	',' + CONVERT(VARCHAR(10), d.ProductId)
 				FROM dbo.DeductionSetting d WITH (NOLOCK)
-				WHERE ds.GroupId			= d.GroupId
+					LEFT JOIN dbo.Aff_f_GroupProduct() gp ON d.ProductID = gp.ProductId 
+														AND gp.ProductId <> gp.GroupProductId 										
+				WHERE gp.ProductId IS NULL
+					AND ds.GroupId			= d.GroupId
 					AND ds.DeductionId		= d.DeductionId
-					AND ds.GroupProductId = d.GroupProductId
+					AND ds.GroupProductId	= d.GroupProductId
 					AND d.ProductId			<> 0
 				FOR XML PATH (''))
 				, 1, 1, '') AS ProductIds,
@@ -136,7 +140,11 @@ BEGIN
 		STUFF(
 			(SELECT	',' + CONVERT(VARCHAR(10), s.ProductId)
 				FROM dbo.StraightSetting s WITH (NOLOCK)
-				WHERE ss.GroupId			= s.GroupId
+					LEFT JOIN dbo.Aff_f_GroupProduct() gp 
+										ON s.ProductID = gp.ProductId 
+										AND gp.ProductId <> gp.GroupProductId 										
+				WHERE gp.ProductId IS NULL
+					AND ss.GroupId			= s.GroupId
 					AND ss.GroupProductId	= s.GroupProductId
 					AND s.ProductId			<> 0
 				FOR XML PATH (''))

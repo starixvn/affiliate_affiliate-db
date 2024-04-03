@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView,wsv_afinet,wsv_afinetv,wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_StatementHistory_Sel]
 	@AffId			INT
 	,@BaseCurrency	INT = 0

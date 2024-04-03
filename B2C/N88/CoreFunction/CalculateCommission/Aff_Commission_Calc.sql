@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="1"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView,wsv_afinet,wsv_afinetv,wsv_aff,wsv_affv" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Commission_Calc]
 	@AffIds				VARCHAR(MAX) = 'all'
 	,@FromMonthDate		SMALLDATETIME
@@ -22,6 +22,7 @@ AS
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 		- 20230612@Sally: Enhance Share % Commission in Report [RedmineID: #189425]
+		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -193,6 +194,8 @@ BEGIN
 		END
 		ELSE
 		BEGIN
+			SET @ProductIds = dbo.Aff_f_AddRelatedProducts(@ProductIds)
+
 			UPDATE c
 				SET c.Turnover	= ISNULL(d.Turnover, 0)
 					,c.Winloss	= ISNULL(d.Winloss, 0)
