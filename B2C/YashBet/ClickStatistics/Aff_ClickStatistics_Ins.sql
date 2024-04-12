@@ -1,6 +1,6 @@
 /*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_ClickStatistics_Ins]
-	@AffId				INT
+	@AffCode			VARCHAR(20)
 	,@AffDomain			NVARCHAR(50) = ''
 	,@PageCode			VARCHAR(50) = ''
 	,@LanguageCode		VARCHAR(5) = 'en'
@@ -30,10 +30,16 @@ AS
 
 	Revisions:  
 		- 20240115@Sally: Initialize SP [RedmineID: #198909]
+		- 20240412@Sally: Support change format RedirectURL [RedmineID: #198909]
 */
 
 BEGIN
 	SET NOCOUNT ON
+	DECLARE @AffId INT = NULL
+
+	SELECT @AffId = ac.AffId
+	FROM dbo.AffiliateCode ac WITH(NOLOCK)
+	WHERE ac.AffCode = @AffCode
 
 	IF COALESCE(@IP, '') = ''
 	BEGIN
@@ -84,7 +90,7 @@ BEGIN
 		END
 
 		-- Replace Affilliate domain by Licensee domain to redirect to licensee site
-		SELECT @RedirectPage = CASE WHEN @IsSSL = 1 THEN 'https' ELSE 'http' END + '://' + @LicenseeDomain + '/' + @LanguageCode + '/' + @PageCode + '/Register?aff=' + CONVERT(VARCHAR(20), @AffId)
+		SELECT @RedirectPage = CASE WHEN @IsSSL = 1 THEN 'https' ELSE 'http' END + '://' + @LicenseeDomain + '/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
 	END
 
 	-- Insert into ClickStatistics
