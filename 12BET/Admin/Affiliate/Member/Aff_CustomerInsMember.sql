@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff" isFunction="0" isNested="1"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="1"></info>*/
 CREATE PROCEDURE [dbo].[Aff_CustomerInsMember] 
 	@IBCCustID 			INT
 	,@AffID 			INT
@@ -26,6 +26,7 @@ Revisions:
 	- 20210423@Malcolm: Get currency name[RedmineId : #152449]
 	- 20231116@Eddie: Change Datatype of @Username [RedmineID: #196948]
 	- 20240321@Eddie: Change Link Server and metadata "bodbAdminNet" [RedmineID: #202712]
+	- 20231013@Eddie: Use createdate for assigndate in memberinfo if member is not the assigned member [RedmineID: #180516]
 */
 BEGIN
 	SET NOCOUNT ON
@@ -57,6 +58,7 @@ BEGIN
 		,ISNULL(c.LanguageCode, 'none') 	AS LanguageCode
 		,ISNULL(c.URLReferrer, 'none') 		AS URLReferrer
 		,ISNULL(c.DeviceType, 0) 			AS DeviceType
+		,CURRENT_TIMESTAMP 					AS AssignDate
 	INTO #depositMember
 	FROM [DBDEPOSIT2].deposit_db.dbo.v_Aff_DepCust d WITH (NOLOCK)
 		LEFT JOIN dbo.ClickStatistics1 c WITH (NOLOCK) ON d.ClickID = c.ClickID
@@ -79,6 +81,7 @@ BEGIN
 		,Email
 		,RegisteredDate
 		,ClickId
+		,AssignDate
 		)
 	SELECT IBCCustID
 		,AffID
@@ -94,6 +97,7 @@ BEGIN
 		,Email
 		,RegisteredDate
 		,ClickId
+		,AssignDate
 	FROM #depositMember d
 	WHERE RegisteredDate IS NOT NULL
 
@@ -180,5 +184,3 @@ BEGIN
 		,@Language	= 'en-US'
 END
 GO
-
-
