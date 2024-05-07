@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView,wsv_afinet,wsv_afinetv,wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_SubAffiliate_Commission_Sel]
 	@AffId			INT
 	,@MonthDate		SMALLDATETIME
@@ -22,6 +22,8 @@ AS
 		- 20210714@Percy: Include P2P Earning into Monthly Earning [RedmineID: #157958]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20230404@Malcolm: Get sub commission rate [RedmineID: #185481]
+		- 20240502@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
+
 */
 
 BEGIN
@@ -76,6 +78,7 @@ BEGIN
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
+			NetTurnover			MONEY,
 			ActivePlayer		INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
@@ -104,6 +107,7 @@ BEGIN
 			WithdrawalFee,
 			GrossWinloss,
 			NetWinloss,
+			NetTurnover,
 			ActivePlayer,
 			CommissionRate,
 			Commission,

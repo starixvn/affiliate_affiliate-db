@@ -16,6 +16,8 @@ AS
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Include P2P Earning into Monthly Earning [RedmineID: #157958]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
+		- 20240506@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
+
 */
 
 BEGIN
@@ -79,6 +81,7 @@ BEGIN
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
+			NetTurnover			MONEY,
 			ActivePlayer		INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
@@ -113,6 +116,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
+				NetTurnover,
 				ActivePlayer,
 				CommissionRate,
 				Commission,
@@ -151,6 +155,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
+				NetTurnover,
 				ActivePlayer,
 				CommissionRate,
 				Commission,

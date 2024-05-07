@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView,wsv_afinet,wsv_afinetv,wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_StatementHistory_Sel] 
 	@AffId		INT,
 	@FDate		SMALLDATETIME = NULL,
@@ -18,13 +18,19 @@ AS
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Include P2P Earning into Monthly Earning [RedmineID: #157958]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
+		- 20240502@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
+
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @MinReportDate SMALLDATETIME
-	SELECT  @MinReportDate = dbo.Aff_f_GetMinReportDate(@AffId)
+		,@EndOfTDate DATETIME
+
+	DECLARE @AffGroupInfo TABLE (MonthDate SMALLDATETIME, GroupTypeName NVARCHAR(100))
+
+	SELECT  @MinReportDate = dbo.Aff_f_GetMinReportDate(@AffId)	
 
 	IF @FDate IS NULL OR @TDate IS NULL
 		SELECT @FDate = @MinReportDate, @TDate = CONVERT(DATE, GETDATE())
@@ -38,6 +44,14 @@ BEGIN
 
 	IF @FDate > @TDate
 		RETURN
+
+	SELECT @EndOfTDate = EOMONTH(@TDate) -- Last day of @TDate
+	
+	-- Get GroupType Info
+	INSERT INTO @AffGroupInfo (MonthDate, GroupTypeName)
+	SELECT af.MonthDate
+		,af.GroupTypeName
+	FROM dbo.Aff_f_AffGroupInfo_Sel(@FDate, @EndOfTDate, CONVERT(VARCHAR(20), @AffId)) af
 
 	CREATE TABLE #tempData
 	(
@@ -134,7 +148,7 @@ BEGIN
 		END
 
 		-- Uncalculated months
-		DECLARE @AffIds VARCHAR(MAX)
+		DECLARE @AffIds VARCHAR(20)
 		SELECT  @AffIds = CONVERT(VARCHAR(20), @AffId)
 
 		IF @TDate > @MaxCommDate
@@ -164,6 +178,7 @@ BEGIN
 				-- Calculation
 				GrossWinloss		MONEY,
 				NetWinloss			MONEY,
+				NetTurnover			MONEY,
 				ActivePlayer		INT,
 				CommissionRate		FLOAT,
 				Commission			MONEY,
@@ -192,6 +207,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
+				NetTurnover,
 				ActivePlayer,
 				CommissionRate,
 				Commission,
@@ -269,12 +285,12 @@ BEGIN
 
 	SELECT
 		TransId,
-		MonthDate,
+		result.MonthDate,
 		TransType,
 		Amount,
 		Status,
 		Creator,
-		Description,
+		CASE WHEN result.TransType = 201 THEN CONCAT(RESULT.Description,' (',ag.GroupTypeName,')')ELSE  Description END AS Description,
 		CalculatedType
 	FROM
 	(
@@ -290,6 +306,7 @@ BEGIN
 			DENSE_RANK() OVER(ORDER BY MonthDate DESC, CASE WHEN TransType IN (201, 204) THEN 0 ELSE TransId END DESC) AS RowNum
 		FROM #tempData
 	) AS result
+		LEFT JOIN @AffGroupInfo ag ON ag.MonthDate = result.MonthDate
 	WHERE RowNum BETWEEN @RowStart AND @RowEnd
 
 	DROP TABLE #tempData

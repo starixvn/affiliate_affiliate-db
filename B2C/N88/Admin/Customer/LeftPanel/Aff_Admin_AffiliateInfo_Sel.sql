@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateInfo_Sel]
 	@AffId		INT = NULL,
 	@Username	NVARCHAR(50) = NULL
@@ -17,6 +17,7 @@ AS
 		- 20200107@Percy: Add suspended status [RedmineID: #148373]
 		- 20211005@Percy: Support Transfer Balance For Player [RedmineID: #153227]
 		- 20230809@Sally: Add Player_CustId [RedmineID: #192191]
+		- 20240506@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
 
 */
 
@@ -51,6 +52,7 @@ BEGIN
 		ai.IsLocked,
 		ad.LastLoginDate,
 		ad.LastLoginIP,
+		cg.GroupTypeId,
 		-- Personal Information
 		ai.UserName,
 		ai.UserName2,

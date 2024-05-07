@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView,wsv_afinet,wsv_afinetv,wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_StatementHistory_Sel]
 	@AffId			INT
 	,@BaseCurrency	INT = 0
@@ -20,6 +20,7 @@ AS
 		- 20230130@Malcolm: Correct the total number of output lines [RedmineId: #181455]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
+		- 20240503@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -182,6 +183,7 @@ BEGIN
 				-- Calculation
 				GrossWinloss		MONEY,
 				NetWinloss			MONEY,
+				NetTurnover			MONEY,
 				ActivePlayer		INT,
 				CommissionRate		FLOAT,
 				Commission			MONEY,
@@ -210,6 +212,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
+				NetTurnover,
 				ActivePlayer,
 				CommissionRate,
 				Commission,
@@ -276,6 +279,18 @@ BEGIN
 		END
 	END
 
+	-- Get GroupType Info
+	DECLARE @FromDate DATETIME 
+		,@ToDate DATETIME
+	SELECT @FromDate = MIN(MonthDate), @ToDate = MAX(MonthDate)
+	FROM #tempData
+
+	DECLARE @AffGroupInfo TABLE (MonthDate SMALLDATETIME, GroupTypeName NVARCHAR(100))
+	INSERT INTO @AffGroupInfo (MonthDate, GroupTypeName)
+	SELECT af.MonthDate
+		,af.GroupTypeName
+	FROM dbo.Aff_f_AffGroupInfo_Sel(@FromDate, @ToDate, CONVERT(VARCHAR(20), @AffId)) af
+
 	-- Return data
 	SELECT @NRows = COUNT(1) FROM #tempData WHERE ISNULL(TransType, 0) <> 204
 
@@ -285,11 +300,11 @@ BEGIN
 	SELECT  @RowEnd = @RowStart + @PageSize - 1
 
 	SELECT
-		MonthDate,
+		result.MonthDate,
 		TransType,
 		Amount,
-		Status,
-		Description,
+		[Status],
+		CASE WHEN result.TransType = 201 THEN CONCAT(result.[Description],' (',ag.GroupTypeName,')')ELSE  [Description] END AS Description,
 		CalculatedType
 	FROM
 	(
@@ -297,12 +312,13 @@ BEGIN
 			MonthDate,
 			TransType,
 			Amount,
-			Status,
-			Description,
+			[Status],
+			[Description],
 			CalculatedType,
 			DENSE_RANK() OVER(ORDER BY MonthDate DESC, CASE WHEN TransType IN (201, 204) THEN 0 ELSE TransId END DESC) AS RowNum
 		FROM #tempData
 	) AS result
+		LEFT JOIN @AffGroupInfo ag ON ag.MonthDate = result.MonthDate
 	WHERE RowNum BETWEEN @RowStart AND @RowEnd
 
 	DROP TABLE #tempData

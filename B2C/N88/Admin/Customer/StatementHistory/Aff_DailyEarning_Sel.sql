@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView,wsv_afinet,wsv_afinetv,wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_DailyEarning_Sel]
 	@AffId			INT
 	,@ProductId		INT = 0
@@ -22,6 +22,7 @@ AS
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
+		- 20240503@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -81,16 +82,18 @@ BEGIN
 			,Deposit	MONEY
 			,Withdrawal	MONEY
 			,GGR		MONEY
+			,Turnover	MONEY
 			,Bonus		MONEY
 			,Rebate		MONEY
 		)
 
-		INSERT INTO #Data (WinlostDate, Deposit, Withdrawal, Bonus, Rebate, GGR)
+		INSERT INTO #Data (WinlostDate, Deposit, Withdrawal, Bonus, Rebate, Turnover, GGR)
 		SELECT r.WinlostDate
 			,SUM(ISNULL(r.Deposit * e.Rate, 0))		AS Deposit
 			,SUM(ISNULL(r.Withdrawal * e.Rate, 0))	AS Withdrawal
 			,SUM(ISNULL(r.Bonus * e.Rate, 0))		AS Bonus
 			,SUM(ISNULL(r.Rebate * e.Rate, 0))		AS Rebate
+			,SUM(ISNULL(r.Turnover * e.Rate, 0))	AS Turnover
 			,SUM(ISNULL(CASE WHEN p.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0)
 							ELSE -(r.Winloss - ISNULL(r.ProgressiveWin, 0)) - ISNULL(r.ProgressiveBet, 0) END * e.Rate, 0)) AS GGR
 		FROM dbo.rptMemberDaily r WITH (NOLOCK)
@@ -110,7 +113,7 @@ BEGIN
 	-- Return data
 	BEGIN
 		-- Detail
-		SELECT WinlostDate, Deposit, Withdrawal, GGR, Bonus, Rebate
+		SELECT WinlostDate, Deposit, Withdrawal, GGR, Turnover, Bonus, Rebate
 		FROM #Data
 		ORDER BY WinlostDate
 
@@ -119,6 +122,7 @@ BEGIN
 			SUM(Deposit)		AS Deposit
 			,SUM(Withdrawal)	AS Withdrawal
 			,SUM(GGR)			AS GGR
+			,SUM(Turnover)		AS Turnover
 			,SUM(Bonus)			AS Bonus
 			,SUM(Rebate)		AS Rebate
 		FROM #Data

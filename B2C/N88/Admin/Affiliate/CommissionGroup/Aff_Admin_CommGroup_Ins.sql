@@ -1,10 +1,11 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,wsv_afinet,wsv_aff" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Ins]
 	@UserId				INT
 	,@GroupId			INT = 0 OUTPUT
 	,@SubCommRate		DECIMAL(9,8)
 	,@IsPrivate			BIT = 0
 	,@GroupName			NVARCHAR(100) = ''
+	,@GroupTypeId		INT = 1
 	,@Description		NVARCHAR(100) = NULL
 	,@DeductionList		XML = NULL
 	,@TierList			XML = NULL
@@ -26,6 +27,7 @@ AS
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20230404@Malcolm: Add sub commission rate [RedmineID: #185481]
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
+		- 20240425@Sally: Calculate commission by Turnover [RedmineID: #203756]
 
 	Parameter's Explanation:
 		- @DeductionList:
@@ -34,6 +36,8 @@ AS
 				<row id="10" productids="4,5" percent="0.15" amount="0" isdeductedpercent="1" />
 				<row id="11" productids="0" percent="0" amount="100" isdeductedpercent="0" />
 				<row id="12" productids="0" percent="0.02" amount="0" isdeductedpercent="1" />
+				<row id="16" productids="1,2,3" percent="0.17" amount="0" isdeductedpercent="1" />
+				<row id="16" productids="4,5" percent="0.15" amount="0" isdeductedpercent="1" />
 			</root>
 		- @TierList:
 			<root>
@@ -242,8 +246,8 @@ BEGIN
 
 	BEGIN TRY
 		-- General information
-		INSERT INTO dbo.CommGroup (GroupName, CreatedDate, Creator, IsPrivate, SubCommRate, Description)
-		VALUES (@GroupName, GETDATE(), @UserId, @IsPrivate, @SubCommRate, @Description)
+		INSERT INTO dbo.CommGroup (GroupName, CreatedDate, Creator, IsPrivate, SubCommRate, Description, GroupTypeId)
+		VALUES (@GroupName, GETDATE(), @UserId, @IsPrivate, @SubCommRate, @Description, @GroupTypeId)
 
 		SELECT @GroupId = SCOPE_IDENTITY()
 
@@ -298,6 +302,7 @@ BEGIN
 	SELECT  @Data =
 		'GroupId='		+ ISNULL(CONVERT(VARCHAR(10), @GroupId), '') + ',' +
 		'GroupName='	+ ISNULL(@GroupName, '') + ',' +
+		'GroupTypeId='	+ ISNULL(CONVERT(VARCHAR(10), @GroupTypeId), '') + ',' +
 		'IsPrivate='	+ ISNULL(CONVERT(VARCHAR(1), @IsPrivate), '') + ',' +
 		'Description='	+ ISNULL(@Description, '') + ',' +
 		'DeductionList='+ ISNULL(CONVERT(NVARCHAR(MAX), @DeductionList), '') + ',' +

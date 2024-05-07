@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,wsv_afinet,wsv_aff" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Detail_Sel]
 	@Username			NVARCHAR(50)
 	,@FromDate			SMALLDATETIME
@@ -9,6 +9,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Detail_Sel]
 	,@BaseCurrency		INT = 0
 	,@SortType			TINYINT = 1
 	,@SortDirectionType	BIT = 0
+	,@EarningType		VARCHAR(50) = 'all'
 	,@IsExportExcel		BIT = 0
 	,@PageIndex			INT = 1
 	,@PageSize			INT = 50
@@ -37,6 +38,11 @@ AS
 		- @ProductIds: list of products
 		- @BaseCurrency : Currency of B2C
 		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
+		- @EarningTypes:
+			. Winloss : Earning By Winloss 
+			. Turnover: Earning By Turnover
+			. all	  : All
+		
 
 */
 
@@ -76,11 +82,11 @@ BEGIN
 	END
 
 	SELECT @NRows = DATEDIFF(MONTH, @FromDate, @ToDate) + 1
-	
+
 	IF @NRows <= 0
 		RETURN
 
-	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME, RowIdx INT)
+	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME, RowIdx INT, EarningBy VARCHAR(50))
 	;WITH CTE_MonthDate AS
 	(
 		SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate) + 1, 0)) AS MonthDate
@@ -89,8 +95,11 @@ BEGIN
 		FROM CTE_MonthDate
 		WHERE MonthDate < @ToDate
 	)
-	INSERT INTO @MonthDate (MonthDate)
-	SELECT MonthDate FROM CTE_MonthDate
+	INSERT INTO @MonthDate (MonthDate, EarningBy)
+	SELECT m.MonthDate, af.GroupTypeBy
+	FROM CTE_MonthDate m
+		INNER JOIN dbo.Aff_f_AffGroupInfo_Sel(@FromDate, @ToDate, CONVERT(VARCHAR(20), @AffId)) af ON af.MonthDate= m.MonthDate
+	WHERE (@EarningType ='all' OR GroupTypeBy = @EarningType)
 	OPTION (MAXRECURSION 0)
 
 	DECLARE @MaxCommDate SMALLDATETIME
@@ -133,6 +142,7 @@ BEGIN
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
+			NetTurnover			MONEY,
 			ActivePlayer		INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
@@ -166,6 +176,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
+				NetTurnover,
 				ActivePlayer,
 				CommissionRate,
 				Commission,
@@ -208,6 +219,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
+				NetTurnover,
 				ActivePlayer,
 				CommissionRate,
 				Commission,
@@ -368,6 +380,7 @@ BEGIN
 	-- Return detail
 	SELECT
 		md.MonthDate,
+		md.EarningBy,
 		CASE
 			WHEN md.MonthDate >= GETDATE() THEN 'Temporary'
 			WHEN md.MonthDate > @MaxCommDate THEN 'Uncalculated'
@@ -476,3 +489,4 @@ BEGIN
 	DROP TABLE #Statistics
 END
 GO
+
