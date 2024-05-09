@@ -1,0 +1,146 @@
+/*<info serverAlias="DBAFFYASHBET-Affiliate_YashBet" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[Aff_Admin_Banner_Upd]
+	@UserId			INT
+	,@BannerId		INT
+	,@Files			XML
+	,@TargetId		TINYINT
+	,@Categories	VARCHAR(MAX)
+	,@SubCategories	VARCHAR(MAX)
+	,@Language		VARCHAR(50)
+	,@Currencies	VARCHAR(MAX)
+	,@AffTypes		VARCHAR(MAX)
+	,@DeviceTypes	VARCHAR(MAX)
+	,@IP			VARCHAR(20) = ''
+	,@ErrCode		INT = 0 OUTPUT
+	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+AS
+
+/*
+	Created: 20240115@Sally
+	DB: DBAFFYASHBET-Affiliate_YashBet
+	Task: Admin - Media Gallery - Banner - Update
+
+	Revisions:
+		- 20240115@Sally: Initialize SP [RedmineID: #198909]
+
+	Param's Explanation:
+		- @TargetId:
+			1: Member banner
+			2: Affiliate banner
+*/
+
+BEGIN
+	SET NOCOUNT ON
+
+	-- Check permission
+	EXEC dbo.Aff_Con_CheckPermission
+		@CustId		= @UserId
+		,@FuncName	= '[Media]'
+		,@ErrCode	= @ErrCode OUTPUT
+		,@ErrMsg	= @ErrMsg OUTPUT
+
+	IF @ErrCode <> 0
+		RETURN
+
+	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
+	SELECT  @OldData = 'BannerId=' + ISNULL(CONVERT(VARCHAR(10), MediaId), '')
+						+ ',' + 'TargetId=' + ISNULL(CONVERT(VARCHAR(10), TargetId), '')
+						+ ',' + 'FileName=' + ISNULL(FileName, '')
+						+ ',' + 'Size=' + ISNULL(Size, '')
+						+ ',' + 'Categories=' + ISNULL(Categories, '')
+						+ ',' + 'Language=' + ISNULL(Language, '')
+						+ ',' + 'Currencies=' + ISNULL(Currencies, '')
+						+ ',' + 'AffTypes=' + ISNULL(AffTypes, '')
+						+ ',' + 'DeviceTypes=' + ISNULL(DeviceTypes, '')
+	FROM dbo.MediaGallery WITH (NOLOCK)
+	WHERE MediaId = @BannerId
+		AND TargetId = @TargetId
+		AND ImageType = 'Image'
+
+	IF @@ROWCOUNT = 0
+	BEGIN
+		SELECT @ErrCode = 101, @ErrMsg = 'Error occurs. Banner does not exist.'
+		RETURN
+	END
+
+	DECLARE @tblBanner TABLE (FileName NVARCHAR(200), Size VARCHAR(50))
+
+	BEGIN TRY
+		INSERT INTO @tblBanner (FileName, Size)
+		SELECT
+			FileName	=  t.c.value('@FileName', 'NVARCHAR(200)')
+			,Size		=  t.c.value('@Size', 'VARCHAR(50)')
+		FROM @Files.nodes('root/row') AS t(c)
+		OPTION (OPTIMIZE FOR (@Files = NULL))
+	END TRY
+	BEGIN CATCH
+		SELECT @ErrCode = 102, @ErrMsg = 'Error occurs. Invalid input params.'
+		RETURN
+	END CATCH
+
+	-- Check input params
+	IF (SELECT COUNT(1) FROM @tblBanner) > 1
+	BEGIN
+		SELECT @ErrCode = 103, @ErrMsg = 'Error occurs. Invalid input params.'
+		RETURN
+	END
+
+	IF EXISTS (
+		SELECT 1
+		FROM dbo.MediaGallery m WITH (NOLOCK)
+			INNER JOIN @tblBanner b ON m.FileName = b.FileName
+		WHERE m.TargetId = @TargetId
+			AND m.ImageType = 'Image'
+			AND m.MediaId <> @BannerId
+	)
+	BEGIN
+		SELECT @ErrCode = 104, @ErrMsg = 'Error occurs. FileName has already been existed.'
+		RETURN
+	END
+
+	DECLARE @FileName NVARCHAR(200), @Size VARCHAR(50)
+	SELECT  @FileName = FileName, @Size= Size FROM @tblBanner
+
+	BEGIN TRY
+		UPDATE dbo.MediaGallery WITH (ROWLOCK)
+		SET FileName		= @FileName
+			,Size			= @Size
+			,Categories		= @Categories
+			,SubCategories	= @SubCategories
+			,Language		= @Language
+			,Currencies		= @Currencies
+			,AffTypes		= @AffTypes
+			,DeviceTypes	= @DeviceTypes
+			,UpdatedBy		= @UserId
+			,UpdatedDate	= GETDATE()
+		WHERE MediaId		= @BannerId
+	END TRY
+	BEGIN CATCH
+		SELECT @ErrCode = 105, @ErrMsg = 'Error occurs. Update unsuccessfully.'
+		RETURN
+	END CATCH
+
+	-- Write log
+	DECLARE @SPName VARCHAR(200)
+	SELECT  @SPName = OBJECT_NAME(@@PROCID)
+
+	SELECT  @NewData = 'BannerId=' + ISNULL(CONVERT(VARCHAR(10), @BannerId), '')
+						+ ',' + 'TargetId=' + ISNULL(CONVERT(VARCHAR(10), @TargetId), '')
+						+ ',' + 'FileName=' + ISNULL(@FileName, '')
+						+ ',' + 'Size=' + ISNULL(@Size, '')
+						+ ',' + 'Categories=' + ISNULL(@Categories, '')
+						+ ',' + 'Language=' + ISNULL(@Language, '')
+						+ ',' + 'Currencies=' + ISNULL(@Currencies, '')
+						+ ',' + 'AffTypes=' + ISNULL(@AffTypes, '')
+						+ ',' + 'DeviceTypes=' + ISNULL(@DeviceTypes, '')
+	
+	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
+		@UserId		= @UserId
+		,@AffId		= 0
+		,@SPName	= @SPName
+		,@OldData	= @OldData
+		,@NewData	= @NewData
+		,@IP		= @IP
+		,@Language	= 'en-US'
+END
+GO
