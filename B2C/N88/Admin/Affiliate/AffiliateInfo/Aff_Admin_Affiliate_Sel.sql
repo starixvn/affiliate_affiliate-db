@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Affiliate_Sel] 
 	@UserId 			INT,
 	@GroupIds 			VARCHAR(MAX)	= '',
@@ -29,6 +29,7 @@ AS
 		- 20210622@Percy: Support search Affiliate player [RedmineID: #157299]
 		- 20210819@Percy: Count all players [RedmineID: #160414]
 		- 20210914@Percy: Support multiple revenue group filter + Return AffCode [RedmineID: #161488]
+		- 20240509@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
@@ -92,6 +93,7 @@ BEGIN
 		ParentAffId,
 		ParentAffName,
 		AffId,
+		GroupTypeId,
 		Username,
 		AffCode,
 		FirstName,
@@ -119,6 +121,7 @@ BEGIN
 			ai.ParentAffId,
 			p.UserName AS ParentAffName,
 			ai.AffId,
+			cg.GroupTypeId,
 			ai.Username,
 			ai.AffCode,
 			ai.FirstName,
