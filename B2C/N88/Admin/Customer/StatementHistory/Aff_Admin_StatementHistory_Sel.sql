@@ -18,7 +18,7 @@ AS
 		- 20210317@Percy: Change commission formula [RedmineID: #151391]
 		- 20210714@Percy: Include P2P Earning into Monthly Earning [RedmineID: #157958]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
-		- 20240502@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
+		- 20240502@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
 
 */
 
@@ -290,7 +290,7 @@ BEGIN
 		Amount,
 		Status,
 		Creator,
-		CASE WHEN result.TransType = 201 THEN CONCAT(RESULT.Description,' (',ag.GroupTypeName,')')ELSE  Description END AS Description,
+		CASE WHEN result.TransType = 201 AND ISNULL(ag.GroupTypeName, '') <> '' THEN CONCAT(RESULT.Description,' (',ag.GroupTypeName,')')ELSE  Description END AS Description,
 		CalculatedType
 	FROM
 	(

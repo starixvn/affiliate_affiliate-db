@@ -304,7 +304,7 @@ BEGIN
 		TransType,
 		Amount,
 		[Status],
-		CASE WHEN result.TransType = 201 THEN CONCAT(result.[Description],' (',ag.GroupTypeName,')')ELSE  [Description] END AS Description,
+		CASE WHEN result.TransType = 201 AND ISNULL(ag.GroupTypeName, '') <> '' THEN CONCAT(result.[Description],' (',ag.GroupTypeName,')')ELSE  [Description] END AS Description,
 		CalculatedType
 	FROM
 	(
