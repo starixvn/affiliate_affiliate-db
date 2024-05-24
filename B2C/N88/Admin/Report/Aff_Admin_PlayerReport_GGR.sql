@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,wsv_afinet,wsv_aff" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_PlayerReport_GGR]
 	@AffUsername	VARCHAR(50) = ''
 	,@Username		VARCHAR(50) = ''
@@ -23,6 +23,7 @@ AS
 		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
+		- 20240524@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
 
 	Param's Explanation:
 		- @ProductIds: list of products, '' = no product
@@ -60,7 +61,7 @@ BEGIN
 
 	CREATE TABLE #ProductSetting (AffId INT, AffUsername VARCHAR(50), ProductId INT, FromDate SMALLDATETIME, ToDate SMALLDATETIME, IsStraightSetting BIT)
 	INSERT INTO #ProductSetting (AffId, AffUsername, ProductId, FromDate, ToDate, IsStraightSetting)
-	SELECT a.AffId, a.AffUsername, dsh.ProductId, DATEADD(MONTH, DATEDIFF(MONTH, 0, dsh.MonthDate), 0), dsh.MonthDate, 0
+	SELECT DISTINCT a.AffId, a.AffUsername, dsh.ProductId, DATEADD(MONTH, DATEDIFF(MONTH, 0, dsh.MonthDate), 0), dsh.MonthDate, 0
 	FROM @AffInfo a
 		INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON a.AffId = agh.AffId
 		INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupId = dsh.GroupId AND agh.MonthDate = dsh.MonthDate
@@ -68,7 +69,7 @@ BEGIN
 	WHERE agh.MonthDate BETWEEN @FromDate AND @LastDayOfToDate
 
 	INSERT INTO #ProductSetting (AffId, AffUsername, ProductId, FromDate, ToDate, IsStraightSetting)
-	SELECT a.AffId, a.AffUsername, ssh.ProductId, DATEADD(MONTH, DATEDIFF(MONTH, 0, ssh.MonthDate), 0), ssh.MonthDate, 1
+	SELECT DISTINCT a.AffId, a.AffUsername, ssh.ProductId, DATEADD(MONTH, DATEDIFF(MONTH, 0, ssh.MonthDate), 0), ssh.MonthDate, 1
 	FROM @AffInfo a
 		INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON a.AffId = agh.AffId
 		INNER JOIN dbo.StraightSettingHistory ssh WITH (NOLOCK) ON agh.GroupId = ssh.GroupId AND agh.MonthDate = ssh.MonthDate
