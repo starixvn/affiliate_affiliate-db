@@ -1,7 +1,7 @@
 /*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G"  isFunction="0" isNested="0"></info>*/
 /*
 	Created: 20240422@Sally
-	DB: DBN88-bodb_N88
+	DB: DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G
 	Task:  Calculate commission by Turnover [RedmineID: #203756]
 	Step 1:
 		- Add Config GroupType
