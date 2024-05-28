@@ -23,6 +23,7 @@ AS
 		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 		- 20240503@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
+		- 20240528@Sally: Apply Currencies filter [RedmineID: #205599]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -103,6 +104,7 @@ BEGIN
 		WHERE r.AffId = @AffId
 			AND r.WinlostDate BETWEEN @BeginOfMonth AND @EndOfMonth
 			AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
+			AND ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%'
 			AND NOT EXISTS (
 				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 				WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
