@@ -1,7 +1,8 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,wsv_afinet,wsv_aff" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Sel]
 	@GroupId INT = 0,
 	@GroupName NVARCHAR(100) = NULL,
+	@GroupTypeId INT = NULL,
 	@PageIndex	INT = 1,
 	@PageSize	INT = 20,
 	@NRows		INT = 0 OUTPUT
@@ -18,6 +19,8 @@ AS
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20230404@Malcolm: Get sub commission rate [RedmineID: #185481]
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
+		- 20240426@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
+
 */
 
 BEGIN
@@ -50,6 +53,7 @@ BEGIN
 		WHERE (@GroupId = 0 OR cg.GroupId = @GroupId)
 			AND cg.IsDeleted = 0
 			AND cg.GroupName LIKE '%' + ISNULL(@GroupName, '') + '%'
+			AND (cg.GroupTypeId = @GroupTypeId OR @GroupTypeId IS NULL)
 			AND EXISTS (SELECT 1 FROM dbo.TierSetting t WITH (NOLOCK) WHERE cg.GroupId = t.GroupId)
 			AND EXISTS (
 				SELECT 1 FROM dbo.Deductions d WITH (NOLOCK)
@@ -67,6 +71,9 @@ BEGIN
 		g.RowIDX,
 		g.GroupId,
 		cg.GroupName,
+		cg.GroupTypeId,
+		gt.GroupTypeName,
+		gt.GroupTypeBy,
 		cg.CreatedDate,
 		au.Username AS Creator,
 		cg.Description,
@@ -75,6 +82,7 @@ BEGIN
 		ISNULL(n.NoAffs, 0) AS NoAffs
 	FROM dbo.CommGroup cg WITH (NOLOCK)
 		INNER JOIN @Group g ON cg.GroupId = g.GroupId
+		INNER JOIN dbo.GroupType gt WITH (NOLOCK) ON gt.GroupTypeId = cg.GroupTypeId
 		LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON cg.Creator = au.custid
 		OUTER APPLY (
 			SELECT COUNT(1) AS NoAffs FROM dbo.AffInfo ai WITH (NOLOCK) WHERE ai.GroupId = g.GroupId

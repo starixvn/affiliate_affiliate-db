@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView,wsv_afinet,wsv_afinetv,wsv_aff,wsv_affv" isFunction="0" isNested="1"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Commission_Calc]
 	@AffIds				VARCHAR(MAX) = 'all'
 	,@FromMonthDate		SMALLDATETIME
@@ -23,6 +23,7 @@ AS
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 		- 20230612@Sally: Enhance Share % Commission in Report [RedmineID: #189425]
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
+		- 20240426@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -103,6 +104,7 @@ BEGIN
 		-- Calculation
 		GrossWinloss		MONEY DEFAULT (0),
 		NetWinloss			MONEY DEFAULT (0),
+		NetTurnover			MONEY DEFAULT (0),
 		ActivePlayer		INT DEFAULT (0),
 		CommissionRate		DECIMAL(9,8) DEFAULT (0),
 		Commission			MONEY DEFAULT (0),
@@ -126,16 +128,16 @@ BEGIN
 		-- Total
 		INSERT INTO #Commission (
 			MonthDate, AffId, GroupId, ProductId, Deposit, Withdrawal, Bonus, Rebate, Turnover, Winloss, Revenue
-			,P2PFee, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee, GrossWinloss, NetWinloss, ActivePlayer, CommissionRate
+			,P2PFee, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee, GrossWinloss, NetWinloss, NetTurnover, ActivePlayer, CommissionRate
 		)
 		SELECT
 			r.MonthDate, r.AffId, r.GroupId, 0 AS ProductId, r.Deposit, r.Withdrawal, r.Bonus, r.Rebate, r.Turnover, r.Winloss, r.Revenue
-			,r.P2PFee, r.PlatFormFee, r.OperationalFee, r.DepositFee, r.WithdrawalFee, r.GrossWinloss, r.NetWinloss, r.ActivePlayer, r.CommissionRate
+			,r.P2PFee, r.PlatFormFee, r.OperationalFee, r.DepositFee, r.WithdrawalFee, r.GrossWinloss, r.NetWinloss, r.NetTurnover, r.ActivePlayer, r.CommissionRate
 		FROM @MonthDate md
 			CROSS APPLY (
 				SELECT
 					r.MonthDate, r.AffId, r.GroupId, r.Deposit, r.Withdrawal, r.Bonus, r.Rebate, r.Turnover, r.Winloss, r.Revenue
-					,r.P2PFee, r.PlatFormFee, r.OperationalFee, r.DepositFee, r.WithdrawalFee, r.GrossWinloss, r.NetWinloss, r.ActivePlayer, r.CommissionRate
+					,r.P2PFee, r.PlatFormFee, r.OperationalFee, r.DepositFee, r.WithdrawalFee, r.GrossWinloss, r.NetWinloss, r.NetTurnover, r.ActivePlayer, r.CommissionRate
 				FROM dbo.rptAffCommission r WITH (NOLOCK)
 				WHERE r.MonthDate = md.MonthDate
 					AND (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), r.AffId) + ',%')
@@ -177,6 +179,7 @@ BEGIN
 			c.WithdrawalFee		= c.WithdrawalFee * e.Rate,
 			c.GrossWinloss		= c.GrossWinloss * e.Rate,
 			c.NetWinloss		= c.NetWinloss * e.Rate,
+			c.NetTurnover		= c.NetTurnover * e.Rate,
 			c.Commission		= c.Commission * e.Rate,
 			c.StraightCommission= c.StraightCommission * e.Rate,
 			c.SubAffCommission	= c.SubAffCommission * e.Rate
@@ -252,6 +255,7 @@ BEGIN
 			SUM(WithdrawalFee)		AS WithdrawalFee,
 			SUM(GrossWinloss)		AS GrossWinloss,
 			SUM(NetWinloss)			AS NetWinloss,
+			SUM(NetTurnover)		AS NetTurnover,
 			SUM(ActivePlayer)		AS ActivePlayer,
 			MAX(CommissionRate)		AS CommissionRate,
 			SUM(Commission)			AS Commission,
@@ -285,6 +289,7 @@ BEGIN
 			WithdrawalFee,
 			GrossWinloss,
 			NetWinloss,
+			NetTurnover,
 			ActivePlayer,
 			CommissionRate,
 			Commission,

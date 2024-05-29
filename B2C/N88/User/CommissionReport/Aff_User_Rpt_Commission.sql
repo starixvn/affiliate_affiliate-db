@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView,wsv_afinet,wsv_afinetv,wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_Rpt_Commission]
 	@AffId			INT
 	,@Winlostdate	SMALLDATETIME
@@ -18,6 +18,7 @@ AS
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20230404@Malcolm: Get sub commission rate [RedmineID: #185481]
 		- 20240220@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
+		- 20240502@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
 */
 
 BEGIN
@@ -75,6 +76,7 @@ BEGIN
 			-- Calculation
 			GrossWinloss		MONEY,
 			NetWinloss			MONEY,
+			NetTurnover			MONEY,
 			ActivePlayer		INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
@@ -111,6 +113,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
+				NetTurnover,
 				ActivePlayer,
 				CommissionRate,
 				Commission,
@@ -157,6 +160,7 @@ BEGIN
 				WithdrawalFee,
 				GrossWinloss,
 				NetWinloss,
+				NetTurnover,
 				ActivePlayer,
 				CommissionRate,
 				Commission,
@@ -164,7 +168,7 @@ BEGIN
 				SubAffCommission,
 				IsMultiGroupProduct
 			)
-			EXEC dbo.Aff_Commission_Calc
+			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= @AffIds,
 				@FromMonthDate		= @tempFromDate,
 				@ToMonthDate		= @tempToDate,
@@ -174,6 +178,12 @@ BEGIN
 				@GetRowTotalOnly	= 0
 		END
 	END
+
+	DECLARE @AffGroupInfo TABLE (MonthDate SMALLDATETIME, EarningBy VARCHAR(50))
+	INSERT INTO @AffGroupInfo (MonthDate, EarningBy)
+	SELECT af.MonthDate
+		,af.GroupTypeBy
+	FROM dbo.Aff_f_AffGroupInfo_Sel(@FromDate, @ToDate, @AffIds) af
 
 	-- Return Data
 	;WITH CTE_SubCommRate AS
@@ -216,6 +226,7 @@ BEGIN
 			d.CalculatedType
 	)
 	SELECT d.MonthDate,
+		ag.EarningBy,
 		d.ProductId,
 		d.ProductName,
 		d.Turnover,
@@ -234,8 +245,10 @@ BEGIN
 		d.SubCommRate,
 		d.CalculatedType
 	FROM CTE_CommResult d
+		INNER JOIN @AffGroupInfo ag ON ag.MonthDate = d.MonthDate
 	ORDER BY d.MonthDate DESC, d.ProductId ASC
 
 	DROP TABLE #TempCommission
 END
 GO
+

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,wsv_afinet,wsv_aff" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Upd]
 	@UserId				INT
 	,@GroupId			INT
@@ -25,6 +25,7 @@ AS
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20230404@Malcolm: Add sub commission rate [RedmineID: #185481]
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
+		- 20240426@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
 
 	Parameter's Explanation:
 		- @DeductionList:
@@ -33,6 +34,8 @@ AS
 				<row id="10" productids="4,5" percent="0.15" amount="0" isdeductedpercent="1" />
 				<row id="11" productids="0" percent="0" amount="100" isdeductedpercent="0" />
 				<row id="12" productids="0" percent="0.02" amount="0" isdeductedpercent="1" />
+				<row id="16" productids="1,2,3" percent="0.17" amount="0" isdeductedpercent="1" />
+				<row id="16" productids="4,5" percent="0.15" amount="0" isdeductedpercent="1" />
 			</root>
 		- @TierList:
 			<root>
