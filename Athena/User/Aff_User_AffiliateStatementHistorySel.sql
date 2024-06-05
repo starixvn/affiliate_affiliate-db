@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_AffiliateStatementHistorySel]  
 	@AffId		INT,
 	@PageSize	INT = 50,
@@ -16,6 +16,7 @@ AS
 		+ 20130813@Don: Fixed bug [Statement history - Data in Satement history table is not ordered] (redmine.nexcel.vn/issues/4327)
 		- 20180208@Alex  : Support Liecnsee admin portal #90545
 		- 20211222@Percy: Merge SLT to SB [RedmineID: #165777]
+		- 20240606@Eddie: Enhance Adjustment Function with description for user's view [RedmineId : #205432]
 
 	Param's Explanation:  
 		• @AffID: Affiliate custid  
@@ -55,7 +56,7 @@ BEGIN
 		END AS Creator
 		,CASE
 			WHEN at.TransType = 202 THEN ISNULL(ap.AffDesc, at.Description)
-			WHEN at.TransType = 203 THEN ''
+			WHEN at.TransType = 203 THEN at.AffDescription
 			ELSE at.Description
 		END AS Description
 	FROM dbo.AffTrans at WITH (NOLOCK)
