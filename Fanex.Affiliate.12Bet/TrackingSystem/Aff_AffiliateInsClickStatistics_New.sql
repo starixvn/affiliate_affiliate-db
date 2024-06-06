@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbDownlineNet,bodbDownlineNetView" viewers="" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" viewers="" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_12BET]
 GO
 
@@ -46,6 +46,7 @@ Revisions:
 	- 20220919@Eddie : Get country code by IP [RedmineID: #176390]
 	- 20231124@Eddie: use TargetCountryCode to check AffDomain and PageCode [RedmineID: #181590]
 	- 20240129@Eddie: remove hardcoding for 'promotion' pagecode [RedmineID: #200168]
+	- 20240604@Eddie: Support to config redirect link for specific affiliate [RedmineID: #206066]
 	 
 Param's Explanation:   
 	- @DeviceType: 0-PC & 1-Mobile
@@ -137,7 +138,7 @@ BEGIN
 			  AND oam.CountryCode = @TargetCountryCode
 			  AND lp.PageCode = @PageCode
 		)
-		SELECT @CheckAffDomain = CASE WHEN ISNULL(ad.DomainName, '') = '' THEN 0 ELSE 1 END
+		SELECT @CheckAffDomain = CASE WHEN ISNULL(ad.DomainName, '') = '' AND @AffDomain <> 'join.best5689.com' THEN 0 ELSE 1 END
 			 , @CheckPageCode  = CASE WHEN ISNULL(clp.PageCode, '') = '' THEN 0 ELSE 1 END
 		FROM CTE_AffDomain AS ad
 			FULL OUTER JOIN CTE_LandingPage AS clp ON clp.PageCode = @PageCode
@@ -166,8 +167,15 @@ BEGIN
 			AND a.MarketID NOT IN ('es-ES')-- not use Spanish
 			AND a.TargetCountryCode = @TargetCountryCode
 
-		--Replace Aff Domain by 12bet domain to redirect to 12bet site
-		SET @RedirectPage = CASE WHEN @DomainName IS NOT NULL THEN @W3Http + '://' + @DomainName + '/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}' ELSE @Default12Betdomain END
+		IF @AffDomain = 'join.best5689.com' AND @AffUsername = '12BETAFF16000'
+		BEGIN
+			SET @RedirectPage = 'https://www.620elv.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
+		END
+		ELSE
+		BEGIN
+			--Replace Aff Domain by 12bet domain to redirect to 12bet site
+			SET @RedirectPage = CASE WHEN @DomainName IS NOT NULL THEN @W3Http + '://' + @DomainName + '/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}' ELSE @Default12Betdomain END
+		END
 	END
 	ELSE
 	BEGIN --This aff is special aff and pagecode = '12betcasino'
