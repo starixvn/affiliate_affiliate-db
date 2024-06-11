@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Statistics_Sel] 
 	@AffID		INT,
 	@MonthDate	SMALLDATETIME
@@ -17,6 +17,7 @@ AS
 		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 		- 20230731@Eddie: 'ExchangeWinlossShare' and 'ExchangeCommShare' out of use [RedmineID: #189569]
 		- 20240321@Eddie: Change Link Server and metadata "bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" [RedmineID: #202712]
+		- 20240611@Eddie: Add new Product VS3&4 and change metadata "wsv_aff,wsv_affv" [RedmineId : #206363]
 */
 
 BEGIN

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_GeneralInfo_Sel]
 	@Languages VARCHAR(MAX)
 AS
@@ -17,6 +17,7 @@ AS
 		- 20230802@Eddie: 'ExchangeWinlossShare' and 'ExchangeCommShare' out of use [RedmineID: #189569]
 		- 20231108@Eddie: Remove 'image banners' and 'flash banners' statistics [RedmineID: #181590]
 		- 20240325@Eddie: Merge VS2 into Virtual Sports and change metadata "bodbAdminNet" [RedmineID: #201095]
+		- 20240611@Eddie: Add new Product VS3&4 and change metadata "wsv_aff" [RedmineId : #206363]
 */
 
 BEGIN

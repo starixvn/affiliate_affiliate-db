@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	@Username				NVARCHAR(50) = NULL
 	,@FromDate				SMALLDATETIME
@@ -31,6 +31,7 @@ AS
 		- 20230208@Bobby: Implement Bonus & FDM Setting [RedmineId : #191139]
 		- 20230802@Eddie: 'ExchangeWinlossShare' and 'ExchangeCommShare' out of use [RedmineID: #189569]
 		- 20240321@Eddie: Change Link Server and metadata "bodbAdminNet" [RedmineID: #202712]
+		- 20240611@Eddie: Add new Product VS3&4 and change metadata "wsv_aff" [RedmineId : #206363]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: Winloss, 4: Earning (Commission)

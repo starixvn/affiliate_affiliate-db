@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" selecters="wsv_aff" isFunction="1" isNested="1"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" selecters="wsv_afinet" isFunction="1" isNested="1"></info>*/
 ALTER FUNCTION [dbo].[Aff_f_GroupProduct] ()
 RETURNS TABLE
 AS
@@ -12,6 +12,7 @@ AS
 		- 20211207@Percy: Initialize function [RedmineID: #165777]
 		- 20220601@Malcolm: Add bitcoin [RedmineID: #172701]
 		- 20240304@Eddie: Merge VS2 into Virtual Sports and change metadata "bodbAdminNet,bodbDownlineNet" [RedmineID: #201095]
+		- 20240611@Eddie: Add new Product VS3&4 and change metadata "wsv_aff" [RedmineId : #206363]
 */
 
 RETURN
@@ -28,4 +29,6 @@ RETURN
 	-- VS
 	UNION ALL SELECT 5, 'Virtual Sports', 'VS', 5, 'Virtual Sports', 'VS' -- Virtual Sports
 	UNION ALL SELECT 7, 'Virtual Sports 2', 'VS2', 5, 'Virtual Sports', 'VS' -- Virtual Sports 2
+	UNION ALL SELECT 43, 'Virtual Sports 3', 'LG', 5, 'Virtual Sports', 'VS' -- Virtual Sports 3
+	UNION ALL SELECT 44, 'Virtual Sports 4', 'VS4', 5, 'Virtual Sports', 'VS' -- Virtual Sports 4
 GO
