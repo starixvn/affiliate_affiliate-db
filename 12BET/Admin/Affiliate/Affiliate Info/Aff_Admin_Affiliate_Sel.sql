@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Affiliate_Sel] 
 	@UserId 			 INT
 	,@GroupID 			 INT			= 0
@@ -32,6 +32,7 @@ AS
 		- 20210817@Malcolm: Get processing request [RedmineID: #159570]
 		- 20220214@Malcolm: Exclude Status Rejected and Cancelled when getting BFF  [RedmineID: #1]
 		- 20231027@Eddie: Get TargetCountry [RedmineId : #181590]
+		- 20240701@Sally: Enhance add ChangeFirstName, ChangeLastName [RedmineID: #206806]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
@@ -140,7 +141,7 @@ BEGIN
 			,e2.Currency AS PlayerCurrency
 			,ad.Phone
 			,ad.Player_Username
-			,CONVERT(VARCHAR(10), ISNULL(pr.Draft, 0)) + '/' + CONVERT(VARCHAR(10), ISNULL(pr.Submitted, 0)) + '/' +  CONVERT(VARCHAR(10), ISNULL(pr.Approved,0)) + '/' +  CONVERT(VARCHAR(10), ISNULL(pr.Rejected, 0)) AS ProcessingStatus
+			,CONVERT(VARCHAR(10), ISNULL(pr.KIV, 0)) + '/' + CONVERT(VARCHAR(10), ISNULL(pr.Draft, 0)) + '/' + CONVERT(VARCHAR(10), ISNULL(pr.Submitted, 0)) + '/' +  CONVERT(VARCHAR(10), ISNULL(pr.Approved,0)) + '/' +  CONVERT(VARCHAR(10), ISNULL(pr.Rejected, 0)) AS ProcessingStatus
 			,ROW_NUMBER() OVER (ORDER BY
 						CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN ai.Username END ASC,
 						CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN ai.Username END DESC,
@@ -174,6 +175,7 @@ BEGIN
 			) at ON at.AffId = ai.AffId
 			LEFT JOIN (
 			    SELECT AffId
+						,COUNT(CASE WHEN Status = 'KIV' THEN 1 ELSE NULL END) AS KIV
 					   ,COUNT(CASE WHEN Status = 'Draft' THEN 1 ELSE NULL END) AS Draft
 					   ,COUNT(CASE WHEN Status = 'Submitted' THEN 1 ELSE NULL END) AS Submitted
 					   ,COUNT(CASE WHEN Status = 'Approved' THEN 1 ELSE NULL END) AS Approved

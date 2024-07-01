@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE dbo.Aff_Admin_ProcessingRequest_Upd
 	@RequestId				INT
 	,@UserId				INT
@@ -7,6 +7,8 @@ CREATE PROCEDURE dbo.Aff_Admin_ProcessingRequest_Upd
 	,@MarketID				NVARCHAR(10)	= ''
 	,@PreferredPayment		VARCHAR(20)		= ''
 	,@Player_Username		VARCHAR(100)	= ''
+	,@ChangeFirstName		NVARCHAR(100)	= ''
+	,@ChangeLastName		NVARCHAR(100)	= ''
 	,@PromotionMethod		NVARCHAR(1000)	= ''
 	,@Webrank				NVARCHAR(1000)	= ''
 	,@WebRegDate			NVARCHAR(1000)	= ''
@@ -36,6 +38,8 @@ AS
 	Task: Admin Site - Affiliate - Processing Request - Update processing request
 	Revisions:
 		- 20210817@Malcolm: Initialize SP [RedmineID: #159570]
+		- 20240628@Sally: Enhance add ChangeFirstName, ChangeLastName [RedmineID: #206806]
+
 */
 
 BEGIN
@@ -76,6 +80,8 @@ BEGIN
 		,SwiftCode_Ins				NVARCHAR(50)
 		,AccountName_Ins			NVARCHAR(100)
 		,AccountNo_Ins				VARCHAR(100)
+		,ChangeFirstName_Ins		NVARCHAR(100)
+		,ChangeLastName_Ins			NVARCHAR(100)
 		,LastModified_Ins			DATETIME
 		,Approver_Ins				INT
 		,ApprovalDate_Ins			DATETIME
@@ -102,6 +108,8 @@ BEGIN
 		,SwiftCode_Del				NVARCHAR(50)
 		,AccountName_Del			NVARCHAR(100)
 		,AccountNo_Del				VARCHAR(100)
+		,ChangeFirstName_Del		NVARCHAR(100)
+		,ChangeLastName_Del			NVARCHAR(100)
 		,LastModified_Del			DATETIME
 		,Approver_Del				INT
 		,ApprovalDate_Del			DATETIME
@@ -130,8 +138,10 @@ BEGIN
 			,Wire_SwiftCode			= @BankSwiftCode
 			,Wire_AccountName		= @BankAccountName
 			,Wire_AccountNo			= @BankAccountNo
+			,ChangeFirstName		= @ChangeFirstName
+			,ChangeLastName			= @ChangeLastName
 			,SubmittedDate			= CASE WHEN @Status = 'Submitted' AND Status <> 'Submitted' THEN GETDATE() ELSE SubmittedDate END
-			,LastModified			= CASE WHEN @Status IN ('Draft', 'Submitted')	THEN GETDATE() ELSE LastModified  END
+			,LastModified			= CASE WHEN @Status IN ('Draft', 'Submitted', 'KIV')		THEN GETDATE() ELSE LastModified  END
 			,ApprovalDate			= CASE WHEN @Status IN ('Approved', 'Rejected') AND Status <> @Status THEN GETDATE() ELSE ApprovalDate  END
 			,Approver				= CASE WHEN @Status IN ('Approved', 'Rejected') AND Status <> @Status THEN @UserId   ELSE Approver	  END
 	OUTPUT 
@@ -158,6 +168,8 @@ BEGIN
 		,inserted.Wire_SwiftCode			
 		,inserted.Wire_AccountName		
 		,inserted.Wire_AccountNo
+		,INSERTED.ChangeFirstName
+		,INSERTED.ChangeLastName
 		,inserted.LastModified		
 		,inserted.Approver				
 		,inserted.ApprovalDate			
@@ -184,6 +196,8 @@ BEGIN
 		,deleted.Wire_SwiftCode			
 		,deleted.Wire_AccountName		
 		,deleted.Wire_AccountNo	
+		,DELETED.ChangeFirstName
+		,DELETED.ChangeLastName
 		,deleted.LastModified		
 		,deleted.Approver				
 		,deleted.ApprovalDate
@@ -212,6 +226,8 @@ BEGIN
 		,SwiftCode_Ins			
 		,AccountName_Ins		
 		,AccountNo_Ins	
+		,ChangeFirstName_Ins
+		,ChangeLastName_Ins
 		,LastModified_Ins		
 		,Approver_Ins				
 		,ApprovalDate_Ins
@@ -238,6 +254,8 @@ BEGIN
 		,SwiftCode_Del			
 		,AccountName_Del		
 		,AccountNo_Del	
+		,ChangeFirstName_Del
+		,ChangeLastName_Del
 		,LastModified_Del	
 		,Approver_Del			
 		,ApprovalDate_Del
@@ -277,6 +295,8 @@ BEGIN
 									,u.SwiftCode_Del				 AS '@SwiftCode'			
 									,u.AccountName_Del				 AS '@AccountName'		
 									,u.AccountNo_Del				 AS '@AccountNo'	
+									,u.ChangeFirstName_Del			 AS '@ChangeFirstName_Del'
+									,u.ChangeLastName_Del			 AS '@ChangeLastName_Del'
 								FROM @UpdateData u
 									LEFT JOIN dbo.Market m WITH(NOLOCK) ON m.MarketId = u.MarketID_Del
 								FOR XML PATH('row'), ROOT('root')
@@ -309,6 +329,8 @@ BEGIN
 									,u.SwiftCode_Ins							AS '@SwiftCode'			
 									,u.AccountName_Ins							AS '@AccountName'		
 									,u.AccountNo_Ins							AS '@AccountNo'	
+									,u.ChangeFirstName_Ins						AS '@ChangeFirstName_Ins'
+									,u.ChangeLastName_Ins						AS '@ChangeLastName_Ins'
 								FROM @UpdateData u
 									LEFT JOIN dbo.Market m WITH(NOLOCK) ON m.MarketId = u.MarketID_Ins
 								FOR XML PATH('row'), ROOT('root')

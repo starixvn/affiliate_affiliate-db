@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE dbo.Aff_Admin_ProcessingRequestDetail_Sel
 	@RequestId INT
 AS
@@ -9,6 +9,8 @@ AS
 	Task: Admin Site - Affiliate - Processing Request detail
 	Revisions:
 		- 20210817@Malcolm: Initialize SP [RedmineID: #159570]
+		- 20240701@Sally: Enhance add ChangeFirstName, ChangeLastName [RedmineID: #206806]
+
 */
 
 BEGIN
@@ -32,6 +34,8 @@ BEGIN
 		,m.MarketName
 		,pr.PreferredPayment
 		,pr.Player_Username
+		,pr.ChangeFirstName
+		,pr.ChangeLastName
 		,pr.PromotionMethod
 		,pr.WebRank
 		,pr.WebRegDate

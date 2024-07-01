@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE dbo.Aff_Admin_ProcessingRequest_Ins
 	 @Username				NVARCHAR(50)
 	,@UserId				INT
@@ -7,6 +7,8 @@ CREATE PROCEDURE dbo.Aff_Admin_ProcessingRequest_Ins
 	,@MarketID				NVARCHAR(10)	= ''
 	,@PreferredPayment		VARCHAR(20)		= ''
 	,@Player_Username		VARCHAR(100)	= ''
+	,@ChangeFirstName		NVARCHAR(100)	= ''
+	,@ChangeLastName		NVARCHAR(100)	= ''
 	,@PromotionMethod		NVARCHAR(1000)	= ''
 	,@WebRank				NVARCHAR(1000)	= ''
 	,@WebRegDate			NVARCHAR(1000)	= ''
@@ -36,6 +38,16 @@ AS
 	Task: Admin Site - Affiliate - Processing Request - Add processing request
 	Revisions:
 		- 20210817@Malcolm: Initialize SP [RedmineID: #159570]
+		- 20240628@Sally: Enhance add ChangeFirstName, ChangeLastName [RedmineID: #206806]
+
+	Param's Explanation:
+		- @Status 
+			. Draft
+			. KIV
+			. Submitted
+			. Approved
+			. Rejected
+			
 */
 
 BEGIN
@@ -93,6 +105,8 @@ BEGIN
 		,Wire_SwiftCode
 		,Wire_AccountName
 		,Wire_AccountNo
+		,ChangeFirstName
+		,ChangeLastName
 	)
 	VALUES 
 	(
@@ -125,6 +139,8 @@ BEGIN
 		,@BankSwiftCode
 		,@BankAccountName
 		,@BankAccountNo
+		,@ChangeFirstName
+		,@ChangeLastName
 	)
 	
 	SELECT @RequestId = SCOPE_IDENTITY()
@@ -161,6 +177,8 @@ BEGIN
 								,@BankSwiftCode							AS '@BankSwiftCode'
 								,@BankAccountName						AS '@BankAccountName'
 								,@BankAccountNo							AS '@BankAccountNo'
+								,@ChangeFirstName						AS '@ChangeFirstName'
+								,@ChangeLastName						AS '@ChangeLastName'
 							FOR XML PATH ('row'), ROOT ('root')
 					  ))
 
