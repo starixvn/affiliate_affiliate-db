@@ -13,7 +13,6 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	,@SortDirectionType	BIT = 0
 	,@IsExcludeNegvBBF			BIT = 0
 	,@IsExcludeNegvCurrentBBF	BIT = 0
-	,@IsExcludeAFFTest	BIT = 1
 	,@IsExportExcel		BIT = 0
 	,@PageIndex			INT = 1
 	,@PageSize			INT = 50
@@ -53,6 +52,13 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
+	
+	DECLARE @IsExcludeAFFTest BIT = 1
+
+	IF (@IsExcludeNegvBBF = 0 AND @IsExcludeNegvCurrentBBF = 0)
+	BEGIN
+		SET @IsExcludeAFFTest = 0
+	END
 
 	IF @FromDate IS NULL OR @ToDate IS NULL
 		RETURN
