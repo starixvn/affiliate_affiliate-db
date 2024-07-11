@@ -13,6 +13,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	,@SortDirectionType	BIT = 0
 	,@IsExcludeNegvBBF			BIT = 0
 	,@IsExcludeNegvCurrentBBF	BIT = 0
+	,@IsExcludeAFFTest	BIT = 1
 	,@IsExportExcel		BIT = 0
 	,@PageIndex			INT = 1
 	,@PageSize			INT = 50
@@ -411,6 +412,7 @@ BEGIN
 				CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ISNULL(tc.Commission, 0) END DESC) AS RowIdx
 		FROM dbo.AffInfo ai WITH (NOLOCK)
 			INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+			INNER JOIN bodb_N88.dbo.Customer c WITH(NOLOCK) ON ad.Player_CustId = c.CustId
 			LEFT JOIN #Signup su ON ai.AffId = su.AffId
 			LEFT JOIN #AffTrans at ON ai.AffId = at.AffId
 			LEFT JOIN (
@@ -460,6 +462,7 @@ BEGIN
 				)
 			)
 			AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate)
+			AND (c.IsTest = 0 OR @IsExcludeAFFTest = 0)
 			AND	1 = (CASE
 						WHEN @IsExcludeNegvBBF = 0 AND @IsExcludeNegvCurrentBBF = 0 THEN 1
 						WHEN @IsExcludeNegvBBF = 1 AND @IsExcludeNegvCurrentBBF = 0 AND ISNULL(at.BFF,0) >= 0 THEN 1
