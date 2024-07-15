@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[AffAdmin_StatementHistorySel] 
 	@AffId INT
 	,@TransType VARCHAR(100) = NULL
@@ -22,6 +22,7 @@ AS
 		- 20180208@Alex  : Support Liecnsee admin portal #90545
 		- 20211222@Percy: Merge SLT to SB [RedmineID: #165777]
 		- 20230515@Eddie: Data show matching with selected statuses[RedmineID: #188218]
+		- 20240611@Eddie: Enhance Adjustment Function with description for user's view [RedmineId : #205432]
 
 	Param's Explanation:    
 		• @AffID: Affiliate custid    
@@ -77,7 +78,9 @@ BEGIN
 			WHEN at.TransType = 202 AND at.Status IN ('Pending', 'Cancelled') THEN @UserName
 			ELSE at.AdminUserName
 		END AS Creator
-		,CASE WHEN at.TransType = 202 THEN ap.AdminDesc ELSE at.Description END AS Description
+		,CASE at.TransType WHEN 202 THEN ap.AdminDesc
+						   WHEN 203 THEN 'Admin note: ' + ISNULL(at.Description, '') + '<br>' + 'Affiliate note: ' + ISNULL(at.AffDescription, '')
+						   ELSE at.Description END AS Description
 	FROM dbo.AffTrans at WITH (NOLOCK)
 		LEFT JOIN dbo.AffPayout ap WITH (NOLOCK) ON at.RefId = ap.RefId
 	WHERE at.AffId = @AffId

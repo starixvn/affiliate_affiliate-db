@@ -1,9 +1,10 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateAdjustment_Ins]
 	@AffID		INT
 	,@UserID	INT
 	,@Amount	MONEY
-	,@Transdesc	NVARCHAR(300) = ''
+	,@AdminDesc	NVARCHAR(300) = ''
+	,@AffDesc	NVARCHAR(300) = ''
 	,@TransID	BIGINT = 0 OUTPUT
 	,@IP		VARCHAR(20) = ''
 	,@ErrCode	INT = 0 OUTPUT
@@ -19,6 +20,7 @@ AS
 		- 20190614@Percy: Initialize SP [RedmineID: #109008]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20240605@Eddie: Enhance Adjustment Function with description for user's view [RedmineId : #205432]
 */
 
 BEGIN
@@ -71,8 +73,8 @@ BEGIN
 	END
 
 	BEGIN TRY
-		INSERT INTO dbo.AffTrans (AffID,TransDate,CompletedDate,Amount,Status,Description,Creator,Currency,TransType,AffExRate)
-			VALUES (@AffID,GETDATE(),GETDATE(),@Amount,'Completed',@Transdesc,@UserID,@Currency,203,@AffExRate)
+		INSERT INTO dbo.AffTrans (AffID, TransDate, CompletedDate, Amount, Status, Description, AffDescription, Creator, Currency, TransType, AffExRate)
+			VALUES (@AffID, GETDATE(), GETDATE(), @Amount, 'Completed', @AdminDesc, @AffDesc, @UserID, @Currency, 203, @AffExRate)
 	END TRY
 	BEGIN CATCH
 		-- This transaction is unsuccessful.

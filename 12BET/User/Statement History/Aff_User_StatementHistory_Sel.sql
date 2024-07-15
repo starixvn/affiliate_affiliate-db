@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_StatementHistory_Sel]
 	@UserId			INT = NULL -- for internal login
 	,@AffId			INT
@@ -23,6 +23,7 @@ AS
 		- 20230804@Eddie: 'ExchangeWinlossShare' and 'ExchangeCommShare' out of use [RedmineID: #189569]
 		- 20240325@Eddie: Merge VS2 into Virtual Sports and change metadata "bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" [RedmineID: #201095]
 		- 20240611@Eddie: Add new Product VS3&4 and change metadata "wsv_aff,wsv_affv" [RedmineId : #206363]
+		- 20240606@Eddie: Enhance Adjustment Function with description for user's view [RedmineId : #205432]
 */
 
 BEGIN
@@ -83,7 +84,7 @@ BEGIN
 			,CASE WHEN at.TransType = 202 THEN ABS(at.Amount) ELSE at.Amount END AS Amount
 			,CASE WHEN at.TransType = 202 THEN at.Status 	  ELSE 'B/F' 	 END AS Status
 			,CASE at.TransType WHEN 202 THEN ap.AffDesc 
-							   WHEN 203 THEN '' 
+							   WHEN 203 THEN at.AffDescription
 							   ELSE at.Description END AS Description
 		FROM dbo.AffTrans at WITH (NOLOCK)
 			LEFT JOIN dbo.AffPayout ap WITH (NOLOCK) ON at.RefID = ap.RefID AND at.TransType = 202

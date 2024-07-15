@@ -25,6 +25,7 @@ AS
 		- 20230801@Eddie: 'ExchangeWinlossShare' and 'ExchangeCommShare' out of use [RedmineID: #189569]
 		- 20240325@Eddie: Merge VS2 into Virtual Sports and change metadata "bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" [RedmineID: #201095]
 		- 20240611@Eddie: Add new Product VS3&4 and change metadata "wsv_aff,wsv_affv" [RedmineId : #206363]
+		- 20240610@Eddie: Enhance Adjustment Function with description for user's view [RedmineId : #205432]
 */
 
 BEGIN
@@ -106,7 +107,9 @@ BEGIN
 			,CASE WHEN at.TransType = 202 THEN ABS(at.Amount) ELSE at.Amount END AS Amount
 			,CASE WHEN at.TransType = 202 THEN at.Status ELSE 'B/F' END AS Status
 			,ISNULL(u.UserName, 'System') AS Creator
-			,CASE WHEN at.TransType = 202 THEN ap.AdminDesc ELSE at.Description END AS Description
+			,CASE at.TransType WHEN 202 THEN ap.AdminDesc 
+							   WHEN 203 THEN 'Admin note: ' + ISNULL(at.Description, '') + '<br>' + 'Affiliate note: ' + ISNULL(at.AffDescription, '')
+							   ELSE at.Description END AS Description
 		FROM dbo.AffTrans at WITH (NOLOCK)
 			LEFT JOIN dbo.AffPayout ap WITH (NOLOCK) ON at.RefID = ap.RefID AND at.TransType = 202
 			LEFT JOIN dbo.Users u WITH (NOLOCK) ON at.Creator = u.CustId
