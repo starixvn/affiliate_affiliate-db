@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE dbo.Aff_Admin_ProcessingRequest_Sel
 	@UserName				NVARCHAR(50) = ''
 	,@PreferredLanguages	VARCHAR(MAX)
@@ -15,15 +15,26 @@ AS
 	Task: Admin Site - Affiliate - Processing Request
 	Revisions:
 		- 20210817@Malcolm: Initialize SP [RedmineID: #159570]
+		- 20240701@Sally: Enhance add ChangeFirstName, ChangeLastName [RedmineID: #206806]
+
+	Param's Explanation:
+		- @Status 
+			. Draft
+			. KIV
+			. Submitted
+			. Approved
+			. Rejected
+
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @Draft INT = 0, @Submitted INT = 0, @Approved INT = 0, @Rejected INT = 0, @Rowstart INT, @RowEnd INT
+	DECLARE @Draft INT = 0, @Submitted INT = 0, @Approved INT = 0, @Rejected INT = 0, @Rowstart INT, @RowEnd INT, @KIV INT
 
 	SELECT
 		@NRows = COUNT(1)
+		,@KIV = COUNT(CASE WHEN pr.Status = 'KIV' THEN 1 ELSE NULL END)
 		,@Draft = COUNT(CASE WHEN pr.Status = 'Draft' THEN 1 ELSE NULL END) 
 		,@Submitted = COUNT(CASE WHEN pr.Status = 'Submitted' THEN 1 ELSE NULL END) 
 		,@Approved = COUNT(CASE WHEN pr.Status = 'Approved' THEN 1 ELSE NULL END) 
@@ -77,6 +88,7 @@ BEGIN
 	WHERE r.rn BETWEEN @Rowstart AND @RowEnd
 	ORDER BY r.rn
 
-	SELECT @Draft AS Draft, @Submitted AS Submitted, @Approved AS Approved, @Rejected AS Rejected
+	SELECT @KIV AS KIV, @Draft AS Draft, @Submitted AS Submitted, @Approved AS Approved, @Rejected AS Rejected
 END
 GO
+

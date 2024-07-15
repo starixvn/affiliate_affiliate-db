@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE dbo.Aff_Admin_ProcessingRequest_Del
 	@RequestId	 INT
 	,@UserId	 INT
@@ -14,6 +14,7 @@ AS
 	Task: Admin Site - Affiliate - Processing Request - delete processing request
 	Revisions:
 		- 20210817@Malcolm: Initialize SP [RedmineID: #159570]
+		- 20240628@Sally: Enhance add ChangeFirstName, ChangeLastName [RedmineID: #206806]
 */
 
 BEGIN
@@ -53,6 +54,8 @@ BEGIN
 		,SwiftCode				NVARCHAR(50)
 		,AccountName			NVARCHAR(100)
 		,AccountNo				VARCHAR(100)
+		,ChangeFirstName		NVARCHAR(100)
+		,ChangeLastName			NVARCHAR(100)
 	)
 
 	DELETE dbo.ProcessingRequest WITH(ROWLOCK, UPDLOCK)
@@ -87,6 +90,8 @@ BEGIN
 		,deleted.Wire_SwiftCode			
 		,deleted.Wire_AccountName		
 		,deleted.Wire_AccountNo		
+		,deleted.ChangeFirstName	
+		,deleted.ChangeLastName	
 	INTO @DeleteData
 	(
 		RequestId			
@@ -118,7 +123,9 @@ BEGIN
 		,BankAddress		
 		,SwiftCode			
 		,AccountName		
-		,AccountNo			
+		,AccountNo		
+		,ChangeFirstName
+		,ChangeLastName
 	)
 	WHERE RequestId = @RequestId
 
@@ -167,6 +174,8 @@ BEGIN
 								,d.SwiftCode								AS '@SwiftCode'		
 								,d.AccountName								AS '@AccountName'	
 								,d.AccountNo								AS '@AccountNo'		
+								,d.ChangeFirstName							AS '@ChangeFirstName'	
+								,d.ChangeLastName							AS '@ChangeLastName'		
 							FROM @DeleteData d
 								LEFT JOIN dbo.Market m WITH(NOLOCK) ON m.MarketID = d.MarketID
 								LEFT JOIN dbo.Users c WITH(NOLOCK) ON c.CustId = d.Creator
