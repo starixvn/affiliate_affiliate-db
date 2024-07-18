@@ -11,6 +11,8 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	,@BaseCurrency		INT = 0
 	,@SortType			TINYINT = 1
 	,@SortDirectionType	BIT = 0
+	,@IsExcludeNegvBBF			BIT = 0
+	,@IsExcludeNegvCurrentBBF	BIT = 0
 	,@IsExportExcel		BIT = 0
 	,@PageIndex			INT = 1
 	,@PageSize			INT = 50
@@ -37,6 +39,7 @@ AS
 		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 		- 20230612@Sally: Enhance Share % Commission in Report [RedmineID: #189425]
 		- 20240502@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
+		- 20240703@Sally: Add Current BalanceBF [RedmineID: #207432]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -49,6 +52,13 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
+	
+	DECLARE @IsExcludeAFFTest BIT = 1
+
+	IF (@IsExcludeNegvBBF = 0 AND @IsExcludeNegvCurrentBBF = 0)
+	BEGIN
+		SET @IsExcludeAFFTest = 0
+	END
 
 	IF @FromDate IS NULL OR @ToDate IS NULL
 		RETURN
@@ -287,17 +297,17 @@ BEGIN
 		GROUP BY mi.AffId
 
 		-- AffWithdrawal, AffAdjustment
-		CREATE TABLE #AffTrans (AffId INT, AffWithdrawal MONEY, AffAdjustment MONEY, BFF MONEY)
-		INSERT INTO #AffTrans (AffId, AffWithdrawal, AffAdjustment, BFF)
+		CREATE TABLE #AffTrans (AffId INT, AffWithdrawal MONEY, AffAdjustment MONEY, BFF MONEY, CurrentBBF MONEY)
+		INSERT INTO #AffTrans (AffId, AffWithdrawal, AffAdjustment, BFF, CurrentBBF)
 		SELECT at.AffId,
 			SUM((CASE WHEN at.TransType = 202 AND at.TransDate >= @FromDate THEN ABS(at.Amount) ELSE 0 END) * e.Rate) AS AffWithdrawal,
 			SUM((CASE WHEN at.TransType = 203 AND at.TransDate >= @FromDate THEN at.Amount ELSE 0 END) * e.Rate) AS AffAdjustment,
-			SUM(Amount * e.Rate) AS BFF
+			SUM(CASE WHEN TransDate < DATEADD(DAY, 1, @ToDate) THEN Amount * e.Rate ELSE NULL END) AS BFF,
+			SUM(Amount * e.Rate) AS CurrentBBF		
 		FROM dbo.AffTrans at WITH (NOLOCK)
 			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId
 			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
-		WHERE TransDate < DATEADD(DAY, 1, @ToDate)
-			AND Status IN ('Pending', 'Approved', 'Completed')
+		WHERE Status IN ('Pending', 'Approved', 'Completed')
 		GROUP BY AffId
 	END
 	
@@ -332,6 +342,7 @@ BEGIN
 			AffWithdrawal		MONEY,
 			AffAdjustment		MONEY,
 			BFF					MONEY,
+			CurrentBFF			MONEY,
 			RowIdx				INT
 		)
 		INSERT INTO #Result
@@ -363,6 +374,7 @@ BEGIN
 			AffWithdrawal,
 			AffAdjustment,
 			BFF,
+			CurrentBFF,
 			RowIdx
 		)
 		SELECT
@@ -392,7 +404,9 @@ BEGIN
 			ISNULL(tc.SubAffCommission, 0)		AS SubAffEarning,
 			ISNULL(at.AffWithdrawal, 0)			AS AffWithdrawal,
 			ISNULL(at.AffAdjustment, 0)			AS AffAdjustment,
+
 			ISNULL(at.BFF, 0)					AS BFF,
+			ISNULL(at.CurrentBBF, 0)			AS CurrentBBF,
 			ROW_NUMBER() OVER(ORDER BY
 				CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN ai.Username END ASC,
 				CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN ai.Username END DESC,
@@ -404,6 +418,7 @@ BEGIN
 				CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ISNULL(tc.Commission, 0) END DESC) AS RowIdx
 		FROM dbo.AffInfo ai WITH (NOLOCK)
 			INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+			INNER JOIN bodb_N88.dbo.Customer c WITH(NOLOCK) ON ad.Player_CustId = c.CustId
 			LEFT JOIN #Signup su ON ai.AffId = su.AffId
 			LEFT JOIN #AffTrans at ON ai.AffId = at.AffId
 			LEFT JOIN (
@@ -453,6 +468,14 @@ BEGIN
 				)
 			)
 			AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate)
+			AND (c.IsTest = 0 OR @IsExcludeAFFTest = 0)
+			AND	1 = (CASE
+						WHEN @IsExcludeNegvBBF = 0 AND @IsExcludeNegvCurrentBBF = 0 THEN 1
+						WHEN @IsExcludeNegvBBF = 1 AND @IsExcludeNegvCurrentBBF = 0 AND ISNULL(at.BFF,0) >= 0 THEN 1
+						WHEN @IsExcludeNegvBBF = 0 AND @IsExcludeNegvCurrentBBF = 1 AND ISNULL(at.CurrentBBF,0) >= 0 THEN 1
+						WHEN @IsExcludeNegvBBF = 1 AND @IsExcludeNegvCurrentBBF = 1 AND ISNULL(at.BFF,0) >= 0 AND ISNULL(at.CurrentBBF,0) >= 0 THEN 1
+					ELSE 0 END
+				)
 	END
 
 	SELECT @NRows = COUNT(1) FROM #Result
@@ -470,7 +493,7 @@ BEGIN
 	SELECT AffId, Username, PaymentCurrency, TotalClick, UniqueClick, Signup, FDM, ActivePlayer, NoOfSubAff
 		,Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee
 		,PlatFormFee + OperationalFee + DepositFee + WithdrawalFee AS TotalFee
-		,CommissionRate, IsMultiGroupProduct, P2PEarning, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF
+		,CommissionRate, IsMultiGroupProduct, P2PEarning, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF, CurrentBFF
 	FROM #Result
 	WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 	ORDER BY RowIdx
@@ -501,6 +524,7 @@ BEGIN
 		,SUM(AffWithdrawal)		AS AffWithdrawal
 		,SUM(AffAdjustment)		AS AffAdjustment
 		,SUM(BFF)				AS BFF
+		,SUM(CurrentBFF)		AS CurrentBFF
 	FROM #Result
 
 	DROP TABLE #AffTrans
