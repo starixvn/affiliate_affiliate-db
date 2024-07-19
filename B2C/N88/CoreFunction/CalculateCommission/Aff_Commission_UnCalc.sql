@@ -784,7 +784,8 @@ BEGIN
 
 	-- Sub Affiliate Commission
 	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME, AffId INT)
-		CREATE TABLE #SubCommRate(	
+
+	CREATE TABLE #SubCommRate(	
 		MonthDate		SMALLDATETIME,
 		AffId			INT,
 		SubAffId		INT,

@@ -9,3 +9,14 @@ B2C\N88\User\CommissionReport\Aff_User_Rpt_Commission.sql
 B2C\N88\User\Home\Aff_User_Overview_SubAffiliate_Sel.sql
 B2C\N88\User\Home\Aff_User_Overview_Summary_Sel.sql
 B2C\N88\User\StatementHistory\Aff_User_StatementHistory_Sel.sql
+B2C\YashBet\Admin\Customer\StatementHistory\Aff_Admin_StatementHistory_Sel.sql
+B2C\YashBet\Admin\Customer\StatementHistory\Aff_SubAffiliate_Commission_Sel.sql
+B2C\YashBet\Admin\Customer\Statistics\Aff_Admin_Statistics_Sel.sql
+B2C\YashBet\Admin\Home\Aff_Admin_GeneralInfo_Sel.sql
+B2C\YashBet\Admin\Report\Aff_Admin_AffiliateReport_Detail_Sel.sql
+B2C\YashBet\Admin\Report\Aff_Admin_AffiliateReport_Sel.sql
+B2C\YashBet\API\Aff_API_AffiliateInfo_Sel.sql
+B2C\YashBet\User\CommissionReport\Aff_User_Rpt_Commission.sql
+B2C\YashBet\User\Home\Aff_User_Overview_SubAffiliate_Sel.sql
+B2C\YashBet\User\Home\Aff_User_Overview_Summary_Sel.sql
+B2C\YashBet\User\StatementHistory\Aff_User_StatementHistory_Sel.sql
