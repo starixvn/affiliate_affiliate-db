@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[AffAdmin_AffiliateSel] 
 	@LicenseeID			INT
 	,@UserId			INT				= 0
@@ -40,6 +40,7 @@ AS
 	 - 20190403@Percy: Add Player_Username [RedmineID: #111191]
 	 - 20190424@Percy: Change server of nested function [RedmineID: #103658]
 							AffAdmin_f_IsITAdmin
+	 - 20240730@Eddie : Remove linked server to DBCust [RedmineID: #206891]
  
 	Param's Explanation: 
 		• @UserID: Admin UserID
@@ -83,8 +84,8 @@ BEGIN
 	)
 
 	INSERT INTO @tmpCurrency (CurrencyID, ExRate)
-	SELECT val, 0
-	FROM [dbo].[strSplit](@Currencies, ',')
+	SELECT value, 0
+	FROM STRING_SPLIT(@Currencies, ',')
 
 	--Insert Currency default of NonCommission (=0)
 	IF (@@ROWCOUNT > 0)
@@ -97,24 +98,24 @@ BEGIN
 	DECLARE @AffTypeList TABLE (AffTypeID INT)
 
 	INSERT INTO @AffTypeList
-	SELECT CAST(val AS INT)
-	FROM [dbo].[strSplit](@AffTypes, ',')
+	SELECT CAST(value AS INT)
+	FROM STRING_SPLIT(@AffTypes, ',')
 
 	-- CommGroup
 	DECLARE @CommGroupList TABLE (CommGroupID INT)
 
 	INSERT INTO @CommGroupList
 	SELECT GroupID
-	FROM [dbo].[strSplit](@CommGroups, ',')
-		INNER JOIN dbo.CommGroup CG WITH (NOLOCK) ON CG.GroupID = CAST(val AS INT) AND CG.IsDeleted = 0
+	FROM STRING_SPLIT(@CommGroups, ',')
+		INNER JOIN dbo.CommGroup CG WITH (NOLOCK) ON CG.GroupID = CAST(value AS INT) AND CG.IsDeleted = 0
 	WHERE CG.Currency IN (SELECT CurrencyID FROM @tmpCurrency)
 
 	-- Prefer Languages
 	DECLARE @PreferLangList TABLE ([LanguageID] VARCHAR(8))
 
 	INSERT INTO @PreferLangList
-	SELECT val
-	FROM [dbo].[strSplit](@PreferLanguages, ',')
+	SELECT value
+	FROM STRING_SPLIT(@PreferLanguages, ',')
 
 	-- Status
 	DECLARE @StatusList TABLE (StatusID VARCHAR(30))
@@ -124,8 +125,8 @@ BEGIN
 	SELECT @Hasclosed = - 1, @Haslocked = - 1
 
 	INSERT INTO @StatusList
-	SELECT val
-	FROM [dbo].[strSplit](LOWER(@Status), ',')
+	SELECT value
+	FROM STRING_SPLIT(LOWER(@Status), ',')
 
 	IF (@Status IS NULL)
 	BEGIN
@@ -151,16 +152,8 @@ BEGIN
 	END
 
 	-- Test Account
-	DECLARE @sql NVARCHAR(MAX)
-	SELECT  @sql = 'SELECT IsITAdmin FROM OPENQUERY(DBCUST, ''SELECT IsITAdmin FROM bodb_Licensee.dbo.AffAdmin_f_IsITAdmin('
-																+ CONVERT(VARCHAR(20), @UserID) + ',' + CONVERT(VARCHAR(20), @LicenseeID) + ')'')'
-
-	DECLARE @tblIsITAdmin TABLE (IsITAdmin BIT)
-	INSERT INTO @tblIsITAdmin (IsITAdmin)
-	EXEC (@sql)
-	
 	DECLARE @IsITAdmin BIT
-	SELECT  @IsITAdmin = IsITAdmin FROM @tblIsITAdmin
+	SELECT @IsITAdmin = IsITAdmin FROM bodb_Licensee.dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID)
 
 	-- Retrieve data
 	SELECT AI.AffID
