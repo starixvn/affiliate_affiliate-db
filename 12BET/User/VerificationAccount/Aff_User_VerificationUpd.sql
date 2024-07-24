@@ -1,10 +1,10 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_12BET]
 GO
 
 ALTER PROCEDURE [dbo].[Aff_User_VerificationUpd]
 	@AffId			INT,
-    @IpAddress  	NVARCHAR(25),
+    @IpAddress  	VARCHAR(50),
 	@DeviceInfo  	NVARCHAR(100),
 	@Language		VARCHAR(20) = 'en-US',
 	@ErrCode		INT = 0 OUTPUT,
@@ -19,6 +19,7 @@ AS
 	Revisions:
 		- 20190301@Walter: Initiliaze SP [RedmineID: #104884]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
 
 	Parameter's Explanation:
 */

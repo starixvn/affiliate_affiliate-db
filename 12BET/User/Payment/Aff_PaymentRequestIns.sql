@@ -1,8 +1,8 @@
-﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_PaymentRequestIns]    
 	 @AffID					INT,    
 	 @Amount				MONEY,     
-	 @IP					VARCHAR(20),     
+	 @IP					VARCHAR(50),     
 	 @language				VARCHAR(20) = 'en-US',    
 	 @PreferredLanguage		VARCHAR(5)='en-US' OUTPUT,    
 	 @TransDate				DATETIME = NULL OUTPUT,    
@@ -37,6 +37,7 @@ BEGIN
 		- 20130218@LongLuu : Add Korean Language http://ccs.nexcel.vn/viewtopic.php?f=6&t=8460&start=0&st=0&sk=t&sd=a#p36106
 		- 20130426@LongLuu: Add Japanese Language
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
     
 	Param's Explanation:    
 	.@AffID: Affiliate id,    

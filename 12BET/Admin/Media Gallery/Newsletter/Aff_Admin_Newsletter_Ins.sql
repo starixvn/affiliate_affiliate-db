@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Newsletter_Ins]
 	@UserId			INT
 	,@FileName		NVARCHAR(200)
@@ -6,7 +6,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Newsletter_Ins]
 	,@EffectiveFrom DATETIME
 	,@EffectiveTo   DATETIME
 	,@Language		NVARCHAR(50)
-	,@IP			VARCHAR(20) = ''
+	,@IP			VARCHAR(50) = ''
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
@@ -18,6 +18,7 @@ AS
 
 	Revisions:
 		- 20210204@Malcolm: Initialize SP [RedmineID: #145276]
+		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
 
 	Param's Explanation:
 

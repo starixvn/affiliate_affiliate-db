@@ -1,9 +1,9 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateClosed_Upd]
 	@AffID		INT
 	,@UserID	INT
 	,@IsClosed	BIT
-	,@IP		VARCHAR(20) = ''
+	,@IP		VARCHAR(50) = ''
 	,@ErrCode	INT = 0 OUTPUT
 	,@ErrMsg	NVARCHAR(4000)	= '' OUTPUT
 AS
@@ -19,6 +19,7 @@ AS
 		- 20210223@Percy: Change permission function [RedmineID: #149213]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20240326@Eddie: Change metadata "bodbAdminNet" [RedmineID: #201095]
+		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
 */
 
 BEGIN
