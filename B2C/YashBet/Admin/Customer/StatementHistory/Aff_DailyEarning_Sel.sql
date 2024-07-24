@@ -28,11 +28,20 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
-	DECLARE @IsFilterCurrencies BIT = 1
 
-	IF(ISNULL(@Currencies, '') = '')
+	DECLARE @IsFilterCurrencies BIT = 0
+		,@ListCurrencies VARCHAR(MAX) = ''
+
+	--Get list currencies mapping
+	IF(ISNULL(@Currencies, '') <> '')
 	BEGIN
-		SET @IsFilterCurrencies = 0
+		SET @IsFilterCurrencies = 1
+		SELECT @ListCurrencies = COALESCE(@ListCurrencies + ',', '') + CONVERT(VARCHAR(20), t.TpExchangeId)
+		FROM string_split(@Currencies, ',') f
+			CROSS APPLY(
+				SELECT TpExchangeId
+				FROM dbo.Aff_f_TpExchange_Sel(f.value)
+			)t
 	END
 
 	-- Get basecurrency mapping
@@ -104,7 +113,7 @@ BEGIN
 			AND r.WinlostDate BETWEEN @BeginOfMonth AND @EndOfMonth
 			AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
 			AND (@IsFilterCurrencies = 0 
-				OR (',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%' )
+				OR (',' + @ListCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%' )
 			)
 			AND NOT EXISTS (
 				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
