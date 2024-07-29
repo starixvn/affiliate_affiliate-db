@@ -18,6 +18,7 @@ AS
 		- 20240115@Sally: Initialize SP [RedmineID: #198909]
 		- 20240222@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 		- 20240528@Sally: Apply Currencies filter [RedmineID: #205599]
+		- 20240724@Sally: Get all data Currencies filter for UserSite [RedmineID: #208057]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -27,7 +28,22 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
-	
+
+	DECLARE @IsFilterCurrencies BIT = 0
+		,@ListCurrencies VARCHAR(MAX) = ''
+
+	--Get list currencies mapping
+	IF(ISNULL(@Currencies, '') <> '')
+	BEGIN
+		SET @IsFilterCurrencies = 1
+		SELECT @ListCurrencies = COALESCE(@ListCurrencies + ',', '') + CONVERT(VARCHAR(20), t.TpExchangeId)
+		FROM string_split(@Currencies, ',') f
+			CROSS APPLY(
+				SELECT TpExchangeId
+				FROM dbo.Aff_f_TpExchange_Sel(f.value)
+			)t
+	END
+
 	-- Get basecurrency mapping
 	DECLARE @BaseExchangeId INT = @BaseCurrency
 	SELECT @BaseExchangeId = t.ExchangeId
@@ -96,7 +112,9 @@ BEGIN
 		WHERE r.AffId = @AffId
 			AND r.WinlostDate BETWEEN @BeginOfMonth AND @EndOfMonth
 			AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
-			AND ',' + @Currencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%'
+			AND (@IsFilterCurrencies = 0 
+				OR (',' + @ListCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%' )
+			)
 			AND NOT EXISTS (
 				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 				WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate

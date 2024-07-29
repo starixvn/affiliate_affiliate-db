@@ -35,6 +35,7 @@ AS
 		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 		- 20240426@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
+		- 20240718@Sally: Enhance SP for better performance [RedmineID: #208057]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -116,6 +117,7 @@ BEGIN
 			Revenue			MONEY,
 			IsDataInMonth	BIT DEFAULT ((1)) -- for first n months commission
 		)
+		CREATE CLUSTERED INDEX IX_Data_MonthDate ON #Data (MonthDate, ProductId)
 
 		INSERT INTO #Data
 		(
@@ -783,6 +785,15 @@ BEGIN
 	-- Sub Affiliate Commission
 	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME, AffId INT)
 
+	CREATE TABLE #SubCommRate(	
+		MonthDate		SMALLDATETIME,
+		AffId			INT,
+		SubAffId		INT,
+		[Level]			INT,
+		SubCommRate		DECIMAL(9,8) DEFAULT (0)
+	)
+
+
 	IF EXISTS (SELECT 1 FROM #Commission WHERE ProductId = 0)
 	BEGIN
 		IF @InputAffIds <> 'all'
@@ -832,37 +843,40 @@ BEGIN
 			WHERE c.AffId IS NULL
 		END
 
-		;WITH CTE_SubCommRateDirect AS 
-		(
-			SELECT agh.MonthDate, agh.AffId AS SubAffId, af.AffId, cgh.SubCommRate, f.Id AS Level
-			FROM dbo.AffGroupHistory agh WITH(NOLOCK)
-				CROSS APPLY dbo.Aff_f_StringSplit(agh.AllParentAffId, ',') f
-				INNER JOIN dbo.AffGroupHistory af WITH(NOLOCK) ON f.val = af.Affid AND af.MonthDate = agh.MonthDate
-				INNER JOIN dbo.CommGroupHistory cgh WITH(NOLOCK) ON cgh.GroupId = af.Groupid AND cgh.MonthDate = agh.MonthDate
-			WHERE agh.MonthDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
-		),CTE_SubCommRate AS
-		(
-			SELECT t.MonthDate, t.SubAffId, t.AffId, n.SubCommRate, t.Level
-			FROM CTE_SubCommRateDirect t
+		----- Get SubAffCommission
+	    ;WITH CTE_SubCommRateDirect AS (
+            SELECT agh.MonthDate, agh.AffId AS SubAffId, af.AffId, cgh.SubCommRate, f.Level
+            FROM dbo.AffGroupHistory agh WITH(NOLOCK)
+                CROSS APPLY (
+					SELECT CONVERT(INT, val) AS AffId, CONVERT(INT, Id) AS Level
+					FROM dbo.Aff_f_StringSplit(agh.AllParentAffId, ',')
+				) f
+                INNER JOIN dbo.AffGroupHistory af WITH(NOLOCK) ON f.AffId = af.Affid AND af.MonthDate = agh.MonthDate
+                INNER JOIN dbo.CommGroupHistory cgh WITH(NOLOCK) ON cgh.GroupId = af.Groupid AND cgh.MonthDate = agh.MonthDate
+            WHERE agh.MonthDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
+        )
+		
+		INSERT INTO #SubCommRate (MonthDate, AffId, SubAffId, Level, SubCommRate)
+        SELECT t.MonthDate, t.AffId, t.SubAffId, t.Level, n.SubCommRate
+        FROM CTE_SubCommRateDirect t
 			CROSS APPLY (
 				SELECT EXP(SUM(LOG(t1.SubCommRate))) AS SubCommRate
 				FROM CTE_SubCommRateDirect t1
 				WHERE t1.SubAffId = t.SubAffId AND t.Level >= t1.Level AND t.MonthDate = t1.MonthDate
 			) AS n
-		),CTE_SubAffCommission AS
-		(
-			SELECT s.MonthDate, s.AffId, SUM(CASE WHEN s.Level <= @MaxSubAff THEN s.SubCommRate * (c.Commission + c.StraightCommission) ELSE 0 END) AS SubAffCommission
-			FROM #Commission c 
-				INNER JOIN CTE_SubCommRate s ON s.SubAffId = c.AffId AND s.MonthDate = c.MonthDate
-			WHERE ProductId = 0
-			GROUP BY s.MonthDate, s.AffId
-		)
-		UPDATE c
-		SET c.SubAffCommission = s.SubAffCommission
-		FROM #Commission c
-			INNER JOIN CTE_SubAffCommission s ON s.MonthDate = c.MonthDate AND s.AffId = c.AffId
-		WHERE c.ProductId = 0 AND c.GroupProductId = 0
-		OPTION (MAXRECURSION 0)
+        OPTION (MAXRECURSION 0)
+            
+       ;WITH CTE_SubAffCommission AS (
+            SELECT s.MonthDate, s.AffId, SUM(CASE WHEN s.Level <= @MaxSubAff THEN s.SubCommRate * (c.Commission + c.StraightCommission) ELSE 0 END) AS SubAffCommission
+            FROM #Commission c 
+                INNER JOIN #SubCommRate s ON s.SubAffId = c.AffId AND s.MonthDate = c.MonthDate
+            WHERE ProductId = 0
+            GROUP BY s.MonthDate, s.AffId
+        )
+        UPDATE c SET c.SubAffCommission = s.SubAffCommission
+        FROM #Commission c
+            INNER JOIN CTE_SubAffCommission s ON s.MonthDate = c.MonthDate AND s.AffId = c.AffId
+        WHERE c.ProductId = 0 AND c.GroupProductId = 0
 
 		IF @AffIds <>  'all'
 		BEGIN
@@ -1084,5 +1098,5 @@ BEGIN
 
 	DROP TABLE #Data
 	DROP TABLE #Commission
+	DROP TABLE #SubCommRate
 END
-GO
