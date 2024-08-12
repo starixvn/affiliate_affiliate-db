@@ -24,7 +24,7 @@ BEGIN
 	FROM dbo.CurrencyConverter cv WITH (NOLOCK)
 		INNER JOIN (
 			SELECT CONVERT(INT, c.value) AS CurrencyID
-			FROM STRING_SPLIT(@Currencies, ',')c
+			FROM STRING_SPLIT(@CurrencyIds, ',')c
 		)t ON t.CurrencyID = cv.ExchangeID
 	
 	SELECT @PartnerExchangeIDs AS PartnerExchangeIDs
