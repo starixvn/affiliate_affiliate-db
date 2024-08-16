@@ -10,6 +10,7 @@ AS
 	Revisions:
 		- 20210817@Malcolm: Initialize SP [RedmineID: #159570]
 		- 20240701@Sally: Enhance add ChangeFirstName, ChangeLastName [RedmineID: #206806]
+		- 20240819@Eddie: Hide Hindi Market [RedmineID: #209409]
 
 */
 
@@ -57,7 +58,7 @@ BEGIN
 		INNER JOIN dbo.AffInfo ai WITH(NOLOCK) ON ai.AffID = pr.AffId
 		LEFT JOIN dbo.Users cr WITH(NOLOCK) ON cr.CustId = pr.Creator
 		LEFT JOIN dbo.Users ap WITH(NOLOCK) ON ap.CustId = pr.Approver
-		LEFT JOIN dbo.Market m WITH(NOLOCK) ON m.MarketID = pr.MarketID
+		LEFT JOIN dbo.Market m WITH(NOLOCK) ON m.MarketID = pr.MarketID AND m.MarketID <> 'hi'
 	WHERE pr.RequestId = @RequestId
 
 END

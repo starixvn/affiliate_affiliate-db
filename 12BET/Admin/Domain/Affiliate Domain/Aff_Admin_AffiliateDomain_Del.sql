@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_AffiliateDomain_Del]
 	@UserId			INT
 	,@DomainId		INT
@@ -18,6 +18,7 @@ AS
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20221111@Eddie: Support Block Market [RedmineId : #179537]
 		- 20231101@Eddie: Change BlockMarket to BlockTargetCountry [RedmineID: #181590]
+		- 20240820@Eddie: Change metadata "bodbAdminNet" [RedmineID: #209409]
 */
 
 BEGIN

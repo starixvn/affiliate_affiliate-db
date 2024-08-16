@@ -39,6 +39,7 @@ AS
 	Revisions:
 		- 20210817@Malcolm: Initialize SP [RedmineID: #159570]
 		- 20240628@Sally: Enhance add ChangeFirstName, ChangeLastName [RedmineID: #206806]
+		- 20240819@Eddie: Hide Hindi Market [RedmineID: #209409]
 
 	Param's Explanation:
 		- @Status 
@@ -145,7 +146,7 @@ BEGIN
 	
 	SELECT @RequestId = SCOPE_IDENTITY()
 
-    SELECT @MarketName = MarketName FROM dbo.Market WITH(NOLOCK) WHERE MarketID = @MarketID
+    SELECT @MarketName = MarketName FROM dbo.Market WITH(NOLOCK) WHERE MarketID = @MarketID AND MarketID <> 'hi'
 
 	-- Write Log
 	SELECT @SPName = OBJECT_NAME(@@PROCID)

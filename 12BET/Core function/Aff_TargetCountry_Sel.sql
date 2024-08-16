@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_TargetCountry_Sel]
 	@UserId	INT = 0
 AS
@@ -10,6 +10,7 @@ AS
 	Revisions:
 		- 20231024@Eddie: Initialize SP [RedmineID: #181590]
 		- 20240124@Eddie: Hindi and Telugu [RedmineID: #200168]
+		- 20240819@Eddie: Hide Hindi Market [RedmineID: #209409]
 	Note: Language default for target country: English for Malaysia and English (India) for India
 */
 BEGIN
@@ -24,9 +25,10 @@ BEGIN
 	INSERT INTO #TargetCountry_Order(MarketID, MarketName, CountryCode, CountryName)
 	SELECT MarketID, MarketName, CountryCode, CountryName
 	FROM TargetCountry WITH (NOLOCK)
+	WHERE MarketID <> 'hi'
 	
 	UPDATE #TargetCountry_Order
-	SET PriorityId = CASE WHEN (CountryCode = 'MY' AND MarketID = 'en-GB') OR (CountryCode = 'IN' AND MarketID = 'hi') THEN 2
+	SET PriorityId = CASE WHEN (CountryCode = 'MY' AND MarketID = 'en-GB') THEN 2
 						  WHEN (CountryCode = 'MY' AND MarketID = 'zh-TW') OR (CountryCode = 'IN' AND MarketID = 'te-IN') THEN 1
 					 ELSE PriorityId END
 					 

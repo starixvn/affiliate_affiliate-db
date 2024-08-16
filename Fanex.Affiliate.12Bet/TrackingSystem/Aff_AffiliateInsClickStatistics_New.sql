@@ -47,6 +47,7 @@ Revisions:
 	- 20231124@Eddie: use TargetCountryCode to check AffDomain and PageCode [RedmineID: #181590]
 	- 20240129@Eddie: remove hardcoding for 'promotion' pagecode [RedmineID: #200168]
 	- 20240604@Eddie: Support to config redirect link for specific affiliate [RedmineID: #206066]
+	- 20240819@Eddie: Hide Hindi Market [RedmineID: #209409]
 	 
 Param's Explanation:   
 	- @DeviceType: 0-PC & 1-Mobile
@@ -119,7 +120,7 @@ BEGIN
 			  AND b.IsDeleted = 0
 			  AND ld.IsDeleted = 0
 			  AND b.TargetCountryCode = @TargetCountryCode
-			  AND b.MarketID NOT IN ('es-ES') -- not use Spanish
+			  AND b.MarketID NOT IN ('es-ES', 'hi') -- not use Spanish, Hindi
 			  AND a.DomainName = @AffDomain
 			GROUP BY a.DomainID, a.DomainName
 		), --Get PageCode by @TargetCountryCode and @PageCode
@@ -164,7 +165,7 @@ BEGIN
 			AND a.IsDeleted = 0
 			AND b.IsDeleted = 0
 			AND c.IsDeleted = 0
-			AND a.MarketID NOT IN ('es-ES')-- not use Spanish
+			AND a.MarketID NOT IN ('es-ES', 'hi')-- not use Spanish, Hindi
 			AND a.TargetCountryCode = @TargetCountryCode
 
 		IF @AffDomain = 'join.best5689.com' AND @AffUsername = '12BETAFF16000'

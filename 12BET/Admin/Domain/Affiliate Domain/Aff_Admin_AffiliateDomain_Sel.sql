@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_AffiliateDomain_Sel]
 	@DomainID	INT = 0
 	,@UserId	INT = 0
@@ -14,6 +14,7 @@ AS
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20221101@Eddie: Support Block Market [RedmineID: #179537]
 		- 20231031@Eddie: Change BlockMarket to BlockTargetCountry [RedmineID: #181590]
+		- 20240821@Eddie: Change metadata "bodbAdminNet" [RedmineID: #209409]
 */
 
 BEGIN

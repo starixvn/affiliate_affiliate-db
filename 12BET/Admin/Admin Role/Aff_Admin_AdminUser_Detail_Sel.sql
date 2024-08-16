@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AdminUser_Detail_Sel]
 	@CustId INT
 AS
@@ -10,6 +10,7 @@ AS
 	Revisions:
 		- 20200731@Percy: Initialize SP [RedmineID: #121975]
 		- 20230330@Eddie: Change order of Bangladesh Language [RedmineID: #186108]
+		- 20240819@Eddie: Hide Hindi Market [RedmineID: #209409]
 	Note: Order of English always is 1st
 */
 
@@ -30,6 +31,7 @@ BEGIN
 		SELECT MarketId, MarketName, MarketNativeName, ShortedCode, DisplayName,
 			   CASE WHEN MarketId = 'en-US' THEN 1 ELSE 2 END AS TypeId
 		FROM dbo.Market WITH (NOLOCK)
+		WHERE MarketId <> 'hi'
 	)
 	SELECT m.MarketId, m.MarketName, CASE WHEN um.MarketId IS NULL THEN 0 ELSE 1 END AS Status
 	FROM CTE_Language m

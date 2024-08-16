@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_aff,wsv_affv" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_ClickStatisticsSelByPage]
 	@AffId			INT
 	,@FromDate		DATETIME
@@ -27,6 +27,7 @@ AS
 		- 20220926@Eddie: Add Country info [RedmineID: #176390]
 		- 20230214@Eddie: Not using 'ClickStatistics1Sum' sum table [RedmineID: #177639]
 		- 20240321@Eddie: Change Link Server and metadata "bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" [RedmineID: #202712]
+		- 20240819@Eddie: Hide Hindi Market [RedmineID: #209409]
 	
 	Param's Explanation:
 		- @ReportBy: 'Country' or 'Language'
@@ -322,7 +323,7 @@ BEGIN
 			,SUM(tr.Signups) 				AS Signups
 			,SUM(tr.FDM) 					AS FDM
 		FROM #tmpResult tr
-			LEFT JOIN dbo.Market m WITH (NOLOCK) on m.ShortedCode = tr.LanguageCode
+			LEFT JOIN dbo.Market m WITH (NOLOCK) on m.ShortedCode = tr.LanguageCode AND m.ShortedCode <> 'hi'
 		WHERE tr.DeviceType = @DeviceType
 		GROUP BY tr.SportCode, tr.LanguageCode, m.MarketName
 	END

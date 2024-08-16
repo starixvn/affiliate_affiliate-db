@@ -19,6 +19,7 @@ AS
 		- 20210223@Percy: Change permission function [RedmineID: #149213]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
+		- 20240819@Eddie: Hide Hindi Market [RedmineID: #209409]
 */
 
 BEGIN
@@ -53,11 +54,11 @@ BEGIN
 			,@SPName	= OBJECT_NAME(@@PROCID)
 	FROM dbo.AffDetail a WITH (NOLOCK)
 		INNER JOIN dbo.Market m WITH(NOLOCK) ON a.PreferredLanguage = m.MarketID
-	WHERE AffID = @AffID
+	WHERE AffID = @AffID AND m.MarketID <> 'hi'
 
 	SELECT @NewData	= '<root><row PreferredLanguage="'+  MarketName +'"></row></root>'
 	FROM dbo.Market WITH(NOLOCK)
-	WHERE MarketID = @PreferredLanguage
+	WHERE MarketID = @PreferredLanguage AND MarketID <> 'hi'
 
 	IF @OldData = @NewData
 		RETURN

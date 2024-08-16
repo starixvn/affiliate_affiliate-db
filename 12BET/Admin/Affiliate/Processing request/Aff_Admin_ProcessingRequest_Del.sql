@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20210817@Malcolm: Initialize SP [RedmineID: #159570]
 		- 20240628@Sally: Enhance add ChangeFirstName, ChangeLastName [RedmineID: #206806]
+		- 20240820@Eddie: Hide Hindi Market [RedmineID: #209409]
 */
 
 BEGIN
@@ -177,7 +178,7 @@ BEGIN
 								,d.ChangeFirstName							AS '@ChangeFirstName'	
 								,d.ChangeLastName							AS '@ChangeLastName'		
 							FROM @DeleteData d
-								LEFT JOIN dbo.Market m WITH(NOLOCK) ON m.MarketID = d.MarketID
+								LEFT JOIN dbo.Market m WITH(NOLOCK) ON m.MarketID = d.MarketID AND m.MarketID <> 'hi'
 								LEFT JOIN dbo.Users c WITH(NOLOCK) ON c.CustId = d.Creator
 								LEFT JOIN dbo.Users a WITH(NOLOCK) ON a.CustId = d.Approver
 							FOR XML PATH ('row'), ROOT ('root')

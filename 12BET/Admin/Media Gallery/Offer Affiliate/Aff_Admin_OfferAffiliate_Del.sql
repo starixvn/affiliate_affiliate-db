@@ -14,6 +14,7 @@ AS
 	Revisions:
 		- 20211213@Malcolm: Initialize SP [RedmineID: #165915]
 		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
+		- 20240820@Eddie: STRING_SPLIT replace for strSplit function [RedmineID: #209409]
 
 	Param's Explanation:
 
@@ -38,8 +39,8 @@ BEGIN
 	-- Check if offer page have deleted or not
 	IF EXISTS (
 		SELECT 1
-		FROM dbo.strSplit(@AffIds, ',') s
-			LEFT JOIN dbo.AffDetail d WITH(NOLOCK) ON s.val = d.AffID
+		FROM STRING_SPLIT(@AffIds, ',') s
+			LEFT JOIN dbo.AffDetail d WITH(NOLOCK) ON s.value = d.AffID
 			LEFT JOIN dbo.OfferAffiliate ea WITH(NOLOCK) ON ea.AffId = d.AffID
 			LEFT JOIN dbo.UserMarket m WITH(NOLOCK) ON m.MarketId = d.PreferredLanguage AND m.CustId = @UserId
 		WHERE ea.AffId IS NULL OR  m.CustId IS NULL
@@ -53,7 +54,7 @@ BEGIN
 		DELETE dbo.OfferAffiliate WITH(ROWLOCK, UPDLOCK)
 		OUTPUT deleted.AffId, deleted.PageId
 			INTO @TmpAff (AffId, PageId)
-		WHERE AffId IN (SELECT s.val FROM dbo.strSplit(@AffIds, ',') s)
+		WHERE AffId IN (SELECT s.value FROM STRING_SPLIT(@AffIds, ',') s)
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = 102, @ErrMsg = 'Error occurs. Delete unsucessfully.'

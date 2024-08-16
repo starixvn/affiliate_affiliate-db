@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_LandingPage_Sel]
 	@PageId  SMALLINT = 0
 	,@UserId INT = 0
@@ -14,6 +14,7 @@ AS
 		- 20191127@Percy: Sort by newest landing page [RedmineID: #118992]
 		- 20221020@Eddie: Change order of Exchange & Sportsbook [RedmineID: #179392]
 		- 20231106@Eddie: Change all order and show Excluded Target Country [RedmineID: #181590]
+		- 20240820@Eddie: Change metadata "bodbAdminNet" [RedmineID: #209409]
 */
 
 BEGIN

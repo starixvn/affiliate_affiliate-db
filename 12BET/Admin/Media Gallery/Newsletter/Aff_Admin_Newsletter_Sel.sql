@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet, bodbDownlineNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_Newsletter_Sel]
 	@NewsletterId INT = 0
 	,@PageIndex INT = 1
@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20210204@Malcolm: Initialize SP [RedmineID: #145276]
+		- 20240819@Eddie: Hide Hindi Market [RedmineID: #209409]
 
 	Param's Explanation:
 
@@ -31,7 +32,7 @@ BEGIN
 	BEGIN
 		SELECT NewsletterId, FileName, FileSize, UploadDate, EffectiveFromDate, EffectiveToDate, Language, m.MarketName AS LanguageName
 		FROM dbo.Newsletter n WITH(NOLOCK) 
-			INNER JOIN dbo.Market m WITH(NOLOCK) ON n.Language = m.MarketID
+			INNER JOIN dbo.Market m WITH(NOLOCK) ON n.Language = m.MarketID AND m.MarketID <> 'hi'
 		WHERE NewsletterId = @NewsletterId
 		RETURN
 	END
@@ -45,7 +46,7 @@ BEGIN
 	(
 		SELECT n.NewsletterId, n.FileName, n.FileSize, n.UploadDate, n.EffectiveFromDate, n.EffectiveToDate , n.Language, m.MarketName AS LanguageName, ROW_NUMBER() OVER(ORDER BY n.UploadDate DESC) AS Rn
 		FROM dbo.Newsletter n WITH(NOLOCK)
-			INNER JOIN dbo.Market m WITH(NOLOCK) ON n.Language = m.MarketID
+			INNER JOIN dbo.Market m WITH(NOLOCK) ON n.Language = m.MarketID AND m.MarketID <> 'hi'
 		WHERE (@Date IS NULL OR (@Date BETWEEN n.EffectiveFromDate AND n.EffectiveToDate))
 	) AS h
 	WHERE h.Rn BETWEEN @RowStart AND @RowEnd

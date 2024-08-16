@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Domain_BlockTargetCountry_Sel]
 	@UserId			  	INT
 	,@AffDomainId		INT = 0 
@@ -11,6 +11,7 @@ AS
 
 	Revisions:
 		- 20231102@Eddie: Initialize SP [RedmineID: #181590]
+		- 20240820@Eddie: Change metadata "bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" [RedmineID: #209409]
 */
 BEGIN
 	SET NOCOUNT ON
