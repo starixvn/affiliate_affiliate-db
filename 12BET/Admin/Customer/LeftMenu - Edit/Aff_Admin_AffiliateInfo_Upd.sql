@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateInfo_Upd]
 	@UserId				INT,
 	@AffId				INT,
@@ -61,12 +61,13 @@ AS
 		- 20210223@Percy: Change permission function [RedmineID: #149213]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20221214@Malcolm: change messageId [RedmineId : #176429]
+		- 20240828@Eddie: Add new permission for Manage Pending Affiliate [RedmineId : #209510]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @CurrentDate SMALLDATETIME
+	DECLARE @CurrentDate SMALLDATETIME, @PermissionType SMALLINT = 0
 	SELECT  @CurrentDate = GETDATE()
 
 	DECLARE @LastDayOfMonth DATETIME = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
@@ -79,7 +80,19 @@ BEGIN
 		,@ErrMsg	= @ErrMsg OUTPUT
 
 	IF @ErrCode <> 0
-		RETURN
+	BEGIN
+		-- Check permission for Manage Pending Affiliate
+		EXEC dbo.Aff_CheckPermission
+			@CustId		= @UserId
+			,@FuncName	= '[ManagePendingAffiliate]'
+			,@ErrCode	= @ErrCode OUTPUT
+			,@ErrMsg	= @ErrMsg OUTPUT
+
+		IF @ErrCode <> 0
+			RETURN
+
+		SELECT @PermissionType = 1
+	END
 
 	IF NOT EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @AffId)
 	BEGIN
@@ -180,7 +193,7 @@ BEGIN
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
 	-- Update Password and Status when approving affiliate
-	IF @Password IS NOT NULL AND @Status IS NOT NULL
+	IF @Password IS NOT NULL AND @Status IS NOT NULL AND @PermissionType = 0
 	BEGIN
 		BEGIN TRY
 			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
@@ -201,11 +214,11 @@ BEGIN
 		FROM @UpdatedData
 	END
 	-- Update Preference Language only (Left menu)
-	ELSE IF @PreferredLanguage IS NOT NULL
+	ELSE IF @PreferredLanguage IS NOT NULL AND @PermissionType = 0
 	BEGIN
 		BEGIN TRY
 			UPDATE dbo.AffDetail WITH (ROWLOCK, UPDLOCK)
-			SET PreferredLanguage = ISNULL(@PreferredLanguage, PreferredLanguage)
+			SET PreferredLanguage = @PreferredLanguage
 			OUTPUT DELETED.PreferredLanguage, INSERTED.PreferredLanguage
 			INTO @UpdatedData (PreferredLanguage_Del, PreferredLanguage_Ins)
 			WHERE AffId = @AffId
@@ -221,7 +234,7 @@ BEGIN
 		FROM @UpdatedData
 	END
 	-- Update Password only (Left menu)
-	ELSE IF @Password IS NOT NULL
+	ELSE IF @Password IS NOT NULL AND @PermissionType = 0
 	BEGIN
 		BEGIN TRY
 			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
@@ -241,7 +254,7 @@ BEGIN
 		FROM @UpdatedData
 	END
 	-- Update AffType only (Left menu)
-	ELSE IF @AffType IS NOT NULL
+	ELSE IF @AffType IS NOT NULL AND @PermissionType = 0
 	BEGIN
 		BEGIN TRY
 			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
@@ -261,7 +274,7 @@ BEGIN
 		FROM @UpdatedData
 	END
 	-- Update Status only (Left menu)
-	ELSE IF @Status IS NOT NULL
+	ELSE IF @Status IS NOT NULL AND @PermissionType = 0
 	BEGIN
 		IF @Status NOT IN ('Pending', 'Approved', 'Disapproved')
 		BEGIN
@@ -295,7 +308,7 @@ BEGIN
 
 		BEGIN TRY
 			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
-			SET Status = ISNULL(@Status, Status),
+			SET Status = @Status,
 				ApprovedDate = CASE WHEN @Status IN ('Approved', 'Disapproved') THEN @CurrentDate ELSE NULL END,
 				CasinoJoinedDate = @CurrentDate
 			OUTPUT	DELETED.Status, DELETED.ApprovedDate, DELETED.CasinoJoinedDate,
@@ -315,7 +328,7 @@ BEGIN
 		FROM @UpdatedData
 	END
 	-- Update Close only (Left menu)
-	ELSE IF @Closed IS NOT NULL
+	ELSE IF @Closed IS NOT NULL AND @PermissionType = 0
 	BEGIN
 		IF @Closed = 1
 		BEGIN
@@ -353,7 +366,7 @@ BEGIN
 
 		BEGIN TRY
 			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
-			SET IsClosed = ISNULL(@Closed, IsClosed)
+			SET IsClosed = @Closed
 			OUTPUT DELETED.IsClosed, INSERTED.IsClosed
 			INTO @UpdatedData (Closed_Del, Closed_Ins)
 			WHERE AffId = @AffId

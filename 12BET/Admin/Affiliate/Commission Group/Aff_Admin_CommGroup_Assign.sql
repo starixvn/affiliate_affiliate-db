@@ -20,13 +20,17 @@ AS
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20240326@Eddie: Change metadata "bodbAdminNet" [RedmineID: #201095]
 		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
+		- 20240828@Eddie: Add new permission for Manage Pending Affiliate [RedmineId : #209510]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @Language NVARCHAR(5) = 'en-US'
+	DECLARE @Language NVARCHAR(5) = 'en-US', @PermissionType SMALLINT = 0
 
+	SELECT @ErrCode = 0, @ErrMsg = ''
+
+	-- Check permission
 	EXEC dbo.Aff_CheckPermission
 		@CustId		= @UserId
 		,@FuncName	= '[AssignCommGroup]'
@@ -34,9 +38,23 @@ BEGIN
 		,@ErrMsg	= @ErrMsg OUTPUT
 
 	IF @ErrCode <> 0
-		RETURN
+	BEGIN
+		-- Check permission for Manage Pending Affiliate
+		EXEC dbo.Aff_CheckPermission
+			@CustId		= @UserId
+			,@FuncName	= '[ManagePendingAffiliate]'
+			,@ErrCode	= @ErrCode OUTPUT
+			,@ErrMsg	= @ErrMsg OUTPUT
 
-	IF ISNULL(@GroupId, 0) = 0 OR NOT EXISTS (SELECT 1 FROM dbo.CommGroup WITH (NOLOCK) WHERE GroupId = @GroupId AND IsDeleted = 0)
+		IF @ErrCode <> 0
+			RETURN
+
+		SELECT @PermissionType = 1
+	END
+
+	IF ISNULL(@GroupId, 0) = 0
+	OR ( NOT EXISTS (SELECT 1 FROM dbo.CommGroup WITH (NOLOCK) WHERE GroupId = @GroupId AND IsDeleted = 0) AND @PermissionType = 0)
+	OR ( NOT EXISTS (SELECT 1 FROM dbo.CommGroup WITH (NOLOCK) WHERE GroupId = @GroupId AND IsDeleted = 0 AND GroupId IN (101, 102, 117)) AND @PermissionType = 1 )
 	BEGIN
 		-- Group is not existed
 		SELECT @ErrCode = 100, @ErrMsg = dbo.Aff_f_GetMessageById(1006, @Language)
@@ -55,20 +73,32 @@ BEGIN
 	SELECT  @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
 
 	BEGIN TRY
-		UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
-		SET GroupId = @GroupId
-		WHERE AffId = @AffId
-
-		IF EXISTS (SELECT 1 FROM dbo.AffGroupHistory WITH (NOLOCK) WHERE AffId = @AffId AND MonthDate = @MonthDate)
+		IF ISNULL(@PermissionType, 0) = 0
 		BEGIN
-			UPDATE dbo.AffGroupHistory WITH (ROWLOCK, UPDLOCK)
+			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
 			SET GroupId = @GroupId
-			WHERE AffId = @AffId AND MonthDate = @MonthDate
+			WHERE AffId = @AffId
+	
+			IF EXISTS (SELECT 1 FROM dbo.AffGroupHistory WITH (NOLOCK) WHERE AffId = @AffId AND MonthDate = @MonthDate)
+			BEGIN
+				UPDATE dbo.AffGroupHistory WITH (ROWLOCK, UPDLOCK)
+				SET GroupId = @GroupId
+				WHERE AffId = @AffId AND MonthDate = @MonthDate
+			END
+			ELSE
+			BEGIN
+				INSERT INTO dbo.AffGroupHistory (AffId, GroupId, MonthDate)
+				VALUES (@AffId, @GroupId, @MonthDate)
+			END
 		END
 		ELSE
 		BEGIN
+			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
+			SET GroupId = @GroupId
+			WHERE AffId = @AffId AND Status = 'Pending'
+			
 			INSERT INTO dbo.AffGroupHistory (AffId, GroupId, MonthDate)
-				VALUES (@AffId, @GroupId, @MonthDate)
+			VALUES (@AffId, @GroupId, @MonthDate)
 		END
 	END TRY
 	BEGIN CATCH
