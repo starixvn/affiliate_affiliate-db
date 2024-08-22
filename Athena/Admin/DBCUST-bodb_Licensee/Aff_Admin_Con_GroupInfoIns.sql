@@ -23,13 +23,9 @@ BEGIN
 	SET NOCOUNT ON;
 
 	DECLARE @IsExistGroupName BIT = 0
-	DECLARE @tblGroups TABLE (GroupName NVARCHAR(50))
 
 	SELECT @IsExistGroupName = 1 
 	FROM dbo.AffAdmin_f_GroupInfo_Select('', @LicenseeID) 
-
-	INSERT INTO @tblGroups (GroupName)
-	EXEC (@sql)
 
 	IF (@IsExistGroupName = 1) 
 	BEGIN
