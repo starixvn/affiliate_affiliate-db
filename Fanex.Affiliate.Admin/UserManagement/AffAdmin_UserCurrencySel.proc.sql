@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[AffAdmin_UserCurrencySel]
 	@LicenseeID INT,	
 	@UserID		INT
@@ -7,33 +7,32 @@ AS
 /*
 	Created:20130729@Jim
 	Task: Restrict permission of Aff Users by currency
-	DB: DBAFF.Affiliate_XXX
+	DB: DBAFF-Affiliate_Athena000
 
 	Revisions:
 		- 20130823@Jim: add more column currencyCode in result 
 		- 20131223@Bobby: check constraint's groupid to AdminUser
 		- 20151117@Victor: Implement SSO from Internal Admin to Affiliate Admin site
 		- 20190424@Percy: Change server of nested function AffAdmin_f_AdminUserInfo_Select [RedmineID: #103658]
+		- 20240807@Sally: Remove linked server to DBCust [RedmineID: #206891]
 */
 
 BEGIN
 	SET NOCOUNT ON;
 
 	DECLARE @Users TABLE (UserID INT)
-
-	DECLARE @sql NVARCHAR(MAX)
-	SELECT  @sql =
-	'SELECT UserID FROM OPENQUERY(DBCUST,
-		''SELECT UserID FROM bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select(' + CONVERT(VARCHAR(20), @UserID) + ', ' + CONVERT(VARCHAR(20), @LicenseeID) + ')'')'
-
 	INSERT INTO @Users (UserID)
-	EXEC (@sql)
-	
+	SELECT UserID 
+	FROM bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select(@UserID, @LicenseeID)
+
 	DECLARE @Currency VARCHAR(MAX)
-	SELECT  @Currency = Svalue FROM dbo.SystemSettings WITH (NOLOCK) WHERE Sname='AffiliateCurrencies'
+	SELECT  @Currency = Svalue 
+	FROM dbo.SystemSettings WITH (NOLOCK) 
+	WHERE Sname = 'AffiliateCurrencies'
 	
 	;WITH cte_Currency AS (
-		SELECT val FROM dbo.strsplit(@Currency, ',')
+		SELECT CONVERT(VARCHAR(10), s.value) AS CurrencyCode 
+		FROM STRING_SPLIT(@Currency, ',')s
 	)
 	SELECT	DISTINCT c.CurrencyID,
 			CASE	WHEN c.CurrencyID = 20 THEN 'UUS'
@@ -45,7 +44,7 @@ BEGIN
 			CASE	WHEN ISNULL(ctmp.affcurrencyID, 0) = 0 THEN 0
 					ELSE 1 END AS isActive
 	FROM cte_currency cy 
-		INNER JOIN dbo.Currency c WITH (NOLOCK) ON cy.val = c.CurrencyCode 
+		INNER JOIN dbo.Currency c WITH (NOLOCK) ON cy.CurrencyCode = c.CurrencyCode 
 		LEFT JOIN (
 			SELECT au.UserID, ag.affcurrencyID 
 			FROM @Users au
