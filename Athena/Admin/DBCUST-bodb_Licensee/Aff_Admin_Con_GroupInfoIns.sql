@@ -26,6 +26,7 @@ BEGIN
 
 	SELECT @IsExistGroupName = 1 
 	FROM dbo.AffAdmin_f_GroupInfo_Select('', @LicenseeID) 
+	WHERE GroupName = @GroupName
 
 	IF (@IsExistGroupName = 1) 
 	BEGIN

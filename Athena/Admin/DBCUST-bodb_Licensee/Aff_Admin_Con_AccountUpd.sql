@@ -4,8 +4,7 @@ CREATE PROCEDURE [dbo].[Aff_Admin_Con_AccountUpd]
 	@LicenseeID		INT,
 	@GroupID		INT,
 	@CurrencyIds	VARCHAR(MAX),
-	@ModifyDate		DATE = NULL,
-	@ModifyBy		INT = NULL,
+	@ModifyBy		INT,
 	@ErrCode		INT = 0 OUTPUT
 
 /*
@@ -23,13 +22,12 @@ CREATE PROCEDURE [dbo].[Aff_Admin_Con_AccountUpd]
 */
 AS
 BEGIN
-
 	DECLARE @AdminGroupID INT 
 	
 	UPDATE Aff_LicenseeUser WITH (ROWLOCK, UPDLOCK) 
-	SET GroupID = @GroupID,
-		ModifyDate = ISNULL(@ModifyDate, GETDATE()),
-		@ModifyBy = ISNULL(@ModifyBy, ModifyBy)
+	SET GroupID	   = @GroupID,
+		ModifyDate = GETDATE(),
+		@ModifyBy  = ISNULL(@ModifyBy, ModifyBy)
 	WHERE UserID = @UserID
 		AND LicenseeID = @LicenseeID
 	

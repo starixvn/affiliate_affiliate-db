@@ -3,7 +3,8 @@ CREATE PROCEDURE [dbo].[Aff_Admin_UserCurrencyIns]
 	@LicenseeID		INT,
 	@UserID			INT,
 	@CurrencyIds	VARCHAR(MAX),
-	@ErrCode		INT = 0 OUTPUT
+	@ErrCode		INT = 0 OUTPUT,
+	@GroupID		INT = 0 OUTPUT
 AS
 
 /*
@@ -21,9 +22,8 @@ AS
 */
 
 BEGIN
-	SET NOCOUNT ON;
 
-	DECLARE @GroupID INT
+	SET NOCOUNT ON;
 
 	SELECT @GroupID = GroupID 
 	FROM dbo.AffAdmin_f_AdminUserInfo_Select(@UserID,@LicenseeID)
@@ -32,10 +32,13 @@ BEGIN
 
 	EXEC dbo.AffAdmin_UserCurrency_Insert @UserID = @UserID, @LicenseeID = @LicenseeID, @CurrencyIDs = @CurrencyIds, @IsActive = 1	
 
-	IF (@@ERROR <> 0)
+	IF(@@ERROR <> 0)
 	BEGIN 
 		SELECT @ErrCode = 2010 --Fail to update process
+		RETURN
 	END 
-		
+
+	SELECT @GroupID
+
 END
 GO
