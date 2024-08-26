@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Language_Sel]
 	@UserId	INT = 0
 	, @TargetCountryCode VARCHAR(2) = ''
@@ -11,6 +11,8 @@ AS
 	Revisions:
 		- 20231025@Eddie: Initialize SP [RedmineID: #181590]
 		- 20240124@Eddie: reorder market [RedmineID: #200168]
+		- 20240124@Eddie: Hindi and Telugu [RedmineID: #200168]
+		- 20240819@Eddie: Hide Hindi Market [RedmineID: #209409]
 */
 BEGIN
 	SET NOCOUNT ON
@@ -30,7 +32,7 @@ BEGIN
 								  WHEN 'te-IN' THEN 6
 				ELSE 7 END AS OrderID
 			FROM dbo.TargetCountry tc WITH (NOLOCK)
-				INNER JOIN dbo.Market  m WITH (NOLOCK) ON m.MarketID = tc.MarketID
+				INNER JOIN dbo.Market  m WITH (NOLOCK) ON m.MarketID = tc.MarketID AND m.MarketID <> 'hi'
 			WHERE (tc.CountryCode = @TargetCountryCode) OR (@TargetCountryCode = '')
 		)
 		SELECT al.CountryCode AS [TargetCountryCode], al.MarketID AS [LanguageCode], al.MarketName AS [LanguageName], al.MarketNativeName AS [NativeLanguage], al.ShortedCode, al.DisplayName
@@ -52,7 +54,7 @@ BEGIN
 								  WHEN 'te-IN' THEN 6
 				ELSE 7 END AS OrderID
 			FROM dbo.TargetCountry tc WITH (NOLOCK)
-				INNER JOIN dbo.Market  m WITH (NOLOCK) ON m.MarketID = tc.MarketID
+				INNER JOIN dbo.Market  m WITH (NOLOCK) ON m.MarketID = tc.MarketID AND m.MarketID <> 'hi'
 			WHERE (tc.CountryCode = @TargetCountryCode) OR (@TargetCountryCode = '')
 		)
 		SELECT CountryCode AS [TargetCountryCode], MarketID AS [LanguageCode], MarketName AS [LanguageName], MarketNativeName AS [NativeLanguage], ShortedCode, DisplayName

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Market_Sel]
 	@UserId	INT = 0
 AS
@@ -13,6 +13,7 @@ AS
 		- 20221110@Eddie: Support Block Market [RedmineID: #179537]
 		- 20230330@Eddie: Change order of Bangladesh Language [RedmineID: #186108]
 		- 20240124@Eddie: reorder market [RedmineID: #200168]
+		- 20240816@Eddie: Hide Hindi Market [RedmineID: #209409]
 	Note: Order of English always is 1st
 */
 BEGIN
@@ -32,6 +33,7 @@ BEGIN
 								 WHEN 'te-IN' THEN 6
 				   ELSE 7 END AS TypeId
 			FROM dbo.Market WITH (NOLOCK)
+			WHERE MarketId <> 'hi'
 		)
 		SELECT m.MarketId, m.MarketName, m.MarketNativeName, m.ShortedCode, m.DisplayName
 		FROM dbo.Users u WITH (NOLOCK)
@@ -52,6 +54,7 @@ BEGIN
 								 WHEN 'te-IN' THEN 6
 				   ELSE 7 END AS TypeId
 			FROM dbo.Market WITH (NOLOCK)
+			WHERE MarketId <> 'hi'
 		)
 		SELECT MarketId, MarketName, MarketNativeName, ShortedCode, DisplayName
 		FROM CTE_Language

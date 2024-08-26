@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_User_LandingPage_Sel]
 	@TargetCountryCode	VARCHAR(2) = NULL
 AS
@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20231123@Eddie: Initialize SP [RedmineID: #181590]
+		- 20240821@Eddie: Change metadata "bodbDownlineNet,bodbDownlineNetView" [RedmineID: #209409]
 */
 
 BEGIN

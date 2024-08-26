@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_DomainControl_Sel]
 	@DomainControlId		INT = 0
 	,@TargetCountryCodes	VARCHAR(100) = ''
@@ -14,6 +14,7 @@ AS
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20221110@Eddie: Support Block Market [RedmineID: #179537]
 		- 20231027@Eddie: Change Markets to TargetCountries [RedmineID: #181590]
+		- 20240820@Eddie: Change metadata "bodbAdminNet" [RedmineID: #209409]
 	Param's Explanation:
 		- @MarketIds = 'en-GB,en-US,es-ES,hi-IN,id-ID,ja-JP,km-KH,ko-KR,th-TH,vi-VN,zh-CN,zh-TW' >>>>> removed
 		- @TargetCountryCodes = 'MY,BD,IN,ID,JP,KH,KR,TH,VN,CN'

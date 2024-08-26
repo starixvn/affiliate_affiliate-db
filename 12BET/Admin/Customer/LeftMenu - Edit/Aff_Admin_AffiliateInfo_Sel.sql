@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateInfo_Sel]
 	@UserId		INT = 0
 	,@AffId		INT = NULL
@@ -18,6 +18,7 @@ AS
 		- 20190614@Percy: Remove IsCasino [RedmineID: #109008]
 		- 20200731@Percy: Check permission market (language) by user login [RedmineID: #121975]
 		- 20231026@Eddie: Get TargetCountry [RedmineId : #181590]
+		- 20240820@Eddie: Change metadata "bodbAdminNet" [RedmineID: #209409]
 */
 
 BEGIN

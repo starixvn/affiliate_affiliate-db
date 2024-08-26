@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Check_AffBelongToUser]
 	@UserId			INT
 	,@AffId			INT
@@ -12,6 +12,7 @@ AS
 
 	Revisions:
 		- 20200731@Percy: Initialize SP [RedmineID: #121975]
+		- 20240820@Eddie: Change metadata "bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" [RedmineID: #209409]
 */
 
 BEGIN

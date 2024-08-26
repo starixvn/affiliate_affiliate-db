@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20211213@Malcolm: Initialize SP [RedmineID: #165915]
 		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
+		- 20240820@Eddie: STRING_SPLIT replace for strSplit function [RedmineID: #209409]
 
 	Param's Explanation:
 
@@ -44,9 +45,9 @@ BEGIN
 
 	CREATE TABLE #tmpAff (ID INT IDENTITY(1, 1), AffId INT, Username NVARCHAR(40), IsAsian BIT)
 	INSERT INTO #tmpAff (Username)
-	SELECT DISTINCT RTRIM(LTRIM(s.val)) AS Username
-	FROM dbo.strSplit (@AffNameList, ',') s
-	WHERE s.val <> ''
+	SELECT DISTINCT RTRIM(LTRIM(s.value)) AS Username
+	FROM STRING_SPLIT (@AffNameList, ',') s
+	WHERE s.value <> ''
 		
 	SELECT @Naff = COUNT(1) FROM #tmpAff 
 

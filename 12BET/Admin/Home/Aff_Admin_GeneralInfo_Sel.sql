@@ -18,6 +18,7 @@ AS
 		- 20231108@Eddie: Remove 'image banners' and 'flash banners' statistics [RedmineID: #181590]
 		- 20240325@Eddie: Merge VS2 into Virtual Sports and change metadata "bodbAdminNet" [RedmineID: #201095]
 		- 20240611@Eddie: Add new Product VS3&4 and change metadata "wsv_aff" [RedmineId : #206363]
+		- 20240819@Eddie: Hide Hindi Market [RedmineID: #209409]
 */
 
 BEGIN
@@ -230,7 +231,7 @@ BEGIN
 	-- banner statistics
 	DECLARE @LanguageNames VARCHAR(MAX)
 	SELECT  @LanguageNames = COALESCE(@LanguageNames + ',', '') + MarketName FROM dbo.Market WITH (NOLOCK)
-	WHERE ',' + @Languages + ',' LIKE '%,' + MarketId + ',%'
+	WHERE ',' + @Languages + ',' LIKE '%,' + MarketId + ',%' AND MarketId <> 'hi'
 	
 	BEGIN
 		DECLARE @BannerNum INT

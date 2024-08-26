@@ -39,6 +39,7 @@ AS
 	Revisions:
 		- 20210817@Malcolm: Initialize SP [RedmineID: #159570]
 		- 20240628@Sally: Enhance add ChangeFirstName, ChangeLastName [RedmineID: #206806]
+		- 20240819@Eddie: Hide Hindi Market [RedmineID: #209409]
 
 */
 
@@ -298,7 +299,7 @@ BEGIN
 									,u.ChangeFirstName_Del			 AS '@ChangeFirstName_Del'
 									,u.ChangeLastName_Del			 AS '@ChangeLastName_Del'
 								FROM @UpdateData u
-									LEFT JOIN dbo.Market m WITH(NOLOCK) ON m.MarketId = u.MarketID_Del
+									LEFT JOIN dbo.Market m WITH(NOLOCK) ON m.MarketId = u.MarketID_Del AND m.MarketId <> 'hi'
 								FOR XML PATH('row'), ROOT('root')
 					  ))
 
@@ -332,7 +333,7 @@ BEGIN
 									,u.ChangeFirstName_Ins						AS '@ChangeFirstName_Ins'
 									,u.ChangeLastName_Ins						AS '@ChangeLastName_Ins'
 								FROM @UpdateData u
-									LEFT JOIN dbo.Market m WITH(NOLOCK) ON m.MarketId = u.MarketID_Ins
+									LEFT JOIN dbo.Market m WITH(NOLOCK) ON m.MarketId = u.MarketID_Ins AND m.MarketId <> 'hi'
 								FOR XML PATH('row'), ROOT('root')
 					 ))
 

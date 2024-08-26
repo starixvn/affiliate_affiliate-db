@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 USE [Affiliate_12BET]
 GO
 
@@ -27,6 +27,7 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20231027@Eddie: Update TargetCountry [RedmineId : #181590]
+		- 20240821@Eddie: Change metadata "bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" [RedmineID: #209409]
 */
 
 BEGIN

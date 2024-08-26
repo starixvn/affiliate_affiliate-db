@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_MediaSize_Sel]
 	@Languages			VARCHAR(MAX)
 	,@TargetProductId	INT = 0
@@ -16,6 +16,7 @@ AS
 		- 20200303@Percy: Support multiple sizes and categories on banner [RedmineID: #121974]
 		- 20200731@Percy: Check permission market (language) by user login [RedmineID: #121975]
 		- 20231117@Eddie: Use TargetProduct for MediaSize [RedmineID: #181590]
+		- 20240820@Eddie: Change metadata "bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" [RedmineID: #209409]
 
 	Param's Explanation:
 		- @Languages:  get from table TargetCountry, ex: 'Korean' or 'Vietnamese', not use 'English (Europe)' and 'Spanish'
