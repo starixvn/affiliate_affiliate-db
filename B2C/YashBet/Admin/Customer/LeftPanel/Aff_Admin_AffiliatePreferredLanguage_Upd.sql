@@ -15,6 +15,7 @@ AS
 
 	Revisions:
 		- 20240115@Sally: Initialize SP [RedmineID: #198909]
+		- 20240829@Sally: Add new permission for approve new affiliate [RedmineID: #209858]
 */
 
 BEGIN
@@ -32,7 +33,17 @@ BEGIN
 		@ErrMsg		= @ErrMsg OUTPUT
 
 	IF @ErrCode <> 0
-		RETURN
+	BEGIN
+		-- Check permission Edit Affiliate Status
+		EXEC dbo.Aff_Con_CheckPermission
+			@CustId		= @UserID,
+			@FuncName	= '[EditAffiliateDetails]',
+			@ErrCode	= @ErrCode OUTPUT,
+			@ErrMsg		= @ErrMsg OUTPUT
+
+		IF @ErrCode <> 0
+			RETURN
+	END
 	-- End check permission
 
 	IF NOT EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffID = @AffID)
