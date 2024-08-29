@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateInfo_Upd]
 	@UserId				INT,
 	@AffId				INT,
@@ -34,16 +34,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateInfo_Upd]
 	@BankAccountName	NVARCHAR(100) = NULL,
 	@BankAccountNo		NVARCHAR(100) = NULL,
 	-- End Payment Information
-	-- Update on left menu
-	@PreferredLanguage	VARCHAR(20) = NULL,
-	@Password			NVARCHAR(40) = NULL,
-	@AffType			TINYINT	= NULL,
-	@Status				VARCHAR(30) = NULL,
-	@GroupId			INT = NULL, -- with status = approved
-	@Closed				BIT = NULL,
-	-- End left menu
 	@IP					VARCHAR(50),
-	@Language			VARCHAR(20) = 'en-US',
 	@ErrCode			INT = 0 OUTPUT,
 	@ErrMsg				NVARCHAR(4000) = '' OUTPUT
 AS  
@@ -53,7 +44,6 @@ AS
 	DB: DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G
 	Task:
 		Admin site - Customer - Edit - Update Info (Exclude Preferrence Language and Password)
-		Admin site - Customer - Left menu - Update Preferrence Language / Password
 	
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
@@ -62,13 +52,18 @@ AS
 		- 20201215@Percy: Add AffMediaLink [RedmineID: #146201]
 		- 20210223@Percy: Do not update ApprovedDate if change from Suspended [RedmineID: #150493]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+		- 20240828@Sally: Add new permission for approve new affiliate [RedmineID: #209858]
+
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @CurrentDate SMALLDATETIME
-	SELECT  @CurrentDate = GETDATE()
+		,@Language VARCHAR(20)
+
+	SELECT @CurrentDate = GETDATE()
+	SELECT @Language	= 'en-US'
 
 	DECLARE @AffCode VARCHAR(20)
 
@@ -80,7 +75,17 @@ BEGIN
 		@ErrMsg		= @ErrMsg OUTPUT
 
 	IF @ErrCode <> 0
-		RETURN
+	BEGIN
+		-- Check permission Edit Affiliate Status
+		EXEC dbo.Aff_Con_CheckPermission
+			@CustId		= @UserID,
+			@FuncName	= '[EditAffiliateDetails]',
+			@ErrCode	= @ErrCode OUTPUT,
+			@ErrMsg		= @ErrMsg OUTPUT
+
+		IF @ErrCode <> 0
+			RETURN
+	END
 
 	IF NOT EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @AffId)
 	BEGIN
@@ -91,14 +96,6 @@ BEGIN
 
 	DECLARE @UpdatedData TABLE
 	(
-		-- del
-		PreferredLanguage_Del	VARCHAR(20),
-		Password_Del			VARCHAR(40),
-		AffType_Del				TINYINT,
-		Status_Del				VARCHAR(30),
-		ApprovedDate_Del		SMALLDATETIME,
-		ApprovedBy_Del			INT,
-		Closed_Del				BIT,
 		FirstName_Del			NVARCHAR(50),
 		LastName_Del			NVARCHAR(50),
 		Email_Del				NVARCHAR(50),
@@ -129,13 +126,6 @@ BEGIN
 		MailOption_Del			BIT,
 		IsRejected_Del			BIT,
 		-- insert
-		PreferredLanguage_Ins	VARCHAR(20),
-		Password_Ins			VARCHAR(40),
-		AffType_Ins				TINYINT,
-		Status_Ins				VARCHAR(30),
-		ApprovedDate_Ins		SMALLDATETIME,
-		ApprovedBy_Ins			INT,
-		Closed_Ins				BIT,
 		FirstName_Ins			NVARCHAR(50),
 		LastName_Ins			NVARCHAR(50),
 		Email_Ins				NVARCHAR(50),
@@ -173,247 +163,7 @@ BEGIN
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
-	-- Update Password and Status when approving affiliate
-	IF @Password IS NOT NULL AND @Status IS NOT NULL
-	BEGIN
-		BEGIN TRY
-			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
-			SET Password = ISNULL(@Password, Password),
-				Status = CASE WHEN @Status = 'Suspended' THEN Status ELSE ISNULL(@Status, Status) END,
-				IsRejected = CASE WHEN @Status = 'Suspended' THEN 1 WHEN @Status = 'Approved' THEN 0 ELSE IsRejected END
-			OUTPUT DELETED.Password, DELETED.Status, DELETED.IsRejected, INSERTED.Password, INSERTED.Status, INSERTED.IsRejected
-			INTO @UpdatedData (Password_Del, Status_Del, IsRejected_Del, Password_Ins, Status_Ins, IsRejected_Ins)
-			WHERE AffId = @AffId
-		END TRY
-		BEGIN CATCH
-			-- Update process is unsuccessful. Please try again!
-			SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-			RETURN
-		END CATCH
-
-		SELECT	@OldData =
-					'Password='		+ ISNULL(Password_Del, '') + ',' +
-					'Status='		+ ISNULL(Status_Del, '') + ',' +
-					'IsRejected='	+ ISNULL(CONVERT(VARCHAR(2), IsRejected_Del), ''),
-				@NewData =
-					'Password='		+ ISNULL(Password_Ins, '') + ',' +
-					'Status='		+ ISNULL(Status_Ins, '') + ',' +
-					'IsRejected='	+ ISNULL(CONVERT(VARCHAR(2), IsRejected_Ins), '')
-		FROM @UpdatedData
-	END
-	-- Update Preference Language only (Left menu)
-	ELSE IF @PreferredLanguage IS NOT NULL
-	BEGIN
-		BEGIN TRY
-			UPDATE dbo.AffDetail WITH (ROWLOCK, UPDLOCK)
-			SET PreferredLanguage = ISNULL(@PreferredLanguage, PreferredLanguage)
-			OUTPUT DELETED.PreferredLanguage, INSERTED.PreferredLanguage
-			INTO @UpdatedData (PreferredLanguage_Del, PreferredLanguage_Ins)
-			WHERE AffId = @AffId
-		END TRY
-		BEGIN CATCH
-			-- Update process is unsuccessful. Please try again!
-			SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-			RETURN
-		END CATCH
-
-		SELECT	@OldData = 'PreferredLanguage=' + ISNULL(PreferredLanguage_Del, ''),
-				@NewData = 'PreferredLanguage=' + ISNULL(PreferredLanguage_Ins, '')
-		FROM @UpdatedData
-	END
-	-- Update Password only (Left menu)
-	ELSE IF @Password IS NOT NULL
-	BEGIN
-		BEGIN TRY
-			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
-			SET Password = ISNULL(@Password, Password)
-			OUTPUT DELETED.Password, INSERTED.Password
-			INTO @UpdatedData (Password_Del, Password_Ins)
-			WHERE AffId = @AffId
-		END TRY
-		BEGIN CATCH
-			-- Update process is unsuccessful. Please try again!
-			SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-			RETURN
-		END CATCH
-
-		SELECT	@OldData = 'Password=' + ISNULL(Password_Del, ''),
-				@NewData = 'Password=' + ISNULL(Password_Ins, '')
-		FROM @UpdatedData
-	END
-	-- Update AffType only (Left menu)
-	ELSE IF @AffType IS NOT NULL
-	BEGIN
-		BEGIN TRY
-			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
-			SET AffType = ISNULL(@AffType, AffType)
-			OUTPUT DELETED.AffType, INSERTED.AffType
-			INTO @UpdatedData (AffType_Del, AffType_Ins)
-			WHERE AffId = @AffId
-		END TRY
-		BEGIN CATCH
-			-- Update process is unsuccessful. Please try again!
-			SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-			RETURN
-		END CATCH
-
-		SELECT	@OldData = 'AffType=' + ISNULL(CONVERT(VARCHAR(20), AffType_Del), ''),
-				@NewData = 'AffType=' + ISNULL(CONVERT(VARCHAR(20), AffType_Ins), '')
-		FROM @UpdatedData
-	END
-	-- Update Status only (Left menu)
-	ELSE IF @Status IS NOT NULL
-	BEGIN
-		IF @Status NOT IN ('Pending', 'Approved', 'Disapproved', 'Suspended')
-		BEGIN
-			-- Invalid status
-			SELECT @ErrCode = 1004, @ErrMsg = dbo.Aff_f_GetMessageById(305, @Language)
-			RETURN
-		END
-
-		IF @Status = 'Approved'
-		BEGIN
-			IF EXISTS (
-				SELECT 1
-				FROM dbo.AffInfo ai1 WITH (NOLOCK)
-					INNER JOIN dbo.AffInfo ai2 WITH (NOLOCK) ON ai1.Email = ai2.Email AND ai1.AffId <> ai2.AffId
-				WHERE ai1.AffId = @AffId
-					AND ai2.Status = 'Approved'
-			)
-			BEGIN
-				-- Email Address has been used. Please choose another one!
-				SELECT @ErrCode = 1007, @ErrMsg = dbo.Aff_f_GetMessageById(1, @Language)
-				RETURN
-			END
-
-			IF NOT EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @AffId AND GroupId = @GroupId)
-			BEGIN
-				-- Invalid Commission Group
-				SELECT @ErrCode = 1007, @ErrMsg = dbo.Aff_f_GetMessageById(601, @Language)
-				RETURN
-			END
-
-			;WITH CTE_AffCode AS
-			(
-				SELECT TOP 1 * FROM dbo.AffiliateCode WITH (ROWLOCK)
-				WHERE AffId IS NULL
-				ORDER BY NEWID() -- random
-			)
-			UPDATE CTE_AffCode
-			SET AffId = @AffId
-
-			SELECT @AffCode = AffCode FROM dbo.AffiliateCode WITH (NOLOCK) WHERE AffId = @AffId
-
-			INSERT INTO dbo.AffMediaChannel (AffId, ChannelCode, ChannelName)
-			SELECT @AffId, LOWER(t.ChannelName), t.ChannelName
-			FROM (
-				select 'Youtube' as ChannelName
-				union all select 'Facebook'
-				union all select 'Twitter'
-				union all select 'Tiktok'
-				union all select 'Whatsapp'
-				union all select 'Telegram'
-			) t
-				LEFT JOIN dbo.AffMediaChannel a WITH (NOLOCK) ON a.AffId = @AffId AND a.ChannelCode = LOWER(t.ChannelName)
-			WHERE a.AffId IS NULL
-		END
-		ELSE IF @Status = 'Suspended'
-		BEGIN
-			IF NOT EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE Status = 'Approved' AND AffID = @AffID AND IsClosed = 0)
-			BEGIN
-				-- Invalid input Status!
-				SELECT @ErrCode = 1004, @ErrMsg = dbo.Aff_f_GetMessageById(1, @Language)
-				RETURN
-			END
-		END
-
-		BEGIN TRY
-			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
-			SET Status = CASE WHEN @Status = 'Suspended' THEN Status ELSE @Status END,
-				ApprovedDate = CASE WHEN ApprovedDate IS NULL AND @Status IN ('Approved', 'Disapproved') THEN @CurrentDate ELSE ApprovedDate END,
-				ApprovedBy = @UserId,
-				AffCode = ISNULL(@AffCode, AffCode),
-				IsRejected = CASE WHEN @Status = 'Suspended' THEN 1 ELSE IsRejected END
-			OUTPUT	DELETED.Status, DELETED.ApprovedDate, DELETED.ApprovedBy, DELETED.IsRejected,
-					INSERTED.Status, INSERTED.ApprovedDate, INSERTED.ApprovedBy, INSERTED.IsRejected
-			INTO @UpdatedData (Status_Del, ApprovedDate_Del, ApprovedBy_Del, IsRejected_Del,
-								Status_Ins, ApprovedDate_Ins, ApprovedBy_Ins, IsRejected_Ins)
-			WHERE AffId = @AffId
-		END TRY
-		BEGIN CATCH
-			-- Update process is unsuccessful. Please try again!
-			SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-			RETURN
-		END CATCH
-
-		SELECT	@OldData =
-					'Status='			+ ISNULL(Status_Del, '') + ',' + 
-					'ApprovedDate='		+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Del), '') + ',' +
-					'ApprovedBy='		+ ISNULL(u1.UserName, '') + ',' +
-					'IsRejected='		+ ISNULL(CONVERT(VARCHAR(2), IsRejected_Del), ''),
-				@NewData =
-					'Status='			+ ISNULL(Status_Ins, '') + ',' + 
-					'ApprovedDate='		+ ISNULL(CONVERT(VARCHAR(20), ApprovedDate_Ins), '') + ',' + 
-					'ApprovedBy='		+ ISNULL(u2.UserName, '') + ',' +
-					'IsRejected='		+ ISNULL(CONVERT(VARCHAR(2), IsRejected_Del), '')
-		FROM @UpdatedData ud
-			LEFT JOIN dbo.Affiliate_User u1 WITH (NOLOCK) ON ud.ApprovedBy_Del = u1.CustId
-			LEFT JOIN dbo.Affiliate_User u2 WITH (NOLOCK) ON ud.ApprovedBy_Ins = u2.CustId
-	END
-	-- Update Close only (Left menu)
-	ELSE IF @Closed IS NOT NULL
-	BEGIN
-		IF @Closed = 1
-		BEGIN
-			DECLARE @NoCommGroupId INT, @AffIds VARCHAR(MAX)
-			SELECT  @NoCommGroupId = GroupId, @AffIds = CONVERT(VARCHAR(20), @AffId)
-			FROM dbo.CommGroup WITH (NOLOCK)
-			WHERE GroupName = 'NoCommission'
-
-			DECLARE @RefNo INT = 0
-
-			EXEC dbo.Aff_Admin_CommGroup_Assign
-				@UserId		= @UserId,
-				@AffId		= @AffId,
-				@GroupId	= @NoCommGroupId,
-				@IP			= @IP,
-				@ErrCode	= @ErrCode OUTPUT,
-				@ErrMsg		= @ErrMsg OUTPUT
-
-			IF @ErrCode <> 0
-			BEGIN
-				-- Update process is unsuccessful. Please try again!
-				SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-				RETURN
-			END
-		END
-		ELSE
-		BEGIN
-			-- Reset Login Count (no need to writelog)
-			UPDATE dbo.AffDetail WITH (ROWLOCK, UPDLOCK)
-			SET LoginCount = 0
-			WHERE AffId = @AffId
-		END
-
-		BEGIN TRY
-			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
-			SET IsClosed = ISNULL(@Closed, IsClosed)
-			OUTPUT DELETED.IsClosed, INSERTED.IsClosed
-			INTO @UpdatedData (Closed_Del, Closed_Ins)
-			WHERE AffId = @AffId
-		END TRY
-		BEGIN CATCH
-			-- Update process is unsuccessful. Please try again!
-			SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-			RETURN
-		END CATCH
-
-		SELECT	@OldData = 'IsClose=' + ISNULL(CONVERT(VARCHAR(1), Closed_Del), ''),
-				@NewData = 'IsClose=' + ISNULL(CONVERT(VARCHAR(1), Closed_Ins), '')
-		FROM @UpdatedData
-	END
 	-- Update others (Edit tab)
-	ELSE
 	BEGIN
 		-- Check if change player_username
 		IF EXISTS (SELECT 1 FROM dbo.AffDetail WITH (NOLOCK) WHERE AffID = @AffId AND Player_Username <> @Player_Username)
@@ -484,7 +234,6 @@ BEGIN
 				SiteURL = ISNULL(@SiteURL, SiteURL),
 				MoreSiteURLs = ISNULL(@MoreSiteURLs, MoreSiteURLs),
 				NoSiteDesc = ISNULL(@NoSiteDesc, NoSiteDesc),
-				PreferredLanguage = ISNULL(@PreferredLanguage, PreferredLanguage),
 				PreferredPayment = @PreferredPayment,
 				Player_CustId = ISNULL(@Player_CustId, Player_CustId),
 				Player_Username = ISNULL(@Player_Username, Player_Username),
@@ -493,18 +242,22 @@ BEGIN
 				Player_CurrencyCode = ISNULL(@Player_CurrencyCode, Player_CurrencyCode),
 				MailOption = ISNULL(@MailOption, MailOption)
 			OUTPUT	DELETED.Gender,DELETED.Country,DELETED.Phone,DELETED.ContactApps,DELETED.Address,DELETED.City,DELETED.State,DELETED.Postal,
-					DELETED.SiteURL,DELETED.MoreSiteURLs,DELETED.NoSiteDesc,DELETED.PreferredLanguage,DELETED.PreferredPayment,
+					DELETED.SiteURL,DELETED.MoreSiteURLs,DELETED.NoSiteDesc,
+					DELETED.PreferredPayment,
 					DELETED.Player_CustId,DELETED.Player_Username,DELETED.Player_Currency,DELETED.MailOption,
 					INSERTED.Gender,INSERTED.Country,INSERTED.Phone,INSERTED.ContactApps,INSERTED.Address,INSERTED.City,INSERTED.State,INSERTED.Postal,
-					INSERTED.SiteURL,INSERTED.MoreSiteURLs,INSERTED.NoSiteDesc,INSERTED.PreferredLanguage,INSERTED.PreferredPayment,
+					INSERTED.SiteURL,INSERTED.MoreSiteURLs,INSERTED.NoSiteDesc,
+					INSERTED.PreferredPayment,
 					INSERTED.Player_CustId,INSERTED.Player_Username,INSERTED.Player_Currency,INSERTED.MailOption
 			INTO @UpdatedData
 			(
 					Gender_Del,Country_Del,Phone_Del,ContactApps_Del,Address_Del,City_Del,State_Del,Postal_Del,
-					SiteURL_Del,MoreSiteURLs_Del,NoSiteDesc_Del,PreferredLanguage_Del,PreferredPayment_Del,
+					SiteURL_Del,MoreSiteURLs_Del,NoSiteDesc_Del,
+					PreferredPayment_Del,
 					Player_CustId_Del,Player_Username_Del,Player_Currency_Del,MailOption_Del,
 					Gender_Ins,Country_Ins,Phone_Ins,ContactApps_Ins,Address_Ins,City_Ins,State_Ins,Postal_Ins,
-					SiteURL_Ins,MoreSiteURLs_Ins,NoSiteDesc_Ins,PreferredLanguage_Ins,PreferredPayment_Ins,
+					SiteURL_Ins,MoreSiteURLs_Ins,NoSiteDesc_Ins,
+					PreferredPayment_Ins,
 					Player_CustId_Ins,Player_Username_Ins,Player_Currency_Ins,MailOption_Ins
 			)
 			WHERE AffId = @AffId
@@ -544,7 +297,6 @@ BEGIN
 					'MoreSiteURLs='			+ ISNULL(MoreSiteURLs_Del, '') + ',' +
 					'NoSiteDesc='			+ ISNULL(NoSiteDesc_Del, '') + ',' +
 					'PreferredPayment='		+ ISNULL(PreferredPayment_Del, '') + ',' +
-					'PreferredLanguage='	+ ISNULL(PreferredLanguage_Del, '') + ',' +
 					'Player_CustId='		+ ISNULL(CONVERT(VARCHAR(15), Player_CustId_Del), '') + ',' +
 					'Player_Username='		+ ISNULL(Player_Username_Del, '') + ',' +
 					'Player_Currency='		+ ISNULL(CONVERT(VARCHAR(10), Player_Currency_Del), '') + ',' +
@@ -567,7 +319,6 @@ BEGIN
 					'MoreSiteURLs='			+ ISNULL(MoreSiteURLs_Ins, '') + ',' +
 					'NoSiteDesc='			+ ISNULL(NoSiteDesc_Ins, '') + ',' +
 					'PreferredPayment='		+ ISNULL(PreferredPayment_Ins, '') + ',' +
-					'PreferredLanguage='	+ ISNULL(PreferredLanguage_Ins, '') + ',' +
 					'Player_CustId='		+ ISNULL(CONVERT(VARCHAR(15), Player_CustId_Ins), '') + ',' +
 					'Player_Username='		+ ISNULL(Player_Username_Ins, '') + ',' +
 					'Player_Currency='		+ ISNULL(CONVERT(VARCHAR(10), Player_Currency_Ins), '') + ',' +

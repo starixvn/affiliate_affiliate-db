@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Affiliate_Approved]
 	@UserId		INT,
 	@AffId		INT,
@@ -20,6 +20,7 @@ AS
 		- 20201026@Percy: Add AffCode - auto generate code when affiliate was approved [RedmineID: #143852]
 		- 20201215@Percy: Add AffMediaLink [RedmineID: #146201]
 		- 20210223@Percy: Do not update ApprovedDate if change from Suspended [RedmineID: #150493]
+		- 20240828@Sally: Add new permission for approve new affiliate [RedmineID: #209858]
 */
 
 BEGIN
@@ -38,7 +39,17 @@ BEGIN
 		@ErrMsg		= @ErrMsg OUTPUT
 
 	IF @ErrCode <> 0
-		RETURN
+	BEGIN
+		-- Check permission Edit Affiliate Status
+		EXEC dbo.Aff_Con_CheckPermission
+			@CustId		= @UserID,
+			@FuncName	= '[EditAffiliateStatus]',
+			@ErrCode	= @ErrCode OUTPUT,
+			@ErrMsg		= @ErrMsg OUTPUT
+
+		IF @ErrCode <> 0
+			RETURN
+	END
 
 	IF NOT EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @AffId)
 	BEGIN
