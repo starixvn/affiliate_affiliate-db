@@ -37,7 +37,7 @@ BEGIN
 		-- Check permission Edit Affiliate Status
 		EXEC dbo.Aff_Con_CheckPermission
 			@CustId		= @UserID,
-			@FuncName	= '[EditAffiliateStatus]',
+			@FuncName	= '[EditAffiliateDetails]',
 			@ErrCode	= @ErrCode OUTPUT,
 			@ErrMsg		= @ErrMsg OUTPUT
 

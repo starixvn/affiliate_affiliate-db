@@ -9,6 +9,7 @@ AS
 
 	Revisions:
 		- 20240115@Sally: Initialize SP [RedmineID: #198909]
+		- 20240829@Sally: Remove Closed Info [RedmineID: #209858]
 
 */
 
@@ -155,7 +156,6 @@ BEGIN
 		MemAllNum,
 		DepositMemAllNum,
 		MemAllNum - DepositMemAllNum AS NonDepositMemAllNum,
-		ClosedAllNum,
 		DepositAll,
 		GGRAll,
 		BonusAll,
@@ -172,7 +172,6 @@ BEGIN
 		MemMonthNum,
 		DepositMemMonthNum,
 		MemMonthNum - DepositMemMonthNum AS NonDepositMemMonthNum,
-		ClosedMonthNum,
 		DepositMonth,
 		GGRMonth,
 		BonusMonth,
@@ -221,14 +220,12 @@ BEGIN
 				SUM(Approved)		AS ApprovedAllNum,
 				SUM(Disapproved)	AS DisapprovedAllNum,
 				SUM(Suspended)		AS SuspendedAllNum,
-				SUM(Closed)			AS ClosedAllNum,
 				-- current month
 				SUM(CASE WHEN CurrentMonth = 1 THEN Total		ELSE 0 END) AS AffInProMonthNum,
 				SUM(CASE WHEN CurrentMonth = 1 THEN Pending		ELSE 0 END) AS PendingMonthNum,
 				SUM(CASE WHEN CurrentMonth = 1 THEN Approved	ELSE 0 END) AS ApprovedMonthNum,
 				SUM(CASE WHEN CurrentMonth = 1 THEN Disapproved ELSE 0 END) AS DisapprovedMonthNum,
-				SUM(CASE WHEN CurrentMonth = 1 THEN Suspended	ELSE 0 END) AS SuspendedMonthNum,
-				SUM(CASE WHEN CurrentMonth = 1 THEN Closed		ELSE 0 END) AS ClosedMonthNum
+				SUM(CASE WHEN CurrentMonth = 1 THEN Suspended	ELSE 0 END) AS SuspendedMonthNum
 			FROM
 			(
 				SELECT
@@ -237,8 +234,7 @@ BEGIN
 					SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS Pending,
 					SUM(CASE WHEN status = 'Disapproved' THEN 1 ELSE 0 END) AS Disapproved,
 					SUM(CASE WHEN status = 'Approved' AND IsClosed = 0 AND IsRejected = 0 THEN 1 ELSE 0 END) AS Approved,
-					SUM(CASE WHEN status = 'Approved' AND IsClosed = 0 AND IsRejected = 1 THEN 1 ELSE 0 END) AS Suspended,
-					SUM(CASE WHEN status = 'Approved' AND IsClosed = 1 THEN 1 ELSE 0 END) AS Closed
+					SUM(CASE WHEN status = 'Approved' AND IsClosed = 0 AND IsRejected = 1 THEN 1 ELSE 0 END) AS Suspended
 				FROM dbo.AffInfo WITH (NOLOCK)
 				GROUP BY
 					CASE WHEN RegisteredDate < @BeginOfCurrentMonth THEN 0 ELSE 1 END
