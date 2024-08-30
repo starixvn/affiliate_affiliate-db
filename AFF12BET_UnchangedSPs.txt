@@ -1,0 +1,1 @@
+12BET\Admin\Customer\LeftMenu - Edit\Aff_Admin_AffiliateClosed_Upd.sql

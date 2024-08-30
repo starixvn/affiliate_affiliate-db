@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Affiliate_Approved]
 	@UserId		INT,
 	@AffId		INT,
@@ -18,12 +18,13 @@ AS
 		- 20180601@Percy: Initialize SP [RedmineID: #87923]
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
+		- 20240827@Eddie: Add new permission for Manage Pending Affiliate [RedmineId : #209510]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @Language NVARCHAR(5) = 'en-US'
+	DECLARE @Language NVARCHAR(5) = 'en-US', @PermissionType SMALLINT = 0
 
 	DECLARE @CurrentDate SMALLDATETIME
 	SELECT  @CurrentDate = GETDATE()
@@ -36,7 +37,19 @@ BEGIN
 		,@ErrMsg	= @ErrMsg OUTPUT
 
 	IF @ErrCode <> 0
-		RETURN
+	BEGIN
+		-- Check permission for Manage Pending Affiliate
+		EXEC dbo.Aff_CheckPermission
+			@CustId		= @UserId
+			,@FuncName	= '[ManagePendingAffiliate]'
+			,@ErrCode	= @ErrCode OUTPUT
+			,@ErrMsg	= @ErrMsg OUTPUT
+		
+		IF @ErrCode <> 0
+			RETURN
+
+		SELECT @PermissionType = 1
+	END
 
 	IF NOT EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @AffId)
 	BEGIN
@@ -115,16 +128,29 @@ BEGIN
 		END
 		
 		BEGIN TRY
-			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
-			SET Status = ISNULL(@Status, Status),
-				Password = ISNULL(@Password, Password),
-				ApprovedDate = CASE WHEN @Status IN ('Approved', 'Disapproved') THEN @CurrentDate ELSE NULL END,
-				CasinoJoinedDate = @CurrentDate
-			OUTPUT	DELETED.Status, DELETED.Password, DELETED.ApprovedDate, DELETED.CasinoJoinedDate,
-					INSERTED.Status, INSERTED.Password, INSERTED.ApprovedDate, INSERTED.CasinoJoinedDate
-			INTO @UpdatedData (Status_Del, Password_Del, ApprovedDate_Del, CasinoJoinedDate_Del,
-								Status_Ins, Password_Ins, ApprovedDate_Ins, CasinoJoinedDate_Ins)
-			WHERE AffId = @AffId
+			IF ISNULL(@PermissionType, 0) = 0
+			BEGIN
+				UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
+				SET Status = ISNULL(@Status, Status),
+					Password = ISNULL(@Password, Password),
+					ApprovedDate = CASE WHEN @Status IN ('Approved', 'Disapproved') THEN @CurrentDate ELSE NULL END,
+					CasinoJoinedDate = @CurrentDate
+				OUTPUT	DELETED.Status, DELETED.Password, DELETED.ApprovedDate, DELETED.CasinoJoinedDate,
+						INSERTED.Status, INSERTED.Password, INSERTED.ApprovedDate, INSERTED.CasinoJoinedDate
+				INTO @UpdatedData (Status_Del, Password_Del, ApprovedDate_Del, CasinoJoinedDate_Del,
+									Status_Ins, Password_Ins, ApprovedDate_Ins, CasinoJoinedDate_Ins)
+				WHERE AffId = @AffId
+			END
+			ELSE
+			BEGIN
+				UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
+				SET Status = @Status
+				   ,ApprovedDate = @CurrentDate
+				   ,CasinoJoinedDate = @CurrentDate
+				OUTPUT DELETED.Status, DELETED.ApprovedDate, DELETED.CasinoJoinedDate, INSERTED.Status, INSERTED.ApprovedDate, INSERTED.CasinoJoinedDate
+				INTO @UpdatedData (Status_Del, ApprovedDate_Del, CasinoJoinedDate_Del, Status_Ins, ApprovedDate_Ins, CasinoJoinedDate_Ins)
+				WHERE AffId = @AffId AND Status = 'Pending'
+			END
 		END TRY
 		BEGIN CATCH
 			-- Update process is unsuccessful. Please try again!

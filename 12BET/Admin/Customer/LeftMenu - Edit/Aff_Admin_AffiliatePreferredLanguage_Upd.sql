@@ -20,12 +20,13 @@ AS
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
 		- 20240819@Eddie: Hide Hindi Market [RedmineID: #209409]
+		- 20240827@Eddie: Add new permission for Manage Pending Affiliate [RedmineId : #209510]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @Language VARCHAR(10) = 'en-US'
+	DECLARE @Language VARCHAR(10) = 'en-US', @PermissionType SMALLINT = 0
 
 	SELECT @ErrCode = 0, @ErrMsg = ''
 
@@ -37,8 +38,19 @@ BEGIN
 		,@ErrMsg	= @ErrMsg OUTPUT
 
 	IF @ErrCode <> 0
-		RETURN
-	-- End check permission
+	BEGIN
+		-- Check permission for Manage Pending Affiliate
+		EXEC dbo.Aff_CheckPermission
+			@CustId		= @UserId
+			,@FuncName	= '[ManagePendingAffiliate]'
+			,@ErrCode	= @ErrCode OUTPUT
+			,@ErrMsg	= @ErrMsg OUTPUT
+
+		IF @ErrCode <> 0
+			RETURN
+
+		SELECT @PermissionType = 1
+	END
 
 	IF NOT EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffID = @AffID)
 	BEGIN
@@ -64,9 +76,21 @@ BEGIN
 		RETURN
 	
 	BEGIN TRY
-		UPDATE dbo.AffDetail WITH (ROWLOCK)
-		SET PreferredLanguage = @PreferredLanguage
-		WHERE AffID = @AffID
+		IF ISNULL(@PermissionType, 0) = 0
+		BEGIN
+			UPDATE dbo.AffDetail WITH (ROWLOCK, UPDLOCK)
+			SET PreferredLanguage = @PreferredLanguage
+			WHERE AffID = @AffID
+		END
+		ELSE
+		BEGIN
+			UPDATE ad
+			SET ad.PreferredLanguage = @PreferredLanguage
+			FROM dbo.AffDetail ad WITH (ROWLOCK, UPDLOCK)
+				INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON ad.AffID = ai.AffID
+			WHERE ad.AffID = @AffID
+				AND ai.Status = 'Pending'
+		END
 	END TRY
 	BEGIN CATCH
 		-- Update process is unsuccessful. Please try again!

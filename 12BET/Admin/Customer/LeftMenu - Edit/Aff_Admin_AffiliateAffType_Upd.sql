@@ -18,12 +18,13 @@ AS
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
+		- 20240827@Eddie: Add new permission for Manage Pending Affiliate [RedmineId : #209510]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @Language VARCHAR(10) = 'en-US'
+	DECLARE @Language VARCHAR(10) = 'en-US', @PermissionType SMALLINT = 0
 
 	SELECT @ErrCode = 0, @ErrMsg = ''
 
@@ -35,7 +36,19 @@ BEGIN
 		,@ErrMsg	= @ErrMsg OUTPUT
 
 	IF @ErrCode <> 0
-		RETURN
+	BEGIN
+		-- Check permission for Manage Pending Affiliate
+		EXEC dbo.Aff_CheckPermission
+			@CustId		= @UserId
+			,@FuncName	= '[ManagePendingAffiliate]'
+			,@ErrCode	= @ErrCode OUTPUT
+			,@ErrMsg	= @ErrMsg OUTPUT
+
+		IF @ErrCode <> 0
+			RETURN
+
+		SELECT @PermissionType = 1
+	END
 
 	IF NOT EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffID = @AffID)
 	BEGIN
@@ -59,9 +72,18 @@ BEGIN
 		RETURN
 
 	BEGIN TRY
-		UPDATE dbo.AffInfo WITH (ROWLOCK)
-		SET AffType = @AffType
-		WHERE AffID = @AffID
+		IF ISNULL(@PermissionType, 0) = 0
+		BEGIN
+			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
+			SET AffType = @AffType
+			WHERE AffID = @AffID
+		END
+		ELSE
+		BEGIN
+			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
+			SET AffType = @AffType
+			WHERE AffID = @AffID AND Status = 'Pending'
+		END
 	END TRY
 	BEGIN CATCH
 		-- Update process is unsuccessful. Please try again!
