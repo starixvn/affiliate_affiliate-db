@@ -65,23 +65,13 @@ BEGIN
 
 	-- Check permission
 	EXEC dbo.Aff_Con_CheckPermission
-		@CustId		= @UserID,
-		@FuncName	= '[Affiliate]',
+		@CustId		= @UserId,
+		@FuncName	='[EditAffiliateDetails]',
 		@ErrCode	= @ErrCode OUTPUT,
 		@ErrMsg		= @ErrMsg OUTPUT
-
-	IF @ErrCode <> 0
-	BEGIN
-		-- Check permission Edit Affiliate Status
-		EXEC dbo.Aff_Con_CheckPermission
-			@CustId		= @UserID,
-			@FuncName	= '[EditAffiliateDetails]',
-			@ErrCode	= @ErrCode OUTPUT,
-			@ErrMsg		= @ErrMsg OUTPUT
-
-		IF @ErrCode <> 0
-			RETURN
-	END
+    
+	IF (@ErrCode <> 0)
+		RETURN
 
 	IF NOT EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @AffId)
 	BEGIN
