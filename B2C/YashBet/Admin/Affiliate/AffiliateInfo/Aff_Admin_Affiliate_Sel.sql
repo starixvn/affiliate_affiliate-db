@@ -24,6 +24,7 @@ AS
 
 	Revisions:
 		- 20240115@Sally: Initialize SP [RedmineID: #198909]
+		- 20240829@Sally: Remove Closed Info [RedmineID: #209858]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
@@ -47,13 +48,8 @@ BEGIN
 		AND (ISNULL(@Player_UserName, '') = '' OR ad.Player_Username LIKE '%' + REPLACE(@Player_UserName, '_', '[_]') + '%')
 		AND ai.Status = CASE
 							WHEN ISNULL(@Status, '') = '' THEN ai.Status
-							WHEN @Status IN ('Favorite', 'Approved', 'Closed', 'Suspended') THEN 'Approved'
+							WHEN @Status IN ('Favorite', 'Approved', 'Suspended') THEN 'Approved'
 							ELSE @Status END
-		AND ai.IsClosed = CASE
-							WHEN ISNULL(@Status, '') = '' THEN ai.IsClosed
-							WHEN @Status = 'Approved' THEN 0
-							WHEN @Status = 'Closed' THEN 1
-							ELSE ai.IsClosed END
 		AND ai.IsRejected = CASE
 							WHEN ISNULL(@Status, '') = '' THEN ai.IsRejected
 							WHEN @Status = 'Approved' THEN 0
@@ -92,7 +88,6 @@ BEGIN
 		FirstName,
 		LastName,
 		Status,
-		IsClosed,
 		PreferredLanguage,
 		Email,
 		RegisteredDate,
@@ -118,11 +113,8 @@ BEGIN
 			ai.AffCode,
 			ai.FirstName,
 			ai.LastName,
-			CASE
-				WHEN ai.Status = 'Approved' AND ai.IsClosed = 1 THEN 'Closed'
-				WHEN ai.Status = 'Approved' AND ai.IsRejected = 1 THEN 'Suspended'
+			CASE WHEN ai.Status = 'Approved' AND ai.IsRejected = 1 THEN 'Suspended'
 				ELSE ai.Status END AS Status,
-			ai.IsClosed,
 			ad.PreferredLanguage,
 			ai.Email,
 			ai.RegisteredDate,
@@ -183,13 +175,8 @@ BEGIN
 			AND (ISNULL(@Player_UserName, '') = '' OR ad.Player_Username LIKE '%' + REPLACE(@Player_UserName, '_', '[_]') + '%')
 			AND ai.Status = CASE
 								WHEN ISNULL(@Status, '') = '' THEN ai.Status
-								WHEN @Status IN ('Favorite', 'Approved', 'Closed', 'Suspended') THEN 'Approved'
+								WHEN @Status IN ('Favorite', 'Approved', 'Suspended') THEN 'Approved'
 								ELSE @Status END
-			AND ai.IsClosed = CASE
-								WHEN ISNULL(@Status, '') = '' THEN ai.IsClosed
-								WHEN @Status = 'Approved' THEN 0
-								WHEN @Status = 'Closed' THEN 1
-								ELSE ai.IsClosed END
 			AND ai.IsRejected = CASE
 								WHEN ISNULL(@Status, '') = '' THEN ai.IsRejected
 								WHEN @Status = 'Approved' THEN 0

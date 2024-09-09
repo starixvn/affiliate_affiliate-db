@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Affiliate_Password_Upd]
 	@UserId			INT,
 	@AffId			INT,
@@ -18,6 +18,7 @@ AS
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102322]
 		- 20190614@Percy: Add @AffID into log [RedmineID: #109008]
+		- 20240828@Sally: Add new permission for approve new affiliate [RedmineID: #209858]
 */
 
 BEGIN
@@ -25,14 +26,15 @@ BEGIN
 
 	DECLARE @Language VARCHAR(10) = 'en-US'
 
+	-- Check permission Edit Affiliate Status
 	EXEC dbo.Aff_Con_CheckPermission
-		@CustId		= @UserId,
-		@FuncName	='[Affiliate]',
+		@CustId		= @UserID,
+		@FuncName	= '[EditAffiliateDetails]',
 		@ErrCode	= @ErrCode OUTPUT,
 		@ErrMsg		= @ErrMsg OUTPUT
-    
-	IF @ErrCode <> 0
-		RETURN
+
+	IF (@ErrCode <> 0)
+	RETURN
 
 	IF NOT EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @AffId)
 	BEGIN

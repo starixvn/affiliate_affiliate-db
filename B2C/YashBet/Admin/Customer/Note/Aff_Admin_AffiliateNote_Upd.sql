@@ -16,6 +16,7 @@ AS
 
 	Revisions:
 		- 20240115@Sally: Initialize SP [RedmineID: #198909]
+		- 20240906@Sally: Add new permission for approve new affiliate [RedmineID: #209858]
 
 */
 
@@ -29,7 +30,7 @@ BEGIN
 	-- Check permisison
 	EXEC dbo.Aff_Con_CheckPermission
 		@CustId		= @UserId,
-		@FuncName	= '[Affiliate]',
+		@FuncName	= '[Note]',
 		@ErrCode	= @ErrCode OUTPUT,
 		@ErrMsg		= @ErrMsg OUTPUT
 
