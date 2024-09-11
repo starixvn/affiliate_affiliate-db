@@ -48,6 +48,7 @@ Revisions:
 	- 20240129@Eddie: remove hardcoding for 'promotion' pagecode [RedmineID: #200168]
 	- 20240604@Eddie: Support to config redirect link for specific affiliate [RedmineID: #206066]
 	- 20240819@Eddie: Hide Hindi Market [RedmineID: #209409]
+	- 20240910@Eddie: Support to config redirect link for specific affiliate [RedmineID: #210540]
 	 
 Param's Explanation:   
 	- @DeviceType: 0-PC & 1-Mobile
@@ -139,7 +140,7 @@ BEGIN
 			  AND oam.CountryCode = @TargetCountryCode
 			  AND lp.PageCode = @PageCode
 		)
-		SELECT @CheckAffDomain = CASE WHEN ISNULL(ad.DomainName, '') = '' AND @AffDomain <> 'join.best5689.com' THEN 0 ELSE 1 END
+		SELECT @CheckAffDomain = CASE WHEN ISNULL(ad.DomainName, '') = '' AND @AffDomain NOT IN ( 'join.best5689.com', 'go.12real.com') THEN 0 ELSE 1 END
 			 , @CheckPageCode  = CASE WHEN ISNULL(clp.PageCode, '') = '' THEN 0 ELSE 1 END
 		FROM CTE_AffDomain AS ad
 			FULL OUTER JOIN CTE_LandingPage AS clp ON clp.PageCode = @PageCode
@@ -171,6 +172,10 @@ BEGIN
 		IF @AffDomain = 'join.best5689.com' AND @AffUsername = '12BETAFF16000'
 		BEGIN
 			SET @RedirectPage = 'https://www.620elv.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
+		END
+		ELSE IF @AffDomain = 'go.12real.com' AND @AffUsername = '12BETAFF16105'
+		BEGIN
+			SET @RedirectPage = 'https://www.nen77.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
 		END
 		ELSE
 		BEGIN
