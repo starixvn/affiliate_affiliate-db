@@ -17,7 +17,7 @@ VALUES  (47, 'ExcludeTicketStatus', 'Draw') -- Pragmatic Play
 	   ,(47, 'LastQueueId', '0')		
 	   ,(47, 'LaunchDate', '2024-08-01') -- Note: LaunchDate = GETDATE()
 	   ,(47, 'SourceTable', 'APIProduct_ImportQueueTest')
-	   ,(47, 'TimeZone', '8')
+	   ,(47, 'TimeZone', '0')
 GO
 
 INSERT INTO dbo.APIProductMappingSettingsTest([TpType], [SubItem], [ProductId])

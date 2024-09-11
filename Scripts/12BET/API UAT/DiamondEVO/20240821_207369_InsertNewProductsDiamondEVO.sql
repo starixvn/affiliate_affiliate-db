@@ -17,7 +17,7 @@ VALUES  (48, 'ExcludeTicketStatus', 'Draw') -- Diamond EVO
 	   ,(48, 'LastQueueId', '0')		
 	   ,(48, 'LaunchDate', '2024-08-01') -- Note: LaunchDate = GETDATE()
 	   ,(48, 'SourceTable', 'APIProduct_ImportQueueTest')
-	   ,(48, 'TimeZone', '8')
+	   ,(48, 'TimeZone', '0')
 GO
 
 INSERT INTO dbo.APIProductMappingSettingsTest([TpType], [SubItem], [ProductId])
