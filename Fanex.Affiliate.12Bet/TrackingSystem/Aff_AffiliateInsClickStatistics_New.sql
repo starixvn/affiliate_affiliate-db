@@ -48,7 +48,7 @@ Revisions:
 	- 20240129@Eddie: remove hardcoding for 'promotion' pagecode [RedmineID: #200168]
 	- 20240604@Eddie: Support to config redirect link for specific affiliate [RedmineID: #206066]
 	- 20240819@Eddie: Hide Hindi Market [RedmineID: #209409]
-	- 20240910@Eddie: Support to config redirect link for specific affiliate [RedmineID: #210540]
+	- 20240910@Eddie: Support to config redirect link for specific affiliates [RedmineID: #210540]
 	 
 Param's Explanation:   
 	- @DeviceType: 0-PC & 1-Mobile
@@ -173,7 +173,7 @@ BEGIN
 		BEGIN
 			SET @RedirectPage = 'https://www.620elv.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
 		END
-		ELSE IF @AffDomain = 'go.12real.com' AND @AffUsername = '12BETAFF16105'
+		ELSE IF @AffDomain = 'go.12real.com' AND ( @AffUsername = '12BETAFF16105' OR @AffUsername = '12BETAFF16186')
 		BEGIN
 			SET @RedirectPage = 'https://www.nen77.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
 		END
