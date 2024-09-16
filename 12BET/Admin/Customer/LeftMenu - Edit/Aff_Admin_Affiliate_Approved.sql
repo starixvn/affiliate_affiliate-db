@@ -19,6 +19,7 @@ AS
 		- 20200731@Percy: Restructure admin role [RedmineID: #121975]
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20240827@Eddie: Add new permission for Manage Pending Affiliate [RedmineId : #209510]
+		- 20240916@Eddie: Permit update password with Manage Pending Affiliate [RedmineId : #210773]
 */
 
 BEGIN
@@ -146,6 +147,7 @@ BEGIN
 				UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
 				SET Status = @Status
 				   ,ApprovedDate = @CurrentDate
+				   ,Password = ISNULL(@Password, Password)
 				   ,CasinoJoinedDate = @CurrentDate
 				OUTPUT DELETED.Status, DELETED.ApprovedDate, DELETED.CasinoJoinedDate, INSERTED.Status, INSERTED.ApprovedDate, INSERTED.CasinoJoinedDate
 				INTO @UpdatedData (Status_Del, ApprovedDate_Del, CasinoJoinedDate_Del, Status_Ins, ApprovedDate_Ins, CasinoJoinedDate_Ins)
