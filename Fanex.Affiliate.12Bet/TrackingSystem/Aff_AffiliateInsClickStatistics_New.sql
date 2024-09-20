@@ -169,7 +169,7 @@ BEGIN
 			AND a.MarketID NOT IN ('es-ES', 'hi')-- not use Spanish, Hindi
 			AND a.TargetCountryCode = @TargetCountryCode
 
-		IF @AffDomain = 'join.best5689.com' AND (@AffUsername = '12BETAFF16000' OR @AffUsername = '12BETAFF16186')
+		IF @AffDomain = 'join.best5689.com' AND (@AffUsername IN ('12BETAFF16000', '12BETAFF16186', '12BETAFF16096', '12BETAFF16097'))
 		BEGIN
 			SET @RedirectPage = 'https://www.620elv.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
 		END
