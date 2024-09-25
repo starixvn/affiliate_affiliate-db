@@ -173,7 +173,7 @@ BEGIN
 		BEGIN
 			SET @RedirectPage = 'https://www.620elv.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
 		END
-		ELSE IF @AffDomain = 'go.12real.com' AND @AffUsername = '12BETAFF16105'
+		ELSE IF @AffDomain = 'go.12real.com' AND (@AffUsername IN ('12BETAFF16105', '12BETAFF16204', '12BETAFF16205'))
 		BEGIN
 			SET @RedirectPage = 'https://www.nen77.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
 		END
