@@ -38,6 +38,7 @@ BEGIN
 		- 20130426@LongLuu: Add Japanese Language
 		- 20210219@Malcolm: Change format when writing logs [RedmineId : #149209]
 		- 20231122@Eddie: Change Datatype of IP [RedmineId : #181797]
+		- 20240926@Eddie: Enhance SP to checking exist in customer [RedmineId : #210159]
     
 	Param's Explanation:    
 	.@AffID: Affiliate id,    
@@ -154,7 +155,7 @@ BEGIN
 	 BEGIN   
 		 DECLARE @IBCUsername2 VARCHAR(30)  
 		 SELECT @IBCUsername2 = '12BET$' + @Player_Username   
-   
+		
 		 IF NOT EXISTS(SELECT 1 FROM bodb02.dbo.Customer (NOLOCK) WHERE Username2 = @IBCUsername2)  
 		 BEGIN--Check IBCUsername active or not  
 			SELECT @ErrMSg = CASE @language     
@@ -169,8 +170,21 @@ BEGIN
 									WHEN 'ja-JP' THEN N'申し訳ございません。このアフィリエイトは12BETプレーヤー・ユーザー名がありません。管理者にお問い合わせください'
 									ELSE  N'Sorry, this affiliate does not have 12bet player username. Please contact your Administrator.'      
 								   END,    
-					@ErrCode = 30010      
-			RETURN  
+					@ErrCode = 30010
+
+			DECLARE @start DATETIME = CURRENT_TIMESTAMP
+
+			WHILE (@ErrCode <> 0) AND (DATEDIFF(second, @start, CURRENT_TIMESTAMP) <= 2)
+			BEGIN
+				WAITFOR DELAY '00:00:00.20'
+				IF EXISTS(SELECT 1 FROM bodb02.dbo.Customer (NOLOCK) WHERE Username2 = @IBCUsername2)
+				BEGIN
+					SELECT @ErrCode = 0, @ErrMSg = ''
+				END
+			END
+			
+			IF @ErrCode <> 0
+				RETURN  
 		 END  
    
 		 IF @Player_IBCCustID is null  
