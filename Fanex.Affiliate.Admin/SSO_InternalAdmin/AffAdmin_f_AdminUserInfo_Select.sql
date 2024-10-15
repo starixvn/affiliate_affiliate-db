@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCUST-bodb_Licensee" selecters="bodbAdminNet,bodbLicenseeNet" isFunction="1" isNested="1"></info>*/
+/*<info serverAlias="DBCUST-bodb_Licensee,DBLIC-bodb_Licensee" selecters="wsv_afinet" isFunction="1" isNested="1"></info>*/
 USE [bodb_Licensee]
 GO
 
@@ -13,10 +13,11 @@ AS
 /*
 	Created:20151113@Victor
 	Task: SSO from Internal Admin to Affiliate Admin
-	DB: DBCUST.bodb_Licensee
+	DB: DBCUST.bodb_Licensee,DBLIC-bodb_Licensee
 
 	Revisions:
 		- 20190424@Percy: Move function to DBCUST.bodb_Licensee [RedmineID: #103658]
+		- 20240806@Sally: Remove linked server to DBCust [RedmineID: #206891]
 */
 
 RETURN

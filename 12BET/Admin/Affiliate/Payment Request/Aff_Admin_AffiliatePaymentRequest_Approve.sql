@@ -1,7 +1,4 @@
-﻿/*<info serverAlias="DBCTG-bodb02, DBSID-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-USE [bodb02]
-GO
-
+﻿/*<info serverAlias="DBSID-bodb02" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliatePaymentRequest_Approve]
  @RefID    			BIGINT  
  ,@AffUserName  	NVARCHAR(50)  
@@ -26,6 +23,7 @@ AS
 		- 20211222@Malcolm: get transid from Get_Bettrans_TransID [RedmineID: #175407]
 		- 20230621@Eddie: Migrate 12Bet to SiteDB02 [RedmineID: #189465]
 		- 20230911@Eddie: Check the SiteDBGroupID of CustID and Server is match [RedmineID: #193769]
+		- 20240722@Eddie: Remove linked server to DBCust [RedmineID: #206891]
 */
 
 BEGIN
@@ -40,7 +38,7 @@ BEGIN
 	)
 	
 	INSERT INTO @SiteGroupInfo (SiteDBGroupID, LinkedServerName, ClientAccessName, AGIP)  
-	EXEC DBCUST.CustDB.dbo.Acc_SiteDBConfigSel @CustID = @Player_IBCCustID
+	EXEC CustDB.dbo.Acc_SiteDBConfigSel @CustID = @Player_IBCCustID
 	
 	SELECT @Cust_SiteDBGroupID = SiteDBGroupID FROM @SiteGroupInfo
 	

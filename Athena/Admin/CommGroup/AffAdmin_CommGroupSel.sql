@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[AffAdmin_CommGroupSel] 
 	@LicenseeID			INT
 	,@GroupName			NVARCHAR(100)	= ''
@@ -27,43 +27,32 @@ AS
 		- 20180208@Percy: Support Licensee Admin Portal [RedmineID: #90545]
 		- 20190424@Percy: Change server of nested function [RedmineID: #103658]
 							AffAdmin_f_IsITAdmin
-
+		- 20240802@Eddie : Remove linked server to DBCust [RedmineID: #206891]
 	Params Explaination:
 */
 
 BEGIN
 	SET NOCOUNT ON;
 
-	-- Test Account
-	DECLARE @IsITAdmin 		BIT
-		,@RowStart 			INT
-		,@RowEnd 			INT
-		,@AffiliateID 		INT
-		,@CurrentDate		SMALLDATETIME
-		,@HasCashback		TINYINT
+	DECLARE @IsITAdmin	BIT
+		,@CurrentDate	SMALLDATETIME
+		,@HasCashback	TINYINT
 	
-	SET @CurrentDate 		= CAST(GETDATE() AS DATE)
+	SET @CurrentDate = CAST(GETDATE() AS DATE)
 	
-	DECLARE @TblCurrency 	TABLE (val NVARCHAR(6))
-	DECLARE @CommTmp		TABLE (GroupID INT, Currency INT, MonthDate SMALLDATETIME, RowIDX INT IDENTITY(1,1))
-	
-	DECLARE @sql NVARCHAR(MAX)
-	SELECT  @sql = 'SELECT IsITAdmin FROM OPENQUERY(DBCUST, ''SELECT IsITAdmin FROM bodb_Licensee.dbo.AffAdmin_f_IsITAdmin('
-																+ CONVERT(VARCHAR(20), @UserID) + ',' + CONVERT(VARCHAR(20), @LicenseeID) + ')'')'
+	DECLARE @TblCurrency TABLE (val NVARCHAR(6))
+	DECLARE @CommTmp TABLE (GroupID INT, Currency INT, MonthDate SMALLDATETIME, RowIDX INT IDENTITY(1,1))
 
-	DECLARE @tblIsITAdmin TABLE (IsITAdmin BIT)
-	INSERT INTO @tblIsITAdmin (IsITAdmin)
-	EXEC (@sql)
-	
-	SELECT  @IsITAdmin = IsITAdmin FROM @tblIsITAdmin
+	-- Test Account
+	SELECT @IsITAdmin = IsITAdmin FROM bodb_Licensee.dbo.AffAdmin_f_IsITAdmin(@UserID, @LicenseeID)
 
 	-- Insert statements for procedure here  
 	IF @Currencies != 'All'
 	BEGIN
 		INSERT INTO @TblCurrency
-		SELECT c.val
-		FROM [dbo].[strSplit](@Currencies, ',') c
-			INNER JOIN [dbo].[strSplit](@UserCurrencies, ',') uc ON c.val = uc.val
+		SELECT c.value
+		FROM STRING_SPLIT(@Currencies, ',') c
+			INNER JOIN STRING_SPLIT(@UserCurrencies, ',') uc ON c.value = uc.value
 
 		-- NoCommission group
 		IF @@ROWCOUNT > 0

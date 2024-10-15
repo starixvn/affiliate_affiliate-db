@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[AffAdmin_UserOnlineList]
 	@LicenseeID		INT,
 	@UserCurrencies	VARCHAR(MAX) = '',
@@ -23,7 +23,9 @@ AS
 		- 20190424@Percy: Change server of nested function [RedmineID: #103658]
 							AffAdmin_f_OnUser_Select
 							AffAdmin_f_AdminUserInfo_Select
-		-20220518@Malcolm: fix error can not get UserName, LoggedIn, LastRequest, IP, Role [RedmineId: #172945]
+		- 20220518@Malcolm: fix error can not get UserName, LoggedIn, LastRequest, IP, Role [RedmineId: #172945]
+		- 20240813@Sally: Remove linked server to DBCust [RedmineID: #206891]
+
 
 	Param's Explanation:
 	 - PageSize: the selected page size on webpage
@@ -35,60 +37,53 @@ AS
 BEGIN        
 	SET NOCOUNT ON;
 	
-	declare @startNum int, @endNum int
-	declare @Table table (UserName varchar(50),LoggedIn datetime,LastRequest datetime,IP varchar(20),Role varchar(20))
-	
-	DECLARE @sql NVARCHAR(MAX)
-
-	DECLARE @tblGroupIT TABLE (GroupID INT)
-
-	SELECT  @sql = 'SELECT GroupID FROM OPENQUERY(DBCUST, ''SELECT GroupID FROM bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select('''''''',' + CONVERT(VARCHAR(20), @LicenseeID) + ')'')'
-	
-	INSERT INTO @tblGroupIT (GroupID)
-	EXEC (@sql)
+	DECLARE @startNum INT, @endNum INT
+	DECLARE @Table TABLE (UserName VARCHAR(50), LoggedIn DATETIME, LastRequest DATETIME, [IP] VARCHAR(20), [Role] VARCHAR(20))
 
 	DECLARE @GroupIT INT
-	SELECT	@GroupIT = GroupID FROM @tblGroupIT
+	SELECT	@GroupIT = GroupID 
+	FROM bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID)
 	
-	SELECT  @sql = 'SELECT UserName, LoggedIn, LastRequest, IP AS IP, ''Admin'' AS RoleName FROM OPENQUERY(DBCUST,
-							''SELECT au.username AS UserName, au.LastLogin AS LoggedIn, o.reload_time AS LastRequest, o.IP AS IP, ''''Admin'''' AS RoleName FROM bodb_Licensee.dbo.AffAdmin_f_OnUser_Select(0) o INNER JOIN bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select('''''''','
- + CONVERT(VARCHAR(10), @LicenseeID) + ') au ON au.userid = o.custid
-							WHERE 1 = CASE WHEN ' + CONVERT(VARCHAR(1), @IsIt) + ' = 1 THEN 1 WHEN GroupId = ' + CONVERT(VARCHAR(20), @GroupIt) + ' THEN 0 ELSE 1 END'')'
-        
-	INSERT INTO @Table(UserName,LoggedIn,LastRequest,IP,Role)       
-	EXEC (@sql)
+	INSERT INTO @Table (UserName, LoggedIn, LastRequest, IP, Role)
+	SELECT au.username AS UserName, au.LastLogin AS LoggedIn, o.reload_time AS LastRequest, o.[IP] AS IP, 'Admin' AS RoleName 
+	FROM bodb_Licensee.dbo.AffAdmin_f_OnUser_Select(0) o 
+		INNER JOIN bodb_Licensee.dbo.AffAdmin_f_AdminUserInfo_Select('', @LicenseeID) au ON au.userid = o.custid
+	WHERE 1 = CASE WHEN  @IsIt = 1 THEN 1 
+					WHEN GroupId = @GroupIt THEN 0 ELSE 1 END				
+      	
+	IF (@IsIt = 1)
+	BEGIN     
+		INSERT INTO @Table (UserName, LoggedIn, LastRequest, IP, Role)
+		SELECT aff.username as UserName, aff.lastlogindate AS LoggedIn, o.reload_time AS LastRequest, o.IP AS IP, 'Affiliate' AS RoleName      
+		FROM dbo.ON_USER o WITH (NOLOCK)      
+			INNER JOIN dbo.affdetail aff WITH (NOLOCK) ON aff.affid = o.custid AND o.iskickedout = 0 
+	END
+	ELSE
+	BEGIN
+		INSERT INTO @Table (UserName, LoggedIn, LastRequest, IP, Role)
+		SELECT aff.username AS UserName, aff.lastlogindate AS LoggedIn, o.reload_time AS LastRequest, o.IP AS IP, 'Affiliate' AS RoleName      
+		FROM dbo.ON_USER o WITH (NOLOCK)      
+			INNER JOIN dbo.affdetail aff WITH (NOLOCK) ON aff.affid = o.custid AND o.iskickedout = 0 
+			INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON aff.AffID = ai.AffID
+		WHERE ai.Currency IN (SELECT CONVERT(INT, value) FROM STRING_SPLIT(@UserCurrencies, ','))
+	END
 	
-	if (@IsIt = 1)
-	begin     
-		insert into @Table(UserName,LoggedIn,LastRequest,IP,Role)       
-		select aff.username as UserName, aff.lastlogindate as LoggedIn, o.reload_time as LastRequest, o.IP as IP, 'Affiliate' as RoleName      
-		from dbo.ON_USER o with (nolock)      
-		inner join dbo.affdetail aff with (nolock) on aff.affid = o.custid  and o.iskickedout = 0 
-	end
-	else
-	begin
-		insert into @Table(UserName,LoggedIn,LastRequest,IP,Role)       
-		select aff.username as UserName, aff.lastlogindate as LoggedIn, o.reload_time as LastRequest, o.IP as IP, 'Affiliate' as RoleName      
-		from dbo.ON_USER o with (nolock)      
-		inner join dbo.affdetail aff with (nolock) on aff.affid = o.custid and o.iskickedout = 0 
-		inner join dbo.AffInfo ai with (nolock) on aff.AffID = ai.AffID
-		where ai.Currency in (select convert(int, val) from dbo.strSplit(@UserCurrencies, ','))
-	end
-	
-	select @NRows=@@ROWCOUNT      
-	select @startNum = (@PageIndex-1)*@PageSize;  
-	select @endNum = (@startNum + @PageSize);      
+	SELECT @NRows = @@ROWCOUNT      
+	SELECT @startNum = (@PageIndex - 1) * @PageSize;  
+	SELECT @endNum	 = (@startNum + @PageSize);      
 
 	;WITH SortedTable AS
 	(	
-		SELECT UserName,LoggedIn,LastRequest,IP,Role, 
-			ROW_NUMBER() OVER (ORDER BY  [Role],LastRequest desc ,UserName ) AS RowNo
+		SELECT UserName, LoggedIn, LastRequest, IP, Role, 
+			ROW_NUMBER() OVER (ORDER BY [Role], LastRequest DESC, UserName) AS RowNo
 		FROM @table
 	)
-	select UserName,LoggedIn,LastRequest,IP,Role,RowNo
-	from SortedTable 
-	where RowNo between @startNum and @endNum 
+	SELECT UserName, LoggedIn, LastRequest, IP, Role, RowNo
+	FROM SortedTable 
+	WHERE RowNo BETWEEN @startNum AND @endNum 
 
-	SELECT @TotalPages=@NRows/@PageSize + case when @NRows%@PageSize>0 then 1 else 0 end      
+	SELECT @TotalPages = @NRows/@PageSize + CASE WHEN @NRows%@PageSize > 0 THEN 1 ELSE 0 END      
+
 END
  
+

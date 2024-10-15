@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCUST-bodb_Licensee" selecters="bodbAdminNet,bodbLicenseeNet" isFunction="1" isNested="1"></info>*/
+﻿/*<info serverAlias="DBCUST-bodb_Licensee,DBLIC-bodb_Licensee" selecters="wsv_afinet" isFunction="1" isNested="1"></info>*/
 ALTER FUNCTION [dbo].[AffAdmin_f_IsITAdmin]
 (
 	@UserID		INT,
@@ -9,12 +9,13 @@ AS
 
 /*
 	Created: 20151109@Victor
-	DB: DBCUST.bodb_Licensee
+	DB: DBCUST.bodb_Licensee, DBLIC-bodb_Licensee
 	Remark: Is IT Admin account
 	
 	Revisions:
 		- 20151118@Victor: Implement SSO from Internal Admin to Affiliate Admin [Redmine: #41437]
 		- 20190424@Percy: Move function to DBCUST.bodb_Licensee [RedmineID: #103658]
+		- 20240730@Eddie : Add function to DBLIC.bodb_Licensee [RedmineID: #206891]
 */
 
 RETURN
