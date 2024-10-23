@@ -13,6 +13,7 @@ AS
 		- 20220601@Malcolm: Add bitcoin [RedmineID: #172701]
 		- 20240304@Eddie: Merge VS2 into Virtual Sports and change metadata "bodbAdminNet,bodbDownlineNet" [RedmineID: #201095]
 		- 20240611@Eddie: Add new Product VS3&4 and change metadata "wsv_aff" [RedmineId : #206363]
+		- 20241023@Eddie: Add new Product VS5&6 [RedmineId : #212551]
 */
 
 RETURN
@@ -31,4 +32,6 @@ RETURN
 	UNION ALL SELECT 7, 'Virtual Sports 2', 'VS2', 5, 'Virtual Sports', 'VS' -- Virtual Sports 2
 	UNION ALL SELECT 43, 'Virtual Sports 3', 'LG', 5, 'Virtual Sports', 'VS' -- Virtual Sports 3
 	UNION ALL SELECT 44, 'Virtual Sports 4', 'VS4', 5, 'Virtual Sports', 'VS' -- Virtual Sports 4
+	UNION ALL SELECT 52, 'Virtual Sports 5', 'VS5', 5, 'Virtual Sports', 'VS' -- Virtual Sports 5
+	UNION ALL SELECT 53, 'Virtual Sports 6', 'VS6', 5, 'Virtual Sports', 'VS' -- Virtual Sports 6
 GO
