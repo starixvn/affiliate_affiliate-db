@@ -11,6 +11,7 @@ AS
 
 	Revisions:
 		- 20240115@Sally: Initialize SP [RedmineID: #198909]
+		- 20240930@Sally: Enhance API sync affiliate information - Return more column info [RedmineID: #211533]
 */
 
 BEGIN
@@ -25,6 +26,11 @@ BEGIN
 		,ad.LastLoginDate
 		,ad.LastLoginIP
 		,ad.Player_Username
+		,a.FirstName
+		,a.LastName
+		,ad.Phone
+		,a.Status 
+		,a.Email
 	FROM dbo.AffInfo a WITH(NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH(NOLOCK) ON ad.AffId = a.AffId
 		LEFT JOIN dbo.AffInfo p WITH(NOLOCK) ON p.AffId = a.ParentAffId
