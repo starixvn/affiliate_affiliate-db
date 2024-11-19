@@ -19,7 +19,7 @@ AS
 /*
 	Created: 20200220@Percy
 	DB: DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G
-	Task: Admin site - Report - Affiliate Report - Detail Affiliate
+	Task: Admin site - Report - Affiliate  Report - Detail Affiliate
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
@@ -31,6 +31,7 @@ AS
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 		- 20230612@Sally: Enhance Share % Commission in Report [RedmineID: #189425]
+		- 20241105@Sally: Support Report by Date: Add Total Deposit [RedmineID: #213344]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -49,9 +50,13 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT  @Username = ISNULL(LTRIM(RTRIM(@Username)), '')
+	DECLARE @AffId INT		
+		,@TimeZone				SMALLINT
+		,@FromDateTimeGMT0		DATETIME
+		,@ToDateTimeGMT0		DATETIME
 
-	DECLARE @AffId INT
+	SELECT  @Username = ISNULL(LTRIM(RTRIM(@Username)), '')
+	SELECT  @TimeZone = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
 	SELECT  @AffId = AffId FROM dbo.AffInfo WITH (NOLOCK) WHERE Username = @Username AND Status = 'Approved'
 
 	IF @AffId IS NULL
@@ -85,6 +90,10 @@ BEGIN
 
 	IF @NRows <= 0
 		RETURN
+
+	-- Data on GMT+0 --> convert timezone
+	SELECT @FromDateTimeGMT0	= DATEADD(HOUR, -@TimeZone, CONVERT(DATETIME, @FromDate))
+		,@ToDateTimeGMT0		= DATEADD(HOUR, -@TimeZone, CONVERT(DATETIME, @ToDate))	
 
 	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME, RowIdx INT, EarningBy VARCHAR(50))
 	;WITH CTE_MonthDate AS
@@ -377,6 +386,20 @@ BEGIN
 		AND ApprovedDate >= @FromDate AND ApprovedDate < DATEADD(DAY, 1, @ToDate)
 	GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, ApprovedDate) + 1, 0))
 
+	-- Total Deposit
+	DECLARE @TotalDeposit TABLE(MonthDate SMALLDATETIME, TotalDeposit BIGINT)
+	INSERT INTO @TotalDeposit(MonthDate, TotalDeposit)
+	SELECT CONVERT(DATE, EOMONTH(DATEADD(HOUR, 8, d.CreateTime))) AS MonthDate
+		,COUNT(1) AS TotalDeposit
+	FROM bodb_N88.dbo.DepositInfo d WITH (NOLOCK)
+		INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
+	WHERE d.WinlostDate BETWEEN DATEADD(DAY, -1, @FromDate) AND DATEADD(DAY, 1, @ToDate)
+		AND d.Status = 3 -- Approved
+		AND d.CreateTime >= @FromDateTimeGMT0 
+		AND d.CreateTime < DATEADD(DAY, 1, @ToDateTimeGMT0)
+		AND mi.AffId = @AffId
+	GROUP BY CONVERT(DATE, EOMONTH(DATEADD(HOUR, 8, d.CreateTime)))
+
 	-- Return detail
 	SELECT
 		md.MonthDate,
@@ -409,7 +432,8 @@ BEGIN
 		ISNULL(tc.SubAffCommission, 0)			AS SubAffEarning,
 		ISNULL(at.AffWithdrawal, 0)				AS AffWithdrawal,
 		ISNULL(at.AffAdjustment, 0)				AS AffAdjustment,
-		ISNULL(at.BFF, 0)						AS BFF
+		ISNULL(at.BFF, 0)						AS BFF,
+		ISNULL(tp.TotalDeposit, 0)				AS TotalDeposit
 	FROM @MonthDate md
 		LEFT JOIN #TempCommission tc ON md.MonthDate = tc.MonthDate
 		OUTER APPLY (
@@ -432,6 +456,7 @@ BEGIN
 			FROM @tblAffStatistics at
 			WHERE md.MonthDate = at.MonthDate
 		) at
+		LEFT JOIN @TotalDeposit tp ON md.MonthDate = tp.MonthDate
 	WHERE md.RowIdx BETWEEN @RowStart AND @RowEnd
 	ORDER BY md.RowIdx
 
@@ -461,7 +486,8 @@ BEGIN
 		SUM(ISNULL(tc.SubAffCommission, 0))			AS SubAffEarning,
 		SUM(ISNULL(at.AffWithdrawal, 0))			AS AffWithdrawal,
 		SUM(ISNULL(at.AffAdjustment, 0))			AS AffAdjustment,
-		SUM(ISNULL(CASE WHEN md.MonthDate = @ToDate THEN at.BFF ELSE 0 END, 0)) AS BFF -- the last month by running total
+		SUM(ISNULL(CASE WHEN md.MonthDate = @ToDate THEN at.BFF ELSE 0 END, 0)) AS BFF, -- the last month by running total
+		SUM(ISNULL(tp.TotalDeposit, 0))				AS TotalDeposit
 	FROM @MonthDate md
 		LEFT JOIN #TempCommission tc ON md.MonthDate = tc.MonthDate
 		OUTER APPLY (
@@ -484,6 +510,7 @@ BEGIN
 			FROM @tblAffStatistics at
 			WHERE md.MonthDate = at.MonthDate
 		) at
+		LEFT JOIN @TotalDeposit tp ON md.MonthDate = tp.MonthDate
 
 	DROP TABLE #TempCommission
 	DROP TABLE #Statistics

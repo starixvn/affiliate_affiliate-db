@@ -14,6 +14,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	,@IsExcludeNegvBBF			BIT = 0
 	,@IsExcludeNegvCurrentBBF	BIT = 0
 	,@IsExportExcel		BIT = 0
+	,@IsGetMonthly      BIT = 1
 	,@PageIndex			INT = 1
 	,@PageSize			INT = 50
 	,@NRows				INT = 0 OUTPUT
@@ -40,6 +41,7 @@ AS
 		- 20230612@Sally: Enhance Share % Commission in Report [RedmineID: #189425]
 		- 20240502@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
 		- 20240703@Sally: Add Current BalanceBF [RedmineID: #207432]
+		- 20241105@Sally: Support Report by Date: Add Total Deposit [RedmineID: #213344]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -53,8 +55,17 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @IsExcludeAFFTest BIT = 1
+	DECLARE @IsExcludeAFFTest	BIT = 1
+		,@EndOfCurrentMonth		SMALLDATETIME
+		,@NoOfMonth				INT
+		,@TimeZone				SMALLINT
+		,@FromDateTimeGMT0		DATETIME
+		,@ToDateTimeGMT0		DATETIME
+		,@LastDayOfToDate		SMALLDATETIME
+		,@StartDayOfFromDate	SMALLDATETIME
 
+	SELECT  @TimeZone = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
+		
 	IF (@IsExcludeNegvBBF = 0 AND @IsExcludeNegvCurrentBBF = 0)
 	BEGIN
 		SET @IsExcludeAFFTest = 0
@@ -63,21 +74,28 @@ BEGIN
 	IF @FromDate IS NULL OR @ToDate IS NULL
 		RETURN
 
-	SELECT  @Username = ISNULL(LTRIM(RTRIM(@Username)), ''), @PreferredLanguage = ISNULL(@PreferredLanguage, ''), @GroupIds = ISNULL(@GroupIds, '')
+	SELECT  @Username		 = ISNULL(TRIM(@Username), ''), @PreferredLanguage = ISNULL(@PreferredLanguage, ''), @GroupIds = ISNULL(@GroupIds, '')
+		,@EndOfCurrentMonth	 = EOMONTH(GETDATE())	
+		,@StartDayOfFromDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0)
+		,@LastDayOfToDate	 = EOMONTH(@ToDate)
 
-	SELECT  @FromDate	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0) -- Begin Of Month
-	SELECT  @ToDate		= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0)) -- End Of Month
-
-	DECLARE  @EndOfCurrentMonth SMALLDATETIME, @NoOfMonth INT
-	SELECT   @EndOfCurrentMonth	= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
-
-	IF @ToDate > @EndOfCurrentMonth
-		SELECT @ToDate = @EndOfCurrentMonth
+	IF (@IsGetMonthly = 1)
+	BEGIN
+		SELECT  @FromDate	= @StartDayOfFromDate -- Begin Of Month
+		SELECT  @ToDate		= @LastDayOfToDate  -- End Of Month
+	END
 
 	SELECT @NoOfMonth = DATEDIFF(MONTH, @FromDate, @ToDate) + 1
 	
 	IF @NoOfMonth <= 0
 		RETURN
+
+	IF @ToDate > @EndOfCurrentMonth
+		SELECT @ToDate = @EndOfCurrentMonth
+
+	-- Data on GMT+0 --> convert timezone
+	SELECT @FromDateTimeGMT0	= DATEADD(HOUR, -@TimeZone, CONVERT(DATETIME, @FromDate))
+		,@ToDateTimeGMT0		= DATEADD(HOUR, -@TimeZone, CONVERT(DATETIME, @ToDate))	
 
 	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME)
 	;WITH CTE_MonthDate AS
@@ -147,7 +165,7 @@ BEGIN
 			IsMultiGroupProduct BIT
 		)
 
-		IF @FromDate <= @MaxCommDate
+		IF (@FromDate <= @MaxCommDate) AND (@IsGetMonthly = 1)
 		BEGIN
 			SELECT @tempFromDate	= @FromDate
 			SELECT @tempToDate		= CASE WHEN @ToDate > @MaxCommDate THEN @MaxCommDate ELSE @ToDate END
@@ -190,7 +208,7 @@ BEGIN
 				@GetRowTotalOnly	= 1
 		END
 
-		IF @ToDate > @MaxCommDate
+		IF (@ToDate > @MaxCommDate) AND (@IsGetMonthly = 1)
 		BEGIN
 			SELECT @tempFromDate	= CASE WHEN @FromDate <= @MaxCommDate THEN DATEADD(DAY, 1, @MaxCommDate) ELSE @FromDate END
 			SELECT @tempToDate		= @ToDate
@@ -234,6 +252,133 @@ BEGIN
 				@GetRowTotalOnly	= 1
 		END
 
+		IF(@IsGetMonthly = 0)
+		BEGIN
+
+			DECLARE @AffInfo TABLE (AffId INT, AffUsername VARCHAR(50),MonthDate SMALLDATETIME, GroupId INT)
+				INSERT INTO @AffInfo (AffId, AffUsername, MonthDate, GroupId)
+				SELECT a.AffId, a.Username, agh.MonthDate, a.GroupId
+				FROM dbo.AffInfo a WITH (NOLOCK)
+					INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON a.AffId = agh.AffId AND agh.MonthDate BETWEEN @StartDayOfFromDate AND @LastDayOfToDate													
+				WHERE (Username LIKE '%' + @Username + '%' OR @Username IS NULL)
+					AND Status NOT IN ('Pending', 'Disapproved')					
+			
+			-- Get Product List		
+			DECLARE @Products TABLE (ProductId INT)
+			SET @ProductIds = dbo.Aff_f_AddRelatedProducts(@ProductIds)
+			INSERT INTO @Products (ProductId)
+			SELECT ProductId FROM dbo.Products WITH (NOLOCK) 
+			WHERE ProductId IN (SELECT CONVERT(INT,value) AS ProductID FROM STRING_SPLIT(@ProductIds, ','))
+
+			CREATE TABLE #ProductSetting (AffId INT, AffUsername VARCHAR(50), ProductId INT, FromDate SMALLDATETIME, ToDate SMALLDATETIME, IsStraightSetting BIT)
+			INSERT INTO #ProductSetting (AffId, AffUsername, ProductId, FromDate, ToDate, IsStraightSetting)
+			SELECT DISTINCT a.AffId, a.AffUsername, dsh.ProductId, DATEADD(MONTH, DATEDIFF(MONTH, 0, dsh.MonthDate), 0), dsh.MonthDate, 0
+			FROM @AffInfo a
+				INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON a.GroupId = dsh.GroupId AND a.MonthDate = dsh.MonthDate
+				INNER JOIN @Products p ON dsh.ProductId = p.ProductId
+			
+			INSERT INTO #ProductSetting (AffId, AffUsername, ProductId, FromDate, ToDate, IsStraightSetting)
+			SELECT DISTINCT a.AffId, a.AffUsername, dsh.ProductId, DATEADD(MONTH, DATEDIFF(MONTH, 0, dsh.MonthDate), 0), dsh.MonthDate, 1
+			FROM @AffInfo a
+				INNER JOIN dbo.StraightSettingHistory dsh WITH (NOLOCK) ON a.GroupId = dsh.GroupId AND a.MonthDate = dsh.MonthDate
+				INNER JOIN @Products p ON dsh.ProductId = p.ProductId
+
+			;WITH CTE_Data AS(
+				SELECT CONVERT(SMALLDATETIME,EOMONTH(r.WinlostDate)) AS MonthDate
+					,r.AffId
+					,Currency
+					,SUM(ISNULL(Deposit, 0))	AS Deposit
+					,SUM(ISNULL(Withdrawal, 0))	AS Withdrawal
+					,SUM(ISNULL(Bonus, 0))		AS Bonus
+					,SUM(ISNULL(Rebate, 0))		AS Rebate
+					,SUM(CASE WHEN a.IsStraightSetting = 0 THEN ISNULL(Turnover, 0) ELSE 0 END)	AS Turnover
+					,SUM(CASE WHEN a.IsStraightSetting = 0 THEN ISNULL(Winloss, 0) - ISNULL(ProgressiveWin, 0) + ISNULL(ProgressiveBet, 0) ELSE 0 END) AS Winloss
+					,SUM(CASE WHEN a.IsStraightSetting = 1 THEN ISNULL(Revenue, 0) ELSE 0 END)	AS Revenue
+					,COUNT(DISTINCT IIF(r.productId > 0 AND a.IsStraightSetting = 0, r.CustId, NULL))AS ActivePlayer
+				FROM dbo.rptMemberDaily r WITH (NOLOCK)
+					LEFT JOIN #ProductSetting a ON r.AffId = a.AffId AND r.ProductId = a.ProductId AND r.WinlostDate BETWEEN a.FromDate AND a.ToDate
+				WHERE r.WinlostDate >= @FromDate 
+					AND r.WinlostDate < DATEADD(DAY, 1, @ToDate)
+					AND NOT EXISTS (
+						SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+						WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+					)
+					AND (a.ProductId IS NOT NULL OR r.ProductId = -1)
+				GROUP BY CONVERT(SMALLDATETIME,EOMONTH(r.WinlostDate))
+					,r.AffId
+					,Currency
+			)
+			INSERT INTO #TempCommission
+			(
+				MonthDate,
+				AffId,
+				GroupId,
+				ProductId,
+				Deposit,
+				Withdrawal,
+				Bonus,
+				Rebate,
+				Turnover,
+				Winloss,
+				Revenue,
+				P2PFee,
+				PlatFormFee,
+				OperationalFee,
+				DepositFee,
+				WithdrawalFee,
+				GrossWinloss,
+				NetWinloss,
+				NetTurnover,
+				ActivePlayer,
+				CommissionRate,
+				Commission,
+				StraightCommission,
+				SubAffCommission,
+				IsMultiGroupProduct
+			)
+		SELECT @FromDate
+				,t.AffId
+				,0 AS GroupId
+				,0 AS ProductId
+				,t.Deposit
+				,t.Withdrawal
+				,t.Bonus
+				,t.Rebate
+				,t.Turnover
+				,t.Winloss
+				,t.Revenue
+				,0 AS P2PFee
+				,0 AS PlatFormFee
+				,0 AS OperationalFee
+				,0 AS DepositFee
+				,0 AS WithdrawalFee
+				,t.GrossWinloss
+				,0 AS NetWinloss
+				,0 AS NetTurnover
+				,t.ActivePlayer
+				,0 AS CommissionRate
+				,0 AS Commission
+				,0 AS StraightCommission
+				,0 AS SubAffCommission
+				,0 AS IsMultiGroupProduct 
+		FROM(
+				SELECT r.AffId
+					,SUM(r.Deposit		* e.Rate)	AS Deposit
+					,SUM(r.Withdrawal	* e.Rate)	AS Withdrawal
+					,SUM(r.Bonus		* e.Rate)	AS Bonus
+					,SUM(r.Rebate		* e.Rate)	AS Rebate
+					,SUM(r.Turnover		* e.Rate)	AS Turnover
+					,SUM(r.Winloss		* e.Rate)	AS Winloss
+					,SUM(r.Revenue		* e.Rate)	AS Revenue
+					,- SUM(r.Winloss	* e.Rate)	AS GrossWinloss
+					,SUM(ISNULL(r.ActivePlayer,0))	AS ActivePlayer
+				FROM CTE_Data r
+					LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
+					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.MonthDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
+				GROUP BY r.AffId
+			)t				
+			DROP TABLE #ProductSetting
+		END
 		-- Statistics
 		CREATE TABLE #Statistics (AffId INT, TotalClick INT, UniqueClick INT, Signup INT, FDM INT)
 
@@ -309,8 +454,21 @@ BEGIN
 			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
 		WHERE Status IN ('Pending', 'Approved', 'Completed')
 		GROUP BY AffId
+
+		-- Total Deposit
+		CREATE TABLE #TotalDeposit(AffId INT, TotalDeposit BIGINT)
+		INSERT INTO #TotalDeposit(AffId, TotalDeposit)
+		SELECT mi.AffId
+			,COUNT(1) AS TotalDeposit
+		FROM bodb_N88.dbo.DepositInfo d WITH (NOLOCK)
+			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
+		WHERE d.WinlostDate BETWEEN DATEADD(DAY, -1, @FromDate) AND DATEADD(DAY, 1, @ToDate)
+			AND d.Status = 3 -- Approved
+			AND d.CreateTime >= @FromDateTimeGMT0 
+			AND d.CreateTime < DATEADD(DAY, 1, @ToDateTimeGMT0)
+		GROUP BY mi.AffId
 	END
-	
+
 	-- Return data
 	BEGIN
 		CREATE TABLE #Result
@@ -343,6 +501,7 @@ BEGIN
 			AffAdjustment		MONEY,
 			BFF					MONEY,
 			CurrentBFF			MONEY,
+			TotalDeposit		BIGINT,
 			RowIdx				INT
 		)
 		INSERT INTO #Result
@@ -375,6 +534,7 @@ BEGIN
 			AffAdjustment,
 			BFF,
 			CurrentBFF,
+			TotalDeposit,
 			RowIdx
 		)
 		SELECT
@@ -407,6 +567,7 @@ BEGIN
 
 			ISNULL(at.BFF, 0)					AS BFF,
 			ISNULL(at.CurrentBBF, 0)			AS CurrentBBF,
+			ISNULL(td.TotalDeposit, 0)			AS TotalDeposit,
 			ROW_NUMBER() OVER(ORDER BY
 				CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN ai.Username END ASC,
 				CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN ai.Username END DESC,
@@ -455,6 +616,7 @@ BEGIN
 					AND ApprovedDate >= @FromDate AND ApprovedDate < DATEADD(DAY, 1, @ToDate)
 				GROUP BY ParentAffId
 			) a ON ai.AffId = a.ParentAffId
+			LEFT JOIN #TotalDeposit td ON td.AffId = ai.AffId
 		WHERE ai.Status = 'Approved'
 			AND ai.Username LIKE '%' + @Username + '%'
 			AND (@PreferredLanguage = '' OR ad.PreferredLanguage = @PreferredLanguage)
@@ -493,7 +655,7 @@ BEGIN
 	SELECT AffId, Username, PaymentCurrency, TotalClick, UniqueClick, Signup, FDM, ActivePlayer, NoOfSubAff
 		,Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee
 		,PlatFormFee + OperationalFee + DepositFee + WithdrawalFee AS TotalFee
-		,CommissionRate, IsMultiGroupProduct, P2PEarning, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF, CurrentBFF
+		,CommissionRate, IsMultiGroupProduct, P2PEarning, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF, CurrentBFF, TotalDeposit
 	FROM #Result
 	WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 	ORDER BY RowIdx
@@ -525,6 +687,7 @@ BEGIN
 		,SUM(AffAdjustment)		AS AffAdjustment
 		,SUM(BFF)				AS BFF
 		,SUM(CurrentBFF)		AS CurrentBFF
+		,SUM(TotalDeposit)		AS TotalDeposit
 	FROM #Result
 
 	DROP TABLE #AffTrans
@@ -532,5 +695,7 @@ BEGIN
 	DROP TABLE #Signup
 	DROP TABLE #Statistics
 	DROP TABLE #TempCommission
+	DROP TABLE #TotalDeposit
+
 END
 GO
