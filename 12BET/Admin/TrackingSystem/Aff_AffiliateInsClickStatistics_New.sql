@@ -1,7 +1,4 @@
 ﻿/*<info serverAlias="DBAFF12BET-Affiliate_12BET" executers="wsv_afinet" viewers="" isFunction="0" isNested="0"></info>*/
-USE [Affiliate_12BET]
-GO
-
 ALTER PROCEDURE [dbo].[Aff_AffiliateInsClickStatistics_New] 
 	@AffiliateID 		INT
 	,@TargetCountryCode	VARCHAR(2) = NULL
@@ -50,6 +47,7 @@ Revisions:
 	- 20240819@Eddie: Hide Hindi Market [RedmineID: #209409]
 	- 20241113@Eddie: Support to config redirect link for specific affiliates [RedmineID: #210540]
 	- 20241121@Eddie: Support to config redirect link for specific affiliates [RedmineID: #214070]
+	- 20241127@Eddie: Remove config redirect link for specific affiliate [RedmineID: #214274]
 	 
 Param's Explanation:   
 	- @DeviceType: 0-PC & 1-Mobile
@@ -141,7 +139,7 @@ BEGIN
 			  AND oam.CountryCode = @TargetCountryCode
 			  AND lp.PageCode = @PageCode
 		)
-		SELECT @CheckAffDomain = CASE WHEN ISNULL(ad.DomainName, '') = '' AND @AffDomain NOT IN ( 'join.best5689.com', 'go.12real.com', 'go.5689fun.com', 'go.the12real.com', 'go.6789sutzo.com', 'go.12fifa18.com') THEN 0 ELSE 1 END
+		SELECT @CheckAffDomain = CASE WHEN ISNULL(ad.DomainName, '') = '' AND @AffDomain NOT IN ( 'join.best5689.com', 'go.12real.com', 'go.5689fun.com', 'go.6789sutzo.com', 'go.12fifa18.com') THEN 0 ELSE 1 END
 			 , @CheckPageCode  = CASE WHEN ISNULL(clp.PageCode, '') = '' THEN 0 ELSE 1 END
 		FROM CTE_AffDomain AS ad
 			FULL OUTER JOIN CTE_LandingPage AS clp ON clp.PageCode = @PageCode
@@ -181,10 +179,6 @@ BEGIN
 		ELSE IF @AffDomain = 'go.5689fun.com' AND (@AffUsername = '12BETAFF15932')
 		BEGIN
 			SET @RedirectPage = 'https://www.12kaixin.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
-		END
-		ELSE IF @AffDomain = 'go.the12real.com' AND (@AffUsername = '12BETAFF15829')
-		BEGIN
-			SET @RedirectPage = 'https://www.12bvn.vip/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
 		END
 		ELSE IF @AffDomain = 'go.6789sutzo.com' AND (@AffUsername = '12BETAFF16326')
 		BEGIN
