@@ -42,6 +42,7 @@ AS
 		- 20240502@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
 		- 20240703@Sally: Add Current BalanceBF [RedmineID: #207432]
 		- 20241105@Sally: Support Report by Date: Add Total Deposit [RedmineID: #213344]
+		- 20241129@Sally: Fix Filter data by GroupID [RedmineID: #214432]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -625,7 +626,7 @@ BEGIN
 				@GroupIds = 'all'
 				OR EXISTS (
 					SELECT 1 FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-					WHERE agh.AffId = ai.AffId AND agh.MonthDate BETWEEN @FromDate AND @ToDate
+					WHERE agh.AffId = ai.AffId AND agh.MonthDate BETWEEN @StartDayOfFromDate AND @LastDayOfToDate
 							AND ',' + @GroupIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), agh.GroupId) + ',%'
 				)
 			)
