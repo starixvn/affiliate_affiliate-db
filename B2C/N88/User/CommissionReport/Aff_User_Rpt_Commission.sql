@@ -19,6 +19,7 @@ AS
 		- 20230404@Malcolm: Get sub commission rate [RedmineID: #185481]
 		- 20240220@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 		- 20240502@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
+		- 20240412@Sally: Fix get data case Calculated Months [RedmineID: #214791]
 */
 
 BEGIN
@@ -168,7 +169,7 @@ BEGIN
 				SubAffCommission,
 				IsMultiGroupProduct
 			)
-			EXEC dbo.Aff_Commission_UnCalc
+			EXEC dbo.Aff_Commission_Calc
 				@AffIds				= @AffIds,
 				@FromMonthDate		= @tempFromDate,
 				@ToMonthDate		= @tempToDate,
