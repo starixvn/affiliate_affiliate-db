@@ -49,6 +49,7 @@ Revisions:
 	- 20241121@Eddie: Support to config redirect link for specific affiliates [RedmineID: #214070]
 	- 20241127@Eddie: Remove config redirect link for specific affiliate [RedmineID: #214274]
 	- 20241203@Eddie: Support to config redirect link for specific affiliates [RedmineID: #214694]
+	- 20241209@Eddie: Support to config redirect link for specific affiliates [RedmineID: #214956]
 	 
 Param's Explanation:   
 	- @DeviceType: 0-PC & 1-Mobile
@@ -140,7 +141,7 @@ BEGIN
 			  AND oam.CountryCode = @TargetCountryCode
 			  AND lp.PageCode = @PageCode
 		)
-		SELECT @CheckAffDomain = CASE WHEN ISNULL(ad.DomainName, '') = '' AND @AffDomain NOT IN ( 'join.best5689.com', 'go.12real.com', 'go.5689fun.com', 'go.6789sutzo.com', 'go.12fifa18.com', '12aff.best5689.com') THEN 0 ELSE 1 END
+		SELECT @CheckAffDomain = CASE WHEN ISNULL(ad.DomainName, '') = '' AND @AffDomain NOT IN ( 'join.best5689.com', 'go.12real.com', 'go.5689fun.com', 'go.6789sutzo.com', 'go.12fifa18.com', '12aff.best5689.com', 'go.9012ijk.com', 'go.sbc31.com') THEN 0 ELSE 1 END
 			 , @CheckPageCode  = CASE WHEN ISNULL(clp.PageCode, '') = '' THEN 0 ELSE 1 END
 		FROM CTE_AffDomain AS ad
 			FULL OUTER JOIN CTE_LandingPage AS clp ON clp.PageCode = @PageCode
@@ -196,6 +197,14 @@ BEGIN
 		ELSE IF @AffDomain = '12aff.best5689.com' AND (@AffUsername IN ('12BETAFF15932', '12BETAFF130', '12BETAFF16311', '12BETAFF16314', '12BETAFF16225', '12BETAFF14617', '12BETAFF13902', '12BETAFF16313', '12BETAFF15775', '12BETAFF16214', '12BETAFF13506', '12BETAFF13065', '12BETAFF7782', '12BETAFF16050'))
 		BEGIN
 			SET @RedirectPage = 'https://www.12crystalclub.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
+		END
+		ELSE IF @AffDomain = 'go.9012ijk.com' AND (@AffUsername = '12BETAFF16343')
+		BEGIN
+			SET @RedirectPage = 'https://www.12amethyst.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
+		END
+		ELSE IF @AffDomain = 'go.sbc31.com' AND (@AffUsername = '12BETAFF16344')
+		BEGIN
+			SET @RedirectPage = 'https://www.12amberclub.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
 		END
 		ELSE
 		BEGIN
