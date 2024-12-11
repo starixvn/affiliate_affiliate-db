@@ -50,6 +50,7 @@ Revisions:
 	- 20241127@Eddie: Remove config redirect link for specific affiliate [RedmineID: #214274]
 	- 20241203@Eddie: Support to config redirect link for specific affiliates [RedmineID: #214694]
 	- 20241209@Eddie: Support to config redirect link for specific affiliates [RedmineID: #214956]
+	- 20241211@Eddie: Support to config redirect link for specific affiliates [RedmineID: #215140]
 	 
 Param's Explanation:   
 	- @DeviceType: 0-PC & 1-Mobile
@@ -141,7 +142,7 @@ BEGIN
 			  AND oam.CountryCode = @TargetCountryCode
 			  AND lp.PageCode = @PageCode
 		)
-		SELECT @CheckAffDomain = CASE WHEN ISNULL(ad.DomainName, '') = '' AND @AffDomain NOT IN ( 'join.best5689.com', 'go.12real.com', 'go.5689fun.com', 'go.6789sutzo.com', 'go.12fifa18.com', '12aff.best5689.com', 'go.9012ijk.com', 'go.sbc31.com') THEN 0 ELSE 1 END
+		SELECT @CheckAffDomain = CASE WHEN ISNULL(ad.DomainName, '') = '' AND @AffDomain NOT IN ( 'join.best5689.com', 'go.12real.com', 'go.5689fun.com', 'go.6789sutzo.com', 'go.12fifa18.com', '12aff.best5689.com', 'go.9012ijk.com', 'go.sbc31.com', 'go.tha88.com') THEN 0 ELSE 1 END
 			 , @CheckPageCode  = CASE WHEN ISNULL(clp.PageCode, '') = '' THEN 0 ELSE 1 END
 		FROM CTE_AffDomain AS ad
 			FULL OUTER JOIN CTE_LandingPage AS clp ON clp.PageCode = @PageCode
@@ -205,6 +206,10 @@ BEGIN
 		ELSE IF @AffDomain = 'go.sbc31.com' AND (@AffUsername = '12BETAFF16344')
 		BEGIN
 			SET @RedirectPage = 'https://www.12amberclub.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
+		END
+		ELSE IF @AffDomain = 'go.tha88.com' AND (@AffUsername = '12BETAFF16342')
+		BEGIN
+			SET @RedirectPage = 'https://www.12bola.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
 		END
 		ELSE
 		BEGIN
