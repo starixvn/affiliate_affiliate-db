@@ -53,6 +53,7 @@ Revisions:
 	- 20241211@Eddie: Support to config redirect link for specific affiliates [RedmineID: #215140]
 	- 20241217@Eddie: Support to config redirect link for specific affiliates [RedmineID: #215396]
 	- 20241231@Eddie: Support to config redirect link for specific affiliates [RedmineID: #216117]
+	- 20250114@Eddie: Support to config redirect link for specific affiliates [RedmineID: #216799]
 	 
 Param's Explanation:   
 	- @DeviceType: 0-PC & 1-Mobile
@@ -144,7 +145,7 @@ BEGIN
 			  AND oam.CountryCode = @TargetCountryCode
 			  AND lp.PageCode = @PageCode
 		)
-		SELECT @CheckAffDomain = CASE WHEN ISNULL(ad.DomainName, '') = '' AND @AffDomain NOT IN ( 'join.best5689.com', 'go.12real.com', 'go.5689fun.com', 'go.6789sutzo.com', 'go.12fifa18.com', '12aff.best5689.com', 'go.9012ijk.com', 'go.sbc31.com', 'go.tha88.com', 'go.apa56.com', 'go.12qiuball.com') THEN 0 ELSE 1 END
+		SELECT @CheckAffDomain = CASE WHEN ISNULL(ad.DomainName, '') = '' AND @AffDomain NOT IN ( 'join.best5689.com', 'go.12real.com', 'go.5689fun.com', 'go.6789sutzo.com', 'go.12fifa18.com', '12aff.best5689.com', 'go.9012ijk.com', 'go.sbc31.com', 'go.tha88.com', 'go.apa56.com', 'go.12qiuball.com', 'go.all2356.com', 'go.amo38.com') THEN 0 ELSE 1 END
 			 , @CheckPageCode  = CASE WHEN ISNULL(clp.PageCode, '') = '' THEN 0 ELSE 1 END
 		FROM CTE_AffDomain AS ad
 			FULL OUTER JOIN CTE_LandingPage AS clp ON clp.PageCode = @PageCode
@@ -220,6 +221,14 @@ BEGIN
 		ELSE IF @AffDomain = 'go.12qiuball.com' AND (@AffUsername = '12BETAFF16341')
 		BEGIN
 			SET @RedirectPage = 'https://www.12vndb.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
+		END
+		ELSE IF @AffDomain = 'go.all2356.com' AND (@AffUsername = '12BETAFF16386')
+		BEGIN
+			SET @RedirectPage = 'https://www.12bwinb.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
+		END
+		ELSE IF @AffDomain = 'go.amo38.com' AND (@AffUsername = '12BETAFF16386')
+		BEGIN
+			SET @RedirectPage = 'https://www.12bplay.com/' + CAST(@AffiliateID AS VARCHAR(15)) + '/' + @PageCode + '/' + @LanguageCode + '/{clickid}/index.aspx?type={typeid}'
 		END
 		ELSE
 		BEGIN
