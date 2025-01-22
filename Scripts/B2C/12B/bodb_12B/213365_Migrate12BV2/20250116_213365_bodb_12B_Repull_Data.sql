@@ -1,0 +1,21 @@
+/*<info serverAlias="DB12B-bodb_12B"></info>*/
+/*
+	Created: 20250116@Sally
+	DB: DB12B-bodb_12B
+	Task: Pull data for bodb_12B DB [RedmineId : #212201]
+
+*/
+USE bodb_12B
+GO
+
+DELETE c
+FROM API_TimeTracker c
+WHERE DataSource  = 'Customer'
+
+INSERT INTO dbo.API_TimeTracker (DataSource, CalledTime, KeyValue)
+SELECT DataSource,'2025-01-15 00:00:00' as CalledTime, KeyValue
+FROM (
+	SELECT 'Customer'AS DataSource,	'2008-03-01T01:00:00.000' AS KeyValue 
+
+)t 
+
