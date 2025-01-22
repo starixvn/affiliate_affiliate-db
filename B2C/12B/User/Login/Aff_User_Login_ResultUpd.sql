@@ -1,0 +1,95 @@
+/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
+CREATE PROCEDURE [dbo].[Aff_User_Login_ResultUpd]
+	@AffId			INT,
+    @IpAddress  	VARCHAR(50),
+	@DeviceInfo  	NVARCHAR(100),
+	@Language		VARCHAR(20) = 'en-US',
+	@IsSuccessful	BIT,
+	@ErrCode		INT = 0 OUTPUT,
+	@ErrMsg			NVARCHAR(2000) = '' OUTPUT
+AS
+
+/*
+	Created: 20241118@Eddie
+	DB: DBAFF12B-Affiliate_12B
+	Task: User site - Login - Update user info after login
+
+	Revisions:
+		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+
+*/
+
+BEGIN
+	SET NOCOUNT ON
+
+	DECLARE @FailedLoginCount TINYINT
+
+	DECLARE @CurrentTime DATETIME
+	SET @CurrentTime = GETDATE()
+	
+	-- Login successful
+	IF @IsSuccessful = 1
+	BEGIN		
+		-- Reset Failed Login Count
+		SET @FailedLoginCount = 0
+	END
+	ELSE
+	BEGIN
+		SELECT @FailedLoginCount = ISNULL(FailedLoginCount, 0)
+		FROM dbo.AffUserLoginInfo WITH (NOLOCK)
+		WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo
+		
+		IF @@ROWCOUNT = 0
+		BEGIN
+			SET @FailedLoginCount = 1
+		END
+		ELSE
+		BEGIN
+			SET @FailedLoginCount = @FailedLoginCount + 1
+		END
+	END
+
+	-- Update login info
+	BEGIN TRY
+		UPDATE dbo.AffDetail WITH(ROWLOCK)
+			SET LastLoginIP = @IpAddress, LastLoginDate = @CurrentTime
+		WHERE AffId = @AffId
+
+		IF(EXISTS (SELECT TOP 1 1 FROM dbo.AffUserLoginInfo WITH (NOLOCK) WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo))
+		BEGIN
+			UPDATE dbo.AffUserLoginInfo WITH (ROWLOCK, UPDLOCK)
+			SET FailedLoginCount = @FailedLoginCount,
+				LastLoginDate = @CurrentTime
+			WHERE AffId = @AffId AND IP = @IpAddress AND DeviceInfo = @DeviceInfo
+		END
+		ELSE
+		BEGIN
+			INSERT INTO dbo.AffUserLoginInfo (AffId, IP, DeviceInfo, FailedLoginCount, LastLoginDate)
+			VALUES (@AffId, @IpAddress, @DeviceInfo, @FailedLoginCount, @CurrentTime)
+		END
+	END TRY
+	BEGIN CATCH
+		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
+		RETURN
+	END CATCH
+
+	-- Write log
+	DECLARE @SPName VARCHAR(200)
+	SELECT  @SPName = OBJECT_NAME(@@PROCID)
+
+	DECLARE @NewData NVARCHAR(MAX)
+	SELECT  @NewData = 
+			'IsSuccessful='			+ ISNULL(CONVERT(VARCHAR(1), @IsSuccessful), '') + ',' +
+			'FailedLoginCount='		+ ISNULL(CONVERT(VARCHAR(10), @FailedLoginCount), '') + ',' +
+			'IP='					+ ISNULL(@IpAddress, '') + ',' +
+			'DeviceInfo='			+ ISNULL(@DeviceInfo, '')
+
+	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
+		@UserId		= @AffId,
+		@AffId		= @AffId,
+		@SPName		= @SPName,
+		@NewData	= @NewData,
+		@IP			= @IpAddress,
+		@Language	= @Language
+END
+GO
