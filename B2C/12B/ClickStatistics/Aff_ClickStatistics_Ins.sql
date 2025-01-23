@@ -71,7 +71,7 @@ BEGIN
 	BEGIN
 		SELECT @AffDomainId	= DomainID
 		FROM dbo.AffDomain WITH (NOLOCK)
-		WHERE DomainName = @AffDomain AND @AffDomain NOT IN ( 'join.best5689.com', 'go.12real.com', 'go.5689fun.com', 'go.6789sutzo.com', 'go.12fifa18.com', '12aff.best5689.com', 'go.9012ijk.com', 'go.sbc31.com', 'go.tha88.com', 'go.apa56.com', 'go.12qiuball.com', 'go.all2356.com', 'go.amo38.com')
+		WHERE DomainName = @AffDomain AND @AffDomain NOT IN ( 'join.best5689.com', 'go.12real.com', 'go.5689fun.com', 'go.6789sutzo.com', 'go.12fifa18.com', '12aff.best5689.com', 'go.9012ijk.com', 'go.sbc31.com', 'go.tha88.com', 'go.apa56.com', 'go.12qiuball.com', 'go.all2356.com', 'go.amo38.com', 'go.12winball.com')
 			AND IsDeleted = 0
 
 		SELECT TOP (1) @LicenseeDomain = b.DomainName
@@ -110,7 +110,7 @@ BEGIN
 		END
 		ELSE IF @AffDomain = '12aff.best5689.com' AND (@AffUsername IN ('12BETAFF15932', '12BETAFF130', '12BETAFF16311', '12BETAFF16314', '12BETAFF16225', '12BETAFF14617', '12BETAFF13902', '12BETAFF16313', '12BETAFF15775', '12BETAFF16214', '12BETAFF13506', '12BETAFF13065', '12BETAFF7782', '12BETAFF16050'))
 		BEGIN
-			SET @RedirectPage = 'https://www.12haoqiu.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SET @RedirectPage = 'https://www.12bfacai.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
 		END
 		ELSE IF @AffDomain = 'go.9012ijk.com' AND (@AffUsername = '12BETAFF16343')
 		BEGIN
@@ -139,6 +139,10 @@ BEGIN
 		ELSE IF @AffDomain = 'go.amo38.com' AND (@AffUsername = '12BETAFF16386')
 		BEGIN
 			SET @RedirectPage = 'https://www.12bplay.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+		END
+		ELSE IF @AffDomain = 'go.12winball.com' AND (@AffUsername = '12BETAFF16007')
+		BEGIN
+			SET @RedirectPage = 'https://www.12bbe.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
 		END
 		ELSE
 		BEGIN
