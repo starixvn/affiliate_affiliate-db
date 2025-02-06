@@ -20,6 +20,7 @@ AS
 		- 20240220@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 		- 20240502@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
 		- 20240412@Sally: Fix get data case Calculated Months [RedmineID: #214791]
+		- 20240412@Sally: Fix missing data last month of the current year [RedmineID: #215940]
 */
 
 BEGIN
@@ -184,7 +185,7 @@ BEGIN
 	INSERT INTO @AffGroupInfo (MonthDate, EarningBy)
 	SELECT af.MonthDate
 		,af.GroupTypeBy
-	FROM dbo.Aff_f_AffGroupInfo_Sel(@FromDate, @ToDate, @AffIds) af
+	FROM dbo.Aff_f_AffGroupInfo_Sel(@FromDate, EOMONTH(@ToDate), @AffIds) af
 
 	-- Return Data
 	;WITH CTE_SubCommRate AS
