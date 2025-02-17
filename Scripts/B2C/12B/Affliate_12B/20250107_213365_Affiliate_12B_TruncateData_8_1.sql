@@ -1,6 +1,6 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B"></info>*/
 /*
-	Created: 20250107@Eddie
+	Created: 20250213@Eddie
 	DB: DBAFF12B-Affiliate_12B
 	Task: Truncate all tables [RedmineID: #212201]
 */

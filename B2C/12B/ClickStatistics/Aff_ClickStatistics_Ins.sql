@@ -86,68 +86,68 @@ BEGIN
 
 		IF @AffDomain = 'join.best5689.com' AND (@AffUsername IN ('12BETAFF16000', '12BETAFF16186', '12BETAFF16096', '12BETAFF16097'))
 		BEGIN
-			SET @RedirectPage = 'https://www.620elv.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SET @RedirectPage = 'https://www.620elv.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 		ELSE IF @AffDomain = 'go.12real.com' AND (@AffUsername IN ('12BETAFF16105', '12BETAFF16204', '12BETAFF16205'))
 		BEGIN
-			SET @RedirectPage = 'https://www.nen77.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SET @RedirectPage = 'https://www.nen77.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 		ELSE IF @AffDomain = 'go.5689fun.com' AND (@AffUsername = '12BETAFF15932')
 		BEGIN
-			SET @RedirectPage = 'https://www.12kaixin.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SET @RedirectPage = 'https://www.12kaixin.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 		ELSE IF @AffDomain = 'go.6789sutzo.com' AND (@AffUsername = '12BETAFF16326')
 		BEGIN
-			SET @RedirectPage = 'https://www.12amethyst.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SET @RedirectPage = 'https://www.12amethyst.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 		ELSE IF @AffDomain = 'go.12fifa18.com' AND (@AffUsername = '12BETAFF16105')
 		BEGIN
-			SET @RedirectPage = 'https://www.12crystal.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SET @RedirectPage = 'https://www.12crystal.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 		ELSE IF @AffDomain = 'go.5689fun.com' AND (@AffUsername = '12BETAFF16325')
 		BEGIN
-			SET @RedirectPage = 'https://www.12amber.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SET @RedirectPage = 'https://www.12amber.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 		ELSE IF @AffDomain = '12aff.best5689.com' AND (@AffUsername IN ('12BETAFF15932', '12BETAFF130', '12BETAFF16311', '12BETAFF16314', '12BETAFF16225', '12BETAFF14617', '12BETAFF13902', '12BETAFF16313', '12BETAFF15775', '12BETAFF16214', '12BETAFF13506', '12BETAFF13065', '12BETAFF7782', '12BETAFF16050'))
 		BEGIN
-			SET @RedirectPage = 'https://www.12bfacai.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SET @RedirectPage = 'https://www.12bfacai.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 		ELSE IF @AffDomain = 'go.9012ijk.com' AND (@AffUsername = '12BETAFF16343')
 		BEGIN
-			SET @RedirectPage = 'https://www.12amethyst.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SET @RedirectPage = 'https://www.12amethyst.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 		ELSE IF @AffDomain = 'go.sbc31.com' AND (@AffUsername = '12BETAFF16344')
 		BEGIN
-			SET @RedirectPage = 'https://www.12amberclub.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SET @RedirectPage = 'https://www.12amberclub.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 		ELSE IF @AffDomain = 'go.tha88.com' AND (@AffUsername = '12BETAFF16342')
 		BEGIN
-			SET @RedirectPage = 'https://www.12bola.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SET @RedirectPage = 'https://www.12bola.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 		ELSE IF @AffDomain = 'go.apa56.com' AND (@AffUsername = '12BETAFF16342')
 		BEGIN
-			SET @RedirectPage = 'https://www.bola112.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SET @RedirectPage = 'https://www.bola112.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 		ELSE IF @AffDomain = 'go.12qiuball.com' AND (@AffUsername = '12BETAFF16341')
 		BEGIN
-			SET @RedirectPage = 'https://www.12vndb.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SET @RedirectPage = 'https://www.12vndb.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 		ELSE IF @AffDomain = 'go.all2356.com' AND (@AffUsername = '12BETAFF16386')
 		BEGIN
-			SET @RedirectPage = 'https://www.12bwinb.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SET @RedirectPage = 'https://www.12bwinb.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 		ELSE IF @AffDomain = 'go.amo38.com' AND (@AffUsername = '12BETAFF16386')
 		BEGIN
-			SET @RedirectPage = 'https://www.12bplay.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SET @RedirectPage = 'https://www.12bplay.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 		ELSE IF @AffDomain = 'go.12winball.com' AND (@AffUsername = '12BETAFF16007')
 		BEGIN
-			SET @RedirectPage = 'https://www.12bbe.com/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SET @RedirectPage = 'https://www.12bbe.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 		ELSE
 		BEGIN
 		-- Replace Affilliate domain by Licensee domain to redirect to licensee site
-			SELECT @RedirectPage = CASE WHEN @IsSSL = 1 THEN 'https' ELSE 'http' END + '://' + @LicenseeDomain + '/' + @LanguageCode + '/' + @PageCode + '?affcode=' + @AffCode
+			SELECT @RedirectPage = CASE WHEN @IsSSL = 1 THEN 'https' ELSE 'http' END + '://' + @LicenseeDomain + '/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 	END
 
@@ -155,23 +155,6 @@ BEGIN
 	BEGIN
 		SELECT @ErrCode = 103, @ErrMsg = 'This link does not exists. Please contact administrator!'
 		RETURN;
-	END
-	ELSE
-	BEGIN
-		DECLARE @EUDomain VARCHAR(100)		
-		SELECT @EUDomain = 'eu.12bet.com'
-		
-		--final check for EU member site
-		IF(@LanguageCode IN ('eneuro'))
-		BEGIN
-			-- Reset language code
-			SELECT @RedirectPage = REPLACE(@RedirectPage, 'eneuro', 'en')
-			-- Reset mobile link
-			IF(@LicenseeDomain <> @EUDomain)
-			BEGIN
-				SET @RedirectPage = REPLACE(@RedirectPage, @LicenseeDomain, @EUDomain)
-			END
-		END
 	END
 
 	-- Insert into ClickStatistics

@@ -1,6 +1,6 @@
 ﻿/*<info serverAlias="DBAFF12B-Affiliate_12B"></info>*/
 /*
-	Created: 20241118@Eddie
+	Created: 20250213@Eddie
 	DB: DBAFF12B-Affiliate_12B
 	Task: Initial data Affiliate_12B DB [RedmineID: #212201]
 */
@@ -116,13 +116,13 @@ FROM (
 		  ,('SoftLaunchDate', '2024-11-01')
 		  ,('LaunchDate', '2024-11-01')
 		  ,('AFF_PaymentCurrencies', '2:MYR,3:USD,4:THB,13:CNY,15:IDR,45:KRW,51:VND,61:INR,74:BDT') -- Note
-		  ,('MemberInfoLastImportedTime', '2008-03-12 00:00:00') -- Check again
-		  ,('MemberInfoLastUpdatedTime', '2008-03-12 00:00:00') -- Check again
+		  ,('MemberInfoLastImportedTime', '2008-03-12 00:00:00') -- Note
+		  ,('MemberInfoLastUpdatedTime', '2008-03-12 00:00:00') -- Note
 		  ,('BrandName', '12Bet')
 		  ,('SiteName', '12BET')
 		  ,('TimeZone', '8')
 		  ,('P2P_CutOffDate', '2021-07-01') -- The same N88
-		  ,('LastImportedTime_ExchangeOanda', '2025-02-01')
+		  ,('LastImportedTime_ExchangeOanda', '2008-03-13')
 		  ,('Report_CutOffDate', '2023-06-01') -- The same N88
 ) AS t(SName, SValue)
 	LEFT JOIN dbo.SystemSettings ss WITH (NOLOCK) ON ss.SName = t.SName

@@ -28,7 +28,7 @@ BEGIN
 		,a.FirstName
 		,a.LastName
 		,ad.Phone
-		,a.Status 
+		,CASE WHEN a.IsRejected = 0 THEN a.Status ELSE 'Suspended' END AS Status 
 		,a.Email
 		,ad.Player_CustId
 		,a.AffId

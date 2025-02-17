@@ -3,7 +3,8 @@
 	Created: 20241230@Sally
 	DB: DBAFF12B-Affiliate_12B
 	Task: Support new Aff 12B [RedmineId : #212201]
-		2. Migrate Group Comm of AFF				
+		2. Migrate Aff Group Comm 
+			
 */
 
 
@@ -53,9 +54,6 @@ GO
 		SELECT AffId
 		FROM dbo.AffInfo WITH(NOLOCK)
 		WHERE GroupId <> 0
-			AND UserName NOT IN ('12BETAFF001'
-				,'12BETAFF030'
-				,'12BETAFF078')
 	)
 	INSERT INTO #AFFInfoUpdate( AffId, Old_GroupId, New_GroupId)
 	SELECT c.AffId, c.GroupId, CASE WHEN c.GroupId = @NoCommissionGroupId_V1 THEN @NoCommissionGroupId_V2 ELSE @DefaultGroupId_V2 END 									

@@ -1,6 +1,6 @@
 /*<info serverAlias="DB12B-bodb_12B"></info>*/
 /*
-	Created: 20241118@Eddie
+	Created: 20250213@Eddie
 	DB: DB12B-bodb_12B
 	Task: Initial data for bodb_12B DB [RedmineId : #212201]
 
@@ -19,6 +19,10 @@ FROM (
 		SELECT 'ArchiveData_Date', CONVERT(VARCHAR(200), @lastmonth, 120)
 		UNION ALL
 	    SELECT 'UpdatedCustomer_Date', CONVERT(VARCHAR(200), @beginofmonth, 120)
+		UNION ALL
+	    SELECT 'TimeZone', '-4'
+		UNION ALL
+	    SELECT 'Deposit_CutOffDate', '2025-02-13 00:00:00'
 ) AS t(SName, SValue)
 	LEFT JOIN dbo.SystemSettings s WITH (NOLOCK) ON s.SName = t.SName
 WHERE s.SName IS NULL

@@ -12,7 +12,7 @@ USE Affiliate_12B
 GO
 
 DECLARE @TransType INT			= 203 -- Adjustment
-	,@Description NVARCHAR(300) = 'Account balance carried forward from the previous system.' -- Input Here
+	,@Description NVARCHAR(300) = 'Account balance carried forward from the previous system.' 
 	,@Creator	  INT			= 0
 	,@TransDate	DATETIME		= GETDATE()
 	,@Status VARCHAR(50)		= 'Completed'
