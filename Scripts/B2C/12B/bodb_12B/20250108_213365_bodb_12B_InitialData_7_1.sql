@@ -1,6 +1,6 @@
 /*<info serverAlias="DB12B-bodb_12B"></info>*/
 /*
-	Created: 20241118@Eddie
+	Created: 20250213@Eddie
 	DB: DB12B-bodb_12B
 	Task: Initial data for bodb_12B DB [RedmineId : #212201]
 
@@ -38,5 +38,4 @@ FROM (
 WHERE tt.DataSource IS NULL
    OR tt.CalledTime IS NULL
 
-/* Need update column [KeyValue] with DepositInfo and WeeklyBonusInfo when script be released */
 GO

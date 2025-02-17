@@ -1,6 +1,6 @@
 /*<info serverAlias="DB12B-bodb_12B"></info>*/
 /*
-	Created: 20250108@Eddie
+	Created: 20250213@Eddie
 	DB: DB12B-bodb_12B
 	Task: Truncate all tables [RedmineId : #212201]
 

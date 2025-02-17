@@ -16,7 +16,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT a.DomainID, a.DomainName, CONVERT(BIT, ISNULL(a.IsSSL, 0)) AS IsSSL
+	SELECT a.DomainID, a.DomainName, CONVERT(BIT, ISNULL(a.IsSSL, 0)) AS IsSSL, a.CreateDate
 	FROM dbo.AffDomain a WITH (NOLOCK)
 		INNER JOIN dbo.DomainControl b WITH (NOLOCK) ON a.DomainID = b.AffDomainId
 		INNER JOIN dbo.LicenseeDomain ld WITH (NOLOCK) ON b.LicenseeDomainId = ld.DomainId
@@ -26,7 +26,7 @@ BEGIN
 		AND a.IsDeleted = 0
 		AND b.IsDeleted = 0
 		AND ld.IsDeleted = 0
-	GROUP BY a.DomainID, a.DomainName, CONVERT(BIT, ISNULL(a.IsSSL, 0))
+	GROUP BY a.DomainID, a.DomainName, CONVERT(BIT, ISNULL(a.IsSSL, 0)), a.CreateDate
 	ORDER BY a.DomainName
 END
 GO
