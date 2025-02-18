@@ -28,6 +28,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20241225@Sally: Apply QM Turnover [RedmineID: #212201]
+		- 20250218@Eddie: Enhance SP [RedmineID: #218047]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -375,6 +376,8 @@ BEGIN
 
 		DECLARE @ArchiveDate SMALLDATETIME
 		SELECT  @ArchiveDate = MAX(Date) FROM dbo.ClickStatistics_bk WITH (NOLOCK)
+		
+		SELECT @ArchiveDate = ISNULL(@ArchiveDate, '2025-02-01') -- Will remove after Mar 01, 2025
 
 		IF @ToDate > @ArchiveDate
 		BEGIN
