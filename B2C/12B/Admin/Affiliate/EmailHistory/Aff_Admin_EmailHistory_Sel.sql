@@ -34,8 +34,8 @@ BEGIN
 	SET NOCOUNT ON
 
 	IF @IsGetAll = 0
-		SELECT	@FromDate	= CONVERT(DATE, @FromDate)
-				,@ToDate	= DATEADD(DAY, 1, CONVERT(DATE, @ToDate))
+		SELECT	@FromDate = CONVERT(DATE, @FromDate)
+			   ,@ToDate	= DATEADD(DAY, 1, CONVERT(DATE, @ToDate))
 
 	SELECT @SearchById = ISNULL(@SearchById, 0), @SearchText = ISNULL(@SearchText, '')
 
