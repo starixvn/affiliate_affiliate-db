@@ -15,6 +15,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250218@Sally: add the flag for Marketing Note [RedmineID: #212201]
 */
 
 BEGIN
@@ -35,8 +36,8 @@ BEGIN
 		RETURN
 
 	BEGIN TRY
-		INSERT INTO dbo.AdminNotes (AffID, Note, UpdatedBy, UpdatedDate)
-			VALUES (@AffID, @Note, @UserID, GETDATE())
+		INSERT INTO dbo.AdminNotes (AffID, Note, UpdatedBy, UpdatedDate, NoteType)
+			VALUES (@AffID, @Note, @UserID, GETDATE(), 0)-- NoteType : 0 (note) and 1 (marketing team note)
 
 		SELECT @NoteID = SCOPE_IDENTITY()
 	END TRY

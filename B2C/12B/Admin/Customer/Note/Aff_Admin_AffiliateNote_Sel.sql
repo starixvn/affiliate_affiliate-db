@@ -13,6 +13,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250218@Sally: add the flag for Marketing Note  [RedmineID: #212201]
 
 */
 
@@ -21,7 +22,9 @@ BEGIN
 
 	DECLARE @tblNote TABLE (NoteID INT PRIMARY KEY)
 	INSERT INTO @tblNote (NoteID)
-	SELECT NoteID FROM dbo.AdminNotes WITH (NOLOCK) WHERE AffID = @AffID
+	SELECT NoteID FROM dbo.AdminNotes WITH (NOLOCK) 
+	WHERE AffID = @AffID
+		AND NoteType = 0 -- 0 (note) and 1 (marketing team note)
 
 	SELECT @NRows = COUNT(1) FROM @tblNote
 
