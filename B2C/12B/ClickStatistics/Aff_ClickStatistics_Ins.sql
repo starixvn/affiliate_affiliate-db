@@ -30,6 +30,7 @@ AS
 
 	Revisions:  
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250221@Eddie: Support to config redirect link for specific affiliates [RedmineID: #218213]
 */
 
 BEGIN
@@ -71,7 +72,7 @@ BEGIN
 	BEGIN
 		SELECT @AffDomainId	= DomainID
 		FROM dbo.AffDomain WITH (NOLOCK)
-		WHERE DomainName = @AffDomain AND @AffDomain NOT IN ( 'join.best5689.com', 'go.12real.com', 'go.5689fun.com', 'go.6789sutzo.com', 'go.12fifa18.com', '12aff.best5689.com', 'go.9012ijk.com', 'go.sbc31.com', 'go.tha88.com', 'go.apa56.com', 'go.12qiuball.com', 'go.all2356.com', 'go.amo38.com', 'go.12winball.com')
+		WHERE DomainName = @AffDomain AND @AffDomain NOT IN ( 'join.best5689.com', 'go.12real.com', 'go.5689fun.com', 'go.6789sutzo.com', 'go.12fifa18.com', '12aff.best5689.com', 'go.9012ijk.com', 'go.sbc31.com', 'go.tha88.com', 'go.apa56.com', 'go.12qiuball.com', 'go.all2356.com', 'go.amo38.com', 'go.12winball.com', 'goto.12bsprt1.com', 'goto.12bsprt2.com', 'goto.12bsprt3.com')
 			AND IsDeleted = 0
 
 		SELECT TOP (1) @LicenseeDomain = b.DomainName
@@ -143,6 +144,18 @@ BEGIN
 		ELSE IF @AffDomain = 'go.12winball.com' AND (@AffUsername = '12BETAFF16007')
 		BEGIN
 			SET @RedirectPage = 'https://www.12bbe.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
+		END
+		ELSE IF @AffDomain = 'goto.12bsprt1.com' AND (@AffUsername = '12BETAFF16338')
+		BEGIN
+			SET @RedirectPage = 'https://www.12bsaff1.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
+		END
+		ELSE IF @AffDomain = 'goto.12bsprt2.com' AND (@AffUsername = '12BETAFF16336')
+		BEGIN
+			SET @RedirectPage = 'https://www.12bsaff2.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
+		END
+		ELSE IF @AffDomain = 'goto.12bsprt3.com' AND (@AffUsername = '12BETAFF16337')
+		BEGIN
+			SET @RedirectPage = 'https://www.12bsaff3.com/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode
 		END
 		ELSE
 		BEGIN
