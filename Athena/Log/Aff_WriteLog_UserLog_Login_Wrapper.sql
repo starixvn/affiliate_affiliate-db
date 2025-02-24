@@ -1,7 +1,4 @@
-/*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet,bodbLicenseeNet" isFunction="0" isNested="1"></info>*/
-USE [CustDB]
-GO
-
+/*<info serverAlias="DBCUST-CustDB,DBCUST-bodb_Licensee" executers="wsv_afinet,wsv_lap" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Aff_WriteLog_UserLog_Login_Wrapper]
 	@UserID			INT,
     @ServerID		INT,
@@ -22,7 +19,8 @@ AS
 
 	Revisions:
 		- 20190424@Percy: Initialize SP [RedmineID: #103658]
- 
+		- 20250219@Eddie: Clone to DBCUST.bodb_Licensee [RedmineID: #216866]
+
 	Param's Explanation:
 		• @UserID: main account login.
 		• @ServerID: serverID.

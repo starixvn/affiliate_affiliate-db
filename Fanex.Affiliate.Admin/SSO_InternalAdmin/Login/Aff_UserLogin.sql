@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCUST-bodb_licensee" executers="bodbAdminNet,bodbLicenseeNet,bodbDownlineNet" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBCUST-bodb_licensee" executers="wsv_lap,wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_UserLogin]
 	@UserName		VARCHAR(50),
 	@UserPwd		VARCHAR(50)		= '',	
@@ -23,6 +23,8 @@ AS
 		- 20171002@Percy: Write more password into log [RedmineID: #83692]
 		- 20190424@Percy: Move SP to DBCUST.bodb_Licensee & Apply SP log wrapper [RedmineID: #103658]
 		- 20220603@Malcolm: fix bug can't get error message [RedmineID: #172701]
+		- 20250219@Eddie: remove CustDB [#216866]
+
 */
 
 BEGIN
@@ -51,13 +53,13 @@ BEGIN
 
 	IF (ISNULL(@UserID, 0) = 0)
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = CASE @Langkey WHEN 'en-US' THEN 'Wrong username or password.' ELSE [CustDB].[dbo].[Lrf_f_Get_MsgNamebyMsgID](80001, @Langkey) END
+		SELECT @ErrCode = 101, @ErrMsg = CASE @Langkey WHEN 'en-US' THEN 'Wrong username or password.' ELSE GlobCustDB.dbo.Lrf_f_Get_MsgNamebyMsgID(80001, @Langkey) END
 		
 		SET @LogData = 'Failed(User_Not_Found)'
 	END
 	ELSE IF (@Status <> 'Open')
 	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = CASE @Langkey WHEN 'en-US' THEN 'This user is not active.' ELSE [CustDB].[dbo].[Lrf_f_Get_MsgNamebyMsgID](200022, @Langkey) END
+		SELECT @ErrCode = 102, @ErrMsg = CASE @Langkey WHEN 'en-US' THEN 'This user is not active.' ELSE GlobCustDB.dbo.Lrf_f_Get_MsgNamebyMsgID(200022, @Langkey) END
 		
 		SET @LogData = 'Failed(User_Not_Active)'
 	END
@@ -88,7 +90,7 @@ BEGIN
 
 			IF (@RowCnt > 1)
 			BEGIN
-				SELECT @ErrCode = 103, @ErrMsg = CASE @Langkey WHEN 'en-US' THEN 'This user has too many licensees.' ELSE [CustDB].[dbo].[Lrf_f_Get_MsgNamebyMsgID](200023, @Langkey) END
+				SELECT @ErrCode = 103, @ErrMsg = CASE @Langkey WHEN 'en-US' THEN 'This user has too many licensees.' ELSE GlobCustDB.dbo.Lrf_f_Get_MsgNamebyMsgID(200023, @Langkey) END
 				
 				SET @LogData = 'Failed(User_Too_Many_Licensees)'
 			END
@@ -98,7 +100,7 @@ BEGIN
 			
 				IF (@LicenseeID IS NULL)
 				BEGIN
-					SELECT @ErrCode = 104, @ErrMsg = CASE @Langkey WHEN 'en-us' THEN 'This user has no licensee.' ELSE [CustDB].[dbo].[Lrf_f_Get_MsgNamebyMsgID](200024, @Langkey) END
+					SELECT @ErrCode = 104, @ErrMsg = CASE @Langkey WHEN 'en-us' THEN 'This user has no licensee.' ELSE GlobCustDB.dbo.Lrf_f_Get_MsgNamebyMsgID(200024, @Langkey) END
 					
 					SET @LogData = 'Failed(User_Not_Found_Licensee)'   
 				END
@@ -129,7 +131,7 @@ BEGIN
 	SELECT @UserID	= ISNULL(@UserID, 0), @ServerID	= 200, @Duration = DATEDIFF(MILLISECOND, @Begin, GETDATE())
 	SELECT @LogData = CASE WHEN @LogData = 'Success' AND @UserRole = 'Admin' THEN 'Admin: ' ELSE 'User: ' END + @UserName +  ' - ' + 'Password: ' + @UserPwd + ' - ' + @LogData
 
-	EXEC CustDB.dbo.Aff_WriteLog_UserLog_Login_Wrapper
+	EXEC Aff_WriteLog_UserLog_Login_Wrapper
 		@UserID			= @UserID,
 		@ServerID		= @ServerID,
 		@LoginIP		= @LoginIP,
