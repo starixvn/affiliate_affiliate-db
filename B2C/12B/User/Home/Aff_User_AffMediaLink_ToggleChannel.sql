@@ -1,7 +1,7 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_User_AffMediaLink_ToggleChannel]
 	@AffId			INT
-	,@ChannelCode	VARCHAR(50)
+	,@ChannelCode	VARCHAR(50) = ''
 	,@LanguageCode	VARCHAR(10)
 	,@AffMediaLink	VARCHAR(500)
 	,@IsOn			BIT = 0
@@ -18,6 +18,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250227@Sally: Enhance AFFMediaLink [RedmineID: #212201]
 
 */
 
@@ -25,6 +26,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
+	SET @ChannelCode = ISNULL(@ChannelCode, '')
 
 	IF NOT EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @AffId)
 	BEGIN
