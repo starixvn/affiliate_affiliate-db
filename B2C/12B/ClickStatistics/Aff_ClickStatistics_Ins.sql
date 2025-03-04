@@ -33,6 +33,7 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250221@Eddie: Support to config redirect link for specific affiliates [RedmineID: #218213]
         - 20250221@Sally: Enhance AFFMediaLink  [RedmineID: #212201]
+		- 20250305@Sally: Specific AFF Link SP [RedmineID: #219049]
 */
 
 BEGIN
@@ -46,12 +47,17 @@ BEGIN
 		  , @AffDomainId 		INT
 		  , @RedirectDomain		NVARCHAR(256) = NULL
 		  ,	@affMediaLinkId		VARCHAR(50)	  = ''
+		  , @LanguageMediaLink	VARCHAR(11)	  = ''
 
     SET @ChannelCode = ISNULL(@ChannelCode, '')
 
 	SELECT @AffId = ac.AffId
 	FROM dbo.AffiliateCode ac WITH(NOLOCK)
 	WHERE ac.AffCode = @AffCode
+
+	SELECT @LanguageMediaLink = m.MarketId
+	FROM dbo.Market m WITH(NOLOCK)
+	WHERE m.ShortedCode = @LanguageCode
 
 	IF COALESCE(@IP, '') = ''
 	BEGIN
@@ -103,7 +109,7 @@ BEGIN
 		FROM dbo.AffMediaLink WITH (NOLOCK)
 		WHERE AffId 		 = @AffId
 			AND ChannelCode  = @ChannelCode
-			AND LanguageCode = @PreferredLanguage 
+			AND LanguageCode = @LanguageMediaLink
 			AND AffMediaLink = @AffMediaLink
 			AND IsShow 		 = 1
 

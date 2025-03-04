@@ -2,7 +2,7 @@
 CREATE PROCEDURE [dbo].[Aff_User_AffMediaLink_CheckExistedTracking]
 	@AffId					INT
 	,@ChannelCode			VARCHAR(50) = ''
-	,@LanguageCode			VARCHAR(10)
+	,@LanguageCode			VARCHAR(10) = 'en-US'
 	,@AffMediaLink			VARCHAR(500)
 	,@AffDomain				NVARCHAR(50) = ''
     ,@IsOn					BIT = 0
@@ -18,16 +18,25 @@ AS
 
 	Revisions:
 		- 20250226@Sally: Initialize SP [RedmineID: #212201]
+		- 20250305@Sally: Specific AFF Link SP [RedmineID: #219049]
 
 */
 
 BEGIN
 	SET NOCOUNT ON
-	DECLARE @AffDomainId INT
+	DECLARE @AffDomainId 	INT
+		,@PreferredLanguage VARCHAR(11)
+
 	SET @ChannelCode = ISNULL(@ChannelCode,'')
+
+	SELECT @PreferredLanguage = ad.PreferredLanguage
+	FROM dbo.AffDetail ad WITH (NOLOCK)
+		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON ai.AffId = ad.AffId
+	WHERE ai.AffId = @AffId 
 
 	SELECT @IsExistedTracking = 0
 	SELECT @IsValidDomain = 0
+
 
 	IF EXISTS (
 		SELECT 1 
@@ -49,7 +58,7 @@ BEGIN
 		SELECT 1 
 		FROM dbo.DomainControl a WITH (NOLOCK)
 				INNER JOIN dbo.LicenseeDomain b WITH (NOLOCK) ON a.LicenseeDomainId = b.DomainId
-		WHERE a.MarketId 		= @LanguageCode
+		WHERE a.MarketId 		= @PreferredLanguage
 			AND a.AffDomainId 	= @AffDomainId
 			AND a.[Status] 		= 1
 			AND a.IsDeleted		= 0
