@@ -14,8 +14,8 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
-        - 20250221@Sally: Enhance AFFMediaLink  [RedmineID: #212201]
-
+        - 20250221@Sally: Enhance AFFMediaLink [RedmineID: #212201]
+		- 20250305@Sally: Enhance get AFFMediaLinkId [RedmineID: #212201]
 */
 
 BEGIN
@@ -96,7 +96,7 @@ BEGIN
 			,SUM(s.SignUps) AS SignUps
 			,SUM(s.FDM) AS FDM
 		FROM CTE_SigupsData  s
-			LEFT JOIN dbo.AffMediaLink l WITH (NOLOCK) ON s.AffMediaLinkId = l.AffMediaLinkId
+			LEFT JOIN dbo.AffMediaLink l WITH (NOLOCK) ON s.AffMediaLinkId = l.AffMediaLinkId AND l.AffId = @AffId
 			LEFT JOIN dbo.AffMediaChannel c WITH (NOLOCK) ON l.ChannelCode = c.ChannelCode AND c.AffId = @AffId
 			LEFT JOIN dbo.Market m WITH (NOLOCK) ON l.LanguageCode = m.MarketId
 		WHERE (ISNULL(@LanguageCodes, '') = '' OR ',' + @LanguageCodes + ',' LIKE '%,' + m.MarketId + ',%')
