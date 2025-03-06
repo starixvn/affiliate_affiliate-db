@@ -12,6 +12,7 @@ AS
 		- 20250226@Sally: Initialize Function [RedmineID: #212201]
 		- 20250304@Sally: Add specific Links 12BETAFF16416 [RedmineID: #219049]
         - 20250304@Sally: Remove redirect domain 12BETAFF16416 [RedmineID: #219049]
+        - 20250306@Lewis: Add 12BETAFF16450 [RedmineID: #219200]
 */
 
 RETURN
@@ -58,6 +59,7 @@ RETURN
         ,('goto.12bsprt3.com', '12BETAFF16337','https://www.12bsaff3.com/')
 
 		,('goto.12binrlink1.com', '12BETAFF16416','https://www.12binr3.com/')
+		,('goto.12binrlink2.com', '12BETAFF16450','https://www.12binr4.com/')
     
 	) AS t(AffDomain, AffUsername, RedirectDomain)
 		
