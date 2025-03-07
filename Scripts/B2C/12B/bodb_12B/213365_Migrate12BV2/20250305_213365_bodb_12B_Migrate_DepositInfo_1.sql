@@ -27,4 +27,5 @@ WITH (
     FORMATFILE = 'D:\FDT_FDM_Import_FormatFile.xml',
     FIRSTROW = 2
 );
-SELECT COUNT(1) AS NumRow FROM dbo.tmpFPDImport m with (NOLOCK)
+
+SELECT count(1)FROM dbo.tmpFPDImport m with (NOLOCK)
