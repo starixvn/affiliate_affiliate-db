@@ -34,6 +34,7 @@ AS
 		- 20250221@Eddie: Support to config redirect link for specific affiliates [RedmineID: #218213]
         - 20250221@Sally: Enhance AFFMediaLink  [RedmineID: #212201]
 		- 20250305@Sally: Specific AFF Link SP [RedmineID: #219049]
+        - 20250305@Sally: Enhance validate AffmediaLink  [RedmineID: #219049]
 */
 
 BEGIN
@@ -48,6 +49,12 @@ BEGIN
 		  , @RedirectDomain		NVARCHAR(256) = NULL
 		  ,	@affMediaLinkId		VARCHAR(50)	  = ''
 		  , @LanguageMediaLink	VARCHAR(11)	  = ''
+          , @AffMediaLink_http  VARCHAR(500)  = NULL
+          ,	@AffMediaLink_https	VARCHAR(500)  = NULL
+
+    
+    SET @AffMediaLink_https = CONCAT ('https://',@AffMediaLink) -- Get https default for AffMediaLink
+    SET @AffMediaLink_http  = CONCAT ('http://',@AffMediaLink) 
 
     SET @ChannelCode = ISNULL(@ChannelCode, '')
 
@@ -106,13 +113,25 @@ BEGIN
 
 		-- Get AffMediaLinkId: only tracking link is ON
 		SELECT @affMediaLinkId = AffMediaLinkId
+			,@AffMediaLink 	   = AffMediaLink
 		FROM dbo.AffMediaLink WITH (NOLOCK)
 		WHERE AffId 		 = @AffId
 			AND ChannelCode  = @ChannelCode
 			AND LanguageCode = @LanguageMediaLink
-			AND AffMediaLink = @AffMediaLink
+			AND AffMediaLink = @AffMediaLink_https
 			AND IsShow 		 = 1
 
+        IF(@affMediaLinkId = '')
+        BEGIN
+            SELECT @affMediaLinkId = AffMediaLinkId
+				,@AffMediaLink     = AffMediaLink
+            FROM dbo.AffMediaLink WITH (NOLOCK)
+            WHERE AffId 		 = @AffId
+                AND ChannelCode  = @ChannelCode
+                AND LanguageCode = @LanguageMediaLink
+                AND AffMediaLink = @AffMediaLink_http
+                AND IsShow 		 = 1
+        END
 		-- Get redirect domain of specific AFF
 		SELECT @RedirectDomain = RedirectDomain
 		FROM dbo.Aff_f_SpecificRedirectDomain()

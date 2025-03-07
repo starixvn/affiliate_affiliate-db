@@ -19,6 +19,7 @@ AS
 	Revisions:
 		- 20250226@Sally: Initialize SP [RedmineID: #212201]
 		- 20250305@Sally: Specific AFF Link SP [RedmineID: #219049]
+        - 20250307@Sally: Enhance validate AffmediaLink  [RedmineID: #219049]
 
 */
 
@@ -26,8 +27,13 @@ BEGIN
 	SET NOCOUNT ON
 	DECLARE @AffDomainId 	INT
 		,@PreferredLanguage VARCHAR(11)
+        ,@AffMediaLink_http  VARCHAR(500)  = NULL
+        ,@AffMediaLink_https VARCHAR(500)  = NULL
+        ,@affMediaLinkId INT               = NULL
 
 	SET @ChannelCode = ISNULL(@ChannelCode,'')
+    SET @AffMediaLink_https = CONCAT ('https://',@AffMediaLink) -- Get https default for AffMediaLink
+    SET @AffMediaLink_http  = CONCAT ('http://',@AffMediaLink) 
 
 	SELECT @PreferredLanguage = ad.PreferredLanguage
 	FROM dbo.AffDetail ad WITH (NOLOCK)
@@ -37,17 +43,28 @@ BEGIN
 	SELECT @IsExistedTracking = 0
 	SELECT @IsValidDomain = 0
 
+    -- Get AffMediaLinkId: only tracking link is ON
+	SELECT @affMediaLinkId = AffMediaLinkId
+	FROM dbo.AffMediaLink WITH (NOLOCK)
+	WHERE AffId 		 = @AffId
+		AND ChannelCode  = @ChannelCode
+		AND LanguageCode = @LanguageCode
+		AND AffMediaLink = @AffMediaLink_https
+		AND IsShow 		 = 1
 
-	IF EXISTS (
-		SELECT 1 
-		FROM dbo.AffMediaLink WITH (NOLOCK) 
-		WHERE AffId = @AffId 
-			AND ChannelCode  = @ChannelCode
-			AND LanguageCode = @LanguageCode 
-			AND AffMediaLink = @AffMediaLink
-            AND IsShow       = @IsOn
-		)
-		SELECT @IsExistedTracking = 1	
+    IF(@affMediaLinkId = '')
+    BEGIN
+        SELECT @affMediaLinkId = AffMediaLinkId
+        FROM dbo.AffMediaLink WITH (NOLOCK)
+        WHERE AffId 		 = @AffId
+            AND ChannelCode  = @ChannelCode
+            AND LanguageCode = @LanguageCode
+            AND AffMediaLink = @AffMediaLink_http
+            AND IsShow 		 = 1
+    END
+
+	IF @affMediaLinkId IS NOT NULL
+		SET @IsExistedTracking = 1	
 	
 	SELECT @AffDomainId	= DomainID
 	FROM dbo.AffDomain WITH (NOLOCK)
