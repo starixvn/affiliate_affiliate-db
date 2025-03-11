@@ -13,6 +13,7 @@ AS
 		- 20250304@Sally: Add specific Links 12BETAFF16416 [RedmineID: #219049]
         - 20250304@Sally: Remove redirect domain 12BETAFF16416 [RedmineID: #219049]
         - 20250306@Lewis: Add 12BETAFF16450 [RedmineID: #219200]
+        - 20250311@Lewis: Add new specific link [RedmineID: #219613]
 */
 
 RETURN
@@ -60,7 +61,21 @@ RETURN
 
 		,('goto.12binrlink1.com', '12BETAFF16416','https://www.12binr3.com/')
 		,('goto.12binrlink2.com', '12BETAFF16450','https://www.12binr4.com/')
-    
+		,('goto.12binlink1.com', '12BETAFF16472','https://www.12befun.com/')
+		,('goto.12bvnlink1.com', '12BETAFF16479','https://www.12belucky.com/')
+		,('goto.12bthlink1.com', '12BETAFF16478','https://www.12bigwin.com/')
+		--,('goto.12bvnlink1.com', '12BETAFF16473','https://www.12fun.com/')
+		,('goto.12bmylink1.com', '12BETAFF16475','https://www.12befun2.com/')
+		,('goto.12binlink1.com', '12BETAFF16476','https://www.12besuper.com/')
+		,('goto.12bthlink1.com', '12BETAFF16477','https://www.12belegend.com/')
+		,('goto.12binlink1.com', '12BETAFF16454','https://www.12beking.com/')
+		,('goto.12bthlink1.com', '12BETAFF16455','https://www.12befair.com/')
+		,('goto.12bvnlink1.com', '12BETAFF16456','https://www.12betheone.com/')
+		,('goto.12bmylink1.com', '12BETAFF16457','https://www.12beplay.com/')
+		,('goto.12bvnlink1.com', '12BETAFF16480','https://www.12becool.com/')
+		,('goto.12bmylink1.com', '12BETAFF16481','https://www.12befun1.com/')
+		,('goto.12binlink1.com', '12BETAFF16482','https://www.12be365.com/')
+		,('goto.12bthlink1.com', '12BETAFF16483','https://www.12bejackpot.com/')
 	) AS t(AffDomain, AffUsername, RedirectDomain)
 		
 GO
