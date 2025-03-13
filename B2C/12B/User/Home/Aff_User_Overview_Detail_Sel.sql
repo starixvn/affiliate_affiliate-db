@@ -12,6 +12,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250310@Lewis: Add column Qualified Members [RedmineID: #219495]
 
 	Param's Explanation:
 		. @BaseCurrency : Currency of B2C
@@ -118,8 +119,17 @@ BEGIN
 				OR m.FirstDepositDate >= DATEADD(DAY, 1, @EndOfMonth)
 			)
 
-		-- Active Members
+		-- Active Members + Qualified Members
 		DECLARE @ActiveMembers TABLE (WinlostDate SMALLDATETIME, CustId INT)
+		DECLARE @QualifiedActiveMembers TABLE (WinlostDate SMALLDATETIME, CustId INT, Turnover MONEY)
+
+		DECLARE @QMTurnover MONEY
+
+		SELECT  @QMTurnover = QMTurnover
+		FROM dbo.CommGroupHistory cgh WITH (NOLOCK)
+			INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON cgh.GroupID = agh.GroupID AND cgh.MonthDate = agh.MonthDate
+		WHERE cgh.MonthDate = @EndOfMonth
+			AND agh.AffID = @AffId
 
 		DECLARE @tmpWinlostDate SMALLDATETIME
 		SELECT  @tmpWinlostDate = @FromBeginMonth
@@ -134,6 +144,14 @@ BEGIN
 				WHERE WinlostDate = @tmpWinlostDate
 					AND IsActive = 1
 					AND NOT EXISTS (SELECT 1 FROM @ActiveMembers a WHERE d.CustId = a.CustId)
+
+				INSERT INTO @QualifiedActiveMembers (WinlostDate, CustId, Turnover)
+				SELECT @tmpWinlostDate AS WinlostDate, CustId, SUM(Turnover) AS Turnover
+				FROM #Data d
+				WHERE WinlostDate <= @tmpWinlostDate
+					AND NOT EXISTS (SELECT 1 FROM @QualifiedActiveMembers q WHERE d.CustId = q.CustId)
+				GROUP BY CustId
+				HAVING SUM(Turnover) >= @QMTurnover
 			END
 
 			SELECT @tmpWinlostDate = DATEADD(DAY, 1, @tmpWinlostDate)
@@ -158,6 +176,7 @@ BEGIN
 			,ISNULL(d.Turnover, 0)			AS Turnover
 			,ISNULL(d.GGR, 0)				AS GGR
 			,ISNULL(a.ActiveMembers, 0)		AS ActiveMembers
+			,ISNULL(q.QualifiedActiveMembers, 0)	AS QualifiedActiveMembers
 		FROM CTE_WinlostDate wld
 			OUTER APPLY (
 				SELECT SUM(s.Signups) AS Signups, SUM(s.DepositedMembers) AS DepositedMembers
@@ -174,6 +193,11 @@ BEGIN
 				FROM @ActiveMembers a
 				WHERE wld.WinlostDate = a.WinlostDate
 			) a
+			OUTER APPLY (
+				SELECT COUNT(DISTINCT q.CustId) AS QualifiedActiveMembers
+				FROM @QualifiedActiveMembers q
+				WHERE wld.WinlostDate = q.WinlostDate
+			) q
 		ORDER BY wld.WinlostDate DESC
 	END
 
