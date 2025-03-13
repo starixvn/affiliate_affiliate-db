@@ -14,6 +14,7 @@ AS
         - 20250304@Sally: Remove redirect domain 12BETAFF16416 [RedmineID: #219049]
         - 20250306@Lewis: Add 12BETAFF16450 [RedmineID: #219200]
         - 20250311@Lewis: Add new specific link [RedmineID: #219613]
+        - 20250313@Lewis: Add 12BETAFF16494 [RedmineID: #219984]
 */
 
 RETURN
@@ -76,6 +77,8 @@ RETURN
 		,('goto.12bmylink1.com', '12BETAFF16481','https://www.12befun1.com/')
 		,('goto.12binlink1.com', '12BETAFF16482','https://www.12be365.com/')
 		,('goto.12bthlink1.com', '12BETAFF16483','https://www.12bejackpot.com/')
+		,('goto.2356all.com', '12BETAFF16494','https://www.sukan12.com/')
+		,('goto.elv520.com', '12BETAFF16492','https://www.12vex.com/')
 	) AS t(AffDomain, AffUsername, RedirectDomain)
 		
 GO
