@@ -13,24 +13,39 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20241226@Sally: Apply QM Turnover [RedmineID: #212201]
+		- 20250313@Sally: Missing data on total FDM's Deposit by month [RedmineID: #219974]
+		- 20250313@Sally: Get Rate for  FDM's Deposit [RedmineID: #219974]
 */
 
 BEGIN
 	SET NOCOUNT ON
-
+	
 	-- date range for get data whole month of @MonthDate
 	DECLARE @BeginOfMonth SMALLDATETIME, @EndOfMonth SMALLDATETIME
 	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
 
+	DECLARE @BaseExchangeId INT = @BaseCurrency
+	SELECT @BaseExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @BaseCurrency
+
 	-- Total Signup/Deposited Members
 	BEGIN
-		DECLARE @Signups INT, @DepositedMembers INT
+		DECLARE @Signups INT, @DepositedMembers INT, @FDMDeposit MONEY
 		
-		SELECT  @Signups = COUNT(CASE WHEN RegisteredDate >= @BeginOfMonth AND RegisteredDate < DATEADD(DAY, 1, @EndOfMonth) THEN 1 ELSE NULL END)
-				,@DepositedMembers = COUNT(CASE WHEN FirstDepositDate >= @BeginOfMonth AND FirstDepositDate < DATEADD(DAY, 1, @EndOfMonth) THEN 1 ELSE NULL END)
-		FROM dbo.MemberInfo WITH (NOLOCK)
+		SELECT  @Signups		   = COUNT(CASE WHEN RegisteredDate >= @BeginOfMonth AND RegisteredDate < DATEADD(DAY, 1, @EndOfMonth) THEN 1 ELSE NULL END)
+				,@DepositedMembers = COUNT(CASE WHEN FirstDepositDate >= @BeginOfMonth AND FirstDepositDate < DATEADD(DAY, 1, @EndOfMonth) THEN 1 ELSE NULL END)			
+		FROM dbo.MemberInfo m WITH (NOLOCK)
 		WHERE AffId = @AffId
+
+		SELECT @FDMDeposit = SUM(ISNULL(FirstDepositAmount,0) * e.Rate)
+		FROM dbo.MemberInfo r WITH (NOLOCK)
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (r.FirstDepositDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
+		WHERE AffId = @AffId
+			AND FirstDepositDate >= @BeginOfMonth 
+			AND FirstDepositDate < DATEADD(DAY, 1, @EndOfMonth)
 	END
 
 	-- Balance Brought Forward
@@ -196,6 +211,7 @@ BEGIN
 			,ISNULL(@Commission, 0)			AS Commission
 			,ISNULL(@NoOfSubAff, 0)			AS NoOfSubAff
 			,ISNULL(@SubAffCommission, 0)	AS SubAffCommission
+			,ISNULL(@FDMDeposit, 0)			AS FDMDeposit
 	END
 END
 GO
