@@ -35,6 +35,7 @@ AS
         - 20250221@Sally: Enhance AFFMediaLink  [RedmineID: #212201]
 		- 20250305@Sally: Specific AFF Link SP [RedmineID: #219049]
         - 20250305@Sally: Enhance validate AffmediaLink  [RedmineID: #219049]
+		- 20250313@Sally: fix get affdomain  [RedmineID: #219984]
 */
 
 BEGIN
@@ -51,7 +52,6 @@ BEGIN
 		  , @LanguageMediaLink	VARCHAR(11)	  = ''
           , @AffMediaLink_http  VARCHAR(500)  = NULL
           ,	@AffMediaLink_https	VARCHAR(500)  = NULL
-
     
     SET @AffMediaLink_https = CONCAT ('https://',@AffMediaLink) -- Get https default for AffMediaLink
     SET @AffMediaLink_http  = CONCAT ('http://',@AffMediaLink) 
@@ -93,6 +93,7 @@ BEGIN
 			SELECT TOP 1 1
 			FROM dbo.Aff_f_SpecificRedirectDomain()
 			WHERE AffDomain = @AffDomain
+				AND AffUsername = @AffUsername
 		)
 		BEGIN
 			SELECT @AffDomainId	= DomainID
