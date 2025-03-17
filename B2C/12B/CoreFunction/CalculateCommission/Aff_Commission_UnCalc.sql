@@ -20,12 +20,12 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20241225@Sally: Apply QM Turnover [RedmineID: #212201]
+		- 20250318@Sally: Fix get QM Turnover SUM [RedmineID: #220322]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
 		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
 */
-
 
 BEGIN
 	SET NOCOUNT ON
@@ -417,43 +417,59 @@ BEGIN
 			WHERE c.ProductId = 0 AND c.IsStraightSetting = 0
 			
 			-- Update active player
-			;WITH CTE_Group AS
-			(
+			;WITH CTE_Group AS(
 				SELECT a.MonthDate, a.GroupId, a.AffId, l.IsActivePlayerSum, ISNULL(a.QMTurnover, 0) * e.Rate AS QMTurnover
 				FROM @AffGroupInfo a
 					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(a.MonthDate, @AffExchangeId, @BaseExchangeId) e
 					OUTER APPLY (SELECT TOP(1) h.IsActivePlayerSum FROM dbo.TierSettingHistory h WITH(NOLOCK) WHERE h.MonthDate = a.MonthDate AND h.GroupId = a.GroupId) AS l
-			),CTE_Player AS
-			(
-				SELECT d.MonthDate, d.AffId, s.GroupProductId, d.CustId, g.IsActivePlayerSum, CASE WHEN SUM(ISNULL(d.Turnover, 0)) >= QMTurnover THEN d.CustId END AS CustQMTurnover
+			)
+			,CTE_DataPlayer AS(
+				SELECT d.MonthDate, d.AffId, s.GroupProductId, d.CustId, g.IsActivePlayerSum, SUM(ISNULL(d.Turnover, 0)) AS Turnover, QMTurnover
 				FROM #Data d
-					LEFT JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId AND d.MonthDate >= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, m.FirstDepositDate) + 1, 0))
 					INNER JOIN @Setting s ON d.MonthDate = s.MonthDate AND d.GroupId = s.GroupId AND d.ProductId = s.ProductId
 					LEFT JOIN CTE_Group g ON g.MonthDate = d.MonthDate AND g.AffId = d.AffId
 				WHERE d.ProductId > 0 AND s.IsStraightSetting = 0
 				GROUP BY d.MonthDate, d.AffId, s.GroupProductId, d.CustId, g.IsActivePlayerSum, QMTurnover
-			),CTE_GroupProduct AS 
-			(
+			)		
+			,CTE_Player AS(
+				SELECT d.MonthDate, d.AffId, d.GroupProductId, d.CustId, d.IsActivePlayerSum, CASE WHEN Turnover >= QMTurnover THEN d.CustId ELSE NULL END AS CustQMTurnover
+				FROM CTE_DataPlayer d
+			)
+			,CTE_GroupProduct AS (
 				SELECT MonthDate, AffId, GroupProductId
 					,COUNT(DISTINCT CustId) AS ActivePlayer
 					,COUNT(DISTINCT CustQMTurnover) AS QualifiedMember
-				FROM CTE_Player WHERE IsActivePlayerSum = 0 GROUP BY MonthDate, AffId, GroupProductId
-			),CTE_SUM AS
-			(
+				FROM CTE_Player 
+				WHERE IsActivePlayerSum = 0 
+				GROUP BY MonthDate, AffId, GroupProductId
+			)
+			,CTE_ActivePlayerSUM AS(
 				SELECT MonthDate, AffId
 					,COUNT(DISTINCT CustId) AS ActivePlayer
-					,COUNT(DISTINCT CustQMTurnover) AS QualifiedMember
-				FROM CTE_Player GROUP BY MonthDate, AffId
+				FROM CTE_Player
+				WHERE IsActivePlayerSum = 1
+				GROUP BY MonthDate, AffId
 			)
+			,CTE_QualifiedPlayerSum AS(
+				SELECT d.MonthDate, d.AffId, COUNT(DISTINCT IIF(d.Turnover >= d.QMTurnover, d.CustId, NULL))AS QualifiedMember
+				FROM (
+					SELECT d.MonthDate, d.AffId, d.CustId, SUM(d.Turnover) AS Turnover, QMTurnover
+					FROM CTE_DataPlayer d
+					WHERE d.IsActivePlayerSum = 1
+					GROUP BY d.MonthDate, d.AffId, d.CustId, QMTurnover
+				)d
+				GROUP BY d.MonthDate, d.AffId
+			)			
 			UPDATE c
-				SET c.ActivePlayer		 = ISNULL(ISNULL(p.ActivePlayer, s.ActivePlayer), 0),
-					c.QualifiedMember	 = ISNULL(ISNULL(p.QualifiedMember, s.QualifiedMember), 0),
-					c.ActivePlayerSum	 = ISNULL(s.ActivePlayer, 0),
-					c.QualifiedMemberSum = ISNULL(s.QualifiedMember, 0)
+				SET c.ActivePlayer		 = ISNULL(ISNULL(p.ActivePlayer, cs.ActivePlayer), 0),
+					c.QualifiedMember	 = ISNULL(ISNULL(p.QualifiedMember, qs.QualifiedMember), 0),
+					c.ActivePlayerSum	 = ISNULL(cs.ActivePlayer, 0),
+					c.QualifiedMemberSum = ISNULL(qs.QualifiedMember, 0)
 			FROM #Commission c 
 				LEFT JOIN CTE_GroupProduct p ON c.MonthDate = p.MonthDate AND c.AffId = p.AffId AND c.GroupProductId = p.GroupProductId
-				LEFT JOIN CTE_SUM s ON s.MonthDate = c.MonthDate AND s.AffId = c.AffId
-			WHERE c.ProductId = 0  AND c.IsStraightSetting = 0
+				LEFT JOIN CTE_ActivePlayerSUM cs ON cs.MonthDate = c.MonthDate AND cs.AffId = c.AffId
+				LEFT JOIN CTE_QualifiedPlayerSum qs ON qs.MonthDate = c.MonthDate AND qs.AffId = c.AffId
+			WHERE c.ProductId = 0 AND c.IsStraightSetting = 0
 		END
 
 		-- Total: Commission

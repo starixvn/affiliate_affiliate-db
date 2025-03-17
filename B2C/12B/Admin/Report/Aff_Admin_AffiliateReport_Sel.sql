@@ -29,6 +29,8 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20241225@Sally: Apply QM Turnover [RedmineID: #212201]
 		- 20250218@Eddie: Enhance SP [RedmineID: #218047]
+		- 20250314@Sally: Display Qualified Players if using Date Picker [RedmineID: #220322]
+		- 20250314@Sally: Add an additional Language column [RedmineID: #220316]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -101,6 +103,16 @@ BEGIN
 	SELECT  @MaxCommDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
 	DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
+
+	-- AffCurrency
+	DECLARE @AffCurrency INT
+	SELECT  @AffCurrency = dbo.Aff_f_GetSetting('AffCurrency')
+
+	-- Get affcurrency mapping
+	DECLARE @AffExchangeId INT = @AffCurrency
+	SELECT  @AffExchangeId = tp.ExchangeId
+	FROM dbo.TpExchange tp WITH (NOLOCK)
+	WHERE tp.TpExchangeId = @AffCurrency
 
 	-- Get basecurrency mapping
 	DECLARE @BaseExchangeId INT = @BaseCurrency
@@ -244,15 +256,62 @@ BEGIN
 
 		IF(@IsGetMonthly = 0)
 		BEGIN
+			CREATE TABLE #DataMemberDaily (MonthDate SMALLDATETIME, AffId INT, Currency INT, CustId INT, ProductId INT, Deposit MONEY, Withdrawal MONEY, Bonus MONEY, Rebate MONEY, Turnover MONEY, Winloss MONEY)
+			CREATE CLUSTERED INDEX IX_DataMemberDaily ON #DataMemberDaily (MonthDate, AffId)
+			INSERT INTO #DataMemberDaily
+			(
+				MonthDate,
+				AffId,
+				Currency,
+				CustId,
+				ProductId,
+				Deposit,
+				Withdrawal,
+				Bonus,
+				Rebate,
+				Turnover,
+				Winloss
+			)
+			SELECT CONVERT(SMALLDATETIME,EOMONTH(r.WinlostDate)) AS MonthDate
+					,r.AffId
+					,Currency
+					,CustId
+					,r.ProductId
+					,SUM(ISNULL(Deposit, 0))	AS Deposit
+					,SUM(ISNULL(Withdrawal, 0))	AS Withdrawal
+					,SUM(ISNULL(Bonus, 0))		AS Bonus
+					,SUM(ISNULL(Rebate, 0))		AS Rebate
+					,SUM(ISNULL(Turnover, 0))	AS Turnover
+					,SUM(ISNULL(Winloss, 0) - ISNULL(ProgressiveWin, 0) + ISNULL(ProgressiveBet, 0)) AS Winloss				
+			FROM dbo.rptMemberDaily r WITH (NOLOCK)
+			WHERE r.WinlostDate >= @FromDate 
+				AND r.WinlostDate < DATEADD(DAY, 1, @ToDate)
+				AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+					WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+				)
+			GROUP BY CONVERT(SMALLDATETIME,EOMONTH(r.WinlostDate))
+				,r.AffId
+				,Currency
+				,CustId
+				,r.ProductId
 
-			DECLARE @AffInfo TABLE (AffId INT, AffUsername VARCHAR(50),MonthDate SMALLDATETIME, GroupId INT)
-				INSERT INTO @AffInfo (AffId, AffUsername, MonthDate, GroupId)
+			DECLARE @AffInfo TABLE (AffId INT, AffUsername VARCHAR(50),MonthDate SMALLDATETIME, GroupId INT, QMTurnover MONEY)
+			INSERT INTO @AffInfo (AffId, AffUsername, MonthDate, GroupId)
 				SELECT a.AffId, a.Username, agh.MonthDate, a.GroupId
-				FROM dbo.AffInfo a WITH (NOLOCK)
-					INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON a.AffId = agh.AffId AND agh.MonthDate BETWEEN @StartDayOfFromDate AND @LastDayOfToDate													
+				FROM (
+					SELECT DISTINCT AffId, MonthDate FROM #DataMemberDaily
+				)t
+					INNER JOIN dbo.AffInfo a WITH (NOLOCK) ON t.AffId = a.AffId
+					INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON a.AffId = agh.AffId AND agh.MonthDate = t.MonthDate
 				WHERE (Username LIKE '%' + @Username + '%' OR @Username IS NULL)
 					AND Status NOT IN ('Pending', 'Disapproved')					
 			
+			UPDATE a SET a.QMTurnover = ISNULL(cg.QMTurnover, 0) * e.Rate
+			FROM @AffInfo a
+				INNER JOIN dbo.CommGroupHistory cg WITH (NOLOCK) ON a.GroupId = cg.GroupId AND a.MonthDate = cg.MonthDate
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(a.MonthDate, @AffExchangeId, @BaseExchangeId) e
+
 			-- Get Product List		
 			DECLARE @Products TABLE (ProductId INT)
 			SET @ProductIds = dbo.Aff_f_AddRelatedProducts(@ProductIds)
@@ -260,43 +319,59 @@ BEGIN
 			SELECT ProductId FROM dbo.Products WITH (NOLOCK) 
 			WHERE ProductId IN (SELECT CONVERT(INT,value) AS ProductID FROM STRING_SPLIT(@ProductIds, ','))
 
-			CREATE TABLE #ProductSetting (AffId INT, AffUsername VARCHAR(50), ProductId INT, FromDate SMALLDATETIME, ToDate SMALLDATETIME, IsStraightSetting BIT)
-			INSERT INTO #ProductSetting (AffId, AffUsername, ProductId, FromDate, ToDate, IsStraightSetting)
-			SELECT DISTINCT a.AffId, a.AffUsername, dsh.ProductId, DATEADD(MONTH, DATEDIFF(MONTH, 0, dsh.MonthDate), 0), dsh.MonthDate, 0
+			CREATE TABLE #ProductSetting (AffId INT, AffUsername VARCHAR(50), ProductId INT, MonthDate SMALLDATETIME)
+			INSERT INTO #ProductSetting (AffId, AffUsername, ProductId, MonthDate)
+			SELECT DISTINCT a.AffId, a.AffUsername, dsh.ProductId, dsh.MonthDate
 			FROM @AffInfo a
 				INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON a.GroupId = dsh.GroupId AND a.MonthDate = dsh.MonthDate
 				INNER JOIN @Products p ON dsh.ProductId = p.ProductId
 			
-			INSERT INTO #ProductSetting (AffId, AffUsername, ProductId, FromDate, ToDate, IsStraightSetting)
-			SELECT DISTINCT a.AffId, a.AffUsername, dsh.ProductId, DATEADD(MONTH, DATEDIFF(MONTH, 0, dsh.MonthDate), 0), dsh.MonthDate, 1
-			FROM @AffInfo a
-				INNER JOIN dbo.StraightSettingHistory dsh WITH (NOLOCK) ON a.GroupId = dsh.GroupId AND a.MonthDate = dsh.MonthDate
-				INNER JOIN @Products p ON dsh.ProductId = p.ProductId
-
-			;WITH CTE_Data AS(
-				SELECT CONVERT(SMALLDATETIME,EOMONTH(r.WinlostDate)) AS MonthDate
-					,r.AffId
+			;WITH CTE_DataFilter AS(
+				SELECT d.MonthDate
+					,d.AffId
 					,Currency
-					,SUM(ISNULL(Deposit, 0))	AS Deposit
-					,SUM(ISNULL(Withdrawal, 0))	AS Withdrawal
-					,SUM(ISNULL(Bonus, 0))		AS Bonus
-					,SUM(ISNULL(Rebate, 0))		AS Rebate
-					,SUM(CASE WHEN a.IsStraightSetting = 0 THEN ISNULL(Turnover, 0) ELSE 0 END)	AS Turnover
-					,SUM(CASE WHEN a.IsStraightSetting = 0 THEN ISNULL(Winloss, 0) - ISNULL(ProgressiveWin, 0) + ISNULL(ProgressiveBet, 0) ELSE 0 END) AS Winloss
-					,SUM(CASE WHEN a.IsStraightSetting = 1 THEN ISNULL(Revenue, 0) ELSE 0 END)	AS Revenue
-					,COUNT(DISTINCT IIF(r.productId > 0 AND a.IsStraightSetting = 0, r.CustId, NULL))AS ActivePlayer
-				FROM dbo.rptMemberDaily r WITH (NOLOCK)
-					LEFT JOIN #ProductSetting a ON r.AffId = a.AffId AND r.ProductId = a.ProductId AND r.WinlostDate BETWEEN a.FromDate AND a.ToDate
-				WHERE r.WinlostDate >= @FromDate 
-					AND r.WinlostDate < DATEADD(DAY, 1, @ToDate)
-					AND NOT EXISTS (
-						SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
-						WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
-					)
-					AND (a.ProductId IS NOT NULL OR r.ProductId = -1)
-				GROUP BY CONVERT(SMALLDATETIME,EOMONTH(r.WinlostDate))
-					,r.AffId
-					,Currency
+					,CustId
+					,d.ProductId
+					,Deposit
+					,Withdrawal
+					,Bonus
+					,Rebate
+					,Turnover
+					,Winloss
+				FROM #DataMemberDaily d
+					LEFT JOIN #ProductSetting pt ON d.AffId = pt.AffId AND d.ProductId = pt.ProductId AND d.MonthDate = pt.MonthDate
+				WHERE (pt.ProductId IS NOT NULL OR d.ProductId = -1)
+			)
+			, CTE_DataResult AS(
+				SELECT  r.AffId
+					,SUM(r.Deposit		* e.Rate)	AS Deposit
+					,SUM(r.Withdrawal	* e.Rate)	AS Withdrawal
+					,SUM(r.Bonus		* e.Rate)	AS Bonus
+					,SUM(r.Rebate		* e.Rate)	AS Rebate
+					,SUM(r.Turnover		* e.Rate)	AS Turnover
+					,SUM(r.Winloss		* e.Rate)	AS Winloss
+					,- SUM(r.Winloss	* e.Rate)	AS GrossWinloss
+				FROM CTE_DataFilter r
+					LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
+					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.MonthDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
+				GROUP BY r.AffId
+			)
+			, CTE_QualifieldMember AS (
+				SELECT r.AffId, r.MonthDate, COUNT(DISTINCT IIF(r.Turnover >= a.QMTurnover, r.CustId, NULL)) AS QualifiedMember
+				FROM (
+					SELECT c.AffId, c.MonthDate, c.CustId, SUM(ISNULL(c.Turnover, 0) * e.Rate) AS Turnover
+					FROM CTE_DataFilter c
+						LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON c.Currency = t.TpExchangeId
+						CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(c.MonthDate, ISNULL(t.ExchangeId, c.Currency), @BaseExchangeId) e
+					GROUP BY c.AffId, c.MonthDate, c.CustId
+				)r
+					INNER JOIN @AffInfo a ON a.AffId = r.AffId AND r.MonthDate = a.MonthDate
+				GROUP BY r.AffId, r.MonthDate
+			)
+			, CTE_ActivePlayer AS (
+				SELECT r.AffId, r.MonthDate, COUNT(DISTINCT IIF(r.productId > 0, r.CustId, NULL)) AS ActivePlayer
+				FROM CTE_DataFilter r
+				GROUP BY r.AffId, r.MonthDate
 			)
 			INSERT INTO #TempCommission
 			(
@@ -337,7 +412,7 @@ BEGIN
 				,t.Rebate
 				,t.Turnover
 				,t.Winloss
-				,t.Revenue
+				,0 AS Revenue
 				,0 AS P2PFee
 				,0 AS PlatFormFee
 				,0 AS OperationalFee
@@ -346,30 +421,26 @@ BEGIN
 				,t.GrossWinloss
 				,0 AS NetWinloss
 				,0 AS NetTurnover
-				,t.ActivePlayer
-				,0 AS QualifiedMember
+				,ISNULL(ap.ActivePlayer, 0) AS ActivePlayer
+				,ISNULL(qm.QualifiedMember, 0) AS QualifiedMember
 				,0 AS CommissionRate
 				,0 AS Commission
 				,0 AS StraightCommission
 				,0 AS SubAffCommission
 				,0 AS IsMultiGroupProduct 
-		FROM(
-				SELECT r.AffId
-					,SUM(r.Deposit		* e.Rate)	AS Deposit
-					,SUM(r.Withdrawal	* e.Rate)	AS Withdrawal
-					,SUM(r.Bonus		* e.Rate)	AS Bonus
-					,SUM(r.Rebate		* e.Rate)	AS Rebate
-					,SUM(r.Turnover		* e.Rate)	AS Turnover
-					,SUM(r.Winloss		* e.Rate)	AS Winloss
-					,SUM(r.Revenue		* e.Rate)	AS Revenue
-					,- SUM(r.Winloss	* e.Rate)	AS GrossWinloss
-					,SUM(ISNULL(r.ActivePlayer,0))	AS ActivePlayer
-				FROM CTE_Data r
-					LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
-					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.MonthDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
-				GROUP BY r.AffId
-			)t				
-			DROP TABLE #ProductSetting
+		FROM CTE_DataResult t		
+			OUTER APPLY(
+				SELECT SUM(QualifiedMember) AS QualifiedMember 
+				FROM CTE_QualifieldMember q
+				WHERE q.AffId = t.AffId
+			)qm 
+			OUTER APPLY(
+				SELECT SUM(ActivePlayer) AS ActivePlayer 
+				FROM CTE_ActivePlayer q
+				WHERE q.AffId = t.AffId
+			)ap
+		DROP TABLE #ProductSetting
+		DROP TABLE #DataMemberDaily 
 		END
 		-- Statistics
 		CREATE TABLE #Statistics (AffId INT, TotalClick INT, UniqueClick INT, Signup INT, FDM INT)
@@ -469,6 +540,7 @@ BEGIN
 		(
 			AffId				INT,
 			Username			NVARCHAR(30),
+			PreferredLanguage	VARCHAR(11),	
 			PaymentCurrency		VARCHAR(5),
 			TotalClick			INT,
 			UniqueClick			INT,
@@ -503,6 +575,7 @@ BEGIN
 		(
 			AffId,
 			Username,
+			PreferredLanguage,
 			PaymentCurrency,
 			TotalClick,
 			UniqueClick,
@@ -536,6 +609,7 @@ BEGIN
 		SELECT
 			ai.AffId,
 			ai.Username,
+			ad.PreferredLanguage,
 			ad.Player_CurrencyCode AS PaymentCurrency,
 			ISNULL(s.TotalClick, 0)				AS TotalClick,
 			ISNULL(s.UniqueClick, 0)			AS UniqueClick,
@@ -650,7 +724,7 @@ BEGIN
 		SELECT @RowStart = 1, @RowEnd = @NRows
 
 	-- Return detail
-	SELECT AffId, Username, PaymentCurrency, TotalClick, UniqueClick, Signup, FDM, ActivePlayer, QualifiedMember, NoOfSubAff
+	SELECT AffId, Username, PreferredLanguage, PaymentCurrency, TotalClick, UniqueClick, Signup, FDM, ActivePlayer, QualifiedMember, NoOfSubAff
 		,Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee
 		,PlatFormFee + OperationalFee + DepositFee + WithdrawalFee AS TotalFee
 		,CommissionRate, IsMultiGroupProduct, P2PEarning, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF, CurrentBFF, TotalDeposit
