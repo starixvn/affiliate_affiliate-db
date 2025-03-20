@@ -4,6 +4,7 @@ CREATE PROCEDURE [dbo].[Aff_Admin_LicenseeDomain_Ins]
 	,@DomainName	NVARCHAR(50)
 	,@IsSSL			BIT = 0
 	,@IP			VARCHAR(50) = ''
+	,@BlockMarket	VARCHAR(400) = ''
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
@@ -15,6 +16,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250311@Lewis: Add block market [RedmineID: #219496]
 */
 
 BEGIN
@@ -62,6 +64,7 @@ BEGIN
 			,Creator
 			,W3Prefix
 			,IsSSL
+			,BlockMarket
 		)
 		VALUES
 		(
@@ -71,6 +74,7 @@ BEGIN
 			,@UserId
 			,@W3Prefix
 			,@IsSSL
+			,@BlockMarket
 		)
 
 		SELECT @DomainId = SCOPE_IDENTITY()
@@ -87,6 +91,7 @@ BEGIN
 	SELECT  @NewData = 'DomainId=' + CONVERT(VARCHAR(10), @DomainId)
 					+ ',DomainName=' + @DomainName
 					+ ',IsSSL=' + CONVERT(VARCHAR(1), @IsSSL)
+					+ ',BlockMarket=' + @BlockMarket
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId

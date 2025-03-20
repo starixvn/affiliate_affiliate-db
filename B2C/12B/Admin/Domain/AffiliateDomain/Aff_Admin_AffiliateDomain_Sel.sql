@@ -9,12 +9,19 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250311@Lewis: Add block market [RedmineID: #219496]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT a.DomainID, a.DomainName, b.Username AS Creator, a.CreateDate, CONVERT(BIT, ISNULL(a.IsSSL, 0)) AS IsSSL
+	SELECT 
+			a.DomainID
+			, a.DomainName
+			, b.Username AS Creator
+			, a.CreateDate
+			, CONVERT(BIT, ISNULL(a.IsSSL, 0)) AS IsSSL
+			, a.BlockMarket
 	FROM dbo.AffDomain a WITH (NOLOCK)
 		INNER JOIN dbo.Affiliate_User b WITH (NOLOCK) ON a.Creator = b.CustId
 	WHERE IsDeleted = 0

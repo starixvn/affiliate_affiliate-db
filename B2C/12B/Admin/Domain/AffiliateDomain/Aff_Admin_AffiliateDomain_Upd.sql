@@ -5,6 +5,7 @@ CREATE PROCEDURE [dbo].[Aff_Admin_AffiliateDomain_Upd]
 	,@DomainName	NVARCHAR(50)
 	,@IsSSL			BIT = 0
 	,@IP			VARCHAR(50) = ''
+	,@BlockMarket	VARCHAR(400) = ''
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
@@ -16,6 +17,10 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250311@Lewis: Add block market [RedmineID: #219496]
+
+	Param's Explanation:
+		- @BlockMarket = 'en-GB,en-US,es-ES,hi-IN,id-ID,ja-JP,km-KH,ko-KR,th-TH,vi-VN,zh-CN,zh-TW'
 */
 
 BEGIN
@@ -51,9 +56,11 @@ BEGIN
 	SELECT  @OldData = 'DomainId=' + CONVERT(VARCHAR(10), DomainId)
 						+ ',DomainName=' + DomainName
 						+ ',IsSSL=' + CONVERT(VARCHAR(1), IsSSL)
+						+ ',BlockMarket=' + BlockMarket
 			,@NewData = 'DomainId=' + CONVERT(VARCHAR(10), @DomainId)
 						+ ',DomainName=' + @DomainName
 						+ ',IsSSL=' + CONVERT(VARCHAR(1), @IsSSL)
+						+ ',BlockMarket=' + @BlockMarket
 	FROM dbo.AffDomain WITH (NOLOCK) WHERE DomainId = @DomainId AND IsDeleted = 0
 
 	IF @@ROWCOUNT = 0
@@ -67,6 +74,7 @@ BEGIN
 		SET ModifyDate	= GETDATE()
 			,DomainName = @DomainName
 			,IsSSL		= @IsSSL
+			,BlockMarket = @BlockMarket
 		WHERE DomainId	= @DomainId
 	END TRY
 	BEGIN CATCH
