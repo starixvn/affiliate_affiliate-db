@@ -17,6 +17,7 @@ AS
         - 20250313@Lewis: Add 12BETAFF16494 [RedmineID: #219984]
         - 20250318@Lewis: Add new specific link [RedmineID: #220465]
         - 20250318@Lewis: Add new specific link [RedmineID: #220651]
+        - 20250318@Lewis: Add new specific link [RedmineID: #221235]
 */
 
 RETURN
@@ -33,8 +34,8 @@ RETURN
         ,('go.5689fun.com', '12BETAFF15932','https://www.12kaixin.com/')
         ,('go.5689fun.com', '12BETAFF16325','https://www.12amber.com/')
         ,('go.6789sutzo.com', '12BETAFF16326','https://www.12amethyst.com/')
-
-        ,('12aff.best5689.com', '12BETAFF15932','https://www.12bfacai.com/')
+		--12aff.best5689.com
+        ,('12aff.best5689.com', '12BETAFF15932','https://www.scc47.com/')
         ,('12aff.best5689.com', '12BETAFF130','https://www.12bfacai.com/')
         ,('12aff.best5689.com', '12BETAFF16311','https://www.12bfacai.com/')
         ,('12aff.best5689.com', '12BETAFF16314','https://www.12bfacai.com/')
@@ -48,6 +49,21 @@ RETURN
         ,('12aff.best5689.com', '12BETAFF13065','https://www.12bfacai.com/')
         ,('12aff.best5689.com', '12BETAFF7782','https://www.12bfacai.com/')
         ,('12aff.best5689.com', '12BETAFF16050','https://www.12bfacai.com/')
+		--goto.best5689.com 
+		 ,('goto.best5689.com', '12BETAFF15932','https://www.scc47.com/')
+        ,('goto.best5689.com', '12BETAFF130','https://www.12haoqiu.com/')
+        ,('goto.best5689.com', '12BETAFF16311','https://www.12haoqiu.com/')
+        ,('goto.best5689.com', '12BETAFF16314','https://www.12haoqiu.com/')
+        ,('goto.best5689.com', '12BETAFF16225','https://www.12haoqiu.com/')
+        ,('goto.best5689.com', '12BETAFF14617','https://www.12haoqiu.com/')
+        ,('goto.best5689.com', '12BETAFF13902','https://www.12haoqiu.com/')
+        ,('goto.best5689.com', '12BETAFF16313','https://www.12haoqiu.com/')
+        ,('goto.best5689.com', '12BETAFF15775','https://www.12haoqiu.com/')
+        ,('goto.best5689.com', '12BETAFF16214','https://www.12haoqiu.com/')
+        ,('goto.best5689.com', '12BETAFF13506','https://www.12haoqiu.com/')
+        ,('goto.best5689.com', '12BETAFF13065','https://www.12haoqiu.com/')
+        ,('goto.best5689.com', '12BETAFF7782','https://www.12haoqiu.com/')
+        ,('goto.best5689.com', '12BETAFF16050','https://www.12haoqiu.com/')
 
         ,('go.9012ijk.com', '12BETAFF16343','https://www.12amethyst.com/')
         ,('go.12fifa18.com', '12BETAFF16105','https://www.12crystal.com/')
