@@ -18,6 +18,7 @@ AS
         - 20250318@Lewis: Add new specific link [RedmineID: #220465]
         - 20250318@Lewis: Add new specific link [RedmineID: #220651]
         - 20250318@Lewis: Add new specific link [RedmineID: #221235]
+        - 20250318@Lewis: Add new specific link [RedmineID: #221472]
 */
 
 RETURN
@@ -104,6 +105,8 @@ RETURN
 		,('goto.12bthlink1.com', '12BETAFF16496','https://www.12game11.com/')
 		,('goto.12bmylink1.com', '12BETAFF16502','https://www.12game13.com/')
 		,('goto.12bvnlink1.com', '12BETAFF16501','https://www.12fun888.com/')
+		
+		,('goto.sun838.com', '12BETAFF16492','https://www.12fiz.com/')
 	) AS t(AffDomain, AffUsername, RedirectDomain)
 		
 GO
