@@ -1,4 +1,2 @@
 
-
-
 B2C/12B/ClickStatistics/Aff_ClickStatistics_Ins.sql
