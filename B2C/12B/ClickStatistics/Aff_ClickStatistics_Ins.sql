@@ -32,10 +32,11 @@ AS
 	Revisions:  
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250221@Eddie: Support to config redirect link for specific affiliates [RedmineID: #218213]
-        - 20250221@Sally: Enhance AFFMediaLink  [RedmineID: #212201]
+		- 20250221@Sally: Enhance AFFMediaLink  [RedmineID: #212201]
 		- 20250305@Sally: Specific AFF Link SP [RedmineID: #219049]
-        - 20250305@Sally: Enhance validate AffmediaLink  [RedmineID: #219049]
+		- 20250305@Sally: Enhance validate AffmediaLink  [RedmineID: #219049]
 		- 20250313@Sally: fix get affdomain  [RedmineID: #219984]
+		- 20250320@Sophia: Add clickID into RedirectPage [Redmine: #219949]
 */
 
 BEGIN
@@ -213,6 +214,13 @@ BEGIN
 		)
 
 		SELECT @ClickID = SCOPE_IDENTITY()
+		
+		SELECT @RedirectPage = @RedirectPage + '&clickId=' + CONVERT(VARCHAR(20), @clickId)
+		
+		UPDATE 	dbo.ClickStatistics WITH (ROWLOCK,UPDLOCK)
+		SET 	RedirectURL = @RedirectPage
+		WHERE 	ClickId = @ClickId
+		
 	END
 END
 GO
