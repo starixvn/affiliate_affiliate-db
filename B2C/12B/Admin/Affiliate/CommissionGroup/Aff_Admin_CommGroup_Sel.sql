@@ -15,6 +15,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+        - 20250320@Sally: Exclude StraightSetting [RedmineID: #219936]
 */
 
 BEGIN
@@ -54,7 +55,6 @@ BEGIN
 					INNER JOIN dbo.DeductionSetting ds WITH (NOLOCK) ON d.DeductionId = ds.DeductionID
 				WHERE cg.GroupId = ds.GroupId
 			)
-			AND EXISTS (SELECT 1 FROM dbo.StraightSetting ss WITH (NOLOCK) WHERE cg.GroupId = ss.GroupId)
 	) AS g
 	WHERE RowIDX BETWEEN @RowStart AND @RowEnd
 
@@ -136,30 +136,5 @@ BEGIN
 		ds.DeductedPercentage,
 		ds.DeductedAmount,
 		ds.IsDeductedPercent
-
-	-- Straight List
-	SELECT
-		ss.GroupId,
-		STUFF(
-			(SELECT	',' + CONVERT(VARCHAR(10), s.ProductId)
-				FROM dbo.StraightSetting s WITH (NOLOCK)
-					LEFT JOIN dbo.Aff_f_GroupProduct() gp 
-										ON s.ProductID = gp.ProductId 
-										AND gp.ProductId <> gp.GroupProductId 										
-				WHERE gp.ProductId IS NULL
-					AND ss.GroupId			= s.GroupId
-					AND ss.GroupProductId	= s.GroupProductId
-					AND s.ProductId			<> 0
-				FOR XML PATH (''))
-				, 1, 1, '') AS ProductIds,
-		ss.DeductedPercentage,
-		ss.Commission
-	FROM dbo.StraightSetting ss WITH (NOLOCK)
-		INNER JOIN @Group g ON ss.GroupId = g.GroupId
-	GROUP BY
-		ss.GroupId,
-		ss.GroupProductId,
-		ss.DeductedPercentage,
-		ss.Commission
 END
 GO
