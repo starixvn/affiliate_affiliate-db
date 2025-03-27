@@ -24,6 +24,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20241225@Sally: Apply QM Turnover [RedmineID: #212201]
+		- 20250326@Sally: Add new column FDAM Amount [RedmineID: #220316]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -45,7 +46,7 @@ BEGIN
 		,@FromDateTimeGMT0		DATETIME
 		,@ToDateTimeGMT0		DATETIME
 
-	SELECT  @Username = ISNULL(LTRIM(RTRIM(@Username)), '')
+	SELECT  @Username = ISNULL(TRIM(@Username), '')
 	SELECT  @TimeZone = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
 	SELECT  @AffId = AffId FROM dbo.AffInfo WITH (NOLOCK) WHERE Username = @Username AND Status = 'Approved'
 
@@ -353,36 +354,40 @@ BEGIN
 	FROM @tblAffStatistics md1
 		CROSS APPLY (SELECT SUM(md2.BFF) AS BFF FROM @tblAffStatistics md2 WHERE md2.MonthDate <= md1.MonthDate) AS md
 
-	DECLARE @MemberStatistics TABLE (MonthDate DATETIME, Signup INT, FDM INT)
+	DECLARE @MemberStatistics TABLE (MonthDate DATETIME, Signup INT, FDM INT, FDM_Amount MONEY)
 	
 	INSERT INTO @MemberStatistics (MonthDate, Signup)
-	SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, RegisteredDate) + 1, 0)), COUNT(1)
+	SELECT EOMONTH(RegisteredDate), COUNT(1)
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
 	WHERE mi.AffId = @AffId
 		AND mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate)
-	GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, RegisteredDate) + 1, 0))
+	GROUP BY EOMONTH(RegisteredDate)
 
-	INSERT INTO @MemberStatistics (MonthDate, FDM)
-	SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, FirstDepositDate) + 1, 0)), COUNT(1)
+	INSERT INTO @MemberStatistics (MonthDate, FDM, FDM_Amount)
+	SELECT EOMONTH(FirstDepositDate) AS MonthDate
+		,COUNT(1) AS FDM
+		,SUM(ISNULL(mi.FirstDepositAmount, 0) * e.Rate) AS FDM_Amount
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
+		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON mi.Currency = t.TpExchangeId
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(mi.FirstDepositDate, ISNULL(t.ExchangeId, mi.Currency), @BaseExchangeId) e
 	WHERE mi.AffId = @AffId
 		AND mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
-	GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, FirstDepositDate) + 1, 0))
+	GROUP BY EOMONTH(FirstDepositDate)
 
 	DECLARE @tblSubAff TABLE (MonthDate SMALLDATETIME, NoOfSubAff INT)
 	INSERT INTO @tblSubAff (MonthDate, NoOfSubAff)
-	SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, ApprovedDate) + 1, 0)), COUNT(1)
+	SELECT EOMONTH(ApprovedDate), COUNT(1)
 	FROM dbo.AffInfo WITH (NOLOCK)
 	WHERE ParentAffId = @AffId
 		AND Status = 'Approved'
 		AND IsClosed = 0
 		AND ApprovedDate >= @FromDate AND ApprovedDate < DATEADD(DAY, 1, @ToDate)
-	GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, ApprovedDate) + 1, 0))
+	GROUP BY EOMONTH(ApprovedDate)
 
 	-- Total Deposit
 	DECLARE @TotalDeposit TABLE(MonthDate SMALLDATETIME, TotalDeposit BIGINT)
 	INSERT INTO @TotalDeposit(MonthDate, TotalDeposit)
-	SELECT CONVERT(DATE, EOMONTH(DATEADD(HOUR, 8, d.CreateTime))) AS MonthDate
+	SELECT CONVERT(DATE, EOMONTH(DATEADD(HOUR, @TimeZone, d.CreateTime))) AS MonthDate
 		,COUNT(1) AS TotalDeposit
 	FROM bodb_12B.dbo.DepositInfo d WITH (NOLOCK)
 		INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
@@ -391,7 +396,7 @@ BEGIN
 		AND d.CreateTime >= @FromDateTimeGMT0 
 		AND d.CreateTime < DATEADD(DAY, 1, @ToDateTimeGMT0)
 		AND mi.AffId = @AffId
-	GROUP BY CONVERT(DATE, EOMONTH(DATEADD(HOUR, 8, d.CreateTime)))
+	GROUP BY CONVERT(DATE, EOMONTH(DATEADD(HOUR, @TimeZone, d.CreateTime)))
 
 	-- Return detail
 	SELECT
@@ -405,6 +410,7 @@ BEGIN
 		ISNULL(s.UniqueClick, 0)				AS UniqueClick,
 		ISNULL(m.Signup, 0)						AS Signup,
 		ISNULL(m.FDM, 0)						AS FDM,
+		ISNULL(m.FDM_Amount, 0)					AS FDM_Amount,
 		ISNULL(ts.NoOfSubAff, 0)				AS NoOfSubAff,
 		ISNULL(tc.ActivePlayer, 0)				AS ActivePlayer,
 		ISNULL(tc.QualifiedMember, 0)			AS QualifiedMember,
@@ -433,7 +439,8 @@ BEGIN
 		OUTER APPLY (
 			SELECT
 				SUM(ISNULL(Signup, 0)) AS Signup,
-				SUM(ISNULL(FDM, 0)) AS FDM
+				SUM(ISNULL(FDM, 0)) AS FDM,
+				SUM(ISNULL(m.FDM_Amount,0)) AS FDM_Amount
 			FROM @MemberStatistics m
 			WHERE md.MonthDate = m.MonthDate
 		) m
@@ -460,6 +467,7 @@ BEGIN
 		SUM(ISNULL(s.UniqueClick, 0))				AS UniqueClick,
 		SUM(ISNULL(m.Signup, 0))					AS Signup,
 		SUM(ISNULL(m.FDM, 0))						AS FDM,
+		SUM(ISNULL(m.FDM_Amount, 0))				AS FDM_Amount,
 		SUM(ISNULL(ts.NoOfSubAff, 0))				AS NoOfSubAff,
 		SUM(ISNULL(tc.ActivePlayer, 0))				AS ActivePlayer,
 		SUM(ISNULL(tc.QualifiedMember, 0))			AS QualifiedMember,
@@ -488,7 +496,8 @@ BEGIN
 		OUTER APPLY (
 			SELECT
 				SUM(ISNULL(Signup, 0)) AS Signup,
-				SUM(ISNULL(FDM, 0)) AS FDM
+				SUM(ISNULL(FDM, 0)) AS FDM,
+				SUM(ISNULL(m.FDM_Amount,0)) AS FDM_Amount
 			FROM @MemberStatistics m
 			WHERE md.MonthDate = m.MonthDate
 		) m

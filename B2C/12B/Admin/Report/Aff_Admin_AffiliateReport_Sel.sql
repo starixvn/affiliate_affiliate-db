@@ -5,6 +5,7 @@ CREATE PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	,@FromDate			SMALLDATETIME
 	,@ToDate			SMALLDATETIME
 	,@PreferredLanguage	VARCHAR(11) = NULL
+	,@Statuses			VARCHAR(MAX)	= 'Approved'
 	,@ProductIds		VARCHAR(MAX) = '0'
 	,@Currencies		VARCHAR(MAX) = ''
 	,@PaymentCurrencies	VARCHAR(MAX) = ''
@@ -31,6 +32,7 @@ AS
 		- 20250218@Eddie: Enhance SP [RedmineID: #218047]
 		- 20250314@Sally: Display Qualified Players if using Date Picker [RedmineID: #220322]
 		- 20250314@Sally: Add an additional Language column [RedmineID: #220316]
+        - 20250326@Sally: Add new column FDAM Amount, Status [RedmineID: #220316]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -39,6 +41,8 @@ AS
 		- @BaseCurrency : Currency of B2C
 		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
 		- @PaymentCurrencies : Currency of B2C, 72: represent for USD( currency 72, 3)
+        - @Statuses : Approved, Suspended
+
 */
 
 BEGIN
@@ -52,6 +56,11 @@ BEGIN
 		,@ToDateTimeGMT0		DATETIME
 		,@LastDayOfToDate		SMALLDATETIME
 		,@StartDayOfFromDate	SMALLDATETIME
+
+    DECLARE @Status TABLE ([Status] VARCHAR(30))
+	INSERT INTO @Status ([Status]) 
+	SELECT TRIM(CONVERT(VARCHAR(30), value)) AS [Status]
+	FROM STRING_SPLIT(@Statuses, ',') 
 
 	SELECT  @TimeZone = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
 		
@@ -498,12 +507,35 @@ BEGIN
 		END
 
 		-- Signup, FDM
-		CREATE TABLE #Signup (AffId INT, Signup INT, FDM INT)
-		INSERT INTO #Signup (AffId, Signup, FDM)
+		CREATE TABLE #Signup (AffId INT, Signup INT, FDM INT, FDM_Amount MONEY)
+
+		;WITH CTE_MemberInfoData AS(
 		SELECT mi.AffId
-			,COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate) THEN 1 ELSE NULL END) AS Signup
-			,COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate) THEN 1 ELSE NULL END) AS FDM
+			,COUNT(1) AS Signup
+			,0 AS FDM
+			,0 AS FDM_Amount
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
+		WHERE mi.RegisteredDate >= @FromDate 
+			AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate)
+		GROUP BY mi.AffId
+		UNION ALL
+		SELECT mi.AffId
+			,0 AS Signup
+			,COUNT(1) AS FDM
+			,SUM(ISNULL(mi.FirstDepositAmount, 0) * e.Rate) AS FDM_Amount
+		FROM dbo.MemberInfo mi WITH (NOLOCK)
+        	LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON mi.Currency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(mi.FirstDepositDate, ISNULL(t.ExchangeId, mi.Currency), @BaseExchangeId) e
+		WHERE mi.FirstDepositDate >= @FromDate 
+			AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
+		GROUP BY mi.AffId
+		)
+		INSERT INTO #Signup (AffId, Signup, FDM, FDM_Amount)
+		SELECT mi.AffId
+			,SUM(Signup) AS Signup
+			,SUM(FDM) AS FDM
+			,SUM(FDM_Amount) AS FDM_Amount
+		FROM CTE_MemberInfoData mi
 		GROUP BY mi.AffId
 
 		-- AffWithdrawal, AffAdjustment
@@ -536,16 +568,18 @@ BEGIN
 
 	-- Return data
 	BEGIN
-		CREATE TABLE #Result
+        CREATE TABLE #Result
 		(
 			AffId				INT,
 			Username			NVARCHAR(30),
+			[Status]			VARCHAR(30),
 			PreferredLanguage	VARCHAR(11),	
 			PaymentCurrency		VARCHAR(5),
 			TotalClick			INT,
 			UniqueClick			INT,
 			Signup				INT,
 			FDM					INT,
+			FDM_Amount			MONEY,
 			ActivePlayer 		INT,
 			QualifiedMember 	INT,
 			NoOfSubAff			INT,
@@ -571,16 +605,51 @@ BEGIN
 			TotalDeposit		BIGINT,
 			RowIdx				INT
 		)
+        ;WITH CTE_AffInfo AS(
+            SELECT
+                ai.AffId,
+                ai.Username,
+                ad.PreferredLanguage,
+                ad.Player_CurrencyCode AS PaymentCurrency,
+                ISNULL(a.NoOfSubAff, 0)	AS NoOfSubAff,
+                CASE WHEN ai.IsRejected = 1 THEN 'Suspended' ELSE 'Approved' END [Status]
+            FROM dbo.AffInfo ai WITH (NOLOCK)
+                INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+                INNER JOIN bodb_12B.dbo.Customer c WITH(NOLOCK) ON ad.Player_CustId = c.CustId
+                LEFT JOIN (
+                    SELECT ParentAffId, COUNT(1) AS NoOfSubAff
+                    FROM dbo.AffInfo WITH (NOLOCK)
+                    WHERE Status = 'Approved'
+                        AND ApprovedDate >= @FromDate AND ApprovedDate < DATEADD(DAY, 1, @ToDate)
+                    GROUP BY ParentAffId
+                ) a ON ai.AffId = a.ParentAffId
+            WHERE ai.Status = 'Approved'
+                AND ai.Username LIKE '%' + @Username + '%'
+                AND (@PreferredLanguage = '' OR ad.PreferredLanguage = @PreferredLanguage)
+                AND ',' + @ListPaymentCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(20), ad.Player_Currency) + ',%'
+                AND (
+                    @GroupIds = 'all'
+                    OR EXISTS (
+                        SELECT 1 FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+                        WHERE agh.AffId = ai.AffId AND agh.MonthDate BETWEEN @StartDayOfFromDate AND @LastDayOfToDate
+                                AND ',' + @GroupIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), agh.GroupId) + ',%'
+                    )
+                )
+                AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate)
+                AND (c.IsTest = 0 OR @IsExcludeAFFTest = 0)
+        )
 		INSERT INTO #Result
 		(
 			AffId,
 			Username,
+			[Status],
 			PreferredLanguage,
 			PaymentCurrency,
 			TotalClick,
 			UniqueClick,
 			Signup,
 			FDM,
+			FDM_Amount,
 			ActivePlayer,
 			QualifiedMember,
 			NoOfSubAff,
@@ -606,18 +675,20 @@ BEGIN
 			TotalDeposit,
 			RowIdx
 		)
-		SELECT
+        SELECT
 			ai.AffId,
 			ai.Username,
-			ad.PreferredLanguage,
-			ad.Player_CurrencyCode AS PaymentCurrency,
+			ai.[Status],
+			ai.PreferredLanguage,
+			ai.PaymentCurrency,
 			ISNULL(s.TotalClick, 0)				AS TotalClick,
 			ISNULL(s.UniqueClick, 0)			AS UniqueClick,
 			ISNULL(su.Signup, 0)				AS Signup,
 			ISNULL(su.FDM, 0)					AS FDM,
+			ISNULL(su.FDM_Amount, 0)			AS FDM_Amount,
 			ISNULL(tc.ActivePlayer, 0)			AS ActivePlayer,
 			ISNULL(tc.QualifiedMember, 0)		AS QualifiedMember,
-			ISNULL(a.NoOfSubAff, 0)				AS NoOfSubAff,
+			ai.NoOfSubAff,
 			ISNULL(tc.Deposit, 0)				AS Deposit,
 			ISNULL(tc.Withdrawal, 0)			AS Withdrawal,
 			ISNULL(tc.Turnover, 0)				AS Turnover,
@@ -635,7 +706,6 @@ BEGIN
 			ISNULL(tc.SubAffCommission, 0)		AS SubAffEarning,
 			ISNULL(at.AffWithdrawal, 0)			AS AffWithdrawal,
 			ISNULL(at.AffAdjustment, 0)			AS AffAdjustment,
-
 			ISNULL(at.BFF, 0)					AS BFF,
 			ISNULL(at.CurrentBBF, 0)			AS CurrentBBF,
 			ISNULL(td.TotalDeposit, 0)			AS TotalDeposit,
@@ -648,9 +718,7 @@ BEGIN
 				CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ISNULL(tc.GGR, 0) END DESC,
 				CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN ISNULL(tc.Commission, 0) END ASC,
 				CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ISNULL(tc.Commission, 0) END DESC) AS RowIdx
-		FROM dbo.AffInfo ai WITH (NOLOCK)
-			INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
-			INNER JOIN bodb_12B.dbo.Customer c WITH(NOLOCK) ON ad.Player_CustId = c.CustId
+		FROM CTE_AffInfo ai
 			LEFT JOIN #Signup su ON ai.AffId = su.AffId
 			LEFT JOIN #AffTrans at ON ai.AffId = at.AffId
 			LEFT JOIN (
@@ -681,29 +749,13 @@ BEGIN
 				FROM #TempCommission
 				GROUP BY AffId
 			) tc ON ai.AffId = tc.AffId
-			LEFT JOIN (
-				SELECT ParentAffId, COUNT(1) AS NoOfSubAff
-				FROM dbo.AffInfo WITH (NOLOCK)
-				WHERE Status = 'Approved'
-					AND ApprovedDate >= @FromDate AND ApprovedDate < DATEADD(DAY, 1, @ToDate)
-				GROUP BY ParentAffId
-			) a ON ai.AffId = a.ParentAffId
 			LEFT JOIN #TotalDeposit td ON td.AffId = ai.AffId
-		WHERE ai.Status = 'Approved'
-			AND ai.Username LIKE '%' + @Username + '%'
-			AND (@PreferredLanguage = '' OR ad.PreferredLanguage = @PreferredLanguage)
-			AND ',' + @ListPaymentCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(20), ad.Player_Currency) + ',%'
-			AND (
-				@GroupIds = 'all'
-				OR EXISTS (
-					SELECT 1 FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-					WHERE agh.AffId = ai.AffId AND agh.MonthDate BETWEEN @StartDayOfFromDate AND @LastDayOfToDate
-							AND ',' + @GroupIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), agh.GroupId) + ',%'
-				)
-			)
-			AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate)
-			AND (c.IsTest = 0 OR @IsExcludeAFFTest = 0)
-			AND	1 = (CASE
+		WHERE EXISTS (
+                SELECT 1 
+                FROM @Status st 
+                WHERE st.[Status] = ai.[Status]
+            )
+            AND 1 = (CASE
 						WHEN @IsExcludeNegvBBF = 0 AND @IsExcludeNegvCurrentBBF = 0 THEN 1
 						WHEN @IsExcludeNegvBBF = 1 AND @IsExcludeNegvCurrentBBF = 0 AND ISNULL(at.BFF,0) >= 0 THEN 1
 						WHEN @IsExcludeNegvBBF = 0 AND @IsExcludeNegvCurrentBBF = 1 AND ISNULL(at.CurrentBBF,0) >= 0 THEN 1
@@ -724,7 +776,7 @@ BEGIN
 		SELECT @RowStart = 1, @RowEnd = @NRows
 
 	-- Return detail
-	SELECT AffId, Username, PreferredLanguage, PaymentCurrency, TotalClick, UniqueClick, Signup, FDM, ActivePlayer, QualifiedMember, NoOfSubAff
+	SELECT AffId, Username, [Status], PreferredLanguage, PaymentCurrency, TotalClick, UniqueClick, Signup, FDM, FDM_Amount, ActivePlayer, QualifiedMember, NoOfSubAff
 		,Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee
 		,PlatFormFee + OperationalFee + DepositFee + WithdrawalFee AS TotalFee
 		,CommissionRate, IsMultiGroupProduct, P2PEarning, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF, CurrentBFF, TotalDeposit
@@ -733,13 +785,14 @@ BEGIN
 	ORDER BY RowIdx
 
 	-- Return total
-	SELECT
+    SELECT
 		SUM(TotalClick)			AS TotalClick
 		,SUM(UniqueClick)		AS UniqueClick
 		,SUM(Signup)			AS Signup
 		,SUM(FDM)				AS FDM
+		,SUM(FDM_Amount)		AS FDM_Amount
 		,SUM(ActivePlayer)		AS ActivePlayer
-		,SUM(QualifiedMember)		AS QualifiedMember
+		,SUM(QualifiedMember)	AS QualifiedMember
 		,SUM(NoOfSubAff)		AS NoOfSubAff
 		,SUM(Deposit)			AS Deposit
 		,SUM(Withdrawal)		AS Withdrawal
