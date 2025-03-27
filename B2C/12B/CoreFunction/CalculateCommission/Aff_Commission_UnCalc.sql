@@ -21,11 +21,13 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20241225@Sally: Apply QM Turnover [RedmineID: #212201]
 		- 20250318@Sally: Fix get QM Turnover SUM [RedmineID: #220322]
+		- 20250319@Sally: Change Commission Calculation [RedmineID: #219936]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
 		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
 */
+
 
 BEGIN
 	SET NOCOUNT ON
@@ -37,10 +39,11 @@ BEGIN
 
 	SELECT  @FromMonthDate = @BeginOfFromMonthDate, @ToMonthDate = @EndOfToMonthDate
 
-	DECLARE @SoftLaunchDate SMALLDATETIME, @LaunchDate SMALLDATETIME
-	SELECT  @SoftLaunchDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'SoftLaunchDate'
-	SELECT  @LaunchDate		= CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'LaunchDate'
-
+	DECLARE @SoftLaunchDate SMALLDATETIME, @LaunchDate SMALLDATETIME, @CommissionCal_CutOffDate SMALLDATETIME
+	SELECT  @SoftLaunchDate             = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'SoftLaunchDate'
+	SELECT  @LaunchDate		            = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'LaunchDate'
+    SELECT  @CommissionCal_CutOffDate	= CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'CommissionCal_CutOffDate'
+    
 	IF @BeginOfFromMonthDate BETWEEN @SoftLaunchDate AND DATEADD(DAY, -1, @LaunchDate)
 		SELECT @BeginOfFromMonthDate = @SoftLaunchDate
 
@@ -116,8 +119,7 @@ BEGIN
 			Bonus,
 			Rebate,
 			Turnover,
-			Winloss,
-			Revenue
+			Winloss
 		)
 		SELECT r.MonthDate, r.AffId, r.CustId, r.Currency, r.ProductId
 			,SUM(r.Deposit		* e.Rate)	AS Deposit
@@ -126,7 +128,6 @@ BEGIN
 			,SUM(r.Rebate		* e.Rate)	AS Rebate
 			,SUM(r.Turnover		* e.Rate)	AS Turnover
 			,SUM(r.Winloss		* e.Rate)	AS Winloss
-			,SUM(r.Revenue		* e.Rate)	AS Revenue
 		FROM (
 			SELECT CONVERT(SMALLDATETIME, DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0))) AS MonthDate
 				,AffId, CustId, Currency, CASE WHEN ProductId < 0 THEN 0 ELSE ProductId END AS ProductId
@@ -136,7 +137,6 @@ BEGIN
 				,SUM(ISNULL(Rebate, 0))		AS Rebate
 				,SUM(ISNULL(Turnover, 0))	AS Turnover
 				,SUM(ISNULL(Winloss, 0) - ISNULL(ProgressiveWin, 0) + ISNULL(ProgressiveBet, 0)) AS Winloss
-				,SUM(ISNULL(Revenue, 0))	AS Revenue
 			FROM dbo.rptMemberDaily r WITH (NOLOCK)
 			WHERE r.WinlostDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
 				AND (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), AffId) + ',%')
@@ -152,44 +152,6 @@ BEGIN
 		GROUP BY r.MonthDate, r.AffId, r.CustId, r.Currency, r.ProductId
 	END
 
-	-- First n months commission (From SoftLaunchDate to LaunchDate)
-	BEGIN
-		IF EXISTS (SELECT 1 FROM #Data WHERE MonthDate < DATEADD(DAY, -1, @LaunchDate))
-		BEGIN
-			INSERT INTO #Data
-			(
-				MonthDate,
-				AffId,
-				CustId,
-				Currency,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Rebate,
-				Turnover,
-				Winloss,
-				Revenue,
-				IsDataInMonth
-			)
-			SELECT
-				DATEADD(DAY, -1, @LaunchDate) AS MonthDate,
-				AffId,
-				CustId,
-				Currency,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Rebate,
-				Turnover,
-				Winloss,
-				Revenue,
-				0 AS IsDataInMonth
-			FROM #Data
-			WHERE MonthDate < DATEADD(DAY, -1, @LaunchDate)
-		END
-	END
 
 	-- Setting
 	BEGIN
@@ -228,32 +190,24 @@ BEGIN
 			GroupProductId		INT,
 			PlatFormFee			DECIMAL(9,8) DEFAULT (0),
 			PlatFormAmount		MONEY DEFAULT (0),
-			OperationalFee		DECIMAL(9,8) DEFAULT (0),
-			OperationalAmount	MONEY DEFAULT (0),
 			DepositFee			DECIMAL(9,8) DEFAULT (0),
 			DepositAmount		MONEY DEFAULT (0),
 			WithdrawalFee		DECIMAL(9,8) DEFAULT (0),
-			WithdrawalAmount	MONEY DEFAULT (0),
-			StraightCommission	DECIMAL(9,8) DEFAULT (0),
-			IsStraightSetting	BIT DEFAULT(0),
-			KillRate			DECIMAL(9,8) DEFAULT (0)
+			WithdrawalAmount	MONEY DEFAULT (0)
 		)
 
 		;WITH CTE_Group AS (SELECT DISTINCT MonthDate, GroupId FROM @AffGroupInfo)
-		INSERT INTO @Setting (MonthDate, GroupId , ProductId, GroupProductId, PlatFormFee, PlatFormAmount, OperationalFee, OperationalAmount, DepositFee, DepositAmount, WithdrawalFee, WithdrawalAmount, KillRate)
-		SELECT a.MonthDate, a.GroupId, ds.ProductId, ds.GroupProductId, ds.PlatFormFee, ds.PlatFormAmount, ds.OperationalFee, ds.OperationalAmount, ds.DepositFee, ds.DepositAmount, ds.WithdrawalFee, ds.WithdrawalAmount, ds.KillRate
+		INSERT INTO @Setting (MonthDate, GroupId , ProductId, GroupProductId, PlatFormFee, PlatFormAmount, DepositFee, DepositAmount, WithdrawalFee, WithdrawalAmount)
+		SELECT a.MonthDate, a.GroupId, ds.ProductId, ds.GroupProductId, ds.PlatFormFee, ds.PlatFormAmount, ds.DepositFee, ds.DepositAmount, ds.WithdrawalFee, ds.WithdrawalAmount
 		FROM CTE_Group a
 			CROSS APPLY (
 				SELECT dsh.ProductId, dsh.GroupProductId,
 					SUM(CASE WHEN dsh.DeductionId = 10 THEN dsh.DeductedPercentage ELSE 0 END) AS PlatFormFee,
 					SUM(CASE WHEN dsh.DeductionId = 10 THEN dsh.DeductedAmount ELSE 0 END) AS PlatFormAmount,
-					SUM(CASE WHEN dsh.DeductionId = 11 THEN dsh.DeductedPercentage ELSE 0 END) AS OperationalFee,
-					SUM(CASE WHEN dsh.DeductionId = 11 THEN dsh.DeductedAmount ELSE 0 END) AS OperationalAmount,
 					SUM(CASE WHEN dsh.DeductionId = 13 THEN dsh.DeductedPercentage ELSE 0 END) AS DepositFee,
 					SUM(CASE WHEN dsh.DeductionId = 13 THEN dsh.DeductedAmount ELSE 0 END) AS DepositAmount,
 					SUM(CASE WHEN dsh.DeductionId = 14 THEN dsh.DeductedPercentage ELSE 0 END) AS WithdrawalFee,
-					SUM(CASE WHEN dsh.DeductionId = 14 THEN dsh.DeductedAmount ELSE 0 END) AS WithdrawalAmount,
-					SUM(CASE WHEN dsh.DeductionId = 16 THEN dsh.DeductedPercentage ELSE 0 END) AS KillRate
+					SUM(CASE WHEN dsh.DeductionId = 14 THEN dsh.DeductedAmount ELSE 0 END) AS WithdrawalAmount
 				FROM dbo.DeductionSettingHistory dsh WITH (NOLOCK)
 				WHERE a.MonthDate = dsh.MonthDate AND a.GroupId = dsh.GroupId
 				GROUP BY dsh.ProductId, dsh.GroupProductId
@@ -261,26 +215,14 @@ BEGIN
 
 		UPDATE s
 		SET s.PlatFormAmount = s.PlatFormAmount * e.Rate,
-			s.OperationalAmount = s.OperationalAmount * e.Rate,
 			s.DepositAmount = s.DepositAmount * e.Rate,
 			s.WithdrawalAmount = s.WithdrawalAmount * e.Rate
 		FROM @Setting s
 			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(s.MonthDate, @AffExchangeId, @BaseExchangeId) e
-
-		;WITH CTE_Group AS (SELECT DISTINCT MonthDate, GroupId FROM @AffGroupInfo)
-		INSERT INTO @Setting (MonthDate, GroupId, ProductId, GroupProductId, PlatFormFee, StraightCommission, IsStraightSetting)
-		SELECT a.MonthDate, a.GroupId, ssh.ProductId, ssh.GroupProductId, ssh.DeductedPercentage, ssh.Commission, 1
-		FROM CTE_Group a
-			INNER JOIN dbo.StraightSettingHistory ssh WITH (NOLOCK) ON a.GroupId = ssh.GroupId AND a.MonthDate = ssh.MonthDate
-			LEFT JOIN @Setting s ON ssh.MonthDate = s.MonthDate AND ssh.GroupId = s.GroupId AND ssh.ProductId = s.ProductId
-		WHERE s.MonthDate IS NULL
 	END
 
 	UPDATE d
 	SET d.GroupId	= a.GroupId
-		,d.Turnover = CASE WHEN s.IsStraightSetting = 1 THEN 0 ELSE d.Turnover END
-		,d.Winloss	= CASE WHEN s.IsStraightSetting = 1 THEN 0 ELSE d.Winloss END
-		,d.Revenue	= CASE WHEN s.IsStraightSetting = 1 THEN d.Revenue ELSE 0 END
 	FROM #Data d
 		INNER JOIN @AffGroupInfo a ON d.MonthDate = a.MonthDate AND d.AffId = a.AffId
 		INNER JOIN @Setting s ON d.MonthDate = s.MonthDate AND a.GroupId = s.GroupId AND d.ProductId = s.ProductId
@@ -342,25 +284,20 @@ BEGIN
 			INSERT INTO @GroupProductInfo (MonthDate, GroupId, NoGroupProduct)
 			SELECT MonthDate, GroupId, COUNT(DISTINCT GroupProductId) AS [NoGroupProduct] 
 			FROM @Setting 
-			WHERE IsStraightSetting = 0 
 			GROUP BY MonthDate, GroupId
 
-			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, Revenue, GrossWinloss, NetTurnover, P2PFee, PlatFormFee, OperationalFee, StraightCommission, IsStraightSetting)
+			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, GrossWinloss, PlatFormFee)
 			SELECT 
 				d.MonthDate, d.AffId, d.GroupId, d.ProductId
-				,CASE WHEN s.IsStraightSetting = 1 THEN 0 ELSE s.GroupProductId END -- Set GroupProductId = 0. for P2P
+				,s.GroupProductId
 				,d.Turnover
 				,d.Winloss
-				,d.Revenue
 				,-d.Winloss AS GrossWinloss
-				,d.Turnover *  s.KillRate AS NetTurnover
-				,CASE WHEN d.Revenue < 0 THEN 0 ELSE d.Revenue * ISNULL(s.PlatFormFee, 0) END AS P2PFee
-				,CASE WHEN d.Winloss > 0 THEN 0 ELSE -d.Winloss * ISNULL(s.PlatFormFee, 0) + ISNULL(s.PlatFormAmount, 0) END AS PlatFormFee
-				,CASE WHEN d.Winloss > 0 THEN 0 ELSE -d.Winloss END AS OperationalFee
-				,CASE WHEN d.Revenue < 0 THEN d.Revenue ELSE d.Revenue * (1.0 - ISNULL(s.PlatFormFee, 0)) END * ISNULL(s.StraightCommission, 0) AS StraightCommission
-				,CASE WHEN s.IsStraightSetting = 1 AND s.GroupProductId <> 0 THEN 1 ELSE 0 END AS IsStraightSetting
+				,CASE WHEN d.MonthDate >= @CommissionCal_CutOffDate THEN abs(-d.Winloss) 
+					ELSE IIF( d.Winloss > 0, 0, -d.Winloss) END
+					* ISNULL(s.PlatFormFee, 0) + ISNULL(s.PlatFormAmount, 0) AS PlatFormFee
 			FROM (
-				SELECT MonthDate, AffId, GroupId, ProductId, SUM(Turnover) Turnover, SUM(Winloss) Winloss, SUM(Revenue) AS Revenue
+				SELECT MonthDate, AffId, GroupId, ProductId, SUM(Turnover) Turnover, SUM(Winloss) Winloss
 				FROM #Data
 				WHERE ProductId > 0
 				GROUP BY MonthDate, AffId, GroupId, ProductId
@@ -368,27 +305,21 @@ BEGIN
 				INNER JOIN @Setting s ON d.MonthDate = s.MonthDate AND d.GroupId = s.GroupId AND d.ProductId = s.ProductId
 
 			-- Total
-			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, Revenue, GrossWinloss, NetTurnover, P2PFee, PlatFormFee, OperationalFee, StraightCommission, IsStraightSetting)
-			SELECT c.MonthDate, c.AffId, c.GroupId, 0 AS ProductId, c.GroupProductId, c.Turnover, c.Winloss, c.Revenue, c.GrossWinloss, c.NetTurnover, c.P2PFee, c.PlatFormFee, c.OperationalFee * ISNULL(s.OperationalFee, 0) + ISNULL(s.OperationalAmount, 0), c.StraightCommission, c.IsStraightSetting
+			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, GrossWinloss, PlatFormFee)
+			SELECT c.MonthDate, c.AffId, c.GroupId, 0 AS ProductId, c.GroupProductId, c.Turnover, c.Winloss, c.GrossWinloss, c.PlatFormFee
 			FROM (
 				SELECT MonthDate, AffId, GroupId, 0 AS ProductId, GroupProductId
 					,SUM(Turnover) AS Turnover
 					,SUM(Winloss) AS Winloss
-					,SUM(Revenue) AS Revenue
 					,SUM(GrossWinloss) AS GrossWinloss
-					,SUM(NetTurnover) AS NetTurnover
-					,SUM(P2PFee) AS P2PFee
 					,SUM(PlatFormFee) AS PlatFormFee
-					,SUM(OperationalFee) AS OperationalFee
-					,SUM(StraightCommission) AS StraightCommission
-					,MAX(IsStraightSetting) AS IsStraightSetting
 				FROM #Commission
 				GROUP BY MonthDate, AffId, GroupId, GroupProductId
 			)  c
 				LEFT JOIN @Setting s ON c.MonthDate = s.MonthDate AND c.GroupId = s.GroupId AND c.ProductId = s.ProductId
 
 			UPDATE #Commission SET P2PFee = 0, PlatFormFee = 0, OperationalFee = 0 WHERE ProductId > 0
-
+			
 			-- Total: Deposit, Withdrawal, ActivePlayer, Net WinLoss, Net Turnover, QualifiedMember
 			UPDATE c
 			SET c.Deposit			= ISNULL(d.Deposit, 0) / ISNULL(e.[NoGroupProduct], 1)
@@ -397,7 +328,7 @@ BEGIN
 				,c.Rebate			= ISNULL(d.Rebate, 0) / ISNULL(e.[NoGroupProduct], 1)
 				,c.DepositFee		= ISNULL(d.DepositFee, 0) / ISNULL(e.[NoGroupProduct], 1)
 				,c.WithdrawalFee	= ISNULL(d.WithdrawalFee, 0) / ISNULL(e.[NoGroupProduct], 1)
-				,c.NetWinloss		= CASE WHEN ag.GroupTypeBy = 'Winloss' THEN  c.GrossWinloss - c.PlatFormFee - (c.OperationalFee + ISNULL(d.DepositFee, 0) + ISNULL(d.WithdrawalFee, 0) + ISNULL(d.Bonus, 0) + ISNULL(d.Rebate, 0))/ ISNULL(e.NoGroupProduct, 1) ELSE 0 END
+				,c.NetWinloss		= c.GrossWinloss - c.PlatFormFee - (ISNULL(d.DepositFee, 0) + ISNULL(d.WithdrawalFee, 0) + ISNULL(d.Bonus, 0) + ISNULL(d.Rebate, 0))/ ISNULL(e.NoGroupProduct, 1)
 			FROM #Commission c
 				INNER JOIN @AffGroupInfo ag ON c.MonthDate = ag.MonthDate AND c.AffId = ag.AffId AND c.GroupId = ag.GroupId
 				LEFT JOIN (
@@ -414,7 +345,7 @@ BEGIN
 					GROUP BY d.MonthDate, d.AffId, d.GroupId
 				) d ON c.MonthDate = d.MonthDate AND c.AffId = d.AffId AND c.GroupId = d.GroupId
 				LEFT JOIN @GroupProductInfo e ON c.MonthDate = e.MonthDate AND c.GroupId = e.GroupId 
-			WHERE c.ProductId = 0 AND c.IsStraightSetting = 0
+			WHERE c.ProductId = 0
 			
 			-- Update active player
 			;WITH CTE_Group AS(
@@ -428,7 +359,7 @@ BEGIN
 				FROM #Data d
 					INNER JOIN @Setting s ON d.MonthDate = s.MonthDate AND d.GroupId = s.GroupId AND d.ProductId = s.ProductId
 					LEFT JOIN CTE_Group g ON g.MonthDate = d.MonthDate AND g.AffId = d.AffId
-				WHERE d.ProductId > 0 AND s.IsStraightSetting = 0
+				WHERE d.ProductId > 0
 				GROUP BY d.MonthDate, d.AffId, s.GroupProductId, d.CustId, g.IsActivePlayerSum, QMTurnover
 			)		
 			,CTE_Player AS(
@@ -469,14 +400,13 @@ BEGIN
 				LEFT JOIN CTE_GroupProduct p ON c.MonthDate = p.MonthDate AND c.AffId = p.AffId AND c.GroupProductId = p.GroupProductId
 				LEFT JOIN CTE_ActivePlayerSUM cs ON cs.MonthDate = c.MonthDate AND cs.AffId = c.AffId
 				LEFT JOIN CTE_QualifiedPlayerSum qs ON qs.MonthDate = c.MonthDate AND qs.AffId = c.AffId
-			WHERE c.ProductId = 0 AND c.IsStraightSetting = 0
+			WHERE c.ProductId = 0
 		END
 
 		-- Total: Commission
 		UPDATE c
 		SET c.CommissionRate = ISNULL(s.Commission, 0)
-			,c.Commission	 = CASE WHEN ag.GroupTypeBy = 'Winloss' THEN ISNULL(s.Commission, 0) * c.NetWinloss
-								ELSE (ISNULL(s.Commission, 0) * c.NetTurnover) - c.PlatFormFee - c.Bonus - c.Rebate - c.DepositFee - c.WithdrawalFee - (c.OperationalFee)/ISNULL(e.NoGroupProduct, 1) END										
+			,c.Commission	 = ISNULL(s.Commission, 0) * c.NetWinloss									
 		FROM #Commission c
 			INNER JOIN @AffGroupInfo ag ON c.MonthDate = ag.MonthDate AND c.AffId = ag.AffId AND c.GroupId = ag.GroupId
 			OUTER APPLY (
@@ -484,7 +414,7 @@ BEGIN
 				FROM dbo.TierSettingHistory gsh WITH (NOLOCK)
 					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(gsh.MonthDate, @AffExchangeId, @BaseExchangeId) e
 				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId AND c.GroupProductId = gsh.GroupProductId
-					AND FLOOR(ABS(CASE WHEN ag.GroupTypeBy = 'Winloss' THEN c.NetWinloss ELSE c.NetTurnover END )) BETWEEN gsh.MinAmount * e.Rate AND gsh.MaxAmount * e.Rate
+					AND IIF(c.MonthDate >= @CommissionCal_CutOffDate, c.NetWinloss, abs(c.NetWinloss)) BETWEEN gsh.MinAmount * e.Rate AND gsh.MaxAmount * e.Rate
 			) AS t
 			OUTER APPLY (
 				SELECT TOP 1 gsh.Commission
@@ -495,14 +425,14 @@ BEGIN
 				ORDER BY gsh.TierId DESC
 			) AS s
 			LEFT JOIN @GroupProductInfo e ON c.MonthDate = e.MonthDate AND c.GroupId = e.GroupId 
-		WHERE c.ProductId = 0 AND c.IsStraightSetting = 0
+		WHERE c.ProductId = 0
 
 		--Update Active player
 		;WITH CTE_Group AS
 		(
 			SELECT MonthDate, AffId, MAX(GroupProductId) AS GroupProductId, MAX(QualifiedMemberSum) AS QualifiedMemberSum ,  MAX(ActivePlayerSum) AS ActivePlayerSum
 			FROM #Commission 
-			WHERE ProductId = 0 AND IsStraightSetting = 0
+			WHERE ProductId = 0
 			GROUP BY MonthDate, AffId
 		)
 		UPDATE c
@@ -568,7 +498,7 @@ BEGIN
 			SUM(NetTurnover),
 			MAX(ActivePlayer),
 			MAX(QualifiedMember),
-			MAX(CASE WHEN GroupProductId = 0 AND IsStraightSetting = 1 THEN 0 ELSE CommissionRate END),
+			MAX(CommissionRate),
 			SUM(Commission),
 			SUM(StraightCommission),
 			SUM(SubAffCommission)
@@ -603,7 +533,7 @@ BEGIN
 
 		IF @IsForJob = 0 OR  @IsSumAll = 1
 			DELETE #Commission WHERE ProductId = -1
-
+		
 		-- Filter by Currencies
 		IF @Currencies <> ''
 		BEGIN
@@ -706,7 +636,6 @@ BEGIN
 		SubCommRate		DECIMAL(9,8) DEFAULT (0)
 	)
 
-
 	IF EXISTS (SELECT 1 FROM #Commission WHERE ProductId = 0)
 	BEGIN
 		IF @InputAffIds <> 'all'
@@ -755,7 +684,6 @@ BEGIN
 				LEFT JOIN #Commission c ON c.MonthDate = md.MonthDate AND c.AffId = md.AffId AND c.ProductId = 0 AND c.GroupProductId = 0
 			WHERE c.AffId IS NULL
 		END
-
 		----- Get SubAffCommission
 	    ;WITH CTE_SubCommRateDirect AS (
             SELECT agh.MonthDate, agh.AffId AS SubAffId, af.AffId, cgh.SubCommRate, f.Level
