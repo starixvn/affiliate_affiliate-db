@@ -17,6 +17,7 @@ AS
 
 	Revisions:  
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250324@Sophia: Count Signups, FDM by clickId [RedmineID: 219949]
 */
 
 BEGIN
@@ -89,7 +90,7 @@ BEGIN
 		COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
 		COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
-		LEFT JOIN dbo.MemberClickDetail md WITH (NOLOCK) ON md.CustId = mi.CustId
+		LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickId = mi.clickId
 	WHERE mi.AffId = @AffID
 	GROUP BY
 		ISNULL(md.DomainReferrer, 'none'),
