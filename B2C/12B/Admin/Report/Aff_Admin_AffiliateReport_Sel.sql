@@ -33,6 +33,7 @@ AS
 		- 20250314@Sally: Display Qualified Players if using Date Picker [RedmineID: #220322]
 		- 20250314@Sally: Add an additional Language column [RedmineID: #220316]
         - 20250326@Sally: Add new column FDAM Amount, Status [RedmineID: #220316]
+		- 20250327@Sally: Change get AFFWithdrawal [RedmineID: #222217]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -56,6 +57,8 @@ BEGIN
 		,@ToDateTimeGMT0		DATETIME
 		,@LastDayOfToDate		SMALLDATETIME
 		,@StartDayOfFromDate	SMALLDATETIME
+		,@FromDateLocalTime		SMALLDATETIME
+		,@ToDateLocalTime		SMALLDATETIME
 
     DECLARE @Status TABLE ([Status] VARCHAR(30))
 	INSERT INTO @Status ([Status]) 
@@ -94,6 +97,10 @@ BEGIN
 	-- Data on GMT+0 --> convert timezone
 	SELECT @FromDateTimeGMT0	= DATEADD(HOUR, -@TimeZone, CONVERT(DATETIME, @FromDate))
 		,@ToDateTimeGMT0		= DATEADD(HOUR, -@TimeZone, CONVERT(DATETIME, @ToDate))
+
+	-- Convert datetime to localtime
+	SELECT @FromDateLocalTime = DATEADD(HOUR, -4 - @TimeZone, @FromDate)
+	SELECT @ToDateLocalTime   = DATEADD(HOUR, -4 - @TimeZone, @ToDate)
 
 	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME)
 	;WITH CTE_MonthDate AS
@@ -540,16 +547,29 @@ BEGIN
 
 		-- AffWithdrawal, AffAdjustment
 		CREATE TABLE #AffTrans (AffId INT, AffWithdrawal MONEY, AffAdjustment MONEY, BFF MONEY, CurrentBBF MONEY)
+		;WITH CTE_AffTransData AS(
+			SELECT at.AffId,
+				at.AffCurrency,
+				EOMONTH(DATEADD(HOUR, 4 + @TimeZone,at.TransDate)) MonthDate,
+				SUM((CASE WHEN at.TransType = 202 AND at.TransDate >= @FromDateLocalTime AND at.TransDate < DATEADD(DAY, 1, @ToDateLocalTime) THEN ABS(at.Amount) ELSE 0 END)) AS AffWithdrawal,
+				SUM((CASE WHEN at.TransType = 203 AND at.TransDate >= @FromDateLocalTime THEN at.Amount ELSE 0 END) ) AS AffAdjustment,
+				SUM(CASE WHEN TransDate < DATEADD(DAY, 1, @ToDateLocalTime) THEN Amount ELSE NULL END) AS BFF,
+				SUM(Amount) AS CurrentBBF		
+			FROM dbo.AffTrans at WITH (NOLOCK)
+				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
+			WHERE Status IN ('Pending', 'Approved', 'Completed')
+			GROUP BY AffId, EOMONTH(DATEADD(HOUR, 4 + @TimeZone,at.TransDate)), at.AffCurrency
+		)
 		INSERT INTO #AffTrans (AffId, AffWithdrawal, AffAdjustment, BFF, CurrentBBF)
-		SELECT at.AffId,
-			SUM((CASE WHEN at.TransType = 202 AND at.TransDate >= @FromDate THEN ABS(at.Amount) ELSE 0 END) * e.Rate) AS AffWithdrawal,
-			SUM((CASE WHEN at.TransType = 203 AND at.TransDate >= @FromDate THEN at.Amount ELSE 0 END) * e.Rate) AS AffAdjustment,
-			SUM(CASE WHEN TransDate < DATEADD(DAY, 1, @ToDate) THEN Amount * e.Rate ELSE NULL END) AS BFF,
-			SUM(Amount * e.Rate) AS CurrentBBF		
-		FROM dbo.AffTrans at WITH (NOLOCK)
+		SELECT at.AffId
+			,SUM(at.AffWithdrawal * e.Rate) AS AffWithdrawal
+			,SUM(at.AffAdjustment * e.Rate) AS AffAdjustment
+			,SUM(at.BFF * e.Rate)			AS BFF
+			,SUM(at.CurrentBBF * e.Rate)	AS CurrentBBF
+		FROM CTE_AffTransData at WITH (NOLOCK)
 			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
-		WHERE Status IN ('Pending', 'Approved', 'Completed')
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.MonthDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
 		GROUP BY AffId
 
 		-- Total Deposit
