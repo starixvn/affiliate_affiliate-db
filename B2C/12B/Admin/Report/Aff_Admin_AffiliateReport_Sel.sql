@@ -34,9 +34,19 @@ AS
 		- 20250314@Sally: Add an additional Language column [RedmineID: #220316]
         - 20250326@Sally: Add new column FDAM Amount, Status [RedmineID: #220316]
 		- 20250327@Sally: Change get AFFWithdrawal [RedmineID: #222217]
+		- 20250331@Sally: Add Sort by Signup, FDM, FDM Amt, Active players and Qualified active players [RedmineID: #221783]
 
 	Param's Explanation:
-		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
+		- @SortType: 
+			1: Affiliate username
+			2: Turnover
+			3: GGR
+			4: Earning (Commission)
+			5: SignUp
+			6: FDM
+			7: FDM Amount
+			8: Active Players
+			9: Qualified Members
 		- @SortDirectionType: 0: ASC (ascending), 1: DESC (descending)
 		- @ProductIds: list of products
 		- @BaseCurrency : Currency of B2C
@@ -737,7 +747,18 @@ BEGIN
 				CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN ISNULL(tc.GGR, 0) END ASC,
 				CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ISNULL(tc.GGR, 0) END DESC,
 				CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN ISNULL(tc.Commission, 0) END ASC,
-				CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ISNULL(tc.Commission, 0) END DESC) AS RowIdx
+				CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ISNULL(tc.Commission, 0) END DESC,
+				CASE WHEN @SortType = 5 AND @SortDirectionType = 0 THEN ISNULL(su.Signup, 0) END ASC,
+				CASE WHEN @SortType = 5 AND @SortDirectionType = 1 THEN ISNULL(su.Signup, 0) END DESC,
+				CASE WHEN @SortType = 6 AND @SortDirectionType = 0 THEN ISNULL(su.FDM, 0) END ASC,
+				CASE WHEN @SortType = 6 AND @SortDirectionType = 1 THEN ISNULL(su.FDM, 0) END DESC,
+				CASE WHEN @SortType = 7 AND @SortDirectionType = 0 THEN ISNULL(su.FDM_Amount, 0) END ASC,
+				CASE WHEN @SortType = 7 AND @SortDirectionType = 1 THEN ISNULL(su.FDM_Amount, 0) END DESC,
+				CASE WHEN @SortType = 8 AND @SortDirectionType = 0 THEN ISNULL(tc.ActivePlayer, 0) END ASC,
+				CASE WHEN @SortType = 8 AND @SortDirectionType = 1 THEN ISNULL(tc.ActivePlayer, 0) END DESC,
+				CASE WHEN @SortType = 9 AND @SortDirectionType = 0 THEN ISNULL(tc.QualifiedMember, 0) END ASC,
+				CASE WHEN @SortType = 9 AND @SortDirectionType = 1 THEN ISNULL(tc.QualifiedMember, 0) END DESC
+				) AS RowIdx
 		FROM CTE_AffInfo ai
 			LEFT JOIN #Signup su ON ai.AffId = su.AffId
 			LEFT JOIN #AffTrans at ON ai.AffId = at.AffId
