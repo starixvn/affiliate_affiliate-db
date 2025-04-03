@@ -16,6 +16,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250402@Sally: Add new Player permission [RedmineID: #222215]
 
 */
 
@@ -23,6 +24,16 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @MonthDate SMALLDATETIME, @TimeZone INT = 0, @FromDate DATETIME, @ToDate DATETIME, @CurrenDate DATETIME 
+
+	-- Check permission
+	EXEC dbo.Aff_Con_CheckPermission
+		@CustId		= @UserId,
+		@FuncName	= '[Player]',
+		@ErrCode	= @ErrCode OUTPUT,
+		@ErrMsg		= @ErrMsg OUTPUT
+	
+	IF @ErrCode <> 0
+		RETURN
 
 	SELECT @TimeZone = dbo.Aff_f_GetSetting('TimeZone')
 
