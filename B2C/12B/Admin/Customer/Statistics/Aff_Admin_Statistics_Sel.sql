@@ -12,7 +12,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20241225@Sally: Apply QM Turnover [RedmineID: #212201]
-
+		- 20250402@Sophia: Fix Unique Click count IP by range from - to [RedmineID: #222777]
 */
 
 BEGIN
@@ -212,18 +212,18 @@ BEGIN
 			WHERE c.AffId = @AffId
 				AND c.Date >= @FromBeginMonth AND c.Date < @ToNextMonth
 				AND c.Date > @ArchiveDate
-			GROUP BY ISNULL(c.DeviceType, 0), c.Date
+			GROUP BY ISNULL(c.DeviceType, 0)
 
 			UNION ALL
 			SELECT
 				ISNULL(c.DeviceType, 0) AS DeviceType,
-				SUM(TotalClick) AS TotalClick,
-				SUM(UniqueClick) AS UniqueClick
-			FROM dbo.ClickStatisticsSum c WITH (NOLOCK)
+				COUNT(1) AS TotalClick,
+				COUNT(DISTINCT c.IP) AS UniqueClick
+			FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
 			WHERE c.AffId = @AffId
 				AND c.Date >= @FromBeginMonth AND c.Date < @ToNextMonth
 				AND c.Date <= @ArchiveDate
-			GROUP BY ISNULL(c.DeviceType, 0), c.Date
+			GROUP BY ISNULL(c.DeviceType, 0)
 		) AS A
 		GROUP BY DeviceType
 	)

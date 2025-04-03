@@ -35,6 +35,7 @@ AS
         - 20250326@Sally: Add new column FDAM Amount, Status [RedmineID: #220316]
 		- 20250327@Sally: Change get AFFWithdrawal [RedmineID: #222217]
 		- 20250331@Sally: Add Sort by Signup, FDM, FDM Amt, Active players and Qualified active players [RedmineID: #221783]
+		- 20250402@Sophia: Fix Unique Click count IP by range from - to [RedmineID: #222777]
 
 	Param's Explanation:
 		- @SortType: 
@@ -505,20 +506,19 @@ BEGIN
 			SELECT @tempToDate	= CASE WHEN @ToDate > @ArchiveDate THEN @ArchiveDate ELSE @ToDate END
 			
 			INSERT INTO #Statistics (AffId, TotalClick, UniqueClick)
-			SELECT AffId, SUM(TotalClick), COUNT(1) AS UniqueClick
+			SELECT AffId, SUM(TotalClick), SUM(UniqueClick)
 			FROM
 			(
 				SELECT
 					AffId,
 					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0)) AS MonthDate,
-					IP,
-					COUNT(1) AS TotalClick
+					COUNT(1) AS TotalClick,
+					COUNT(DISTINCT IP) AS UniqueClick
 				FROM dbo.ClickStatistics_bk WITH (NOLOCK)
 				WHERE Date BETWEEN @tempFromDate AND @tempToDate
 				GROUP BY
 					AffId,
-					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0)),
-					IP
+					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0)) 					 
 			) AS c
 			GROUP BY AffId
 		END

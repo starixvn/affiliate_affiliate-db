@@ -16,12 +16,13 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
         - 20250221@Sally: Enhance AFFMediaLink [RedmineID: #212201]
 		- 20250305@Sally: Enhance get AFFMediaLinkId [RedmineID: #212201]
+		- 20250402@Sophia: Fix date, remove GroupBy Date for UniqueClick[RedmineID: #222777]
 */
 
 BEGIN
 	SET NOCOUNT ON
     DECLARE @ReportMarketingStatistics_CutOffDate SMALLDATETIME
-     SELECT @ReportMarketingStatistics_CutOffDate = dbo.Aff_f_GetSetting('ReportMarketingStatistics_CutOffDate')
+    SELECT @ReportMarketingStatistics_CutOffDate = '20250301' --- dbo.Aff_f_GetSetting('ReportMarketingStatistics_CutOffDate')
 
 	SELECT  @FromDate = CONVERT(DATE, @FromDate), @ToDate = CONVERT(DATE, @ToDate)
 	DECLARE @FDate SMALLDATETIME, @TDate SMALLDATETIME, @FromDate3 SMALLDATETIME, @ToDate3 SMALLDATETIME
@@ -45,26 +46,26 @@ BEGIN
 		FROM dbo.ClickStatistics c WITH (NOLOCK)
 		WHERE [Date] BETWEEN @FDate AND @TDate
 			AND AffId = @AffId
-		GROUP BY AffMediaLink, LanguageCode, [Date]
+		GROUP BY AffMediaLink, LanguageCode 
 	END
 
 	IF @FromDate <= @ArchiveDate
 	BEGIN
 		SELECT	@FDate = @FromDate
-				,@TDate = CASE WHEN @ToDate < @ArchiveDate THEN @ToDate ELSE DATEADD(DAY, -1, @ArchiveDate) END
+				,@TDate = CASE WHEN @ToDate < @ArchiveDate THEN @ToDate ELSE @ArchiveDate END
 
 		INSERT INTO #tmpData (AffMediaLink, LanguageCode, TotalClick, UniqueClick)
 		SELECT AffMediaLink, LanguageCode, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 		FROM dbo.ClickStatistics_bk WITH (NOLOCK)
 		WHERE [Date] BETWEEN @FDate AND @TDate
 			AND AffId = @AffId
-		GROUP BY AffMediaLink, LanguageCode, [Date]
+		GROUP BY AffMediaLink, LanguageCode 
 	END
 
 	IF @IncludedInActive = 0
 		DELETE #tmpData WHERE AffMediaLink IN (SELECT AffMediaLink FROM dbo.AffMediaLink WITH (NOLOCK) WHERE AffId = @AffId AND IsShow = 0)
 
-	CREATE TABLE #tmp_Result (ChannelName NVARCHAR(200), AffMediaLink VARCHAR(500), MarketName NVARCHAR(50), TotalClick INT, UniqueClick INT, SignUps INT, FDM INT)
+	CREATE TABLE #tmp_Result (ChannelName NVARCHAR(200), AffMediaLink VARCHAR(500), MarketName NVARCHAR(50), TotalClick INT, UniqueClick INT, SignUps INT, FDM INT, IsShow BIT)
 	;WITH CTE_MemberInfo AS (  
 			SELECT ISNULL(m.AffMediaLinkId, 0) AS AffMediaLinkId  
 				,COUNT(1)AS SignUps   
@@ -89,21 +90,26 @@ BEGIN
 		FROM CTE_MemberInfo
 		GROUP BY AffMediaLinkId
 	)
-	INSERT INTO #tmp_Result (ChannelName, AffMediaLink, MarketName, SignUps, FDM)
+	INSERT INTO #tmp_Result (ChannelName, AffMediaLink, MarketName, SignUps, FDM, IsShow)
 		SELECT CASE WHEN ISNULL(c.ChannelName, '') ='' THEN 'Others' ELSE c.ChannelName END AS ChannelName
 			,l.AffMediaLink
 			,m.MarketName
 			,SUM(s.SignUps) AS SignUps
 			,SUM(s.FDM) AS FDM
+			,ISNULL(l.IsShow,1) AS IsShow
 		FROM CTE_SigupsData  s
 			LEFT JOIN dbo.AffMediaLink l WITH (NOLOCK) ON s.AffMediaLinkId = l.AffMediaLinkId AND l.AffId = @AffId
 			LEFT JOIN dbo.AffMediaChannel c WITH (NOLOCK) ON l.ChannelCode = c.ChannelCode AND c.AffId = @AffId
 			LEFT JOIN dbo.Market m WITH (NOLOCK) ON l.LanguageCode = m.MarketId
 		WHERE (ISNULL(@LanguageCodes, '') = '' OR ',' + @LanguageCodes + ',' LIKE '%,' + m.MarketId + ',%')
-			AND (ISNULL(@IncludedInActive, 0) = 0 OR l.IsShow = 1)
+			---AND (ISNULL(@IncludedInActive, 0) = 0 OR ISNULL(l.IsShow,1) = 1)
 		GROUP BY CASE WHEN ISNULL(c.ChannelName, '') ='' THEN 'Others' ELSE c.ChannelName END 
 			,l.AffMediaLink
 			,m.MarketName
+			,ISNULL(l.IsShow,1)
+			
+	IF @IncludedInActive = 0
+		DELETE #tmp_Result WHERE IsShow = 0
 
 	;WITH CTE_Result AS (
 		SELECT AffMediaLink, LanguageCode, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
