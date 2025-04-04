@@ -4,10 +4,10 @@ ALTER PROCEDURE [dbo].[Aff_ClickStatisticsSelBySite]
 	,@FromDate DATETIME
 	,@ToDate DATETIME
 	,@DeviceType SMALLINT = -1
-	,@TotalClicks INT = 0  
-	,@UniqueClicks INT = 0  
-	,@TotalSignUps INT = 0  
-	,@TotalFDMs INT = 0  
+	,@TotalClicks INT = 0  OUTPUT
+	,@UniqueClicks INT = 0  OUTPUT
+	,@TotalSignUps INT = 0  OUTPUT
+	,@TotalFDMs INT = 0  OUTPUT
 AS
  /*  
 	Created: 20241118@Eddie
