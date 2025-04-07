@@ -19,6 +19,7 @@ AS
         - 20250318@Lewis: Add new specific link [RedmineID: #220651]
         - 20250318@Lewis: Add new specific link [RedmineID: #221235]
         - 20250318@Lewis: Add new specific link [RedmineID: #221472]
+		- 20250407@Sally: Add new specific link [RedmineID: #223202]
 */
 
 RETURN
@@ -52,19 +53,19 @@ RETURN
         ,('12aff.best5689.com', '12BETAFF16050','https://www.12bfacai.com/')
 		--goto.best5689.com 
 		 ,('goto.best5689.com', '12BETAFF15932','https://www.scc47.com/')
-        ,('goto.best5689.com', '12BETAFF130','https://www.12haoqiu.com/')
-        ,('goto.best5689.com', '12BETAFF16311','https://www.12haoqiu.com/')
-        ,('goto.best5689.com', '12BETAFF16314','https://www.12haoqiu.com/')
-        ,('goto.best5689.com', '12BETAFF16225','https://www.12haoqiu.com/')
-        ,('goto.best5689.com', '12BETAFF14617','https://www.12haoqiu.com/')
-        ,('goto.best5689.com', '12BETAFF13902','https://www.12haoqiu.com/')
-        ,('goto.best5689.com', '12BETAFF16313','https://www.12haoqiu.com/')
-        ,('goto.best5689.com', '12BETAFF15775','https://www.12haoqiu.com/')
-        ,('goto.best5689.com', '12BETAFF16214','https://www.12haoqiu.com/')
-        ,('goto.best5689.com', '12BETAFF13506','https://www.12haoqiu.com/')
-        ,('goto.best5689.com', '12BETAFF13065','https://www.12haoqiu.com/')
-        ,('goto.best5689.com', '12BETAFF7782','https://www.12haoqiu.com/')
-        ,('goto.best5689.com', '12BETAFF16050','https://www.12haoqiu.com/')
+		,('goto.best5689.com', '12BETAFF130','https://www.12haoqiu.com/')
+        ,('goto.best5689.com', '12BETAFF16311','https://www.12bfacai.com/')
+        ,('goto.best5689.com', '12BETAFF16314','https://www.12bfacai.com/')
+        ,('goto.best5689.com', '12BETAFF16225','https://www.12bfacai.com/')
+        ,('goto.best5689.com', '12BETAFF14617','https://www.12bfacai.com/')
+        ,('goto.best5689.com', '12BETAFF13902','https://www.12bfacai.com/')
+        ,('goto.best5689.com', '12BETAFF16313','https://www.12bfacai.com/')
+        ,('goto.best5689.com', '12BETAFF15775','https://www.12bfacai.com/')
+        ,('goto.best5689.com', '12BETAFF16214','https://www.12bfacai.com/')
+        ,('goto.best5689.com', '12BETAFF13506','https://www.12bfacai.com/')
+        ,('goto.best5689.com', '12BETAFF13065','https://www.12bfacai.com/')
+        ,('goto.best5689.com', '12BETAFF7782' ,'https://www.12bfacai.com/')
+        ,('goto.best5689.com', '12BETAFF16050','https://www.12bfacai.com/')
 
         ,('go.9012ijk.com', '12BETAFF16343','https://www.12amethyst.com/')
         ,('go.12fifa18.com', '12BETAFF16105','https://www.12crystal.com/')
@@ -107,6 +108,7 @@ RETURN
 		,('goto.12bvnlink1.com', '12BETAFF16501','https://www.12fun888.com/')
 		
 		,('goto.sun838.com', '12BETAFF16492','https://www.12fiz.com/')
+		
 	) AS t(AffDomain, AffUsername, RedirectDomain)
 		
 GO
