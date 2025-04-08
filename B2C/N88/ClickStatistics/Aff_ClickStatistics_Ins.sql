@@ -31,6 +31,7 @@ AS
 	Revisions:  
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201215@Percy: Add AffMediaLink [RedmineID: #146201]
+		- 20250320@Sophia: Add clickID into RedirectPage [Redmine: #221818]
 */
 
 BEGIN
@@ -145,6 +146,12 @@ BEGIN
 		)
 
 		SELECT @ClickID = SCOPE_IDENTITY()
+		
+		SELECT @RedirectPage = @RedirectPage + '&clickId=' + CONVERT(VARCHAR(20), @clickId)
+		
+		UPDATE 	dbo.ClickStatistics WITH (ROWLOCK,UPDLOCK)
+		SET 	RedirectURL = @RedirectPage
+		WHERE 	ClickId = @ClickId
 	END
 END
 GO
