@@ -16,19 +16,20 @@ AS
 	Task: Admin site - Home - Statistics - Marketing Page Statistics
 
 	Revisions:
-		- 20241118@Lewis: Initialize SP [RedmineID: #212201]
+		- 20241118@Lewis: Initialize SP [RedmineID: #219779]
+		- 20241118@Lewis: LanguageCode = ALL => show NULL [RedmineID: #219779]
 */
 
 BEGIN
 	SET NOCOUNT ON
-
+	/*
 	--Validate @LanguageCodes
 	DECLARE @tmpLanguageCodes TABLE (MarketId NVARCHAR(20), ShortedCode NVARCHAR(20), MarketName NVARCHAR(100))
 	INSERT INTO @tmpLanguageCodes (MarketId,ShortedCode,MarketName)
 	SELECT m.MarketId,m.ShortedCode,m.MarketName
 	FROM string_split(@LanguageCodes,',') f
 	INNER JOIN Market m WITH (NOLOCK) ON f.value = m.MarketId
-
+	*/
 	DECLARE @FDate_Local DATETIME
 			,@TDate_Local DATETIME
 
@@ -149,15 +150,24 @@ BEGIN
 	END
 
 	-- TODO: #tmp_Result
+	;WITH CTE_Result AS (
+		SELECT AffId, AffMediaLink, ShortedCode, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick, SUM(SignUps) AS SignUps, SUM(FDM) AS FDM
+		FROM #tmpData
+		GROUP BY AffId, AffMediaLink, ShortedCode
+	)
 	INSERT INTO #tmp_Result (AffId, ChannelName, AffMediaLink, MarketName, TotalClick, UniqueClick, SignUps, FDM)
 	SELECT d.AffId, ISNULL(c.ChannelName,'Others'), d.AffMediaLink, m.MarketName, SUM(TotalClick), SUM(UniqueClick), SUM(SignUps), SUM(FDM)
-	FROM #tmpData d
+	FROM CTE_Result d
+	LEFT JOIN dbo.Market m WITH (NOLOCK) 
+        ON d.ShortedCode = m.ShortedCode 
 	LEFT JOIN dbo.AffMediaLink l WITH (NOLOCK) 
-		ON d.AffMediaLink = l.AffMediaLink AND l.AffId = d.AffId
+		ON d.AffMediaLink = l.AffMediaLink 
+		AND l.AffId = d.AffId 
+		AND m.MarketId = l.LanguageCode
 	LEFT JOIN dbo.AffMediaChannel c WITH (NOLOCK) 
-		ON l.ChannelCode = c.ChannelCode AND c.AffId =  d.AffId
-	LEFT JOIN @tmpLanguageCodes m 
-		ON d.ShortedCode = m.ShortedCode
+		ON l.ChannelCode = c.ChannelCode 
+		AND c.AffId =  d.AffId
+	WHERE (ISNULL(@LanguageCodes, '') = '' OR ',' + @LanguageCodes + ',' LIKE '%,' + m.MarketId + ',%')
 	GROUP BY d.AffId, ISNULL(c.ChannelName,'Others'), d.AffMediaLink, m.MarketName
 
 	-- TODO: Result
