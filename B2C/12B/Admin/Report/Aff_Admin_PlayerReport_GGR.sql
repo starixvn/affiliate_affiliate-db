@@ -20,6 +20,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20241227@Sally: Enhance performance [RedmineID: #212201]
+		- 20250409@Sally: Fix get data Virtual Sport 2 [RedmineID: #223334]
 
 	Param's Explanation:
 		- @ProductIds: list of products, '' = no product
@@ -76,12 +77,6 @@ BEGIN
 	WHERE EXISTS (SELECT 1 FROM CTE_Group i WHERE dsh.GroupId = i.GroupId)
 		AND dsh.MonthDate BETWEEN @FromDate AND @LastDayOfToDate
 		AND ',' + @ProductIds + ',' LIKE '%,' + CONVERT(VARCHAR(15), dsh.ProductId) + ',%'
-	UNION ALL
-	SELECT DISTINCT ssh.MonthDate, ssh.GroupId, ssh.ProductId, 1
-	FROM dbo.StraightSettingHistory ssh WITH (NOLOCK) 
-	WHERE EXISTS (SELECT 1 FROM CTE_Group i WHERE ssh.GroupId = i.GroupId)
-		AND ssh.MonthDate BETWEEN @FromDate AND @LastDayOfToDate
-		AND ',' + @ProductIds + ',' LIKE '%,' + CONVERT(VARCHAR(15), ssh.ProductId) + ',%'
 
 	-- Get player TO/WL data
 	CREATE TABLE #Result (AffId INT, AffUsername VARCHAR(50), CustId INT, UserName VARCHAR(50), RegisteredDate DATETIME, FirstDepositDate DATETIME
@@ -102,20 +97,20 @@ BEGIN
 	),
 		CTE_DataTicket AS(
 		SELECT cd.MonthDate, cd.AffId, ai.AffUsername,cd.CustId, cd.Currency, cd.ProductId
-			,CASE WHEN d.IsStraightSetting = 1 THEN 0 ELSE ISNULL(cd.Turnover,0) END Turnover
-			,CASE WHEN d.IsStraightSetting = 1 THEN ISNULL(cd.Revenue, 0) ELSE ISNULL(cd.GGR,0) END AS GGR
+			,ISNULL(cd.Turnover,0) AS Turnover
+			,ISNULL(cd.GGR,0) AS GGR
 		FROM CTE_RawDataTicket cd 
 			INNER JOIN #AffInfo ai WITH (NOLOCK)ON ai.AffId = cd.AffId AND cd.MonthDate = ai.MonthDate
 			INNER JOIN #ProductSetting d WITH(NOLOCK) ON cd.MonthDate = d.MonthDate AND ai.GroupId = d.GroupId AND d.ProductId = cd.ProductId
 		
 	)
 	INSERT INTO #Result (AffId, AffUsername, CustId, ProductId, Turnover, GGR)
-	SELECT d.AffId, d.AffUsername, d.CustId, d.ProductId, SUM(d.Turnover * e.Rate), SUM(d.GGR * e.Rate)
+	SELECT d.AffId, d.AffUsername, d.CustId, ISNULL(p.GroupProductId, d.ProductId) AS ProductId, SUM(d.Turnover * e.Rate), SUM(d.GGR * e.Rate)
 	FROM CTE_DataTicket d
+		LEFT JOIN [dbo].[Aff_f_GroupProduct]() p ON p.ProductId = d.ProductId
 		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON d.Currency = t.TpExchangeId
 		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(d.MonthDate, ISNULL(t.ExchangeId, d.Currency), @BaseExchangeId) e
-	GROUP BY d.AffId, d.AffUsername, d.CustId, d.ProductId
-
+	GROUP BY d.AffId, d.AffUsername, d.CustId, ISNULL(p.GroupProductId, d.ProductId)
 
 	SELECT @NRows = COUNT(DISTINCT CustId) FROM #Result
 	IF @NRows = 0
@@ -124,10 +119,9 @@ BEGIN
 	-- Total row
 	CREATE TABLE #Total (ProductId INT, Turnover MONEY, GGR MONEY)
 	INSERT INTO #Total (ProductId, Turnover, GGR)
-	SELECT ISNULL(t.GroupProductId,r.ProductId) AS ProductId, SUM(Turnover), SUM(GGR)
+	SELECT r.ProductId, SUM(Turnover), SUM(GGR)
 	FROM #Result r
-		LEFT JOIN [dbo].[Aff_f_GroupProduct]() t ON r.ProductId = t.ProductId
-	GROUP BY ISNULL(t.GroupProductId,r.ProductId)
+	GROUP BY r.ProductId
 
 	IF @IsExportExcel = 0
 	BEGIN
