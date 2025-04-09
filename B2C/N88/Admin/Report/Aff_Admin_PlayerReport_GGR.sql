@@ -24,6 +24,7 @@ AS
 		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 		- 20240524@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
+		- 20250409@Sally: Fix get data Virtual Sport 2 [RedmineID: #223334]
 
 	Param's Explanation:
 		- @ProductIds: list of products, '' = no product
@@ -98,11 +99,12 @@ BEGIN
 	CREATE TABLE #Result (AffId INT, AffUsername VARCHAR(50), CustId INT, UserName VARCHAR(50), RegisteredDate DATETIME, FirstDepositDate DATETIME
 		,ProductId INT, Turnover MONEY, GGR MONEY)
 	INSERT INTO #Result (AffId, AffUsername, CustId, ProductId, Turnover, GGR)
-	SELECT d.AffId, d.AffUsername, d.CustId, d.ProductId, SUM(d.Turnover * e.Rate), SUM(d.GGR * e.Rate)
+	SELECT d.AffId, d.AffUsername, d.CustId, ISNULL(p.GroupProductId, d.ProductId) AS ProductId, SUM(d.Turnover * e.Rate), SUM(d.GGR * e.Rate)
 	FROM #tmpData d
 		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON d.Currency = t.TpExchangeId
 		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(d.WinlostDate, ISNULL(t.ExchangeId, d.Currency), @BaseExchangeId) e
-	GROUP BY d.AffId, d.AffUsername, d.CustId, d.ProductId
+		LEFT JOIN [dbo].[Aff_f_GroupProduct]() p ON p.ProductId = d.ProductId
+	GROUP BY d.AffId, d.AffUsername, d.CustId, ISNULL(p.GroupProductId, d.ProductId)
 
 	IF @Username <> ''
 		DELETE r
@@ -117,10 +119,9 @@ BEGIN
 	-- Total row
 	CREATE TABLE #Total (ProductId INT, Turnover MONEY, GGR MONEY)
 	INSERT INTO #Total (ProductId, Turnover, GGR)
-	SELECT ISNULL(t.GroupProductId,r.ProductId) AS ProductId, SUM(Turnover), SUM(GGR)
+	SELECT r.ProductId AS ProductId, SUM(Turnover), SUM(GGR)
 	FROM #Result r
-		LEFT JOIN [dbo].[Aff_f_GroupProduct]() t ON r.ProductId = t.ProductId
-	GROUP BY ISNULL(t.GroupProductId,r.ProductId)
+	GROUP BY r.ProductId
 
 	IF @IsExportExcel = 0
 	BEGIN
