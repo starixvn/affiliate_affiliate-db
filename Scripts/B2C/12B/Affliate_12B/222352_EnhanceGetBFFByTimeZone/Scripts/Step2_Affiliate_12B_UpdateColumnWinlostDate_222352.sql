@@ -1,0 +1,18 @@
+/*<info serverAlias="DBAFF12B-Affiliate_12B"></info>*/
+/*
+	Created: 20250321@Sally
+	DB: DBAFF12B-Affiliate_12B
+	Task: Enhance Get BBF by TimeZone [RedmineID: #222352]
+
+*/
+USE Affiliate_12B
+GO
+IF EXISTS(
+    SELECT TOP 1 1 FROM dbo.AffTrans  WITH(NOLOCK) WHERE WinlostDate <> CAST(CONVERT(VARCHAR(10), DATEADD(HOUR, 12, TransDate), 120) AS SMALLDATETIME)
+)
+BEGIN
+	UPDATE dbo.AffTrans WITH(ROWLOCK, UPDLOCK)
+	SET WinlostDate = CAST(CONVERT(VARCHAR(10), DATEADD(HOUR, 12, TransDate), 120) AS SMALLDATETIME)
+	WHERE WinlostDate <> CAST(CONVERT(VARCHAR(10), DATEADD(HOUR, 12, TransDate), 120) AS SMALLDATETIME)
+END
+GO

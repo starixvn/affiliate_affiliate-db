@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250331@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 
 */
 
@@ -24,6 +25,12 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @currentDate SMALLDATETIME
+		,@WinlostDate	 SMALLDATETIME -- GMT+8
+		,@TimeZone		 SMALLINT
+
+	SELECT  @TimeZone	 = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
+	SELECT  @WinlostDate = CAST(CONVERT(VARCHAR(10), DATEADD(HOUR, 4 + @TimeZone, GETDATE()), 120) AS SMALLDATETIME)
+
 	SELECT  @currentDate = CONVERT(DATE, GETDATE())
 
 	DECLARE @Language NVARCHAR(5) = 'en-US'
@@ -74,8 +81,8 @@ BEGIN
 	END
 
 	BEGIN TRY
-		INSERT INTO dbo.AffTrans (AffID,TransDate,CompletedDate,Amount,Status,Description,Creator,TransType,AffCurrency,AffRate)
-			VALUES (@AffID,GETDATE(),GETDATE(),@Amount,'Completed',@Transdesc,@UserID,203,@AffCurrency,@AffRate)
+		INSERT INTO dbo.AffTrans (AffID,TransDate,CompletedDate,Amount,Status,Description,Creator,TransType,AffCurrency,AffRate,WinlostDate)
+			VALUES (@AffID,GETDATE(),GETDATE(),@Amount,'Completed',@Transdesc,@UserID,203,@AffCurrency,@AffRate, @WinlostDate)
 	END TRY
 	BEGIN CATCH
 		-- This transaction is unsuccessful.

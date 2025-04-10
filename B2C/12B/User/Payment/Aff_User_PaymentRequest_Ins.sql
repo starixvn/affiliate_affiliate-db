@@ -16,6 +16,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250401@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 
 */
 
@@ -23,6 +24,12 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @currentDate SMALLDATETIME
+		,@WinlostDate	 SMALLDATETIME -- GMT+8
+		,@TimeZone		 SMALLINT
+	
+	SELECT  @TimeZone	 = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
+	SELECT  @WinlostDate = CAST(CONVERT(VARCHAR(10), DATEADD(HOUR, 4 + @TimeZone, GETDATE()), 120) AS SMALLDATETIME)
+
 	SELECT  @currentDate = CONVERT(DATE, GETDATE())
 
 	IF ISNULL(@Amount, 0) < 0
@@ -130,8 +137,8 @@ BEGIN
 
 		SELECT @RefId = SCOPE_IDENTITY()
 
-		INSERT INTO dbo.AffTrans (AffId,TransType,TransDate,Amount,Status,Description,Creator,AffCurrency,AffRate,RefId)
-		VALUES (@AffId,202,@TransDate,-@Amount,'Pending','Request payout',@AffId,@AffCurrency,@AffRate,@RefId)
+		INSERT INTO dbo.AffTrans (AffId,TransType,TransDate,Amount,Status,Description,Creator,AffCurrency,AffRate,RefId,WinlostDate)
+		VALUES (@AffId,202,@TransDate,-@Amount,'Pending','Request payout',@AffId,@AffCurrency,@AffRate,@RefId,@WinlostDate)
 
 		SELECT @TransId = SCOPE_IDENTITY()
 	END TRY
