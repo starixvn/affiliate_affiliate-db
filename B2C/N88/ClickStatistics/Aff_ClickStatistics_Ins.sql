@@ -32,6 +32,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201215@Percy: Add AffMediaLink [RedmineID: #146201]
 		- 20250320@Sophia: Add clickID into RedirectPage [Redmine: #221818]
+		- 20250408@Sophia: Change AffCode instead of AffId, remove /Register [Redmine: #221818]
 */
 
 BEGIN
@@ -49,8 +50,9 @@ BEGIN
 		,@LicenseeDomain	NVARCHAR(50)
 		,@IsSSL				BIT
 		,@AffDomainId 		INT
+		,@AffCode 			VARCHAR(20)
 
-	SELECT @PreferredLanguage = ad.PreferredLanguage, @IsClosed = ai.IsClosed
+	SELECT @PreferredLanguage = ad.PreferredLanguage, @IsClosed = ai.IsClosed, @AffCode = ai.AffCode
 	FROM dbo.AffDetail ad WITH (NOLOCK)
 		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON ai.AffId = ad.AffId
 	WHERE ai.AffId = @AffId AND ai.Status = 'Approved'
@@ -86,7 +88,7 @@ BEGIN
 		END
 
 		-- Replace Affilliate domain by Licensee domain to redirect to licensee site
-		SELECT @RedirectPage = CASE WHEN @IsSSL = 1 THEN 'https' ELSE 'http' END + '://' + @LicenseeDomain + '/' + @LanguageCode + '/' + @PageCode + '/Register?aff=' + CONVERT(VARCHAR(20), @AffId)
+		SELECT @RedirectPage = CASE WHEN @IsSSL = 1 THEN 'https' ELSE 'http' END + '://' + @LicenseeDomain + '/' + @LanguageCode + '/' + @PageCode + '?affCode=' + CONVERT(VARCHAR(20), @AffCode)
 	END
 
 	-- Insert into ClickStatistics
