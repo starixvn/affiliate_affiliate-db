@@ -24,7 +24,7 @@ AS
 		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 		- 20240524@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
-		- 20250409@Sally: Fix get data Virtual Sport 2 [RedmineID: #223334]
+		- 20250409@Sally: Fix get data Virtual Sport 2 to Virtual Sport [RedmineID: #223334]
 
 	Param's Explanation:
 		- @ProductIds: list of products, '' = no product
