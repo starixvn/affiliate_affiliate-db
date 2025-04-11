@@ -1,5 +1,5 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Aff_Admin_StatementHistory_Sel] 
+ALTER PROCEDURE [dbo].[Aff_Admin_StatementHistory_Sel] 
 	@AffId		INT,
 	@FDate		SMALLDATETIME = NULL,
 	@TDate		SMALLDATETIME = NULL,
@@ -16,6 +16,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20241225@Sally: Apply QM Turnover [RedmineID: #212201]
+		- 20250404@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 
 */
 
@@ -24,13 +25,15 @@ BEGIN
 
 	DECLARE @MinReportDate SMALLDATETIME
 		,@EndOfTDate DATETIME
+		,@CurrentDate SMALLDATETIME 
 
 	DECLARE @AffGroupInfo TABLE (MonthDate SMALLDATETIME, GroupTypeName NVARCHAR(100))
 
 	SELECT  @MinReportDate = dbo.Aff_f_GetMinReportDate(@AffId)	
+	SELECT  @CurrentDate   = CONVERT(DATE, DATEADD(HOUR, 12, GETDATE()))
 
 	IF @FDate IS NULL OR @TDate IS NULL
-		SELECT @FDate = @MinReportDate, @TDate = CONVERT(DATE, GETDATE())
+		SELECT @FDate = @MinReportDate, @TDate = @CurrentDate
 	ELSE
 	BEGIN
 		SELECT @FDate = CONVERT(DATE, @FDate), @TDate = CONVERT(DATE, @TDate)
@@ -76,7 +79,7 @@ BEGIN
 		)
 		SELECT
 			at.TransId,
-			at.TransDate,
+			DATEADD(HOUR, 12, at.TransDate) AS TransDate, -- Changed from GMT-4 to GMT+12
 			at.TransType,
 			CASE WHEN at.TransType = 202 THEN ABS(at.Amount) ELSE at.Amount END AS Amount,
 			CASE WHEN at.TransType = 202 THEN at.Status ELSE 'B/F' END AS Status,
@@ -87,7 +90,7 @@ BEGIN
 			LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON at.Creator = au.custid
 		WHERE at.AffId = @AffId
 			AND at.TransType IN (202, 203)
-			AND at.TransDate >= @FDate AND at.TransDate < DATEADD(DAY, 1, @TDate)
+			AND at.WinlostDate >= @FDate AND at.WinlostDate < DATEADD(DAY, 1, @TDate)
 	END
 
 	-- Commission info
@@ -130,14 +133,14 @@ BEGIN
 				'System' AS Creator,
 				CASE WHEN TransType = 201 THEN 'Monthly Earning' ELSE 'Revenue Share' END AS Description
 			FROM (
-				SELECT md.MonthDate, CASE WHEN at.TransType = 205 THEN 201 ELSE at.TransType END AS TransType, ISNULL(at.Amount, 0) AS Amount
+				SELECT md.MonthDate, at.TransType, ISNULL(at.Amount, 0) AS Amount
 				FROM CTE_MonthDate md
 					OUTER APPLY (
 						SELECT at.TransType, at.Amount
 						FROM dbo.AffTrans at WITH (NOLOCK)
-						WHERE md.MonthDate = at.TransDate
+						WHERE md.MonthDate = at.WinlostDate
 							AND at.AffId = @AffId
-							AND at.TransType IN (201, 204, 205)
+							AND at.TransType IN (201, 204)
 					) at
 			) t
 			GROUP BY MonthDate, TransType
@@ -248,14 +251,14 @@ BEGIN
 				SUM(Amount),
 				'B/F' AS Status,
 				'System' AS Creator,
-				CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current ' ELSE 'UnCalculated ' END
+				CASE WHEN MonthDate >= @CurrentDate THEN 'Current ' ELSE 'UnCalculated ' END
 					+ CASE WHEN TransType = 201 THEN 'Monthly Earning' ELSE 'Revenue Share' END AS Description,
-				CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 0 ELSE 1 END AS CalculatedType
+				CASE WHEN MonthDate >= @CurrentDate THEN 0 ELSE 1 END AS CalculatedType
 			FROM (
-				SELECT md.MonthDate, CASE WHEN at.TransType = 205 THEN 201 ELSE at.TransType END AS TransType, ISNULL(at.Amount, 0) AS Amount
+				SELECT md.MonthDate,TransType, ISNULL(at.Amount, 0) AS Amount
 				FROM CTE_MonthDate md
 					OUTER APPLY (
-						SELECT c.Commission, c.StraightCommission, c.SubAffCommission
+						SELECT c.Commission, c.SubAffCommission
 						FROM #TempCommission c
 						WHERE md.MonthDate = c.MonthDate
 							AND c.AffId = @AffId
@@ -263,7 +266,6 @@ BEGIN
 					) c
 					OUTER APPLY (
 						SELECT 201 AS TransType, c.Commission AS Amount
-						UNION ALL SELECT 205, c.StraightCommission
 						UNION ALL SELECT 204, c.SubAffCommission
 					) at
 			) t
