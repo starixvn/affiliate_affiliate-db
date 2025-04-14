@@ -37,6 +37,7 @@ AS
 		- 20250305@Sally: Enhance validate AffmediaLink  [RedmineID: #219049]
 		- 20250313@Sally: fix get affdomain  [RedmineID: #219984]
 		- 20250320@Sophia: Add clickID into RedirectPage [Redmine: #219949]
+		- 20250402@Lewis: User table SpecificDomainControl [Redmine: #221035]
 */
 
 BEGIN
@@ -59,6 +60,7 @@ BEGIN
 
     SET @ChannelCode = ISNULL(@ChannelCode, '')
 
+	--Get AffId
 	SELECT @AffId = ac.AffId
 	FROM dbo.AffiliateCode ac WITH(NOLOCK)
 	WHERE ac.AffCode = @AffCode
@@ -89,19 +91,30 @@ BEGIN
 
 	--Get redirect link
 	BEGIN
-
-		IF NOT EXISTS(
+		IF EXISTS(
 			SELECT TOP 1 1
-			FROM dbo.Aff_f_SpecificRedirectDomain()
-			WHERE AffDomain = @AffDomain
-				AND AffUsername = @AffUsername
+			FROM dbo.SpecificDomainControl WITH (NOLOCK)
+			WHERE AffDomainName = @AffDomain
+				AND AffId = @AffId
+				AND Status = 1
 		)
 		BEGIN
+			-- Get redirect domain of specific AFF
+			SELECT @RedirectDomain = LicenseeDomainName
+				, @IsSSL = LicenseeDomainIsSSL
+			FROM dbo.SpecificDomainControl WITH (NOLOCK)
+			WHERE AffDomainName = @AffDomain
+				AND AffId = @AffId
+				AND Status = 1
+		END
+		ELSE
+		BEGIN
+			--Normal Domain
 			SELECT @AffDomainId	= DomainID
 			FROM dbo.AffDomain WITH (NOLOCK)
 			WHERE DomainName = @AffDomain 
 				AND IsDeleted = 0
-			
+		
 			SELECT TOP (1) @LicenseeDomain 	= b.DomainName
 					,  @IsSSL		   		= b.IsSSL
 			FROM dbo.DomainControl a WITH (NOLOCK)
@@ -112,7 +125,7 @@ BEGIN
 				AND a.IsDeleted = 0
 				AND b.IsDeleted = 0
 		END
-
+		
 		-- Get AffMediaLinkId: only tracking link is ON
 		SELECT @affMediaLinkId = AffMediaLinkId
 			,@AffMediaLink 	   = AffMediaLink
@@ -134,15 +147,12 @@ BEGIN
                 AND AffMediaLink = @AffMediaLink_http
                 AND IsShow 		 = 1
         END
-		-- Get redirect domain of specific AFF
-		SELECT @RedirectDomain = RedirectDomain
-		FROM dbo.Aff_f_SpecificRedirectDomain()
-		WHERE AffDomain = @AffDomain AND AffUsername = @AffUsername
+		
 
 		IF @RedirectDomain IS NOT NULL
 		BEGIN	
 			--Specific redirect domain	
-			SET @RedirectPage = @RedirectDomain + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode + '&affMediaLinkId=' + @affMediaLinkId
+			SET @RedirectPage = CASE WHEN @IsSSL = 1 THEN 'https' ELSE 'http' END + '://' + @RedirectDomain + '/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode + '&affMediaLinkId=' + @affMediaLinkId
 		END
 		ELSE
 		BEGIN
