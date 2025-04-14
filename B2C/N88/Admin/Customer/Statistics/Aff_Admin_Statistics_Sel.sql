@@ -17,6 +17,7 @@ AS
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20240506@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
+		- 20250402@Sophia: Fix Unique Click count IP by range from - to [RedmineID: #221818]
 */
 
 BEGIN
@@ -211,18 +212,18 @@ BEGIN
 			WHERE c.AffId = @AffId
 				AND c.Date >= @FromBeginMonth AND c.Date < @ToNextMonth
 				AND c.Date > @ArchiveDate
-			GROUP BY ISNULL(c.DeviceType, 0), c.Date
+			GROUP BY ISNULL(c.DeviceType, 0) 
 
 			UNION ALL
 			SELECT
 				ISNULL(c.DeviceType, 0) AS DeviceType,
-				SUM(TotalClick) AS TotalClick,
-				SUM(UniqueClick) AS UniqueClick
-			FROM dbo.ClickStatisticsSum c WITH (NOLOCK)
+				COUNT(1) AS TotalClick,
+				COUNT(DISTINCT c.IP) AS UniqueClick
+			FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
 			WHERE c.AffId = @AffId
 				AND c.Date >= @FromBeginMonth AND c.Date < @ToNextMonth
 				AND c.Date <= @ArchiveDate
-			GROUP BY ISNULL(c.DeviceType, 0), c.Date
+			GROUP BY ISNULL(c.DeviceType, 0)
 		) AS A
 		GROUP BY DeviceType
 	)
