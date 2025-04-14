@@ -10,15 +10,89 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250402@Lewis: Include Specific Domain [RedmineID: #221035]
 
 */
 
 BEGIN
 	SET NOCOUNT ON
+	DECLARE @CutOffDate DATETIME = '20250213'
 
-	SELECT a.DomainID, a.DomainName, CONVERT(BIT, ISNULL(a.IsSSL, 0)) AS IsSSL, a.CreateDate
+	CREATE TABLE #Result (
+		DomainID INT -- AffDomainId
+		,DomainName NVARCHAR(200) -- AffDomainName
+		,IsSSL BIT -- AffDomainIsSSL
+		,CreateDate DATETIME
+		,IsSpecific BIT
+	)
+
+	-- TODO: Specific Domain
+	CREATE TABLE #SpecificDomainControl (
+		AffId INT
+		,AffDomainId INT
+		,AffDomainName NVARCHAR(200)
+		,AffDomainIsSSL BIT
+		,LicenseeDomainName NVARCHAR(200)
+		,LicenseeDomainIsSSL BIT
+		,Status BIT
+		,CreatedDate DATETIME
+	)
+	INSERT INTO #SpecificDomainControl (
+		AffId
+		,AffDomainId
+		,AffDomainName
+		,AffDomainIsSSL
+		,LicenseeDomainName
+		,LicenseeDomainIsSSL
+		,Status
+		,CreatedDate
+	)
+	SELECT 
+		s.AffId
+		,0
+		,s.AffDomainName
+		,s.AffDomainIsSSL
+		,s.LicenseeDomainName
+		,s.LicenseeDomainIsSSL
+		,s.Status
+		,s.CreatedDate
+	FROM SpecificDomainControl s WITH (NOLOCK)
+	WHERE s.AffId = @AffID
+		AND s.Status = 1 -->> both AffDomain and RedirectDomain are AVAILABLE
+	
+	-- Update #SpecificDomainControl => AffDomainId and CreateDate
+	UPDATE s SET s.AffDomainId = ad.DomainId, s.CreatedDate = ad.CreateDate
+	FROM #SpecificDomainControl s
+	LEFT JOIN AffDomain ad ON s.AffDomainName = ad.DomainName
+	WHERE ad.DomainId IS NOT NULL
+
+	-- Insert into #Result
+	INSERT INTO #Result (
+		DomainID
+		,DomainName
+		,IsSSL
+		,CreateDate
+		,IsSpecific
+	)
+	SELECT 
+		AffDomainId
+		,AffDomainName
+		,AffDomainIsSSL
+		,CreatedDate
+		,1
+	FROM #SpecificDomainControl
+
+	-- TODO: Normal Domain
+	INSERT INTO #Result (
+		DomainID
+		,DomainName
+		,IsSSL
+		,CreateDate
+		,IsSpecific
+	)
+	SELECT a.DomainID, a.DomainName, CONVERT(BIT, ISNULL(a.IsSSL, 0)) AS IsSSL, a.CreateDate,0
 	FROM dbo.AffDomain a WITH (NOLOCK)
-		INNER JOIN dbo.DomainControl b WITH (NOLOCK) ON a.DomainID = b.AffDomainId
+		INNER JOIN dbo.DomainControl b WITH (NOLOCK) ON a.DomainID = b.AffDomainId 
 		INNER JOIN dbo.LicenseeDomain ld WITH (NOLOCK) ON b.LicenseeDomainId = ld.DomainId
 		INNER JOIN dbo.AffDetail d WITH (NOLOCK) ON b.MarketID = d.PreferredLanguage
 	WHERE b.STATUS = 1
@@ -26,7 +100,29 @@ BEGIN
 		AND a.IsDeleted = 0
 		AND b.IsDeleted = 0
 		AND ld.IsDeleted = 0
-	GROUP BY a.DomainID, a.DomainName, CONVERT(BIT, ISNULL(a.IsSSL, 0)), a.CreateDate
-	ORDER BY a.DomainName
+		AND a.CreateDate >= @CutOffDate
+
+	-- TODO: Result
+	;WITH cte_Specific AS (
+		SELECT *
+		FROM #Result
+		WHERE IsSpecific = 1
+	), cte_Normal AS (
+		SELECT *
+		FROM #Result
+		WHERE IsSpecific = 0
+	)
+	SELECT DISTINCT
+		ISNULL(a.DomainID,b.DomainID) AS DomainID
+		,ISNULL(a.DomainName,b.DomainName) AS DomainName
+		,ISNULL(a.IsSSL,b.IsSSL) AS IsSSL
+		,ISNULL(a.CreateDate,b.CreateDate) AS CreateDate
+	FROM cte_Specific a
+	FULL OUTER JOIN cte_Normal b 
+		ON a.DomainID = b.DomainID
+
+	DROP TABLE #SpecificDomainControl
+	DROP TABLE #Result
+
 END
 GO
