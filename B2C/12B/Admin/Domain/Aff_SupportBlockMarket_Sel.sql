@@ -25,6 +25,7 @@ BEGIN
 	INSERT INTO #GridOfBlockMarket(MarketId, MarketName, Status)
 	SELECT MarketId, MarketName, 0
 	FROM dbo.Market WITH (NOLOCK)
+	WHERE IsDeleted = 0
 
 	--TODO: Domain Control
 	IF @AffDomainId <> 0 AND @LicenseeDomainId <> 0 

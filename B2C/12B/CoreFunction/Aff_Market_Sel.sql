@@ -9,6 +9,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250318@Lewis: Use col IsDeleted [RedmineID: #219810]
 
 */
 
@@ -25,7 +26,7 @@ BEGIN
 						   WHEN 'te-IN' THEN 6
 			 ELSE 7 END AS SortTypeId
 		FROM dbo.Market WITH (NOLOCK)
-		WHERE MarketId <> 'hi-IN'
+		WHERE IsDeleted = 0
 	)
 	SELECT MarketId, MarketName, MarketNativeName, DisplayName, ShortedCode
 	FROM CTE_Market

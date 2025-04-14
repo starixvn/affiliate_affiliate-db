@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250317@Lewis: Add Korean & Remove Cambodian En Bangladesh [RedmineID: #219810]
 
 */
 
@@ -50,10 +51,34 @@ BEGIN
 	IF @Language IS NULL -- get all
 	BEGIN
 		SELECT
-			msgid, creator, posteddate, important, creatorname, updatename, updateddate, message_en, message_cn, message_tw, message_es, message_th, message_vi, message_id, message_kr, message_jp, message_hi, message_ms, Message_Kh, Message_Bn
+			msgid
+			, creator
+			, posteddate
+			, important
+			, creatorname
+			, updatename
+			, updateddate
+			, message_en
+			, message_cn
+			, message_th
+			, message_vi
+			, message_id
+			, message_kr
 		FROM (
 			SELECT
-				n.msgid, n.creator, n.posteddate, n.important, c.username AS creatorname, u.username AS updatename, n.updateddate, n.message_en, n.message_cn, n.message_tw, n.message_es, n.message_th, n.message_vi, n.message_id, n.message_kr, n.message_jp, n.message_hi, n.message_ms, n.Message_Kh, n.Message_Bn
+				n.msgid
+				, n.creator
+				, n.posteddate
+				, n.important
+				, c.username AS creatorname
+				, u.username AS updatename
+				, n.updateddate
+				, n.message_en
+				, n.message_cn
+				, n.message_th
+				, n.message_vi
+				, n.message_id
+				, n.message_kr
 				,ROW_NUMBER() OVER(ORDER BY n.posteddate DESC) AS RowNum
 			FROM dbo.News n WITH (NOLOCK)
 				LEFT JOIN dbo.Affiliate_User c WITH (NOLOCK) ON n.Creator = c.custid
@@ -76,18 +101,12 @@ BEGIN
 		FROM (
 			SELECT
 				CASE @language
-						WHEN 'en_US' THEN message_en	
-						WHEN 'zh-TW' THEN ISNULL(message_tw, message_en)
+						WHEN 'en_US' THEN message_en
 						WHEN 'zh-CN' THEN ISNULL(message_cn, message_en)
-						WHEN 'es-ES' THEN ISNULL(message_es, message_en)
 						WHEN 'th-TH' THEN ISNULL(message_th, message_en)
 						WHEN 'vi-VN' THEN ISNULL(message_vi, message_en)
 						WHEN 'id-ID' THEN ISNULL(message_id, message_en)
 						WHEN 'ko-KR' THEN ISNULL(message_kr, message_en)
-						WHEN 'ja-JP' THEN ISNULL(message_jp, message_en)
-						WHEN 'hi-IN' THEN ISNULL(message_hi, message_en)
-						WHEN 'km-KH' THEN ISNULL(Message_Kh, message_en)
-						WHEN 'bn-BD' THEN ISNULL(Message_Bn, message_en)
 						ELSE message_en END AS [message]
 				,posteddate
 				,msgid
