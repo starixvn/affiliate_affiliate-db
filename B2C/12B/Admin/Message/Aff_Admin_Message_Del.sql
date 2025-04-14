@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250317@Lewis: Add Korean [RedmineID: #219810]
 
 */
 
@@ -63,6 +64,10 @@ BEGIN
 					+ ',' + 'Message_Ms=' + ISNULL(m.Message_Ms, '')
 					+ ',' + 'Message_Kh=' + ISNULL(m.Message_Kh, '')
 					+ ',' + 'Message_Bn=' + ISNULL(m.Message_Bn, '')
+					+ ',' + 'Message_Kr=' + ISNULL(m.Message_Kr, '')
+					+ ',' + 'Message_Jp=' + ISNULL(m.Message_Jp, '')
+					+ ',' + 'Message_Tw=' + ISNULL(m.Message_Tw, '')
+					+ ',' + 'Message_Es=' + ISNULL(m.Message_Es, '')
 					+ ',' + 'Important=' + ISNULL(CONVERT(VARCHAR(5), m.Important), '')
 	FROM dbo.News m WITH (NOLOCK)
 		INNER JOIN @Messages tmp ON m.MsgId = tmp.MessageId

@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250317@Lewis: Add Korean [RedmineID: #219810]
 
 	Param Explanation:
 		- @MessageId:
@@ -44,10 +45,7 @@ BEGIN
 			,m.Message_Th
 			,m.Message_Id
 			,m.Message_Vi
-			,m.Message_Hi
-			,m.Message_Ms
-			,m.Message_Kh
-			,m.Message_Bn
+			,m.Message_Kr --Korean
 			,m.PostedDate
 			,m.Important
 			,m.UpdatedDate
@@ -82,9 +80,18 @@ BEGIN
 			RETURN
 
 		SELECT
-			MessageId, Message_En, Message_Cn, Message_Th, Message_Id
-			,Message_Vi, Message_Hi, Message_Ms, Message_Kh, Message_Bn
-			,PostedDate, Important, UpdatedDate, CreatorName, UpdatedName
+			MessageId
+			, Message_En --En
+			, Message_Cn --ChineseSimplified
+			, Message_Th --Thai
+			, Message_Id --Indo
+			, Message_Vi --Vietnam
+			, Message_Kr --Korean
+			, PostedDate
+			, Important
+			, UpdatedDate
+			, CreatorName
+			, UpdatedName
 		FROM (
 			SELECT
 				m.MsgId AS MessageId
@@ -93,10 +100,7 @@ BEGIN
 				,m.Message_Th
 				,m.Message_Id
 				,m.Message_Vi
-				,m.Message_Hi
-				,m.Message_Ms
-				,m.Message_Kh
-				,m.Message_Bn
+				,m.Message_Kr --Korean
 				,m.PostedDate
 				,m.Important
 				,m.UpdatedDate

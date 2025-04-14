@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250317@Lewis: Add Korean [RedmineID: #219810]
 
 	Param's Explanation:
 		- @MsgID: 
@@ -27,19 +28,12 @@ BEGIN
 		FROM dbo.News WITH (NOLOCK)     
 	END
 	
-	SELECT [message_en]
-		,[message_cn]
-		,[message_tw]
-		,[message_es]
-		,[message_th]
-		,[message_vi]
-		,[message_id]
-		,[message_kr]
-		,[message_jp]
-		,[message_hi]
-		,[message_ms]
-		,[Message_Kh]
-		,[Message_Bn]
+	SELECT [message_en] --eng
+		,[message_cn] --chinese simplified
+		,[message_th] --thai
+		,[message_vi] --vietnam
+		,[message_id] --indo
+		,[message_kr] --korean
 		,n.creator
 		,[posteddate]
 		,[msgid]

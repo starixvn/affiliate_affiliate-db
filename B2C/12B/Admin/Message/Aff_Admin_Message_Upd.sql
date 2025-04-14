@@ -2,19 +2,24 @@
 CREATE PROCEDURE [dbo].[Aff_Admin_Message_Upd]
 	@UserId			INT
 	,@MessageId		INT
-	,@MsgEN			NVARCHAR(4000)
-	,@MsgCN			NVARCHAR(4000)
-	,@MsgTH			NVARCHAR(4000)
-	,@MsgVI			NVARCHAR(4000)
-	,@MsgID			NVARCHAR(4000)
-	,@MsgHi			NVARCHAR(4000)
-	,@MsgMs			NVARCHAR(4000)
-	,@MsgKh			NVARCHAR(4000)
-    ,@MsgBn			NVARCHAR(4000)
+	,@MsgEN			NVARCHAR(4000) = ''
+	,@MsgCN			NVARCHAR(4000) = ''
+	,@MsgTH			NVARCHAR(4000) = ''
+	,@MsgVI			NVARCHAR(4000) = ''
+	,@MsgID			NVARCHAR(4000) = ''
+	,@MsgHi			NVARCHAR(4000) = ''
+	,@MsgMs			NVARCHAR(4000) = ''
+	,@MsgKh			NVARCHAR(4000) = ''
+    ,@MsgBn			NVARCHAR(4000) = ''
 	,@IsImportant	BIT
 	,@IP			VARCHAR(50) = ''
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+	,@MsgKr			NVARCHAR(4000) = ''
+	,@MsgJp			NVARCHAR(4000) = ''
+	,@MsgTw			NVARCHAR(4000) = ''
+	,@MsgEs			NVARCHAR(4000) = ''
+
 AS
 
 /*
@@ -24,6 +29,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250317@Lewis: Add Korean [RedmineID: #219810]
 
 */
 
@@ -52,6 +58,10 @@ BEGIN
 					+ ',' + 'Message_Ms=' + ISNULL(Message_Ms, '')
 					+ ',' + 'Message_Kh=' + ISNULL(Message_Kh, '')
 					+ ',' + 'Message_Bn=' + ISNULL(Message_Bn, '')
+					+ ',' + 'Message_Kr=' + ISNULL(Message_Kr, '')
+					+ ',' + 'Message_Jp=' + ISNULL(Message_Jp, '')
+					+ ',' + 'Message_Tw=' + ISNULL(Message_Tw, '')
+					+ ',' + 'Message_Es=' + ISNULL(Message_Es, '')
 					+ ',' + 'Important=' + ISNULL(CONVERT(VARCHAR(5), Important), '')
 	FROM dbo.News WITH (NOLOCK)
 	WHERE MsgId = @MessageId
@@ -76,6 +86,10 @@ BEGIN
 			,Important		= @IsImportant
 			,UpdatedBy		= @UserId
 			,UpdatedDate	= GETDATE()
+			,Message_Kr		= @MsgKr
+			,Message_Jp		= @MsgJp
+			,Message_Tw		= @MsgTw
+			,Message_Es		= @MsgEs
 		WHERE MsgId = @MessageId
 	END TRY
 	BEGIN CATCH
@@ -97,6 +111,10 @@ BEGIN
 					+ ',' + 'Message_Ms=' + ISNULL(@MsgMs, '')
 					+ ',' + 'Message_Kh=' + ISNULL(@MsgKh, '')
 					+ ',' + 'Message_Bn=' + ISNULL(@MsgBn, '')
+					+ ',' + 'Message_Kr=' + ISNULL(@MsgKr, '')
+					+ ',' + 'Message_Jp=' + ISNULL(@MsgJp, '')
+					+ ',' + 'Message_Tw=' + ISNULL(@MsgTw, '')
+					+ ',' + 'Message_Es=' + ISNULL(@MsgEs, '')
 					+ ',' + 'Important=' + ISNULL(CONVERT(VARCHAR(5), @IsImportant), '')
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
