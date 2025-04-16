@@ -6,89 +6,155 @@
 -- Import data into MemberInfo_UAT
 INSERT INTO MemberInfo_UAT (
 	UserName,
-	DepositCustID,
-	Btag,
 	AffID,
-	ClickID,
-	Currency,
-	CountryID,
-	RegisteredDate,
 	CreatedDate,
-	IBCUsername,
-	Email,
+	RegisteredDate,
+	DepositCustID,
+	Currency,
 	FirstName,
 	LastName,
+	Email,
+	IsRemoved,
+	IBCCustID,
+	IBCUserName,
+	Recommend,
+	Btag,
+	ClickID,
+	CountryID,
 	Phone,
 	Address,
-	IsRemoved,
 	AffAffectedDate
 )
 SELECT top 1000 
 	UserName,
-	DepositCustID,
-	Btag,
 	AffID,
-	ClickID,
-	Currency,
-	CountryID,
-	RegisteredDate,
 	CreatedDate,
-	IBCUsername,
-	Email,
+	RegisteredDate,
+	DepositCustID,
+	Currency,
 	FirstName,
 	LastName,
+	LastName,
+	Email,
+	IsRemoved,
+	IBCCustID,
+	IBCUserName,
+	Recommend,
+	Btag,
+	ClickID,
+	CountryID,
 	Phone,
 	Address,
-	IsRemoved,
 	AffAffectedDate
 FROM MemberInfo WITH (NOLOCK)
 ORDER BY CreatedDate DESC;
 
 -- Import data into CurrencyConverter_UAT
 INSERT INTO CurrencyConverter_UAT (
+	ApplicationID,
 	PartnerCurrency,
 	ExchangeID,
-	ApplicationID
+	CreatedDate,
+	PartnerExchangeID
 )
 SELECT 
+	ApplicationID,
 	PartnerCurrency,
 	ExchangeID,
-	ApplicationID
+	CreatedDate,
+	PartnerExchangeID
 FROM CurrencyConverter WITH (NOLOCK);
 
 -- Import data into AffInfo_UAT
 INSERT INTO AffInfo_UAT (
 	AffID,
-	TotalMembers,
-	DomainReferrer
+	UserName,
+	UserName2,
+	FirstName,
+	LastName,
+	GroupID,
+	Status,
+	ApprovedDate,
+	IsClosed,
+	Currency,
+	RegisteredDate,
+	Email,
+	Password,
+	AffType,
+	IsPageEnabled,
+	Level,
+	IsLocked,
+	TestLevel,
+	BF,
+	TotalMembers
 )
 SELECT  
 	AffID,
-	TotalMembers,
-	DomainReferrer
-FROM AffInfo WITH (NOLOCK)
-;
+	UserName,
+	UserName2,
+	FirstName,
+	LastName,
+	GroupID,
+	Status,
+	ApprovedDate,
+	IsClosed,
+	Currency,
+	RegisteredDate,
+	Email,
+	Password,
+	AffType,
+	IsPageEnabled,
+	Level,
+	IsLocked,
+	TestLevel,
+	BF,
+	TotalMembers
+FROM AffInfo WITH (NOLOCK);
 
 -- Import data into ClickStatistics_UAT
 INSERT INTO ClickStatistics_UAT (
 	ClickID,
 	AffID,
-	DomainReferrer,
+	UpdatedTime,
+	IP,
 	[Date],
-	SportCode,
+	Browser,
+	URLReferrer,
+	DomainReferrer,
+	OS,
+	Device,
+	BrowserVersion,
+	BrowserResolution,
+	BrowserLanguage,
+	UserAgent,
+	Country,
 	LanguageCode,
-	ClickCount,
-	IP
+	SportCode,
+	RedirectURL,
+	Status,
+	ClickCount
 )
 SELECT TOP 1000
 	ClickID,
 	AffID,
-	DomainReferrer,
+	UpdatedTime,
+	IP,
 	[Date],
-	SportCode,
+	Browser,
+	URLReferrer,
+	DomainReferrer,
+	OS,
+	Device,
+	BrowserVersion,
+	BrowserResolution,
+	BrowserLanguage,
+	UserAgent,
+	Country,
 	LanguageCode,
-	ClickCount,
-	IP
+	SportCode,
+	RedirectURL,
+	Status,
+	ClickCount
 FROM ClickStatistics WITH (NOLOCK)
 ORDER BY [Date] DESC;
 
