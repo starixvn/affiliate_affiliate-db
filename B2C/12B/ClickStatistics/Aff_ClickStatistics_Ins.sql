@@ -38,6 +38,7 @@ AS
 		- 20250313@Sally: fix get affdomain  [RedmineID: #219984]
 		- 20250320@Sophia: Add clickID into RedirectPage [Redmine: #219949]
 		- 20250402@Lewis: User table SpecificDomainControl [Redmine: #221035]
+		- 20250408@Sophia: Add ChannelCode into ClickStatistics [Redmine: #222765]
 */
 
 BEGIN
@@ -198,6 +199,7 @@ BEGIN
 			,RedirectURL
 			,Status
 			,DeviceType
+			,ChannelCode
 		)
 		VALUES
 		(
@@ -221,6 +223,7 @@ BEGIN
 			,@RedirectPage
 			,0
 			,@DeviceType
+			,@ChannelCode
 		)
 
 		SELECT @ClickID = SCOPE_IDENTITY()
