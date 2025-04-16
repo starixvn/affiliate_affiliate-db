@@ -1,4 +1,5 @@
-﻿ALTER PROCEDURE [dbo].[Task_Aff_MemberInfoImportData] 
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="wsv_afinet" viewers="" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[Task_Aff_MemberInfoImportData] 
 	@AdminID INT
 	,@XmlData XML
 	,@RegisteredDate SMALLDATETIME
@@ -15,6 +16,7 @@ AS
 		Johnny@2013Mar27: Fix to update Clickstatistics table
 		Peter@20131029 : Add more columns Email, FirstName, LastName, Phone, Address
 		                 Calculate TotalMembers column in AffInfo table 
+		- 20250415@Sophia: Build version UAT for testing new API [Redmine #223271]
 */
 BEGIN
 	SET NOCOUNT ON
@@ -67,7 +69,7 @@ BEGIN
 		,[Table].[Column].value('./@address', 'nvarchar(255)') AS [Address]
 	FROM @XmlData.nodes('/root/trans') AS [Table]([Column])
 
-	--Update info if this user exists in Memberinfo table
+	--Update info if this user exists in MemberInfo table
 	UPDATE m
 	SET m.DepositCustID = TEMP.DepositCustID
 		,m.Btag = TEMP.Btag
@@ -84,17 +86,17 @@ BEGIN
 		,m.Address = TEMP.Address
 	OUTPUT Inserted.UserName
 	INTO @TmpTable
-	FROM MemberInfo AS m
+	FROM MemberInfo_UAT AS m
 		INNER JOIN @TempTrans AS TEMP
 		ON m.UserName = TEMP.UserName
-		INNER JOIN CurrencyConverter cc
+		INNER JOIN CurrencyConverter_UAT cc
 		ON TEMP.Currency = cc.PartnerCurrency
 			AND cc.ApplicationID = 1
-		INNER JOIN AffInfo AS ai WITH (NOLOCK)
+		INNER JOIN AffInfo_UAT AS ai WITH (NOLOCK)
 		ON m.AffId = ai.AffId
 
-	--insert new members into Memberinfo table
-	INSERT INTO MemberInfo (
+	--Insert new members into MemberInfo table
+	INSERT INTO MemberInfo_UAT (
 		UserName
 		,DepositCustID
 		,Btag
@@ -127,20 +129,20 @@ BEGIN
 		,TEMP.Address
 		,TEMP.RegisteredDate
 	FROM @TempTrans TEMP
-		INNER JOIN CurrencyConverter cc
+		INNER JOIN CurrencyConverter_UAT cc
 		ON TEMP.Currency = cc.PartnerCurrency
 			AND cc.ApplicationID = 1
-		INNER JOIN AffInfo AS ai WITH (NOLOCK)
+		INNER JOIN AffInfo_UAT AS ai WITH (NOLOCK)
 		ON TEMP.AffId = ai.AffId
 	WHERE TEMP.UserName NOT IN (
 			SELECT UserName
 			FROM @TmpTable
 			);
 
-	-- Peter@20131029 : Calculate toal members for affiliate
+	--Calculate total members for affiliate
 	UPDATE ai
 	SET ai.TotalMembers = dbo.Aff_CountMember(t.AffID)
-	FROM AffInfo ai WITH (ROWLOCK, UPDLOCK)
+	FROM AffInfo_UAT ai WITH (ROWLOCK, UPDLOCK)
 		INNER JOIN @TempTrans t
 		ON t.AffID = ai.AffID
 
@@ -152,11 +154,13 @@ BEGIN
 	FROM @TempTrans
 
 	SELECT @MinClickID_Statistics = min(ClickId)
-	FROM ClickStatistics(NOLOCK)
+	FROM ClickStatistics_UAT(NOLOCK)
 
 	IF @MinClickID < @MinClickID_Statistics
+		RETURN
+
 	BEGIN
-		--Temp table to insert click value to update to clickstatisticsSum table
+		--Temp table to insert click value to update to ClickStatisticsSum table
 		DECLARE @TmpClickDetail TABLE ([date] SMALLDATETIME)
 
 		INSERT INTO @TmpClickDetail (DATE)
@@ -206,7 +210,7 @@ BEGIN
 						WHEN m.CreatedDate IS NOT NULL THEN 1
 						ELSE 0
 						END) AS FDM
-			FROM MemberInfo m WITH (NOLOCK)
+			FROM MemberInfo_UAT m WITH (NOLOCK)
 			GROUP BY ClickId
 			) AS m
 			ON c.ClickId = m.ClickId

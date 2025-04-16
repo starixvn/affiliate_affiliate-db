@@ -1,4 +1,5 @@
-﻿ALTER PROCEDURE [dbo].[Task_Aff_MemberInfoUpdateCreatedDate] 
+﻿/*<info serverAlias="DBAFF-Affiliate_Athena000" executers="wsv_afinet" viewers="" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[Task_Aff_MemberInfoUpdateCreatedDate] 
 	@XmlData XML
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(500) = '' OUTPUT
@@ -10,6 +11,7 @@ AS
 	Original: [Aff_MemberInfoImportData]
 	Revisions: 		
 		Johnny@2013Mar27: Fix to update Clickstatistics, Clickstatistics_bk and ClickstatisticsSum table
+		- 20250415@Sophia: Build version UAT for testing new API [Redmine #223271]
 */
 --Import new Data here 
 DECLARE @TmpClick TABLE (ClickId BIGINT)
@@ -55,7 +57,7 @@ SET m.CreatedDate = TEMP.DATE
 	,m.AffAffectedDate = ISNULL(TEMP.DATE, m.RegisteredDate)
 OUTPUT Inserted.ClickId
 INTO @TmpClick
-FROM MemberInfo AS m
+FROM MemberInfo_UAT AS m
 	INNER JOIN @TempTrans AS TEMP
 	ON m.UserName = TEMP.UserName;
 
@@ -67,11 +69,13 @@ SELECT @MinClickID = min(ClickId)
 FROM @TmpClick
 
 SELECT @MinClickID_Statistics = min(ClickId)
-FROM ClickStatistics NOLOCK
+FROM ClickStatistics_UAT NOLOCK
 
 IF @MinClickID < @MinClickID_Statistics
+	RETURN
+
 BEGIN
-	--Temp table to insert click value to update to clickstatisticsSum table
+	--Temp table to insert click value to update to ClickStatisticsSum table
 	DECLARE @TmpClickDetail TABLE ([date] SMALLDATETIME)
 
 	INSERT INTO @TmpClickDetail (DATE)
@@ -121,7 +125,7 @@ BEGIN
 					WHEN m.CreatedDate IS NOT NULL THEN 1
 					ELSE 0
 					END) AS FDM
-		FROM MemberInfo m WITH (NOLOCK)
+		FROM MemberInfo_UAT m WITH (NOLOCK)
 		GROUP BY ClickId
 		) AS m
 		ON c.ClickId = m.ClickId
