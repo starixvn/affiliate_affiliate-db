@@ -6,6 +6,7 @@ ALTER PROCEDURE [dbo].[Aff_MemberInfoGetMissingCreatedDate]
 	DB: DBAFF - Affiliate_Athena000,Affiliate_Aoncash,Affiliate_ItcBet,Affiliate_MacauBet,Affiliate_Spondemo,Affiliate_9Bet
 	Revisions
 		- 20240516@Eddie: Enhance SP to restrict the member list to call TW service to update memberinfo [RedmineID: #205233]
+		- 20250415@Sophia: Build version UAT for testing new API [Redmine #223271]
 */
 AS    
 BEGIN
@@ -16,7 +17,7 @@ BEGIN
 	SELECT @dbname = SUBSTRING(@dbname, 11, LEN(@dbname) - 10)
 
 	SELECT m.username
-    FROM MemberInfo m WITH (NOLOCK)
+    FROM MemberInfo_UAT m WITH (NOLOCK)
         INNER JOIN bodb02.dbo.customer c WITH (NOLOCK) ON c.username2 = @dbname + '$' + m.username
     WHERE m.CreatedDate IS NULL and c.site = @dbname
 END
