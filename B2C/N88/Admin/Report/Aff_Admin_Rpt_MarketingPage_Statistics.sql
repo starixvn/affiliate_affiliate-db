@@ -18,6 +18,7 @@ AS
 	Revisions:
 		- 20241118@Lewis: Initialize SP [RedmineID: #219779]
 		- 20241118@Lewis: LanguageCode = ALL => show NULL [RedmineID: #219779]
+		- 20250409@Sophia: Add ChannelCode into ClickStatistics [Redmine: #223356]
 */
 
 BEGIN
@@ -53,7 +54,7 @@ BEGIN
 
 	CREATE TABLE #tmp_Result (AffId INT, ChannelName NVARCHAR(200), AffMediaLink VARCHAR(500), MarketName NVARCHAR(50), TotalClick INT, UniqueClick INT, SignUps INT, FDM INT)
 
-	CREATE TABLE #tmpData (AffId INT, AffMediaLink VARCHAR(500), ShortedCode NVARCHAR(20) , TotalClick INT, UniqueClick INT, SignUps INT, FDM INT)
+	CREATE TABLE #tmpData (AffId INT, AffMediaLink VARCHAR(500), ShortedCode NVARCHAR(20), ChannelCode VARCHAR(50), TotalClick INT, UniqueClick INT, SignUps INT, FDM INT)
 
 	-- TODO: Range ClickStatistics
 	IF CAST(@TDate_Local AS DATE) > @ArchiveDate --GMT-4
@@ -62,39 +63,39 @@ BEGIN
 				,@TDate = CAST(@TDate_Local AS DATE) --GMT-4
 
 		--TotalClick, UniqueClick
-		INSERT INTO #tmpData (AffId, AffMediaLink, ShortedCode, TotalClick, UniqueClick)
-		SELECT AffId, AffMediaLink, LanguageCode, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
+		INSERT INTO #tmpData (AffId, AffMediaLink, ShortedCode, ChannelCode, TotalClick, UniqueClick)
+		SELECT AffId, AffMediaLink, LanguageCode, ChannelCode, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 		FROM dbo.ClickStatistics c WITH (NOLOCK)
 		WHERE [Date] BETWEEN @FDate AND @TDate --GMT-4
 			AND (AffId = @AffId OR @AffId = 0)
 			AND c.UpdatedTime >= @FDate_Local --GMT-4
 			AND c.UpdatedTime < @TDate_Local --GMT-4
-		GROUP BY AffId, AffMediaLink, LanguageCode
+		GROUP BY AffId, AffMediaLink, LanguageCode, ChannelCode
 		
 		SELECT	@FDate = DATEADD(HOUR,12,@FDate) --GMT+8
 				,@TDate = DATEADD(DAY,1,@TDate) --GMT+8
 
 		--SignUp
-		INSERT INTO #tmpData (AffId, AffMediaLink, ShortedCode, SignUps)
-		SELECT m.AffId, c.AffMediaLink, c.LanguageCode, COUNT(1) AS SignUps
+		INSERT INTO #tmpData (AffId, AffMediaLink, ShortedCode, c.ChannelCode, SignUps)
+		SELECT m.AffId, c.AffMediaLink, c.LanguageCode, ChannelCode, COUNT(1) AS SignUps
 		FROM MemberInfo m WITH (NOLOCK)
 		LEFT JOIN ClickStatistics c WITH (NOLOCK)
 			ON c.ClickId = m.ClickId
 		WHERE RegisteredDate >= @FDate --GMT+8
 			AND RegisteredDate < @TDate --GMT+8
 			AND (m.AffId = @AffId OR @AffId = 0)
-		GROUP BY m.AffId, c.AffMediaLink, c.LanguageCode
+		GROUP BY m.AffId, c.AffMediaLink, c.LanguageCode, c.ChannelCode
 
 		--FDM
-		INSERT INTO #tmpData (AffId, AffMediaLink, ShortedCode, FDM)
-		SELECT m.AffId, c.AffMediaLink, c.LanguageCode, COUNT(1) AS FDM
+		INSERT INTO #tmpData (AffId, AffMediaLink, ShortedCode, ChannelCode, FDM)
+		SELECT m.AffId, c.AffMediaLink, c.LanguageCode, c.ChannelCode, COUNT(1) AS FDM
 		FROM MemberInfo m WITH (NOLOCK)
 		LEFT JOIN ClickStatistics c WITH (NOLOCK)
 			ON c.ClickId = m.ClickId
 		WHERE FirstDepositDate >= @FDate --GMT+8
 			AND FirstDepositDate < @TDate --GMT+8
 			AND (m.AffId = @AffId OR @AffId = 0)
-		GROUP BY m.AffId, c.AffMediaLink, c.LanguageCode
+		GROUP BY m.AffId, c.AffMediaLink, c.LanguageCode, c.ChannelCode
 
 	END
 
@@ -105,45 +106,45 @@ BEGIN
 				,@TDate = IIF(CAST(@TDate_Local AS DATE) >= @ArchiveDate,@ArchiveDate,CAST(@TDate_Local AS DATE)) --GMT-4
 			
 		--TotalClick, UniqueClick
-		INSERT INTO #tmpData (AffId, AffMediaLink, ShortedCode, TotalClick, UniqueClick)
-		SELECT AffId, AffMediaLink, LanguageCode, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
+		INSERT INTO #tmpData (AffId, AffMediaLink, ShortedCode, ChannelCode, TotalClick, UniqueClick)
+		SELECT AffId, AffMediaLink, LanguageCode, ChannelCode, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 		FROM dbo.ClickStatistics_bk WITH (NOLOCK)
 		WHERE [Date] BETWEEN @FDate AND @TDate --GMT-4
 			AND (AffId = @AffId OR @AffId = 0)
 			AND UpdatedTime >= @FDate_Local --GMT-4
 			AND UpdatedTime < @TDate_Local --GMT-4
-		GROUP BY AffId, AffMediaLink, LanguageCode
+		GROUP BY AffId, AffMediaLink, LanguageCode, ChannelCode
 
 		SELECT	@FDate = @FromDate --GMT+8
 				,@TDate = DATEADD(DAY,1,DATEADD(HOUR,12,@TDate)) --GMT+8
 		--SignUp
-		INSERT INTO #tmpData (AffId, AffMediaLink, ShortedCode, SignUps)
-		SELECT m.AffId, c.AffMediaLink, c.LanguageCode, COUNT(1) AS SignUps
+		INSERT INTO #tmpData (AffId, AffMediaLink, ShortedCode, ChannelCode, SignUps)
+		SELECT m.AffId, c.AffMediaLink, c.LanguageCode, c.ChannelCode, COUNT(1) AS SignUps
 		FROM MemberInfo m WITH (NOLOCK)
 		LEFT JOIN ClickStatistics_bk c WITH (NOLOCK)
 			ON c.ClickId = m.ClickId
 		WHERE RegisteredDate >= @FDate --GMT+8
 			AND RegisteredDate < @TDate --GMT+8
 			AND (m.AffId = @AffId OR @AffId = 0)
-		GROUP BY m.AffId, c.AffMediaLink, c.LanguageCode
+		GROUP BY m.AffId, c.AffMediaLink, c.LanguageCode, c.ChannelCode
 		
 		--FDM
-		INSERT INTO #tmpData (AffId, AffMediaLink, ShortedCode, FDM)
-		SELECT m.AffId, c.AffMediaLink, c.LanguageCode, COUNT(1) AS FDM
+		INSERT INTO #tmpData (AffId, AffMediaLink, ShortedCode, ChannelCode, FDM)
+		SELECT m.AffId, c.AffMediaLink, c.LanguageCode, c.ChannelCode, COUNT(1) AS FDM
 		FROM MemberInfo m WITH (NOLOCK)
 		LEFT JOIN ClickStatistics_bk c WITH (NOLOCK)
 			ON c.ClickId = m.ClickId
 		WHERE FirstDepositDate >= @FDate --GMT+8
 			AND FirstDepositDate < @TDate --GMT+8
 			AND (m.AffId = @AffId OR @AffId = 0)
-		GROUP BY m.AffId, c.AffMediaLink, c.LanguageCode
+		GROUP BY m.AffId, c.AffMediaLink, c.LanguageCode, c.ChannelCode
 	END
 
 	IF @IncludedInActive = 0
 	BEGIN
 		DELETE t
 		FROM #tmpData t
-		JOIN dbo.AffMediaLink a WITH (NOLOCK) 
+		INNER JOIN dbo.AffMediaLink a WITH (NOLOCK) 
 			ON a.AffId = t.AffId
 			AND a.AffMediaLink = t.AffMediaLink
 		WHERE a.IsShow = 0
@@ -151,21 +152,17 @@ BEGIN
 
 	-- TODO: #tmp_Result
 	;WITH CTE_Result AS (
-		SELECT AffId, AffMediaLink, ShortedCode, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick, SUM(SignUps) AS SignUps, SUM(FDM) AS FDM
+		SELECT AffId, AffMediaLink, ShortedCode, ChannelCode, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick, SUM(SignUps) AS SignUps, SUM(FDM) AS FDM
 		FROM #tmpData
-		GROUP BY AffId, AffMediaLink, ShortedCode
+		GROUP BY AffId, AffMediaLink, ShortedCode, ChannelCode
 	)
 	INSERT INTO #tmp_Result (AffId, ChannelName, AffMediaLink, MarketName, TotalClick, UniqueClick, SignUps, FDM)
 	SELECT d.AffId, ISNULL(c.ChannelName,'Others'), d.AffMediaLink, m.MarketName, SUM(TotalClick), SUM(UniqueClick), SUM(SignUps), SUM(FDM)
 	FROM CTE_Result d
 	LEFT JOIN dbo.Market m WITH (NOLOCK) 
         ON d.ShortedCode = m.ShortedCode 
-	LEFT JOIN dbo.AffMediaLink l WITH (NOLOCK) 
-		ON d.AffMediaLink = l.AffMediaLink 
-		AND l.AffId = d.AffId 
-		AND m.MarketId = l.LanguageCode
 	LEFT JOIN dbo.AffMediaChannel c WITH (NOLOCK) 
-		ON l.ChannelCode = c.ChannelCode 
+		ON d.ChannelCode = c.ChannelCode 
 		AND c.AffId =  d.AffId
 	WHERE (ISNULL(@LanguageCodes, '') = '' OR ',' + @LanguageCodes + ',' LIKE '%,' + m.MarketId + ',%')
 	GROUP BY d.AffId, ISNULL(c.ChannelName,'Others'), d.AffMediaLink, m.MarketName
