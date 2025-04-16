@@ -34,7 +34,6 @@ SELECT top 1000
 	Currency,
 	FirstName,
 	LastName,
-	LastName,
 	Email,
 	IsRemoved,
 	IBCCustID,
@@ -67,7 +66,6 @@ FROM CurrencyConverter WITH (NOLOCK);
 
 -- Import data into AffInfo_UAT
 INSERT INTO AffInfo_UAT (
-	AffID,
 	UserName,
 	UserName2,
 	FirstName,
@@ -88,8 +86,7 @@ INSERT INTO AffInfo_UAT (
 	BF,
 	TotalMembers
 )
-SELECT  
-	AffID,
+SELECT TOP 1000 
 	UserName,
 	UserName2,
 	FirstName,
@@ -109,11 +106,11 @@ SELECT
 	TestLevel,
 	BF,
 	TotalMembers
-FROM AffInfo WITH (NOLOCK);
+FROM AffInfo WITH (NOLOCK)
+ORDER BY RegisteredDate DESC;
 
 -- Import data into ClickStatistics_UAT
 INSERT INTO ClickStatistics_UAT (
-	ClickID,
 	AffID,
 	UpdatedTime,
 	IP,
@@ -135,7 +132,6 @@ INSERT INTO ClickStatistics_UAT (
 	ClickCount
 )
 SELECT TOP 1000
-	ClickID,
 	AffID,
 	UpdatedTime,
 	IP,

@@ -106,3 +106,54 @@ GO
 ALTER TABLE [dbo].[CurrencyConverter_UAT] ADD  CONSTRAINT [DF_CurrencyConverter_UAT_ApplicationID]  DEFAULT ((1)) FOR [ApplicationID]
 GO
 
+-- AffInfo_UAT Table
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[AffInfo_UAT](
+	[AffID] [int] IDENTITY(10001,1) NOT NULL,
+	[UserName] [nvarchar](30) NOT NULL,
+	[UserName2] [nvarchar](30) NULL,
+	[FirstName] [nvarchar](50) NULL,
+	[LastName] [nvarchar](50) NULL,
+	[GroupID] [int] NULL,
+	[Status] [varchar](30) NULL,
+	[ApprovedDate] [smalldatetime] NULL,
+	[IsClosed] [bit] NULL,
+	[Currency] [smallint] NULL,
+	[RegisteredDate] [smalldatetime] NULL,
+	[Email] [nvarchar](50) NULL,
+	[Password] [varchar](40) NULL,
+	[AffType] [tinyint] NULL,
+	[IsPageEnabled] [bit] NULL,
+	[Level] [tinyint] NULL,
+	[IsLocked] [bit] NULL,
+	[TestLevel] [tinyint] NULL,
+	[BF] [money] NULL,
+	[TotalMembers] [int] NULL,
+ CONSTRAINT [PK_AffInfo_UAT] PRIMARY KEY CLUSTERED 
+(
+	[AffID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [AccInfoData]
+) ON [AccInfoData]
+GO
+
+ALTER TABLE [dbo].[AffInfo_UAT] ADD  CONSTRAINT [DF_Affiliate_AffInfo_UAT_GroupID]  DEFAULT ((0)) FOR [GroupID]
+GO
+
+ALTER TABLE [dbo].[AffInfo_UAT] ADD  CONSTRAINT [DF_Affiliate_AffInfo_UAT_IsClosed]  DEFAULT ((0)) FOR [IsClosed]
+GO
+
+ALTER TABLE [dbo].[AffInfo_UAT] ADD  CONSTRAINT [DF_AffInfo_UAT_AffType]  DEFAULT ((1)) FOR [AffType]
+GO
+
+ALTER TABLE [dbo].[AffInfo_UAT] ADD  CONSTRAINT [DF_AffInfo_UAT_IsPageEnabled]  DEFAULT ((0)) FOR [IsPageEnabled]
+GO
+
+ALTER TABLE [dbo].[AffInfo_UAT] ADD  CONSTRAINT [DF_AffInfo_UAT_IsLocked]  DEFAULT ((0)) FOR [IsLocked]
+GO
+
+ALTER TABLE [dbo].[AffInfo_UAT] ADD  CONSTRAINT [DF_Affiliate_AffInfo_UAT_TestLevel]  DEFAULT ((0)) FOR [TestLevel]
+GO
+
