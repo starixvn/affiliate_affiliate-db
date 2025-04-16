@@ -17,6 +17,7 @@ ALTER PROCEDURE [dbo].[Aff_ClickStatistics_Ins]
 	,@UserAgent			NVARCHAR(256) = ''
 	,@Country			NVARCHAR(256) = ''
 	,@DeviceType		TINYINT = 0
+	,@ChannelCode		VARCHAR(50) = ''
 	,@RedirectPage		NVARCHAR(256) = NULL OUTPUT
 	,@ClickID			BIGINT = 0 OUTPUT
 	,@ErrCode			INT = 0 OUTPUT
@@ -33,6 +34,7 @@ AS
 		- 20201215@Percy: Add AffMediaLink [RedmineID: #146201]
 		- 20250320@Sophia: Add clickID into RedirectPage [Redmine: #221818]
 		- 20250408@Sophia: Change AffCode instead of AffId, remove /Register [Redmine: #221818]
+		- 20250409@Sophia: Add ChannelCode into ClickStatistics [Redmine: #223356]
 */
 
 BEGIN
@@ -122,6 +124,7 @@ BEGIN
 			,RedirectURL
 			,Status
 			,DeviceType
+			,ChannelCode
 		)
 		VALUES
 		(
@@ -145,6 +148,7 @@ BEGIN
 			,@RedirectPage
 			,0
 			,@DeviceType
+			,@ChannelCode
 		)
 
 		SELECT @ClickID = SCOPE_IDENTITY()
