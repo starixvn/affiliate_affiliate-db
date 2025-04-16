@@ -15,7 +15,6 @@ CREATE PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Detail_Sel]
 	,@PageSize			INT = 50
 	,@NRows				INT = 0 OUTPUT
 AS
-
 /*
 	Created: 20241118@Eddie
 	DB: DBAFF12B-Affiliate_12B
@@ -25,6 +24,7 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20241225@Sally: Apply QM Turnover [RedmineID: #212201]
 		- 20250326@Sally: Add new column FDAM Amount [RedmineID: #220316]
+		- 20250416@Sally: Change the data retrieval method for Deposit [RedmineID: #224116]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -385,18 +385,56 @@ BEGIN
 	GROUP BY EOMONTH(ApprovedDate)
 
 	-- Total Deposit
-	DECLARE @TotalDeposit TABLE(MonthDate SMALLDATETIME, TotalDeposit BIGINT)
-	INSERT INTO @TotalDeposit(MonthDate, TotalDeposit)
-	SELECT CONVERT(DATE, EOMONTH(DATEADD(HOUR, @TimeZone, d.CreateTime))) AS MonthDate
-		,COUNT(1) AS TotalDeposit
-	FROM bodb_12B.dbo.DepositInfo d WITH (NOLOCK)
-		INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
-	WHERE d.WinlostDate BETWEEN DATEADD(DAY, -1, @FromDate) AND DATEADD(DAY, 1, @ToDate)
-		AND d.Status = 3 -- Approved
-		AND d.CreateTime >= @FromDateTimeGMT0 
-		AND d.CreateTime < DATEADD(DAY, 1, @ToDateTimeGMT0)
-		AND mi.AffId = @AffId
-	GROUP BY CONVERT(DATE, EOMONTH(DATEADD(HOUR, @TimeZone, d.CreateTime)))
+	DECLARE @TotalDeposit TABLE(MonthDate SMALLDATETIME, TotalDeposit BIGINT, TotalDepositAmount MONEY, TotalWithdrawalAmount MONEY)	
+	;WITH CTE_DataDeposit AS ( 
+		SELECT CONVERT(DATE, EOMONTH(DATEADD(HOUR, @TimeZone, d.CreateTime))) AS MonthDate
+			,COUNT(1) AS TotalDeposit
+		FROM bodb_12B.dbo.DepositInfo d WITH (NOLOCK)
+			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
+		WHERE d.WinlostDate BETWEEN DATEADD(DAY, -1, @FromDate) AND DATEADD(DAY, 1, @ToDate)
+			AND d.Status = 3 -- Approved
+			AND d.CreateTime >= @FromDateTimeGMT0 
+			AND d.CreateTime < DATEADD(DAY, 1, @ToDateTimeGMT0)
+			AND mi.AffId = @AffId
+		GROUP BY CONVERT(DATE, EOMONTH(DATEADD(HOUR, @TimeZone, d.CreateTime)))
+	),
+	CTE_DataDepositAmount AS (
+		SELECT EOMONTH(r.WinlostDate) AS MonthDate
+			,SUM(ISNULL(Deposit, 0) * e.Rate)	    AS Deposit
+			,SUM(ISNULL(r.Withdrawal, 0) * e.Rate)	AS Withdrawal
+		FROM dbo.rptMemberDaily r WITH (NOLOCK)
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
+		WHERE r.WinlostDate >= @FromDate 
+			AND r.WinlostDate < DATEADD(DAY, 1, @ToDate)
+			AND r.AffId = @AffId
+			AND r.ProductId < 0
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+				WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+			)
+		GROUP BY EOMONTH(r.WinlostDate)
+
+	)
+	INSERT INTO @TotalDeposit(MonthDate, TotalDeposit, TotalDepositAmount, TotalWithdrawalAmount)
+	SELECT t.MonthDate
+			,SUM(TotalDeposit)          AS TotalDeposit
+			,SUM(TotalDepositAmount)    AS TotalDepositAmount
+			,SUM(TotalWithdrawalAmount) AS TotalWithdrawalAmount
+		FROM (
+			SELECT mi.MonthDate
+				,mi.TotalDeposit
+				,0 AS TotalDepositAmount
+				,0 AS TotalWithdrawalAmount
+			FROM CTE_DataDeposit mi
+			UNION ALL
+			SELECT mi.MonthDate
+				,0 TotalDeposit
+				,Deposit	AS TotalDepositAmount
+				,Withdrawal	AS TotalWithdrawalAmount
+			FROM CTE_DataDepositAmount mi
+		)t
+		GROUP BY t.MonthDate
 
 	-- Return detail
 	SELECT
@@ -414,8 +452,8 @@ BEGIN
 		ISNULL(ts.NoOfSubAff, 0)				AS NoOfSubAff,
 		ISNULL(tc.ActivePlayer, 0)				AS ActivePlayer,
 		ISNULL(tc.QualifiedMember, 0)			AS QualifiedMember,
-		ISNULL(tc.Deposit, 0)					AS Deposit,
-		ISNULL(tc.Withdrawal, 0)				AS Withdrawal,
+		ISNULL(tp.TotalDepositAmount, 0)		AS Deposit,
+		ISNULL(tp.TotalWithdrawalAmount, 0)		AS Withdrawal,
 		ISNULL(tc.Turnover, 0)					AS Turnover,
 		ISNULL(-tc.Winloss + tc.Revenue, 0)		AS GGR,
 		ISNULL(tc.Bonus, 0)						AS Bonus,

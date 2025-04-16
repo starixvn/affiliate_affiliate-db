@@ -15,6 +15,7 @@ AS
 		- 20241226@Sally: Apply QM Turnover [RedmineID: #212201]
 		- 20250313@Sally: Missing data on total FDM's Deposit by month [RedmineID: #219974]
 		- 20250313@Sally: Get Rate for  FDM's Deposit [RedmineID: #219974]
+		- 20250416@Sally: Change the data retrieval method for Deposit [RedmineID: #224116]
 */
 
 BEGIN
@@ -48,6 +49,22 @@ BEGIN
 			AND FirstDepositDate < DATEADD(DAY, 1, @EndOfMonth)
 	END
 
+	-- Total Deposit
+	BEGIN
+		DECLARE @Deposit MONEY
+		SELECT @Deposit =SUM(ISNULL(Deposit, 0) * e.Rate)	   
+		FROM dbo.rptMemberDaily r WITH (NOLOCK)
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
+		WHERE r.WinlostDate >= @BeginOfMonth 
+			AND r.WinlostDate < DATEADD(DAY, 1, @EndOfMonth)
+			AND r.AffId = @AffId
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+				WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+			)	
+	END
+
 	-- Balance Brought Forward
 	BEGIN
 		DECLARE @BBF MONEY
@@ -60,7 +77,7 @@ BEGIN
 
 	-- Active Players, Turnover, Deposit, Commission, QualifiedMember
 	BEGIN
-		DECLARE @NoOfSubAff INT, @ActivePlayers INT, @QualifiedMember INT, @Turnover MONEY, @Deposit MONEY, @Commission MONEY, @SubAffCommission MONEY
+		DECLARE @NoOfSubAff INT, @ActivePlayers INT, @QualifiedMember INT, @Turnover MONEY, @Commission MONEY, @SubAffCommission MONEY
 
 		SELECT @NoOfSubAff = COUNT(1)
 		FROM dbo.AffInfo WITH (NOLOCK)
@@ -190,7 +207,6 @@ BEGIN
 			@ActivePlayers		= SUM(ISNULL(ActivePlayer, 0))
 			,@QualifiedMember	= SUM(ISNULL(QualifiedMember, 0))
 			,@Turnover			= SUM(ISNULL(Turnover, 0))
-			,@Deposit			= SUM(ISNULL(Deposit, 0))
 			,@Commission		= SUM(ISNULL(Commission, 0) + ISNULL(StraightCommission, 0))
 			,@SubAffCommission	= SUM(ISNULL(SubAffCommission, 0))
 		FROM #TempCommission

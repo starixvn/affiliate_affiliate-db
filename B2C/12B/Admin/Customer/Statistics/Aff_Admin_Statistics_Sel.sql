@@ -13,6 +13,7 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20241225@Sally: Apply QM Turnover [RedmineID: #212201]
 		- 20250402@Sophia: Fix Unique Click count IP by range from - to [RedmineID: #222777]
+		- 20250415@Sally: Change the data retrieval method for Deposit [RedmineID: #224116]
 */
 
 BEGIN
@@ -35,13 +36,15 @@ BEGIN
 			@UniqueClickMobileByMonth	INT,
 			@TotalClickMobileByMonth	INT,
 			@NoOfSubAffByMonth			INT,
-			@NoOfSubAffTotal			INT
+			@NoOfSubAffTotal			INT,
+			@TotalFDMAmountByMonth		MONEY,
+			@TotalFDMAmount				MONEY
 
-	DECLARE @FromBeginMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME
+	DECLARE @FromBeginMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME, @CurrentDate SMALLDATETIME
 	SELECT	@FromBeginMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT	@ToNextMonth	= DATEADD(MONTH, 1, @FromBeginMonth)
-
-	SELECT  @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate) + 1, 0))
+	SELECT  @CurrentDate    = CONVERT(DATE, DATEADD(HOUR, 12, GETDATE())) -- GMT-4 TO GMT+8
+	SELECT  @MonthDate      = EOMONTH(@MonthDate)
 
 	-- member statistics
 	BEGIN
@@ -88,7 +91,7 @@ BEGIN
 		-- Uncalculated Months
 		BEGIN
 			SELECT	@tempFromDate	= DATEADD(DAY, 1, @MaxCommDate),
-					@tempToDate		= CONVERT(DATE, GETDATE())
+					@tempToDate		= @CurrentDate
 
 			SELECT  @IsSumAll = CASE WHEN @MonthDate >= @tempFromDate THEN 0 ELSE 1 END
 
@@ -179,22 +182,41 @@ BEGIN
 	SELECT
 		@ActivePlayersByMonth		= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(ActivePlayer, 0) ELSE 0 END),
 		@QualifiedMembersByMonth	= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(QualifiedMember, 0) ELSE 0 END),
-		@DepositByMonth				= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Deposit, 0) ELSE 0 END),
 		@TurnoverByMonth			= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Turnover, 0) ELSE 0 END),
 		@GGRByMonth					= SUM(CASE WHEN MonthDate = @MonthDate THEN -ISNULL(Winloss, 0) + ISNULL(Revenue, 0) ELSE 0 END),
-		@DepositTotal				= SUM(ISNULL(Deposit, 0)),
 		@TurnoverTotal				= SUM(ISNULL(Turnover, 0)),
 		@GGRTotal					= SUM(-ISNULL(Winloss, 0) + ISNULL(Revenue, 0))
 	FROM #TempCommission
 
 	DROP TABLE #TempCommission
 
+	;WITH CTE_DataDeposit AS(
+		SELECT m.AffId
+			,m.Currency
+			,EOMONTH(m.WinlostDate) AS MonthDate
+			,SUM(ISNULL(m.Deposit, 0)) AS Deposit
+		FROM dbo.rptMemberDaily m WITH(NOLOCK)
+		WHERE m.AffId = @AffId
+		GROUP BY  m.AffId
+			,m.Currency
+			,EOMONTH(m.WinlostDate)
+	)
+	SELECT @DepositByMonth = SUM(CASE WHEN MonthDate = @MonthDate THEN r.Deposit * e.Rate ELSE 0 END)
+		,@DepositTotal = SUM(r.Deposit * e.Rate)
+	FROM CTE_DataDeposit r				
+		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.MonthDate, ISNULL(t.ExchangeId, r.Currency), 0) e
+
 	SELECT
 		@SignupsTotal	= COUNT(1),
 		@FDMTotal		= COUNT(FirstDepositDate),
 		@SignupsByMonth = COUNT(CASE WHEN RegisteredDate >= @FromBeginMonth AND RegisteredDate < @ToNextMonth THEN 1 ELSE NULL END),
-		@FDMByMonth		= COUNT(CASE WHEN FirstDepositDate >= @FromBeginMonth AND FirstDepositDate < @ToNextMonth THEN 1 ELSE NULL END)
-	FROM dbo.MemberInfo WITH (NOLOCK)
+		@FDMByMonth		= COUNT(CASE WHEN FirstDepositDate >= @FromBeginMonth AND FirstDepositDate < @ToNextMonth THEN 1 ELSE NULL END),
+		@TotalFDMAmount	= SUM(ISNULL(FirstDepositAmount, 0) * ISNULL(e.Rate, 0)),
+		@TotalFDMAmountByMonth = SUM( CASE WHEN FirstDepositDate >= @FromBeginMonth AND FirstDepositDate < @ToNextMonth THEN ISNULL(FirstDepositAmount, 0) * ISNULL(e.Rate, 0) ELSE NULL END)
+	FROM dbo.MemberInfo r WITH (NOLOCK)
+		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
+		OUTER APPLY dbo.Aff_f_ExchangeRate_Sel(r.FirstDepositDate, ISNULL(t.ExchangeId, r.Currency), 0) e
 	WHERE AffId = @AffId
 
 	DECLARE @ArchiveDate SMALLDATETIME
@@ -261,6 +283,8 @@ BEGIN
 		ISNULL(@TotalClickMobileByMonth, 0)		AS TotalClickMobileByMonth,
 		ISNULL(@UniqueClickMobileByMonth, 0)	AS UniqueClickMobileByMonth,
 		ISNULL(@NoOfSubAffByMonth, 0)			AS NoOfSubAffByMonth,
-		ISNULL(@NoOfSubAffTotal, 0)				AS NoOfSubAffTotal
+		ISNULL(@NoOfSubAffTotal, 0)				AS NoOfSubAffTotal,
+		ISNULL(@TotalFDMAmount, 0)				AS TotalFDMAmount,
+		ISNULL(@TotalFDMAmountByMonth, 0)		AS TotalFDMAmountByMonth
 END
 GO
