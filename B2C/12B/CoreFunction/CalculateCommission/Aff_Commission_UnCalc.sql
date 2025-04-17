@@ -22,6 +22,7 @@ AS
 		- 20241225@Sally: Apply QM Turnover [RedmineID: #212201]
 		- 20250318@Sally: Fix get QM Turnover SUM [RedmineID: #220322]
 		- 20250319@Sally: Change Commission Calculation [RedmineID: #219936]
+		- 20250319@Sally: Enhance the formula for calculating fees [RedmineID: #223865]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -129,7 +130,7 @@ BEGIN
 			,SUM(r.Turnover		* e.Rate)	AS Turnover
 			,SUM(r.Winloss		* e.Rate)	AS Winloss
 		FROM (
-			SELECT CONVERT(SMALLDATETIME, DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0))) AS MonthDate
+			SELECT EOMONTH(WinlostDate) AS MonthDate
 				,AffId, CustId, Currency, CASE WHEN ProductId < 0 THEN 0 ELSE ProductId END AS ProductId
 				,SUM(ISNULL(Deposit, 0))	AS Deposit
 				,SUM(ISNULL(Withdrawal, 0))	AS Withdrawal
@@ -144,7 +145,7 @@ BEGIN
 					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
 					WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
 				)
-			GROUP BY CONVERT(SMALLDATETIME, DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, WinlostDate) + 1, 0)))
+			GROUP BY EOMONTH(WinlostDate)
 				,AffId, CustId, Currency, CASE WHEN ProductId < 0 THEN 0 ELSE ProductId END
 		) r
 			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
@@ -155,7 +156,7 @@ BEGIN
 
 	-- Setting
 	BEGIN
-		DECLARE @AffGroupInfo TABLE (MonthDate SMALLDATETIME, AffId INT, GroupId INT, GroupTypeBy VARCHAR(50), QMTurnover MONEY)
+		DECLARE @AffGroupInfo TABLE (MonthDate SMALLDATETIME, AffId INT, GroupId INT, QMTurnover MONEY, NumActualOfGroupProduct INT DEFAULT(1))
 		
 		;WITH CTE_AffGroup AS (SELECT DISTINCT MonthDate, AffId FROM #Data)
 		INSERT INTO @AffGroupInfo (MonthDate, AffId, GroupId)
@@ -170,11 +171,6 @@ BEGIN
 			AND (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), agh.AffId) + ',%')
 			AND EXISTS (SELECT 1 FROM dbo.DeductionSettingHistory dsh WITH (NOLOCK) WHERE dsh.MonthDate = agh.MonthDate AND dsh.GroupId = agh.GroupId AND dsh.DeductedAmount <> 0)
 			AND NOT EXISTS (SELECT 1 FROM @AffGroupInfo a WHERE a.AffId = agh.AffId AND a.MonthDate = agh.MonthDate)
-
-		UPDATE a SET a.GroupTypeBy = gt.GroupTypeBy
-		FROM @AffGroupInfo a
-			INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON a.GroupId = cg.GroupId
-			INNER JOIN dbo.GroupType gt WITH (NOLOCK) ON gt.GroupTypeId = cg.GroupTypeId
 
 		UPDATE a SET a.QMTurnover = ISNULL(cg.QMTurnover, 0)
 		FROM @AffGroupInfo a
@@ -279,13 +275,13 @@ BEGIN
 			UPDATE s
 				SET s.GroupProductId = 0
 			FROM @Setting s
-			WHERE EXISTS (SELECT 1 FROM dbo.TierSettingHistory tsh WITH(NOLOCK) WHERE tsh.MonthDate = s.MonthDate AND tsh.GroupId = s.GroupId AND tsh.GroupProductId = 0)
-			
+			WHERE EXISTS (SELECT 1 FROM dbo.TierSettingHistory tsh WITH(NOLOCK) WHERE tsh.MonthDate = s.MonthDate AND tsh.GroupId = s.GroupId AND tsh.GroupProductId = 0)		
+
 			INSERT INTO @GroupProductInfo (MonthDate, GroupId, NoGroupProduct)
 			SELECT MonthDate, GroupId, COUNT(DISTINCT GroupProductId) AS [NoGroupProduct] 
 			FROM @Setting 
 			GROUP BY MonthDate, GroupId
-
+			
 			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, GrossWinloss, PlatFormFee)
 			SELECT 
 				d.MonthDate, d.AffId, d.GroupId, d.ProductId
@@ -303,7 +299,19 @@ BEGIN
 				GROUP BY MonthDate, AffId, GroupId, ProductId
 			) d
 				INNER JOIN @Setting s ON d.MonthDate = s.MonthDate AND d.GroupId = s.GroupId AND d.ProductId = s.ProductId
-
+			
+			-- Update Number Actual of GroupProduct by AFF
+			;WITH CTE_ActualGroupProduct AS (
+				SELECT MonthDate, AffId, GroupId, COUNT(DISTINCT GroupProductId) AS NumActualOfGroupProduct
+				FROM #Commission
+				WHERE ProductId > 0
+				GROUP BY MonthDate, AffId, GroupId
+			)
+			UPDATE a SET a.NumActualOfGroupProduct = ac.NumActualOfGroupProduct
+			FROM @AffGroupInfo a 
+				INNER JOIN CTE_ActualGroupProduct ac ON a.MonthDate   = ac.MonthDate
+														AND a.AffId   = ac.AffId
+														AND a.GroupId = ac.GroupId
 			-- Total
 			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, GrossWinloss, PlatFormFee)
 			SELECT c.MonthDate, c.AffId, c.GroupId, 0 AS ProductId, c.GroupProductId, c.Turnover, c.Winloss, c.GrossWinloss, c.PlatFormFee
@@ -322,13 +330,13 @@ BEGIN
 			
 			-- Total: Deposit, Withdrawal, ActivePlayer, Net WinLoss, Net Turnover, QualifiedMember
 			UPDATE c
-			SET c.Deposit			= ISNULL(d.Deposit, 0) / ISNULL(e.[NoGroupProduct], 1)
-				,c.Withdrawal		= ISNULL(d.Withdrawal, 0) / ISNULL(e.[NoGroupProduct], 1)
-				,c.Bonus			= ISNULL(d.Bonus, 0) / ISNULL(e.[NoGroupProduct], 1)
-				,c.Rebate			= ISNULL(d.Rebate, 0) / ISNULL(e.[NoGroupProduct], 1)
-				,c.DepositFee		= ISNULL(d.DepositFee, 0) / ISNULL(e.[NoGroupProduct], 1)
-				,c.WithdrawalFee	= ISNULL(d.WithdrawalFee, 0) / ISNULL(e.[NoGroupProduct], 1)
-				,c.NetWinloss		= c.GrossWinloss - c.PlatFormFee - (ISNULL(d.DepositFee, 0) + ISNULL(d.WithdrawalFee, 0) + ISNULL(d.Bonus, 0) + ISNULL(d.Rebate, 0))/ ISNULL(e.NoGroupProduct, 1)
+			SET c.Deposit			= ISNULL(d.Deposit, 0)		 / ag.NumActualOfGroupProduct
+				,c.Withdrawal		= ISNULL(d.Withdrawal, 0)	 / ag.NumActualOfGroupProduct
+				,c.Bonus			= ISNULL(d.Bonus, 0)		 / ag.NumActualOfGroupProduct
+				,c.Rebate			= ISNULL(d.Rebate, 0)		 / ag.NumActualOfGroupProduct
+				,c.DepositFee		= ISNULL(d.DepositFee, 0)	 / ag.NumActualOfGroupProduct
+				,c.WithdrawalFee	= ISNULL(d.WithdrawalFee, 0) / ag.NumActualOfGroupProduct
+				,c.NetWinloss		= c.GrossWinloss - c.PlatFormFee - (ISNULL(d.DepositFee, 0) + ISNULL(d.WithdrawalFee, 0) + ISNULL(d.Bonus, 0) + ISNULL(d.Rebate, 0))/ ag.NumActualOfGroupProduct
 			FROM #Commission c
 				INNER JOIN @AffGroupInfo ag ON c.MonthDate = ag.MonthDate AND c.AffId = ag.AffId AND c.GroupId = ag.GroupId
 				LEFT JOIN (
@@ -344,8 +352,7 @@ BEGIN
 					WHERE d.ProductId = 0
 					GROUP BY d.MonthDate, d.AffId, d.GroupId
 				) d ON c.MonthDate = d.MonthDate AND c.AffId = d.AffId AND c.GroupId = d.GroupId
-				LEFT JOIN @GroupProductInfo e ON c.MonthDate = e.MonthDate AND c.GroupId = e.GroupId 
-			WHERE c.ProductId = 0
+			WHERE c.ProductId = 0		
 			
 			-- Update active player
 			;WITH CTE_Group AS(
@@ -424,7 +431,6 @@ BEGIN
 					AND gsh.TierId <= t.TierId
 				ORDER BY gsh.TierId DESC
 			) AS s
-			LEFT JOIN @GroupProductInfo e ON c.MonthDate = e.MonthDate AND c.GroupId = e.GroupId 
 		WHERE c.ProductId = 0
 
 		--Update Active player
