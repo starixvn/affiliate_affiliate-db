@@ -1,11 +1,3 @@
 B2C\12B\Admin\Customer\StatementHistory\Aff_Admin_StatementHistory_Sel.sql
-B2C\12B\Admin\Customer\StatementHistory\Aff_SubAffiliate_Commission_Sel.sql
-B2C\12B\Admin\Customer\Statistics\Aff_Admin_Statistics_Sel.sql
-B2C\12B\Admin\Home\Aff_Admin_GeneralInfo_Sel.sql
-B2C\12B\Admin\Report\Aff_Admin_AffiliateReport_Detail_Sel.sql
-B2C\12B\Admin\Report\Aff_Admin_AffiliateReport_Sel.sql
-B2C\12B\API\Aff_API_AffiliateInfo_Sel.sql
 B2C\12B\User\CommissionReport\Aff_User_Rpt_Commission.sql
-B2C\12B\User\Home\Aff_User_Overview_SubAffiliate_Sel.sql
-B2C\12B\User\Home\Aff_User_Overview_Summary_Sel.sql
 B2C\12B\User\StatementHistory\Aff_User_StatementHistory_Sel.sql

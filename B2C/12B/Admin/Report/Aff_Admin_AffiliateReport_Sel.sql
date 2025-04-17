@@ -36,6 +36,7 @@ AS
 		- 20250331@Sally: Add Sort by Signup, FDM, FDM Amt, Active players and Qualified active players [RedmineID: #221783]
 		- 20250402@Sophia: Fix Unique Click count IP by range from - to [RedmineID: #222777]
 		- 20250415@Sally: Change the data retrieval method for Deposit [RedmineID: #224116]
+        - 20250417@Sally: Add Revenue Group column [RedmineID: #224286]
 
 	Param's Explanation:
 		- @SortType: 
@@ -630,6 +631,7 @@ BEGIN
 		(
 			AffId				INT,
 			Username			NVARCHAR(30),
+            CommGroupName       NVARCHAR(100),
 			[Status]			VARCHAR(30),
 			PreferredLanguage	VARCHAR(11),	
 			PaymentCurrency		VARCHAR(5),
@@ -667,11 +669,13 @@ BEGIN
             SELECT
                 ai.AffId,
                 ai.Username,
+                cg.GroupName AS CommGroupName,
                 ad.PreferredLanguage,
                 ad.Player_CurrencyCode AS PaymentCurrency,
                 ISNULL(a.NoOfSubAff, 0)	AS NoOfSubAff,
                 CASE WHEN ai.IsRejected = 1 THEN 'Suspended' ELSE 'Approved' END [Status]
             FROM dbo.AffInfo ai WITH (NOLOCK)
+                INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupId = cg.GroupId
                 INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
                 INNER JOIN bodb_12B.dbo.Customer c WITH(NOLOCK) ON ad.Player_CustId = c.CustId
                 LEFT JOIN (
@@ -700,6 +704,7 @@ BEGIN
 		(
 			AffId,
 			Username,
+            CommGroupName,
 			[Status],
 			PreferredLanguage,
 			PaymentCurrency,
@@ -736,6 +741,7 @@ BEGIN
         SELECT
 			ai.AffId,
 			ai.Username,
+            ai.CommGroupName,
 			ai.[Status],
 			ai.PreferredLanguage,
 			ai.PaymentCurrency,
@@ -845,12 +851,12 @@ BEGIN
 		SELECT @RowStart = 1, @RowEnd = @NRows
 
 	-- Return detail
-	SELECT AffId, Username, [Status], PreferredLanguage, PaymentCurrency, TotalClick, UniqueClick, Signup, FDM, FDM_Amount, ActivePlayer, QualifiedMember, NoOfSubAff
+	SELECT AffId, Username, CommGroupName, [Status], PreferredLanguage, PaymentCurrency, TotalClick, UniqueClick, Signup, FDM, FDM_Amount, ActivePlayer, QualifiedMember, NoOfSubAff
 		,Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee
 		,PlatFormFee + OperationalFee + DepositFee + WithdrawalFee AS TotalFee
 		,CommissionRate, IsMultiGroupProduct, P2PEarning, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF, CurrentBFF, TotalDeposit
-	FROM #Result
-	WHERE RowIdx BETWEEN @RowStart AND @RowEnd
+	FROM #Result 
+    WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 	ORDER BY RowIdx
 
 	-- Return total
