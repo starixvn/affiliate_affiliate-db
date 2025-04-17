@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbDownlineNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_PaymentRequest_Ins]
 	@AffId		INT
 	,@Amount	MONEY
@@ -17,12 +17,18 @@ AS
 	Revisions:
 		- 20200220@Percy: Initiliaze SP [RedmineID: #128775]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+		- 20250411@Sally: Enhance get BBF by TimeZone [RedmineID: #222401]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @currentDate SMALLDATETIME
+		,@WinlostDate	 SMALLDATETIME -- GMT+8
+		,@TimeZone		 SMALLINT
+
+	SELECT  @WinlostDate = CAST(CONVERT(VARCHAR(10), DATEADD(HOUR, 4 + @TimeZone, GETDATE()), 120) AS SMALLDATETIME)
+
 	SELECT  @currentDate = CONVERT(DATE, GETDATE())
 
 	IF ISNULL(@Amount, 0) < 0
@@ -130,8 +136,8 @@ BEGIN
 
 		SELECT @RefId = SCOPE_IDENTITY()
 
-		INSERT INTO dbo.AffTrans (AffId,TransType,TransDate,Amount,Status,Description,Creator,AffCurrency,AffRate,RefId)
-		VALUES (@AffId,202,@TransDate,-@Amount,'Pending','Request payout',@AffId,@AffCurrency,@AffRate,@RefId)
+		INSERT INTO dbo.AffTrans (AffId,TransType,TransDate,Amount,Status,Description,Creator,AffCurrency,AffRate,RefId,WinlostDate)
+		VALUES (@AffId,202,@TransDate,-@Amount,'Pending','Request payout',@AffId,@AffCurrency,@AffRate,@RefId,@WinlostDate)
 
 		SELECT @TransId = SCOPE_IDENTITY()
 	END TRY

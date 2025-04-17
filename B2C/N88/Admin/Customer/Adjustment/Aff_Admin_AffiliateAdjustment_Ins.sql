@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateAdjustment_Ins]
 	@AffID		INT
 	,@UserID	INT
@@ -18,12 +18,19 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+		- 20250411@Sally: Enhance get BBF by TimeZone [RedmineID: #222401]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @currentDate SMALLDATETIME
+		,@WinlostDate	 SMALLDATETIME -- GMT+8
+		,@TimeZone		 SMALLINT
+
+	SELECT  @TimeZone	 = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
+	SELECT  @WinlostDate = CAST(CONVERT(VARCHAR(10), DATEADD(HOUR, 4 + @TimeZone, GETDATE()), 120) AS SMALLDATETIME)
+
 	SELECT  @currentDate = CONVERT(DATE, GETDATE())
 
 	DECLARE @Language NVARCHAR(5) = 'en-US'
@@ -74,8 +81,8 @@ BEGIN
 	END
 
 	BEGIN TRY
-		INSERT INTO dbo.AffTrans (AffID,TransDate,CompletedDate,Amount,Status,Description,Creator,TransType,AffCurrency,AffRate)
-			VALUES (@AffID,GETDATE(),GETDATE(),@Amount,'Completed',@Transdesc,@UserID,203,@AffCurrency,@AffRate)
+		INSERT INTO dbo.AffTrans (AffID,TransDate,CompletedDate,Amount,Status,Description,Creator,TransType,AffCurrency,AffRate,WinlostDate)
+			VALUES (@AffID,GETDATE(),GETDATE(),@Amount,'Completed',@Transdesc,@UserID,203,@AffCurrency,@AffRate,@WinlostDate)
 	END TRY
 	BEGIN CATCH
 		-- This transaction is unsuccessful.
