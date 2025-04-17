@@ -18,6 +18,7 @@ AS
 		- 20200220@Percy: Initiliaze SP [RedmineID: #128775]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 		- 20250411@Sally: Enhance get BBF by TimeZone [RedmineID: #222401]
+		- 20250417@Sally: Fix get WinlostDate byTimeZone [RedmineID: #222401]
 */
 
 BEGIN
@@ -27,6 +28,7 @@ BEGIN
 		,@WinlostDate	 SMALLDATETIME -- GMT+8
 		,@TimeZone		 SMALLINT
 
+	SELECT  @TimeZone    = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
 	SELECT  @WinlostDate = CAST(CONVERT(VARCHAR(10), DATEADD(HOUR, 4 + @TimeZone, GETDATE()), 120) AS SMALLDATETIME)
 
 	SELECT  @currentDate = CONVERT(DATE, GETDATE())
