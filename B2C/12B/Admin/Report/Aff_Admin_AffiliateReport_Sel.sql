@@ -20,7 +20,6 @@ CREATE PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	,@PageSize			INT = 50
 	,@NRows				INT = 0 OUTPUT
 AS
-
 /*
 	Created: 20241118@Eddie
 	DB: DBAFF12B-Affiliate_12B
@@ -36,6 +35,7 @@ AS
 		- 20250327@Sally: Change get AFFWithdrawal [RedmineID: #222217]
 		- 20250331@Sally: Add Sort by Signup, FDM, FDM Amt, Active players and Qualified active players [RedmineID: #221783]
 		- 20250402@Sophia: Fix Unique Click count IP by range from - to [RedmineID: #222777]
+		- 20250415@Sally: Change the data retrieval method for Deposit [RedmineID: #224116]
 
 	Param's Explanation:
 		- @SortType: 
@@ -280,10 +280,10 @@ BEGIN
 				@IsSumAll			= 1,
 				@GetRowTotalOnly	= 1
 		END
-
+		
 		IF(@IsGetMonthly = 0)
 		BEGIN
-			CREATE TABLE #DataMemberDaily (MonthDate SMALLDATETIME, AffId INT, Currency INT, CustId INT, ProductId INT, Deposit MONEY, Withdrawal MONEY, Bonus MONEY, Rebate MONEY, Turnover MONEY, Winloss MONEY)
+			CREATE TABLE #DataMemberDaily (MonthDate SMALLDATETIME, AffId INT, Currency INT, CustId INT, ProductId INT, Bonus MONEY, Rebate MONEY, Turnover MONEY, Winloss MONEY)
 			CREATE CLUSTERED INDEX IX_DataMemberDaily ON #DataMemberDaily (MonthDate, AffId)
 			INSERT INTO #DataMemberDaily
 			(
@@ -292,8 +292,6 @@ BEGIN
 				Currency,
 				CustId,
 				ProductId,
-				Deposit,
-				Withdrawal,
 				Bonus,
 				Rebate,
 				Turnover,
@@ -304,8 +302,6 @@ BEGIN
 					,Currency
 					,CustId
 					,r.ProductId
-					,SUM(ISNULL(Deposit, 0))	AS Deposit
-					,SUM(ISNULL(Withdrawal, 0))	AS Withdrawal
 					,SUM(ISNULL(Bonus, 0))		AS Bonus
 					,SUM(ISNULL(Rebate, 0))		AS Rebate
 					,SUM(ISNULL(Turnover, 0))	AS Turnover
@@ -359,8 +355,6 @@ BEGIN
 					,Currency
 					,CustId
 					,d.ProductId
-					,Deposit
-					,Withdrawal
 					,Bonus
 					,Rebate
 					,Turnover
@@ -371,8 +365,6 @@ BEGIN
 			)
 			, CTE_DataResult AS(
 				SELECT  r.AffId
-					,SUM(r.Deposit		* e.Rate)	AS Deposit
-					,SUM(r.Withdrawal	* e.Rate)	AS Withdrawal
 					,SUM(r.Bonus		* e.Rate)	AS Bonus
 					,SUM(r.Rebate		* e.Rate)	AS Rebate
 					,SUM(r.Turnover		* e.Rate)	AS Turnover
@@ -433,8 +425,8 @@ BEGIN
 				,t.AffId
 				,0 AS GroupId
 				,0 AS ProductId
-				,t.Deposit
-				,t.Withdrawal
+				,0 AS Deposit
+				,0 AS Withdrawal
 				,t.Bonus
 				,t.Rebate
 				,t.Turnover
@@ -583,8 +575,8 @@ BEGIN
 		GROUP BY AffId
 
 		-- Total Deposit
-		CREATE TABLE #TotalDeposit(AffId INT, TotalDeposit BIGINT)
-		INSERT INTO #TotalDeposit(AffId, TotalDeposit)
+		CREATE TABLE #TotalDeposit(AffId INT, TotalDeposit BIGINT, TotalDepositAmount MONEY, TotalWithdrawalAmount MONEY)
+		;WITH CTE_DataDeposit AS (
 		SELECT mi.AffId
 			,COUNT(1) AS TotalDeposit
 		FROM bodb_12B.dbo.DepositInfo d WITH (NOLOCK)
@@ -594,6 +586,42 @@ BEGIN
 			AND d.CreateTime >= @FromDateTimeGMT0 
 			AND d.CreateTime < DATEADD(DAY, 1, @ToDateTimeGMT0)
 		GROUP BY mi.AffId
+		),
+		CTE_DataDepositAmount AS (
+			SELECT r.AffId
+				,SUM(ISNULL(Deposit, 0) * e.Rate)	    AS Deposit
+				,SUM(ISNULL(r.Withdrawal, 0) * e.Rate)	AS Withdrawal
+			FROM dbo.rptMemberDaily r WITH (NOLOCK)
+				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
+			WHERE r.WinlostDate >= @FromDate 
+				AND r.WinlostDate < DATEADD(DAY, 1, @ToDate)
+				AND r.ProductId < 0
+				AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+					WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+				)
+			GROUP BY r.AffId
+		)	
+		INSERT INTO #TotalDeposit(AffId, TotalDeposit, TotalDepositAmount, TotalWithdrawalAmount)
+		SELECT t.AffId
+			,SUM(TotalDeposit)          AS TotalDeposit
+			,SUM(TotalDepositAmount)    AS TotalDepositAmount
+			,SUM(TotalWithdrawalAmount) AS TotalWithdrawalAmount
+		FROM (
+			SELECT mi.AffId
+				,mi.TotalDeposit
+				,0 AS TotalDepositAmount
+				,0 AS TotalWithdrawalAmount
+			FROM CTE_DataDeposit mi
+			UNION ALL
+			SELECT mi.AffId
+				,0 TotalDeposit
+				,Deposit	AS TotalDepositAmount
+				,Withdrawal	AS TotalWithdrawalAmount
+			FROM CTE_DataDepositAmount mi
+		)t
+		GROUP BY t.AffId
 	END
 
 	-- Return data
@@ -719,8 +747,8 @@ BEGIN
 			ISNULL(tc.ActivePlayer, 0)			AS ActivePlayer,
 			ISNULL(tc.QualifiedMember, 0)		AS QualifiedMember,
 			ai.NoOfSubAff,
-			ISNULL(tc.Deposit, 0)				AS Deposit,
-			ISNULL(tc.Withdrawal, 0)			AS Withdrawal,
+			ISNULL(td.TotalDepositAmount, 0)	AS Deposit,
+			ISNULL(td.TotalWithdrawalAmount, 0)	AS Withdrawal,
 			ISNULL(tc.Turnover, 0)				AS Turnover,
 			ISNULL(tc.GGR, 0)					AS GGR,
 			ISNULL(tc.Bonus, 0)					AS Bonus,
