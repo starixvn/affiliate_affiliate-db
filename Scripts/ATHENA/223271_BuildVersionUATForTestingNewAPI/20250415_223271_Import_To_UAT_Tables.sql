@@ -4,6 +4,8 @@
 		- 20250415@Sophia: Build version UAT for testing new API [Redmine #223271]
 */
 -- Import data into MemberInfo_UAT
+truncate table MemberInfo_UAT 
+
 INSERT INTO MemberInfo_UAT (
 	UserName,
 	AffID,
@@ -25,7 +27,7 @@ INSERT INTO MemberInfo_UAT (
 	Address,
 	AffAffectedDate
 )
-SELECT top 1000 
+SELECT  TOP 5000
 	UserName,
 	AffID,
 	CreatedDate,
@@ -49,6 +51,7 @@ FROM MemberInfo WITH (NOLOCK)
 ORDER BY CreatedDate DESC;
 
 -- Import data into CurrencyConverter_UAT
+TRUNCATE TABLE CurrencyConverter_UAT 
 INSERT INTO CurrencyConverter_UAT (
 	ApplicationID,
 	PartnerCurrency,
@@ -65,7 +68,12 @@ SELECT
 FROM CurrencyConverter WITH (NOLOCK);
 
 -- Import data into AffInfo_UAT
+truncate table AffInfo_UAT 
+ 
+SET IDENTITY_INSERT AffInfo_UAT ON
+
 INSERT INTO AffInfo_UAT (
+	AffID,
 	UserName,
 	UserName2,
 	FirstName,
@@ -86,7 +94,8 @@ INSERT INTO AffInfo_UAT (
 	BF,
 	TotalMembers
 )
-SELECT TOP 1000 
+SELECT 
+	AffID,
 	UserName,
 	UserName2,
 	FirstName,
@@ -106,11 +115,17 @@ SELECT TOP 1000
 	TestLevel,
 	BF,
 	TotalMembers
-FROM AffInfo WITH (NOLOCK)
-ORDER BY RegisteredDate DESC;
+FROM AffInfo WITH (NOLOCK) 
 
+SET IDENTITY_INSERT AffInfo_UAT OFF
 -- Import data into ClickStatistics_UAT
+
+truncate table MemberInfo_UAT 
+GO
+SET IDENTITY_INSERT ClickStatistics_UAT ON
+
 INSERT INTO ClickStatistics_UAT (
+	ClickID,
 	AffID,
 	UpdatedTime,
 	IP,
@@ -131,7 +146,8 @@ INSERT INTO ClickStatistics_UAT (
 	Status,
 	ClickCount
 )
-SELECT TOP 1000
+SELECT 
+	ClickID,
 	AffID,
 	UpdatedTime,
 	IP,
@@ -151,6 +167,7 @@ SELECT TOP 1000
 	RedirectURL,
 	Status,
 	ClickCount
-FROM ClickStatistics WITH (NOLOCK)
-ORDER BY [Date] DESC;
+FROM ClickStatistics WITH (NOLOCK) 
 
+
+SET IDENTITY_INSERT ClickStatistics_UAT OFF
