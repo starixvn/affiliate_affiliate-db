@@ -120,7 +120,7 @@ FROM AffInfo WITH (NOLOCK)
 SET IDENTITY_INSERT AffInfo_UAT OFF
 -- Import data into ClickStatistics_UAT
 
-truncate table MemberInfo_UAT 
+truncate table ClickStatistics_UAT 
 GO
 SET IDENTITY_INSERT ClickStatistics_UAT ON
 
