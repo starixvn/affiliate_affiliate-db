@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize Function [RedmineID: #212201]
+        - 20250417@Sally: Add Revenue Group column [RedmineID: #224286]
 
 	Param's Explanation:
 		- @AffIds : list of Affiliate's id
@@ -33,6 +34,7 @@ RETURN
 	)
 	SELECT c.MonthDate
 		,c.GroupId
+        ,cg.GroupName
 		,c.AffId
 		,c.ParentAffId
 		,c.AllParentAffId

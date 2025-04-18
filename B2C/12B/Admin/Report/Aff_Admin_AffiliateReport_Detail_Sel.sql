@@ -25,6 +25,7 @@ AS
 		- 20241225@Sally: Apply QM Turnover [RedmineID: #212201]
 		- 20250326@Sally: Add new column FDAM Amount [RedmineID: #220316]
 		- 20250416@Sally: Change the data retrieval method for Deposit [RedmineID: #224116]
+        - 20250417@Sally: Add Revenue Group column [RedmineID: #224286]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -86,7 +87,7 @@ BEGIN
 	SELECT @FromDateTimeGMT0	= DATEADD(HOUR, -@TimeZone, CONVERT(DATETIME, @FromDate))
 		,@ToDateTimeGMT0		= DATEADD(HOUR, -@TimeZone, CONVERT(DATETIME, @ToDate))	
 
-	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME, RowIdx INT, EarningBy VARCHAR(50))
+	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME, RowIdx INT, EarningBy VARCHAR(50), CommGroupName NVARCHAR(100))
 	;WITH CTE_MonthDate AS
 	(
 		SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate) + 1, 0)) AS MonthDate
@@ -95,8 +96,8 @@ BEGIN
 		FROM CTE_MonthDate
 		WHERE MonthDate < @ToDate
 	)
-	INSERT INTO @MonthDate (MonthDate, EarningBy)
-	SELECT m.MonthDate, af.GroupTypeBy
+	INSERT INTO @MonthDate (MonthDate, EarningBy, CommGroupName)
+	SELECT m.MonthDate, af.GroupTypeBy, af.GroupName
 	FROM CTE_MonthDate m
 		INNER JOIN dbo.Aff_f_AffGroupInfo_Sel(@FromDate, @ToDate, CONVERT(VARCHAR(20), @AffId)) af ON af.MonthDate= m.MonthDate
 	WHERE (@EarningType ='all' OR GroupTypeBy = @EarningType)
@@ -440,6 +441,7 @@ BEGIN
 	SELECT
 		md.MonthDate,
 		md.EarningBy,
+        md.CommGroupName,
 		CASE
 			WHEN md.MonthDate >= GETDATE() THEN 'Temporary'
 			WHEN md.MonthDate > @MaxCommDate THEN 'Uncalculated'
