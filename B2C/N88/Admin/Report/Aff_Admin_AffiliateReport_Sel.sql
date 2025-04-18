@@ -43,6 +43,7 @@ AS
 		- 20240703@Sally: Add Current BalanceBF [RedmineID: #207432]
 		- 20241105@Sally: Support Report by Date: Add Total Deposit [RedmineID: #213344]
 		- 20241129@Sally: Fix Filter data by GroupID [RedmineID: #214432]
+		- 20250401@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -446,13 +447,13 @@ BEGIN
 		CREATE TABLE #AffTrans (AffId INT, AffWithdrawal MONEY, AffAdjustment MONEY, BFF MONEY, CurrentBBF MONEY)
 		INSERT INTO #AffTrans (AffId, AffWithdrawal, AffAdjustment, BFF, CurrentBBF)
 		SELECT at.AffId,
-			SUM((CASE WHEN at.TransType = 202 AND at.TransDate >= @FromDate THEN ABS(at.Amount) ELSE 0 END) * e.Rate) AS AffWithdrawal,
-			SUM((CASE WHEN at.TransType = 203 AND at.TransDate >= @FromDate THEN at.Amount ELSE 0 END) * e.Rate) AS AffAdjustment,
-			SUM(CASE WHEN TransDate < DATEADD(DAY, 1, @ToDate) THEN Amount * e.Rate ELSE NULL END) AS BFF,
+			SUM((CASE WHEN at.TransType = 202 AND at.WinlostDate >= @FromDate THEN ABS(at.Amount) ELSE 0 END) * e.Rate) AS AffWithdrawal,
+			SUM((CASE WHEN at.TransType = 203 AND at.WinlostDate >= @FromDate THEN at.Amount ELSE 0 END) * e.Rate) AS AffAdjustment,
+			SUM(CASE WHEN WinlostDate < DATEADD(DAY, 1, @ToDate) THEN Amount * e.Rate ELSE NULL END) AS BFF,
 			SUM(Amount * e.Rate) AS CurrentBBF		
 		FROM dbo.AffTrans at WITH (NOLOCK)
 			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.WinlostDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
 		WHERE Status IN ('Pending', 'Approved', 'Completed')
 		GROUP BY AffId
 

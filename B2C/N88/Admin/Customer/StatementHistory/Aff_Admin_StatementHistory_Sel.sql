@@ -19,6 +19,7 @@ AS
 		- 20210714@Percy: Include P2P Earning into Monthly Earning [RedmineID: #157958]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20240502@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
+		- 20250417@Sally: Get data BBF by timezone [RedmineID: #222401]
 
 */
 
@@ -27,13 +28,15 @@ BEGIN
 
 	DECLARE @MinReportDate SMALLDATETIME
 		,@EndOfTDate DATETIME
+		,@CurrentDate SMALLDATETIME 
 
 	DECLARE @AffGroupInfo TABLE (MonthDate SMALLDATETIME, GroupTypeName NVARCHAR(100))
 
 	SELECT  @MinReportDate = dbo.Aff_f_GetMinReportDate(@AffId)	
+	SELECT  @CurrentDate   = CONVERT(DATE, DATEADD(HOUR, 12, GETDATE()))
 
 	IF @FDate IS NULL OR @TDate IS NULL
-		SELECT @FDate = @MinReportDate, @TDate = CONVERT(DATE, GETDATE())
+		SELECT @FDate = @MinReportDate, @TDate = @CurrentDate
 	ELSE
 	BEGIN
 		SELECT @FDate = CONVERT(DATE, @FDate), @TDate = CONVERT(DATE, @TDate)
@@ -79,7 +82,7 @@ BEGIN
 		)
 		SELECT
 			at.TransId,
-			at.TransDate,
+			DATEADD(HOUR, 12, at.TransDate) AS TransDate, -- GMT -4 to GMT+8
 			at.TransType,
 			CASE WHEN at.TransType = 202 THEN ABS(at.Amount) ELSE at.Amount END AS Amount,
 			CASE WHEN at.TransType = 202 THEN at.Status ELSE 'B/F' END AS Status,
@@ -90,7 +93,7 @@ BEGIN
 			LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON at.Creator = au.custid
 		WHERE at.AffId = @AffId
 			AND at.TransType IN (202, 203)
-			AND at.TransDate >= @FDate AND at.TransDate < DATEADD(DAY, 1, @TDate)
+			AND at.WinlostDate >= @FDate AND at.WinlostDate < DATEADD(DAY, 1, @TDate)
 	END
 
 	-- Commission info
@@ -138,7 +141,7 @@ BEGIN
 					OUTER APPLY (
 						SELECT at.TransType, at.Amount
 						FROM dbo.AffTrans at WITH (NOLOCK)
-						WHERE md.MonthDate = at.TransDate
+						WHERE md.MonthDate = at.WinlostDate
 							AND at.AffId = @AffId
 							AND at.TransType IN (201, 204, 205)
 					) at
@@ -249,9 +252,9 @@ BEGIN
 				SUM(Amount),
 				'B/F' AS Status,
 				'System' AS Creator,
-				CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current ' ELSE 'UnCalculated ' END
+				CASE WHEN MonthDate >= @CurrentDate THEN 'Current ' ELSE 'UnCalculated ' END
 					+ CASE WHEN TransType = 201 THEN 'Monthly Earning' ELSE 'Revenue Share' END AS Description,
-				CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 0 ELSE 1 END AS CalculatedType
+				CASE WHEN MonthDate >= @CurrentDate THEN 0 ELSE 1 END AS CalculatedType
 			FROM (
 				SELECT md.MonthDate, CASE WHEN at.TransType = 205 THEN 201 ELSE at.TransType END AS TransType, ISNULL(at.Amount, 0) AS Amount
 				FROM CTE_MonthDate md

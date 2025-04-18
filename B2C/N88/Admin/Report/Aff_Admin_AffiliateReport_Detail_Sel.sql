@@ -32,6 +32,7 @@ AS
 		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 		- 20230612@Sally: Enhance Share % Commission in Report [RedmineID: #189425]
 		- 20241105@Sally: Support Report by Date: Add Total Deposit [RedmineID: #213344]
+		- 20250401@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -342,17 +343,17 @@ BEGIN
 	FROM @MonthDate md
 		LEFT JOIN (
 			SELECT
-				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, CASE WHEN at.TransDate < @FromDate THEN @FromDate ELSE at.TransDate END) + 1, 0)) AS MonthDate,
-				SUM(CASE WHEN at.TransType = 202 AND at.TransDate >= @FromDate THEN ABS(at.Amount * e.Rate) ELSE 0 END) AS AffWithdrawal,
-				SUM(CASE WHEN at.TransType = 203 AND at.TransDate >= @FromDate THEN at.Amount * e.Rate ELSE 0 END) AS AffAdjustment,
+				EOMONTH(CASE WHEN at.WinlostDate < @FromDate THEN @FromDate ELSE at.WinlostDate END) AS MonthDate,
+				SUM(CASE WHEN at.TransType = 202 AND at.WinlostDate >= @FromDate THEN ABS(at.Amount * e.Rate) ELSE 0 END) AS AffWithdrawal,
+				SUM(CASE WHEN at.TransType = 203 AND at.WinlostDate >= @FromDate THEN at.Amount * e.Rate ELSE 0 END) AS AffAdjustment,
 				SUM(at.Amount * e.Rate) AS BFF
 			FROM dbo.AffTrans at WITH (NOLOCK)
 				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId
-				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.WinlostDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
 			WHERE at.AffId = @AffId
-				AND at.TransDate < DATEADD(DAY, 1, @ToDate)
+				AND at.WinlostDate < DATEADD(DAY, 1, @ToDate)
 				AND at.Status IN ('Pending', 'Approved', 'Completed')
-			GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, CASE WHEN at.TransDate < @FromDate THEN @FromDate ELSE at.TransDate END) + 1, 0))
+			GROUP BY EOMONTH(CASE WHEN at.WinlostDate < @FromDate THEN @FromDate ELSE at.WinlostDate END)
 		) AS at ON md.MonthDate = at.MonthDate
 
 	UPDATE md1

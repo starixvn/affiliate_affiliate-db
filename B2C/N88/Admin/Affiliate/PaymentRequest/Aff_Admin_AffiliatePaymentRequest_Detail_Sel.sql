@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliatePaymentRequest_Detail_Sel]
 	@TransId BIGINT
 AS
@@ -11,6 +11,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+		- 20250417@Sally: Get data BBF by timezone [RedmineID: #222401]
 */
 
 BEGIN
@@ -30,8 +31,8 @@ BEGIN
 		,CASE WHEN ap.Player_Currency = 20 THEN 'UUS' ELSE ap.Player_CurrencyCode END AS TransCurrencyCode
 		,ap.Player_Username AS PlayerUsername
 		,CASE WHEN at.Status = 'Pending' THEN 'Processing' ELSE at.Status END AS Status
-		,at.TransDate
-		,at.CompletedDate
+		,DATEADD(HOUR, 12, at.TransDate) AS TransDate -- GMT+8
+		,DATEADD(HOUR, 12, at.CompletedDate) AS CompletedDate -- GMT+8
 		,au.UserName AS Creator
 		,ap.AdminDesc
 		,ap.AffDesc

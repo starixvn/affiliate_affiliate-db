@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliatePaymentRequest_Sel]
 	@SearchById	TINYINT = 1
 	,@Username	NVARCHAR(30) = NULL
@@ -18,6 +18,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20250417@Sally: Get data BBF by timezone [RedmineID: #222401]
 
 	Param's Explanation:
 		- @SearchById
@@ -36,26 +37,20 @@ BEGIN
 	IF @SearchById = 1
 		SELECT @IsGetAll = 1
 
-	DECLARE @tblTransID TABLE (TransID BIGINT PRIMARY KEY)
-	INSERT INTO @tblTransID (TransID)
-	SELECT TransID
-	FROM dbo.AffTrans WITH (NOLOCK)
-	WHERE TransType = 202 -- payment request
-
 	DECLARE @tblResultTransID TABLE (TransID BIGINT PRIMARY KEY)
+	;WITH CTE_tblTransID AS(
+		SELECT a.TransID, a.Status, a.WinlostDate, a.AffId
+		FROM dbo.AffTrans a WITH (NOLOCK)
+		WHERE a.TransType = 202 -- payment request
+	)
 	INSERT INTO @tblResultTransID (TransID)
-	SELECT t.TransID
-	FROM @tblTransID t
-		CROSS APPLY (
-			SELECT TOP 1 a.AffID, a.Creator, a.Status, a.TransDate
-			FROM dbo.AffTrans a WITH (NOLOCK)
-			WHERE t.TransID = a.TransID
-		) AS a
+	SELECT a.TransID
+	FROM CTE_tblTransID a
 		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON a.AffID = ai.AffID
 	WHERE
 		(@Username = '' OR ai.UserName LIKE '%' + @Username + '%')
 		AND (@Status = '' OR a.Status = @Status)
-		AND (@IsGetAll = 1 OR (a.TransDate >= @FromDate AND a.TransDate < DATEADD(DAY, 1, @ToDate)))
+		AND (@IsGetAll = 1 OR (a.WinlostDate >= @FromDate AND a.WinlostDate < DATEADD(DAY, 1, @ToDate)))
 
 	SELECT @NRows = @@ROWCOUNT
 	
@@ -67,7 +62,11 @@ BEGIN
 	SELECT  @RowStart = @PageSize * (@PageIndex - 1) + 1
 			,@RowEnd = @RowStart + @PageSize - 1
 	
-	SELECT TransId, TransDate, AffId, UserName, Amount, Status, CompletedDate, Creator
+	SELECT TransId
+		,DATEADD(HOUR, 12, TransDate) AS TransDate -- GMT-4 to GMT+8 
+		,AffId, UserName, Amount, Status
+		,DATEADD(HOUR, 12, CompletedDate) AS CompletedDate -- GMT-4 to GMT+8 
+		,Creator
 	FROM (
 		SELECT
 			t.TransId
