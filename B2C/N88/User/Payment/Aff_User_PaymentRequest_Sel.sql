@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20250401@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
+		- 20250424@Sally: Fix Get CompletedDate [RedmineID: #222352]
 */
 
 BEGIN
@@ -52,7 +53,7 @@ BEGIN
 		t.TransID
 		,p.RefID
 		,DATEADD(HOUR, 12, p.TransDate) AS TransDate -- GMT+8
-		,DATEADD(HOUR, 12, p.CompletedDate) AS CompletedDate -- GMT+8
+		,CASE WHEN p.CompletedDate IS NOT NULL THEN DATEADD(HOUR, 12, p.CompletedDate) END AS CompletedDate -- GMT+8
 		,CASE p.Status
 			WHEN 'Pending' THEN 'Processing'
 			ELSE p.Status END AS Status
