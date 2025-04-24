@@ -16,33 +16,52 @@ AS
 		- 20201215@Percy: Initialize SP [RedmineID: #146201]
 		- 20250326@Sophia: Use data of ClickStatistics.AffMediaLink via ClickId [RedmineID: #220954]
 		- 20250409@Sophia: Add ChannelCode into ClickStatistics [Redmine: #223356]
- 
+		- 20250416@Sophia: Get report by timezone [RedmineID: #222401]
+		
+	Param:
+		@FromDate: GMT+8, Date only
+		@ToDate: GMT+8, Date only
+		
+	Notes:
+	  - ClickStatistics.Date contains Date only, in GMT-4
+	  - ClickStatistics.UpdatedTime is DateTime in GMT-4
+	  - MemberInfo dates are DateTime in GMT+8
+	  - @ArchiveDate is in GMT-4, the maximum date in ClickStatistics_bk
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT  @FromDate = CONVERT(DATE, @FromDate), @ToDate = CONVERT(DATE, @ToDate)
-	DECLARE @FDate SMALLDATETIME, @TDate SMALLDATETIME
+	-- Normalize date parameters to start/end of day
+	SELECT @FromDate = CONVERT(DATE, @FromDate)
+	SELECT @ToDate = CONVERT(DATE, DATEADD(DAY, 1, @ToDate))
 
 	DECLARE @ArchiveDate SMALLDATETIME
-	SELECT @ArchiveDate =  dbo.Aff_f_GetSetting('ArchiveDate_ClickStatistics')
+	SELECT @ArchiveDate = dbo.Aff_f_GetSetting('ArchiveDate_ClickStatistics') -- GMT-4, Date only
+	
+	-- Convert from GMT+8 to GMT-4 for date comparison with ClickStatistics.Date
+	DECLARE @FromDate_GMT4 DATETIME, @ToDate_GMT4 DATETIME
+	SELECT @FromDate_GMT4 = DATEADD(HOUR, -12, CAST(@FromDate AS DATETIME)), -- GMT+8 to GMT-4
+	       @ToDate_GMT4 = DATEADD(HOUR, -12, CAST(@ToDate AS DATETIME)) -- GMT+8 to GMT-4
 
-	CREATE TABLE #tmpData (AffMediaLink VARCHAR(500), LanguageCode VARCHAR(10), ChannelCode VARCHAR(50), TotalClick INT, UniqueClick INT, SignUps INT, FDM INT)
+	DECLARE @TmpFromDate SMALLDATETIME, @TmpToDate SMALLDATETIME
+
+	CREATE TABLE #tmpData (AffMediaLink VARCHAR(500), LanguageCode VARCHAR(10), ChannelCode VARCHAR(50), TotalClick INT DEFAULT(0), UniqueClick INT DEFAULT(0), SignUps INT DEFAULT(0), FDM INT DEFAULT(0))
 	CREATE CLUSTERED INDEX CIX_tmpData ON #tmpData (AffMediaLink)
 	
-	CREATE TABLE #tmp_Result (ChannelName NVARCHAR(200),LanguageCode VARCHAR(10), AffMediaLink VARCHAR(500), MarketName NVARCHAR(50), TotalClick INT, UniqueClick INT, SignUps INT, FDM INT, IsShow BIT)
+	CREATE TABLE #tmp_Result (ChannelName NVARCHAR(200), LanguageCode VARCHAR(10), AffMediaLink VARCHAR(500), MarketName NVARCHAR(50), TotalClick INT, UniqueClick INT, SignUps INT, FDM INT, IsShow BIT)
 	
-
-	IF @ToDate > @ArchiveDate
+	IF CONVERT(DATE, @ToDate_GMT4) > @ArchiveDate -- For current data
 	BEGIN
-		SELECT  @FDate = CASE WHEN @FromDate > @ArchiveDate THEN @FromDate ELSE DATEADD(Day,1,@ArchiveDate) END 
-				,@TDate = DATEADD(Day,1,@ToDate)
+		-- Calculate date ranges in GMT-4 timezone for click data
+		SELECT @TmpFromDate = CASE WHEN CONVERT(DATE, @FromDate_GMT4) > @ArchiveDate THEN CONVERT(DATE, @FromDate_GMT4) ELSE DATEADD(Day, 1, @ArchiveDate) END,
+		       @TmpToDate = DATEADD(Day, 1, CONVERT(DATE, @ToDate_GMT4))
 
 		INSERT INTO #tmpData (AffMediaLink, LanguageCode, ChannelCode, TotalClick, UniqueClick)
 		SELECT AffMediaLink, LanguageCode, ChannelCode, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 		FROM dbo.ClickStatistics c WITH (NOLOCK)
-		WHERE [Date] >= @FDate AND [Date] < @TDate
+		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
+			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
 			AND AffId = @AffId
 		GROUP BY AffMediaLink, LanguageCode, ChannelCode
 		
@@ -50,50 +69,69 @@ BEGIN
 		INSERT INTO #tmpData (AffMediaLink, LanguageCode, ChannelCode, SignUps, FDM)
 		SELECT
 			c.AffMediaLink, c.LanguageCode, c.ChannelCode,
-			COUNT(CASE WHEN mi.RegisteredDate >= @FDate AND mi.RegisteredDate < @TDate THEN 1 ELSE NULL END) AS Signups,
-			COUNT(CASE WHEN mi.FirstDepositDate >= @FDate AND mi.FirstDepositDate < @TDate THEN 1 ELSE NULL END) AS FDM
+			COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
+			COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
 			LEFT JOIN dbo.ClickStatistics c WITH (NOLOCK) ON c.clickId = mi.clickId
 		WHERE mi.AffId = @AffID
 			AND (
-					(mi.RegisteredDate >= @FDate AND mi.RegisteredDate < @TDate)	 
-					OR	(mi.FirstDepositDate >= @FDate AND mi.FirstDepositDate < @TDate)
-					)
+					(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
+					OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
+				)
 		GROUP BY
 			c.AffMediaLink, c.LanguageCode, c.ChannelCode
-		-- End Signups, FDM -- 
+		
+			IF CONVERT(DATE, @FromDate_GMT4) = @ArchiveDate -- Should retrieve data at ClickStatistics_bk for boundary date
+		BEGIN
+			INSERT INTO #tmpData (AffMediaLink, LanguageCode, ChannelCode, SignUps, FDM)
+			SELECT
+				c.AffMediaLink, c.LanguageCode, c.ChannelCode,
+				COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
+				COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
+			FROM dbo.MemberInfo mi WITH (NOLOCK)
+				LEFT JOIN dbo.ClickStatistics_bk c WITH (NOLOCK) ON c.clickId = mi.clickId
+			WHERE mi.AffId = @AffID
+				AND (
+						(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
+						OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
+					)
+				AND c.Date = @ArchiveDate
+			GROUP BY
+				c.AffMediaLink, c.LanguageCode, c.ChannelCode
+		END
 	END
 
-	IF @FromDate <= @ArchiveDate
+	IF CONVERT(DATE, @FromDate_GMT4) <= @ArchiveDate -- For archived data
 	BEGIN
-		SELECT  @FDate = @FromDate 
-				,@TDate = CASE WHEN @ToDate > @ArchiveDate THEN DATEADD(Day,1,@ArchiveDate) ELSE DATEADD(Day,1,@ToDate) END
+		-- Calculate date ranges in GMT-4 timezone for archived click data
+		SELECT @TmpFromDate = CONVERT(DATE, @FromDate_GMT4), 
+		       @TmpToDate = CASE WHEN CONVERT(DATE, @ToDate_GMT4) > @ArchiveDate THEN DATEADD(Day, 1, @ArchiveDate) ELSE DATEADD(Day, 1, CONVERT(DATE, @ToDate_GMT4)) END
 
 		INSERT INTO #tmpData (AffMediaLink, LanguageCode, ChannelCode, TotalClick, UniqueClick)
 		SELECT AffMediaLink, LanguageCode, ChannelCode, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 		FROM dbo.ClickStatistics_bk WITH (NOLOCK)
-		WHERE [Date] >= @FDate AND [Date] < @TDate
+		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
+			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
 			AND AffId = @AffId
 		GROUP BY AffMediaLink, LanguageCode, ChannelCode
 
 		-- Signups, FDM --
 		INSERT INTO #tmpData (AffMediaLink, LanguageCode, ChannelCode, SignUps, FDM)
 		SELECT
-			c.AffMediaLink, c.LanguageCode,ChannelCode,
-			COUNT(CASE WHEN mi.RegisteredDate >= @FDate AND mi.RegisteredDate < @TDate THEN 1 ELSE NULL END) AS Signups,
-			COUNT(CASE WHEN mi.FirstDepositDate >= @FDate AND mi.FirstDepositDate < @TDate THEN 1 ELSE NULL END) AS FDM
+			c.AffMediaLink, c.LanguageCode, c.ChannelCode,
+			COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
+			COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
 			LEFT JOIN dbo.ClickStatistics_bk c WITH (NOLOCK) ON c.clickId = mi.clickId
 		WHERE mi.AffId = @AffID
 			AND (
-					(mi.RegisteredDate >= @FDate AND mi.RegisteredDate < @TDate)	 
-					OR	(mi.FirstDepositDate >= @FDate AND mi.FirstDepositDate < @TDate)
-					)
+					(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
+					OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
+				)
+			AND c.[Date] >= @TmpFromDate AND c.[Date] < @TmpToDate -- Filter by date range
 		GROUP BY
-			c.AffMediaLink, c.LanguageCode,ChannelCode
-		-- End Signups, FDM --		
+			c.AffMediaLink, c.LanguageCode, c.ChannelCode	
 	END
-
 
 	;WITH CTE_Result AS (
 		SELECT AffMediaLink, LanguageCode, ChannelCode, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick, SUM (SignUps) as SignUps, SUM (FDM) as FDM

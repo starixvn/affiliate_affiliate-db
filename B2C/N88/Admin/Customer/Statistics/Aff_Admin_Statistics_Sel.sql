@@ -18,6 +18,12 @@ AS
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20240506@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
 		- 20250402@Sophia: Fix Unique Click count IP by range from - to [RedmineID: #221818]
+		- 20250416@Sophia: Get report by timezone [RedmineID: #222401]
+		
+	Notes:
+	  - ClickStatistics.Date contains Date only, in GMT-4
+	  - ClickStatistics.UpdatedTime is DateTime in GMT-4
+	  - MemberInfo dates are DateTime in GMT+8
 */
 
 BEGIN
@@ -198,41 +204,72 @@ BEGIN
 	WHERE AffId = @AffId
 
 	DECLARE @ArchiveDate SMALLDATETIME
-	SELECT	@ArchiveDate = MAX(Date) FROM dbo.ClickStatisticsSum (NOLOCK)
-	SELECT  @ArchiveDate = ISNULL(@ArchiveDate, DATEADD(DAY, -1, @FromBeginMonth))
+	SELECT @ArchiveDate = dbo.Aff_f_GetSetting('ArchiveDate_ClickStatistics') -- GMT-4, Date only
+	
+	-- Convert month range from GMT+8 to GMT-4 for Click statistics date comparison
+	DECLARE @FromBeginMonth_GMT4 DATETIME, @ToNextMonth_GMT4 DATETIME
+	SELECT @FromBeginMonth_GMT4 = DATEADD(HOUR, -12, CAST(@FromBeginMonth AS DATETIME)), -- GMT+8 to GMT-4
+	       @ToNextMonth_GMT4 = DATEADD(HOUR, -12, CAST(@ToNextMonth AS DATETIME)) -- GMT+8 to GMT-4
 
-	;WITH CTE_Device AS (
-		SELECT DeviceType, SUM(TotalClick) AS TotalClickByMonth, SUM(UniqueClick) AS UniqueClicks
-		FROM (
-			SELECT
-				ISNULL(c.DeviceType, 0) AS DeviceType,
-				COUNT(1) AS TotalClick,
-				COUNT(DISTINCT c.IP) AS UniqueClick
-			FROM dbo.ClickStatistics c WITH (NOLOCK)
-			WHERE c.AffId = @AffId
-				AND c.Date >= @FromBeginMonth AND c.Date < @ToNextMonth
-				AND c.Date > @ArchiveDate
-			GROUP BY ISNULL(c.DeviceType, 0) 
+	-- Initialize click counters
+	SELECT @TotalClickPCByMonth = 0, @UniqueClickPCByMonth = 0,
+	       @TotalClickMobileByMonth = 0, @UniqueClickMobileByMonth = 0
+	
+	DECLARE @TmpFromDate DATE, @TmpToDate DATE
+	
+	-- Get clicks from current table if applicable
+	IF CONVERT(DATE, @ToNextMonth_GMT4) > @ArchiveDate
+	BEGIN 
+		SELECT @TmpFromDate = CASE WHEN CONVERT(DATE, @FromBeginMonth_GMT4) > @ArchiveDate 
+		                        THEN CONVERT(DATE, @FromBeginMonth_GMT4) 
+		                        ELSE DATEADD(Day, 1, @ArchiveDate) END,
+		       @TmpToDate = DATEADD(Day, 1, CONVERT(DATE, @ToNextMonth_GMT4))
 
-			UNION ALL
-			SELECT
-				ISNULL(c.DeviceType, 0) AS DeviceType,
+		;WITH CTE_Device AS (
+			SELECT 
+				ISNULL(DeviceType, 0) AS DeviceType,
 				COUNT(1) AS TotalClick,
-				COUNT(DISTINCT c.IP) AS UniqueClick
-			FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
-			WHERE c.AffId = @AffId
-				AND c.Date >= @FromBeginMonth AND c.Date < @ToNextMonth
-				AND c.Date <= @ArchiveDate
-			GROUP BY ISNULL(c.DeviceType, 0)
-		) AS A
-		GROUP BY DeviceType
-	)
-	SELECT
-		@TotalClickPCByMonth		= SUM(CASE WHEN DeviceType = 0 THEN ISNULL(TotalClickByMonth, 0) ELSE 0 END),
-		@UniqueClickPCByMonth		= SUM(CASE WHEN DeviceType = 0 THEN ISNULL(UniqueClicks, 0) ELSE 0 END),
-		@TotalClickMobileByMonth	= SUM(CASE WHEN DeviceType = 1 THEN ISNULL(TotalClickByMonth, 0) ELSE 0 END),
-		@UniqueClickMobileByMonth	= SUM(CASE WHEN DeviceType = 1 THEN ISNULL(UniqueClicks, 0) ELSE 0 END)
-	FROM CTE_Device
+				COUNT(DISTINCT IP) AS UniqueClick
+			FROM dbo.ClickStatistics WITH (NOLOCK)
+			WHERE AffId = @AffId
+				AND [Date] >= @TmpFromDate AND [Date] < @TmpToDate
+				AND UpdatedTime >= @FromBeginMonth_GMT4 AND UpdatedTime < @ToNextMonth_GMT4
+			GROUP BY ISNULL(DeviceType, 0)
+		)
+		SELECT
+			@TotalClickPCByMonth = @TotalClickPCByMonth + ISNULL(SUM(CASE WHEN DeviceType = 0 THEN TotalClick ELSE 0 END), 0),
+			@UniqueClickPCByMonth = @UniqueClickPCByMonth + ISNULL(SUM(CASE WHEN DeviceType = 0 THEN UniqueClick ELSE 0 END), 0),
+			@TotalClickMobileByMonth = @TotalClickMobileByMonth + ISNULL(SUM(CASE WHEN DeviceType = 1 THEN TotalClick ELSE 0 END), 0),
+			@UniqueClickMobileByMonth = @UniqueClickMobileByMonth + ISNULL(SUM(CASE WHEN DeviceType = 1 THEN UniqueClick ELSE 0 END), 0)
+		FROM CTE_Device
+	END
+	
+	-- Get clicks from archived table if applicable
+	IF CONVERT(DATE, @FromBeginMonth_GMT4) <= @ArchiveDate		
+	BEGIN
+		SELECT @TmpFromDate = CONVERT(DATE, @FromBeginMonth_GMT4), 
+		       @TmpToDate = CASE WHEN CONVERT(DATE, @ToNextMonth_GMT4) > @ArchiveDate 
+		                      THEN DATEADD(Day, 1, @ArchiveDate) 
+		                      ELSE DATEADD(Day, 1, CONVERT(DATE, @ToNextMonth_GMT4)) END
+
+		;WITH CTE_Device AS (
+			SELECT 
+				ISNULL(DeviceType, 0) AS DeviceType,
+				COUNT(1) AS TotalClick,
+				COUNT(DISTINCT IP) AS UniqueClick
+			FROM dbo.ClickStatistics_bk WITH (NOLOCK)
+			WHERE AffId = @AffId
+				AND [Date] >= @TmpFromDate AND [Date] < @TmpToDate
+				AND UpdatedTime >= @FromBeginMonth_GMT4 AND UpdatedTime < @ToNextMonth_GMT4
+			GROUP BY ISNULL(DeviceType, 0)
+		)
+		SELECT
+			@TotalClickPCByMonth = @TotalClickPCByMonth + ISNULL(SUM(CASE WHEN DeviceType = 0 THEN TotalClick ELSE 0 END), 0),
+			@UniqueClickPCByMonth = @UniqueClickPCByMonth + ISNULL(SUM(CASE WHEN DeviceType = 0 THEN UniqueClick ELSE 0 END), 0),
+			@TotalClickMobileByMonth = @TotalClickMobileByMonth + ISNULL(SUM(CASE WHEN DeviceType = 1 THEN TotalClick ELSE 0 END), 0),
+			@UniqueClickMobileByMonth = @UniqueClickMobileByMonth + ISNULL(SUM(CASE WHEN DeviceType = 1 THEN UniqueClick ELSE 0 END), 0)
+		FROM CTE_Device
+	END
 
 	SELECT
 		@NoOfSubAffTotal	= COUNT(1),
