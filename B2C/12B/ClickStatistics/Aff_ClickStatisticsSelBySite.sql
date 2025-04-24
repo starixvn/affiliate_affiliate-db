@@ -18,9 +18,18 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250324@Sophia: Count Signups, FDM by clickId [RedmineID: #219949]
 		- 20250402@Sophia: Get ClickStatistics_bk, remove GroupBy Date for UniqueClick [RedmineID: #222777]
+		- 20250416@Sophia: Get report by timezone [RedmineID: #222352]
 		
 	Param:
 		@DeviceType = -1 : all 
+		@FromDate: GMT+8, Date only
+		@ToDate: GMT+8, Date only
+		
+	Notes:
+	  - ClickStatistics.Date contains Date only, in GMT-4
+	  - ClickStatistics.UpdatedTime is DateTime in GMT-4
+	  - MemberInfo dates are DateTime in GMT+8
+	  - @ArchiveDate is in GMT-4, the maximum date in ClickStatistics_bk
 */
 
 BEGIN
@@ -32,127 +41,150 @@ BEGIN
 	(
 		DomainReferrer	NVARCHAR(600),
 		DeviceType		TINYINT,
-		TotalClick		INT,
-		UniqueClick		INT,
-		Signups			INT,
-		FDM				INT,
-		Sort			TINYINT DEFAULT (0)
+		TotalClick		INT DEFAULT(0),
+		UniqueClick		INT DEFAULT(0),
+		Signups			INT DEFAULT(0),
+		FDM				INT DEFAULT(0)
 	)
-
-	SELECT	@FromDate = CONVERT(VARCHAR(10), @FromDate, 120)  
-			
-	DECLARE @ArchiveDate SMALLDATETIME
-	SELECT	@ArchiveDate = MAX(Date) FROM dbo.ClickStatisticsSum (NOLOCK)
-	SELECT  @ArchiveDate = ISNULL(@ArchiveDate, DATEADD(DAY, -1, @FromDate))
-
-	DECLARE @FDate SMALLDATETIME, @TDate SMALLDATETIME
-
-	
-	-- TotalClick, UniqueClick --
-	DECLARE @Result TABLE
+	CREATE TABLE #SumResult
 	(
 		DomainReferrer	NVARCHAR(600),
-		DeviceType		TINYINT,
-		TotalClick		INT,
-		UniqueClick		INT
-	) 
-	IF @ToDate > @ArchiveDate
-	BEGIN
+		TotalClick		INT DEFAULT(0),
+		UniqueClick		INT DEFAULT(0),
+		Signups			INT DEFAULT(0),
+		FDM				INT DEFAULT(0)
+	)
 
-		SELECT  @FDate = CASE WHEN @FromDate > @ArchiveDate THEN @FromDate ELSE DATEADD(Day, 1, @ArchiveDate) END, 
-				@TDate = DATEADD(Day, 1, @ToDate)
+	-- Normalize date parameters to start/end of day
+	SELECT @FromDate = CONVERT(DATE, @FromDate)
+	SELECT @ToDate = CONVERT(DATE, DATEADD(DAY, 1, @ToDate))
+
+	DECLARE @ArchiveDate SMALLDATETIME
+	SELECT @ArchiveDate = dbo.Aff_f_GetSetting('ArchiveDate_ClickStatistics') -- GMT-4, Date only
+	
+	-- Convert from GMT+8 to GMT-4 for date comparison with ClickStatistics.Date
+	DECLARE @FromDate_GMT4 DATETIME, @ToDate_GMT4 DATETIME
+	SELECT @FromDate_GMT4 = DATEADD(HOUR, -12, CAST(@FromDate AS DATETIME)), -- GMT+8 to GMT-4
+	       @ToDate_GMT4 = DATEADD(HOUR, -12, CAST(@ToDate AS DATETIME)) -- GMT+8 to GMT-4
+
+	DECLARE @TmpFromDate SMALLDATETIME, @TmpToDate SMALLDATETIME
+	
+	IF CONVERT(DATE, @ToDate_GMT4) > @ArchiveDate -- For current data
+	BEGIN
+		-- Calculate date ranges in GMT-4 timezone for click data
+		SELECT @TmpFromDate = CASE WHEN CONVERT(DATE, @FromDate_GMT4) > @ArchiveDate THEN CONVERT(DATE, @FromDate_GMT4) ELSE DATEADD(Day, 1, @ArchiveDate) END,
+		       @TmpToDate = DATEADD(Day, 1, CONVERT(DATE, @ToDate_GMT4))
 				 
-		INSERT INTO @Result (DomainReferrer, DeviceType, TotalClick, UniqueClick)
+		INSERT INTO #tmpResult (DomainReferrer, DeviceType, TotalClick, UniqueClick)
 		SELECT DomainReferrer, DeviceType, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 		FROM dbo.ClickStatistics c WITH (NOLOCK)
-		WHERE [Date] >= @FDate AND [Date] < @TDate
+		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
+			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
 			AND AffId = @AffID
 		GROUP BY DomainReferrer, DeviceType 
 		
 		-- Signups, FDM --
-		INSERT INTO #tmpResult (DomainReferrer, DeviceType, TotalClick, UniqueClick, Signups, FDM)
+		INSERT INTO #tmpResult (DomainReferrer, DeviceType, Signups, FDM)
 		SELECT
 			ISNULL(md.DomainReferrer, 'none')	AS DomainReferrer,
 			ISNULL(md.DeviceType, 0)			AS DeviceType,
-			0									AS TotalClick,
-			0									AS UniqueClick,
-			COUNT(CASE WHEN mi.RegisteredDate >= @FDate AND mi.RegisteredDate < @TDate THEN 1 ELSE NULL END) AS Signups,
-			COUNT(CASE WHEN mi.FirstDepositDate >= @FDate AND mi.FirstDepositDate < @TDate THEN 1 ELSE NULL END) AS FDM
+			COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
+			COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
 			LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickId = mi.clickId
 		WHERE mi.AffId = @AffID
 			AND (
-						(mi.RegisteredDate >= @FDate AND mi.RegisteredDate < @TDate)	 
-					OR	(mi.FirstDepositDate >= @FDate AND mi.FirstDepositDate < @TDate)
-					)
+					(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
+					OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
+				)
 		GROUP BY
 			ISNULL(md.DomainReferrer, 'none'),
 			ISNULL(md.DeviceType, 0)
-		-- End Signups, FDM --
-	
+			
+		IF CONVERT(DATE, @FromDate_GMT4) = @ArchiveDate -- Should retrieve data at ClickStatistics_bk for half of the gap date
+		BEGIN
+			INSERT INTO #tmpResult (DomainReferrer, DeviceType, Signups, FDM)
+			SELECT
+				ISNULL(md.DomainReferrer, 'none')	AS DomainReferrer,
+				ISNULL(md.DeviceType, 0)			AS DeviceType,
+				COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
+				COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
+			FROM dbo.MemberInfo mi WITH (NOLOCK)
+				LEFT JOIN dbo.ClickStatistics_bk md WITH (NOLOCK) ON md.clickId = mi.clickId
+			WHERE mi.AffId = @AffID
+				AND (
+						(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
+						OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
+					)
+				AND md.Date = @ArchiveDate
+			GROUP BY
+				ISNULL(md.DomainReferrer, 'none'),
+				ISNULL(md.DeviceType, 0)
+		END
 	END 
 	
-	IF @FromDate <= @ArchiveDate
+	IF CONVERT(DATE, @FromDate_GMT4) <= @ArchiveDate -- For archived data
 	BEGIN
-		SELECT  @FDate = @FromDate, 
-				@TDate = CASE WHEN @ToDate > @ArchiveDate THEN DATEADD(Day,1,@ArchiveDate) ELSE DATEADD(Day,1,@ToDate) END
+		-- Calculate date ranges in GMT-4 timezone for archived click data
+		SELECT @TmpFromDate = CONVERT(DATE, @FromDate_GMT4), 
+		       @TmpToDate = CASE WHEN CONVERT(DATE, @ToDate_GMT4) > @ArchiveDate THEN DATEADD(Day, 1, @ArchiveDate) ELSE DATEADD(Day, 1, CONVERT(DATE, @ToDate_GMT4)) END
 
-		INSERT INTO @Result (DomainReferrer, DeviceType, TotalClick, UniqueClick)
+		INSERT INTO #tmpResult (DomainReferrer, DeviceType, TotalClick, UniqueClick)
 		SELECT DomainReferrer, DeviceType, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
 		FROM dbo.ClickStatistics_bk WITH (NOLOCK)
-		WHERE  [Date] >= @FDate AND [Date] < @TDate			
+		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
+			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
 			AND AffId = @AffID
 		GROUP BY DomainReferrer, DeviceType
 
 		-- Signups, FDM --
-		INSERT INTO #tmpResult (DomainReferrer, DeviceType, TotalClick, UniqueClick, Signups, FDM)
+		INSERT INTO #tmpResult (DomainReferrer, DeviceType, Signups, FDM)
 		SELECT
 			ISNULL(md.DomainReferrer, 'none')	AS DomainReferrer,
 			ISNULL(md.DeviceType, 0)			AS DeviceType,
-			0									AS TotalClick,
-			0									AS UniqueClick,
-			COUNT(CASE WHEN mi.RegisteredDate >= @FDate AND mi.RegisteredDate < @TDate THEN 1 ELSE NULL END) AS Signups,
-			COUNT(CASE WHEN mi.FirstDepositDate >= @FDate AND mi.FirstDepositDate < @TDate THEN 1 ELSE NULL END) AS FDM
+			COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
+			COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
 			LEFT JOIN dbo.ClickStatistics_BK md WITH (NOLOCK) ON md.clickId = mi.clickId
 		WHERE mi.AffId = @AffID
-		AND (
-				(mi.RegisteredDate >= @FDate AND mi.RegisteredDate < @TDate)	 
-					OR	(mi.FirstDepositDate >= @FDate AND mi.FirstDepositDate < @TDate)
-			)
+			AND (
+					(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
+					OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
+				)
+			AND md.[Date] >= @TmpFromDate AND md.[Date] < @TmpToDate -- Filter by date range
 		GROUP BY
 			ISNULL(md.DomainReferrer, 'none'),
 			ISNULL(md.DeviceType, 0)
-		-- End Signups, FDM --
 	END
 
-	INSERT INTO #tmpResult (DomainReferrer, DeviceType, TotalClick, UniqueClick, Signups, FDM, Sort)
-	SELECT ISNULL(DomainReferrer, 'none'), ISNULL(DeviceType, 0), SUM(ISNULL(TotalClick, 0)), SUM(ISNULL(UniqueClick, 0)), 0, 0, 0
-	FROM @Result
-	GROUP BY ISNULL(DomainReferrer, 'none'), ISNULL(DeviceType, 0)
-	-- End TotalClick, UniqueClick --
-	 
+	
+	INSERT INTO #SumResult (DomainReferrer, TotalClick, UniqueClick, Signups, FDM)
+	SELECT
+		ISNULL(DomainReferrer, 'none') AS DomainReferrer,
+		SUM(TotalClick) AS TotalClick,
+		SUM(UniqueClick) AS UniqueClick,
+		SUM(Signups) AS Signups,
+		SUM(FDM) AS FDM
+	FROM #tmpResult
+	WHERE (ISNULL(DeviceType, 0) = @DeviceType OR @DeviceType = -1)
+	GROUP BY ISNULL(DomainReferrer, 'none')
+	
 
-	-- Return data --
+	---- Return data --
+	SELECT @TotalClicks = SUM(TotalClick), @UniqueClicks = SUM(UniqueClick), 
+	       @TotalSignUps = SUM(Signups), @TotalFDMs = SUM(FDM)
+	FROM #SumResult
+
 	SELECT
 		DomainReferrer,
-		SUM(TotalClick)		AS TotalClick,
-		SUM(UniqueClick)	AS UniqueClick,
-		SUM(Signups)		AS Signups,
-		SUM(FDM)			AS FDM
-	FROM #tmpResult
-	WHERE (DeviceType = @DeviceType OR @DeviceType = -1)
-	GROUP BY DomainReferrer, Sort
-	ORDER BY Sort
-
-	SELECT	@TotalClicks = SUM(TotalClick), @UniqueClicks = SUM(UniqueClick)
-	FROM	@Result
-	WHERE	(DeviceType = @DeviceType OR @DeviceType = -1)
-
-	SELECT	@TotalSignUps = SUM(Signups), @TotalFDMs = SUM(FDM)
-	FROM	#tmpResult
-	WHERE	(DeviceType = @DeviceType OR @DeviceType = -1)
+		TotalClick,
+		UniqueClick,
+		Signups,
+		FDM
+	FROM #SumResult
+	ORDER BY DomainReferrer
 
 	DROP TABLE #tmpResult
+	DROP TABLE #SumResult
 END
 GO
