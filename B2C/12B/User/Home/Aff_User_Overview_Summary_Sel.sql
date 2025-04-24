@@ -16,6 +16,7 @@ AS
 		- 20250313@Sally: Missing data on total FDM's Deposit by month [RedmineID: #219974]
 		- 20250313@Sally: Get Rate for  FDM's Deposit [RedmineID: #219974]
 		- 20250416@Sally: Change the data retrieval method for Deposit [RedmineID: #224116]
+		- 20250401@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 */
 
 BEGIN
@@ -71,7 +72,7 @@ BEGIN
 		SELECT  @BBF = SUM(Amount)
 		FROM dbo.AffTrans WITH (NOLOCK)
 		WHERE AffId = @AffId
-			AND TransDate < DATEADD(DAY, 1, @EndOfMonth)
+			AND WinlostDate < DATEADD(DAY, 1, @EndOfMonth)
 			AND Status IN ('Pending', 'Approved', 'Completed')
 	END
 
@@ -207,7 +208,7 @@ BEGIN
 			@ActivePlayers		= SUM(ISNULL(ActivePlayer, 0))
 			,@QualifiedMember	= SUM(ISNULL(QualifiedMember, 0))
 			,@Turnover			= SUM(ISNULL(Turnover, 0))
-			,@Commission		= SUM(ISNULL(Commission, 0) + ISNULL(StraightCommission, 0))
+			,@Commission		= SUM(ISNULL(Commission, 0))
 			,@SubAffCommission	= SUM(ISNULL(SubAffCommission, 0))
 		FROM #TempCommission
 

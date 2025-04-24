@@ -15,6 +15,7 @@ CREATE PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Detail_Sel]
 	,@PageSize			INT = 50
 	,@NRows				INT = 0 OUTPUT
 AS
+
 /*
 	Created: 20241118@Eddie
 	DB: DBAFF12B-Affiliate_12B
@@ -26,6 +27,7 @@ AS
 		- 20250326@Sally: Add new column FDAM Amount [RedmineID: #220316]
 		- 20250416@Sally: Change the data retrieval method for Deposit [RedmineID: #224116]
         - 20250417@Sally: Add Revenue Group column [RedmineID: #224286]
+		- 20250418@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -46,6 +48,8 @@ BEGIN
 		,@TimeZone				SMALLINT
 		,@FromDateTimeGMT0		DATETIME
 		,@ToDateTimeGMT0		DATETIME
+		,@FromDate_Local		DATETIME
+		,@ToDate_Local			DATETIME
 
 	SELECT  @Username = ISNULL(TRIM(@Username), '')
 	SELECT  @TimeZone = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
@@ -245,52 +249,56 @@ BEGIN
 		-- Statistics
 		CREATE TABLE #Statistics (MonthDate SMALLDATETIME, TotalClick INT, UniqueClick INT, Signup INT, FDM INT)
 
-		DECLARE @ArchiveDate SMALLDATETIME
-		SELECT	@ArchiveDate = MAX(Date) FROM dbo.ClickStatisticsSum (NOLOCK)
-		SELECT  @ArchiveDate = ISNULL(@ArchiveDate, DATEADD(DAY, -1, @FromDate))
+		DECLARE @ArchiveDate SMALLDATETIME;
+		SELECT @ArchiveDate = dbo.Aff_f_GetSetting('ArchiveDate_ClickStatistics'); -- GMT-4
 
-		IF @ToDate > @ArchiveDate
+		SELECT @FromDate_Local = DATEADD(HOUR, -12, CAST(@FromDate AS DATETIME)), -- GMT+8 to GMT-4
+			@ToDate_Local = DATEADD(HOUR, -12, DATEADD(DAY, 1, CAST(@ToDate AS DATETIME))); -- GMT+8 to GMT-4
+
+		IF @ToDate_Local > @ArchiveDate
 		BEGIN
-			SELECT @tempFromDate = CASE WHEN @FromDate <= @ArchiveDate THEN DATEADD(DAY, 1, @ArchiveDate) ELSE @FromDate END
-			SELECT @tempToDate	= DATEADD(DAY, 1, @ToDate)
+			SELECT @tempFromDate = CASE 
+										WHEN @FromDate_Local > @ArchiveDate THEN CONVERT(DATE, @FromDate_Local) 
+										ELSE DATEADD(DAY, 1, @ArchiveDate) 
+								   END
+				,@tempToDate = DATEADD(DAY, 1, CONVERT(DATE, @ToDate_Local))
 
 			INSERT INTO #Statistics (MonthDate, TotalClick, UniqueClick)
 			SELECT
-				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, c.Date) + 1, 0)) AS MonthDate,
+				EOMONTH(DATEADD(HOUR, 12, c.UpdatedTime)) AS MonthDate, -- GMT-4 to GMT+8
 				COUNT(1) AS TotalClick,
 				COUNT(DISTINCT c.IP) AS UniqueClick
 			FROM dbo.ClickStatistics c WITH (NOLOCK)
-			WHERE c.AffId = @AffId
-				AND c.Date >= @tempFromDate AND c.Date < @tempToDate
-				AND c.Date > @ArchiveDate
+			WHERE [Date] >= @tempFromDate
+				AND [Date] < @tempToDate
+				AND UpdatedTime >= @FromDate_Local -- GMT-4
+				AND UpdatedTime < @ToDate_Local -- GMT-4
+				AND AffId = @AffID
 			GROUP BY
-				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, c.Date) + 1, 0))
+				EOMONTH(DATEADD(HOUR, 12, c.UpdatedTime))
 		END
 
-		IF @FromDate <= @ArchiveDate
+		IF CONVERT(DATE, @FromDate_Local) <= @ArchiveDate
 		BEGIN
-			SELECT @tempFromDate = @FromDate
-			SELECT @tempToDate	= CASE WHEN @ToDate > @ArchiveDate THEN @ArchiveDate ELSE @ToDate END
-
-			SELECT @tempToDate = DATEADD(DAY, 1, @tempToDate)
+			 SELECT @tempFromDate = CONVERT(DATE, @FromDate_Local)
+				,@tempToDate = CASE 
+									WHEN @ToDate_Local <= @ArchiveDate THEN DATEADD(DAY, 1, CONVERT(DATE, @ToDate_Local)) 
+									ELSE DATEADD(DAY, 1, @ArchiveDate) 
+							   END
 			
 			INSERT INTO #Statistics (MonthDate, TotalClick, UniqueClick)
-			SELECT MonthDate, SUM(TotalClick), COUNT(1) AS UniqueClick
-			FROM
-			(
-				SELECT
-					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, c.Date) + 1, 0)) AS MonthDate,
-					c.IP,
-					COUNT(1) AS TotalClick
-				FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
-				WHERE c.AffId = @AffId
-					AND c.Date >= @tempFromDate AND c.Date < @tempToDate
-					AND c.Date <= @ArchiveDate
-				GROUP BY
-					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, c.Date) + 1, 0)),
-					c.IP
-			) AS c
-			GROUP BY MonthDate
+			SELECT
+				EOMONTH(DATEADD(HOUR, 12, c.UpdatedTime)) AS MonthDate, -- GMT-4 to GMT+8
+				COUNT(1) AS TotalClick,
+				COUNT(DISTINCT c.IP) AS UniqueClick
+			FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
+			WHERE [Date] >= @tempFromDate
+				AND [Date] < @tempToDate
+				AND UpdatedTime >= @FromDate_Local -- GMT-4
+				AND UpdatedTime < @ToDate_Local -- GMT-4
+				AND AffId = @AffID
+			GROUP BY
+				EOMONTH(DATEADD(HOUR, 12, c.UpdatedTime))
 		END
 	END
 	
@@ -337,17 +345,17 @@ BEGIN
 	FROM @MonthDate md
 		LEFT JOIN (
 			SELECT
-				DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, CASE WHEN at.TransDate < @FromDate THEN @FromDate ELSE at.TransDate END) + 1, 0)) AS MonthDate,
-				SUM(CASE WHEN at.TransType = 202 AND at.TransDate >= @FromDate THEN ABS(at.Amount * e.Rate) ELSE 0 END) AS AffWithdrawal,
-				SUM(CASE WHEN at.TransType = 203 AND at.TransDate >= @FromDate THEN at.Amount * e.Rate ELSE 0 END) AS AffAdjustment,
+				EOMONTH(CASE WHEN at.WinlostDate < @FromDate THEN @FromDate ELSE at.WinlostDate END) AS MonthDate,
+				SUM(CASE WHEN at.TransType = 202 AND at.WinlostDate >= @FromDate AND at.WinlostDate < DATEADD(DAY, 1, @ToDate) THEN ABS(at.Amount * e.Rate) ELSE 0 END) AS AffWithdrawal,
+				SUM(CASE WHEN at.TransType = 203 AND at.WinlostDate >= @FromDate AND at.WinlostDate < DATEADD(DAY, 1, @ToDate) THEN at.Amount * e.Rate ELSE 0 END) AS AffAdjustment,
 				SUM(at.Amount * e.Rate) AS BFF
 			FROM dbo.AffTrans at WITH (NOLOCK)
 				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId
-				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.WinlostDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
 			WHERE at.AffId = @AffId
-				AND at.TransDate < DATEADD(DAY, 1, @ToDate)
+				AND at.WinlostDate < DATEADD(DAY, 1, @ToDate)
 				AND at.Status IN ('Pending', 'Approved', 'Completed')
-			GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, CASE WHEN at.TransDate < @FromDate THEN @FromDate ELSE at.TransDate END) + 1, 0))
+			GROUP BY EOMONTH(CASE WHEN at.WinlostDate < @FromDate THEN @FromDate ELSE at.WinlostDate END)
 		) AS at ON md.MonthDate = at.MonthDate
 
 	UPDATE md1
@@ -397,6 +405,10 @@ BEGIN
 			AND d.CreateTime >= @FromDateTimeGMT0 
 			AND d.CreateTime < DATEADD(DAY, 1, @ToDateTimeGMT0)
 			AND mi.AffId = @AffId
+			AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+					WHERE mr.CustId = d.custid AND CAST(DATEADD(HOUR, @TimeZone, d.CreateTime) AS DATE) BETWEEN mr.FromDate AND mr.ToDate
+				)
 		GROUP BY CONVERT(DATE, EOMONTH(DATEADD(HOUR, @TimeZone, d.CreateTime)))
 	),
 	CTE_DataDepositAmount AS (
@@ -441,7 +453,7 @@ BEGIN
 	SELECT
 		md.MonthDate,
 		md.EarningBy,
-        md.CommGroupName,
+		md.CommGroupName,
 		CASE
 			WHEN md.MonthDate >= GETDATE() THEN 'Temporary'
 			WHEN md.MonthDate > @MaxCommDate THEN 'Uncalculated'

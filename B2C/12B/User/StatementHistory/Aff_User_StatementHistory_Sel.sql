@@ -16,6 +16,7 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20241225@Sally: Apply QM Turnover [RedmineID: #212201]
 		- 20250124@Eddie: show descript of adjustent in user site [RedmineID: #212201]
+		- 20250408@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -26,10 +27,13 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @MaxSubLevel SMALLINT, @IsMaxSubLevel BIT = 0
+		,@CurrentDate SMALLDATETIME 
+
 	SELECT  @MaxSubLevel = CONVERT(SMALLINT, SValue)
 	FROM dbo.SystemSettings WITH (NOLOCK)
 	WHERE SName = 'MaxSubLevel'
 
+	SELECT @CurrentDate = CONVERT(DATE, DATEADD(HOUR, 12, GETDATE()))
 	SELECT @MaxSubLevel = ISNULL(@MaxSubLevel, 0)
 
 	--Get Base currency mapping
@@ -74,7 +78,7 @@ BEGIN
 		)
 		SELECT
 			at.TransId,
-			at.TransDate,
+			DATEADD(HOUR, 12, at.TransDate) AS MonthDate,
 			at.TransType,
 			CASE WHEN at.TransType = 202 THEN ABS(at.Amount) ELSE at.Amount END * ISNULL(e.Rate, 1) AS Amount,
 			CASE WHEN at.TransType = 202 THEN at.Status ELSE 'B/F' END AS Status,
@@ -82,7 +86,7 @@ BEGIN
 		FROM dbo.AffTrans at WITH (NOLOCK)
 			LEFT JOIN dbo.AffPayout ap WITH (NOLOCK) ON at.RefID = ap.RefID AND at.TransType = 202
 			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.WinlostDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
 		WHERE at.AffId = @AffId
 			AND at.TransType IN (202, 203)
 	END
@@ -128,16 +132,16 @@ BEGIN
 				'B/F' AS Status,
 				CASE WHEN TransType = 201 THEN 'Monthly Earning' ELSE 'Revenue Share' END AS Description
 			FROM (
-				SELECT md.MonthDate, CASE WHEN at.TransType = 205 THEN 201 ELSE at.TransType END AS TransType, ISNULL(at.Amount, 0) AS Amount
+				SELECT md.MonthDate, at.TransType, ISNULL(at.Amount, 0) AS Amount
 				FROM CTE_MonthDate md
 					OUTER APPLY (
 						SELECT at.TransType, at.Amount * e.Rate AS Amount
 						FROM dbo.AffTrans at WITH (NOLOCK)
 							LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId 
-							CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
-						WHERE md.MonthDate = at.TransDate
+							CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.WinlostDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
+						WHERE md.MonthDate = at.WinlostDate
 							AND at.AffId = @AffId
-							AND at.TransType IN (201, 204, 205)
+							AND at.TransType IN (201, 204)
 					) at
 			) t
 			GROUP BY MonthDate, TransType
@@ -149,7 +153,7 @@ BEGIN
 		SELECT  @AffIds = CONVERT(VARCHAR(20), @AffId)
 		
 		SELECT	@tempFromDate	= DATEADD(DAY, 1, @MaxCommDate),
-				@tempToDate		= CONVERT(DATE, GETDATE())
+				@tempToDate		= @CurrentDate
 
 		IF @tempFromDate < @MinReportDate
 			SELECT @tempFromDate = @MinReportDate
@@ -250,14 +254,14 @@ BEGIN
 				TransType,
 				SUM(Amount),
 				'Current' AS Status,
-				CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current ' ELSE 'UnCalculated ' END
+				CASE WHEN MonthDate >= @CurrentDate THEN 'Current ' ELSE 'UnCalculated ' END
 					+ CASE WHEN TransType = 201 THEN 'Monthly Earning' ELSE 'Revenue Share' END AS Description,
-				CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 0 ELSE 1 END AS CalculatedType
+				CASE WHEN MonthDate >= @CurrentDate THEN 0 ELSE 1 END AS CalculatedType
 			FROM (
-				SELECT md.MonthDate, CASE WHEN at.TransType = 205 THEN 201 ELSE at.TransType END AS TransType, ISNULL(at.Amount, 0) AS Amount
+				SELECT md.MonthDate, at.TransType, ISNULL(at.Amount, 0) AS Amount
 				FROM CTE_MonthDate md
 					OUTER APPLY (
-						SELECT c.Commission, c.StraightCommission, c.SubAffCommission
+						SELECT c.Commission, c.SubAffCommission
 						FROM #TempCommission c
 						WHERE md.MonthDate = c.MonthDate
 							AND c.AffId = @AffId
@@ -265,7 +269,6 @@ BEGIN
 					) c
 					OUTER APPLY (
 						SELECT 201 AS TransType, c.Commission AS Amount
-						UNION ALL SELECT 205, c.StraightCommission
 						UNION ALL SELECT 204, c.SubAffCommission
 					) at
 			) t

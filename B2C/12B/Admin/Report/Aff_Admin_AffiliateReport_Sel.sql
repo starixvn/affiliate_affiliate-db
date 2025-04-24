@@ -20,6 +20,7 @@ CREATE PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	,@PageSize			INT = 50
 	,@NRows				INT = 0 OUTPUT
 AS
+
 /*
 	Created: 20241118@Eddie
 	DB: DBAFF12B-Affiliate_12B
@@ -37,6 +38,7 @@ AS
 		- 20250402@Sophia: Fix Unique Click count IP by range from - to [RedmineID: #222777]
 		- 20250415@Sally: Change the data retrieval method for Deposit [RedmineID: #224116]
         - 20250417@Sally: Add Revenue Group column [RedmineID: #224286]
+		- 20250418@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 
 	Param's Explanation:
 		- @SortType: 
@@ -69,8 +71,8 @@ BEGIN
 		,@ToDateTimeGMT0		DATETIME
 		,@LastDayOfToDate		SMALLDATETIME
 		,@StartDayOfFromDate	SMALLDATETIME
-		,@FromDateLocalTime		SMALLDATETIME
-		,@ToDateLocalTime		SMALLDATETIME
+		,@FromDate_Local		DATETIME
+		,@ToDate_Local			DATETIME
 
     DECLARE @Status TABLE ([Status] VARCHAR(30))
 	INSERT INTO @Status ([Status]) 
@@ -109,10 +111,6 @@ BEGIN
 	-- Data on GMT+0 --> convert timezone
 	SELECT @FromDateTimeGMT0	= DATEADD(HOUR, -@TimeZone, CONVERT(DATETIME, @FromDate))
 		,@ToDateTimeGMT0		= DATEADD(HOUR, -@TimeZone, CONVERT(DATETIME, @ToDate))
-
-	-- Convert datetime to localtime
-	SELECT @FromDateLocalTime = DATEADD(HOUR, -4 - @TimeZone, @FromDate)
-	SELECT @ToDateLocalTime   = DATEADD(HOUR, -4 - @TimeZone, @ToDate)
 
 	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME)
 	;WITH CTE_MonthDate AS
@@ -281,7 +279,7 @@ BEGIN
 				@IsSumAll			= 1,
 				@GetRowTotalOnly	= 1
 		END
-		
+
 		IF(@IsGetMonthly = 0)
 		BEGIN
 			CREATE TABLE #DataMemberDaily (MonthDate SMALLDATETIME, AffId INT, Currency INT, CustId INT, ProductId INT, Bonus MONEY, Rebate MONEY, Turnover MONEY, Winloss MONEY)
@@ -465,53 +463,61 @@ BEGIN
 		-- Statistics
 		CREATE TABLE #Statistics (AffId INT, TotalClick INT, UniqueClick INT, Signup INT, FDM INT)
 
-		DECLARE @ArchiveDate SMALLDATETIME
-		SELECT  @ArchiveDate = MAX(Date) FROM dbo.ClickStatistics_bk WITH (NOLOCK)
-		
-		SELECT @ArchiveDate = ISNULL(@ArchiveDate, '2025-02-01') -- Will remove after Mar 01, 2025
+		DECLARE @ArchiveDate SMALLDATETIME;
+		SELECT @ArchiveDate = dbo.Aff_f_GetSetting('ArchiveDate_ClickStatistics'); -- GMT-4
 
-		IF @ToDate > @ArchiveDate
+		SELECT @FromDate_Local = DATEADD(HOUR, -12, CAST(@FromDate AS DATETIME)) -- GMT+8 to GMT-4
+			,@ToDate_Local = DATEADD(HOUR, -12, DATEADD(DAY, 1, CAST(@ToDate AS DATETIME))); -- GMT+8 to GMT-4
+
+		IF @ToDate_Local > @ArchiveDate
 		BEGIN
-			SELECT @tempFromDate = CASE WHEN @FromDate <= @ArchiveDate THEN DATEADD(DAY, 1, @ArchiveDate) ELSE @FromDate END
-			SELECT @tempToDate	= @ToDate
+			SELECT @tempFromDate = CASE 
+										WHEN @FromDate_Local > @ArchiveDate THEN CONVERT(DATE, @FromDate_Local) 
+										ELSE DATEADD(DAY, 1, @ArchiveDate) 
+								   END
+				,@tempToDate = DATEADD(DAY, 1, CONVERT(DATE, @ToDate_Local))
 
 			INSERT INTO #Statistics (AffId, TotalClick, UniqueClick)
 			SELECT AffId, SUM(TotalClick), SUM(UniqueClick)
 			FROM 
 			(
-				SELECT
-					AffId,
-					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0)) AS MonthDate,
+				SELECT AffId,
+					EOMONTH(DATEADD(HOUR, 12, c.UpdatedTime)) AS MonthDate, -- GMT-4 to GMT+8
 					COUNT(1) AS TotalClick,
-					COUNT(DISTINCT IP) AS UniqueClick
-				FROM dbo.ClickStatistics WITH (NOLOCK)
-				WHERE Date BETWEEN @tempFromDate AND @tempToDate
+					COUNT(DISTINCT c.IP) AS UniqueClick
+				FROM dbo.ClickStatistics c WITH (NOLOCK)
+				WHERE [Date] >= @tempFromDate
+					AND [Date] < @tempToDate
+					AND UpdatedTime >= @FromDate_Local -- GMT-4
+					AND UpdatedTime < @ToDate_Local -- GMT-4
 				GROUP BY
-					AffId,
-					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0))
+					AffId, EOMONTH(DATEADD(HOUR, 12, c.UpdatedTime))
 			) AS c
 			GROUP BY AffId
 		END
 
-		IF @FromDate <= @ArchiveDate
+		IF CONVERT(DATE, @FromDate_Local) <= @ArchiveDate
 		BEGIN
-			SELECT @tempFromDate = @FromDate
-			SELECT @tempToDate	= CASE WHEN @ToDate > @ArchiveDate THEN @ArchiveDate ELSE @ToDate END
-			
+			 SELECT @tempFromDate = CONVERT(DATE, @FromDate_Local)
+				,@tempToDate = CASE 
+									WHEN @ToDate_Local <= @ArchiveDate THEN DATEADD(DAY, 1, CONVERT(DATE, @ToDate_Local)) 
+									ELSE DATEADD(DAY, 1, @ArchiveDate) 
+							   END		
 			INSERT INTO #Statistics (AffId, TotalClick, UniqueClick)
 			SELECT AffId, SUM(TotalClick), SUM(UniqueClick)
-			FROM
+			FROM 
 			(
-				SELECT
-					AffId,
-					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0)) AS MonthDate,
+				SELECT AffId,
+					EOMONTH(DATEADD(HOUR, 12, c.UpdatedTime)) AS MonthDate, -- GMT-4 to GMT+8
 					COUNT(1) AS TotalClick,
-					COUNT(DISTINCT IP) AS UniqueClick
-				FROM dbo.ClickStatistics_bk WITH (NOLOCK)
-				WHERE Date BETWEEN @tempFromDate AND @tempToDate
+					COUNT(DISTINCT c.IP) AS UniqueClick
+				FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
+				WHERE [Date] >= @tempFromDate
+					AND [Date] < @tempToDate
+					AND UpdatedTime >= @FromDate_Local -- GMT-4
+					AND UpdatedTime < @ToDate_Local -- GMT-4
 				GROUP BY
-					AffId,
-					DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, Date) + 1, 0)) 					 
+					AffId, EOMONTH(DATEADD(HOUR, 12, c.UpdatedTime))
 			) AS c
 			GROUP BY AffId
 		END
@@ -550,29 +556,16 @@ BEGIN
 
 		-- AffWithdrawal, AffAdjustment
 		CREATE TABLE #AffTrans (AffId INT, AffWithdrawal MONEY, AffAdjustment MONEY, BFF MONEY, CurrentBBF MONEY)
-		;WITH CTE_AffTransData AS(
-			SELECT at.AffId,
-				at.AffCurrency,
-				EOMONTH(DATEADD(HOUR, 4 + @TimeZone,at.TransDate)) MonthDate,
-				SUM((CASE WHEN at.TransType = 202 AND at.TransDate >= @FromDateLocalTime AND at.TransDate < DATEADD(DAY, 1, @ToDateLocalTime) THEN ABS(at.Amount) ELSE 0 END)) AS AffWithdrawal,
-				SUM((CASE WHEN at.TransType = 203 AND at.TransDate >= @FromDateLocalTime THEN at.Amount ELSE 0 END) ) AS AffAdjustment,
-				SUM(CASE WHEN TransDate < DATEADD(DAY, 1, @ToDateLocalTime) THEN Amount ELSE NULL END) AS BFF,
-				SUM(Amount) AS CurrentBBF		
-			FROM dbo.AffTrans at WITH (NOLOCK)
-				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId
-				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
-			WHERE Status IN ('Pending', 'Approved', 'Completed')
-			GROUP BY AffId, EOMONTH(DATEADD(HOUR, 4 + @TimeZone,at.TransDate)), at.AffCurrency
-		)
 		INSERT INTO #AffTrans (AffId, AffWithdrawal, AffAdjustment, BFF, CurrentBBF)
-		SELECT at.AffId
-			,SUM(at.AffWithdrawal * e.Rate) AS AffWithdrawal
-			,SUM(at.AffAdjustment * e.Rate) AS AffAdjustment
-			,SUM(at.BFF * e.Rate)			AS BFF
-			,SUM(at.CurrentBBF * e.Rate)	AS CurrentBBF
-		FROM CTE_AffTransData at WITH (NOLOCK)
+		SELECT at.AffId,
+				SUM((CASE WHEN at.TransType = 202 AND at.WinlostDate >= @FromDate AND at.WinlostDate < DATEADD(DAY, 1, @ToDate) THEN ABS(at.Amount * e.Rate) ELSE 0 END)) AS AffWithdrawal,
+				SUM((CASE WHEN at.TransType = 203 AND at.WinlostDate >= @FromDate AND at.WinlostDate < DATEADD(DAY, 1, @ToDate) THEN at.Amount * e.Rate ELSE 0 END) ) AS AffAdjustment,
+				SUM(CASE WHEN TransDate < DATEADD(DAY, 1, @ToDate) THEN Amount * e.Rate ELSE NULL END) AS BFF,
+				SUM(Amount * e.Rate) AS CurrentBBF		
+			FROM dbo.AffTrans at WITH (NOLOCK)
 			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.MonthDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(at.WinlostDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
+				WHERE Status IN ('Pending', 'Approved', 'Completed')
 		GROUP BY AffId
 
 		-- Total Deposit
@@ -586,6 +579,10 @@ BEGIN
 			AND d.Status = 3 -- Approved
 			AND d.CreateTime >= @FromDateTimeGMT0 
 			AND d.CreateTime < DATEADD(DAY, 1, @ToDateTimeGMT0)
+			AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+					WHERE mr.CustId = d.custid AND CAST(DATEADD(HOUR, @TimeZone, d.CreateTime) AS DATE) BETWEEN mr.FromDate AND mr.ToDate
+				)
 		GROUP BY mi.AffId
 		),
 		CTE_DataDepositAmount AS (
@@ -631,7 +628,7 @@ BEGIN
 		(
 			AffId				INT,
 			Username			NVARCHAR(30),
-            CommGroupName       NVARCHAR(100),
+			CommGroupName       NVARCHAR(100),
 			[Status]			VARCHAR(30),
 			PreferredLanguage	VARCHAR(11),	
 			PaymentCurrency		VARCHAR(5),
@@ -669,13 +666,13 @@ BEGIN
             SELECT
                 ai.AffId,
                 ai.Username,
-                cg.GroupName AS CommGroupName,
+				cg.GroupName AS CommGroupName,
                 ad.PreferredLanguage,
                 ad.Player_CurrencyCode AS PaymentCurrency,
                 ISNULL(a.NoOfSubAff, 0)	AS NoOfSubAff,
                 CASE WHEN ai.IsRejected = 1 THEN 'Suspended' ELSE 'Approved' END [Status]
             FROM dbo.AffInfo ai WITH (NOLOCK)
-                INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupId = cg.GroupId
+				INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupId = cg.GroupId
                 INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
                 INNER JOIN bodb_12B.dbo.Customer c WITH(NOLOCK) ON ad.Player_CustId = c.CustId
                 LEFT JOIN (
@@ -704,7 +701,7 @@ BEGIN
 		(
 			AffId,
 			Username,
-            CommGroupName,
+			CommGroupName,
 			[Status],
 			PreferredLanguage,
 			PaymentCurrency,
@@ -741,7 +738,7 @@ BEGIN
         SELECT
 			ai.AffId,
 			ai.Username,
-            ai.CommGroupName,
+			ai.CommGroupName,
 			ai.[Status],
 			ai.PreferredLanguage,
 			ai.PaymentCurrency,
@@ -855,8 +852,8 @@ BEGIN
 		,Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee
 		,PlatFormFee + OperationalFee + DepositFee + WithdrawalFee AS TotalFee
 		,CommissionRate, IsMultiGroupProduct, P2PEarning, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF, CurrentBFF, TotalDeposit
-	FROM #Result 
-    WHERE RowIdx BETWEEN @RowStart AND @RowEnd
+	FROM #Result
+	WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 	ORDER BY RowIdx
 
 	-- Return total

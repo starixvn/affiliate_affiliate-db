@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250404@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 
 */
 
@@ -51,8 +52,8 @@ BEGIN
 	SELECT
 		t.TransID
 		,p.RefID
-		,p.TransDate
-		,p.CompletedDate
+		,DATEADD(HOUR, 12, p.TransDate) AS TransDate -- GMT+8
+		,DATEADD(HOUR, 12, p.CompletedDate) AS CompletedDate -- GMT+8
 		,CASE p.Status
 			WHEN 'Pending' THEN 'Processing'
 			ELSE p.Status END AS Status
@@ -62,7 +63,7 @@ BEGIN
 		INNER JOIN dbo.AffTrans t WITH (NOLOCK) ON p.RefID = t.RefID
 	WHERE p.AffID = @AffID
 		AND t.TransType = 202 -- Payment
-		AND p.TransDate >= @FromBeginYear AND p.TransDate < @ToNextYear
+		AND t.WinlostDate >= @FromBeginYear AND t.WinlostDate < @ToNextYear
 	ORDER BY p.RefID DESC
 END
 GO

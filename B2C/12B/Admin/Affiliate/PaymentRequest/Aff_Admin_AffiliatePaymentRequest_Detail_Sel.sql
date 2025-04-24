@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250404@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 */
 
 BEGIN
@@ -29,8 +30,8 @@ BEGIN
 		,CASE WHEN ap.Player_Currency = 20 THEN 'UUS' ELSE ap.Player_CurrencyCode END AS TransCurrencyCode
 		,ap.Player_Username AS PlayerUsername
 		,CASE WHEN at.Status = 'Pending' THEN 'Processing' ELSE at.Status END AS Status
-		,at.TransDate
-		,at.CompletedDate
+		,DATEADD(HOUR, 12, at.TransDate) AS TransDate -- GMT+8
+		,DATEADD(HOUR, 12, at.CompletedDate) AS CompletedDate -- GMT+8
 		,au.UserName AS Creator
 		,ap.AdminDesc
 		,ap.AffDesc
