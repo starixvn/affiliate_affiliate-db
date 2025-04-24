@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_PaymentRequest_Sel]
 	@AffID				INT,
 	@Year				INT,
@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20250401@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 */
 
 BEGIN
@@ -50,8 +51,8 @@ BEGIN
 	SELECT
 		t.TransID
 		,p.RefID
-		,p.TransDate
-		,p.CompletedDate
+		,DATEADD(HOUR, 12, p.TransDate) AS TransDate -- GMT+8
+		,DATEADD(HOUR, 12, p.CompletedDate) AS CompletedDate -- GMT+8
 		,CASE p.Status
 			WHEN 'Pending' THEN 'Processing'
 			ELSE p.Status END AS Status
@@ -61,7 +62,7 @@ BEGIN
 		INNER JOIN dbo.AffTrans t WITH (NOLOCK) ON p.RefID = t.RefID
 	WHERE p.AffID = @AffID
 		AND t.TransType = 202 -- Payment
-		AND p.TransDate >= @FromBeginYear AND p.TransDate < @ToNextYear
+		AND t.WinlostDate >= @FromBeginYear AND t.WinlostDate < @ToNextYear
 	ORDER BY p.RefID DESC
 END
 GO

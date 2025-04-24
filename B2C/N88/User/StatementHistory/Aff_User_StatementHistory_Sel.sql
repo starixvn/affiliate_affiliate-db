@@ -21,6 +21,7 @@ AS
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 		- 20240503@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
+		- 20250418@Sally: Get data BBF by timezone [RedmineID: #222401]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -31,11 +32,14 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @MaxSubLevel SMALLINT, @IsMaxSubLevel BIT = 0
+		,@CurrentDate SMALLDATETIME
+
 	SELECT  @MaxSubLevel = CONVERT(SMALLINT, SValue)
 	FROM dbo.SystemSettings WITH (NOLOCK)
 	WHERE SName = 'MaxSubLevel'
 
 	SELECT @MaxSubLevel = ISNULL(@MaxSubLevel, 0)
+	SELECT @CurrentDate = CONVERT(DATE, DATEADD(HOUR, 12, GETDATE()))
 
 	--Get Base currency mapping
 	DECLARE @BaseExchangeId INT = @BaseCurrency
@@ -79,7 +83,7 @@ BEGIN
 		)
 		SELECT
 			at.TransId,
-			at.TransDate,
+			DATEADD(HOUR, 12, at.TransDate) AS MonthDate,
 			at.TransType,
 			CASE WHEN at.TransType = 202 THEN ABS(at.Amount) ELSE at.Amount END * ISNULL(e.Rate, 1) AS Amount,
 			CASE WHEN at.TransType = 202 THEN at.Status ELSE 'B/F' END AS Status,
@@ -87,7 +91,7 @@ BEGIN
 		FROM dbo.AffTrans at WITH (NOLOCK)
 			LEFT JOIN dbo.AffPayout ap WITH (NOLOCK) ON at.RefID = ap.RefID AND at.TransType = 202
 			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.WinlostDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
 		WHERE at.AffId = @AffId
 			AND at.TransType IN (202, 203)
 	END
@@ -139,8 +143,8 @@ BEGIN
 						SELECT at.TransType, at.Amount * e.Rate AS Amount
 						FROM dbo.AffTrans at WITH (NOLOCK)
 							LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId 
-							CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.TransDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
-						WHERE md.MonthDate = at.TransDate
+							CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.WinlostDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
+						WHERE md.MonthDate = at.WinlostDate
 							AND at.AffId = @AffId
 							AND at.TransType IN (201, 204, 205)
 					) at
@@ -154,7 +158,7 @@ BEGIN
 		SELECT  @AffIds = CONVERT(VARCHAR(20), @AffId)
 		
 		SELECT	@tempFromDate	= DATEADD(DAY, 1, @MaxCommDate),
-				@tempToDate		= CONVERT(DATE, GETDATE())
+				@tempToDate		= @CurrentDate
 
 		IF @tempFromDate < @MinReportDate
 			SELECT @tempFromDate = @MinReportDate
@@ -253,9 +257,9 @@ BEGIN
 				TransType,
 				SUM(Amount),
 				'Current' AS Status,
-				CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 'Current ' ELSE 'UnCalculated ' END
+				CASE WHEN MonthDate >= @CurrentDate THEN 'Current ' ELSE 'UnCalculated ' END
 					+ CASE WHEN TransType = 201 THEN 'Monthly Earning' ELSE 'Revenue Share' END AS Description,
-				CASE WHEN MonthDate >= CONVERT(DATE, GETDATE()) THEN 0 ELSE 1 END AS CalculatedType
+				CASE WHEN MonthDate >= @CurrentDate THEN 0 ELSE 1 END AS CalculatedType
 			FROM (
 				SELECT md.MonthDate, CASE WHEN at.TransType = 205 THEN 201 ELSE at.TransType END AS TransType, ISNULL(at.Amount, 0) AS Amount
 				FROM CTE_MonthDate md

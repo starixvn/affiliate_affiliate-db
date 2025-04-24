@@ -17,6 +17,7 @@ AS
 		- 20210714@Percy: Include P2P Earning into Monthly Earning [RedmineID: #157958]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20240506@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
+		- 20250401@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 
 */
 
@@ -44,7 +45,7 @@ BEGIN
 		SELECT  @BBF = SUM(Amount)
 		FROM dbo.AffTrans WITH (NOLOCK)
 		WHERE AffId = @AffId
-			AND TransDate < DATEADD(DAY, 1, @EndOfMonth)
+			AND WinlostDate < DATEADD(DAY, 1, @EndOfMonth)
 			AND Status IN ('Pending', 'Approved', 'Completed')
 	END
 
