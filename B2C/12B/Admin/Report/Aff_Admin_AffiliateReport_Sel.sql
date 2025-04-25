@@ -39,6 +39,7 @@ AS
 		- 20250415@Sally: Change the data retrieval method for Deposit [RedmineID: #224116]
         - 20250417@Sally: Add Revenue Group column [RedmineID: #224286]
 		- 20250418@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
+        - 20250420@Sally: Add FDM_TotalDeposit column [RedmineID: #224709]
 
 	Param's Explanation:
 		- @SortType: 
@@ -461,7 +462,7 @@ BEGIN
 		DROP TABLE #DataMemberDaily 
 		END
 		-- Statistics
-		CREATE TABLE #Statistics (AffId INT, TotalClick INT, UniqueClick INT, Signup INT, FDM INT)
+		CREATE TABLE #Statistics (AffId INT, TotalClick INT, UniqueClick INT)
 
 		DECLARE @ArchiveDate SMALLDATETIME;
 		SELECT @ArchiveDate = dbo.Aff_f_GetSetting('ArchiveDate_ClickStatistics'); -- GMT-4
@@ -523,36 +524,49 @@ BEGIN
 		END
 
 		-- Signup, FDM
-		CREATE TABLE #Signup (AffId INT, Signup INT, FDM INT, FDM_Amount MONEY)
+		CREATE TABLE #Signup (AffId INT, Signup INT, FDM INT, FDM_Amount MONEY, FDM_TotalDeposit MONEY)
 
-		;WITH CTE_MemberInfoData AS(
-		SELECT mi.AffId
-			,COUNT(1) AS Signup
-			,0 AS FDM
-			,0 AS FDM_Amount
-		FROM dbo.MemberInfo mi WITH (NOLOCK)
-		WHERE mi.RegisteredDate >= @FromDate 
-			AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate)
-		GROUP BY mi.AffId
-		UNION ALL
-		SELECT mi.AffId
-			,0 AS Signup
-			,COUNT(1) AS FDM
-			,SUM(ISNULL(mi.FirstDepositAmount, 0) * e.Rate) AS FDM_Amount
-		FROM dbo.MemberInfo mi WITH (NOLOCK)
-        	LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON mi.Currency = t.TpExchangeId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(mi.FirstDepositDate, ISNULL(t.ExchangeId, mi.Currency), @BaseExchangeId) e
-		WHERE mi.FirstDepositDate >= @FromDate 
-			AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
-		GROUP BY mi.AffId
+		-- Get Signup data
+		;WITH CTE_Signup AS (
+			SELECT mi.AffId,
+				COUNT(1) AS Signup
+			FROM dbo.MemberInfo mi WITH (NOLOCK)
+			WHERE mi.RegisteredDate >= @FromDate 
+				AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate)
+			GROUP BY mi.AffId
+		),
+		-- Calculate FDM and FDM_Amount and FDM_TotalDeposit using OUTER APPLY
+		CTE_FDM_Combined AS (
+			SELECT 
+				mi.AffId,
+				COUNT(DISTINCT mi.CustId) AS FDM,
+				SUM(ISNULL(mi.FirstDepositAmount, 0) * ex.Rate) AS FDM_Amount,
+				SUM(ISNULL(r.Deposit, 0) * ex.Rate) AS FDM_TotalDeposit
+			FROM dbo.MemberInfo mi WITH (NOLOCK)
+				LEFT JOIN dbo.TpExchange te WITH (NOLOCK) ON mi.Currency = te.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(mi.FirstDepositDate, ISNULL(te.ExchangeId, mi.Currency), @BaseCurrency) ex
+				OUTER APPLY (
+					SELECT 
+						SUM(r.Deposit) AS Deposit
+					FROM dbo.rptMemberDaily r WITH (NOLOCK)
+					WHERE r.CustId = mi.CustId 
+					AND r.WinlostDate BETWEEN mi.FirstDepositDate AND EOMONTH(mi.FirstDepositDate)
+				) r
+			WHERE mi.FirstDepositDate >= @FromDate 
+				AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
+			GROUP BY mi.AffId
 		)
-		INSERT INTO #Signup (AffId, Signup, FDM, FDM_Amount)
-		SELECT mi.AffId
-			,SUM(Signup) AS Signup
-			,SUM(FDM) AS FDM
-			,SUM(FDM_Amount) AS FDM_Amount
-		FROM CTE_MemberInfoData mi
-		GROUP BY mi.AffId
+		-- Insert data into #Signup
+		INSERT INTO #Signup (AffId, Signup, FDM, FDM_Amount, FDM_TotalDeposit)
+		SELECT AffId, SUM(Signup) AS Signup, SUM(FDM) AS FDM, SUM(FDM_Amount) AS FDM_Amount, SUM(FDM_TotalDeposit) AS FDM_TotalDeposit
+		FROM (
+			SELECT AffId, fd.Signup AS Signup, 0 AS FDM, 0 AS FDM_Amount, 0 AS FDM_TotalDeposit
+			FROM CTE_Signup fd
+			UNION ALL
+			SELECT AffId, 0 AS Signup, fd.FDM AS FDM, FDM_Amount AS FDM_Amount, FDM_TotalDeposit AS FDM_TotalDeposit
+			FROM CTE_FDM_Combined fd
+		) Combined
+		GROUP BY AffId
 
 		-- AffWithdrawal, AffAdjustment
 		CREATE TABLE #AffTrans (AffId INT, AffWithdrawal MONEY, AffAdjustment MONEY, BFF MONEY, CurrentBBF MONEY)
@@ -637,6 +651,7 @@ BEGIN
 			Signup				INT,
 			FDM					INT,
 			FDM_Amount			MONEY,
+			FDM_TotalDeposit	MONEY,
 			ActivePlayer 		INT,
 			QualifiedMember 	INT,
 			NoOfSubAff			INT,
@@ -710,6 +725,7 @@ BEGIN
 			Signup,
 			FDM,
 			FDM_Amount,
+			FDM_TotalDeposit,
 			ActivePlayer,
 			QualifiedMember,
 			NoOfSubAff,
@@ -747,6 +763,7 @@ BEGIN
 			ISNULL(su.Signup, 0)				AS Signup,
 			ISNULL(su.FDM, 0)					AS FDM,
 			ISNULL(su.FDM_Amount, 0)			AS FDM_Amount,
+			ISNULL(su.FDM_TotalDeposit, 0)		AS FDM_TotalDeposit,
 			ISNULL(tc.ActivePlayer, 0)			AS ActivePlayer,
 			ISNULL(tc.QualifiedMember, 0)		AS QualifiedMember,
 			ai.NoOfSubAff,
@@ -848,7 +865,7 @@ BEGIN
 		SELECT @RowStart = 1, @RowEnd = @NRows
 
 	-- Return detail
-	SELECT AffId, Username, CommGroupName, [Status], PreferredLanguage, PaymentCurrency, TotalClick, UniqueClick, Signup, FDM, FDM_Amount, ActivePlayer, QualifiedMember, NoOfSubAff
+	SELECT AffId, Username, CommGroupName, [Status], PreferredLanguage, PaymentCurrency, TotalClick, UniqueClick, Signup, FDM, FDM_Amount, FDM_TotalDeposit, ActivePlayer, QualifiedMember, NoOfSubAff
 		,Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee
 		,PlatFormFee + OperationalFee + DepositFee + WithdrawalFee AS TotalFee
 		,CommissionRate, IsMultiGroupProduct, P2PEarning, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF, CurrentBFF, TotalDeposit
@@ -863,6 +880,7 @@ BEGIN
 		,SUM(Signup)			AS Signup
 		,SUM(FDM)				AS FDM
 		,SUM(FDM_Amount)		AS FDM_Amount
+		,SUM(FDM_TotalDeposit)	AS FDM_TotalDeposit
 		,SUM(ActivePlayer)		AS ActivePlayer
 		,SUM(QualifiedMember)	AS QualifiedMember
 		,SUM(NoOfSubAff)		AS NoOfSubAff

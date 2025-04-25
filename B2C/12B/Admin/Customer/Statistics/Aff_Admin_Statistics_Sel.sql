@@ -15,6 +15,7 @@ AS
 		- 20250402@Sophia: Fix Unique Click count IP by range from - to [RedmineID: #222777]
 		- 20250415@Sally: Change the data retrieval method for Deposit [RedmineID: #224116]
 		- 20250416@Sophia: Get report by timezone [RedmineID: #222352]
+		- 20250421@Sally: Add FDM_TotalDepositByMonth column [RedmineID: #224709]
 		
 	Notes:
 	  - ClickStatistics.Date contains Date only, in GMT-4
@@ -44,14 +45,14 @@ BEGIN
 			@NoOfSubAffByMonth			INT,
 			@NoOfSubAffTotal			INT,
 			@TotalFDMAmountByMonth		MONEY,
-			@TotalFDMAmount				MONEY
+			@TotalFDMAmount				MONEY,
+			@FDM_TotalDepositByMonth	MONEY
 
 	DECLARE @FromBeginMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME, @CurrentDate SMALLDATETIME
 	SELECT	@FromBeginMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT	@ToNextMonth	= DATEADD(MONTH, 1, @FromBeginMonth)
 	SELECT  @CurrentDate    = CONVERT(DATE, DATEADD(HOUR, 12, GETDATE())) -- GMT-4 TO GMT+8
 	SELECT  @MonthDate      = EOMONTH(@MonthDate)
-
 	-- member statistics
 	BEGIN
 		DECLARE @MaxCommDate SMALLDATETIME
@@ -220,14 +221,31 @@ BEGIN
 	SELECT
 		@SignupsTotal	= COUNT(1),
 		@FDMTotal		= COUNT(FirstDepositDate),
-		@SignupsByMonth = COUNT(CASE WHEN RegisteredDate >= @FromBeginMonth AND RegisteredDate < @ToNextMonth THEN 1 ELSE NULL END),
-		@FDMByMonth		= COUNT(CASE WHEN FirstDepositDate >= @FromBeginMonth AND FirstDepositDate < @ToNextMonth THEN 1 ELSE NULL END),
-		@TotalFDMAmount	= SUM(ISNULL(FirstDepositAmount, 0) * ISNULL(e.Rate, 0)),
-		@TotalFDMAmountByMonth = SUM( CASE WHEN FirstDepositDate >= @FromBeginMonth AND FirstDepositDate < @ToNextMonth THEN ISNULL(FirstDepositAmount, 0) * ISNULL(e.Rate, 0) ELSE NULL END)
+		@SignupsByMonth = COUNT(CASE WHEN RegisteredDate >= @FromBeginMonth AND RegisteredDate < @ToNextMonth THEN 1 ELSE NULL END),		
+		@TotalFDMAmount	= SUM(ISNULL(FirstDepositAmount, 0) * ISNULL(e.Rate, 0))
 	FROM dbo.MemberInfo r WITH (NOLOCK)
 		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
 		OUTER APPLY dbo.Aff_f_ExchangeRate_Sel(r.FirstDepositDate, ISNULL(t.ExchangeId, r.Currency), 0) e
 	WHERE AffId = @AffId
+
+	-- Calculate FDM_TotalDepositByMonth
+	SELECT 
+		@FDMByMonth	 			 = COUNT(DISTINCT mi.CustId),
+		@TotalFDMAmountByMonth 	 = SUM(ISNULL(FirstDepositAmount, 0) * ISNULL(ex.Rate, 0)),
+		@FDM_TotalDepositByMonth = SUM(ISNULL(r.Deposit, 0) * ex.Rate)
+	FROM dbo.MemberInfo mi WITH (NOLOCK)
+		LEFT JOIN dbo.TpExchange te WITH (NOLOCK) ON mi.Currency = te.TpExchangeId
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(mi.FirstDepositDate, ISNULL(te.ExchangeId, mi.Currency), 0) ex
+		OUTER APPLY (
+			SELECT 
+				SUM(r.Deposit) AS Deposit
+			FROM dbo.rptMemberDaily r WITH (NOLOCK)
+			WHERE r.CustId = mi.CustId 
+			AND r.WinlostDate BETWEEN mi.FirstDepositDate AND EOMONTH(mi.FirstDepositDate)
+		) r
+	WHERE mi.AffId = @AffId
+		AND mi.FirstDepositDate >= @FromBeginMonth 
+		AND mi.FirstDepositDate < @ToNextMonth
 
 	DECLARE @ArchiveDate SMALLDATETIME
 	SELECT @ArchiveDate = dbo.Aff_f_GetSetting('ArchiveDate_ClickStatistics') -- GMT-4, Date only
@@ -327,6 +345,7 @@ BEGIN
 		ISNULL(@NoOfSubAffByMonth, 0)			AS NoOfSubAffByMonth,
 		ISNULL(@NoOfSubAffTotal, 0)				AS NoOfSubAffTotal,
 		ISNULL(@TotalFDMAmount, 0)				AS TotalFDMAmount,
-		ISNULL(@TotalFDMAmountByMonth, 0)		AS TotalFDMAmountByMonth
+		ISNULL(@TotalFDMAmountByMonth, 0)		AS TotalFDMAmountByMonth,
+		ISNULL(@FDM_TotalDepositByMonth, 0)		AS FDM_TotalDepositByMonth
 END
 GO
