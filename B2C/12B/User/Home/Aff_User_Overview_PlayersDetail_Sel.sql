@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250425@Sally: Get FDMAmount [RedmineID: #225616]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -133,7 +134,7 @@ BEGIN
 	DECLARE @RowStart INT, @RowEnd INT
 	SELECT  @RowStart = @PageSize * (@PageIndex - 1) + 1, @RowEnd = @RowStart + @PageSize - 1
 
-	SELECT CustId, UserName, RegisteredDate, FirstDepositDate, Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, DepositFee, WithdrawalFee
+	SELECT CustId, UserName, RegisteredDate, FirstDepositDate, FirstDepositAmount, Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, DepositFee, WithdrawalFee
 	FROM
 	(
 		SELECT
@@ -141,6 +142,7 @@ BEGIN
 			,m.UserName
 			,m.RegisteredDate
 			,m.FirstDepositDate
+			,ISNULL(m.FirstDepositAmount, 0) * e.Rate AS FirstDepositAmount
 			,d.Deposit
 			,d.Withdrawal
 			,d.Turnover
@@ -176,6 +178,8 @@ BEGIN
 			) AS RN
 		FROM #tmpData d
 			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON m.Currency = t.TpExchangeId
+			OUTER APPLY dbo.Aff_f_ExchangeRate_Sel (m.FirstDepositDate, ISNULL(t.ExchangeId, m.Currency), @BaseExchangeId) e
 	) r
 	WHERE r.RN BETWEEN @RowStart AND @RowEnd
 	ORDER BY r.RN
