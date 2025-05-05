@@ -64,6 +64,25 @@ BEGIN
 	
 	DECLARE @TmpFromDate SMALLDATETIME, @TmpToDate SMALLDATETIME
 	
+	-- Signups, FDM --
+	INSERT INTO #tmpResult (DomainReferrer, DeviceType, Signups, FDM)
+	SELECT
+		COALESCE(md.DomainReferrer, bk.DomainReferrer, 'none')	AS DomainReferrer,
+		COALESCE(md.DeviceType, bk.DeviceType, 0) AS DeviceType,
+		COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
+		COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
+	FROM dbo.MemberInfo mi WITH (NOLOCK)
+		LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickId = mi.clickId
+		LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickId = mi.clickId
+	WHERE mi.AffId = @AffID
+		AND (
+				(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
+				OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
+			)
+	GROUP BY
+		COALESCE(md.DomainReferrer, bk.DomainReferrer, 'none'),
+		COALESCE(md.DeviceType, bk.DeviceType, 0)
+	
 	IF CONVERT(DATE, @ToDate_GMT4) > @ArchiveDate -- For current data
 	BEGIN
 		-- Calculate date ranges in GMT-4 timezone for click data
@@ -78,25 +97,6 @@ BEGIN
 			AND AffId = @AffID
 		GROUP BY ISNULL(DomainReferrer, 'none'), ISNULL(DeviceType, 0)
 		
-		-- Signups, FDM --
-		INSERT INTO #tmpResult (DomainReferrer, DeviceType, Signups, FDM)
-		SELECT
-			COALESCE(md.DomainReferrer, bk.DomainReferrer, 'none')	AS DomainReferrer,
-			COALESCE(md.DeviceType, bk.DeviceType, 0) AS DeviceType,
-			COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
-			COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
-		FROM dbo.MemberInfo mi WITH (NOLOCK)
-			LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickId = mi.clickId
-			LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickId = mi.clickId
-		WHERE mi.AffId = @AffID
-			AND (
-					(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
-					OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
-				)
-		GROUP BY
-			COALESCE(md.DomainReferrer, bk.DomainReferrer, 'none'),
-			COALESCE(md.DeviceType, bk.DeviceType, 0)
-			
 		
 	END
 	
@@ -114,24 +114,7 @@ BEGIN
 			AND AffId = @AffID
 		GROUP BY ISNULL(DomainReferrer, 'none'), ISNULL(DeviceType, 0)
 		
-		-- Signups, FDM --
-		INSERT INTO #tmpResult (DomainReferrer, DeviceType, Signups, FDM)
-		SELECT
-			ISNULL(md.DomainReferrer, 'none')	AS DomainReferrer,
-			ISNULL(md.DeviceType, 0)			AS DeviceType,
-			COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
-			COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
-		FROM dbo.MemberInfo mi WITH (NOLOCK)
-			LEFT JOIN dbo.ClickStatistics_bk md WITH (NOLOCK) ON md.clickId = mi.clickId
-		WHERE mi.AffId = @AffID
-			AND (
-					(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
-					OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
-				)
-			AND md.[Date] >= @TmpFromDate AND md.[Date] < @TmpToDate -- Filter by date range
-		GROUP BY
-			ISNULL(md.DomainReferrer, 'none'),
-			ISNULL(md.DeviceType, 0)
+	
 	END
  
 	-- Return data --

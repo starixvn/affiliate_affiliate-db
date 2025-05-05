@@ -59,6 +59,31 @@ BEGIN
 	
 	DECLARE @TmpFromDate SMALLDATETIME, @TmpToDate SMALLDATETIME
 	
+	;WITH memberStats AS (
+	SELECT
+		COALESCE(md.URLReferrer, bk.URLReferrer, 'none') AS URLReferrer,
+		COALESCE(md.DeviceType, bk.DeviceType, 0) AS DeviceType,
+		COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
+		COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
+	FROM dbo.MemberInfo mi WITH (NOLOCK)
+		LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickID = mi.clickID
+		LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickID = mi.clickID
+	WHERE mi.AffId = @AffID
+		AND (@Domain IS NULL OR ISNULL(md.DomainReferrer, 'none') = @Domain)
+		AND (@SportCode IS NULL OR ISNULL(md.SportCode, 'none') = @SportCode)
+		AND (@LanguageCode IS NULL OR ISNULL(md.LanguageCode, 'none') = @LanguageCode)			
+		AND (	
+				(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
+				OR	(mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
+			)						
+	GROUP BY COALESCE(md.URLReferrer, bk.URLReferrer, 'none'), COALESCE(md.DeviceType, bk.DeviceType, 0) 
+	)
+	INSERT INTO #Result (URLReferrer, DeviceType, Signups, FDM)
+	SELECT URLReferrer, DeviceType, SUM(Signups), SUM(FDM)
+	FROM memberStats
+	GROUP BY URLReferrer, DeviceType
+	
+	
 	IF CONVERT(DATE, @ToDate_GMT4) > @ArchiveDate -- For current data
 	BEGIN
 		-- Calculate date ranges in GMT-4 timezone for click data
@@ -81,30 +106,6 @@ BEGIN
 		) AS t
 		GROUP BY URLReferrer, DeviceType
 		
-		
-		;WITH memberStats AS (
-		SELECT
-			COALESCE(md.URLReferrer, bk.URLReferrer, 'none') AS URLReferrer,
-			COALESCE(md.DeviceType, bk.DeviceType, 0) AS DeviceType,
-			COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
-			COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
-		FROM dbo.MemberInfo mi WITH (NOLOCK)
-			LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickID = mi.clickID
-			LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickID = mi.clickID
-		WHERE mi.AffId = @AffID
-			AND (@Domain IS NULL OR ISNULL(md.DomainReferrer, 'none') = @Domain)
-			AND (@SportCode IS NULL OR ISNULL(md.SportCode, 'none') = @SportCode)
-			AND (@LanguageCode IS NULL OR ISNULL(md.LanguageCode, 'none') = @LanguageCode)			
-			AND (	
-					(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
-					OR	(mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
-				)						
-		GROUP BY COALESCE(md.URLReferrer, bk.URLReferrer, 'none'), COALESCE(md.DeviceType, bk.DeviceType, 0) 
-		)
-		INSERT INTO #Result (URLReferrer, DeviceType, Signups, FDM)
-		SELECT URLReferrer, DeviceType, SUM(Signups), SUM(FDM)
-		FROM memberStats
-		GROUP BY URLReferrer, DeviceType
 				
 	END
 
@@ -128,30 +129,8 @@ BEGIN
 				AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
 			GROUP BY URLReferrer, ISNULL(DeviceType, 0) 
 		) AS t
-		GROUP BY URLReferrer, DeviceType
+		GROUP BY URLReferrer, DeviceType		
 		
-		;WITH memberStats AS (
-		SELECT
-			ISNULL(md.URLReferrer, 'none') AS URLReferrer,
-			ISNULL(md.DeviceType, 0) AS DeviceType,
-			COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
-			COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
-		FROM dbo.MemberInfo mi WITH (NOLOCK)
-			LEFT JOIN dbo.ClickStatistics_bk md WITH (NOLOCK) ON md.clickID = mi.clickID
-		WHERE mi.AffId = @AffID
-			AND (@Domain IS NULL OR ISNULL(md.DomainReferrer, 'none') = @Domain)
-			AND (@SportCode IS NULL OR ISNULL(md.SportCode, 'none') = @SportCode)
-			AND (@LanguageCode IS NULL OR ISNULL(md.LanguageCode, 'none') = @LanguageCode)
-			AND (
-					(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
-					OR	(mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
-				)
-		GROUP BY ISNULL(md.URLReferrer, 'none'), ISNULL(md.DeviceType, 0)
-		)
-		INSERT INTO #Result (URLReferrer, DeviceType, Signups, FDM)
-		SELECT URLReferrer, DeviceType, SUM(Signups), SUM(FDM)
-		FROM memberStats
-		GROUP BY URLReferrer, DeviceType
 		
 	END
 

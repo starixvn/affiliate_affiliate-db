@@ -57,6 +57,28 @@ BEGIN
 	
 	CREATE TABLE #tmp_Result (ChannelName NVARCHAR(200),LanguageCode VARCHAR(10), AffMediaLink VARCHAR(500), MarketName NVARCHAR(50), ChannelCode VARCHAR(50), TotalClick INT, UniqueClick INT, SignUps INT, FDM INT, IsShow BIT)
 	
+	-- Signups, FDM using MemberInfo (in GMT+8)
+	INSERT INTO #tmpData (AffMediaLink, LanguageCode, ChannelCode, SignUps, FDM)
+	SELECT
+		COALESCE(md.AffMediaLink, bk.AffMediaLink, '') as AffMediaLink, 
+		COALESCE(md.LanguageCode, bk.LanguageCode, '') as LanguageCode,
+		COALESCE(md.ChannelCode, bk.ChannelCode, '') as ChannelCode,
+		COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
+		COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
+	FROM dbo.MemberInfo mi WITH (NOLOCK)
+		LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickId = mi.clickId
+		LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickId = mi.clickId
+	WHERE mi.AffId = @AffID
+		AND (
+				(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
+				OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
+			)
+	GROUP BY
+		COALESCE(md.AffMediaLink, bk.AffMediaLink, ''),
+		COALESCE(md.LanguageCode, bk.LanguageCode, ''), 
+		COALESCE(md.ChannelCode, bk.ChannelCode, '')
+	
+	
 	IF CONVERT(DATE, @ToDate_GMT4) > @ArchiveDate -- For current data
 	BEGIN
 		-- Calculate date ranges in GMT-4 timezone for click data
@@ -71,26 +93,6 @@ BEGIN
 			AND AffId = @AffId
 		GROUP BY AffMediaLink, LanguageCode, ChannelCode
 
-		-- Signups, FDM using MemberInfo (in GMT+8)
-		INSERT INTO #tmpData (AffMediaLink, LanguageCode, ChannelCode, SignUps, FDM)
-		SELECT
-			COALESCE(md.AffMediaLink, bk.AffMediaLink, '') as AffMediaLink, 
-			COALESCE(md.LanguageCode, bk.LanguageCode, '') as LanguageCode,
-			COALESCE(md.ChannelCode, bk.ChannelCode, '') as ChannelCode,
-			COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
-			COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
-		FROM dbo.MemberInfo mi WITH (NOLOCK)
-			LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickId = mi.clickId
-			LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickId = mi.clickId
-		WHERE mi.AffId = @AffID
-			AND (
-					(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
-					OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
-				)
-		GROUP BY
-			COALESCE(md.AffMediaLink, bk.AffMediaLink, ''),
-			COALESCE(md.LanguageCode, bk.LanguageCode, ''), 
-			COALESCE(md.ChannelCode, bk.ChannelCode, '')
 		 
 	END
 
@@ -109,10 +111,12 @@ BEGIN
 		GROUP BY AffMediaLink, LanguageCode, ChannelCode
 		
 		-- Signups, FDM from archived data using MemberInfo (in GMT+8)
-		BEGIN
+		DECLARE @OldFromDate DATETIME  
+		DECLARE @OldToDate DATETIME 
+			
+		/*BEGIN
 
-			DECLARE @OldFromDate DATETIME  
-			DECLARE @OldToDate DATETIME  
+			 
 
 			IF CONVERT (DATE,@ToDate_GMT4) > @CutoffDate AND CONVERT (DATE,@FromDate_GMT4) < @ArchiveDate
 			BEGIN 
@@ -136,6 +140,7 @@ BEGIN
 					c.AffMediaLink, c.LanguageCode, c.ChannelCode
 			END
 		END
+		*/
 		
 		-- AffMediaLink handling for older data,  Get dates before CutOffDate
 		IF CONVERT (DATE,@FromDate_GMT4) <= @CutOffDate 
