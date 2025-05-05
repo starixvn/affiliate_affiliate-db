@@ -119,7 +119,7 @@ BEGIN
 	END
 
 	-- Range ClickStatistics_bk
-	IF CAST(@FDate_Local AS DATE) <= @ArchiveDate --GMT-4
+	IF CAST(@FDate_Local AS DATE) < @ArchiveDate --GMT-4
 	BEGIN
 		SELECT	@FDate = CAST(@FDate_Local AS DATE) --GMT-4
 				,@TDate = IIF(CAST(@TDate_Local AS DATE) >= @ArchiveDate,@ArchiveDate,CAST(@TDate_Local AS DATE)) --GMT-4

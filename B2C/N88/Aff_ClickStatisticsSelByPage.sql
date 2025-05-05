@@ -106,7 +106,7 @@ BEGIN
 			COALESCE(md.DeviceType, bk.DeviceType, 0)			
 	END
 	
-	IF CONVERT(DATE, @FromDate_GMT4) <= @ArchiveDate -- For archived data
+	IF CONVERT(DATE, @FromDate_GMT4) < @ArchiveDate -- For archived data
 	BEGIN
 		-- Calculate date ranges in GMT-4 timezone for archived click data
 		SELECT @TmpFromDate = CONVERT(DATE, @FromDate_GMT4), 
