@@ -21,6 +21,7 @@ AS
 		- 20250402@Sophia: Get ClickStatistics_bk, remove GroupBy Date for UniqueClick [RedmineID: #222777]
 		- 20250416@Sophia: Get report by timezone [RedmineID: #222352]
 		- 20250505@Sophia: Fix Signups duplicated data [RedmineID: #226056]
+		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225820] 
 		
 	Param:
 		@DeviceType = -1 : all 
@@ -45,7 +46,7 @@ BEGIN
 		LanguageCode	VARCHAR(10),
 		DeviceType		TINYINT,
 		TotalClick		INT DEFAULT(0),
-		UniqueClick		INT DEFAULT(0),
+		IP 				VARCHAR(25),
 		Signups			INT DEFAULT(0),
 		FDM				INT DEFAULT(0)
 	)
@@ -103,15 +104,15 @@ BEGIN
 		SELECT @TmpFromDate = CASE WHEN CONVERT(DATE, @FromDate_GMT4) > @ArchiveDate THEN CONVERT(DATE, @FromDate_GMT4) ELSE DATEADD(Day, 1, @ArchiveDate) END,
 		       @TmpToDate = DATEADD(Day, 1, CONVERT(DATE, @ToDate_GMT4))
 				
-		INSERT INTO #tmpResult (SportCode, LanguageCode, DeviceType, TotalClick, UniqueClick)
-		SELECT SportCode, LanguageCode, DeviceType, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
+		INSERT INTO #tmpResult (SportCode, LanguageCode, DeviceType, TotalClick, IP)
+		SELECT SportCode, LanguageCode, DeviceType, SUM(1) AS TotalClick, IP
 		FROM dbo.ClickStatistics c WITH (NOLOCK)
 		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
 			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
 			AND AffId = @AffID
 			AND SportCode = ISNULL(@SportCode, SportCode)
 			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
-		GROUP BY SportCode, LanguageCode, DeviceType 		
+		GROUP BY SportCode, LanguageCode, DeviceType, IP		
 		
 	END
 
@@ -121,15 +122,15 @@ BEGIN
 		SELECT @TmpFromDate = CONVERT(DATE, @FromDate_GMT4), 
 		       @TmpToDate = CASE WHEN CONVERT(DATE, @ToDate_GMT4) > @ArchiveDate THEN DATEADD(Day, 1, @ArchiveDate) ELSE DATEADD(Day, 1, CONVERT(DATE, @ToDate_GMT4)) END
 
-		INSERT INTO #tmpResult (SportCode, LanguageCode, DeviceType, TotalClick, UniqueClick)
-		SELECT SportCode, LanguageCode, DeviceType, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
+		INSERT INTO #tmpResult (SportCode, LanguageCode, DeviceType, TotalClick, IP)
+		SELECT SportCode, LanguageCode, DeviceType, SUM(1) AS TotalClick, IP
 		FROM dbo.ClickStatistics_bk WITH (NOLOCK)
 		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
 			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
 			AND AffId = @AffID
 			AND SportCode = ISNULL(@SportCode, SportCode)
 			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
-		GROUP BY SportCode, LanguageCode, DeviceType
+		GROUP BY SportCode, LanguageCode, DeviceType, IP
 		
 		
 	END
@@ -140,7 +141,7 @@ BEGIN
 		ISNULL(SportCode, 'none') AS SportCode,
 		ISNULL(LanguageCode, 'none') AS LanguageCode,
 		SUM(TotalClick) AS TotalClick,
-		SUM(UniqueClick) AS UniqueClick,
+		COUNT(DISTINCT IP) AS UniqueClick,
 		SUM(Signups) AS Signups,
 		SUM(FDM) AS FDM
 	FROM #tmpResult
