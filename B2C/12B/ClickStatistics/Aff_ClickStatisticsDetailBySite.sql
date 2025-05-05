@@ -69,9 +69,9 @@ BEGIN
 		LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickID = mi.clickID
 		LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickID = mi.clickID
 	WHERE mi.AffId = @AffID
-		AND (@Domain IS NULL OR ISNULL(md.DomainReferrer, 'none') = @Domain)
-		AND (@SportCode IS NULL OR ISNULL(md.SportCode, 'none') = @SportCode)
-		AND (@LanguageCode IS NULL OR ISNULL(md.LanguageCode, 'none') = @LanguageCode)			
+		AND (@Domain IS NULL OR COALESCE(md.DomainReferrer,bk.DomainReferrer, 'none') = @Domain)
+		AND (@SportCode IS NULL OR COALESCE(md.SportCode,bk.SportCode, 'none') = @SportCode)
+		AND (@LanguageCode IS NULL OR COALESCE(md.LanguageCode,bk.LanguageCode, 'none') = @LanguageCode)			
 		AND (	
 				(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
 				OR	(mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
@@ -109,7 +109,7 @@ BEGIN
 				
 	END
 
-	IF CONVERT(DATE, @FromDate_GMT4) < @ArchiveDate -- For archived data
+	IF CONVERT(DATE, @FromDate_GMT4) <= @ArchiveDate -- For archived data
 	BEGIN
 		-- Calculate date ranges in GMT-4 timezone for archived click data
 		SELECT @TmpFromDate = CONVERT(DATE, @FromDate_GMT4), 

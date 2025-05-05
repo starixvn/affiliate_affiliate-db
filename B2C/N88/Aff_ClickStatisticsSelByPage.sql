@@ -81,8 +81,8 @@ BEGIN
 				(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
 				OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
 			)					
-		AND (@SportCode IS NULL OR ISNULL(md.SportCode, 'none') = @SportCode)
-		AND (@LanguageCode IS NULL OR ISNULL(md.LanguageCode, 'none') = @LanguageCode)
+		AND (@SportCode IS NULL OR COALESCE(md.SportCode, bk.SportCode, 'none') = @SportCode)
+		AND (@LanguageCode IS NULL OR COALESCE(md.LanguageCode, bk.LanguageCode, 'none') = @LanguageCode)
 	GROUP BY
 		COALESCE(md.SportCode, bk.SportCode, 'none'),
 		COALESCE(md.LanguageCode, bk.LanguageCode, 'none'),
@@ -109,7 +109,7 @@ BEGIN
 				
 	END
 	
-	IF CONVERT(DATE, @FromDate_GMT4) < @ArchiveDate -- For archived data
+	IF CONVERT(DATE, @FromDate_GMT4) <= @ArchiveDate -- For archived data
 	BEGIN
 		-- Calculate date ranges in GMT-4 timezone for archived click data
 		SELECT @TmpFromDate = CONVERT(DATE, @FromDate_GMT4), 
