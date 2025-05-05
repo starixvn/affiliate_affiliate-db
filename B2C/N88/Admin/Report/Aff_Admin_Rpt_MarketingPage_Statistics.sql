@@ -19,6 +19,7 @@ AS
 		- 20241118@Lewis: Initialize SP [RedmineID: #219779]
 		- 20241118@Lewis: LanguageCode = ALL => show NULL [RedmineID: #219779]
 		- 20250409@Sophia: Add ChannelCode into ClickStatistics [Redmine: #223356]
+		- 20250505@Sophia: Fix Signups duplicated data [RedmineID: #226056]
 */
 
 BEGIN
@@ -77,25 +78,43 @@ BEGIN
 
 		--SignUp
 		INSERT INTO #tmpData (AffId, AffMediaLink, ShortedCode, c.ChannelCode, SignUps)
-		SELECT m.AffId, c.AffMediaLink, c.LanguageCode, ChannelCode, COUNT(1) AS SignUps
+		SELECT 	m.AffId, 
+				COALESCE(c.AffMediaLink, bk.AffMediaLink, '' ), 
+				COALESCE(c.LanguageCode, bk.LanguageCode, ''), 
+				COALESCE(c.ChannelCode, bk.ChannelCode, ''),
+				COUNT(1) AS SignUps
 		FROM MemberInfo m WITH (NOLOCK)
 		LEFT JOIN ClickStatistics c WITH (NOLOCK)
 			ON c.ClickId = m.ClickId
+		LEFT JOIN ClickStatistics_bk bk WITH (NOLOCK)
+			ON bk.ClickId = m.ClickId
 		WHERE RegisteredDate >= @FDate --GMT+8
 			AND RegisteredDate < @TDate --GMT+8
 			AND (m.AffId = @AffId OR @AffId = 0)
-		GROUP BY m.AffId, c.AffMediaLink, c.LanguageCode, c.ChannelCode
+		GROUP BY m.AffId, 
+				COALESCE(c.AffMediaLink, bk.AffMediaLink, '' ), 
+				COALESCE(c.LanguageCode, bk.LanguageCode, ''), 
+				COALESCE(c.ChannelCode, bk.ChannelCode, '')
 
 		--FDM
 		INSERT INTO #tmpData (AffId, AffMediaLink, ShortedCode, ChannelCode, FDM)
-		SELECT m.AffId, c.AffMediaLink, c.LanguageCode, c.ChannelCode, COUNT(1) AS FDM
+		SELECT m.AffId, 
+				COALESCE(c.AffMediaLink, bk.AffMediaLink, '' ), 
+				COALESCE(c.LanguageCode, bk.LanguageCode, ''), 
+				COALESCE(c.ChannelCode, bk.ChannelCode, ''),
+				COUNT(1) AS FDM
 		FROM MemberInfo m WITH (NOLOCK)
 		LEFT JOIN ClickStatistics c WITH (NOLOCK)
 			ON c.ClickId = m.ClickId
+		LEFT JOIN ClickStatistics_bk bk WITH (NOLOCK)
+			ON bk.ClickId = m.ClickId
 		WHERE FirstDepositDate >= @FDate --GMT+8
 			AND FirstDepositDate < @TDate --GMT+8
 			AND (m.AffId = @AffId OR @AffId = 0)
-		GROUP BY m.AffId, c.AffMediaLink, c.LanguageCode, c.ChannelCode
+		GROUP BY m.AffId,
+				COALESCE(c.AffMediaLink, bk.AffMediaLink, '' ), 
+				COALESCE(c.LanguageCode, bk.LanguageCode, ''), 
+				COALESCE(c.ChannelCode, bk.ChannelCode, '')
 
 	END
 

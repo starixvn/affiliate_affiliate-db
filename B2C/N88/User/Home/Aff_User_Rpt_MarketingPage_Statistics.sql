@@ -17,6 +17,7 @@ AS
 		- 20250326@Sophia: Use data of ClickStatistics.AffMediaLink via ClickId [RedmineID: #220954]
 		- 20250409@Sophia: Add ChannelCode into ClickStatistics [Redmine: #223356]
 		- 20250416@Sophia: Get report by timezone [RedmineID: #222401]
+		- 20250505@Sophia: Fix Signups duplicated data [RedmineID: #226056]
 		
 	Param:
 		@FromDate: GMT+8, Date only
@@ -68,37 +69,24 @@ BEGIN
 		-- Signups, FDM --		
 		INSERT INTO #tmpData (AffMediaLink, LanguageCode, ChannelCode, SignUps, FDM)
 		SELECT
-			c.AffMediaLink, c.LanguageCode, c.ChannelCode,
+			COALESCE(c.AffMediaLink, bk.AffMediaLink, ''), 
+			COALESCE(c.LanguageCode, bk.LanguageCode,''), 
+			COALESCE(c.ChannelCode, bk.ChannelCode,''),
 			COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
 			COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
 			LEFT JOIN dbo.ClickStatistics c WITH (NOLOCK) ON c.clickId = mi.clickId
+			LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickId = mi.clickId
 		WHERE mi.AffId = @AffID
 			AND (
 					(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
 					OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
 				)
 		GROUP BY
-			c.AffMediaLink, c.LanguageCode, c.ChannelCode
+			COALESCE(c.AffMediaLink, bk.AffMediaLink, ''), 
+			COALESCE(c.LanguageCode, bk.LanguageCode,''), 
+			COALESCE(c.ChannelCode, bk.ChannelCode,'')
 		
-			IF CONVERT(DATE, @FromDate_GMT4) = @ArchiveDate -- Should retrieve data at ClickStatistics_bk for boundary date
-		BEGIN
-			INSERT INTO #tmpData (AffMediaLink, LanguageCode, ChannelCode, SignUps, FDM)
-			SELECT
-				c.AffMediaLink, c.LanguageCode, c.ChannelCode,
-				COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
-				COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
-			FROM dbo.MemberInfo mi WITH (NOLOCK)
-				LEFT JOIN dbo.ClickStatistics_bk c WITH (NOLOCK) ON c.clickId = mi.clickId
-			WHERE mi.AffId = @AffID
-				AND (
-						(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
-						OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
-					)
-				AND c.Date = @ArchiveDate
-			GROUP BY
-				c.AffMediaLink, c.LanguageCode, c.ChannelCode
-		END
 	END
 
 	IF CONVERT(DATE, @FromDate_GMT4) <= @ArchiveDate -- For archived data

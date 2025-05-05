@@ -26,6 +26,7 @@ AS
 		- 20221215@Malcolm: Group by URLReferrer [RedmineID: #181651]
 		- 20250324@Sophia: Count Signups, FDM by clickId [RedmineID: 221818]
 		- 20250416@Sophia: Get report by timezone [RedmineID: 222401]
+		- 20250505@Sophia: Fix Signups duplicated data [RedmineID: #226056]
 		
 	Param:
 		@DeviceType = -1 : all 
@@ -81,12 +82,13 @@ BEGIN
 		
 		;WITH memberStats AS (
 		SELECT
-			ISNULL(md.URLReferrer, 'none') AS URLReferrer,
-			ISNULL(md.DeviceType, 0) AS DeviceType,
+			COALESCE(md.URLReferrer, bk.URLReferrer, 'none') AS URLReferrer,
+			COALESCE(md.DeviceType, bk.DeviceType, 0) AS DeviceType,
 			COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
 			COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
 			LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickID = mi.clickID
+			LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickID = mi.clickID
 		WHERE mi.AffId = @AffID
 			AND (@Domain IS NULL OR ISNULL(md.DomainReferrer, 'none') = @Domain)
 			AND (@SportCode IS NULL OR ISNULL(md.SportCode, 'none') = @SportCode)
@@ -96,39 +98,13 @@ BEGIN
 					OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
 				)
 					
-		GROUP BY ISNULL(md.URLReferrer, 'none'), ISNULL(md.DeviceType, 0)
+		GROUP BY COALESCE(md.URLReferrer, bk.URLReferrer, 'none'), COALESCE(md.DeviceType, bk.DeviceType, 0) 
 		)
 		INSERT INTO #Result (URLReferrer, DeviceType, Signups, FDM)
 		SELECT URLReferrer, DeviceType, SUM(Signups), SUM(FDM)
 		FROM memberStats
 		GROUP BY URLReferrer, DeviceType
-		
-			IF CONVERT(DATE, @FromDate_GMT4) = @ArchiveDate -- Special case for boundary date
-		BEGIN
-			;WITH memberStats AS (
-			SELECT
-				ISNULL(md.URLReferrer, 'none') AS URLReferrer,
-				ISNULL(md.DeviceType, 0) AS DeviceType,
-				COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
-				COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
-			FROM dbo.MemberInfo mi WITH (NOLOCK)
-				LEFT JOIN dbo.ClickStatistics_bk md WITH (NOLOCK) ON md.clickID = mi.clickID
-			WHERE mi.AffId = @AffID
-				AND (@Domain IS NULL OR ISNULL(md.DomainReferrer, 'none') = @Domain)
-				AND (@SportCode IS NULL OR ISNULL(md.SportCode, 'none') = @SportCode)
-				AND (@LanguageCode IS NULL OR ISNULL(md.LanguageCode, 'none') = @LanguageCode)			
-				AND (	
-						(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
-						OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
-					)
-				AND md.Date = @ArchiveDate
-			GROUP BY ISNULL(md.URLReferrer, 'none'), ISNULL(md.DeviceType, 0)
-			)
-			INSERT INTO #Result (URLReferrer, DeviceType, Signups, FDM)
-			SELECT URLReferrer, DeviceType, SUM(Signups), SUM(FDM)
-			FROM memberStats
-			GROUP BY URLReferrer, DeviceType
-		END		
+						
 	END
 
 	IF CONVERT(DATE, @FromDate_GMT4) <= @ArchiveDate -- For archived data
