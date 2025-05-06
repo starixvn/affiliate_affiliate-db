@@ -21,6 +21,7 @@ AS
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 		- 20250324@Sophia: Count Signups, FDM by clickId [RedmineID: 221818]
 		- 20250416@Sophia: Get report by timezone [RedmineID: 222401]
+		- 20250505@Sophia: Fix Signups duplicated data [RedmineID: #226056]
 		
 	Param:
 		@DeviceType = -1 : all 
@@ -64,6 +65,30 @@ BEGIN
 	
 	DECLARE @TmpFromDate SMALLDATETIME, @TmpToDate SMALLDATETIME
 	
+	-- Signups, FDM --
+	INSERT INTO #tmpResult (SportCode, LanguageCode, DeviceType, Signups, FDM)
+	SELECT
+		COALESCE(md.SportCode, bk.SportCode, 'none') AS SportCode,
+		COALESCE(md.LanguageCode, bk.LanguageCode, 'none')	AS LanguageCode,
+		COALESCE(md.DeviceType, bk.DeviceType, 0) AS DeviceType,
+		COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
+		COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
+	FROM dbo.MemberInfo mi WITH (NOLOCK)
+		LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickId = mi.clickId
+		LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickId = mi.clickId
+	WHERE mi.AffId = @AffID
+		AND (
+				(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
+				OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
+			)					
+		AND (@SportCode IS NULL OR COALESCE(md.SportCode, bk.SportCode, 'none') = @SportCode)
+		AND (@LanguageCode IS NULL OR COALESCE(md.LanguageCode, bk.LanguageCode, 'none') = @LanguageCode)
+	GROUP BY
+		COALESCE(md.SportCode, bk.SportCode, 'none'),
+		COALESCE(md.LanguageCode, bk.LanguageCode, 'none'),
+		COALESCE(md.DeviceType, bk.DeviceType, 0)	
+			
+			
 	IF CONVERT(DATE, @ToDate_GMT4) > @ArchiveDate -- For current data
 	BEGIN
 		-- Calculate date ranges in GMT-4 timezone for click data
@@ -81,52 +106,7 @@ BEGIN
 			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
 		GROUP BY ISNULL(SportCode, 'none'), ISNULL(LanguageCode, 'none'), ISNULL(DeviceType, 0)
 		
-		-- Signups, FDM --
-		INSERT INTO #tmpResult (SportCode, LanguageCode, DeviceType, Signups, FDM)
-		SELECT
-			ISNULL(md.SportCode, 'none')	AS SportCode,
-			ISNULL(md.LanguageCode, 'none')	AS LanguageCode,
-			ISNULL(md.DeviceType, 0)		AS DeviceType,
-			COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
-			COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
-		FROM dbo.MemberInfo mi WITH (NOLOCK)
-			LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickId = mi.clickId
-		WHERE mi.AffId = @AffID
-			AND (
-					(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
-					OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
-				)					
-			AND (@SportCode IS NULL OR ISNULL(md.SportCode, 'none') = @SportCode)
-			AND (@LanguageCode IS NULL OR ISNULL(md.LanguageCode, 'none') = @LanguageCode)
-		GROUP BY
-			ISNULL(md.SportCode, 'none'),
-			ISNULL(md.LanguageCode, 'none'),
-			ISNULL(md.DeviceType, 0)
-			
-			IF CONVERT(DATE, @FromDate_GMT4) = @ArchiveDate -- Should retrieve data at ClickStatistics_bk for boundary date
-		BEGIN
-			INSERT INTO #tmpResult (SportCode, LanguageCode, DeviceType, Signups, FDM)
-			SELECT
-				ISNULL(md.SportCode, 'none')	AS SportCode,
-				ISNULL(md.LanguageCode, 'none')	AS LanguageCode,
-				ISNULL(md.DeviceType, 0)		AS DeviceType,
-				COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
-				COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
-			FROM dbo.MemberInfo mi WITH (NOLOCK)
-				LEFT JOIN dbo.ClickStatistics_bk md WITH (NOLOCK) ON md.clickId = mi.clickId
-			WHERE mi.AffId = @AffID
-				AND (
-						(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
-						OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
-					)
-				AND md.Date = @ArchiveDate
-				AND (@SportCode IS NULL OR ISNULL(md.SportCode, 'none') = @SportCode)
-				AND (@LanguageCode IS NULL OR ISNULL(md.LanguageCode, 'none') = @LanguageCode)
-			GROUP BY
-				ISNULL(md.SportCode, 'none'),
-				ISNULL(md.LanguageCode, 'none'),
-				ISNULL(md.DeviceType, 0)
-		END
+				
 	END
 	
 	IF CONVERT(DATE, @FromDate_GMT4) <= @ArchiveDate -- For archived data
@@ -145,28 +125,7 @@ BEGIN
 			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
 		GROUP BY SportCode, LanguageCode, DeviceType
 		
-		-- Signups, FDM --
-		INSERT INTO #tmpResult (SportCode, LanguageCode, DeviceType, Signups, FDM)
-		SELECT
-			ISNULL(md.SportCode, 'none')	AS SportCode,
-			ISNULL(md.LanguageCode, 'none')	AS LanguageCode,
-			ISNULL(md.DeviceType, 0)		AS DeviceType,
-			COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
-			COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
-		FROM dbo.MemberInfo mi WITH (NOLOCK)
-			LEFT JOIN dbo.ClickStatistics_bk md WITH (NOLOCK) ON md.clickId = mi.clickId
-		WHERE mi.AffId = @AffID
-			AND (
-					(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
-					OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
-				)
-			AND md.[Date] >= @TmpFromDate AND md.[Date] < @TmpToDate -- Filter by date range
-			AND (@SportCode IS NULL OR ISNULL(md.SportCode, 'none') = @SportCode)
-			AND (@LanguageCode IS NULL OR ISNULL(md.LanguageCode, 'none') = @LanguageCode)
-		GROUP BY
-			ISNULL(md.SportCode, 'none'),
-			ISNULL(md.LanguageCode, 'none'),
-			ISNULL(md.DeviceType, 0)		
+		
 	END
 
 	-- Return data --
