@@ -11,6 +11,7 @@ CREATE PROCEDURE [dbo].[Aff_Admin_PlayersDetail_Sel]
 	,@PageIndex		INT = 1
 	,@PageSize		INT = 20
 	,@NRows			INT = 0 OUTPUT
+	,@IsIncludeRemovedPlayer BIT = 0
 AS
 
 /*
@@ -22,6 +23,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250506@Sally: Enhance Removed Player logic [RedmineID: #225717]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -119,11 +121,13 @@ BEGIN
 			,SUM(ISNULL(CASE WHEN p.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0)
 							ELSE -(r.Winloss - ISNULL(ProgressiveWin, 0)) - ISNULL(ProgressiveBet, 0) END * e.Rate, 0)) AS GGR
 		FROM dbo.rptMemberDaily r WITH (NOLOCK)
+			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON r.CustId = m.CustId
 			LEFT JOIN @Products p ON r.ProductId = p.ProductId
 			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
 			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, ISNULL(T.ExchangeId,r.Currency), @BaseExchangeId) e
 		WHERE r.WinlostDate BETWEEN @BeginOfMonth AND @EndOfMonth
 			AND r.AffId = @AffId
+			AND (m.IsRemoved = 0 OR @IsIncludeRemovedPlayer = 1)
 			AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
 			AND NOT EXISTS (
 				SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)

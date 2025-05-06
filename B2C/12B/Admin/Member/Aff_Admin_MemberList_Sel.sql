@@ -3,6 +3,7 @@ CREATE PROCEDURE [dbo].[Aff_Admin_MemberList_Sel]
 	@AffUsername	NVARCHAR(50) = ''
 	,@Username		NVARCHAR(30) = ''
 	,@IBCUserName	NVARCHAR(50) = ''
+	,@IsIncludeRemovedPlayer	BIT = 0
 	,@PageSize		INT = 50
 	,@PageIndex		INT = 1
 	,@NRows			INT = 0 OUTPUT
@@ -12,11 +13,15 @@ AS
 	Created: 20241118@Eddie
 	DB: DBAFF12B-Affiliate_12B
 	Task: Admin site - Home - Member
-	
+
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250506@Sally: Default show Active player [RedmineID: #225717]
 
 	Param's Explanation:
+		@IsIncludeRemovedPlayer:
+			1: Include Removed Players
+			0: Exclude Removed Players
 */
 
 BEGIN
@@ -35,7 +40,7 @@ BEGIN
 		IF @Username = '' AND @IBCUserName = ''
 		BEGIN
 			SELECT @NRows = COUNT(1) FROM dbo.MemberInfo WITH (NOLOCK)
-		
+			
 			SELECT CustId, UserName, IBCUserName, FirstName, LastName, RegisteredDate, 0 AS CurrBalance, AffUserName, IsRemoved, LastAction, IsInclude
 			FROM
 			(
@@ -49,6 +54,7 @@ BEGIN
 						WHERE mr.CustId = mi.CustId 
 						ORDER BY mr.RemovedDate DESC
 					) AS mr
+				WHERE (mi.IsRemoved = 0 OR @IsIncludeRemovedPlayer = 1)
 			) AS r
 			WHERE r.RowNum BETWEEN @RowStart AND @RowEnd
 			ORDER BY r.RowNum
@@ -59,6 +65,7 @@ BEGIN
 			FROM dbo.MemberInfo WITH (NOLOCK)
 			WHERE UserName LIKE '%' + @UserName + '%'
 				AND ISNULL(IBCUserName, '') LIKE '%' + @IBCUserName + '%'
+				AND (IsRemoved = 0 OR @IsIncludeRemovedPlayer = 1)
 
 			SELECT CustId, UserName, IBCUserName, FirstName, LastName, RegisteredDate, 0 AS CurrBalance, AffUserName, IsRemoved, LastAction, IsInclude
 			FROM
@@ -75,6 +82,7 @@ BEGIN
 					) AS mr
 				WHERE mi.UserName LIKE '%' + @UserName + '%'
 					AND ISNULL(mi.IBCUserName, '') LIKE '%' + @IBCUserName + '%'
+					AND (mi.IsRemoved = 0 OR @IsIncludeRemovedPlayer = 1)
 			) AS r
 			WHERE r.RowNum BETWEEN @RowStart AND @RowEnd
 			ORDER BY r.RowNum
@@ -88,6 +96,7 @@ BEGIN
 		WHERE mi.UserName LIKE '%' + @UserName + '%'
 			AND ISNULL(mi.IBCUserName, '') LIKE '%' + @IBCUserName + '%'
 			AND ai.UserName LIKE '%' + @AffUsername + '%'
+			AND (mi.IsRemoved = 0 OR @IsIncludeRemovedPlayer = 1)
 
 		SELECT CustId, UserName, IBCUserName, FirstName, LastName, RegisteredDate, 0 AS CurrBalance, AffUserName, IsRemoved, LastAction, IsInclude
 		FROM
@@ -105,6 +114,7 @@ BEGIN
 			WHERE mi.UserName LIKE '%' + @UserName + '%'
 				AND ISNULL(mi.IBCUserName, '') LIKE '%' + @IBCUserName + '%'
 				AND ai.UserName LIKE '%' + @AffUsername + '%'
+				AND (mi.IsRemoved = 0 OR @IsIncludeRemovedPlayer = 1)
 		) AS r
 		WHERE r.RowNum BETWEEN @RowStart AND @RowEnd
 		ORDER BY r.RowNum

@@ -10,6 +10,8 @@ AS
 	
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250507@Sally: Enhance Removed Player [RedmineID: #225717]
+
 
 	Param's Explanation:
 */
@@ -17,11 +19,11 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.RegisteredDate, ai.UserName AS AffUserName, mi.IsRemoved, mr.LastAction, ISNULL(mr.IsInclude, 1) AS IsInclude
+	SELECT mi.CustId, mi.UserName, mi.IBCUserName, mi.FirstName, mi.LastName, mi.RegisteredDate, ai.UserName AS AffUserName, mi.IsRemoved, mr.LastAction, ISNULL(mr.IsInclude, 1) AS IsInclude, mr.FromDate
 	FROM dbo.MemberInfo mi WITH(NOLOCK)
 		INNER JOIN dbo.AffInfo ai WITH(NOLOCK) ON ai.AffId = mi.AffId
 	OUTER APPLY (
-		SELECT TOP(1) mr.RemovedDate AS LastAction, mr.IsInclude
+		SELECT TOP(1) mr.RemovedDate AS LastAction, mr.IsInclude, mr.FromDate
 		FROM dbo.MemberRemoval mr WITH(NOLOCK)
 		WHERE mr.CustId = mi.CustId 
 		ORDER BY mr.RemovedDate DESC

@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250506@Sally: Default show Active player [RedmineID: #225717]
 	
 	Param's Explanation:
 		@MemberType:
@@ -45,7 +46,7 @@ BEGIN
 	SELECT CustId, UserName, FirstName, LastName, Email, Currency, RegisteredDate
 	FROM dbo.MemberInfo WITH (NOLOCK)
 	WHERE AffId = @AffId
-		AND IsRemoved = 0
+		AND (IsRemoved = 0 OR @IsGetAll = 1)
 		AND 1 = CASE @MemberType
 					WHEN 0 THEN 1
 					WHEN 1 THEN CASE WHEN FirstDepositDate IS NULL THEN 1 ELSE 0 END

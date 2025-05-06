@@ -2,8 +2,7 @@
 CREATE PROCEDURE [dbo].[Aff_Admin_Member_RemoveStatus_Upd]
 	@UserId			INT
 	,@CustId		INT
-	,@IsRemoved		BIT
-	,@IsInclude		BIT
+	,@FromDate		SMALLDATETIME
 	,@IP			VARCHAR(50)
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
@@ -17,13 +16,18 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250402@Sally: Add new Player permission [RedmineID: #222215]
+		- 20250506@Sally: Remove and Exclude from Commission Calculation [RedmineID: #225717]
 
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @MonthDate SMALLDATETIME, @TimeZone INT = 0, @FromDate DATETIME, @ToDate DATETIME, @CurrenDate DATETIME 
+	DECLARE @MonthDate SMALLDATETIME
+        ,@TimeZone INT = 0
+        ,@CurrenDate DATETIME
+        ,@CommissionDate SMALLDATETIME
+        ,@ToDate SMALLDATETIME
 
 	-- Check permission
 	EXEC dbo.Aff_Con_CheckPermission
@@ -35,76 +39,51 @@ BEGIN
 	IF @ErrCode <> 0
 		RETURN
 
-	SELECT @TimeZone = dbo.Aff_f_GetSetting('TimeZone')
+	SELECT @CommissionDate = dbo.Aff_f_GetSetting('AFF_CommissionDate')
+	SELECT @TimeZone       = dbo.Aff_f_GetSetting('TimeZone')
+	SELECT @CurrenDate     =  DATEADD(HOUR, 4 + @TimeZone, GETDATE())
+    SELECT @ToDate         = '2079-06-06'
 
-	SET @CurrenDate =  DATEADD(HOUR, 4 + @TimeZone, GETDATE())
+    IF @FromDate <= @CommissionDate
+    BEGIN
+        SET @ErrMsg = 'The selected date cannot be earlier than the latest billing date'
+        SET @ErrCode = 230
+        RETURN
+    END
 
-	IF @IsInclude = 0 
-	BEGIN
-		SELECT @FromDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @CurrenDate), 0), @ToDate = DATEADD(DAY, -1, DATEADD(MONTH, 1, @FromDate))
-	END
+    IF EXISTS (
+        SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
+        WHERE mr.CustId = @CustId AND DATEDIFF(MONTH, mr.RemovedDate, @CurrenDate) = 0
+    )
+    BEGIN
+        UPDATE mr WITH(ROWLOCK)
+            SET mr.RemovedDate = @CurrenDate
+                ,mr.FromDate = @FromDate
+                ,mr.ToDate = @ToDate
+                ,mr.RemovedBy = @UserId
+        FROM MemberRemoval mr
+        WHERE mr.CustId = @CustId AND DATEDIFF(MONTH, mr.RemovedDate, @CurrenDate) = 0
+    END
+    ELSE
+    BEGIN	
+        INSERT INTO dbo.MemberRemoval (CustId, RemovedDate, FromDate, ToDate, RemovedBy)
+        VALUES (@CustId, @CurrenDate, @FromDate, @ToDate, @UserId)
+    END
 
-	IF @IsRemoved = 1 AND @IsInclude = 1
-	BEGIN
-		SELECT @FromDate = DATEADD(DAY, 1, CONVERT(DATE, @CurrenDate))
-	END
+    UPDATE dbo.MemberInfo WITH(ROWLOCK)
+        SET IsRemoved = 1
+    WHERE CustId = @CustId
+		AND IsRemoved = 0
 
-	IF @IsRemoved = 1
-	BEGIN
-		SET @ToDate = '2079-06-06'
-	END
-	
-	IF EXISTS (
-		SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
-		WHERE mr.CustId = @CustId AND DATEDIFF(MONTH, mr.RemovedDate, @CurrenDate) = 0
-	)
-	BEGIN
-		UPDATE mr WITH(ROWLOCK)
-			SET mr.RemovedDate = @CurrenDate
-				,mr.FromDate = @FromDate
-				,mr.ToDate = @ToDate
-				,mr.IsInclude = @IsInclude
-				,mr.RemovedBy = @UserId
-		FROM MemberRemoval mr
-		WHERE mr.CustId = @CustId AND DATEDIFF(MONTH, mr.RemovedDate, @CurrenDate) = 0
-	END
-	ELSE
-	BEGIN	
-		INSERT INTO dbo.MemberRemoval (CustId, RemovedDate, FromDate, ToDate, IsInclude, RemovedBy)
-		VALUES (@CustId, DATEADD(HOUR, 4 + @TimeZone, @CurrenDate),  @FromDate, @ToDate, @IsInclude, @UserId)
-	END
+    DECLARE @SPName VARCHAR(200), @NewData NVARCHAR(MAX)
+    SELECT @SPName = OBJECT_NAME(@@PROCID)
+    SELECT @NewData = 'Update remove status: CustId = ' + CONVERT(VARCHAR(20), @Custid) + 'IsRemoved = 1'
 
-	IF EXISTS (
-		SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) WHERE mr.CustId = @CustId AND DATEDIFF(MONTH, mr.RemovedDate, @CurrenDate) > 0
-	)
-	BEGIN
-		;WITH CTE AS
-		(
-			SELECT TOP (1) CustId, RemovedDate, mr.ToDate
-			FROM MemberRemoval mr WITH(NOLOCK)
-			WHERE mr.CustId = @CustId AND DATEDIFF(MONTH, mr.RemovedDate, @CurrenDate) > 0
-			ORDER BY mr.RemovedDate DESC
-		)
-		UPDATE mr WITH(ROWLOCK, UPDLOCK)
-			SET mr.ToDate = CASE WHEN mr.ToDate IS NULL THEN NULL ELSE DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @CurrenDate), 0)) END
-		FROM MemberRemoval mr
-			INNER JOIN CTE e ON e.CustId = mr.CustId AND e.RemovedDate = mr.RemovedDate
-	END
-
-	UPDATE dbo.MemberInfo WITH(ROWLOCK)
-		SET IsRemoved = @IsRemoved
-	WHERE CustId = @CustId
-
-	DECLARE @SPName VARCHAR(200), @NewData NVARCHAR(MAX)
-	SELECT @SPName = OBJECT_NAME(@@PROCID)
-	SELECT @NewData = 'Update remove status: CustId = ' + CONVERT(VARCHAR(20), @Custid) + 'IsRemoved = ' + CONVERT(VARCHAR(20), @IsRemoved) + ' IsInclude = ' + CONVERT(VARCHAR(20), @IsInclude)
-	
-	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
-		@UserId		= @UserId
-		,@AffId		= 0
-		,@SPName	= @SPName
-		,@NewData	= @NewData
-		,@IP		= @IP
-	
+    EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
+        @UserId		= @UserId
+        ,@AffId		= 0
+        ,@SPName	= @SPName
+        ,@NewData	= @NewData
+        ,@IP		= @IP
 END
 GO
