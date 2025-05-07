@@ -1,0 +1,51 @@
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G"></info>*/
+/*
+	Created: 20250505@Sophia
+	DB:
+		DBAFFN88-Affiliate_N88
+		DBAFFN8B-Affiliate_N8B
+		DBAFFN8G-Affiliate_N8G
+	Task: Update Data for ChannelCode on  ClickStatistics_BK [RedmineID: #226178]
+
+	use Affiliate_N88
+	go
+	use Affiliate_N8B
+	go
+	use Affiliate_N8G
+	go
+*/
+ 
+
+DECLARE @BatchSize INT = 2000
+CREATE TABLE #batch (ClickId INT PRIMARY KEY, ChannelCode VARCHAR(50))
+
+-----------ClickStatistics_bk
+DROP TABLE IF EXISTS Tmp_ClickStatistics_bk
+CREATE TABLE Tmp_ClickStatistics_bk (ClickId INT PRIMARY KEY, ChannelCode VARCHAR(50))
+
+INSERT INTO Tmp_ClickStatistics_bk (ClickId, ChannelCode)
+Select r.ClickId,  r.ChannelCode 
+from DBSPARE.Affiliate_N88_20250430.dbo.ClickStatistics r WITH (NOLOCK)  
+WHERE r.Date >= '2025-04-01' 
+
+WHILE (1=1)
+BEGIN
+	TRUNCATE TABLE #batch
+
+	DELETE TOP (@BatchSize) T
+	OUTPUT deleted.ClickId, deleted.ChannelCode
+		INTO #batch(ClickId,ChannelCode)
+	FROM Tmp_ClickStatistics_bk t 
+
+	IF @@ROWCOUNT = 0 BREAK
+	 
+	UPDATE a
+	SET a.ChannelCode = b.ChannelCode
+	FROM ClickStatistics_bk a WITH (ROWLOCK, UPDLOCK)
+	INNER JOIN #batch b ON a.ClickId = b.ClickId
+	
+	WAITFOR DELAY '00:00:00:280'
+
+END	
+
+---drop table Tmp_ClickStatistics_bk
