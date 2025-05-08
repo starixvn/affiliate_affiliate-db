@@ -1,7 +1,7 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_DomainControl_Sel]
 	@DomainControlId	INT = 0
-	,@MarketId			NVARCHAR(10) = ''
+	,@TargetCountryCode			VARCHAR(5) = ''
 AS
 
 /*  
@@ -11,6 +11,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
 */
 
 BEGIN
@@ -19,8 +20,8 @@ BEGIN
 	IF @DomainControlId <> 0
 		SELECT
 			a.Id AS DomainControlId
-			,a.MarketId
-			,d.MarketName
+			,d.CountryCode AS TargetCountryCode
+			,d.CountryName AS TargetCountryName
 			,b.DomainId		AS AffDomainId
 			,b.DomainName	AS AffDomain
 			,c.DomainId		AS RedirectDomainId
@@ -31,15 +32,15 @@ BEGIN
 		FROM dbo.DomainControl a WITH (NOLOCK)
 			INNER JOIN dbo.AffDomain b WITH (NOLOCK) ON a.AffDomainId = b.DomainId
 			INNER JOIN dbo.LicenseeDomain c WITH (NOLOCK) ON a.LicenseeDomainId = c.DomainId
-			INNER JOIN Market d WITH (NOLOCK) ON a.MarketId = d.MarketId
+			INNER JOIN TargetCountry d WITH (NOLOCK) ON a.MarketId = d.MarketId AND a.TargetCountryCode = d.CountryCode
 			INNER JOIN Affiliate_User e WITH (NOLOCK) ON a.Creator = e.CustId
 		WHERE a.Id = @DomainControlId
 			AND a.IsDeleted = 0
 	ELSE
 		SELECT
 			a.Id AS DomainControlId
-			,a.MarketId
-			,d.MarketName
+			,d.CountryCode AS TargetCountryCode
+			,d.CountryName AS TargetCountryName
 			,b.DomainId		AS AffDomainId
 			,b.DomainName	AS AffDomain
 			,c.DomainId		AS RedirectDomainId
@@ -50,12 +51,13 @@ BEGIN
 		FROM dbo.DomainControl a WITH (NOLOCK)
 			INNER JOIN dbo.AffDomain b WITH (NOLOCK) ON a.AffDomainId = b.DomainId
 			INNER JOIN dbo.LicenseeDomain c WITH (NOLOCK) ON a.LicenseeDomainId = c.DomainId
-			INNER JOIN Market d WITH (NOLOCK) ON a.MarketId = d.MarketId
+			INNER JOIN TargetCountry d WITH (NOLOCK) ON a.MarketId = d.MarketId AND a.TargetCountryCode = d.CountryCode
 			INNER JOIN Affiliate_User e WITH (NOLOCK) ON a.Creator = e.CustId
-		WHERE (ISNULL(@MarketId, '') = '' OR a.MarketID = @MarketId)
+		WHERE (ISNULL(@TargetCountryCode, '') = '' OR a.TargetCountryCode = @TargetCountryCode)
 			AND a.IsDeleted = 0
 		ORDER BY
-			d.MarketName
+			a.CreateDate DESC
+			,d.CountryName
 			,b.DomainName
 END
 GO

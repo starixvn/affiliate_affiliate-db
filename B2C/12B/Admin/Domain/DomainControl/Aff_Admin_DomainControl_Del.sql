@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
 */
 
 BEGIN
@@ -34,6 +35,7 @@ BEGIN
 	SELECT  @OldData = 'AffDomainId=' + CONVERT(VARCHAR(10), AffDomainId)
 						+ ',LicenseeDomainId=' + CONVERT(VARCHAR(10), LicenseeDomainId)
 						+ ',MarketId=' + ISNULL(MarketId, '')
+						+ ',TargetCountryCode=' + ISNULL(TargetCountryCode, '')
 	FROM dbo.DomainControl WITH (NOLOCK) WHERE Id = @DomainControlId AND IsDeleted = 0
 
 	IF @@ROWCOUNT = 0

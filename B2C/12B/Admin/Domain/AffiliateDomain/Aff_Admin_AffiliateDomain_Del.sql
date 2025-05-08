@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250311@Lewis: Add block market [RedmineID: #219496]
+		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
 */
 
 BEGIN
@@ -40,7 +41,7 @@ BEGIN
 	SELECT  @OldData = 'DomainId=' + CONVERT(VARCHAR(10), DomainId)
 						+ ',DomainName=' + DomainName
 						+ ',IsSSL=' + CONVERT(VARCHAR(1), IsSSL)
-						+ ',BlockMarket=' + BlockMarket
+						+ ',BlockTargetCountry=' + BlockTargetCountry
 	FROM dbo.AffDomain WITH (NOLOCK) WHERE DomainId = @DomainId AND IsDeleted = 0
 
 	IF @@ROWCOUNT = 0

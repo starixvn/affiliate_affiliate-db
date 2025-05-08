@@ -2,7 +2,7 @@
 CREATE PROCEDURE [dbo].[Aff_Admin_Banner_Sel]
 	@BannerId		INT = 0
 	,@TargetId		TINYINT = 0
-	,@Language		VARCHAR(100) = NULL
+	,@Language		VARCHAR(MAX) = ''
 	,@Category		VARCHAR(50) = NULL
 	,@SubCategory	VARCHAR(50) = NULL
 	,@Currency		VARCHAR(10) = NULL
@@ -21,6 +21,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250417@Lewis: @language - get all [RedmineID: #223644]
 
 	Param's Explanation:
 		- @TargetId:
@@ -50,7 +51,7 @@ BEGIN
 		FROM dbo.MediaGallery WITH (NOLOCK)
 		WHERE (@TargetId = 0 OR TargetId = @TargetId)
 			AND ImageType = 'Image'
-			AND (@Language IS NULL OR Language = @Language)
+			AND ',' + @Language + ',' LIKE '%,' + Language + ',%'
 			AND (@Size IS NULL OR Size = @Size)
 			AND (@Category IS NULL OR ',' + Categories + ',' LIKE '%,' + @Category + ',%')
 			AND (@SubCategory IS NULL OR ',' + SubCategories + ',' LIKE '%,' + @SubCategory + ',%')
@@ -68,7 +69,7 @@ BEGIN
 			FROM dbo.MediaGallery WITH (NOLOCK)
 			WHERE (@TargetId = 0 OR TargetId = @TargetId)
 				AND ImageType = 'Image'
-				AND (@Language IS NULL OR Language = @Language)
+				AND ',' + @Language + ',' LIKE '%,' + Language + ',%'
 				AND (@Size IS NULL OR Size = @Size)
 				AND (@Category IS NULL OR ',' + Categories + ',' LIKE '%,' + @Category + ',%')
 				AND (@SubCategory IS NULL OR ',' + SubCategories + ',' LIKE '%,' + @SubCategory + ',%')

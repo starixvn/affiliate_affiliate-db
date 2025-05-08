@@ -35,7 +35,9 @@ CREATE PROCEDURE [dbo].[Aff_User_Affiliate_Ins]
 	@Username			NVARCHAR(50) = NULL OUTPUT,
 	-- Others
 	@IP					VARCHAR(50) = '',
-	@Language			VARCHAR(10) = 'en-US'
+	@Language			VARCHAR(10) = 'en-US',
+	-- TargetCountryCode
+	@TargetCountryCode	VARCHAR(5)
 AS
 
 /*
@@ -46,6 +48,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250320@Lewis: Exclude Special Email [RedmineID: #220971]
+		- 20250417@Lewis: Add TargetCountry [RedmineID: #223644]
 
 
 */
@@ -187,7 +190,7 @@ BEGIN
 			-- Website Information
 			SiteUrl,MoreSiteUrls,NoSiteDesc,
 			-- Preferrence
-			PreferredLanguage,QuestionID,Answer,
+			PreferredLanguage,QuestionID,Answer,TargetCountryCode,
 			-- Payment Information
 			PreferredPayment,Player_CustID,Player_UserName,Player_Currency,Player_CurrencyName,Player_CurrencyCode
 		)
@@ -201,7 +204,7 @@ BEGIN
 			-- Website Information
 			@SiteUrl,@MoreSiteUrls,@NoSiteDesc,
 			-- Preferrence
-			@PreferredLanguage,@QuestionID,@Answer,
+			@PreferredLanguage,@QuestionID,@Answer,@TargetCountryCode,
 			-- Payment Information
 			@PreferredPayment,@Player_CustId,@Player_UserName,@Player_Currency,@Player_CurrencyName,@Player_CurrencyCode
 		)
@@ -249,6 +252,7 @@ BEGIN
 			'MoreSiteUrls='			+ ISNULL(@MoreSiteUrls, '') + ',' +
 			'NoSiteDesc='			+ ISNULL(@NoSiteDesc, '') + ',' +
 			'PreferredLanguage='	+ ISNULL(@PreferredLanguage, '') + ',' +
+			'TargetCountryCode='	+ ISNULL(@TargetCountryCode, '') + ',' +
 			'QuestionID='			+ ISNULL(CONVERT(VARCHAR(5), @QuestionID), '') + ',' +
 			'Answer='				+ ISNULL(@Answer, '') + ',' +
 			'PreferredPayment='		+ ISNULL(@PreferredPayment, '') + ',' +

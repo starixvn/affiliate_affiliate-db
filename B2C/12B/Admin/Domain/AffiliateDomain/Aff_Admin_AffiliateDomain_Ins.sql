@@ -4,9 +4,9 @@ CREATE PROCEDURE [dbo].[Aff_Admin_AffiliateDomain_Ins]
 	,@DomainName	NVARCHAR(50)
 	,@IsSSL			BIT = 0
 	,@IP			VARCHAR(50) = ''
-	,@BlockMarket	VARCHAR(400) = ''
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+	,@BlockTargetCountry	VARCHAR(200) = ''
 AS
 
 /*  
@@ -17,6 +17,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250311@Lewis: Add block market [RedmineID: #219496]
+		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
 */
 
 BEGIN
@@ -58,7 +59,7 @@ BEGIN
 			,ModifyDate
 			,Creator
 			,IsSSL
-			,BlockMarket
+			,BlockTargetCountry
 		)
 		VALUES
 		(
@@ -67,7 +68,7 @@ BEGIN
 			,GETDATE()
 			,@UserId
 			,@IsSSL
-			,@BlockMarket
+			,@BlockTargetCountry
 		)
 
 		SELECT @DomainId = SCOPE_IDENTITY()
@@ -84,7 +85,7 @@ BEGIN
 	SELECT  @NewData = 'DomainId=' + CONVERT(VARCHAR(10), @DomainId)
 					+ ',DomainName=' + @DomainName
 					+ ',IsSSL=' + CONVERT(VARCHAR(1), @IsSSL)
-					+ ',BlockMarket=' + @BlockMarket
+					+ ',BlockTargetCountry=' + @BlockTargetCountry
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId

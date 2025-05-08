@@ -39,6 +39,7 @@ AS
 		- 20250320@Sophia: Add clickID into RedirectPage [Redmine: #219949]
 		- 20250402@Lewis: User table SpecificDomainControl [Redmine: #221035]
 		- 20250408@Sophia: Add ChannelCode into ClickStatistics [Redmine: #222765]
+		- 20250417@Lewis: Add TargetCountry [RedmineID: #223644]
 */
 
 BEGIN
@@ -65,10 +66,17 @@ BEGIN
 	SELECT @AffId = ac.AffId
 	FROM dbo.AffiliateCode ac WITH(NOLOCK)
 	WHERE ac.AffCode = @AffCode
-
+	
 	SELECT @LanguageMediaLink = m.MarketId
 	FROM dbo.Market m WITH(NOLOCK)
 	WHERE m.ShortedCode = @LanguageCode
+		
+
+	--Get TargetCountryCode
+	DECLARE @TargetCountryCode VARCHAR(5)
+	SELECT @TargetCountryCode = tc.CountryCode
+	FROM TargetCountry tc WITH (NOLOCK)
+	WHERE tc.MarketID = @LanguageMediaLink
 
 	IF COALESCE(@IP, '') = ''
 	BEGIN
@@ -120,7 +128,7 @@ BEGIN
 					,  @IsSSL		   		= b.IsSSL
 			FROM dbo.DomainControl a WITH (NOLOCK)
 				INNER JOIN dbo.LicenseeDomain b WITH (NOLOCK) ON a.LicenseeDomainId = b.DomainId
-			WHERE a.MarketId = @PreferredLanguage
+			WHERE a.TargetCountryCode = @TargetCountryCode
 				AND a.AffDomainId = @AffDomainId
 				AND a.[Status] = 1
 				AND a.IsDeleted = 0

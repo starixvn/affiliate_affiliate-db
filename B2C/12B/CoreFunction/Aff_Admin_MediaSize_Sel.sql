@@ -1,7 +1,7 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_MediaSize_Sel]
 	@TargetId		TINYINT = 0
-	,@Language		VARCHAR(100) = NULL
+	,@Language		VARCHAR(MAX) = ''
 	,@Category		VARCHAR(50) = NULL
 	,@SubCategory	VARCHAR(50) = NULL
 	,@Currency		VARCHAR(10) = NULL
@@ -17,12 +17,13 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250417@Lewis: @language - get all [RedmineID: #223644]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	IF @TargetId = 0 AND @Language IS NULL AND @Category IS NULL AND @Currency IS NULL AND @ImageType IS NULL AND @AffType IS NULL AND @DeviceType IS NULL
+	IF @TargetId = 0 AND ISNULL(@Language,'') = '' AND @Category IS NULL AND @Currency IS NULL AND @ImageType IS NULL AND @AffType IS NULL AND @DeviceType IS NULL
 	BEGIN
 		WITH CTE_Size AS (
 			SELECT Size FROM dbo.MediaGallery WITH (NOLOCK) WHERE (@TargetId = 0 OR TargetId = @TargetId) AND ImageType = 'Image' GROUP BY Size
@@ -42,7 +43,7 @@ BEGIN
 			FROM dbo.MediaGallery WITH (NOLOCK)
 			WHERE (@TargetId = 0 OR TargetId = @TargetId)
 				AND ImageType = 'Image'
-				AND (@Language IS NULL OR Language = @Language)
+				AND ',' + @Language + ',' LIKE '%,' + Language + ',%'
 				AND (@ImageType IS NULL OR ImageType = @ImageType)
 				AND (@Category IS NULL OR ',' + Categories + ',' LIKE '%,' + @Category + ',%')
 				AND (@SubCategory IS NULL OR ',' + SubCategories + ',' LIKE '%,' + @SubCategory + ',%')
