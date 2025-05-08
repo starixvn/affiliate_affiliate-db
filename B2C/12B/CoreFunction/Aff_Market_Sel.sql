@@ -1,5 +1,6 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Market_Sel]
+	@TargetCountryCode VARCHAR(5) = ''
 AS
 
 /*
@@ -10,6 +11,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250318@Lewis: Use col IsDeleted [RedmineID: #219810]
+		- 20250417@Lewis: Add TargetCountry [RedmineID: #223644]
 
 */
 
@@ -17,20 +19,16 @@ BEGIN
 	SET NOCOUNT ON
 	
 	;WITH CTE_Market AS (
-		SELECT MarketId, MarketName, MarketNativeName, DisplayName, ShortedCode
-			,CASE MarketId WHEN 'en-US' THEN 1
-						   WHEN 'bn-BD' THEN 2
-						   WHEN 'en-GB' THEN 3
-						   WHEN 'en-IN' THEN 4
-						   WHEN 'hi-IN' THEN 5
-						   WHEN 'te-IN' THEN 6
-			 ELSE 7 END AS SortTypeId
-		FROM dbo.Market WITH (NOLOCK)
-		WHERE IsDeleted = 0
+		SELECT tc.CountryCode,tc.MarketId, tc.MarketName, m.MarketNativeName, m.DisplayName, m.ShortedCode
+			,tc.OrderNo
+		FROM dbo.Market m WITH (NOLOCK)
+			INNER JOIN TargetCountry tc WITH (NOLOCK) ON m.MarketId = tc.MarketId
+		WHERE m.IsDeleted = 0 
+			AND (@TargetCountryCode = '' OR tc.CountryCode = @TargetCountryCode)
 	)
-	SELECT MarketId, MarketName, MarketNativeName, DisplayName, ShortedCode
+	SELECT CountryCode AS [TargetCountryCode], MarketId, MarketName, MarketNativeName, DisplayName, ShortedCode
 	FROM CTE_Market
-	ORDER BY SortTypeId, MarketId ASC
+	ORDER BY CASE WHEN OrderNo IS NULL THEN 1 ELSE 0 END, OrderNo;
 
 END
 GO

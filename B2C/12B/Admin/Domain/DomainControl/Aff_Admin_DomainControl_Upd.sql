@@ -4,7 +4,7 @@ CREATE PROCEDURE [dbo].[Aff_Admin_DomainControl_Upd]
 	,@DomainControlId	INT
 	,@AffDomainId		INT
 	,@LicenseeDomainId	INT = 0
-	,@MarketId			NVARCHAR(10)
+	,@TargetCountryCode	VARCHAR(5)
 	,@Status			BIT
 	,@IP				VARCHAR(50) = ''
 	,@ErrCode			INT = 0 OUTPUT
@@ -18,10 +18,18 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
 */
 
 BEGIN
 	SET NOCOUNT ON
+
+	DECLARE @MarketId NVARCHAR(10)
+	SELECT TOP(1) @MarketId = tc.MarketID 
+	FROM TargetCountry tc WITH (NOLOCK)
+	WHERE tc.OrderNo IS NOT NULL --Default MarketID for CountryCode have more than 1 MarketID
+		AND tc.CountryCode = @TargetCountryCode
+		AND EXISTS (SELECT 1 FROM Market m WITH (NOLOCK) WHERE m.MarketId = tc.MarketID AND m.IsDeleted = 0)
 
 	-- Check permission
 	EXEC [dbo].[Aff_Con_CheckPermission]
@@ -38,10 +46,12 @@ BEGIN
 	SELECT  @OldData = 'AffDomainId=' + CONVERT(VARCHAR(10), AffDomainId)
 						+ ',LicenseeDomainId=' + CONVERT(VARCHAR(10), LicenseeDomainId)
 						+ ',MarketId=' + ISNULL(MarketId, '')
+						+ ',TargetCountryCode=' + ISNULL(TargetCountryCode, '')
 						+ ',Status=' + CONVERT(VARCHAR(2), Status)
 			,@NewData = 'AffDomainId=' + CONVERT(VARCHAR(10), @AffDomainId)
 						+ ',LicenseeDomainId=' + CONVERT(VARCHAR(10), @LicenseeDomainId)
 						+ ',MarketId=' + ISNULL(@MarketId, '')
+						+ ',TargetCountryCode=' + ISNULL(@TargetCountryCode, '')
 						+ ',Status=' + CONVERT(VARCHAR(2), @Status)
 	FROM dbo.DomainControl WITH (NOLOCK) WHERE Id = @DomainControlId AND IsDeleted = 0
 
@@ -56,7 +66,7 @@ BEGIN
 
 	IF EXISTS (
 		SELECT 1 FROM dbo.DomainControl WITH (NOLOCK)
-		WHERE Id <> @DomainControlId AND AffDomainId = @AffDomainId AND LicenseeDomainId = @LicenseeDomainId AND MarketId = @MarketId AND IsDeleted = 0
+		WHERE Id <> @DomainControlId AND AffDomainId = @AffDomainId AND LicenseeDomainId = @LicenseeDomainId AND TargetCountryCode = @TargetCountryCode AND IsDeleted = 0
 	)
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'This domain setting has been existed!'
@@ -68,6 +78,7 @@ BEGIN
 		SET AffDomainId			= @AffDomainId
 			,LicenseeDomainId	= @LicenseeDomainId
 			,MarketId			= @MarketId
+			,TargetCountryCode	= @TargetCountryCode
 			,ModifyDate			= GETDATE()
 			,Status				= @Status
 		WHERE Id = @DomainControlId

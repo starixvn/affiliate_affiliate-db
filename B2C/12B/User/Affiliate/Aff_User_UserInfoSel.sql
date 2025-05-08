@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250417@Lewis: Add TargetCountry [RedmineID: #223644]
 
 */
 
@@ -51,7 +52,8 @@ BEGIN
 		ad.Player_CurrencyCode AS PlayerCurrency,
 		@AffCurrencyCode AS AffCurrency,
 		ai.DefaultCurrency AS DefaultBaseCurrency,
-		ai.AffCode
+		ai.AffCode,
+		ad.TargetCountryCode
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 	WHERE ai.AffId = @AffId

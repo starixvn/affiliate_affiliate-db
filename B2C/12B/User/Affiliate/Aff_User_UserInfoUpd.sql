@@ -11,7 +11,8 @@ CREATE PROCEDURE [dbo].[Aff_User_UserInfoUpd]
 	@Language				NVARCHAR(20) = 'en-US',
 	@IP						VARCHAR(50),
 	@ErrCode				INT = 0 OUTPUT,
-	@ErrMsg					NVARCHAR(2000) = '' OUTPUT
+	@ErrMsg					NVARCHAR(2000) = '' OUTPUT,
+	@TargetCountryCode		VARCHAR(5) = ''
 AS  
 
 /*
@@ -21,6 +22,7 @@ AS
 	
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250417@Lewis: Add TargetCountry [RedmineID: #223644]
 */
 
 BEGIN
@@ -35,13 +37,15 @@ BEGIN
 		MoreSiteURLs_Del		VARCHAR(1000),
 		NoSiteDesc_Del			NVARCHAR(1000),
 		DefaultCurrency_Del		INT,
+		TargetCountryCode_Del	VARCHAR(5),
 		-- insert
 		Phone_Ins				NVARCHAR(50),
 		ContactApps_Ins			NVARCHAR(2000),
 		SiteURL_Ins				VARCHAR(100),
 		MoreSiteURLs_Ins		VARCHAR(1000),
 		NoSiteDesc_Ins			NVARCHAR(1000),
-		DefaultCurrency_Ins		INT
+		DefaultCurrency_Ins		INT,
+		TargetCountryCode_Ins	VARCHAR(5)
 	)
 
 	BEGIN TRY
@@ -63,18 +67,21 @@ BEGIN
 			ContactApps			= ISNULL(@ContactApps, ContactApps),
 			SiteURL				= ISNULL(@SiteURL, SiteURL),
 			MoreSiteURLs		= ISNULL(@MoreSiteURLs, MoreSiteURLs),
-			NoSiteDesc			= ISNULL(@NoSiteDesc, NoSiteDesc)
+			NoSiteDesc			= ISNULL(@NoSiteDesc, NoSiteDesc),
+			TargetCountryCode	= ISNULL(@TargetCountryCode, TargetCountryCode)
 		OUTPUT
 			DELETED.Phone,
 			DELETED.ContactApps,
 			DELETED.SiteURL,
 			DELETED.MoreSiteURLs,
 			DELETED.NoSiteDesc,
+			DELETED.TargetCountryCode,
 			INSERTED.Phone,
 			INSERTED.ContactApps,
 			INSERTED.SiteURL,
 			INSERTED.MoreSiteURLs,
-			INSERTED.NoSiteDesc
+			INSERTED.NoSiteDesc,
+			INSERTED.TargetCountryCode
 		INTO @UpdatedData
 		(
 			Phone_Del,
@@ -82,11 +89,13 @@ BEGIN
 			SiteURL_Del,
 			MoreSiteURLs_Del,
 			NoSiteDesc_Del,
+			TargetCountryCode_Del,
 			Phone_Ins,
 			ContactApps_Ins,
 			SiteURL_Ins,
 			MoreSiteURLs_Ins,
-			NoSiteDesc_Ins
+			NoSiteDesc_Ins,
+			TargetCountryCode_Ins
 		)
 		WHERE AffID = @AffId
 	END TRY
@@ -109,7 +118,8 @@ BEGIN
 		'SiteURL='			+ ISNULL(SiteURL_Del, '') + ',' +
 		'MoreSiteURLs='		+ ISNULL(MoreSiteURLs_Del, '') + ',' +
 		'NoSiteDesc='		+ ISNULL(NoSiteDesc_Del, '') + ',' +
-		'DefaultCurrency='	+ ISNULL(CONVERT(VARCHAR(10), DefaultCurrency_Del), '')
+		'DefaultCurrency='	+ ISNULL(CONVERT(VARCHAR(10), DefaultCurrency_Del), '') +
+		'TargetCountryCode='+ ISNULL(TargetCountryCode_Del, '')
 	FROM @UpdatedData
 
 	SELECT  @NewData =
@@ -118,7 +128,8 @@ BEGIN
 		'SiteURL='			+ ISNULL(SiteURL_Ins, '') + ',' +
 		'MoreSiteURLs='		+ ISNULL(MoreSiteURLs_Ins, '') + ',' +
 		'NoSiteDesc='		+ ISNULL(NoSiteDesc_Ins, '') + ',' +
-		'DefaultCurrency='	+ ISNULL(CONVERT(VARCHAR(10), DefaultCurrency_Ins), '')
+		'DefaultCurrency='	+ ISNULL(CONVERT(VARCHAR(10), DefaultCurrency_Ins), '') +
+		'TargetCountryCode='+ ISNULL(TargetCountryCode_Ins, '')
 	FROM @UpdatedData
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog

@@ -5,7 +5,8 @@ CREATE PROCEDURE [dbo].[Aff_Admin_LandingPage_Ins]
 	@PageCode	NVARCHAR(100),
 	@IP			VARCHAR(50) = '',
 	@ErrCode	INT = 0 OUTPUT,
-	@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+	@ErrMsg		NVARCHAR(4000) = '' OUTPUT,
+	@BlockTargetCountry	VARCHAR(200) = ''
 AS
 
 /*
@@ -15,6 +16,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
 */
 
 BEGIN
@@ -47,8 +49,8 @@ BEGIN
 		RETURN
 	END
 
-	INSERT INTO dbo.LandingPage (PageName, PageCode, IsDeleted)
-	VALUES (@PageName, @PageCode, 0)
+	INSERT INTO dbo.LandingPage (PageName, PageCode, IsDeleted, BlockTargetCountry)
+	VALUES (@PageName, @PageCode, 0, @BlockTargetCountry)
 
 	IF @@ERROR <> 0
 	BEGIN
@@ -62,7 +64,7 @@ BEGIN
 
 	DECLARE @Data NVARCHAR(MAX)
 
-	SELECT  @Data = 'PageName=' + @PageName + ',' + 'PageCode=' + @PageCode
+	SELECT  @Data = 'PageName=' + @PageName + ',' + 'PageCode=' + @PageCode + ',' + 'BlockTargetCountry=' + @BlockTargetCountry
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,

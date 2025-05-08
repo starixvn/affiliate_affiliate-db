@@ -14,7 +14,8 @@ CREATE PROCEDURE [dbo].[Aff_Admin_Affiliate_Sel]
 	@IsExportExcel		BIT				= 0,
 	@PageSize 			INT 			= 50,
 	@PageIndex 			INT 			= 1,
-	@NRows 				INT 			= 0 OUTPUT
+	@NRows 				INT 			= 0 OUTPUT,
+	@TargetCountryCode	VARCHAR(5)		= ''
 AS
 
 /*
@@ -24,10 +25,13 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
 		- @SortDirectionType: 0: ASC (ascending), 1: DESC (descending)
+		- @PreferredLanguage: default -> get ALL
+		- @TargetCountryCode: default -> get ALL
 */
 
 BEGIN
@@ -55,6 +59,7 @@ BEGIN
 							WHEN @Status = 'Suspended' THEN 1
 							ELSE ai.IsRejected END
 		AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
+		AND (ISNULL(@TargetCountryCode, '') = '' OR ad.TargetCountryCode = @TargetCountryCode)
 		AND (ISNULL(@PreferredLanguage, '') = '' OR ad.PreferredLanguage = @PreferredLanguage)
 		AND (
 			@GroupIds = 'all'
@@ -88,6 +93,7 @@ BEGIN
 		FirstName,
 		LastName,
 		Status,
+		TargetCountryCode,
 		PreferredLanguage,
 		Email,
 		RegisteredDate,
@@ -116,6 +122,7 @@ BEGIN
 			ai.LastName,
 			CASE WHEN ai.Status = 'Approved' AND ai.IsRejected = 1 THEN 'Suspended'
 				ELSE ai.Status END AS Status,
+			ad.TargetCountryCode,
 			ad.PreferredLanguage,
 			ai.Email,
 			ai.RegisteredDate,
@@ -183,6 +190,7 @@ BEGIN
 									WHEN @Status = 'Suspended' THEN 1
 								ELSE ai.IsRejected END
 			AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
+			AND (ISNULL(@TargetCountryCode, '') = '' OR ad.TargetCountryCode = @TargetCountryCode)
 			AND (ISNULL(@PreferredLanguage, '') = '' OR ad.PreferredLanguage = @PreferredLanguage)
 			AND (ISNULL(@Status, '') <> 'Favorite' OR af.AdminId IS NOT NULL)
 			AND (

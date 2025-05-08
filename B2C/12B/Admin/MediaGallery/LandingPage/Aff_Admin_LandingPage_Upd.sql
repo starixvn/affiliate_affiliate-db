@@ -6,7 +6,8 @@ CREATE PROCEDURE [dbo].[Aff_Admin_LandingPage_Upd]
 	@PageCode	NVARCHAR(100),
 	@IP			VARCHAR(50) = '',
 	@ErrCode	INT = 0 OUTPUT,
-	@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+	@ErrMsg		NVARCHAR(4000) = '' OUTPUT,
+	@BlockTargetCountry	VARCHAR(200) = ''
 AS
 
 /*
@@ -16,6 +17,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
 */
 
 BEGIN
@@ -41,8 +43,12 @@ BEGIN
 		RETURN
 	END
 
-	DECLARE @OldPageName NVARCHAR(200), @OldPageCode VARCHAR(100)
-	SELECT  @OldPageName = PageName, @OldPageCode = PageCode FROM dbo.LandingPage WITH (NOLOCK) WHERE PageId = @PageId
+	DECLARE @OldPageName NVARCHAR(200), @OldPageCode VARCHAR(100), @OldBlockTargetCountry VARCHAR(200)
+	SELECT  @OldPageName = PageName
+			, @OldPageCode = PageCode 
+			, @OldBlockTargetCountry = BlockTargetCountry
+	FROM dbo.LandingPage WITH (NOLOCK) 
+	WHERE PageId = @PageId
 
 	IF @OldPageName IS NULL
 	BEGIN
@@ -50,7 +56,7 @@ BEGIN
 		RETURN
 	END
 
-	IF @OldPageName = @PageName AND @OldPageCode = @PageCode
+	IF @OldPageName = @PageName AND @OldPageCode = @PageCode AND @OldBlockTargetCountry = @BlockTargetCountry
 	BEGIN
 		SELECT @ErrCode = 103, @ErrMsg = 'This landing page does not changes'
 		RETURN
@@ -64,7 +70,8 @@ BEGIN
 
 	UPDATE dbo.LandingPage WITH (ROWLOCK, UPDLOCK)
 	SET PageName = @PageName,
-		PageCode = @PageCode
+		PageCode = @PageCode,
+		BlockTargetCountry = @BlockTargetCountry
 	WHERE PageId = @PageId
 
 	IF @@ERROR <> 0
@@ -80,7 +87,7 @@ BEGIN
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
 	SELECT  @OldData = 'PageName=' + @OldPageName + ',' + 'PageCode=' + @OldPageCode,
-			@NewData = 'PageName=' + @PageName + ',' + 'PageCode=' + @PageCode
+			@NewData = 'PageName=' + @PageName + ',' + 'PageCode=' + @PageCode + ',' + 'BlockTargetCountry=' + @BlockTargetCountry
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,

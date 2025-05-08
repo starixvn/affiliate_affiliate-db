@@ -1,102 +1,130 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_LicenseeDomain_Upd]
-	@UserId			INT
-	,@DomainId		INT
-	,@DomainName	NVARCHAR(50)
-	,@IsSSL			BIT = 0
-	,@IP			VARCHAR(50) = ''
-	,@BlockMarket	VARCHAR(400) = ''
-	,@ErrCode		INT = 0 OUTPUT
-	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+    @UserId				INT
+    ,@DomainId			INT
+    ,@DomainName		NVARCHAR(50)
+    ,@IsSSL				BIT = 0
+    ,@IP				VARCHAR(50) = ''
+    ,@BlockTargetCountry	VARCHAR(200) = '' -- Updated parameter
+    ,@ErrCode			INT = 0 OUTPUT
+    ,@ErrMsg			NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*  
-	Created: 20241118@Eddie
-	DB: DBAFF12B-Affiliate_12B
-	Task: Admin - Domain - 12BET Domain - Update
+    Created: 20241118@Eddie
+    DB: DBAFF12B-Affiliate_12B
+    Task: Admin - Domain - 12BET Domain - Update
 
-	Revisions:
-		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
-		- 20250311@Lewis: Add block market [RedmineID: #219496]
+    Revisions:
+        - 20241118@Eddie: Initialize SP [RedmineID: #212201]
+        - 20250311@Lewis: Add block market [RedmineID: #219496]
+        - 20250418@Lewis: Replace BlockMarket with BlockTargetCountry [RedmineID: #223644]
 */
 
 BEGIN
-	SET NOCOUNT ON
+    SET NOCOUNT ON
 
-	SET @DomainName = RTRIM(LTRIM(ISNULL(@DomainName, '')))
-	SET @IsSSL = ISNULL(@IsSSL, 0)
+    SET @DomainName = RTRIM(LTRIM(ISNULL(@DomainName, '')))
+    SET @IsSSL = ISNULL(@IsSSL, 0)
 
-	IF @DomainName = ''
-	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'Invalid Licensee domain name!'
-		RETURN
-	END
+    IF @DomainName = ''
+    BEGIN
+        SELECT @ErrCode = 101, @ErrMsg = 'Invalid Licensee domain name!'
+        RETURN
+    END
 
-	-- Check permission
-	EXEC [dbo].[Aff_Con_CheckPermission]
-		@CustId		= @UserId
-		,@funcname	= '[Domain]'
-		,@ErrCode	= @ErrCode OUTPUT
-		,@ErrMsg	= @ErrMsg OUTPUT
+    -- Check permission
+    EXEC [dbo].[Aff_Con_CheckPermission]
+        @CustId		= @UserId
+        ,@funcname	= '[Domain]'
+        ,@ErrCode	= @ErrCode OUTPUT
+        ,@ErrMsg	= @ErrMsg OUTPUT
 
-	IF @ErrCode <> 0
-		RETURN
+    IF @ErrCode <> 0
+        RETURN
 
-	-- get W3Prefix
-	DECLARE @W3Prefix VARCHAR(50) = ''
-	
-	IF @DomainName LIKE 'www.%' OR @DomainName LIKE 'www_.%'
-		SELECT @W3Prefix = SUBSTRING(@domainName, 0, CHARINDEX('.', @domainName))
-	
-	IF EXISTS (SELECT 1 FROM dbo.LicenseeDomain WITH (NOLOCK) WHERE DomainId <> @DomainId AND DomainName = @DomainName AND IsDeleted = 0)
-	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'This Licensee domain has been existed!'
-		RETURN
-	END
+    -- get W3Prefix
+    DECLARE @W3Prefix VARCHAR(50) = ''
+    
+    IF @DomainName LIKE 'www.%' OR @DomainName LIKE 'www_.%'
+        SELECT @W3Prefix = SUBSTRING(@domainName, 0, CHARINDEX('.', @domainName))
+    
+    IF EXISTS (SELECT 1 FROM dbo.LicenseeDomain WITH (NOLOCK) WHERE DomainId <> @DomainId AND DomainName = @DomainName AND IsDeleted = 0)
+    BEGIN
+        SELECT @ErrCode = 101, @ErrMsg = 'This Licensee domain has been existed!'
+        RETURN
+    END
 
-	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
+    DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
-	SELECT  @OldData = 'DomainId=' + CONVERT(VARCHAR(10), DomainId)
-						+ ',DomainName=' + DomainName
-						+ ',IsSSL=' + CONVERT(VARCHAR(1), IsSSL)
-						+ ',BlockMarket=' + BlockMarket
-			,@NewData = 'DomainId=' + CONVERT(VARCHAR(10), @DomainId)
-						+ ',DomainName=' + @DomainName
-						+ ',IsSSL=' + CONVERT(VARCHAR(1), @IsSSL)
-						+ ',BlockMarket=' + @BlockMarket
-	FROM dbo.LicenseeDomain WITH (NOLOCK) WHERE DomainId = @DomainId AND IsDeleted = 0
+    SELECT  @OldData = 'DomainId=' + CONVERT(VARCHAR(10), DomainId)
+                        + ',DomainName=' + DomainName
+                        + ',IsSSL=' + CONVERT(VARCHAR(1), IsSSL)
+                        + ',BlockTargetCountry=' + BlockTargetCountry -- Updated from BlockMarket
+            ,@NewData = 'DomainId=' + CONVERT(VARCHAR(10), @DomainId)
+                        + ',DomainName=' + @DomainName
+                        + ',IsSSL=' + CONVERT(VARCHAR(1), @IsSSL)
+                        + ',BlockTargetCountry=' + @BlockTargetCountry -- Updated from BlockMarket
+    FROM dbo.LicenseeDomain WITH (NOLOCK) WHERE DomainId = @DomainId AND IsDeleted = 0
 
-	IF @@ROWCOUNT = 0
-	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'This Licensee domain does not exists!'
-		RETURN
-	END
-	
-	BEGIN TRY
-		UPDATE dbo.LicenseeDomain WITH (ROWLOCK)
-		SET ModifyDate	= GETDATE()
-			,DomainName	= @DomainName
-			,Creator	= @UserId
-			,W3Prefix	= @W3Prefix
-			,IsSSL		= @IsSSL
-			,BlockMarket = @BlockMarket
-		WHERE DomainID  = @DomainID
-	END TRY
-	BEGIN CATCH
-		SELECT @Errcode = 103, @ErrMsg = N'Error occurs. Update unsuccessfully.'
-		RETURN
-	END CATCH
+    IF @@ROWCOUNT = 0
+    BEGIN
+        SELECT @ErrCode = 102, @ErrMsg = 'This Licensee domain does not exist!'
+        RETURN
+    END
+    
+    -- Declare @TargetCountry table
+    DECLARE @TargetCountry TABLE (
+        TargetCountryCode VARCHAR(5),
+        LicenseeDomainId INT
+    );
 
-	-- Write log
-	DECLARE @SPName VARCHAR(200)
-	SELECT  @SPName = OBJECT_NAME(@@PROCID)
-	
-	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
-		@UserId		= @UserId
-		,@AffId		= 0
-		,@SPName	= @SPName
-		,@OldData	= @OldData
-		,@NewData	= @NewData
-		,@IP		= @IP
+    -- Insert only rows that exist in DomainControl for LicenseeDomain
+    INSERT INTO @TargetCountry (TargetCountryCode, LicenseeDomainId)
+    SELECT DISTINCT dc.TargetCountryCode, dc.LicenseeDomainId
+    FROM DomainControl dc WITH (NOLOCK)
+    INNER JOIN STRING_SPLIT(@BlockTargetCountry, ',') s
+        ON dc.TargetCountryCode = s.value
+    WHERE dc.IsDeleted = 0
+      AND dc.LicenseeDomainId = @DomainId;
+
+    BEGIN TRY
+    
+        -- Update DomainControl.Status = 0 only when CountryCode exists in @TargetCountry
+        UPDATE dc
+        SET dc.Status = 0
+        FROM DomainControl dc WITH (ROWLOCK)
+        INNER JOIN @TargetCountry tc
+            ON dc.TargetCountryCode = tc.TargetCountryCode
+            AND dc.LicenseeDomainId = tc.LicenseeDomainId
+        WHERE dc.Status = 1
+          AND dc.IsDeleted = 0;
+
+        -- Update LicenseeDomain table
+        UPDATE dbo.LicenseeDomain WITH (ROWLOCK)
+        SET ModifyDate = GETDATE(),
+            DomainName = @DomainName,
+            Creator = @UserId,
+            W3Prefix = @W3Prefix,
+            IsSSL = @IsSSL,
+            BlockTargetCountry = @BlockTargetCountry
+        WHERE DomainId = @DomainId;
+    END TRY
+    BEGIN CATCH
+        SELECT @ErrCode = 103, @ErrMsg = N'Error occurs. Update unsuccessfully.';
+        RETURN;
+    END CATCH
+
+    -- Write log
+    DECLARE @SPName VARCHAR(200)
+    SELECT @SPName = OBJECT_NAME(@@PROCID)
+    
+    EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
+        @UserId		= @UserId
+        ,@AffId		= 0
+        ,@SPName	= @SPName
+        ,@OldData	= @OldData
+        ,@NewData	= @NewData
+        ,@IP		= @IP
 END
 GO

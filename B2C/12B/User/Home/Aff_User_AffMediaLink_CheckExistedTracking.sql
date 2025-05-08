@@ -20,13 +20,13 @@ AS
 		- 20250226@Sally: Initialize SP [RedmineID: #212201]
 		- 20250305@Sally: Specific AFF Link SP [RedmineID: #219049]
         - 20250307@Sally: Enhance validate AffmediaLink  [RedmineID: #219049]
+		- 20250417@Lewis: Add TargetCountry [RedmineID: #223644]
 
 */
 
 BEGIN
 	SET NOCOUNT ON
 	DECLARE @AffDomainId 	INT
-		,@PreferredLanguage VARCHAR(11)
         ,@AffMediaLink_http  VARCHAR(500)  = NULL
         ,@AffMediaLink_https VARCHAR(500)  = NULL
         ,@affMediaLinkId INT               = NULL
@@ -35,10 +35,11 @@ BEGIN
     SET @AffMediaLink_https = CONCAT ('https://',@AffMediaLink) -- Get https default for AffMediaLink
     SET @AffMediaLink_http  = CONCAT ('http://',@AffMediaLink) 
 
-	SELECT @PreferredLanguage = ad.PreferredLanguage
-	FROM dbo.AffDetail ad WITH (NOLOCK)
-		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON ai.AffId = ad.AffId
-	WHERE ai.AffId = @AffId 
+	DECLARE @TargetCountryCode VARCHAR(5)
+	SELECT @TargetCountryCode = tc.CountryCode 
+	FROM TargetCountry tc WITH (NOLOCK)
+	WHERE EXISTS (SELECT TOP 1 1 FROM Market m WITH (NOLOCK) WHERE m.MarketId = tc.MarketID AND m.IsDeleted = 0)
+	AND tc.MarketID = @LanguageCode
 
 	SELECT @IsExistedTracking = 0
 	SELECT @IsValidDomain = 0
@@ -75,7 +76,7 @@ BEGIN
 		SELECT 1 
 		FROM dbo.DomainControl a WITH (NOLOCK)
 				INNER JOIN dbo.LicenseeDomain b WITH (NOLOCK) ON a.LicenseeDomainId = b.DomainId
-		WHERE a.MarketId 		= @PreferredLanguage
+		WHERE a.TargetCountryCode 		= @TargetCountryCode
 			AND a.AffDomainId 	= @AffDomainId
 			AND a.[Status] 		= 1
 			AND a.IsDeleted		= 0

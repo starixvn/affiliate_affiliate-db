@@ -10,13 +10,22 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT PageId, PageName, PageCode
-	FROM dbo.LandingPage WITH (NOLOCK)
+	SELECT lp.PageId, lp.PageName, lp.PageCode, oa.BlockTargetCountry
+	FROM dbo.LandingPage lp WITH (NOLOCK)
+	OUTER APPLY (
+					SELECT STRING_AGG(t.CountryName, ', ') AS BlockTargetCountry
+					FROM(
+						SELECT DISTINCT tc.CountryName
+						FROM dbo.TargetCountry tc WITH (NOLOCK)
+							INNER JOIN STRING_SPLIT(lp.BlockTargetCountry, ',') s ON s.value = tc.CountryCode
+						) t
+				) AS oa
 	WHERE IsDeleted = 0
 		AND (@PageId IS NULL OR PageId = @PageId)
 	ORDER BY PageId DESC
