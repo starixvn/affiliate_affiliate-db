@@ -1,5 +1,5 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Aff_Admin_Banner_Sel]
+ALTER PROCEDURE [dbo].[Aff_Admin_Banner_Sel]
 	@BannerId		INT = 0
 	,@TargetId		TINYINT = 0
 	,@Language		VARCHAR(MAX) = ''
@@ -22,6 +22,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250417@Lewis: @language - get all [RedmineID: #223644]
+		- 20250512@Lewis: @language - get all for default empty string [RedmineID: #227030]
 
 	Param's Explanation:
 		- @TargetId:
@@ -51,7 +52,7 @@ BEGIN
 		FROM dbo.MediaGallery WITH (NOLOCK)
 		WHERE (@TargetId = 0 OR TargetId = @TargetId)
 			AND ImageType = 'Image'
-			AND ',' + @Language + ',' LIKE '%,' + Language + ',%'
+			AND (',' + @Language + ',' LIKE '%,' + Language + ',%' OR @Language = '')
 			AND (@Size IS NULL OR Size = @Size)
 			AND (@Category IS NULL OR ',' + Categories + ',' LIKE '%,' + @Category + ',%')
 			AND (@SubCategory IS NULL OR ',' + SubCategories + ',' LIKE '%,' + @SubCategory + ',%')
@@ -69,7 +70,7 @@ BEGIN
 			FROM dbo.MediaGallery WITH (NOLOCK)
 			WHERE (@TargetId = 0 OR TargetId = @TargetId)
 				AND ImageType = 'Image'
-				AND ',' + @Language + ',' LIKE '%,' + Language + ',%'
+				AND (',' + @Language + ',' LIKE '%,' + Language + ',%' OR @Language = '')
 				AND (@Size IS NULL OR Size = @Size)
 				AND (@Category IS NULL OR ',' + Categories + ',' LIKE '%,' + @Category + ',%')
 				AND (@SubCategory IS NULL OR ',' + SubCategories + ',' LIKE '%,' + @SubCategory + ',%')
