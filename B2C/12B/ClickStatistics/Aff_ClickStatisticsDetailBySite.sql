@@ -24,6 +24,7 @@ AS
 		- 20250402@Sophia: Get ClickStatistics_bk, remove GroupBy Date for UniqueClick [RedmineID: #222777]
 		- 20250416@Sophia: Get report by timezone [RedmineID: #222352]
 		- 20250505@Sophia: Fix Signups duplicated data [RedmineID: #226056]
+		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225820]
 	
 	Param:
 		@DeviceType = -1 : all 
@@ -42,7 +43,7 @@ BEGIN
 
 	IF (@FromDate > @ToDate) RETURN
 
-	CREATE TABLE #Result (UrlReferrer NVARCHAR(300), DeviceType TINYINT, TotalClick INT, UniqueClick INT, Signups INT, FDM INT)
+	CREATE TABLE #Result (UrlReferrer NVARCHAR(300), DeviceType TINYINT, TotalClick INT, IP NVARCHAR(25), Signups INT, FDM INT)
 	CREATE TABLE #SumResult (UrlReferrer NVARCHAR(300), DeviceType TINYINT, TotalClick INT, UniqueClick INT, Signups INT, FDM INT)
 
 	-- Normalize date parameters to start/end of day
@@ -90,21 +91,16 @@ BEGIN
 		SELECT @TmpFromDate = CASE WHEN CONVERT(DATE, @FromDate_GMT4) > @ArchiveDate THEN CONVERT(DATE, @FromDate_GMT4) ELSE DATEADD(Day, 1, @ArchiveDate) END,
 		       @TmpToDate = DATEADD(Day, 1, CONVERT(DATE, @ToDate_GMT4))
 				
-		INSERT INTO #Result (URLReferrer, DeviceType, TotalClick, UniqueClick)
-		SELECT URLReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
-		FROM
-		(
-			SELECT URLReferrer, DeviceType, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
-			FROM dbo.ClickStatistics WITH (NOLOCK)
-			WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
-				AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
-				AND AffId = @AffID
-				AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
-				AND SportCode = ISNULL(@SportCode, SportCode)
-				AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
-			GROUP BY URLReferrer, DeviceType
-		) AS t
-		GROUP BY URLReferrer, DeviceType
+		INSERT INTO #Result (URLReferrer, DeviceType, TotalClick, IP)
+		SELECT URLReferrer, DeviceType, SUM(1) AS TotalClick, IP
+		FROM dbo.ClickStatistics WITH (NOLOCK)
+		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
+			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
+			AND AffId = @AffID
+			AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
+			AND SportCode = ISNULL(@SportCode, SportCode)
+			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
+		GROUP BY URLReferrer, DeviceType, IP
 		
 				
 	END
@@ -115,27 +111,28 @@ BEGIN
 		SELECT @TmpFromDate = CONVERT(DATE, @FromDate_GMT4), 
 		       @TmpToDate = CASE WHEN CONVERT(DATE, @ToDate_GMT4) > @ArchiveDate THEN DATEADD(Day, 1, @ArchiveDate) ELSE DATEADD(Day, 1, CONVERT(DATE, @ToDate_GMT4)) END
 
-		INSERT INTO #Result (URLReferrer, DeviceType, TotalClick, UniqueClick)
-		SELECT URLReferrer, DeviceType, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
-		FROM
-		(
-			SELECT URLReferrer, ISNULL(DeviceType, 0) AS DeviceType, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
-			FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
-			WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate  -- Use date-only comparison
-				AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
-				AND AffId = @AffID 
-				AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
-				AND SportCode = ISNULL(@SportCode, SportCode)
-				AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
-			GROUP BY URLReferrer, ISNULL(DeviceType, 0) 
-		) AS t
-		GROUP BY URLReferrer, DeviceType		
+		INSERT INTO #Result (URLReferrer, DeviceType, TotalClick, IP)
+		SELECT URLReferrer, ISNULL(DeviceType, 0) AS DeviceType, SUM(1) AS TotalClick, IP
+		FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
+		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate  -- Use date-only comparison
+			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
+			AND AffId = @AffID 
+			AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
+			AND SportCode = ISNULL(@SportCode, SportCode)
+			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
+		GROUP BY URLReferrer, ISNULL(DeviceType, 0), IP
 		
 		
 	END
 
 	INSERT INTO #SumResult (URLReferrer, DeviceType, TotalClick, UniqueClick, Signups, FDM)
-	SELECT ISNULL(URLReferrer, 'none'), ISNULL(DeviceType, 0), SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick, SUM(Signups) AS Signups, SUM(FDM) AS FDM
+	SELECT
+		ISNULL(URLReferrer, 'none'),
+		ISNULL(DeviceType, 0),
+		SUM(TotalClick) AS TotalClick,
+		COUNT(DISTINCT IP) AS UniqueClick, -- Count distinct IP for UniqueClick
+		SUM(Signups) AS Signups,
+		SUM(FDM) AS FDM
 	FROM #Result
 	GROUP BY ISNULL(URLReferrer, 'none'), ISNULL(DeviceType, 0)
 
@@ -168,7 +165,7 @@ BEGIN
 	SELECT
 		c.UrlReferrer,
 		ISNULL(r.TotalClick, 0) TotalClick,
-		ISNULL(r.UniqueClick, 0) UniqueClick,
+		ISNULL(r.UniqueClick, 0) AS UniqueClick,
 		ISNULL(r.Signups, 0) Signups,
 		ISNULL(r.FDM, 0) FDM
 	FROM CTE_UrlReferrer c
