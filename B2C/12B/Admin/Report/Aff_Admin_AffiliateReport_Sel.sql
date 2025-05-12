@@ -40,6 +40,9 @@ AS
         - 20250417@Sally: Add Revenue Group column [RedmineID: #224286]
 		- 20250418@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
         - 20250420@Sally: Add FDM_TotalDeposit column [RedmineID: #224709]
+		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225820] 
+		
+
 
 	Param's Explanation:
 		- @SortType: 
@@ -462,6 +465,7 @@ BEGIN
 		DROP TABLE #DataMemberDaily 
 		END
 		-- Statistics
+		CREATE TABLE #IP (AffId INT, TotalClick INT, IP VARCHAR (25))
 		CREATE TABLE #Statistics (AffId INT, TotalClick INT, UniqueClick INT)
 
 		DECLARE @ArchiveDate SMALLDATETIME;
@@ -478,23 +482,18 @@ BEGIN
 								   END
 				,@tempToDate = DATEADD(DAY, 1, CONVERT(DATE, @ToDate_Local))
 
-			INSERT INTO #Statistics (AffId, TotalClick, UniqueClick)
-			SELECT AffId, SUM(TotalClick), SUM(UniqueClick)
-			FROM 
-			(
-				SELECT AffId,
-					EOMONTH(DATEADD(HOUR, 12, c.UpdatedTime)) AS MonthDate, -- GMT-4 to GMT+8
+			INSERT INTO #IP(AffId, TotalClick, IP)
+			SELECT AffId,					
 					COUNT(1) AS TotalClick,
-					COUNT(DISTINCT c.IP) AS UniqueClick
-				FROM dbo.ClickStatistics c WITH (NOLOCK)
-				WHERE [Date] >= @tempFromDate
-					AND [Date] < @tempToDate
-					AND UpdatedTime >= @FromDate_Local -- GMT-4
-					AND UpdatedTime < @ToDate_Local -- GMT-4
-				GROUP BY
-					AffId, EOMONTH(DATEADD(HOUR, 12, c.UpdatedTime))
-			) AS c
-			GROUP BY AffId
+					IP
+			FROM dbo.ClickStatistics c WITH (NOLOCK)
+			WHERE [Date] >= @tempFromDate
+				AND [Date] < @tempToDate
+				AND UpdatedTime >= @FromDate_Local -- GMT-4
+				AND UpdatedTime < @ToDate_Local -- GMT-4
+			GROUP BY
+				AffId, IP
+			
 		END
 
 		IF CONVERT(DATE, @FromDate_Local) <= @ArchiveDate
@@ -504,24 +503,23 @@ BEGIN
 									WHEN @ToDate_Local <= @ArchiveDate THEN DATEADD(DAY, 1, CONVERT(DATE, @ToDate_Local)) 
 									ELSE DATEADD(DAY, 1, @ArchiveDate) 
 							   END		
-			INSERT INTO #Statistics (AffId, TotalClick, UniqueClick)
-			SELECT AffId, SUM(TotalClick), SUM(UniqueClick)
-			FROM 
-			(
-				SELECT AffId,
-					EOMONTH(DATEADD(HOUR, 12, c.UpdatedTime)) AS MonthDate, -- GMT-4 to GMT+8
+			INSERT INTO #IP (AffId, TotalClick, IP)
+			SELECT  AffId,					
 					COUNT(1) AS TotalClick,
-					COUNT(DISTINCT c.IP) AS UniqueClick
-				FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
-				WHERE [Date] >= @tempFromDate
-					AND [Date] < @tempToDate
-					AND UpdatedTime >= @FromDate_Local -- GMT-4
-					AND UpdatedTime < @ToDate_Local -- GMT-4
-				GROUP BY
-					AffId, EOMONTH(DATEADD(HOUR, 12, c.UpdatedTime))
-			) AS c
-			GROUP BY AffId
+					IP
+			FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
+			WHERE [Date] >= @tempFromDate
+				AND [Date] < @tempToDate
+				AND UpdatedTime >= @FromDate_Local -- GMT-4
+				AND UpdatedTime < @ToDate_Local -- GMT-4
+			GROUP BY
+				AffId, IP
 		END
+
+		INSERT INTO #Statistics (AffId, TotalClick, UniqueClick)
+		SELECT AffId, SUM(TotalClick) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
+		FROM #IP
+		GROUP BY AffId
 
 		-- Signup, FDM
 		CREATE TABLE #Signup (AffId INT, Signup INT, FDM INT, FDM_Amount MONEY, FDM_TotalDeposit MONEY)
@@ -910,6 +908,7 @@ BEGIN
 	DROP TABLE #Result
 	DROP TABLE #Signup
 	DROP TABLE #Statistics
+	DROP TABLE #IP
 	DROP TABLE #TempCommission
 	DROP TABLE #TotalDeposit
 
