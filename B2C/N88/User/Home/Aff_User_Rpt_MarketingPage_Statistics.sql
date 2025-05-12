@@ -18,6 +18,7 @@ AS
 		- 20250409@Sophia: Add ChannelCode into ClickStatistics [Redmine: #223356]
 		- 20250416@Sophia: Get report by timezone [RedmineID: #222401]
 		- 20250505@Sophia: Fix Signups duplicated data [RedmineID: #226056]
+		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225821]
 		
 	Param:
 		@FromDate: GMT+8, Date only
@@ -47,7 +48,7 @@ BEGIN
 
 	DECLARE @TmpFromDate SMALLDATETIME, @TmpToDate SMALLDATETIME
 
-	CREATE TABLE #tmpData (AffMediaLink VARCHAR(500), LanguageCode VARCHAR(10), ChannelCode VARCHAR(50), TotalClick INT DEFAULT(0), UniqueClick INT DEFAULT(0), SignUps INT DEFAULT(0), FDM INT DEFAULT(0))
+	CREATE TABLE #tmpData (AffMediaLink VARCHAR(500), LanguageCode VARCHAR(10), ChannelCode VARCHAR(50), TotalClick INT DEFAULT(0), IP VARCHAR(25), SignUps INT DEFAULT(0), FDM INT DEFAULT(0))
 	CREATE CLUSTERED INDEX CIX_tmpData ON #tmpData (AffMediaLink)
 	
 	CREATE TABLE #tmp_Result (ChannelName NVARCHAR(200), LanguageCode VARCHAR(10), AffMediaLink VARCHAR(500), MarketName NVARCHAR(50), TotalClick INT, UniqueClick INT, SignUps INT, FDM INT, IsShow BIT)
@@ -80,13 +81,13 @@ BEGIN
 		SELECT @TmpFromDate = CASE WHEN CONVERT(DATE, @FromDate_GMT4) > @ArchiveDate THEN CONVERT(DATE, @FromDate_GMT4) ELSE DATEADD(Day, 1, @ArchiveDate) END,
 		       @TmpToDate = DATEADD(Day, 1, CONVERT(DATE, @ToDate_GMT4))
 
-		INSERT INTO #tmpData (AffMediaLink, LanguageCode, ChannelCode, TotalClick, UniqueClick)
-		SELECT AffMediaLink, LanguageCode, ChannelCode, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
+		INSERT INTO #tmpData (AffMediaLink, LanguageCode, ChannelCode, TotalClick, IP)
+		SELECT AffMediaLink, LanguageCode, ChannelCode, SUM(1) AS TotalClick, IP
 		FROM dbo.ClickStatistics c WITH (NOLOCK)
 		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
 			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
 			AND AffId = @AffId
-		GROUP BY AffMediaLink, LanguageCode, ChannelCode
+		GROUP BY AffMediaLink, LanguageCode, ChannelCode, IP
 			
 		
 	END
@@ -97,19 +98,19 @@ BEGIN
 		SELECT @TmpFromDate = CONVERT(DATE, @FromDate_GMT4), 
 		       @TmpToDate = CASE WHEN CONVERT(DATE, @ToDate_GMT4) > @ArchiveDate THEN DATEADD(Day, 1, @ArchiveDate) ELSE DATEADD(Day, 1, CONVERT(DATE, @ToDate_GMT4)) END
 
-		INSERT INTO #tmpData (AffMediaLink, LanguageCode, ChannelCode, TotalClick, UniqueClick)
-		SELECT AffMediaLink, LanguageCode, ChannelCode, SUM(1) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick
+		INSERT INTO #tmpData (AffMediaLink, LanguageCode, ChannelCode, TotalClick, IP)
+		SELECT AffMediaLink, LanguageCode, ChannelCode, SUM(1) AS TotalClick, IP
 		FROM dbo.ClickStatistics_bk WITH (NOLOCK)
 		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
 			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
 			AND AffId = @AffId
-		GROUP BY AffMediaLink, LanguageCode, ChannelCode
+		GROUP BY AffMediaLink, LanguageCode, ChannelCode, IP
 
 		
 	END
 
 	;WITH CTE_Result AS (
-		SELECT AffMediaLink, LanguageCode, ChannelCode, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick, SUM (SignUps) as SignUps, SUM (FDM) as FDM
+		SELECT AffMediaLink, LanguageCode, ChannelCode, SUM(TotalClick) AS TotalClick, COUNT(DISTINCT IP) AS UniqueClick, SUM(SignUps) AS SignUps, SUM(FDM) AS FDM
 		FROM #tmpData
 		GROUP BY AffMediaLink, LanguageCode, ChannelCode
 	)
