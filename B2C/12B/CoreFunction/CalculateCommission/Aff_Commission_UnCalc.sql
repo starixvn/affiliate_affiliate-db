@@ -23,7 +23,8 @@ AS
 		- 20250318@Sally: Fix get QM Turnover SUM [RedmineID: #220322]
 		- 20250319@Sally: Change Commission Calculation [RedmineID: #219936]
 		- 20250319@Sally: Enhance the formula for calculating fees [RedmineID: #223865]
-
+		- 20250509@Sally: Enhance calculate FlatFormFee VS [RedmineID: #226858]
+		
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
 		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
@@ -139,6 +140,7 @@ BEGIN
 				,SUM(ISNULL(Turnover, 0))	AS Turnover
 				,SUM(ISNULL(Winloss, 0) - ISNULL(ProgressiveWin, 0) + ISNULL(ProgressiveBet, 0)) AS Winloss
 			FROM dbo.rptMemberDaily r WITH (NOLOCK)
+	
 			WHERE r.WinlostDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
 				AND (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), AffId) + ',%')
 				AND NOT EXISTS (
@@ -282,16 +284,13 @@ BEGIN
 			FROM @Setting 
 			GROUP BY MonthDate, GroupId
 			
-			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, GrossWinloss, PlatFormFee)
+			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, GrossWinloss)
 			SELECT 
 				d.MonthDate, d.AffId, d.GroupId, d.ProductId
 				,s.GroupProductId
 				,d.Turnover
 				,d.Winloss
 				,-d.Winloss AS GrossWinloss
-				,CASE WHEN d.MonthDate >= @CommissionCal_CutOffDate THEN abs(-d.Winloss) 
-					ELSE IIF( d.Winloss > 0, 0, -d.Winloss) END
-					* ISNULL(s.PlatFormFee, 0) + ISNULL(s.PlatFormAmount, 0) AS PlatFormFee
 			FROM (
 				SELECT MonthDate, AffId, GroupId, ProductId, SUM(Turnover) Turnover, SUM(Winloss) Winloss
 				FROM #Data
@@ -313,21 +312,49 @@ BEGIN
 														AND a.AffId   = ac.AffId
 														AND a.GroupId = ac.GroupId
 			-- Total
-			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, GrossWinloss, PlatFormFee)
-			SELECT c.MonthDate, c.AffId, c.GroupId, 0 AS ProductId, c.GroupProductId, c.Turnover, c.Winloss, c.GrossWinloss, c.PlatFormFee
-			FROM (
-				SELECT MonthDate, AffId, GroupId, 0 AS ProductId, GroupProductId
-					,SUM(Turnover) AS Turnover
-					,SUM(Winloss) AS Winloss
-					,SUM(GrossWinloss) AS GrossWinloss
-					,SUM(PlatFormFee) AS PlatFormFee
-				FROM #Commission
-				GROUP BY MonthDate, AffId, GroupId, GroupProductId
-			)  c
-				LEFT JOIN @Setting s ON c.MonthDate = s.MonthDate AND c.GroupId = s.GroupId AND c.ProductId = s.ProductId
+			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, GrossWinloss)
+			SELECT MonthDate, AffId, GroupId, 0 AS ProductId, GroupProductId
+				,SUM(Turnover) AS Turnover
+				,SUM(Winloss) AS Winloss
+				,SUM(GrossWinloss) AS GrossWinloss
+			FROM #Commission
+			GROUP BY MonthDate, AffId, GroupId, GroupProductId
 
-			UPDATE #Commission SET P2PFee = 0, PlatFormFee = 0, OperationalFee = 0 WHERE ProductId > 0
-			
+			-- Get FlatformFee
+			BEGIN
+				;WITH CTE_PlatFormFee AS(
+					SELECT g.MonthDate, g.AffId, g.GroupId, g.GroupProductId
+						,CASE WHEN G.MonthDate >= @CommissionCal_CutOffDate THEN ABS(g.GrossWinloss) 
+							ELSE IIF(g.Winloss > 0, 0, g.GrossWinloss) END 
+							* ISNULL(s.PlatFormFee, 0) + ISNULL(s.PlatFormAmount, 0) AS PlatFormFee
+					FROM (
+						SELECT m.MonthDate, m.AffId, m.GroupId, m.GroupProductId
+							,ISNULL(g.GroupProductId, m.ProductId) AS ParentProductId
+							,SUM(m.GrossWinloss) AS GrossWinloss
+							,SUM(m.Winloss) AS Winloss
+						FROM #Commission m
+							LEFT JOIN dbo.Aff_f_GroupProduct() g ON m.ProductId = g.ProductId
+						WHERE m.ProductId > 0
+						GROUP BY m.MonthDate, m.AffId, m.GroupId, m.GroupProductId, ISNULL(g.GroupProductId, m.ProductId)
+					)g
+						INNER JOIN @Setting s ON g.MonthDate          = s.MonthDate 
+												AND g.GroupId		  = s.GroupId
+												AND g.GroupProductId  = s.GroupProductId
+												AND g.ParentProductId = s.ProductId
+				),
+				CTE_TotalPlatFormFee AS(
+					SELECT g.MonthDate, g.AffId, g.GroupId, g.GroupProductId, SUM(PlatFormFee) AS PlatFormFee
+					FROM CTE_PlatFormFee g
+					GROUP BY g.MonthDate, g.AffId, g.GroupId, g.GroupProductId
+				)
+				UPDATE c SET PlatFormFee = t.PlatFormFee
+				FROM #Commission c 
+					INNER JOIN CTE_TotalPlatFormFee t ON t.MonthDate		 = c.MonthDate 
+														AND t.AffId			 = c.AffId 
+														AND t.GroupId		 = c.GroupId
+														AND t.GroupProductId = c.GroupProductId
+				WHERE ProductId = 0
+			END
 			-- Total: Deposit, Withdrawal, ActivePlayer, Net WinLoss, Net Turnover, QualifiedMember
 			UPDATE c
 			SET c.Deposit			= ISNULL(d.Deposit, 0)		 / ag.NumActualOfGroupProduct
