@@ -21,6 +21,7 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20241227@Sally: Enhance performance [RedmineID: #212201]
 		- 20250409@Sally: Fix get data Virtual Sport 2 [RedmineID: #223334]
+		- 20250413@Lewis: Condition param @Username [RedmineID: #227119]
 
 	Param's Explanation:
 		- @ProductIds: list of products, '' = no product
@@ -111,7 +112,15 @@ BEGIN
 		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON d.Currency = t.TpExchangeId
 		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(d.MonthDate, ISNULL(t.ExchangeId, d.Currency), @BaseExchangeId) e
 	GROUP BY d.AffId, d.AffUsername, d.CustId, ISNULL(p.GroupProductId, d.ProductId)
-
+	
+	IF @Username <> ''
+	BEGIN
+		DELETE r
+		FROM #Result r
+			LEFT JOIN dbo.MemberInfo m WITH (NOLOCK) ON r.CustId = m.CustId AND m.UserName LIKE '%' + @Username + '%'
+		WHERE m.CustId IS NULL
+	END
+	
 	SELECT @NRows = COUNT(DISTINCT CustId) FROM #Result
 	IF @NRows = 0
 		RETURN
