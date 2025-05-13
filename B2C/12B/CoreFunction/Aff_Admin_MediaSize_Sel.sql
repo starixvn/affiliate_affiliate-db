@@ -18,6 +18,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250417@Lewis: @language - get all [RedmineID: #223644]
+		- 20250512@Lewis: @language - get all for default empty string [RedmineID: #227030]
 */
 
 BEGIN
@@ -43,7 +44,7 @@ BEGIN
 			FROM dbo.MediaGallery WITH (NOLOCK)
 			WHERE (@TargetId = 0 OR TargetId = @TargetId)
 				AND ImageType = 'Image'
-				AND ',' + @Language + ',' LIKE '%,' + Language + ',%'
+				AND (',' + @Language + ',' LIKE '%,' + Language + ',%' OR @Language = '')
 				AND (@ImageType IS NULL OR ImageType = @ImageType)
 				AND (@Category IS NULL OR ',' + Categories + ',' LIKE '%,' + @Category + ',%')
 				AND (@SubCategory IS NULL OR ',' + SubCategories + ',' LIKE '%,' + @SubCategory + ',%')
