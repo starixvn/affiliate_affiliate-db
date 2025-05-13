@@ -13,6 +13,7 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250402@Lewis: Include Specific Domain [RedmineID: #221035]
 		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
+		- 20250523@Lewis: Add new column RedirectDomain [RedmineID: #227130]
 
 */
 
@@ -26,6 +27,7 @@ BEGIN
 		,IsSSL BIT -- AffDomainIsSSL
 		,CreateDate DATETIME
 		,IsSpecific BIT
+		,RedirectDomain NVARCHAR(200) -- LicenseeDomainName
 	)
 
 	-- TODO: Specific Domain
@@ -75,6 +77,7 @@ BEGIN
 		,IsSSL
 		,CreateDate
 		,IsSpecific
+		,RedirectDomain
 	)
 	SELECT 
 		AffDomainId
@@ -82,6 +85,7 @@ BEGIN
 		,AffDomainIsSSL
 		,CreatedDate
 		,1
+		,LicenseeDomainName
 	FROM #SpecificDomainControl
 
 	-- TODO: Normal Domain
@@ -91,8 +95,9 @@ BEGIN
 		,IsSSL
 		,CreateDate
 		,IsSpecific
+		,RedirectDomain
 	)
-	SELECT a.DomainID, a.DomainName, CONVERT(BIT, ISNULL(a.IsSSL, 0)) AS IsSSL, a.CreateDate,0
+	SELECT a.DomainID, a.DomainName, CONVERT(BIT, ISNULL(a.IsSSL, 0)) AS IsSSL, a.CreateDate, 0, ld.DomainName 
 	FROM dbo.AffDomain a WITH (NOLOCK)
 		INNER JOIN dbo.DomainControl b WITH (NOLOCK) ON a.DomainID = b.AffDomainId 
 		INNER JOIN dbo.LicenseeDomain ld WITH (NOLOCK) ON b.LicenseeDomainId = ld.DomainId
@@ -118,6 +123,7 @@ BEGIN
 		,ISNULL(a.DomainName,b.DomainName) AS DomainName
 		,ISNULL(a.IsSSL,b.IsSSL) AS IsSSL
 		,ISNULL(a.CreateDate,b.CreateDate) AS CreateDate
+		,ISNULL(a.RedirectDomain,b.RedirectDomain) AS RedirectDomain
 	FROM cte_Specific a
 	FULL OUTER JOIN cte_Normal b 
 		ON a.DomainID = b.DomainID
