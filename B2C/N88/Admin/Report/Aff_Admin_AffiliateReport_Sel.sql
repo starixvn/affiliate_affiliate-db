@@ -18,6 +18,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	,@PageIndex			INT = 1
 	,@PageSize			INT = 50
 	,@NRows				INT = 0 OUTPUT
+	,@IsByApprovalMonth BIT = 0 -- New parameter added
 AS
 
 /*
@@ -46,6 +47,7 @@ AS
 		- 20250401@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 		- 20250508@Sally: Fix get ClickStatistic by TimeZone [RedmineID: #226614]
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225821]
+		- 20250423@Lewis: Enhance Rpt [RedmineID: #224733]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -55,7 +57,6 @@ AS
 		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
 		- @PaymentCurrencies : Currency of B2C, 72: represent for USD( currency 72, 3)
 */
-
 BEGIN
 	SET NOCOUNT ON
 	
@@ -385,9 +386,10 @@ BEGIN
 			)t				
 			DROP TABLE #ProductSetting
 		END
+		
 		-- Statistics
 		CREATE TABLE #Statistics (AffId INT, TotalClick INT, UniqueClick INT)
-		CREATE TABLE #IP (AffId INT, TotalClick INT, IP VARCHAR(25))
+		CREATE TABLE #IP (AffId INT, TotalClick INT, IP VARCHAR(25), WinlostDate SMALLDATETIME)
 		
 		DECLARE @ArchiveDate SMALLDATETIME;
 		SELECT @ArchiveDate = dbo.Aff_f_GetSetting('ArchiveDate_ClickStatistics'); -- GMT-4
@@ -403,17 +405,18 @@ BEGIN
 								   END
 				,@tempToDate = DATEADD(DAY, 1, CONVERT(DATE, @ToDate_Local))
 
-			INSERT INTO #IP (AffId, TotalClick, IP)
+			INSERT INTO #IP (AffId, TotalClick, IP, WinlostDate)
 			SELECT AffId,					
 					COUNT(1) AS TotalClick,
-					IP
+					IP,
+					CAST(DATEADD(hh,12,UpdatedTime) AS DATE)
 			FROM dbo.ClickStatistics c WITH (NOLOCK)
 			WHERE [Date] >= @tempFromDate
 				AND [Date] < @tempToDate
 				AND UpdatedTime >= @FromDate_Local -- GMT-4
 				AND UpdatedTime < @ToDate_Local -- GMT-4
 			GROUP BY
-				AffId, IP
+				AffId, IP, CAST(DATEADD(hh,12,UpdatedTime) AS DATE)
 			
 		END
 
@@ -424,33 +427,51 @@ BEGIN
 									WHEN @ToDate_Local <= @ArchiveDate THEN DATEADD(DAY, 1, CONVERT(DATE, @ToDate_Local)) 
 									ELSE DATEADD(DAY, 1, @ArchiveDate) 
 							   END		
-			INSERT INTO #IP (AffId, TotalClick, IP)			
+			INSERT INTO #IP (AffId, TotalClick, IP, WinlostDate)			
 			SELECT AffId,				
 				COUNT(1) AS TotalClick,
-				IP
+				IP,
+				CAST(DATEADD(hh,12,UpdatedTime) AS DATE)
 			FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
 			WHERE [Date] >= @tempFromDate
 				AND [Date] < @tempToDate
 				AND UpdatedTime >= @FromDate_Local -- GMT-4
 				AND UpdatedTime < @ToDate_Local -- GMT-4
 			GROUP BY
-				AffId, IP
+				AffId, IP, CAST(DATEADD(hh,12,UpdatedTime) AS DATE)
 		
 		END
 		
-		INSERT INTO #Statistics (AffId , TotalClick , UniqueClick )
+		INSERT INTO #Statistics (AffId , TotalClick , UniqueClick)
 		SELECT AffId , SUM(TotalClick) AS TotalClick, COUNT (DISTINCT IP ) AS UniqueClick
 		FROM  #IP
-		GROUP BY AffId 
+		GROUP BY AffId
 
 		-- Signup, FDM
-		CREATE TABLE #Signup (AffId INT, Signup INT, FDM INT)
-		INSERT INTO #Signup (AffId, Signup, FDM)
-		SELECT mi.AffId
-			,COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate) THEN 1 ELSE NULL END) AS Signup
-			,COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate) THEN 1 ELSE NULL END) AS FDM
-		FROM dbo.MemberInfo mi WITH (NOLOCK)
-		GROUP BY mi.AffId
+		CREATE TABLE #Signup (AffId INT, Signup INT, FDM INT, WinlostDate SMALLDATETIME)
+		INSERT INTO #Signup (AffId, Signup, FDM, WinlostDate)
+		SELECT F.AffId
+			,SUM(F.Signup)
+			,SUM(F.FDM)
+			,F.WinlostDate
+		FROM (
+				SELECT mi.AffId
+						,COUNT(1) AS Signup
+						,0 AS FDM
+						,CAST(mi.RegisteredDate AS DATE) WinlostDate
+				FROM dbo.MemberInfo mi WITH (NOLOCK)
+				WHERE mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate)
+				GROUP BY mi.AffId,CAST(mi.RegisteredDate AS DATE) 
+				UNION ALL
+				SELECT mi.AffId
+						,0 AS Signup
+						,COUNT(1) AS FDM
+						,CAST(mi.FirstDepositDate AS DATE) AS WinlostDate
+				FROM dbo.MemberInfo mi WITH (NOLOCK)
+				WHERE mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
+				GROUP BY mi.AffId,CAST(mi.FirstDepositDate AS DATE) 
+			) AS F
+		GROUP BY F.AffId,F.WinlostDate
 
 		-- AffWithdrawal, AffAdjustment
 		CREATE TABLE #AffTrans (AffId INT, AffWithdrawal MONEY, AffAdjustment MONEY, BFF MONEY, CurrentBBF MONEY)
@@ -467,18 +488,158 @@ BEGIN
 		GROUP BY AffId
 
 		-- Total Deposit
-		CREATE TABLE #TotalDeposit(AffId INT, TotalDeposit BIGINT)
-		INSERT INTO #TotalDeposit(AffId, TotalDeposit)
+		CREATE TABLE #TotalDeposit(AffId INT, TotalDeposit BIGINT, TotalDepositAmount MONEY, TotalWithdrawalAmount MONEY, WinlostDate SMALLDATETIME)
+		;WITH CTE_DataDeposit AS (
 		SELECT mi.AffId
 			,COUNT(1) AS TotalDeposit
+			,CAST(DATEADD(hh,8,d.CreateTime) AS DATE) AS WinlostDate
 		FROM bodb_N88.dbo.DepositInfo d WITH (NOLOCK)
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
 		WHERE d.WinlostDate BETWEEN DATEADD(DAY, -1, @FromDate) AND DATEADD(DAY, 1, @ToDate)
 			AND d.Status = 3 -- Approved
 			AND d.CreateTime >= @FromDateTimeGMT0 
 			AND d.CreateTime < DATEADD(DAY, 1, @ToDateTimeGMT0)
-		GROUP BY mi.AffId
+		GROUP BY mi.AffId,CAST(DATEADD(hh,8,d.CreateTime) AS DATE)
+		),
+		CTE_DataDepositAmount AS (
+			SELECT r.AffId
+				,SUM(ISNULL(Deposit, 0) * e.Rate)	    AS Deposit
+				,SUM(ISNULL(r.Withdrawal, 0) * e.Rate)	AS Withdrawal
+				,r.WinlostDate
+			FROM dbo.rptMemberDaily r WITH (NOLOCK)
+				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
+			WHERE r.WinlostDate >= @FromDate 
+				AND r.WinlostDate < DATEADD(DAY, 1, @ToDate)
+				AND r.ProductId < 0
+				AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+					WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+				)
+			GROUP BY r.AffId,r.WinlostDate
+		)	
+		INSERT INTO #TotalDeposit(AffId, TotalDeposit, TotalDepositAmount, TotalWithdrawalAmount, WinlostDate)
+		SELECT t.AffId
+			,SUM(TotalDeposit)          AS TotalDeposit
+			,SUM(TotalDepositAmount)    AS TotalDepositAmount
+			,SUM(TotalWithdrawalAmount) AS TotalWithdrawalAmount
+			,WinlostDate
+		FROM (
+			SELECT mi.AffId
+				,mi.TotalDeposit
+				,0 AS TotalDepositAmount
+				,0 AS TotalWithdrawalAmount
+				,mi.WinlostDate
+			FROM CTE_DataDeposit mi
+			UNION ALL
+			SELECT mi.AffId
+				,0 TotalDeposit
+				,Deposit	AS TotalDepositAmount
+				,Withdrawal	AS TotalWithdrawalAmount
+				,mi.WinlostDate
+			FROM CTE_DataDepositAmount mi
+		)t
+		GROUP BY t.AffId,WinlostDate
 	END
+	/*
+		===== End Get data =====
+	*/
+
+	-- Export Excel Detail
+	CREATE TABLE #ExcelDetail(
+			WinlostDate			SMALLDATETIME,
+			AffId				INT,
+			Username			NVARCHAR(30),
+			PaymentCurrency		VARCHAR(5),
+			TotalClick			INT,
+			UniqueClick			INT,
+			Signup				INT,
+			FDM					INT,
+			ActivePlayer 		INT,
+			NoOfSubAff			INT,
+			TotalDeposit		INT,
+			DepositAmount		MONEY
+	)
+	
+	--IP statistics
+	INSERT INTO #ExcelDetail
+	(
+		WinlostDate,
+		AffId,
+		TotalClick,
+		UniqueClick
+	)
+	SELECT s.winlostdate,
+		s.AffId,
+		SUM(TotalClick),
+		COUNT(DISTINCT IP)
+	FROM #IP s
+	GROUP BY s.WinlostDate, s.AffId
+
+	--SignUp, FDM
+	INSERT INTO #ExcelDetail
+	(
+		WinlostDate,
+		AffId,
+		Signup,
+		FDM
+	)
+	SELECT s.WinlostDate,
+		s.AffId,
+		SUM(s.Signup)	AS Signup,
+		SUM(s.FDM)		AS FDM
+	FROM #Signup s
+	GROUP BY s.WinlostDate, s.AffId
+
+	--ActivePlayer
+	INSERT INTO #ExcelDetail
+	(
+		WinlostDate,
+		AffId,
+		ActivePlayer
+	)
+	SELECT m.WinlostDate
+			,m.AffId
+			,COUNT(DISTINCT m.CustId) AS ActivePlayer
+	FROM rptMemberDaily m WITH (NOLOCK)
+	WHERE m.WinlostDate BETWEEN @FromDate AND @ToDate
+		AND m.ProductId > 0
+		AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+					WHERE mr.CustId = m.custid AND m.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+				)
+	GROUP BY  m.WinlostDate ,m.AffId
+
+	--NoOfSubAff
+	INSERT INTO #ExcelDetail
+	(
+		WinlostDate,
+		AffId,
+		NoOfSubAff
+	)
+	SELECT CAST(ApprovedDate AS DATE) AS WinlostDate
+			,ParentAffId
+			,COUNT(1) AS NoOfSubAff
+	FROM dbo.AffInfo WITH (NOLOCK)
+	WHERE Status = 'Approved'
+		AND ApprovedDate >= @FromDate
+		AND ApprovedDate < DATEADD(DAY, 1, @ToDate)
+	GROUP BY ParentAffId,CAST(ApprovedDate AS DATE)
+			
+	--TotalDeposit
+	INSERT INTO #ExcelDetail
+	(
+		WinlostDate,
+		AffId,
+		TotalDeposit,
+		DepositAmount
+	)
+	SELECT s.WinlostDate,
+		s.AffId,
+		SUM(s.TotalDeposit)	AS TotalDeposit,
+		SUM(s.TotalDepositAmount) AS DepositAmount
+	FROM #TotalDeposit s
+	GROUP BY s.WinlostDate, s.AffId
 
 	-- Return data
 	BEGIN
@@ -591,7 +752,11 @@ BEGIN
 		FROM dbo.AffInfo ai WITH (NOLOCK)
 			INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 			INNER JOIN bodb_N88.dbo.Customer c WITH(NOLOCK) ON ad.Player_CustId = c.CustId
-			LEFT JOIN #Signup su ON ai.AffId = su.AffId
+			LEFT JOIN (
+				SELECT AffId, SUM(SignUp) SignUp, SUM(FDM) FDM
+				FROM #Signup 
+				GROUP BY AffId
+			) su ON ai.AffId = su.AffId
 			LEFT JOIN #AffTrans at ON ai.AffId = at.AffId
 			LEFT JOIN (
 				SELECT AffId, SUM(TotalClick) AS TotalClick, SUM(UniqueClick) AS UniqueClick
@@ -627,7 +792,11 @@ BEGIN
 					AND ApprovedDate >= @FromDate AND ApprovedDate < DATEADD(DAY, 1, @ToDate)
 				GROUP BY ParentAffId
 			) a ON ai.AffId = a.ParentAffId
-			LEFT JOIN #TotalDeposit td ON td.AffId = ai.AffId
+			LEFT JOIN (
+				SELECT AffId, SUM(TotalDeposit) AS TotalDeposit
+				FROM #TotalDeposit
+				GROUP BY AffId
+			) td ON td.AffId = ai.AffId
 		WHERE ai.Status = 'Approved'
 			AND ai.Username LIKE '%' + @Username + '%'
 			AND (@PreferredLanguage = '' OR ad.PreferredLanguage = @PreferredLanguage)
@@ -642,6 +811,8 @@ BEGIN
 			)
 			AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate)
 			AND (c.IsTest = 0 OR @IsExcludeAFFTest = 0)
+			AND (@IsByApprovalMonth = 0 OR 
+				 (ai.ApprovedDate >= @FromDate AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate) AND ai.IsRejected = 0))
 			AND	1 = (CASE
 						WHEN @IsExcludeNegvBBF = 0 AND @IsExcludeNegvCurrentBBF = 0 THEN 1
 						WHEN @IsExcludeNegvBBF = 1 AND @IsExcludeNegvCurrentBBF = 0 AND ISNULL(at.BFF,0) >= 0 THEN 1
@@ -658,9 +829,49 @@ BEGIN
 	DECLARE @RowStart INT, @RowEnd INT
 
 	IF @IsExportExcel = 0
+	BEGIN
 		SELECT @RowStart = (@PageIndex - 1) * @PageSize + 1, @RowEnd = @RowStart + @PageSize - 1
+	END
 	ELSE
+	BEGIN
 		SELECT @RowStart = 1, @RowEnd = @NRows
+		
+		--TODO: Result
+		SELECT ed.winlostdate,
+			ed.AffId,
+			ai.Username,
+			ad.Player_CurrencyCode AS PaymentCurrency,
+			ISNULL(SUM(ed.TotalClick),0) AS TotalClick,
+			ISNULL(SUM(ed.UniqueClick),0) AS UniqueClick,
+			ISNULL(SUM(ed.Signup),0) AS Signup,
+			ISNULL(SUM(ed.FDM),0) AS FDM,
+			ISNULL(SUM(ed.ActivePlayer),0) AS ActivePlayer,
+			ISNULL(SUM(ed.NoOfSubAff),0) AS NoOfSubAff,
+			ISNULL(SUM(ed.TotalDeposit),0) AS TotalDeposit,
+			ISNULL(SUM(ed.DepositAmount),0) AS DepositAmount
+		FROM #ExcelDetail ed
+			INNER JOIN AffInfo ai WITH (NOLOCK) ON ai.AffId = ed.AffId
+			INNER JOIN AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+			INNER JOIN bodb_N88.dbo.Customer c WITH(NOLOCK) ON ad.Player_CustId = c.CustId
+		WHERE ai.Status = 'Approved'
+			AND ai.Username LIKE '%' + @Username + '%'
+			AND (@PreferredLanguage = '' OR ad.PreferredLanguage = @PreferredLanguage)
+			AND ',' + @ListPaymentCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(20), ad.Player_Currency) + ',%'
+			AND (
+				@GroupIds = 'all'
+				OR EXISTS (
+					SELECT 1 FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+					WHERE agh.AffId = ai.AffId AND agh.MonthDate BETWEEN @StartDayOfFromDate AND @LastDayOfToDate
+							AND ',' + @GroupIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), agh.GroupId) + ',%'
+				)
+			)
+			AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate)
+			AND (c.IsTest = 0 OR @IsExcludeAFFTest = 0)
+			AND (@IsByApprovalMonth = 0 OR 
+				 (ai.ApprovedDate >= @FromDate AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate) AND ai.IsRejected = 0))
+		GROUP BY ed.winlostdate, ed.AffId, ai.Username, ad.Player_CurrencyCode
+		ORDER BY ed.AffId,ed.WinlostDate
+	END
 
 	-- Return detail
 	SELECT AffId, Username, PaymentCurrency, TotalClick, UniqueClick, Signup, FDM, ActivePlayer, NoOfSubAff
@@ -707,6 +918,8 @@ BEGIN
 	DROP TABLE #Statistics
 	DROP TABLE #TempCommission
 	DROP TABLE #TotalDeposit
+	DROP TABLE #ExcelDetail
+	DROP TABLE #IP
 
 END
 GO
