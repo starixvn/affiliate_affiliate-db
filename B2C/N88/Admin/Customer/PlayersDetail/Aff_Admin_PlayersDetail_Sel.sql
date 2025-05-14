@@ -1,16 +1,18 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,wsv_afinet,wsv_aff" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 AlTER PROCEDURE [dbo].[Aff_Admin_PlayersDetail_Sel]
 	@AffId			INT
 	,@ProductId		INT = 0
 	,@MonthDate		SMALLDATETIME
 	,@Currencies	VARCHAR(MAX) = ''
 	,@BaseCurrency	INT = 0
+    ,@IsIncludeRemovedPlayer BIT = 0
 	,@SortById		TINYINT = 5 -- default
 	,@IsSortAsc		BIT = 0 -- default
 	,@IsExportExcel	BIT = 0
 	,@PageIndex		INT = 1
 	,@PageSize		INT = 20
 	,@NRows			INT = 0 OUTPUT
+
 AS
 
 /*
@@ -29,6 +31,7 @@ AS
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
+        - 20250429@Sally: Default show Active player [RedmineID: #224335]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -48,6 +51,9 @@ AS
 						1 = ASC
 		- @BaseCurrency : Currency of B2C
 		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
+        - @IsIncludeRemovedPlayer:
+            1: Include Removed Players
+            0: Exclude Removed Players
 */
 
 BEGIN
@@ -125,11 +131,13 @@ BEGIN
 			,SUM(ISNULL(CASE WHEN p.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0)
 							ELSE -(r.Winloss - ISNULL(ProgressiveWin, 0)) - ISNULL(ProgressiveBet, 0) END * e.Rate, 0)) AS GGR
 		FROM dbo.rptMemberDaily r WITH (NOLOCK)
+			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON r.CustId = m.CustId
 			LEFT JOIN @Products p ON r.ProductId = p.ProductId
 			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
 			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, ISNULL(T.ExchangeId,r.Currency), @BaseExchangeId) e
 		WHERE r.WinlostDate BETWEEN @BeginOfMonth AND @EndOfMonth
 			AND r.AffId = @AffId
+			AND (m.IsRemoved = 0 OR @IsIncludeRemovedPlayer = 1)
 			AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
 			AND NOT EXISTS (
 				SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
