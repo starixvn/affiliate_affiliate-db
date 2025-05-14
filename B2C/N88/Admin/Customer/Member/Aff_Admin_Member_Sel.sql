@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_Member_Sel]
 	@AffId		INT,
 	@MemberType	SMALLINT = 0,
@@ -19,6 +19,7 @@ AS
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
 		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+        - 20250429@Sally: Default show Active player [RedmineID: #224335]
 	
 	Param's Explanation:
 		@MemberType:
@@ -47,7 +48,7 @@ BEGIN
 	SELECT CustId, UserName, FirstName, LastName, Email, Currency, RegisteredDate
 	FROM dbo.MemberInfo WITH (NOLOCK)
 	WHERE AffId = @AffId
-		AND IsRemoved = 0
+		AND (IsRemoved = 0 OR @IsGetAll = 1)
 		AND 1 = CASE @MemberType
 					WHEN 0 THEN 1
 					WHEN 1 THEN CASE WHEN FirstDepositDate IS NULL THEN 1 ELSE 0 END
