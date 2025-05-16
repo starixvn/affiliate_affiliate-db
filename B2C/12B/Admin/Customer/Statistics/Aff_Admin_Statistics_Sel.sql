@@ -16,6 +16,7 @@ AS
 		- 20250415@Sally: Change the data retrieval method for Deposit [RedmineID: #224116]
 		- 20250416@Sophia: Get report by timezone [RedmineID: #222352]
 		- 20250421@Sally: Add FDM_TotalDepositByMonth column [RedmineID: #224709]
+		- 20250516@Sally: Get correct Date for FDM's Total Deposit [RedmineID: #227685]
 		
 	Notes:
 	  - ClickStatistics.Date contains Date only, in GMT-4
@@ -241,7 +242,7 @@ BEGIN
 				SUM(r.Deposit) AS Deposit
 			FROM dbo.rptMemberDaily r WITH (NOLOCK)
 			WHERE r.CustId = mi.CustId 
-			AND r.WinlostDate BETWEEN mi.FirstDepositDate AND EOMONTH(mi.FirstDepositDate)
+			AND r.WinlostDate BETWEEN CAST(mi.FirstDepositDate AS DATE) AND EOMONTH(mi.FirstDepositDate)
 		) r
 	WHERE mi.AffId = @AffId
 		AND mi.FirstDepositDate >= @FromBeginMonth 
