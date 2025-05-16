@@ -42,7 +42,7 @@ AS
         - 20250420@Sally: Add FDM_TotalDeposit column [RedmineID: #224709]
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225820] 
 		- 20250516@Sally: Get correct Date for FDM's Total Deposit [RedmineID: #227685]
-
+		- 20250516@Sally: Fix Get BBF [RedmineID: #227716]
 
 	Param's Explanation:
 		- @SortType: 
@@ -572,7 +572,7 @@ BEGIN
 		SELECT at.AffId,
 				SUM((CASE WHEN at.TransType = 202 AND at.WinlostDate >= @FromDate AND at.WinlostDate < DATEADD(DAY, 1, @ToDate) THEN ABS(at.Amount * e.Rate) ELSE 0 END)) AS AffWithdrawal,
 				SUM((CASE WHEN at.TransType = 203 AND at.WinlostDate >= @FromDate AND at.WinlostDate < DATEADD(DAY, 1, @ToDate) THEN at.Amount * e.Rate ELSE 0 END) ) AS AffAdjustment,
-				SUM(CASE WHEN TransDate < DATEADD(DAY, 1, @ToDate) THEN Amount * e.Rate ELSE NULL END) AS BFF,
+				SUM(CASE WHEN at.WinlostDate < DATEADD(DAY, 1, @ToDate) THEN Amount * e.Rate ELSE NULL END) AS BFF,
 				SUM(Amount * e.Rate) AS CurrentBBF		
 			FROM dbo.AffTrans at WITH (NOLOCK)
 			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId
