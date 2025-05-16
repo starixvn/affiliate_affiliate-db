@@ -41,7 +41,7 @@ AS
 		- 20250418@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
         - 20250420@Sally: Add FDM_TotalDeposit column [RedmineID: #224709]
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225820] 
-		
+		- 20250516@Sally: Get correct Date for FDM's Total Deposit [RedmineID: #227685]
 
 
 	Param's Explanation:
@@ -548,7 +548,7 @@ BEGIN
 						SUM(r.Deposit) AS Deposit
 					FROM dbo.rptMemberDaily r WITH (NOLOCK)
 					WHERE r.CustId = mi.CustId 
-					AND r.WinlostDate BETWEEN mi.FirstDepositDate AND EOMONTH(mi.FirstDepositDate)
+					AND r.WinlostDate BETWEEN CAST(mi.FirstDepositDate AS DATE) AND EOMONTH(mi.FirstDepositDate)
 				) r
 			WHERE mi.FirstDepositDate >= @FromDate 
 				AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
