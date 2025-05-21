@@ -41,6 +41,7 @@ AS
 		- 20250408@Sophia: Add ChannelCode into ClickStatistics [Redmine: #222765]
 		- 20250417@Lewis: Add TargetCountry [RedmineID: #223644]
 		- 20250515@Lewis: Get TargetCountryCode by table TargetCountry [RedmineID: #227338]
+		- 20250521@Lewis: Get ShortedCode by table TargetCountry for Secondary Language  [RedmineID: #227338]
 */
 
 BEGIN
@@ -155,7 +156,12 @@ BEGIN
         END
 		
 		DECLARE @LanguageLink VARCHAR(10)
-		SELECT @LanguageLink = IIF(@LanguageCode = 'csmy','cs',@LanguageCode)
+
+		SELECT @LanguageLink = m.ShortedCode
+		FROM TargetCountry tc WITH (NOLOCK)
+		INNER JOIN Market m WITH (NOLOCK) ON tc.MarketID = m.MarketId
+		WHERE tc.ShortedCode = @LanguageCode
+
 		IF @RedirectDomain IS NOT NULL
 		BEGIN	
 			--Specific redirect domain	
