@@ -12,6 +12,7 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250318@Lewis: Use col IsDeleted [RedmineID: #219810]
 		- 20250417@Lewis: Add TargetCountry [RedmineID: #223644]
+		- 20250515@Lewis: Get ShortedCode by table TargetCountry [RedmineID: #227338]
 
 */
 
@@ -19,7 +20,7 @@ BEGIN
 	SET NOCOUNT ON
 	
 	;WITH CTE_Market AS (
-		SELECT tc.CountryCode,tc.MarketId, tc.MarketName, m.MarketNativeName, m.DisplayName, m.ShortedCode
+		SELECT tc.CountryCode,tc.MarketId, tc.MarketName, m.MarketNativeName, m.DisplayName, tc.ShortedCode
 			,tc.OrderNo
 		FROM dbo.Market m WITH (NOLOCK)
 			INNER JOIN TargetCountry tc WITH (NOLOCK) ON m.MarketId = tc.MarketId

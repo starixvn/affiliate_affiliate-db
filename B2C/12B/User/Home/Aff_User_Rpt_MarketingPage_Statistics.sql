@@ -22,6 +22,7 @@ AS
 		- 20250416@Sophia: Get report by timezone [RedmineID: #222352]
 		- 20250505@Sophia: Fix Signups duplicated data [RedmineID: #226056]
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225820] 
+		- 20250515@Lewis: @LanguageCode => MarketId [RedmineID: #227338]
 		
 	Param:
 		@FromDate: GMT+8, Date only
@@ -184,7 +185,7 @@ BEGIN
 		,r.FDM
 		,ISNULL(l.IsShow,1)	
 	FROM CTE_Result r
-		LEFT JOIN dbo.Market m WITH (NOLOCK) ON r.LanguageCode = m.ShortedCode
+		LEFT JOIN dbo.TargetCountry m WITH (NOLOCK) ON r.LanguageCode = m.ShortedCode
 		LEFT JOIN dbo.AffMediaChannel c WITH (NOLOCK) ON r.ChannelCode = c.ChannelCode AND c.AffId = @AffId	
 		LEFT JOIN dbo.AffMediaLink l WITH (NOLOCK) ON r.AffMediaLink = l.AffMediaLink AND l.AffId = @AffId and M.MarketId = l.LanguageCode
 	WHERE (ISNULL(@LanguageCodes, '') = '' OR ',' + @LanguageCodes + ',' LIKE '%,' + m.MarketId + ',%')

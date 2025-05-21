@@ -40,6 +40,7 @@ AS
 		- 20250402@Lewis: User table SpecificDomainControl [Redmine: #221035]
 		- 20250408@Sophia: Add ChannelCode into ClickStatistics [Redmine: #222765]
 		- 20250417@Lewis: Add TargetCountry [RedmineID: #223644]
+		- 20250515@Lewis: Get TargetCountryCode by table TargetCountry [RedmineID: #227338]
 */
 
 BEGIN
@@ -66,17 +67,13 @@ BEGIN
 	SELECT @AffId = ac.AffId
 	FROM dbo.AffiliateCode ac WITH(NOLOCK)
 	WHERE ac.AffCode = @AffCode
-	
-	SELECT @LanguageMediaLink = m.MarketId
-	FROM dbo.Market m WITH(NOLOCK)
-	WHERE m.ShortedCode = @LanguageCode
 		
-
 	--Get TargetCountryCode
 	DECLARE @TargetCountryCode VARCHAR(5)
 	SELECT @TargetCountryCode = tc.CountryCode
+			,@LanguageMediaLink = tc.MarketId
 	FROM TargetCountry tc WITH (NOLOCK)
-	WHERE tc.MarketID = @LanguageMediaLink
+	WHERE tc.ShortedCode = @LanguageCode
 
 	IF COALESCE(@IP, '') = ''
 	BEGIN
@@ -157,16 +154,17 @@ BEGIN
                 AND IsShow 		 = 1
         END
 		
-
+		DECLARE @LanguageLink VARCHAR(10)
+		SELECT @LanguageLink = IIF(@LanguageCode = 'csmy','cs',@LanguageCode)
 		IF @RedirectDomain IS NOT NULL
 		BEGIN	
 			--Specific redirect domain	
-			SET @RedirectPage = CASE WHEN @IsSSL = 1 THEN 'https' ELSE 'http' END + '://' + @RedirectDomain + '/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode + '&affMediaLinkId=' + @affMediaLinkId
+			SET @RedirectPage = CASE WHEN @IsSSL = 1 THEN 'https' ELSE 'http' END + '://' + @RedirectDomain + '/' + @LanguageLink + '/' + @PageCode + '?affCode=' + @AffCode + '&affMediaLinkId=' + @affMediaLinkId
 		END
 		ELSE
 		BEGIN
 		-- Replace Affilliate domain by Licensee domain to redirect to licensee site
-			SELECT @RedirectPage = CASE WHEN @IsSSL = 1 THEN 'https' ELSE 'http' END + '://' + @LicenseeDomain + '/' + @LanguageCode + '/' + @PageCode + '?affCode=' + @AffCode + '&affMediaLinkId=' + @affMediaLinkId
+			SELECT @RedirectPage = CASE WHEN @IsSSL = 1 THEN 'https' ELSE 'http' END + '://' + @LicenseeDomain + '/' + @LanguageLink + '/' + @PageCode + '?affCode=' + @AffCode + '&affMediaLinkId=' + @affMediaLinkId
 		END
 	END
 
