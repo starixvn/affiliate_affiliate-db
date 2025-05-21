@@ -25,6 +25,7 @@ AS
 		- 20250416@Sophia: Get report by timezone [RedmineID: #222352]
 		- 20250505@Sophia: Fix Signups duplicated data [RedmineID: #226056]
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225820]
+		- 20250515@Lewis: @LanguageCode => MarketId [RedmineID: #227338]
 	
 	Param:
 		@DeviceType = -1 : all 
@@ -45,6 +46,14 @@ BEGIN
 
 	CREATE TABLE #Result (UrlReferrer NVARCHAR(300), DeviceType TINYINT, TotalClick INT, IP NVARCHAR(25), Signups INT, FDM INT)
 	CREATE TABLE #SumResult (UrlReferrer NVARCHAR(300), DeviceType TINYINT, TotalClick INT, UniqueClick INT, Signups INT, FDM INT)
+	
+	-- get ShortedCode
+	DECLARE @ShortedCode TABLE (ShortedCode VARCHAR(10))
+
+	INSERT INTO @ShortedCode (ShortedCode)
+	SELECT DISTINCT ShortedCode 
+	FROM TargetCountry WITH (NOLOCK) 
+	WHERE MarketID = @LanguageCode OR @LanguageCode IS NULL
 
 	-- Normalize date parameters to start/end of day
 	SELECT @FromDate = CONVERT(DATE, @FromDate)
@@ -72,7 +81,7 @@ BEGIN
 	WHERE mi.AffId = @AffID
 		AND (@Domain IS NULL OR COALESCE(md.DomainReferrer,bk.DomainReferrer, 'none') = @Domain)
 		AND (@SportCode IS NULL OR COALESCE(md.SportCode,bk.SportCode, 'none') = @SportCode)
-		AND (@LanguageCode IS NULL OR COALESCE(md.LanguageCode,bk.LanguageCode, 'none') = @LanguageCode)			
+		AND EXISTS (SELECT TOP 1 1 FROM @ShortedCode sc WHERE sc.ShortedCode = ISNULL(md.LanguageCode, bk.LanguageCode))		
 		AND (	
 				(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
 				OR	(mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
@@ -93,13 +102,13 @@ BEGIN
 				
 		INSERT INTO #Result (URLReferrer, DeviceType, TotalClick, IP)
 		SELECT URLReferrer, DeviceType, SUM(1) AS TotalClick, IP
-		FROM dbo.ClickStatistics WITH (NOLOCK)
+		FROM dbo.ClickStatistics c WITH (NOLOCK)
 		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
 			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
 			AND AffId = @AffID
 			AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
 			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
+			AND EXISTS (SELECT TOP 1 1 FROM @ShortedCode sc WHERE sc.ShortedCode = c.LanguageCode)
 		GROUP BY URLReferrer, DeviceType, IP
 		
 				
@@ -119,7 +128,7 @@ BEGIN
 			AND AffId = @AffID 
 			AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
 			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
+			AND EXISTS (SELECT TOP 1 1 FROM @ShortedCode sc WHERE sc.ShortedCode = c.LanguageCode)
 		GROUP BY URLReferrer, ISNULL(DeviceType, 0), IP
 		
 		
