@@ -26,6 +26,7 @@ AS
 		- 20250505@Sophia: Fix Signups duplicated data [RedmineID: #226056]
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225820]
 		- 20250515@Lewis: @LanguageCode => MarketId [RedmineID: #227338]
+		- 20250522@Lewis: ClickId NULL [RedmineID: #228311]
 	
 	Param:
 		@DeviceType = -1 : all 
@@ -78,10 +79,10 @@ BEGIN
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
 		LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickID = mi.clickID
 		LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickID = mi.clickID
+		LEFT JOIN @ShortedCode sc ON sc.ShortedCode = ISNULL(md.LanguageCode, bk.LanguageCode)
 	WHERE mi.AffId = @AffID
 		AND (@Domain IS NULL OR COALESCE(md.DomainReferrer,bk.DomainReferrer, 'none') = @Domain)
-		AND (@SportCode IS NULL OR COALESCE(md.SportCode,bk.SportCode, 'none') = @SportCode)
-		AND EXISTS (SELECT TOP 1 1 FROM @ShortedCode sc WHERE sc.ShortedCode = ISNULL(md.LanguageCode, bk.LanguageCode))		
+		AND (@SportCode IS NULL OR COALESCE(md.SportCode,bk.SportCode, 'none') = @SportCode)	
 		AND (	
 				(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
 				OR	(mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
