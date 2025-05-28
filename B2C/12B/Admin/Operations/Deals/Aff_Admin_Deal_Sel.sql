@@ -52,7 +52,7 @@ BEGIN
     WHERE ( ISNULL(@GroupId,0) = 0 OR cg.GroupId = @GroupId )
       AND ( ISNULL(@GroupName,'') = '' OR cg.GroupName LIKE '%' + @GroupName + '%' )
       AND ( ISNULL(@GroupTypeId,0) = 0 OR cg.GroupTypeId = @GroupTypeId )
-
+	  AND cg.IsDeleted = 0
     -- Get total rows
     SELECT @NRows = COUNT(1) FROM #Deals;
 

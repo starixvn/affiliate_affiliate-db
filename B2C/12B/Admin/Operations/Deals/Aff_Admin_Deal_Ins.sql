@@ -2,26 +2,28 @@
 CREATE PROCEDURE [dbo].[Aff_Admin_Deal_Ins]
 	@UserId				INT
 	,@GroupId			INT = 0 OUTPUT
-	,@SubCommRate		DECIMAL(9,8)
 	,@IsPrivate			BIT = 0
 	,@GroupName			NVARCHAR(100) = ''
 	,@GroupTypeId		INT = 1
-	,@Description		NVARCHAR(100) = NULL
-	,@DeductionList		XML = NULL
-	,@TierList			XML = NULL
+	,@Description		NVARCHAR(100) = ''
+	,@SubCommRate		DECIMAL(9,8)
+	--Revenue
 	,@QMTurnover		MONEY
 	,@IsActivePlayerSum BIT
+	,@DeductionList		XML = NULL
+	,@TierList			XML = NULL
+	--CPA
+    ,@CountryCodes      VARCHAR(MAX) = ''
+    ,@ActiveDays        INT
+    ,@HoldingDays       INT = 0
+    ,@HoldingTickets    INT = 0
+    ,@Quota             INT = 0
+    ,@IsInstant         BIT = 0
+    ,@CPATierList       XML = NULL
+    ,@CPAProductList    XML = NULL
 	,@IP				VARCHAR(50) = ''
 	,@ErrCode			INT = 0 OUTPUT
 	,@ErrMsg			NVARCHAR(MAX) = '' OUTPUT
-    ,@CountryCodes      VARCHAR(MAX) = ''
-    ,@ActiveDays        INT
-    ,@HoldingDays       INT
-    ,@HoldingTickets    INT
-    ,@Quota             INT = 0
-    ,@IsInstant         BIT = 0
-    ,@CPATierList       XML = ''
-    ,@CPAProductList    XML = ''
 AS
 
 /*
@@ -80,7 +82,16 @@ BEGIN
 	DECLARE @FromDate DATETIME =  CAST(@CurrentDate AS DATE)
 			, @ToDate DATETIME = '9999-12-31'
 
+	-- last date of current month
+	DECLARE @MonthDate SMALLDATETIME
+	SELECT  @MonthDate = EOMONTH(@CurrentDate)
+	DECLARE @Infinity_NegativeAmount MONEY = -100000000000
+		,@Infinity_PositiveAmount MONEY    = 100000000000
+		,@Inifinity_QM INT 				   = 1000000000
+
+	-- =========================
 	-- Check permission
+	-- =========================
 	EXEC dbo.Aff_Con_CheckPermission
 		@CustId		= @UserId,
 		@FuncName	= '[RevenueGroup]',
@@ -90,15 +101,10 @@ BEGIN
 	IF @ErrCode <> 0
 		RETURN
 
-	-- last date of current month
-	DECLARE @MonthDate SMALLDATETIME
-	SELECT  @MonthDate = EOMONTH(@CurrentDate)
-	DECLARE @Infinity_NegativeAmount MONEY = -100000000000
-		,@Infinity_PositiveAmount MONEY    = 100000000000
-		,@Inifinity_QM INT 				   = 1000000000
-
+	-- =========================
+	-- Validate info of Deal
+	-- =========================
 	SELECT @GroupName = TRIM(ISNULL(@GroupName, ''))
-
 	IF @GroupName = ''
 	BEGIN
 		-- Group name is invalid!
@@ -106,82 +112,81 @@ BEGIN
 		RETURN
 	END
 
-	IF EXISTS (SELECT 1 FROM dbo.CommGroup WITH (NOLOCK) WHERE GroupName = @GroupName AND IsDeleted = 0)
+	IF EXISTS (SELECT 1 FROM dbo.CommGroup WITH (NOLOCK) WHERE GroupName = @GroupName)
 	BEGIN
 		-- Group name is already existed
 		SELECT @ErrCode = 102, @ErrMsg = dbo.Aff_f_GetMessageById(1002, @Language)
-
 		RETURN
 	END
 
-	-- Deductions
-	DECLARE @GroupProduct TABLE (GroupProductId TINYINT, ProductIds VARCHAR(MAX))
-	DECLARE @DeductionSetting TABLE (GroupProductId TINYINT, DeductionId TINYINT, ProductId INT, DeductedPercentage DECIMAL(9,8), DeductedAmount MONEY, IsDeductedPercent BIT)
+	-- Revenue/Hybrid validation block
+    IF @GroupTypeId IN (1,4)
+	BEGIN
+		-- Deductions
+		DECLARE @DeductionSetting TABLE (GroupProductId TINYINT, DeductionId TINYINT, ProductId INT, DeductedPercentage DECIMAL(9,8), DeductedAmount MONEY, IsDeductedPercent BIT)
 	
-	;WITH CTE_DeductionSetting AS
-	(
+		;WITH CTE_DeductionSetting AS
+		(
+			SELECT
+				ROW_NUMBER() OVER(PARTITION BY t.c.value('@id', 'TINYINT') ORDER BY (SELECT NULL)) AS GroupProductId,
+				t.c.value('@id', 'TINYINT') AS DeductionId,
+				t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
+				t.c.value('@percent', 'DECIMAL(9,8)') AS DeductedPercentage,
+				t.c.value('@amount', 'MONEY') AS DeductedAmount,
+				t.c.value('@isdeductedpercent', 'BIT') AS IsDeductedPercent
+			FROM @DeductionList.nodes('/root/row') AS t(c)
+		)
+		INSERT INTO @DeductionSetting (GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
+		SELECT GroupProductId, ds.DeductionId, ISNULL(CONVERT(INT, f.val), 0), ISNULL(ds.DeductedPercentage, 0), ISNULL(ds.DeductedAmount, 0), ISNULL(ds.IsDeductedPercent, 0)
+		FROM CTE_DeductionSetting ds
+			OUTER APPLY dbo.Aff_f_StringSplit(dbo.Aff_f_AddRelatedProducts(ds.ProductIds), ',') f
+		OPTION (OPTIMIZE FOR (@DeductionList = NULL), MAXRECURSION 0)
+
+		UPDATE @DeductionSetting
+		SET DeductedPercentage	= CASE WHEN IsDeductedPercent = 0 THEN 0 ELSE ISNULL(DeductedPercentage, 0) END
+			,DeductedAmount		= CASE WHEN IsDeductedPercent = 1 THEN 0 ELSE ISNULL(DeductedAmount, 0) END
+
+		-- Tier Setting
+		DECLARE @TierSetting TABLE (TierID TINYINT, productids VARCHAR(MAX), GroupProductId TINYINT, MinAmount MONEY, MaxAmount MONEY, MinQM INT, MaxQM INT, Commission DECIMAL(9,8), IsNegativeAmount BIT)
+	
+		INSERT INTO @TierSetting (TierID, productids, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsNegativeAmount)
 		SELECT
-			ROW_NUMBER() OVER(PARTITION BY t.c.value('@id', 'TINYINT') ORDER BY (SELECT NULL)) AS GroupProductId,
-			t.c.value('@id', 'TINYINT') AS DeductionId,
+			t.c.value('@id', 'TINYINT'),
 			t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
-			t.c.value('@percent', 'DECIMAL(9,8)') AS DeductedPercentage,
-			t.c.value('@amount', 'MONEY') AS DeductedAmount,
-			t.c.value('@isdeductedpercent', 'BIT') AS IsDeductedPercent
-		FROM @DeductionList.nodes('/root/row') AS t(c)
-	)
-	INSERT INTO @DeductionSetting (GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
-	SELECT GroupProductId, ds.DeductionId, ISNULL(CONVERT(INT, f.val), 0), ISNULL(ds.DeductedPercentage, 0), ISNULL(ds.DeductedAmount, 0), ISNULL(ds.IsDeductedPercent, 0)
-	FROM CTE_DeductionSetting ds
-		OUTER APPLY dbo.Aff_f_StringSplit(dbo.Aff_f_AddRelatedProducts(ds.ProductIds), ',') f
-	OPTION (OPTIMIZE FOR (@DeductionList = NULL), MAXRECURSION 0)
-
-	UPDATE @DeductionSetting
-	SET DeductedPercentage	= CASE WHEN IsDeductedPercent = 0 THEN 0 ELSE ISNULL(DeductedPercentage, 0) END
-		,DeductedAmount		= CASE WHEN IsDeductedPercent = 1 THEN 0 ELSE ISNULL(DeductedAmount, 0) END
-
-	-- Tier Setting
-	DECLARE @TierSetting TABLE (TierID TINYINT, productids VARCHAR(MAX), GroupProductId TINYINT, MinAmount MONEY, MaxAmount MONEY, MinQM INT, MaxQM INT, Commission DECIMAL(9,8), IsNegativeAmount BIT)
+			t.c.value('@minamount', 'MONEY'),
+			t.c.value('@maxamount', 'MONEY'),
+			t.c.value('@minqm', 'INT'),
+			@Inifinity_QM AS MaxQM,
+			t.c.value('@commission', 'DECIMAL(9,8)'),
+			CASE WHEN t.c.value('@minamount', 'MONEY') < 0 THEN 1 ELSE 0 END AS IsNegativeAmount
+		FROM @TierList.nodes('/root/row') AS t(c)
+		OPTION (OPTIMIZE FOR (@TierList = NULL))
 	
-	INSERT INTO @TierSetting (TierID, productids, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsNegativeAmount)
-	SELECT
-		t.c.value('@id', 'TINYINT'),
-		t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
-		t.c.value('@minamount', 'MONEY'),
-		t.c.value('@maxamount', 'MONEY'),
-		t.c.value('@minqm', 'INT'),
-		@Inifinity_QM AS MaxQM,
-		t.c.value('@commission', 'DECIMAL(9,8)'),
-        CASE WHEN t.c.value('@minamount', 'MONEY') < 0 THEN 1 ELSE 0 END AS IsNegativeAmount
-	FROM @TierList.nodes('/root/row') AS t(c)
-	OPTION (OPTIMIZE FOR (@TierList = NULL))
-	
-	-- Update Group of Products
-	UPDATE t	
-	SET t.GroupProductId = l.GroupProductId
-	FROM @TierSetting t
-	CROSS APPLY (
-		SELECT TOP 1 d.GroupProductId
-		FROM @DeductionSetting d 
-		WHERE ',' + t.productids + ',' LIKE '%,' + CONVERT(VARCHAR(20), d.ProductId) + ',%'
-	) AS l
+		-- Update Group of Products
+		UPDATE t
+		SET t.GroupProductId = l.GroupProductId
+		FROM @TierSetting t
+		CROSS APPLY (
+			SELECT TOP 1 d.GroupProductId
+			FROM @DeductionSetting d 
+			WHERE ',' + t.productids + ',' LIKE '%,' + CONVERT(VARCHAR(20), d.ProductId) + ',%'
+		) AS l
 
-	-- Update MaxAmount for each tier of each products's group
-	UPDATE t1
-	SET t1.MaxAmount = t2.MinAmount - 1
-	FROM @TierSetting t1
-		INNER JOIN @TierSetting t2 ON t1.TierID + 1 = t2.TierID AND t1.GroupProductId = t2.GroupProductId
+		-- Update MaxAmount for each tier of each products's group
+		UPDATE t1
+		SET t1.MaxAmount = t2.MinAmount - 1
+		FROM @TierSetting t1
+			INNER JOIN @TierSetting t2 ON t1.TierID + 1 = t2.TierID AND t1.GroupProductId = t2.GroupProductId
 	
-	;WITH CTE AS
-	(
-		SELECT GroupProductId, MAX(TierID) AS TierID FROM @TierSetting GROUP BY GroupProductId
-	)
-	UPDATE t
-	SET t.MaxAmount = @Infinity_PositiveAmount
-	FROM @TierSetting t
-		INNER JOIN CTE e ON t.TierID = e.TierID AND t.GroupProductId = e.GroupProductId
+		;WITH CTE AS
+		(
+			SELECT GroupProductId, MAX(TierID) AS TierID FROM @TierSetting GROUP BY GroupProductId
+		)
+		UPDATE t
+		SET t.MaxAmount = @Infinity_PositiveAmount
+		FROM @TierSetting t
+			INNER JOIN CTE e ON t.TierID = e.TierID AND t.GroupProductId = e.GroupProductId
 
-	-- Check valid tier setting
-    BEGIN
         IF EXISTS (SELECT 1 FROM @TierSetting GROUP BY GroupProductId HAVING COUNT(1) > 50) 
         BEGIN
             -- Oops, maximum of 50 tiers are allowed!
@@ -239,96 +244,46 @@ BEGIN
         END
     END
 
-	IF @IsPrivate = 1
-	BEGIN
-		DECLARE @ExistsGroupId INT
-		SELECT  @ExistsGroupId = GroupId FROM dbo.CommGroup WITH (NOLOCK) WHERE GroupName = @GroupName AND IsPrivate = 1
-		
-		IF @ExistsGroupId IS NOT NULL
-		BEGIN
-			DELETE dbo.CommGroup WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId
-
-			DELETE dbo.CommGroupHistory WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId
-
-			DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId
-
-			DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId AND MonthDate = @MonthDate
-
-			DELETE dbo.DeductionSetting WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId
-
-			DELETE dbo.DeductionSettingHistory WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId AND MonthDate = @MonthDate
-		END
-	END
-
-	-- CPA/Hybrid validation block (before any insert)
+	-- CPA/Hybrid validation block
     IF @GroupTypeId IN (3, 4)
     BEGIN
 		 -- Player Target Country must not be empty
-        IF @CountryCodes IS NULL OR LTRIM(RTRIM(@CountryCodes)) = ''
+        IF TRIM(@CountryCodes) = ''
         BEGIN
             SELECT @ErrCode = 311, @ErrMsg = N'At least 1 Target Country is selected.'
             RETURN
         END
+
         -- Activity Period (ActiveDays) must not be empty or zero
-        IF @ActiveDays IS NULL OR @ActiveDays = 0
+        IF @ActiveDays <= 0
         BEGIN
             SELECT @ErrCode = 312, @ErrMsg = N'Activity Period cannot be empty. Please check!'
             RETURN
         END
+		
         -- Minimum Player Holding Period: If either is required, both must be filled
-        IF (@HoldingDays IS NULL OR @HoldingDays = 0 OR @HoldingTickets IS NULL OR @HoldingTickets = 0)
-            AND ((@HoldingDays IS NOT NULL AND @HoldingDays > 0) OR (@HoldingTickets IS NOT NULL AND @HoldingTickets > 0))
-        BEGIN
-            SELECT @ErrCode = 313, @ErrMsg = N'Need to fill Holding ticket (or and) Holding days'
-            RETURN
-        END
+		IF (@HoldingDays > 0 OR @HoldingTickets > 0)
+			AND NOT (@HoldingDays > 0 AND @HoldingTickets > 0)
+		BEGIN
+			SELECT @ErrCode = 313, @ErrMsg = N'Need to fill Holding tickets (or and) Holding days'
+			RETURN
+		END
+
         -- Quota: If quota is enabled (not null and > 0), must be filled
-        IF @Quota IS NULL OR @Quota = 0
+        IF @Quota < 0
         BEGIN
             SELECT @ErrCode = 314, @ErrMsg = N'Quota cannot be empty. Please check!'
             RETURN
         END
-        -- Validate CPAProductList
-        IF @CPAProductList IS NULL OR @CPAProductList.exist('/root/row') = 0
-        BEGIN
-            SELECT @ErrCode = 301, @ErrMsg = N'Missing or invalid CPAProductList for CPA/Hybrid group type.'
-            RETURN
-        END
+
         -- Validate CPATierList
         IF @CPATierList IS NULL OR @CPATierList.exist('/root/row') = 0
         BEGIN
-            SELECT @ErrCode = 302, @ErrMsg = N'Missing or invalid CPATierList for CPA/Hybrid group type.'
-            RETURN
-        END
-        -- Parse CPAProductList
-        DECLARE @CPAProduct TABLE (GroupProductId INT, ProductId INT)
-        INSERT INTO @CPAProduct (GroupProductId, ProductId)
-        SELECT
-            t.c.value('@groupproductid', 'INT'),
-            t.c.value('@productid', 'INT')
-        FROM @CPAProductList.nodes('/root/row') AS t(c)
-
-        -- Check for required fields and duplicates
-        IF EXISTS (SELECT 1 FROM @CPAProduct WHERE GroupProductId IS NULL OR ProductId IS NULL)
-        BEGIN
-            SELECT @ErrCode = 303, @ErrMsg = N'CPAProductList: Missing required fields (groupproductid or productid).'
-            RETURN
-        END
-        IF EXISTS (
-            SELECT ProductId, COUNT(1) FROM @CPAProduct GROUP BY ProductId HAVING COUNT(1) > 1
-        )
-        BEGIN
-            SELECT @ErrCode = 304, @ErrMsg = N'CPAProductList: Duplicate productid found.'
+            SELECT @ErrCode = 302, @ErrMsg = N'Missing or invalid CPA Tier. Please contact your system administrator to resolve this issue.'
             RETURN
         END
 
-        -- Parse CPATierList
+		-- Parse CPATierList
         DECLARE @CPATier TABLE (
             GroupProductId INT, TierId INT, MinFDM MONEY, MaxFDM MONEY, MinTotalDeposit MONEY, MaxTotalDeposit MONEY, MinTO MONEY, MaxTO MONEY, CPAAmount MONEY
         )
@@ -341,47 +296,99 @@ BEGIN
             t.c.value('@minto', 'MONEY'),
             t.c.value('@cpaamount', 'MONEY')
         FROM @CPATierList.nodes('/root/row') AS t(c)
+		
+        -- CPATierList: Oops, maximum of 50 tiers are allowed!
+		IF EXISTS (SELECT 1 FROM @CPATier GROUP BY GroupProductId HAVING COUNT(1) > 50) 
+        BEGIN
+            SELECT @ErrCode = 103, @ErrMsg = dbo.Aff_f_GetMessageById(1003, @Language)
+            RETURN
+        END
 
-		 -- CPATierList: Required fields validation
+		 -- CPATierList: Please select at least one condition: Min FDM, Min Total Deposit, or Min Wagering.
         IF EXISTS (
             SELECT 1 FROM @CPATier
             WHERE GroupProductId IS NULL OR TierId IS NULL OR CPAAmount IS NULL
                 OR (MinFDM IS NULL AND MinTotalDeposit IS NULL AND MinTO IS NULL)
         )
         BEGIN
-            SELECT @ErrCode = 309, @ErrMsg = N'CPATierList: Each tier must have at least one of MinFDM, MinTotalDeposit, or MinTO with a value, and required fields must not be null.'
+            SELECT @ErrCode = 309, @ErrMsg = N'Please select at least one condition: Min FDM, Min Total Deposit, or Min Wagering.'
             RETURN
         END
-
-        -- CPATierList: At least one tier per product in CPAProductList
-        IF EXISTS (
-            SELECT 1 FROM @CPAProduct p
-            WHERE NOT EXISTS (
-                SELECT 1 FROM @CPATier t WHERE t.GroupProductId = p.GroupProductId
-            )
-        )
-        BEGIN
-            SELECT @ErrCode = 309, @ErrMsg = N'CPATierList: Each product must have at least one tier'
+		
+		-- IF CPATierList exist MinWagering => @IsInstant = 0
+		IF EXISTS (SELECT 1 FROM @CPATier WHERE MinTO IS NOT NULL)
+			AND @IsInstant = 1
+		BEGIN
+			SELECT @ErrCode = 309, @ErrMsg = N'Instantly Payment not apply for Min Wagering. Please contact your system administrator to resolve this issue.'
             RETURN
-        END
+		END	
+		
+		-- IF CPATierList exist MinWagering => CPAProductList is required
+		IF EXISTS (SELECT 1 FROM @CPATier WHERE MinTO IS NOT NULL)
+			AND @CPAProductList IS NULL
+		BEGIN
+			SELECT @ErrCode = 309, @ErrMsg = N'Missing or invalid CPA ProductList. Please contact your system administrator to resolve this issue.'
+            RETURN
+		END
 
-        -- CPATierList: CPAAmount must be non-negative
+        -- CPATierList: CPA Amount must be > 0
         IF EXISTS (
             SELECT 1 FROM @CPATier WHERE CPAAmount <= 0
         )
         BEGIN
-            SELECT @ErrCode = 309, @ErrMsg = N'CPATierList: CPAAmount must be non-negative or 0'
+            SELECT @ErrCode = 309, @ErrMsg = N'CPA Amount must be > 0'
             RETURN
         END
-
+		
         -- CPATierList: No duplicate (groupproductid, tierid)
         IF EXISTS (
             SELECT GroupProductId, TierId, COUNT(1) FROM @CPATier GROUP BY GroupProductId, TierId HAVING COUNT(1) > 1
         )
         BEGIN
-            SELECT @ErrCode = 309, @ErrMsg = N'CPATierList: No duplicate groupproductid and tierid'
+            SELECT @ErrCode = 309, @ErrMsg = N'Each group and tier combination must be unique. Please contact your administrator to review the configuration.'
             RETURN
         END
+		
+		-- CPAProductlist validate
+		IF @CPAProductList IS NOT NULL
+		BEGIN
+			-- Parse CPAProductList
+			DECLARE @CPAProduct TABLE (GroupProductId INT, ProductId INT)
+
+			INSERT INTO @CPAProduct (GroupProductId, ProductId)
+			SELECT
+				t.c.value('@groupproductid', 'INT'),
+				t.c.value('@productid', 'INT')
+			FROM @CPAProductList.nodes('/root/row') AS t(c)
+
+			-- CPAProductList: Check for required fields
+			IF EXISTS (SELECT 1 FROM @CPAProduct WHERE GroupProductId IS NULL OR ProductId IS NULL)
+			BEGIN
+				SELECT @ErrCode = 303, @ErrMsg = N'CPAProductList: Missing required fields (groupproductid or productid).'
+				RETURN
+			END
+
+			-- CPAProductList: Check for duplicates
+			IF EXISTS (
+				SELECT ProductId, COUNT(1) FROM @CPAProduct GROUP BY ProductId HAVING COUNT(1) > 1
+			)
+			BEGIN
+				SELECT @ErrCode = 304, @ErrMsg = N'CPAProductList: Duplicate productid found.'
+				RETURN
+			END
+
+			-- CPATierList: At least one tier per product in CPAProductList
+			IF EXISTS (
+				SELECT 1 FROM @CPAProduct p
+				WHERE NOT EXISTS (
+					SELECT 1 FROM @CPATier t WHERE t.GroupProductId = p.GroupProductId
+				)
+			)
+			BEGIN
+				SELECT @ErrCode = 309, @ErrMsg = N'CPATierList: Each product must have at least one tier'
+				RETURN
+			END
+		END
 
         -- Calculate Max values for each tier per group product
         UPDATE t1
@@ -419,15 +426,41 @@ BEGIN
             RETURN
         END
     END
+	
+	-- =========================
+	-- INSERT DATA
+	-- =========================
+	IF @IsPrivate = 1
+	BEGIN
+		DECLARE @ExistsGroupId INT
+		SELECT  @ExistsGroupId = GroupId FROM dbo.CommGroup WITH (NOLOCK) WHERE GroupName = @GroupName AND IsPrivate = 1
+		
+		IF @ExistsGroupId IS NOT NULL
+		BEGIN
+			DELETE dbo.CommGroup WITH (ROWLOCK, UPDLOCK)
+			WHERE GroupId = @ExistsGroupId
 
+			DELETE dbo.CommGroupHistory WITH (ROWLOCK, UPDLOCK)
+			WHERE GroupId = @ExistsGroupId
+
+			DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
+			WHERE GroupId = @ExistsGroupId
+
+			DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK)
+			WHERE GroupId = @ExistsGroupId AND MonthDate = @MonthDate
+
+			DELETE dbo.DeductionSetting WITH (ROWLOCK, UPDLOCK)
+			WHERE GroupId = @ExistsGroupId
+
+			DELETE dbo.DeductionSettingHistory WITH (ROWLOCK, UPDLOCK)
+			WHERE GroupId = @ExistsGroupId AND MonthDate = @MonthDate
+		END
+	END
+	
 	BEGIN TRY
 		 -- Insert CommGroup and get new GroupId before any settings insert
-        INSERT INTO dbo.CommGroup (
-            GroupName, Description, Creator, CreatedDate, IsPrivate, IsDeleted, SubCommRate, GroupTypeId, QMTurnover, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, IsInstant
-        )
-        VALUES (
-            @GroupName, @Description, @UserId, @CurrentDate, @IsPrivate, 0, @SubCommRate, @GroupTypeId, @QMTurnover, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @IsInstant
-        )
+        INSERT INTO dbo.CommGroup (GroupName, Description, Creator, CreatedDate, IsPrivate, IsDeleted, SubCommRate, GroupTypeId, QMTurnover, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, IsInstant, UpdatedBy, UpdatedTime)
+        VALUES (@GroupName, @Description, @UserId, @CurrentDate, @IsPrivate, 0, @SubCommRate, @GroupTypeId, @QMTurnover, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @IsInstant, @UserId, @CurrentDate)
         SET @GroupId = SCOPE_IDENTITY()
 
 		IF @GroupTypeId = 1 -- Revenue
@@ -453,68 +486,64 @@ BEGIN
 
 		IF @GroupTypeId = 3 -- CPA
         BEGIN
-            -- Insert into CPAGroupSetting
-            INSERT INTO dbo.CPAGroupSetting (
-                FromDate, ToDate, GroupId, GroupTypeId, SubCommRate, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, IsInstant
-            )
-            VALUES (
-                @FromDate, @ToDate, @GroupId, @GroupTypeId, @SubCommRate, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @IsInstant
-            )
+            -- CPAGroupSetting
+            INSERT INTO dbo.CPAGroupSetting (FromDate, ToDate, GroupId, GroupTypeId, SubCommRate, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, IsInstant)
+            VALUES (@FromDate, @ToDate, @GroupId, @GroupTypeId, @SubCommRate, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @IsInstant)
 
-            -- Insert into CPAProductSetting
-            INSERT INTO dbo.CPAProductSetting (
-                FromDate, ToDate, GroupId, GroupProductId, ProductId
-            )
-            SELECT
-                 @FromDate, @ToDate, @GroupId, GroupProductId, ProductId
-            FROM @CPAProduct
-
-            -- Insert into CPATierSetting
-            INSERT INTO dbo.CPATierSetting (
-                FromDate, ToDate, GroupId, GroupProductId, TierId, MinFDM, MaxFDM, MinTotalDeposit, MaxTotalDeposit, MinTO, MaxTO, CPAAmount
-            )
-            SELECT
-                 @FromDate, @ToDate, @GroupId, GroupProductId, TierId, MinFDM, MaxFDM, MinTotalDeposit, MaxTotalDeposit, MinTO, MaxTO, CPAAmount
+            -- CPATierSetting
+            INSERT INTO dbo.CPATierSetting (FromDate, ToDate, GroupId, GroupProductId, TierId, MinFDM, MaxFDM, MinTotalDeposit, MaxTotalDeposit, MinTO, MaxTO, CPAAmount)
+            SELECT @FromDate, @ToDate, @GroupId, GroupProductId, TierId, MinFDM, MaxFDM, MinTotalDeposit, MaxTotalDeposit, MinTO, MaxTO, CPAAmount
             FROM @CPATier
+
+			-- CPAProductSetting
+			IF EXISTS (SELECT 1 FROM @CPAProduct)
+			BEGIN
+				INSERT INTO dbo.CPAProductSetting (FromDate, ToDate, GroupId, GroupProductId, ProductId)
+				SELECT @FromDate, @ToDate, @GroupId, GroupProductId, ProductId
+				FROM @CPAProduct
+			END
         END
 
 		IF @GroupTypeId = 4 -- Hydrid
         BEGIN
-            -- Winloss logic (existing)
-            INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
-            SELECT @GroupId, GroupProductId, TierID, MinAmount, MaxAmount, MinQM, MaxQM, Commission, @IsActivePlayerSum FROM @TierSetting
-            INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
-            SELECT @GroupId, GroupProductId, @MonthDate, TierID, MinAmount, MaxAmount, MinQM, MaxQM, Commission, @IsActivePlayerSum FROM @TierSetting
-            INSERT INTO dbo.DeductionSetting (GroupId, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
-            SELECT @GroupId, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent FROM @DeductionSetting
-            INSERT INTO dbo.DeductionSettingHistory (GroupId, MonthDate, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
-            SELECT @GroupId, @MonthDate, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent FROM @DeductionSetting
-			
+			-- ==========================
+			-- Revenue Sharing by Winloss
+			-- ==========================
 			--History Group
 			INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate, QMTurnover)
 			VALUES (@GroupId, @MonthDate, @SubCommRate, @QMTurnover)
 
-            -- CPA logic for Hybrid
-            INSERT INTO dbo.CPAGroupSetting (
-                FromDate, ToDate, GroupId, GroupTypeId, SubCommRate, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, IsInstant
-            )
-            VALUES (
-                 @FromDate, @ToDate, @GroupId, @GroupTypeId, @SubCommRate, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @IsInstant
-            )
+			-- Tier List
+            INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
+            SELECT @GroupId, GroupProductId, TierID, MinAmount, MaxAmount, MinQM, MaxQM, Commission, @IsActivePlayerSum FROM @TierSetting
+            INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
+            SELECT @GroupId, GroupProductId, @MonthDate, TierID, MinAmount, MaxAmount, MinQM, MaxQM, Commission, @IsActivePlayerSum FROM @TierSetting
+			
+			-- Deduction List
+            INSERT INTO dbo.DeductionSetting (GroupId, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
+            SELECT @GroupId, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent FROM @DeductionSetting
+            INSERT INTO dbo.DeductionSettingHistory (GroupId, MonthDate, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
+            SELECT @GroupId, @MonthDate, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent FROM @DeductionSetting
 
-            INSERT INTO dbo.CPAProductSetting (
-                FromDate, ToDate, GroupId, GroupProductId, ProductId
-            )
-            SELECT
-                 @FromDate, @ToDate, @GroupId, GroupProductId, ProductId
-            FROM @CPAProduct
+            -- ==========================
+			-- CPA
+			-- ==========================
+			-- CPAGroupSetting
+            INSERT INTO dbo.CPAGroupSetting (FromDate, ToDate, GroupId, GroupTypeId, SubCommRate, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, IsInstant)
+            VALUES (@FromDate, @ToDate, @GroupId, @GroupTypeId, @SubCommRate, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @IsInstant)
 
-            INSERT INTO dbo.CPATierSetting (
-                FromDate, ToDate, GroupId, GroupProductId, TierId, MinFDM, MaxFDM, MinTotalDeposit, MaxTotalDeposit, MinTO, MaxTO, CPAAmount
-            )
-            SELECT
-                 @FromDate, @ToDate, @GroupId, GroupProductId, TierId, MinFDM, MaxFDM, MinTotalDeposit, MaxTotalDeposit, MinTO, MaxTO, CPAAmount
+			-- CPATierSetting
+            INSERT INTO dbo.CPATierSetting (FromDate, ToDate, GroupId, GroupProductId, TierId, MinFDM, MaxFDM, MinTotalDeposit, MaxTotalDeposit, MinTO, MaxTO, CPAAmount)
+            SELECT @FromDate, @ToDate, @GroupId, GroupProductId, TierId, MinFDM, MaxFDM, MinTotalDeposit, MaxTotalDeposit, MinTO, MaxTO, CPAAmount
             FROM @CPATier
+
+			-- CPAProductSetting
+			IF EXISTS (SELECT 1 FROM @CPAProduct)
+			BEGIN
+				INSERT INTO dbo.CPAProductSetting (FromDate, ToDate, GroupId, GroupProductId, ProductId)
+				SELECT @FromDate, @ToDate, @GroupId, GroupProductId, ProductId
+				FROM @CPAProduct
+			END
 		END
 	END TRY
 	BEGIN CATCH
@@ -541,8 +570,10 @@ BEGIN
 
 		RETURN
 	END CATCH
-
+	
+	-- =========================
 	-- Write log
+	-- =========================
 	DECLARE @SPName VARCHAR(200)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
