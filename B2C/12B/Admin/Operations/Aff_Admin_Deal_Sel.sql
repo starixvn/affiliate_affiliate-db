@@ -22,8 +22,8 @@ BEGIN
 
     -- Temporary table for paging
     CREATE TABLE #Deals (
-        RowNum INT IDENTITY(1,1),
-        DealId INT,
+        RowNum INT,
+        GroupId INT,
         DealName NVARCHAR(100),
         DealType NVARCHAR(100),
         NoAff INT,
@@ -33,9 +33,10 @@ BEGIN
     );
 
     -- Insert filtered deals from CommGroup with INNER JOIN to GroupType and OUTER APPLY for NoAff
-    INSERT INTO #Deals (DealId, DealName, DealType, NoAff, Description, UpdatedBy, UpdatedDate)
+    INSERT INTO #Deals (RowNum, GroupId, DealName, DealType, NoAff, Description, UpdatedBy, UpdatedDate)
     SELECT 
-        cg.GroupId AS DealId,
+        ROW_NUMBER() OVER(ORDER BY cg.UpdatedTime DESC),
+		cg.GroupId,
         cg.GroupName AS DealName,
         gt.GroupTypeName AS DealType,
         ISNULL(aff.NoAff, 0) AS NoAff,
@@ -62,7 +63,8 @@ BEGIN
 
     -- Return paged result using row boundaries
     SELECT 
-        DealId,
+        RowNum,
+		GroupId,
         DealName,
         DealType,
         NoAff,

@@ -8,6 +8,7 @@ AS
 	
 	Revisions:
 		- 20241118@Eddie: Initialize SP [Redmine: #212201]
+		- 20250526@Lewis: Add IsEnabled = 1 [RedmineID: #228530]
 	
 */
 BEGIN
@@ -18,5 +19,6 @@ BEGIN
 		,g.GroupTypeName
 		,g.DisplayOrder 
 	FROM dbo.GroupType g WITH(NOLOCK)
+	WHERE g.IsEnabled = 1
 
 END
