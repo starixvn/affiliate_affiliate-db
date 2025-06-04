@@ -11,7 +11,7 @@ AS
 /*
 	Created: 20250526@Lewis
 	DB: DBAFF12B-Affiliate_12B
-	Task: Admin site - Add new Deal
+	Task: Admin site - Deal
 
 	Revisions:
 		- 20250526@Lewis: Initialize SP [RedmineID: #228530]

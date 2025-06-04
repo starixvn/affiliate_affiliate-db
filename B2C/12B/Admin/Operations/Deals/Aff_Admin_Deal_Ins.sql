@@ -2,7 +2,6 @@
 CREATE PROCEDURE [dbo].[Aff_Admin_Deal_Ins]
 	@UserId				INT
 	,@GroupId			INT = 0 OUTPUT
-	,@IsPrivate			BIT = 0
 	,@GroupName			NVARCHAR(100) = ''
 	,@GroupTypeId		INT = 1
 	,@Description		NVARCHAR(100) = ''
@@ -63,9 +62,8 @@ AS
 			</root>
 		- @CPAProductList xml = N'
 			<root>
-				<row groupproductid=""1"" productid=""101"" />
-				<row groupproductid=""2"" productid=""102"" />
-				<row groupproductid=""2"" productid=""103"" />
+				<row groupproductid=""1"" productids=""101"" />
+				<row groupproductid=""2"" productids=""102,103"" />
 			</root>
 		- Note: 
 			+ Infinite value of MaxAmount is 100,000,000,000
@@ -78,9 +76,12 @@ BEGIN
 
 	DECLARE @Language NVARCHAR(5) = 'en-US'
 
+	DECLARE @Duration INT
+	DECLARE @StartTime DATETIME = GETDATE()
+
 	DECLARE @CurrentDate DATETIME = DATEADD(HOUR, 12, GETDATE())
 	DECLARE @FromDate DATETIME =  CAST(@CurrentDate AS DATE)
-			, @ToDate DATETIME = '9999-12-31'
+	DECLARE @ToDate DATETIME = '9999-12-31'
 
 	-- last date of current month
 	DECLARE @MonthDate SMALLDATETIME
@@ -137,9 +138,9 @@ BEGIN
 			FROM @DeductionList.nodes('/root/row') AS t(c)
 		)
 		INSERT INTO @DeductionSetting (GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
-		SELECT GroupProductId, ds.DeductionId, ISNULL(CONVERT(INT, f.val), 0), ISNULL(ds.DeductedPercentage, 0), ISNULL(ds.DeductedAmount, 0), ISNULL(ds.IsDeductedPercent, 0)
+		SELECT GroupProductId, ds.DeductionId, ISNULL(CONVERT(INT, f.value), 0), ISNULL(ds.DeductedPercentage, 0), ISNULL(ds.DeductedAmount, 0), ISNULL(ds.IsDeductedPercent, 0)
 		FROM CTE_DeductionSetting ds
-			OUTER APPLY dbo.Aff_f_StringSplit(dbo.Aff_f_AddRelatedProducts(ds.ProductIds), ',') f
+			OUTER APPLY string_split(dbo.Aff_f_AddRelatedProducts(ds.ProductIds), ',') f
 		OPTION (OPTIMIZE FOR (@DeductionList = NULL), MAXRECURSION 0)
 
 		UPDATE @DeductionSetting
@@ -272,7 +273,7 @@ BEGIN
         -- Quota: If quota is enabled (not null and > 0), must be filled
         IF @Quota < 0
         BEGIN
-            SELECT @ErrCode = 314, @ErrMsg = N'Quota cannot be empty. Please check!'
+            SELECT @ErrCode = 314, @ErrMsg = N'Quota cannot be negative. Please check!'
             RETURN
         END
 
@@ -296,6 +297,7 @@ BEGIN
             t.c.value('@minto', 'MONEY'),
             t.c.value('@cpaamount', 'MONEY')
         FROM @CPATierList.nodes('/root/row') AS t(c)
+		OPTION (OPTIMIZE FOR (@CPATierList = NULL))
 		
         -- CPATierList: Oops, maximum of 50 tiers are allowed!
 		IF EXISTS (SELECT 1 FROM @CPATier GROUP BY GroupProductId HAVING COUNT(1) > 50) 
@@ -308,7 +310,7 @@ BEGIN
         IF EXISTS (
             SELECT 1 FROM @CPATier
             WHERE GroupProductId IS NULL OR TierId IS NULL OR CPAAmount IS NULL
-                OR (MinFDM IS NULL AND MinTotalDeposit IS NULL AND MinTO IS NULL)
+                OR (ISNULL(MinFDM,0) = 0 AND ISNULL(MinTotalDeposit,0) = 0 AND ISNULL(MinTO,0) = 0)
         )
         BEGIN
             SELECT @ErrCode = 309, @ErrMsg = N'Please select at least one condition: Min FDM, Min Total Deposit, or Min Wagering.'
@@ -354,12 +356,18 @@ BEGIN
 		BEGIN
 			-- Parse CPAProductList
 			DECLARE @CPAProduct TABLE (GroupProductId INT, ProductId INT)
-
+			
+			;WITH cte_CPAProductlist AS(
+				SELECT
+					t.c.value('@groupproductid', 'INT') AS GroupProductId,
+					t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIDs
+				FROM @CPAProductList.nodes('/root/row') AS t(c)
+			)
 			INSERT INTO @CPAProduct (GroupProductId, ProductId)
-			SELECT
-				t.c.value('@groupproductid', 'INT'),
-				t.c.value('@productid', 'INT')
-			FROM @CPAProductList.nodes('/root/row') AS t(c)
+			SELECT cte.GroupProductId, CAST(s.value AS INT)
+			FROM cte_CPAProductlist cte
+				OUTER APPLY string_split(dbo.Aff_f_AddRelatedProducts(cte.ProductIDs),',') s
+			OPTION (OPTIMIZE FOR (@CPAProductList = NULL), MAXRECURSION 0)
 
 			-- CPAProductList: Check for required fields
 			IF EXISTS (SELECT 1 FROM @CPAProduct WHERE GroupProductId IS NULL OR ProductId IS NULL)
@@ -404,7 +412,7 @@ BEGIN
             SELECT GroupProductId, MAX(TierId) AS MaxTierId FROM @CPATier GROUP BY GroupProductId
         )
         UPDATE t
-        SET MaxFDM = @CPAMax, MaxTotalDeposit = @CPAMax, MaxTO = @CPAMax
+        SET MaxFDM = IIF(MinFDM IS NULL,NULL,@CPAMax), MaxTotalDeposit = IIF(MinTotalDeposit IS NULL,NULL,@CPAMax), MaxTO = IIF(MinTO IS NULL,NULL,@CPAMax)
         FROM @CPATier t
         INNER JOIN LastTiers l ON t.GroupProductId = l.GroupProductId AND t.TierId = l.MaxTierId
 
@@ -430,37 +438,9 @@ BEGIN
 	-- =========================
 	-- INSERT DATA
 	-- =========================
-	IF @IsPrivate = 1
-	BEGIN
-		DECLARE @ExistsGroupId INT
-		SELECT  @ExistsGroupId = GroupId FROM dbo.CommGroup WITH (NOLOCK) WHERE GroupName = @GroupName AND IsPrivate = 1
-		
-		IF @ExistsGroupId IS NOT NULL
-		BEGIN
-			DELETE dbo.CommGroup WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId
-
-			DELETE dbo.CommGroupHistory WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId
-
-			DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId
-
-			DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId AND MonthDate = @MonthDate
-
-			DELETE dbo.DeductionSetting WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId
-
-			DELETE dbo.DeductionSettingHistory WITH (ROWLOCK, UPDLOCK)
-			WHERE GroupId = @ExistsGroupId AND MonthDate = @MonthDate
-		END
-	END
-	
-	BEGIN TRY
 		 -- Insert CommGroup and get new GroupId before any settings insert
         INSERT INTO dbo.CommGroup (GroupName, Description, Creator, CreatedDate, IsPrivate, IsDeleted, SubCommRate, GroupTypeId, QMTurnover, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, IsInstant, UpdatedBy, UpdatedTime)
-        VALUES (@GroupName, @Description, @UserId, @CurrentDate, @IsPrivate, 0, @SubCommRate, @GroupTypeId, @QMTurnover, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @IsInstant, @UserId, @CurrentDate)
+        VALUES (@GroupName, @Description, @UserId, @CurrentDate, 0, 0, @SubCommRate, @GroupTypeId, @QMTurnover, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @IsInstant, @UserId, @CurrentDate)
         SET @GroupId = SCOPE_IDENTITY()
 
 		IF @GroupTypeId = 1 -- Revenue
@@ -545,66 +525,115 @@ BEGIN
 				FROM @CPAProduct
 			END
 		END
-	END TRY
-	BEGIN CATCH
-		-- Failed to insert new group! Please try again!
-		SELECT @ErrCode = 105, @ErrMsg = dbo.Aff_f_GetMessageById(1005, @Language)
-
-		-- Manual rollback/cleanup logic for each group type
-		DELETE FROM dbo.CommGroup WHERE GroupId = @GroupId
-
-        IF @GroupTypeId IN (3,4) -- CPA,Hybrid
-        BEGIN
-            DELETE FROM dbo.CPATierSetting WITH(ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId
-            DELETE FROM dbo.CPAProductSetting WITH(ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId
-            DELETE FROM dbo.CPAGroupSetting WITH(ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId
-        END
-        IF @GroupTypeId IN (1,4) -- Winloss,Hybrid
-        BEGIN
-            DELETE FROM dbo.TierSetting WITH(ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId
-            DELETE FROM dbo.TierSettingHistory WITH(ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-            DELETE FROM dbo.DeductionSetting WITH(ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId
-            DELETE FROM dbo.DeductionSettingHistory WITH(ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-			DELETE FROM dbo.CommGroupHistory WITH(ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId 
-        END
-
-		RETURN
-	END CATCH
 	
 	-- =========================
 	-- Write log
 	-- =========================
+	DECLARE @EndTime DATETIME = GETDATE()
+	SELECT @Duration = DATEDIFF(SECOND, @StartTime, @EndTime)
+
+	-- 1. Deal Info (di)
+	DECLARE @DealInfo NVARCHAR(MAX) = (
+		SELECT 
+			@GroupName AS dn,
+			CASE WHEN @GroupTypeId = 1 THEN 'Revenue Share' WHEN @GroupTypeId = 3 THEN 'CPA' ELSE 'Hybrid' END AS dt,
+			@Description AS d,
+			CAST(@SubCommRate AS VARCHAR(50)) AS sr
+			FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+	)
+	
+	-- 2. Revenue/Hybrid (1,4)
+	DECLARE @RevenueShareInfo NVARCHAR(MAX) = NULL
+	DECLARE @TierJson NVARCHAR(MAX) = NULL
+
+	IF @GroupTypeId IN (1,4)
+	BEGIN
+		SET @RevenueShareInfo = (
+			SELECT 
+				@QMTurnover AS qpt,
+				@IsActivePlayerSum AS cqp,
+				(SELECT DeductedPercentage FROM @DeductionSetting WHERE DeductionId IN (13)) AS df,
+				(SELECT DeductedAmount FROM @DeductionSetting WHERE DeductionId IN (13)) AS dfx,
+				(SELECT DeductedPercentage FROM @DeductionSetting WHERE DeductionId IN (14)) AS wf,
+				(SELECT DeductedAmount FROM @DeductionSetting WHERE DeductionId IN (14)) AS wfx
+			FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+		)
+		SET @TierJson = (
+			SELECT 
+				STRING_AGG(CAST(t1.ProductId AS VARCHAR(MAX)), ',') AS rpg,
+				t1.DeductedPercentage AS rf,
+				(
+					SELECT 
+						MinAmount AS nw,
+						MinQM AS qp,
+						Commission AS rs
+					FROM @TierSetting t2
+					WHERE t2.GroupProductId = t1.GroupProductId
+					FOR JSON PATH
+				) AS rti
+			FROM @DeductionSetting t1
+			WHERE DeductionId = 10
+			GROUP BY GroupProductId,t1.DeductedPercentage
+			FOR JSON PATH
+		)
+	END
+	
+	-- 3. CPA/Hybrid (3,4)
+	DECLARE @CPAInfo NVARCHAR(MAX) = NULL
+	DECLARE @CPATierJson NVARCHAR(MAX) = NULL
+
+	IF @GroupTypeId IN (3,4)
+	BEGIN
+		SET @CPAInfo = (
+			SELECT 
+				@CountryCodes AS tc,
+				@ActiveDays AS ap,
+				@HoldingDays AS hd,
+				@HoldingTickets AS ht,
+				@Quota AS q,
+				CASE WHEN @IsInstant = 1 THEN 'Yes' ELSE 'No' END AS ip
+				FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+		)
+		SET @CPATierJson = (
+			SELECT 
+				STRING_AGG(CAST(ProductId AS VARCHAR(MAX)), ',') AS cpg,
+				(
+					SELECT 
+						MinFDM AS fd,
+						MinTotalDeposit AS td,
+						MinTO AS w,
+						CPAAmount AS cpa
+					FROM @CPATier t2
+					WHERE t2.GroupProductId = t1.GroupProductId
+					FOR JSON PATH
+				) AS cti
+			FROM @CPAProduct t1
+			GROUP BY t1.GroupProductId
+			FOR JSON PATH
+		)
+	END
+	
+	-- 4. Compose @NewData JSON (include only non-null sections)
+	DECLARE @NewData NVARCHAR(MAX) = '{'
+		+ '"di":' + ISNULL(@DealInfo, '{}')
+		+ CASE WHEN @CPAInfo IS NOT NULL THEN ',"ci":' + @CPAInfo ELSE '' END
+		+ CASE WHEN @CPATierJson IS NOT NULL THEN ',"ct":' + @CPATierJson ELSE '' END
+		+ CASE WHEN @RevenueShareInfo IS NOT NULL THEN ',"ri":' + @RevenueShareInfo ELSE '' END
+		+ CASE WHEN @TierJson IS NOT NULL THEN ',"rt":' + @TierJson ELSE '' END
+		+ '}'
+
+	-- 5. Write log with Items and NewData
+
 	DECLARE @SPName VARCHAR(200)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
-
-	DECLARE @Data NVARCHAR(MAX)
-
-	SELECT  @Data =
-		'GroupId='		+ ISNULL(CONVERT(VARCHAR(10), @GroupId), '') + ',' +
-		'GroupName='	+ ISNULL(@GroupName, '') + ',' +
-		'GroupTypeId='	+ ISNULL(CONVERT(VARCHAR(10), @GroupTypeId), '') + ',' +
-		'IsPrivate='	+ ISNULL(CONVERT(VARCHAR(1), @IsPrivate), '') + ',' +
-		'Description='	+ ISNULL(@Description, '') + ',' +
-		'DeductionList='+ ISNULL(CONVERT(NVARCHAR(MAX), @DeductionList), '') + ',' +
-		'TierList='		+ ISNULL(CONVERT(NVARCHAR(MAX), @TierList), '') + ',' +
-		'IsActivePlayerSum='+ ISNULL(CONVERT(NVARCHAR(MAX), @IsActivePlayerSum), '') + ',' +
-		'SubCommRate='	+ ISNULL(CONVERT(NVARCHAR(MAX), @SubCommRate), '') + ',' +
-		'QMTurnover='	+ ISNULL(CONVERT(NVARCHAR(MAX), @QMTurnover), '') + ',' +
-		'CountryCodes='     + ISNULL(@CountryCodes, '') + ',' +
-		'ActiveDays='       + ISNULL(CONVERT(VARCHAR(10), @ActiveDays), '') + ',' +
-		'HoldingDays='      + ISNULL(CONVERT(VARCHAR(10), @HoldingDays), '') + ',' +
-		'HoldingTickets='   + ISNULL(CONVERT(VARCHAR(10), @HoldingTickets), '') + ',' +
-		'Quota='            + ISNULL(CONVERT(VARCHAR(10), @Quota), '') + ',' +
-		'IsInstant='        + ISNULL(CONVERT(VARCHAR(1), @IsInstant), '') + ',' +
-		'CPAProductList='   + ISNULL(CONVERT(NVARCHAR(MAX), @CPAProductList), '') + ',' +
-		'CPATierList='      + ISNULL(CONVERT(NVARCHAR(MAX), @CPATierList), '')
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,
 		@AffId		= 0,
 		@SPName		= @SPName,
-		@NewData	= @Data,
+		@NewData	= @NewData,
 		@IP			= @IP,
-		@Language	= @Language
+		@Language	= @Language,
+		@Duration	= @Duration
 END
 GO
