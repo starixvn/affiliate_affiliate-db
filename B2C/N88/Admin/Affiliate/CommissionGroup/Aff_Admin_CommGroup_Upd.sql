@@ -7,7 +7,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Upd]
 	,@Description		NVARCHAR(100) = NULL
 	,@DeductionList		XML = NULL
 	,@TierList			XML = NULL
-	,@StraightList		XML = NULL
+	,@QMTurnover		MONEY
 	,@IsActivePlayerSum BIT
 	,@IP				NVARCHAR(20) = ''
 	,@ErrCode			INT = 0 OUTPUT
@@ -26,6 +26,7 @@ AS
 		- 20230404@Malcolm: Add sub commission rate [RedmineID: #185481]
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 		- 20240426@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
+		- 20250512@Lewis: Support negative minamount, QMTurnover, IsActivePlayerSum [RedmineID: #226985]
 
 	Parameter's Explanation:
 		- @DeductionList:
@@ -96,6 +97,7 @@ BEGIN
 	DECLARE @MonthDate SMALLDATETIME
 	SELECT  @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
 	DECLARE @Infinity_Amount MONEY = 100000000000, @Inifinity_QM INT = 1000000000
+	DECLARE @Infinity_NegativeAmount MONEY = -100000000000
 
 	-- Deductions
 	DECLARE @DeductionSetting TABLE (GroupProductId TINYINT, DeductionId TINYINT, ProductId INT, DeductedPercentage DECIMAL(9,8), DeductedAmount MONEY, IsDeductedPercent BIT)
@@ -122,17 +124,18 @@ BEGIN
 		,DeductedAmount		= CASE WHEN IsDeductedPercent = 1 THEN 0 ELSE ISNULL(DeductedAmount, 0) END
 
 	-- Tier Setting
-	DECLARE @TierSetting TABLE (TierID TINYINT, productids VARCHAR(MAX), GroupProductId TINYINT, MinAmount MONEY, MaxAmount MONEY, MinAM INT, MaxAM INT, Commission DECIMAL(9,8))
+	DECLARE @TierSetting TABLE (TierID TINYINT, productids VARCHAR(MAX), GroupProductId TINYINT, MinAmount MONEY, MaxAmount MONEY, MinQM INT, MaxQM INT, Commission DECIMAL(9,8), IsNegativeAmount BIT)
 	
-	INSERT INTO @TierSetting (TierID, productids, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
+	INSERT INTO @TierSetting (TierID, productids, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsNegativeAmount)
 	SELECT
 		t.c.value('@id', 'TINYINT'),
 		t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
 		t.c.value('@minamount', 'MONEY'),
 		t.c.value('@maxamount', 'MONEY'),
-		t.c.value('@minam', 'INT'),
-		@Inifinity_QM AS MaxAM,
-		t.c.value('@commission', 'DECIMAL(9,8)')
+		t.c.value('@minqm', 'INT'),
+		@Inifinity_QM AS MaxQM,
+		t.c.value('@commission', 'DECIMAL(9,8)'),
+        CASE WHEN t.c.value('@minamount', 'MONEY') < 0 THEN 1 ELSE 0 END AS IsNegativeAmount
 	FROM @TierList.nodes('/root/row') AS t(c)
 	OPTION (OPTIMIZE FOR (@TierList = NULL))
 
@@ -159,85 +162,82 @@ BEGIN
 	FROM @TierSetting t
 		INNER JOIN CTE e ON t.TierID = e.TierID AND t.GroupProductId = e.GroupProductId
 
+
 	-- Check valid tier setting
-	IF EXISTS (SELECT 1 FROM @TierSetting GROUP BY GroupProductId HAVING COUNT(1) > 50) 
-	BEGIN
-		-- Oops, maximum of 50 tiers are allowed!
-		SELECT @ErrCode = 103, @ErrMsg = dbo.Aff_f_GetMessageById(1003, @Language)
-
-		RETURN
-	END
-
-	
-	IF EXISTS
-		(
-			SELECT 1
-			FROM @TierSetting ts1
-				INNER JOIN @TierSetting ts2 ON ts1.TierID + 1 = ts2.TierID  AND ts1.GroupProductId = ts2.GroupProductId
-			WHERE ts1.MaxAmount + 1 <> ts2.MinAmount
+    BEGIN
+        IF EXISTS (SELECT 1 FROM @TierSetting GROUP BY GroupProductId HAVING COUNT(1) > 50) 
+        BEGIN
+            -- Oops, maximum of 50 tiers are allowed!
+            SELECT @ErrCode = 103, @ErrMsg = dbo.Aff_f_GetMessageById(1003, @Language)
+            RETURN
+        END
+        
+        IF EXISTS(
+            SELECT TOP 1 1 FROM @TierSetting WHERE TierId = 1 AND MinAmount > 0
+        )
+		OR EXISTS(
+			SELECT TOP 1 1 FROM  @TierSetting WHERE TierId = 1 AND IsNegativeAmount =  1 AND MinAmount <> @Infinity_NegativeAmount
 		)
-		OR EXISTS
-		(
-			SELECT 1 FROM @TierSetting WHERE TierId = 1 AND MinAmount <> 0
-		)
-	BEGIN
-		-- Error! Invalid Tier Setting!
-		SELECT @ErrCode = 104, @ErrMsg = dbo.Aff_f_GetMessageById(1004, @Language)
+        BEGIN
+            -- 'The first Tier of the Min Net Win column must be = 0 or - infinity symbol
+            SELECT @ErrCode = 201, @ErrMsg = dbo.Aff_f_GetMessageById(1010, @Language)
+            RETURN
+        END
 
-		RETURN
-	END
+        IF EXISTS (
+			SELECT TOP 1 1
+            FROM (
+				SELECT GroupProductId, MAX(TierID) AS TierID
+				FROM @TierSetting
+				WHERE IsNegativeAmount = 1 
+				GROUP BY GroupProductId
+			)n 
+				INNER JOIN @TierSetting ts1 ON n.GroupProductId = ts1.GroupProductId AND ts1.TierID = n.TierID
+				INNER JOIN @TierSetting ts2 ON  ts1.TierID + 1 = ts2.TierID AND ts1.GroupProductId = ts2.GroupProductId
+			WHERE ts2.MinAmount = 0 OR ts2.MinAmount >  1
+		)                 
+        BEGIN
+            -- The next Tier after a negative Tier must start from 1 in the Min Net Win column.
+            SELECT @ErrCode = 202, @ErrMsg = dbo.Aff_f_GetMessageById(1011, @Language)
+            RETURN
+        END
 
-	-- Straight Setting
-	DECLARE @StraightSetting TABLE (ProductId INT, GroupProductId INT, DeductedPercentage DECIMAL(9, 8), Commission DECIMAL(9, 8))
-	
-	;WITH CTE_StraightSetting AS
-	(
-		SELECT
-			ROW_NUMBER() OVER(PARTITION BY t.c.value('@id', 'TINYINT') ORDER BY (SELECT NULL)) AS GroupProductId,
-			t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
-			t.c.value('@percent', 'DECIMAL(9,8)') AS DeductedPercentage,
-			t.c.value('@commission', 'DECIMAL(9,8)') AS Commission
-		FROM @StraightList.nodes('/root/row') AS t(c)
-	)
-	INSERT INTO @StraightSetting (ProductId, GroupProductId, DeductedPercentage, Commission)
-	SELECT ISNULL(CONVERT(INT, f.val), 0), s.GroupProductId, ISNULL(s.DeductedPercentage, 0), ISNULL(s.Commission, 0)
-	FROM CTE_StraightSetting s
-		OUTER APPLY dbo.Aff_f_StringSplit(dbo.Aff_f_AddRelatedProducts(s.ProductIds), ',') f
-	OPTION (OPTIMIZE FOR (@StraightList = NULL), MAXRECURSION 0)
-
-	-- Check full products
-	SET @ErrMsg = NULL
-	SELECT @ErrMsg = COALESCE(@ErrMsg + ', ', '') + ProductName
-	FROM dbo.Products p WITH (NOLOCK)
-		LEFT JOIN (
-			SELECT DISTINCT ProductId FROM @DeductionSetting
-			UNION SELECT DISTINCT ProductId FROM @StraightSetting
-		) s ON p.ProductId = s.ProductId
-	WHERE p.Enabled = 1 AND p.IsTest = 0 AND s.ProductId IS NULL
-	
-	IF ISNULL(@ErrMsg, '') <> ''
-	BEGIN
-		-- Please select the following product: <product 1>, <product 2>
-		SELECT @ErrCode = 110, @ErrMsg = 'Please select the following product: ' + @ErrMsg
-
-		RETURN
-	END
+        IF EXISTS(
+                SELECT 1
+                FROM @TierSetting ts1
+                    INNER JOIN @TierSetting ts2 ON ts1.TierID + 1 = ts2.TierID AND ts1.GroupProductId = ts2.GroupProductId
+                WHERE ts1.MaxAmount + 1 <> ts2.MinAmount
+            )
+			OR EXISTS(
+				SELECT TOP 1 1
+				FROM @TierSetting ts1
+					INNER JOIN @TierSetting ts2 ON ts1.TierID + 1 = ts2.TierID AND ts1.GroupProductId = ts2.GroupProductId
+				 WHERE ts1.MaxAmount > ts2.MaxAmount 
+				 	OR ts1.MinAmount > ts2.MinAmount 
+			)
+        BEGIN
+            -- The values in the Min Net Win column must increase sequentially.
+            SELECT @ErrCode = 203, @ErrMsg = dbo.Aff_f_GetMessageById(1012, @Language)
+            RETURN
+        END
+    END
 
 	DECLARE @updateData TABLE
 	(
-		-- 1: general, 2: tier, 3: deduction, 4: straight
+		-- 1: general, 2: tier, 3: deduction
 		TypeId					TINYINT
 		-- General information
 		,SubCommRate			DECIMAL(9,8)
 		,GroupName				NVARCHAR(100)
 		,Description			NVARCHAR(100)
 		,IsDeductedPercent		BIT
+		,QMTurnover				MONEY
 		-- Tier List
 		,TierId					TINYINT
 		,MinAmount				MONEY
 		,MaxAmount				MONEY
-		,MinAM					INT
-		,MaxAM					INT
+		,MinQM					INT
+		,MaxQM					INT
 		,Commission				DECIMAL(9, 8)
 		,IsActivePlayerSum		BIT
 		-- Deduction List
@@ -251,30 +251,30 @@ BEGIN
 	BEGIN TRY
 		-- General information
 		UPDATE dbo.CommGroup WITH (ROWLOCK)
-		SET GroupName = @GroupName, Description = @Description, SubCommRate = @SubCommRate
-			OUTPUT DELETED.GroupName, DELETED.SubCommRate, DELETED.Description, 1
-			INTO @updateData (GroupName, SubCommRate, Description, TypeId)
+		SET GroupName = @GroupName, Description = @Description, SubCommRate = @SubCommRate, QMTurnover = @QMTurnover
+			OUTPUT DELETED.GroupName, DELETED.SubCommRate, DELETED.Description, DELETED.QMTurnover, 1
+			INTO @updateData (GroupName, SubCommRate, Description, QMTurnover, TypeId)
 		WHERE GroupId = @GroupId
 
 		DELETE dbo.CommGroupHistory WITH(ROWLOCK)
 		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
-		INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate)
-		SELECT @GroupId, @MonthDate, @SubCommRate
+		INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate, QMTurnover)
+		SELECT @GroupId, @MonthDate, @SubCommRate, @QMTurnover
 
 		-- Tier List
 		DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
-			OUTPUT DELETED.TierId, DELETED.GroupProductId, DELETED.MinAmount, DELETED.MaxAmount, DELETED.MinAM, DELETED.MaxAM, DELETED.Commission, DELETED.IsActivePlayerSum,2
-			INTO @updateData (TierId, GroupProductId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum, TypeId)
+			OUTPUT DELETED.TierId, DELETED.GroupProductId, DELETED.MinAmount, DELETED.MaxAmount, DELETED.MinQM, DELETED.MaxQM, DELETED.Commission, DELETED.IsActivePlayerSum,2
+			INTO @updateData (TierId, GroupProductId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum, TypeId)
 		WHERE GroupId = @GroupId
 
 		DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
-		INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum)
-		SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, @IsActivePlayerSum FROM @TierSetting
+		INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
+		SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, @IsActivePlayerSum FROM @TierSetting
 
-		INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum)
-		SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, @IsActivePlayerSum FROM @TierSetting
+		INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
+		SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, @IsActivePlayerSum FROM @TierSetting
 
 		-- Deduction List
 		DELETE dbo.DeductionSetting WITH (ROWLOCK, UPDLOCK)
@@ -290,27 +290,16 @@ BEGIN
 		INSERT INTO dbo.DeductionSettingHistory (GroupId, MonthDate, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
 		SELECT @GroupId, @MonthDate, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent FROM @DeductionSetting
 
-		-- Straight List
-		DELETE dbo.StraightSetting WITH (ROWLOCK, UPDLOCK)
-			OUTPUT DELETED.ProductId, DELETED.GroupProductId, DELETED.DeductedPercentage, DELETED.Commission, 4
-			INTO @updateData (ProductId, GroupProductId, DeductedPercentage, Commission, TypeId)
-		WHERE GroupId = @GroupId
-
-		DELETE dbo.StraightSettingHistory WITH (ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-
-		INSERT INTO dbo.StraightSetting (GroupId, ProductId, GroupProductId, DeductedPercentage, Commission)
-		SELECT @GroupId, ProductId, GroupProductId, DeductedPercentage, Commission FROM @StraightSetting
-
-		INSERT INTO dbo.StraightSettingHistory (GroupId, MonthDate, ProductId, GroupProductId, DeductedPercentage, Commission)
-		SELECT @GroupId, @MonthDate, ProductId, GroupProductId, DeductedPercentage, Commission FROM @StraightSetting
 	END TRY
 	BEGIN CATCH
 		-- Rollback manually
 		IF EXISTS (SELECT 1 FROM @updateData WHERE TypeId = 1)
 		BEGIN
 			UPDATE cg WITH (ROWLOCK)
-			SET GroupName			= up.GroupName,
-				Description			= up.Description
+			SET GroupName		= up.GroupName,
+				Description		= up.Description,
+				cg.SubCommRate	= up.SubCommRate,
+				cg.QMTurnover	= up.QMTurnover
 			FROM dbo.CommGroup cg
 				CROSS APPLY @updateData up
 			WHERE cg.GroupId = @GroupId
@@ -319,8 +308,8 @@ BEGIN
 			DELETE dbo.CommGroupHistory WITH(ROWLOCK, UPDLOCK) 
 			WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
-			INSERT INTO dbo.CommGroupHistory (GroupId, SubCommRate, MonthDate)
-			SELECT @GroupId, SubCommRate, @MonthDate FROM @updateData WHERE TypeId = 1
+			INSERT INTO dbo.CommGroupHistory (GroupId, SubCommRate, MonthDate, QMTurnover)
+			SELECT @GroupId, SubCommRate, @MonthDate, QMTurnover FROM @updateData WHERE TypeId = 1
 		END
 
 		IF EXISTS (SELECT 1 FROM @updateData WHERE TypeId = 2)
@@ -328,11 +317,11 @@ BEGIN
 			DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId
 			DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
-			INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum)
-			SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum FROM @updateData WHERE TypeId = 2
+			INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
+			SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum FROM @updateData WHERE TypeId = 2
 
-			INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum)
-			SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum FROM @updateData WHERE TypeId = 2
+			INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
+			SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum FROM @updateData WHERE TypeId = 2
 		END
 
 		IF EXISTS (SELECT 1 FROM @updateData WHERE TypeId = 3)
@@ -347,18 +336,6 @@ BEGIN
 			SELECT @GroupId, @MonthDate,GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent FROM @updateData WHERE TypeId = 3
 		END
 
-		IF EXISTS (SELECT 1 FROM @updateData WHERE TypeId = 4)
-		BEGIN
-			DELETE dbo.StraightSetting WITH (ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId
-			DELETE dbo.StraightSettingHistory WITH (ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-
-			INSERT INTO dbo.StraightSetting (GroupId, ProductId, GroupProductId, DeductedPercentage, Commission)
-		SELECT @GroupId, ProductId, GroupProductId, DeductedPercentage, Commission FROM @updateData WHERE TypeId = 4
-
-		INSERT INTO dbo.StraightSettingHistory (GroupId, MonthDate, ProductId, GroupProductId, DeductedPercentage, Commission)
-		SELECT @GroupId, @MonthDate, ProductId, GroupProductId, DeductedPercentage, Commission FROM @updateData WHERE TypeId = 4
-		END
-
 		-- Failed to update group! Please try again!
 		SELECT @ErrCode = 105, @ErrMsg = dbo.Aff_f_GetMessageById(1007, @Language)
 
@@ -371,7 +348,7 @@ BEGIN
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
-	DECLARE @OldDeductionList XML, @OldTierList XML, @OldStraightList XML
+	DECLARE @OldDeductionList XML, @OldTierList XML
 
 	SELECT  @OldTierList = 
 		(
@@ -379,8 +356,8 @@ BEGIN
 				u.TierId			AS '@id',
 				u.MinAmount			AS '@minamount',
 				u.MaxAmount			AS '@maxamount',
-				u.MinAM				AS '@minam',
-				u.MaxAM				AS '@maxam',
+				u.MinQM				AS '@minqm',
+				u.MaxQM				AS '@maxqm',
 				u.Commission		AS '@commission',
 				u.GroupProductId	AS '@GroupProductId',
 				u.IsActivePlayerSum AS '@IsActivePlayerSum',
@@ -434,51 +411,25 @@ BEGIN
 			FOR XML PATH('row'), ROOT('root')		
 		)
 
-	SELECT  @OldStraightList = 
-		(
-			SELECT
-				GroupProductId		AS '@id',
-				ProductIds			AS '@productids',
-				DeductedPercentage	AS '@percent',
-				Commission			AS '@commission'
-			FROM
-			(
-				SELECT
-					ud.GroupProductId,
-					ud.DeductedPercentage,
-					ud.Commission,
-					STUFF(
-						(SELECT	',' + CONVERT(VARCHAR(10), up.ProductId)
-							FROM @updateData up
-							WHERE up.GroupProductId = ud.GroupProductId
-								AND up.DeductedPercentage = ud.DeductedPercentage
-								AND up.Commission = ud.Commission
-								AND up.TypeId = ud.TypeId
-							FOR XML PATH (''))
-							, 1, 1, '') AS ProductIds
-				FROM @updateData ud
-				WHERE ud.TypeId = 4
-			) AS u
-			FOR XML PATH('row'), ROOT('root')		
-		)
-
 	SELECT  @OldData =
 		'GroupId='			+ ISNULL(CONVERT(VARCHAR(15), @GroupId), '') + ',' +
 		'GroupName='		+ ISNULL(GroupName, '') + ',' +
 		'Description='		+ ISNULL(Description, '') + ',' +
+		'SubCommRate='		+ ISNULL(CONVERT(VARCHAR(15), SubCommRate), '') + ',' +
+		'QMTurnover='		+ ISNULL(CONVERT(VARCHAR(15), QMTurnover), '') + ',' +
 		'DeductionList='	+ ISNULL(CONVERT(NVARCHAR(MAX), @OldDeductionList), '') + ',' +
-		'TierList='			+ ISNULL(CONVERT(NVARCHAR(MAX), @OldTierList), '') + ',' +
-		'StraightList='		+ ISNULL(CONVERT(NVARCHAR(MAX), @OldStraightList), '')
+		'TierList='			+ ISNULL(CONVERT(NVARCHAR(MAX), @OldTierList), '')
 	FROM @updateData WHERE TypeId = 1
 
 	SELECT  @NewData =
 		'GroupId='			+ ISNULL(CONVERT(VARCHAR(15), @GroupId), '') + ',' +
 		'GroupName='		+ ISNULL(@GroupName, '') + ',' +
 		'Description='		+ ISNULL(@Description, '') + ',' +
+		'SubCommRate='		+ ISNULL(CONVERT(VARCHAR(15), @SubCommRate), '') + ',' +
+		'QMTurnover='		+ ISNULL(CONVERT(VARCHAR(15), @QMTurnover), '') + ',' +
 		'DeductionList='	+ ISNULL(CONVERT(NVARCHAR(MAX), @DeductionList), '') + ',' +
 		'TierList='			+ ISNULL(CONVERT(NVARCHAR(MAX), @TierList), '') + ',' +
-		'IsActivePlayerSum='+ ISNULL(CONVERT(NVARCHAR(MAX), @IsActivePlayerSum), '') + ',' +
-		'StraightList='		+ ISNULL(CONVERT(NVARCHAR(MAX), @StraightList), '')
+		'IsActivePlayerSum='+ ISNULL(CONVERT(NVARCHAR(MAX), @IsActivePlayerSum), '')
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,
