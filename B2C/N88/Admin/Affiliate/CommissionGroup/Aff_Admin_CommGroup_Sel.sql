@@ -20,6 +20,7 @@ AS
 		- 20230404@Malcolm: Get sub commission rate [RedmineID: #185481]
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 		- 20240426@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
+		- 20250512@Lewis: Support negative minamount, QMTurnover, IsActivePlayerSum [RedmineID: #226985]
 
 */
 
@@ -60,7 +61,6 @@ BEGIN
 					INNER JOIN dbo.DeductionSetting ds WITH (NOLOCK) ON d.DeductionId = ds.DeductionID
 				WHERE cg.GroupId = ds.GroupId
 			)
-			AND EXISTS (SELECT 1 FROM dbo.StraightSetting ss WITH (NOLOCK) WHERE cg.GroupId = ss.GroupId)
 	) AS g
 	WHERE RowIDX BETWEEN @RowStart AND @RowEnd
 
@@ -78,6 +78,7 @@ BEGIN
 		au.Username AS Creator,
 		cg.Description,
 		cg.SubCommRate,
+		cg.QMTurnover,
 		ISNULL(s.IsActivePlayerSum, 1) AS IsActivePlayerSum,
 		ISNULL(n.NoAffs, 0) AS NoAffs
 	FROM dbo.CommGroup cg WITH (NOLOCK)
@@ -97,8 +98,8 @@ BEGIN
 		gs.TierId,
 		gs.MinAmount,
 		gs.MaxAmount,
-		gs.MinAM,
-		gs.MaxAM,
+		gs.MinQM,
+		gs.MaxQM,
 		gs.Commission,
 		gs.GroupProductId
 	FROM dbo.TierSetting gs WITH (NOLOCK)
@@ -142,29 +143,5 @@ BEGIN
 		ds.DeductedAmount,
 		ds.IsDeductedPercent
 
-	-- Straight List
-	SELECT
-		ss.GroupId,
-		STUFF(
-			(SELECT	',' + CONVERT(VARCHAR(10), s.ProductId)
-				FROM dbo.StraightSetting s WITH (NOLOCK)
-					LEFT JOIN dbo.Aff_f_GroupProduct() gp 
-										ON s.ProductID = gp.ProductId 
-										AND gp.ProductId <> gp.GroupProductId 										
-				WHERE gp.ProductId IS NULL
-					AND ss.GroupId			= s.GroupId
-					AND ss.GroupProductId	= s.GroupProductId
-					AND s.ProductId			<> 0
-				FOR XML PATH (''))
-				, 1, 1, '') AS ProductIds,
-		ss.DeductedPercentage,
-		ss.Commission
-	FROM dbo.StraightSetting ss WITH (NOLOCK)
-		INNER JOIN @Group g ON ss.GroupId = g.GroupId
-	GROUP BY
-		ss.GroupId,
-		ss.GroupProductId,
-		ss.DeductedPercentage,
-		ss.Commission
 END
 GO

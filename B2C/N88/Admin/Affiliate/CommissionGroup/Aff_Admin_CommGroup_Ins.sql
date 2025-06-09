@@ -9,11 +9,11 @@ ALTER PROCEDURE [dbo].[Aff_Admin_CommGroup_Ins]
 	,@Description		NVARCHAR(100) = NULL
 	,@DeductionList		XML = NULL
 	,@TierList			XML = NULL
-	,@StraightList		XML = NULL
 	,@IsActivePlayerSum BIT
 	,@IP				NVARCHAR(20) = ''
 	,@ErrCode			INT = 0 OUTPUT
 	,@ErrMsg			NVARCHAR(4000) = '' OUTPUT
+	,@QMTurnover		MONEY
 AS
 
 /*
@@ -28,6 +28,7 @@ AS
 		- 20230404@Malcolm: Add sub commission rate [RedmineID: #185481]
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 		- 20240425@Sally: Calculate commission by Turnover [RedmineID: #203756]
+		- 20250512@Lewis: Support negative minamount, QMTurnover, IsActivePlayerSum, remove P2P [RedmineID: #226985]
 
 	Parameter's Explanation:
 		- @DeductionList:
@@ -45,11 +46,6 @@ AS
 				<row id="2" productids="1,2,3" minamount="101" maxamount="100000000000000" minam="6" maxam="1000000000" commission="0.3" />
 				<row id="1" productids="4,5" minamount="0" maxamount="100" minam="0" maxam="5" commission="0.2" />
 				<row id="2" productids="4,5" minamount="101" maxamount="100000000000000" minam="6" maxam="1000000000" commission="0.3" />
-			</root>
-		- @StraightList:
-			<root>
-				<row id="1" productids="41" percent="0.16" commission="0.16" />
-				<row id="2" productids="42" percent="0.17" commission="0.17" />
 			</root>
 		- Note: Infinite value of MaxAmount is 100,000,000,000 and MaxAM is 1,000,000,000
 */
@@ -73,6 +69,7 @@ BEGIN
 	DECLARE @MonthDate SMALLDATETIME
 	SELECT  @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
 	DECLARE @Infinity_Amount MONEY = 100000000000, @Inifinity_QM INT = 1000000000
+	DECLARE @Infinity_NegativeAmount MONEY = -100000000000
 
 	SELECT @GroupName = LTRIM(RTRIM(ISNULL(@GroupName, '')))
 
@@ -92,7 +89,6 @@ BEGIN
 	END
 
 	-- Deductions
-	DECLARE @GroupProduct TABLE (GroupProductId TINYINT, ProductIds VARCHAR(MAX))
 	DECLARE @DeductionSetting TABLE (GroupProductId TINYINT, DeductionId TINYINT, ProductId INT, DeductedPercentage DECIMAL(9,8), DeductedAmount MONEY, IsDeductedPercent BIT)
 	
 	;WITH CTE_DeductionSetting AS
@@ -117,17 +113,18 @@ BEGIN
 		,DeductedAmount		= CASE WHEN IsDeductedPercent = 1 THEN 0 ELSE ISNULL(DeductedAmount, 0) END
 
 	-- Tier Setting
-	DECLARE @TierSetting TABLE (TierID TINYINT, productids VARCHAR(MAX), GroupProductId TINYINT, MinAmount MONEY, MaxAmount MONEY, MinAM INT, MaxAM INT, Commission DECIMAL(9,8))
+	DECLARE @TierSetting TABLE (TierID TINYINT, productids VARCHAR(MAX), GroupProductId TINYINT, MinAmount MONEY, MaxAmount MONEY, MinQM INT, MaxQM INT, Commission DECIMAL(9,8), IsNegativeAmount BIT)
 	
-	INSERT INTO @TierSetting (TierID, productids, MinAmount, MaxAmount, MinAM, MaxAM, Commission)
+	INSERT INTO @TierSetting (TierID, productids, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsNegativeAmount)
 	SELECT
 		t.c.value('@id', 'TINYINT'),
 		t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
 		t.c.value('@minamount', 'MONEY'),
 		t.c.value('@maxamount', 'MONEY'),
-		t.c.value('@minam', 'INT'),
-		@Inifinity_QM AS MaxAM,
-		t.c.value('@commission', 'DECIMAL(9,8)')
+		t.c.value('@minqm', 'INT'),
+		@Inifinity_QM AS MaxQM,
+		t.c.value('@commission', 'DECIMAL(9,8)'),
+        CASE WHEN t.c.value('@minamount', 'MONEY') < 0 THEN 1 ELSE 0 END AS IsNegativeAmount
 	FROM @TierList.nodes('/root/row') AS t(c)
 	OPTION (OPTIMIZE FOR (@TierList = NULL))
 
@@ -155,67 +152,63 @@ BEGIN
 		INNER JOIN CTE e ON t.TierID = e.TierID AND t.GroupProductId = e.GroupProductId
 
 	-- Check valid tier setting
-	IF EXISTS (SELECT 1 FROM @TierSetting GROUP BY GroupProductId HAVING COUNT(1) > 50) 
-	BEGIN
-		-- Oops, maximum of 50 tiers are allowed!
-		SELECT @ErrCode = 103, @ErrMsg = dbo.Aff_f_GetMessageById(1003, @Language)
-
-		RETURN
-	END
-
-	IF EXISTS
-		(
-			SELECT 1
-			FROM @TierSetting ts1
-				INNER JOIN @TierSetting ts2 ON ts1.TierID + 1 = ts2.TierID AND ts1.GroupProductId = ts2.GroupProductId
-			WHERE ts1.MaxAmount + 1 <> ts2.MinAmount
+    BEGIN
+        IF EXISTS (SELECT 1 FROM @TierSetting GROUP BY GroupProductId HAVING COUNT(1) > 50) 
+        BEGIN
+            -- Oops, maximum of 50 tiers are allowed!
+            SELECT @ErrCode = 103, @ErrMsg = dbo.Aff_f_GetMessageById(1003, @Language)
+            RETURN
+        END
+        
+        IF EXISTS(
+            SELECT TOP 1 1 FROM @TierSetting WHERE TierId = 1 AND MinAmount > 0
+        )
+		OR EXISTS(
+			SELECT TOP 1 1 FROM  @TierSetting WHERE TierId = 1 AND IsNegativeAmount =  1 AND MinAmount <> @Infinity_NegativeAmount
 		)
-		OR EXISTS
-		(
-			SELECT 1 FROM @TierSetting WHERE TierId = 1 AND MinAmount <> 0
-		)
-	BEGIN
-		-- Error! Invalid Tier Setting!
-		SELECT @ErrCode = 104, @ErrMsg = dbo.Aff_f_GetMessageById(1004, @Language)
+        BEGIN
+            -- 'The first Tier of the Min Net Win column must be = 0 or - infinity symbol'
+            SELECT @ErrCode = 201, @ErrMsg = dbo.Aff_f_GetMessageById(1010, @Language)
+            RETURN
+        END       
 
-		RETURN
-	END
+        IF EXISTS (
+			SELECT TOP 1 1
+            FROM (
+				SELECT GroupProductId, MAX(TierID) AS TierID
+				FROM @TierSetting
+				WHERE IsNegativeAmount = 1 
+				GROUP BY GroupProductId
+			)n 
+				INNER JOIN @TierSetting ts1 ON n.GroupProductId = ts1.GroupProductId AND ts1.TierID = n.TierID
+				INNER JOIN @TierSetting ts2 ON  ts1.TierID + 1 = ts2.TierID AND ts1.GroupProductId = ts2.GroupProductId
+			WHERE ts2.MinAmount = 0 OR ts2.MinAmount >  1
+		)               
+        BEGIN
+            -- The next Tier after a negative Tier must start from 1 in the Min Net Win column.
+            SELECT @ErrCode = 202, @ErrMsg = dbo.Aff_f_GetMessageById(1011, @Language)
+            RETURN
+        END
 
-	-- Straight Setting
-	DECLARE @StraightSetting TABLE (ProductId INT, GroupProductId INT, DeductedPercentage DECIMAL(9, 8), Commission DECIMAL(9, 8))
-	
-	;WITH CTE_StraightSetting AS
-	(
-		SELECT
-			ROW_NUMBER() OVER(PARTITION BY t.c.value('@id', 'TINYINT') ORDER BY (SELECT NULL)) AS GroupProductId,
-			t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
-			t.c.value('@percent', 'DECIMAL(9,8)') AS DeductedPercentage,
-			t.c.value('@commission', 'DECIMAL(9,8)') AS Commission
-		FROM @StraightList.nodes('/root/row') AS t(c)
-	)
-	INSERT INTO @StraightSetting (ProductId, GroupProductId, DeductedPercentage, Commission)
-	SELECT ISNULL(CONVERT(INT, f.val), 0), s.GroupProductId, ISNULL(s.DeductedPercentage, 0), ISNULL(s.Commission, 0)
-	FROM CTE_StraightSetting s
-		OUTER APPLY dbo.Aff_f_StringSplit(dbo.Aff_f_AddRelatedProducts(s.ProductIds), ',') f
-	OPTION (OPTIMIZE FOR (@StraightList = NULL), MAXRECURSION 0)
-
-	-- Check full products
-	SET @ErrMsg = NULL
-	SELECT @ErrMsg = COALESCE(@ErrMsg + ', ', '') + ProductName
-	FROM dbo.Products p WITH (NOLOCK)
-		LEFT JOIN (
-			SELECT DISTINCT ProductId FROM @DeductionSetting
-			UNION SELECT DISTINCT ProductId FROM @StraightSetting
-		) s ON p.ProductId = s.ProductId
-	WHERE p.Enabled = 1 AND p.IsTest = 0 AND s.ProductId IS NULL
-	
-	IF ISNULL(@ErrMsg, '') <> ''
-	BEGIN
-		-- Please select the following product: <product 1>, <product 2>
-		SELECT @ErrCode = 110, @ErrMsg = 'Please select the following product: ' + @ErrMsg
-
-		RETURN
-	END
+        IF EXISTS(
+                SELECT 1
+                FROM @TierSetting ts1
+                    INNER JOIN @TierSetting ts2 ON ts1.TierID + 1 = ts2.TierID AND ts1.GroupProductId = ts2.GroupProductId
+                WHERE ts1.MaxAmount + 1 <> ts2.MinAmount
+            )
+			OR EXISTS(
+				SELECT TOP 1 1
+				FROM @TierSetting ts1
+					INNER JOIN @TierSetting ts2 ON ts1.TierID + 1 = ts2.TierID AND ts1.GroupProductId = ts2.GroupProductId
+				 WHERE ts1.MaxAmount > ts2.MaxAmount 
+				 	OR ts1.MinAmount > ts2.MinAmount 
+			)
+        BEGIN
+            -- The values in the Min Net Win column must increase sequentially.
+            SELECT @ErrCode = 203, @ErrMsg = dbo.Aff_f_GetMessageById(1012, @Language)
+            RETURN
+        END
+    END
 
 	IF @IsPrivate = 1
 	BEGIN
@@ -246,21 +239,21 @@ BEGIN
 
 	BEGIN TRY
 		-- General information
-		INSERT INTO dbo.CommGroup (GroupName, CreatedDate, Creator, IsPrivate, SubCommRate, Description, GroupTypeId)
-		VALUES (@GroupName, GETDATE(), @UserId, @IsPrivate, @SubCommRate, @Description, @GroupTypeId)
+		INSERT INTO dbo.CommGroup (GroupName, CreatedDate, Creator, IsPrivate, SubCommRate, Description, GroupTypeId, QMTurnover)
+		VALUES (@GroupName, GETDATE(), @UserId, @IsPrivate, @SubCommRate, @Description, @GroupTypeId, @QMTurnover)
 
 		SELECT @GroupId = SCOPE_IDENTITY()
 
 		--History Group
-		INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate)
-		VALUES (@GroupId, @MonthDate, @SubCommRate)
+		INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate, QMTurnover)
+		VALUES (@GroupId, @MonthDate, @SubCommRate, @QMTurnover)
 
 		-- Tier List
-		INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum)
-		SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission , @IsActivePlayerSum FROM @TierSetting
+		INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
+		SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission , @IsActivePlayerSum FROM @TierSetting
 
-		INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, IsActivePlayerSum)
-		SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinAM, MaxAM, Commission, @IsActivePlayerSum FROM @TierSetting
+		INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
+		SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, @IsActivePlayerSum FROM @TierSetting
 
 		-- Deduction List
 		INSERT INTO dbo.DeductionSetting (GroupId, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
@@ -269,12 +262,6 @@ BEGIN
 		INSERT INTO dbo.DeductionSettingHistory (GroupId, MonthDate, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
 		SELECT @GroupId, @MonthDate, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent FROM @DeductionSetting
 
-		-- Straight List
-		INSERT INTO dbo.StraightSetting (GroupId, ProductId, GroupProductId, DeductedPercentage, Commission)
-		SELECT @GroupId, ProductId, GroupProductId, DeductedPercentage, Commission FROM @StraightSetting
-
-		INSERT INTO dbo.StraightSettingHistory (GroupId, MonthDate, ProductId, GroupProductId, DeductedPercentage, Commission)
-		SELECT @GroupId, @MonthDate, ProductId, GroupProductId, DeductedPercentage, Commission FROM @StraightSetting
 	END TRY
 	BEGIN CATCH
 		-- Rollback manually
@@ -284,8 +271,6 @@ BEGIN
 		DELETE dbo.TierSettingHistory WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 		DELETE dbo.DeductionSetting WHERE GroupId = @GroupId
 		DELETE dbo.DeductionSettingHistory WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-		DELETE dbo.StraightSetting WHERE GroupId = @GroupId
-		DELETE dbo.StraightSettingHistory WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
 		-- Failed to insert new group! Please try again!
 		SELECT @ErrCode = 105, @ErrMsg = dbo.Aff_f_GetMessageById(1005, @Language)
@@ -308,8 +293,8 @@ BEGIN
 		'DeductionList='+ ISNULL(CONVERT(NVARCHAR(MAX), @DeductionList), '') + ',' +
 		'TierList='		+ ISNULL(CONVERT(NVARCHAR(MAX), @TierList), '') + ',' +
 		'IsActivePlayerSum='+ ISNULL(CONVERT(NVARCHAR(MAX), @IsActivePlayerSum), '') + ',' +
-		'StraightList='	+ ISNULL(CONVERT(NVARCHAR(MAX), @StraightList), '') + ',' +
-		'SubCommRate='	+ ISNULL(CONVERT(NVARCHAR(MAX), @SubCommRate), '')
+		'SubCommRate='	+ ISNULL(CONVERT(NVARCHAR(MAX), @SubCommRate), '') + ',' +
+		'QMTurnover='	+ ISNULL(CONVERT(NVARCHAR(MAX), @QMTurnover), '')
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,
