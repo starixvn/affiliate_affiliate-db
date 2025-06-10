@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_Overview_Detail_Sel]
 	@AffId			INT
 	,@MonthDate		SMALLDATETIME
@@ -20,6 +20,7 @@ AS
 		- 20220110@Percy: Fix check current date due to different timezone [RedmineID: #167244]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+		- 20250521@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
 
 	Param's Explanation:
 		. @BaseCurrency : Currency of B2C
@@ -30,9 +31,10 @@ BEGIN
 	SET NOCOUNT ON
 
 	-- date range for get data whole month of @MonthDate
-	DECLARE @FromBeginMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME
-	SELECT  @FromBeginMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
-	SELECT  @ToNextMonth	= DATEADD(MONTH, 1, @FromBeginMonth)
+	DECLARE @FromBeginMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME, @CommissionCal_CutOffDate SMALLDATETIME
+	SELECT  @FromBeginMonth 			= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
+	SELECT  @ToNextMonth				= DATEADD(MONTH, 1, @FromBeginMonth)
+	SELECT  @CommissionCal_CutOffDate	= CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'CommissionCal_CutOffDate'
 
 	DECLARE @EndOfMonth SMALLDATETIME
 	SELECT  @EndOfMonth = DATEADD(DAY, -1, @ToNextMonth)
@@ -116,18 +118,17 @@ BEGIN
 
 		CREATE CLUSTERED INDEX CIX_IBCCustId_WinlostDate ON #Data (CustId, WinlostDate)
 
-		UPDATE d
-		SET d.IsActive = 0
-		FROM #Data d
-			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId
-		WHERE d.IsActive = 1
-			AND (
-				m.FirstDepositDate IS NULL
-				OR m.FirstDepositDate >= DATEADD(DAY, 1, @EndOfMonth)
-			)
+		-- Active Members + Qualified Members
+        DECLARE @ActiveMembers TABLE (WinlostDate SMALLDATETIME, CustId INT)
+        DECLARE @QualifiedMember TABLE (WinlostDate SMALLDATETIME, CustId INT, Turnover MONEY)
 
-		-- Active Members
-		DECLARE @ActiveMembers TABLE (WinlostDate SMALLDATETIME, CustId INT)
+        DECLARE @QMTurnover MONEY
+
+        SELECT  @QMTurnover = QMTurnover
+        FROM dbo.CommGroupHistory cgh WITH (NOLOCK)
+            INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON cgh.GroupID = agh.GroupID AND cgh.MonthDate = agh.MonthDate
+        WHERE cgh.MonthDate = @EndOfMonth
+            AND agh.AffID = @AffId
 
 		DECLARE @tmpWinlostDate SMALLDATETIME
 		SELECT  @tmpWinlostDate = @FromBeginMonth
@@ -142,8 +143,19 @@ BEGIN
 				WHERE WinlostDate = @tmpWinlostDate
 					AND IsActive = 1
 					AND NOT EXISTS (SELECT 1 FROM @ActiveMembers a WHERE d.CustId = a.CustId)
+				
+				IF (@tmpWinlostDate >= @CommissionCal_CutOffDate)
+				BEGIN
+					INSERT INTO @QualifiedMember (WinlostDate, CustId, Turnover)
+					SELECT @tmpWinlostDate AS WinlostDate, CustId, SUM(Turnover) AS Turnover
+					FROM #Data d
+					WHERE WinlostDate <= @tmpWinlostDate
+						AND NOT EXISTS (SELECT 1 FROM @QualifiedMember q WHERE d.CustId = q.CustId)
+					GROUP BY CustId
+					HAVING SUM(Turnover) >= @QMTurnover
+				END
 			END
-
+			
 			SELECT @tmpWinlostDate = DATEADD(DAY, 1, @tmpWinlostDate)
 		END
 	END
@@ -166,6 +178,7 @@ BEGIN
 			,ISNULL(d.Turnover, 0)			AS Turnover
 			,ISNULL(d.GGR, 0)				AS GGR
 			,ISNULL(a.ActiveMembers, 0)		AS ActiveMembers
+			,ISNULL(q.QualifiedMember, 0)	AS QualifiedMember
 		FROM CTE_WinlostDate wld
 			OUTER APPLY (
 				SELECT SUM(s.Signups) AS Signups, SUM(s.DepositedMembers) AS DepositedMembers
@@ -182,6 +195,11 @@ BEGIN
 				FROM @ActiveMembers a
 				WHERE wld.WinlostDate = a.WinlostDate
 			) a
+			OUTER APPLY (
+				SELECT COUNT(DISTINCT q.CustId) AS QualifiedMember
+				FROM @QualifiedMember q
+				WHERE wld.WinlostDate = q.WinlostDate
+			) q
 		ORDER BY wld.WinlostDate DESC
 	END
 

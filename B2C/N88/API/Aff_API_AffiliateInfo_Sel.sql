@@ -16,6 +16,7 @@ AS
 	Revisions:
 		- 20220907@Malcolm: Initialize SP [RedmineID: #177552]
 		- 20240506@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
+		- 20250515@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
 */
 
 BEGIN
@@ -87,6 +88,7 @@ BEGIN
 			NetWinloss			MONEY,
 			NetTurnover			MONEY,
 			ActivePlayer		INT,
+			QualifiedMember		INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
 			StraightCommission	MONEY,
@@ -121,6 +123,7 @@ BEGIN
 				NetWinloss,
 				NetTurnover,
 				ActivePlayer,
+				QualifiedMember,
 				CommissionRate,
 				Commission,
 				StraightCommission,
@@ -163,6 +166,7 @@ BEGIN
 				NetWinloss,
 				NetTurnover,
 				ActivePlayer,
+				QualifiedMember,
 				CommissionRate,
 				Commission,
 				StraightCommission,
@@ -243,15 +247,15 @@ BEGIN
 	) AS n
 
 	SELECT 
-		AffId				
+		AffId
 		,Username AS AffName
 		,GroupName
-		,TotalPlayers		
-		,CommissionRate 
+		,TotalPlayers
+		,CommissionRate
 		,Earning + P2PEarning + SubAffEarning AS [TotalEarning]
 	FROM #Result
 	ORDER BY Username ASC
-	
+
 	DROP TABLE #TempCommission
 	DROP TABLE #Result
 END

@@ -18,6 +18,7 @@ AS
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20240506@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
 		- 20250401@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
+		- 20250515@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985].
 
 */
 
@@ -49,9 +50,9 @@ BEGIN
 			AND Status IN ('Pending', 'Approved', 'Completed')
 	END
 
-	-- Active Players, Turnover, Deposit, Commission
+	-- Active Players, Turnover, Deposit, Commission, QualifiedMember
 	BEGIN
-		DECLARE @NoOfSubAff INT, @ActivePlayers INT, @Turnover MONEY, @Deposit MONEY, @Commission MONEY, @SubAffCommission MONEY
+		DECLARE @NoOfSubAff INT, @ActivePlayers INT, @QualifiedMember INT, @Turnover MONEY, @Deposit MONEY, @Commission MONEY, @SubAffCommission MONEY
 
 		SELECT @NoOfSubAff = COUNT(1)
 		FROM dbo.AffInfo WITH (NOLOCK)
@@ -84,11 +85,12 @@ BEGIN
 			NetWinloss			MONEY,
 			NetTurnover			MONEY,
 			ActivePlayer		INT,
+			QualifiedMember		INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
 			StraightCommission	MONEY,
 			SubAffCommission	MONEY,
-			IsMultiGroupProduct BIT 
+			IsMultiGroupProduct BIT
 		)
 
 		DECLARE @MaxCommDate SMALLDATETIME, @AffIds VARCHAR(MAX)
@@ -119,6 +121,7 @@ BEGIN
 				NetWinloss,
 				NetTurnover,
 				ActivePlayer,
+				QualifiedMember,
 				CommissionRate,
 				Commission,
 				StraightCommission,
@@ -158,6 +161,7 @@ BEGIN
 				NetWinloss,
 				NetTurnover,
 				ActivePlayer,
+				QualifiedMember,
 				CommissionRate,
 				Commission,
 				StraightCommission,
@@ -176,6 +180,7 @@ BEGIN
 
 		SELECT
 			@ActivePlayers		= SUM(ISNULL(ActivePlayer, 0))
+			,@QualifiedMember	= SUM(ISNULL(QualifiedMember, 0))
 			,@Turnover			= SUM(ISNULL(Turnover, 0))
 			,@Deposit			= SUM(ISNULL(Deposit, 0))
 			,@Commission		= SUM(ISNULL(Commission, 0) + ISNULL(StraightCommission, 0))
@@ -192,6 +197,7 @@ BEGIN
 			,ISNULL(@DepositedMembers, 0)	AS DepositedMembers
 			,ISNULL(@BBF, 0)				AS BalanceBroughtForward
 			,ISNULL(@ActivePlayers, 0)		AS ActivePlayers
+			,ISNULL(@QualifiedMember, 0)	AS QualifiedMember
 			,ISNULL(@Turnover, 0)			AS Turnover
 			,ISNULL(@Deposit, 0)			AS Deposit
 			,ISNULL(@Commission, 0)			AS Commission

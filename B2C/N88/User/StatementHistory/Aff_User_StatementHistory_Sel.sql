@@ -22,6 +22,7 @@ AS
 		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 		- 20240503@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
 		- 20250418@Sally: Get data BBF by timezone [RedmineID: #222401]
+		- 20250515@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -189,6 +190,7 @@ BEGIN
 				NetWinloss			MONEY,
 				NetTurnover			MONEY,
 				ActivePlayer		INT,
+				QualifiedMember		INT,
 				CommissionRate		FLOAT,
 				Commission			MONEY,
 				StraightCommission	MONEY,
@@ -218,6 +220,7 @@ BEGIN
 				NetWinloss,
 				NetTurnover,
 				ActivePlayer,
+				QualifiedMember,
 				CommissionRate,
 				Commission,
 				StraightCommission,

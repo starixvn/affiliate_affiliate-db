@@ -17,6 +17,7 @@ AS
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20240506@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
+		- 20250515@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
 */
 
 BEGIN
@@ -27,7 +28,7 @@ BEGIN
 	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
 
-	-- Total Turnover, Winloss, Commission
+	-- Total Turnover, Winloss, Commission, QualifiedMember
 	BEGIN
 		CREATE TABLE #TempCommission
 		(
@@ -53,11 +54,12 @@ BEGIN
 			NetWinloss			MONEY,
 			NetTurnover			MONEY,
 			ActivePlayer		INT,
+			QualifiedMember		INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
 			StraightCommission	MONEY,
 			SubAffCommission	MONEY,
-			IsMultiGroupProduct BIT
+			IsMultiGroupProduct	BIT
 		)
 
 		DECLARE @MaxCommDate SMALLDATETIME, @AffIds VARCHAR(MAX)
@@ -98,6 +100,7 @@ BEGIN
 				NetWinloss,
 				NetTurnover,
 				ActivePlayer,
+				QualifiedMember,
 				CommissionRate,
 				Commission,
 				StraightCommission,
@@ -137,6 +140,7 @@ BEGIN
 				NetWinloss,
 				NetTurnover,
 				ActivePlayer,
+				QualifiedMember,
 				CommissionRate,
 				Commission,
 				StraightCommission,
@@ -168,6 +172,7 @@ BEGIN
 			,c.GGR
 			,c.Commission
 			,c.ActivePlayer
+			,c.QualifiedMember
 		FROM dbo.AffInfo ai WITH (NOLOCK)
 			OUTER APPLY (
 				SELECT
@@ -175,6 +180,7 @@ BEGIN
 					,SUM(-c.Winloss + c.Revenue) AS GGR
 					,SUM(c.Commission + c.StraightCommission + c.SubAffCommission) AS Commission
 					,SUM(c.ActivePlayer) AS ActivePlayer
+					,SUM(c.QualifiedMember) AS QualifiedMember
 				FROM #TempCommission c
 				WHERE ai.AffId = c.AffId
 					AND ISNULL(ai.IsSuspended, 0) = 0
