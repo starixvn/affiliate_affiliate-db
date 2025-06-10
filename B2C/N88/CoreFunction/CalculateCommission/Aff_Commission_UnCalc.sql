@@ -37,6 +37,7 @@ AS
 		- 20240426@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
 		- 20240718@Sally: Enhance SP for better performance [RedmineID: #208057]
 		- 20250514@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
+		- 20250514@Sally: Change Royalty Fee condition [RedmineID: #230064]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -535,9 +536,7 @@ BEGIN
 			BEGIN
 				;WITH CTE_PlatFormFee AS(
 					SELECT g.MonthDate, g.AffId, g.GroupId, g.GroupProductId
-						,CASE WHEN G.MonthDate >= @CommissionCal_CutOffDate THEN ABS(g.GrossWinloss) 
-							ELSE IIF(g.Winloss > 0, 0, g.GrossWinloss) END 
-							* ISNULL(s.PlatFormFee, 0) + ISNULL(s.PlatFormAmount, 0) AS PlatFormFee
+						,CASE WHEN g.Winloss > 0 THEN 0 ELSE g.GrossWinloss * ISNULL(s.PlatFormFee, 0) + ISNULL(s.PlatFormAmount, 0) END AS PlatFormFee
 					FROM (
 						SELECT m.MonthDate, m.AffId, m.GroupId, m.GroupProductId
 							,CASE WHEN m.MonthDate < @CommissionCal_CutOffDate THEN m.ProductId ELSE ISNULL(g.GroupProductId, m.ProductId) END AS ParentProductId
