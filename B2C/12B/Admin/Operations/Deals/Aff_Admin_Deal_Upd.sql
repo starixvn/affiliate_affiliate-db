@@ -278,7 +278,7 @@ BEGIN
 		IF (@HoldingDays > 0 OR @HoldingTickets > 0)
 			AND NOT (@HoldingDays > 0 AND @HoldingTickets > 0)
 		BEGIN
-			SELECT @ErrCode = 313, @ErrMsg = N'Need to fill Holding tickets (or and) Holding days'
+			SELECT @ErrCode = 313, @ErrMsg = N'Holding tickets and Holding days must both be greater than 0.'
 			RETURN
 		END
 
@@ -584,7 +584,7 @@ BEGIN
 	BEGIN
 		-- CPAGroupSetting
 		IF EXISTS (
-			SELECT 1 FROM CPAGroupSetting
+			SELECT 1 FROM CPAGroupSetting WITH (NOLOCK)
 			WHERE GroupId = @GroupId AND ToDate = @ToDate
 			  AND (
 					ISNULL(SubCommRate, 0) <> ISNULL(@SubCommRate, 0)
@@ -605,12 +605,12 @@ BEGIN
 
 			-- Update current row in CPAGroupSetting --> Todate = ActionDate
 			UPDATE CPAGroupSetting WITH (ROWLOCK, UPDLOCK)
-			SET ToDate = @ActionDate
+			SET ToDate = DATEADD(dd,-1,@ActionDate)
 			WHERE GroupId = @GroupId AND ToDate = @ToDate;
 
 			-- Insert new row into CPAGroupSetting --> FromDate = ActionDate + 1
 			INSERT INTO CPAGroupSetting (FromDate, ToDate, GroupId, GroupTypeId, SubCommRate, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, IsInstant)
-			VALUES (DATEADD(dd, 1, @ActionDate), @ToDate, @GroupId, @GroupTypeId, @SubCommRate, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @IsInstant)
+			VALUES (@ActionDate, @ToDate, @GroupId, @GroupTypeId, @SubCommRate, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @IsInstant)
 			;
 		END
 
@@ -640,7 +640,7 @@ BEGIN
 
 			-- Remove/Change: Update ToDate for removed/changed
 			UPDATE t
-			SET ToDate = @ActionDate
+			SET ToDate = DATEADD(dd,-1,@ActionDate)
 			FROM CPATierSetting t WITH (ROWLOCK, UPDLOCK)
 			LEFT JOIN @CPATier n
 				ON t.GroupId = @GroupId AND t.ToDate = @ToDate
@@ -659,7 +659,7 @@ BEGIN
 
 			-- Add/Change: Insert new rows for added/changed
 			INSERT INTO CPATierSetting (FromDate, ToDate, GroupId, GroupProductId, TierId, MinFDM, MaxFDM, MinTotalDeposit, MaxTotalDeposit, MinTO, MaxTO, CPAAmount)
-			SELECT DATEADD(dd, 1, @ActionDate), @ToDate, @GroupId, n.GroupProductId, n.TierId, n.MinFDM, n.MaxFDM, n.MinTotalDeposit, n.MaxTotalDeposit, n.MinTO, n.MaxTO, n.CPAAmount
+			SELECT @ActionDate, @ToDate, @GroupId, n.GroupProductId, n.TierId, n.MinFDM, n.MaxFDM, n.MinTotalDeposit, n.MaxTotalDeposit, n.MinTO, n.MaxTO, n.CPAAmount
 			FROM @CPATier n
 			LEFT JOIN CPATierSetting t WITH (NOLOCK)
 				ON t.GroupId = @GroupId AND t.ToDate = @ToDate
@@ -699,7 +699,7 @@ BEGIN
 
 			-- Remove: Update ToDate for removed
 			UPDATE t
-			SET ToDate = @ActionDate
+			SET ToDate = DATEADD(dd,-1,@ActionDate)
 			FROM CPAProductSetting t WITH (ROWLOCK, UPDLOCK)
 			LEFT JOIN @CPAProduct n
 				ON t.GroupId = @GroupId AND t.ToDate = @ToDate
@@ -709,7 +709,7 @@ BEGIN
 
 			-- Add: Insert new rows for added
 			INSERT INTO CPAProductSetting (FromDate, ToDate, GroupId, GroupProductId, ProductId)
-			SELECT DATEADD(dd, 1, @ActionDate), @ToDate, @GroupId, n.GroupProductId, n.ProductId
+			SELECT @ActionDate, @ToDate, @GroupId, n.GroupProductId, n.ProductId
 			FROM @CPAProduct n
 			LEFT JOIN CPAProductSetting t WITH (NOLOCK)
 				ON t.GroupId = @GroupId AND t.ToDate = @ToDate
@@ -764,7 +764,7 @@ BEGIN
 		-- ==========================
 		-- CPAGroupSetting
 		IF EXISTS (
-			SELECT 1 FROM CPAGroupSetting
+			SELECT 1 FROM CPAGroupSetting WITH (NOLOCK)
 			WHERE GroupId = @GroupId AND ToDate = @ToDate
 			  AND (
 					ISNULL(SubCommRate, 0) <> ISNULL(@SubCommRate, 0)
@@ -785,12 +785,12 @@ BEGIN
 
 			-- Update current row in CPAGroupSetting --> Todate = ActionDate
 			UPDATE CPAGroupSetting WITH (ROWLOCK, UPDLOCK)
-			SET ToDate = @ActionDate
+			SET ToDate = DATEADD(dd,-1,@ActionDate)
 			WHERE GroupId = @GroupId AND ToDate = @ToDate;
 
 			-- Insert new row into CPAGroupSetting --> FromDate = ActionDate + 1
 			INSERT INTO CPAGroupSetting (FromDate, ToDate, GroupId, GroupTypeId, SubCommRate, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, IsInstant)
-			VALUES (DATEADD(dd, 1, @ActionDate), @ToDate, @GroupId, @GroupTypeId, @SubCommRate, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @IsInstant)
+			VALUES (@ActionDate, @ToDate, @GroupId, @GroupTypeId, @SubCommRate, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @IsInstant)
 			;
 		END
 
@@ -820,7 +820,7 @@ BEGIN
 
 			-- Remove/Change: Update ToDate for removed/changed
 			UPDATE t
-			SET ToDate = @ActionDate
+			SET ToDate = DATEADD(dd,-1,@ActionDate)
 			FROM CPATierSetting t WITH (ROWLOCK, UPDLOCK)
 			LEFT JOIN @CPATier n
 				ON t.GroupId = @GroupId AND t.ToDate = @ToDate
@@ -839,7 +839,7 @@ BEGIN
 
 			-- Add/Change: Insert new rows for added/changed
 			INSERT INTO CPATierSetting (FromDate, ToDate, GroupId, GroupProductId, TierId, MinFDM, MaxFDM, MinTotalDeposit, MaxTotalDeposit, MinTO, MaxTO, CPAAmount)
-			SELECT DATEADD(dd, 1, @ActionDate), @ToDate, @GroupId, n.GroupProductId, n.TierId, n.MinFDM, n.MaxFDM, n.MinTotalDeposit, n.MaxTotalDeposit, n.MinTO, n.MaxTO, n.CPAAmount
+			SELECT @ActionDate, @ToDate, @GroupId, n.GroupProductId, n.TierId, n.MinFDM, n.MaxFDM, n.MinTotalDeposit, n.MaxTotalDeposit, n.MinTO, n.MaxTO, n.CPAAmount
 			FROM @CPATier n
 			LEFT JOIN CPATierSetting t WITH (NOLOCK)
 				ON t.GroupId = @GroupId AND t.ToDate = @ToDate
@@ -879,7 +879,7 @@ BEGIN
 
 			-- Remove: Update ToDate for removed
 			UPDATE t
-			SET ToDate = @ActionDate
+			SET ToDate = DATEADD(dd,-1,@ActionDate)
 			FROM CPAProductSetting t WITH (ROWLOCK, UPDLOCK)
 			LEFT JOIN @CPAProduct n
 				ON t.GroupId = @GroupId AND t.ToDate = @ToDate
@@ -888,7 +888,7 @@ BEGIN
 			  AND n.GroupProductId IS NULL;
 			-- Add: Insert new rows for added
 			INSERT INTO CPAProductSetting (FromDate, ToDate, GroupId, GroupProductId, ProductId)
-			SELECT DATEADD(dd, 1, @ActionDate), @ToDate, @GroupId, n.GroupProductId, n.ProductId
+			SELECT @ActionDate, @ToDate, @GroupId, n.GroupProductId, n.ProductId
 			FROM @CPAProduct n
 			LEFT JOIN CPAProductSetting t WITH (NOLOCK)
 				ON t.GroupId = @GroupId AND t.ToDate = @ToDate

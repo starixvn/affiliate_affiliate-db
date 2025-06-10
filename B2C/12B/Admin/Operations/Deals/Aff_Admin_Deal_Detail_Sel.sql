@@ -14,62 +14,120 @@ AS
 
 BEGIN
     SET NOCOUNT ON;
+	DECLARE @GroupTypeID INT 
+	SELECT @GroupTypeID = GroupTypeId FROM CommGroup WITH (NOLOCK) WHERE GroupId = @GroupId
 
-    -- Temporary table for paging
-    CREATE TABLE #Deals (
-        RowNum INT,
-        GroupId INT,
-        DealName NVARCHAR(100),
-        DealType NVARCHAR(100),
-        NoAff INT,
-        Description NVARCHAR(255),
-        UpdatedBy VARCHAR(30),
-        UpdatedDate DATETIME
-    );
-
-    -- Insert filtered deals from CommGroup with INNER JOIN to GroupType and OUTER APPLY for NoAff
-    INSERT INTO #Deals (RowNum, GroupId, DealName, DealType, NoAff, Description, UpdatedBy, UpdatedDate)
     SELECT 
-        ROW_NUMBER() OVER(ORDER BY cg.UpdatedTime DESC),
 		cg.GroupId,
         cg.GroupName AS DealName,
         gt.GroupTypeName AS DealType,
-        ISNULL(aff.NoAff, 0) AS NoAff,
         cg.Description,
-        au.Username AS UpdatedBy,
-        cg.UpdatedTime
+		cg.SubCommRate,
+		--Revenue
+		cg.QMTurnover,
+		--CPA
+		cg.CountryCodes,
+		cg.ActiveDays,
+		cg.HoldingTickets,
+		cg.HoldingDays,
+		cg.Quota,
+		cg.IsInstant
     FROM CommGroup cg WITH (NOLOCK)
     INNER JOIN GroupType gt WITH (NOLOCK) ON cg.GroupTypeId = gt.GroupTypeId
-    OUTER APPLY (
-        SELECT COUNT(1) AS NoAff FROM AffInfo ai WITH (NOLOCK) WHERE ai.GroupId = cg.GroupId
-    ) aff
-	LEFT JOIN Affiliate_User au WITH (NOLOCK) ON cg.UpdatedBy = au.CustId
-    WHERE ( ISNULL(@GroupId,0) = 0 OR cg.GroupId = @GroupId )
-      AND ( ISNULL(@GroupName,'') = '' OR cg.GroupName LIKE '%' + @GroupName + '%' )
-      AND ( ISNULL(@GroupTypeId,0) = 0 OR cg.GroupTypeId = @GroupTypeId )
+    WHERE cg.GroupId = @GroupId
 	  AND cg.IsDeleted = 0
-    -- Get total rows
-    SELECT @NRows = COUNT(1) FROM #Deals;
+	
+	--Revenue
+	IF @GroupTypeID IN (1,4)
+	BEGIN
+		-- Tier List
+		SELECT
+			gs.GroupId,
+			gs.TierId,
+			gs.MinAmount,
+			gs.MaxAmount,
+			gs.MinQM,
+			gs.MaxQM,
+			gs.Commission,
+			gs.GroupProductId
+		FROM dbo.TierSetting gs WITH (NOLOCK)
+		WHERE gs.GroupId = @GroupId
+		ORDER BY
+			gs.GroupProductId,
+			gs.TierId
 
-    -- Calculate row boundaries for paging
-    DECLARE @RowStart INT, @RowEnd INT;
-    SET @RowStart = ((@PageIndex - 1) * @PageSize) + 1;
-    SET @RowEnd = @PageIndex * @PageSize;
+		-- Deduction List
+		SELECT
+			ds.GroupId,
+			ds.DeductionId,
+			dt.DeductionName,
+			STUFF(
+				(SELECT	',' + CONVERT(VARCHAR(10), d.ProductId)
+					FROM dbo.DeductionSetting d WITH (NOLOCK)
+						LEFT JOIN dbo.Aff_f_GroupProduct() gp ON d.ProductID = gp.ProductId 
+															AND gp.ProductId <> gp.GroupProductId 										
+					WHERE gp.ProductId IS NULL
+						AND ds.GroupId			= d.GroupId
+						AND ds.DeductionId		= d.DeductionId
+						AND ds.GroupProductId	= d.GroupProductId
+						AND d.ProductId			<> 0
+					FOR XML PATH (''))
+					, 1, 1, '') AS ProductIds,
+			ds.DeductedPercentage,
+			ds.DeductedAmount,
+			ds.IsDeductedPercent,
+			ds.GroupProductId
+		FROM dbo.DeductionSetting ds WITH (NOLOCK)
+			INNER JOIN dbo.Deductions dt WITH (NOLOCK) ON ds.DeductionId = dt.DeductionId
+		WHERE ds.GroupId = @GroupId AND dt.IsDeleted = 0
+		GROUP BY
+			ds.GroupId,
+			ds.DeductionId,
+			dt.DeductionName,
+			ds.GroupProductId,
+			ds.DeductedPercentage,
+			ds.DeductedAmount,
+			ds.IsDeductedPercent
+	END
 
-    -- Return paged result using row boundaries
-    SELECT 
-        RowNum,
-		GroupId,
-        DealName,
-        DealType,
-        NoAff,
-        Description,
-        UpdatedBy,
-        UpdatedDate
-    FROM #Deals
-    WHERE RowNum BETWEEN @RowStart AND @RowEnd
-    ORDER BY RowNum;
+	--CPA
+	IF @GroupTypeID IN (3,4)
+	BEGIN
+		--TierSetting
+		SELECT
+			GroupId,
+			GroupProductId,
+			TierId,
+			MinFDM,
+			MaxFDM,
+			MinTotalDeposit,
+			MaxTotalDeposit,
+			MinTO,
+			MaxTO,
+			CPAAmount
+		FROM CPATierSetting WITH (NOLOCK)
+		WHERE GroupId = @GroupId
+			AND ToDate = '9999-12-31'
+		ORDER BY
+			GroupProductId,
+			TierId
 
-    DROP TABLE #Deals;
+		--Products
+		SELECT
+			d.GroupId,
+			d.GroupProductId,
+			STRING_AGG(CAST(d.ProductId AS VARCHAR(MAX)),',') AS ProductIds
+		FROM CPAProductSetting d WITH (NOLOCK)
+		LEFT JOIN dbo.Aff_f_GroupProduct() gp ON d.ProductID = gp.ProductId AND gp.ProductId <> gp.GroupProductId
+		WHERE GroupId = @GroupId
+			AND ToDate = '9999-12-31'
+		GROUP BY
+			d.GroupId,
+			d.GroupProductId
+		ORDER BY
+			GroupProductId
+	END
+
+
 END
 GO

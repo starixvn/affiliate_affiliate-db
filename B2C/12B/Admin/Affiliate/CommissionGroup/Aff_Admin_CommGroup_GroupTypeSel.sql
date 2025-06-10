@@ -17,7 +17,6 @@ BEGIN
 	SELECT 	g.GroupTypeId 
 		,g.GroupTypeBy 
 		,g.GroupTypeName
-		,g.DisplayOrder 
 	FROM dbo.GroupType g WITH(NOLOCK)
 	WHERE g.IsEnabled = 1
 

@@ -266,7 +266,7 @@ BEGIN
 		IF (@HoldingDays > 0 OR @HoldingTickets > 0)
 			AND NOT (@HoldingDays > 0 AND @HoldingTickets > 0)
 		BEGIN
-			SELECT @ErrCode = 313, @ErrMsg = N'Need to fill Holding tickets (or and) Holding days'
+			SELECT @ErrCode = 313, @ErrMsg = N'Holding tickets and Holding days must both be greater than 0.'
 			RETURN
 		END
 
