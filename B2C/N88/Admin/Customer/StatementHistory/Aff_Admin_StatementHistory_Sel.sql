@@ -20,7 +20,7 @@ AS
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20240502@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
 		- 20250417@Sally: Get data BBF by timezone [RedmineID: #222401]
-
+		- 20250515@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
 */
 
 BEGIN
@@ -183,11 +183,12 @@ BEGIN
 				NetWinloss			MONEY,
 				NetTurnover			MONEY,
 				ActivePlayer		INT,
+				QualifiedMember		INT DEFAULT (0),
 				CommissionRate		FLOAT,
 				Commission			MONEY,
 				StraightCommission	MONEY,
 				SubAffCommission	MONEY,
-				IsMultiGroupProduct BIT
+				IsMultiGroupProduct	BIT
 			)
 
 			INSERT INTO #TempCommission
@@ -212,6 +213,7 @@ BEGIN
 				NetWinloss,
 				NetTurnover,
 				ActivePlayer,
+				QualifiedMember,
 				CommissionRate,
 				Commission,
 				StraightCommission,

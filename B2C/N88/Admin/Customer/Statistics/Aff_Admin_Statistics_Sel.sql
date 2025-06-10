@@ -19,6 +19,7 @@ AS
 		- 20240506@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
 		- 20250402@Sophia: Fix Unique Click count IP by range from - to [RedmineID: #221818]
 		- 20250416@Sophia: Get report by timezone [RedmineID: #222401]
+		- 20250520@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
 		
 	Notes:
 	  - ClickStatistics.Date contains Date only, in GMT-4
@@ -34,6 +35,7 @@ BEGIN
 			@FDMByMonth					INT,
 			@FDMTotal					INT,
 			@ActivePlayersByMonth		INT,
+			@QualifiedMembersByMonth	INT,
 			@DepositByMonth				MONEY,
 			@DepositTotal				MONEY,
 			@TurnoverByMonth			MONEY,
@@ -47,11 +49,12 @@ BEGIN
 			@NoOfSubAffByMonth			INT,
 			@NoOfSubAffTotal			INT
 
-	DECLARE @FromBeginMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME
+	DECLARE @FromBeginMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME, @CurrentDate SMALLDATETIME
 	SELECT	@FromBeginMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT	@ToNextMonth	= DATEADD(MONTH, 1, @FromBeginMonth)
+	SELECT  @CurrentDate    = CONVERT(DATE, DATEADD(HOUR, 12, GETDATE())) -- GMT-4 TO GMT+8
 
-	SELECT  @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate) + 1, 0))
+	SELECT  @MonthDate = EOMONTH(@MonthDate)
 
 	-- member statistics
 	BEGIN
@@ -87,6 +90,7 @@ BEGIN
 			NetWinloss			MONEY,
 			NetTurnover			MONEY,
 			ActivePlayer		INT,
+			QualifiedMember		INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
 			StraightCommission	MONEY,
@@ -97,7 +101,7 @@ BEGIN
 		-- Uncalculated Months
 		BEGIN
 			SELECT	@tempFromDate	= DATEADD(DAY, 1, @MaxCommDate),
-					@tempToDate		= CONVERT(DATE, GETDATE())
+					@tempToDate		= @CurrentDate
 
 			SELECT  @IsSumAll = CASE WHEN @MonthDate >= @tempFromDate THEN 0 ELSE 1 END
 
@@ -123,6 +127,7 @@ BEGIN
 				NetWinloss,
 				NetTurnover,
 				ActivePlayer,
+				QualifiedMember,
 				CommissionRate,
 				Commission,
 				StraightCommission,
@@ -167,6 +172,7 @@ BEGIN
 				NetWinloss,
 				NetTurnover,
 				ActivePlayer,
+				QualifiedMember,
 				CommissionRate,
 				Commission,
 				StraightCommission,
@@ -184,7 +190,8 @@ BEGIN
 	END
 
 	SELECT
-		@ActivePlayersByMonth	= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(ActivePlayer, 0) ELSE 0 END),
+		@ActivePlayersByMonth		= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(ActivePlayer, 0) ELSE 0 END),
+		@QualifiedMembersByMonth	= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(QualifiedMember, 0) ELSE 0 END),
 		@DepositByMonth			= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Deposit, 0) ELSE 0 END),
 		@TurnoverByMonth		= SUM(CASE WHEN MonthDate = @MonthDate THEN ISNULL(Turnover, 0) ELSE 0 END),
 		@GGRByMonth				= SUM(CASE WHEN MonthDate = @MonthDate THEN -ISNULL(Winloss, 0) + ISNULL(Revenue, 0) ELSE 0 END),
@@ -286,6 +293,7 @@ BEGIN
 		ISNULL(@FDMByMonth, 0)					AS FDMByMonth,
 		ISNULL(@FDMTotal, 0)					AS FDMTotal,
 		ISNULL(@ActivePlayersByMonth, 0)		AS ActivePlayersByMonth,
+		ISNULL(@QualifiedMembersByMonth, 0)		AS QualifiedMembersByMonth,
 		ISNULL(@DepositByMonth, 0)				AS DepositByMonth,
 		ISNULL(@DepositTotal, 0)				AS DepositTotal,
 		ISNULL(@TurnoverByMonth, 0)				AS TurnoverByMonth,

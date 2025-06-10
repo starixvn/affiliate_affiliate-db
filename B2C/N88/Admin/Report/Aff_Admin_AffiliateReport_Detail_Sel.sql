@@ -35,6 +35,7 @@ AS
 		- 20250401@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 		- 20250508@Sally: Fix get ClickStatistic by TimeZone [RedmineID: #226614]
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225821]
+		- 20250520@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -60,7 +61,8 @@ BEGIN
 		,@FromDate_Local		DATETIME
 		,@ToDate_Local			DATETIME
 
-	SELECT  @Username = ISNULL(LTRIM(RTRIM(@Username)), '')
+	SELECT  @Username = ISNULL(TRIM(@Username), '')
+
 	SELECT  @TimeZone = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
 	SELECT  @AffId = AffId FROM dbo.AffInfo WITH (NOLOCK) WHERE Username = @Username AND Status = 'Approved'
 
@@ -69,7 +71,8 @@ BEGIN
 
 	DECLARE @MinReportDate SMALLDATETIME, @EndOfCurrentMonth SMALLDATETIME
 	SELECT  @MinReportDate		= dbo.Aff_f_GetMinReportDate(@AffId)
-	SELECT  @EndOfCurrentMonth	= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
+
+	SELECT  @EndOfCurrentMonth = EOMONTH(GETDATE())
 
 	IF @IsGetAll = 0
 	BEGIN
@@ -77,7 +80,7 @@ BEGIN
 			RETURN
 
 		SELECT  @FromDate	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0) -- Begin Of Month
-		SELECT  @ToDate		= DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToDate) + 1, 0)) -- End Of Month
+		SELECT  @ToDate		= EOMONTH(@ToDate) -- End Of Month
 
 		IF @FromDate < @MinReportDate
 			SELECT @FromDate = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MinReportDate), 0)
@@ -158,6 +161,7 @@ BEGIN
 			NetWinloss			MONEY,
 			NetTurnover			MONEY,
 			ActivePlayer		INT,
+			QualifiedMember     INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
 			StraightCommission	MONEY,
@@ -192,6 +196,7 @@ BEGIN
 				NetWinloss,
 				NetTurnover,
 				ActivePlayer,
+				QualifiedMember,
 				CommissionRate,
 				Commission,
 				StraightCommission,
@@ -235,6 +240,7 @@ BEGIN
 				NetWinloss,
 				NetTurnover,
 				ActivePlayer,
+				QualifiedMember,
 				CommissionRate,
 				Commission,
 				StraightCommission,
@@ -414,6 +420,10 @@ BEGIN
 		AND d.CreateTime >= @FromDateTimeGMT0 
 		AND d.CreateTime < DATEADD(DAY, 1, @ToDateTimeGMT0)
 		AND mi.AffId = @AffId
+		AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+					WHERE mr.CustId = d.custid AND CAST(DATEADD(HOUR, @TimeZone, d.CreateTime) AS DATE) BETWEEN mr.FromDate AND mr.ToDate
+				)
 	GROUP BY CONVERT(DATE, EOMONTH(DATEADD(HOUR, 8, d.CreateTime)))
 
 	-- Return detail
@@ -430,6 +440,7 @@ BEGIN
 		ISNULL(m.FDM, 0)						AS FDM,
 		ISNULL(ts.NoOfSubAff, 0)				AS NoOfSubAff,
 		ISNULL(tc.ActivePlayer, 0)				AS ActivePlayer,
+		ISNULL(tc.QualifiedMember, 0)			AS QualifiedMember,
 		ISNULL(tc.Deposit, 0)					AS Deposit,
 		ISNULL(tc.Withdrawal, 0)				AS Withdrawal,
 		ISNULL(tc.Turnover, 0)					AS Turnover,
@@ -484,6 +495,7 @@ BEGIN
 		SUM(ISNULL(m.FDM, 0))						AS FDM,
 		SUM(ISNULL(ts.NoOfSubAff, 0))				AS NoOfSubAff,
 		SUM(ISNULL(tc.ActivePlayer, 0))				AS ActivePlayer,
+		SUM(ISNULL(tc.QualifiedMember, 0))			AS QualifiedMember,
 		SUM(ISNULL(tc.Deposit, 0))					AS Deposit,
 		SUM(ISNULL(tc.Withdrawal, 0))				AS Withdrawal,
 		SUM(ISNULL(tc.Turnover, 0))					AS Turnover,

@@ -21,6 +21,7 @@ AS
 		- 20240502@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
 		- 20240412@Sally: Fix get data case Calculated Months [RedmineID: #214791]
 		- 20240412@Sally: Fix missing data last month of the current year [RedmineID: #215940]
+		- 20250515@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
 */
 
 BEGIN
@@ -80,6 +81,7 @@ BEGIN
 			NetWinloss			MONEY,
 			NetTurnover			MONEY,
 			ActivePlayer		INT,
+			QualifiedMember		INT,
 			CommissionRate		FLOAT,
 			Commission			MONEY,
 			StraightCommission	MONEY,
@@ -117,6 +119,7 @@ BEGIN
 				NetWinloss,
 				NetTurnover,
 				ActivePlayer,
+				QualifiedMember,
 				CommissionRate,
 				Commission,
 				StraightCommission,
@@ -164,6 +167,7 @@ BEGIN
 				NetWinloss,
 				NetTurnover,
 				ActivePlayer,
+				QualifiedMember,
 				CommissionRate,
 				Commission,
 				StraightCommission,
