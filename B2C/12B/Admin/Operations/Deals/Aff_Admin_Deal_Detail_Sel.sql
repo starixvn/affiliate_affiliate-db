@@ -14,13 +14,11 @@ AS
 
 BEGIN
     SET NOCOUNT ON;
-	DECLARE @GroupTypeID INT 
-	SELECT @GroupTypeID = GroupTypeId FROM CommGroup WITH (NOLOCK) WHERE GroupId = @GroupId
 
     SELECT 
 		cg.GroupId,
         cg.GroupName AS DealName,
-        gt.GroupTypeName AS DealType,
+        cg.GroupTypeId AS DealType,
         cg.Description,
 		cg.SubCommRate,
 		--Revenue
@@ -33,13 +31,11 @@ BEGIN
 		cg.Quota,
 		cg.IsInstant
     FROM CommGroup cg WITH (NOLOCK)
-    INNER JOIN GroupType gt WITH (NOLOCK) ON cg.GroupTypeId = gt.GroupTypeId
     WHERE cg.GroupId = @GroupId
 	  AND cg.IsDeleted = 0
 	
 	--Revenue
-	IF @GroupTypeID IN (1,4)
-	BEGIN
+
 		-- Tier List
 		SELECT
 			gs.GroupId,
@@ -88,11 +84,8 @@ BEGIN
 			ds.DeductedPercentage,
 			ds.DeductedAmount,
 			ds.IsDeductedPercent
-	END
-
+	
 	--CPA
-	IF @GroupTypeID IN (3,4)
-	BEGIN
 		--TierSetting
 		SELECT
 			GroupId,
@@ -121,12 +114,13 @@ BEGIN
 		LEFT JOIN dbo.Aff_f_GroupProduct() gp ON d.ProductID = gp.ProductId AND gp.ProductId <> gp.GroupProductId
 		WHERE GroupId = @GroupId
 			AND ToDate = '9999-12-31'
+			AND gp.ProductId IS NULL
 		GROUP BY
 			d.GroupId,
 			d.GroupProductId
 		ORDER BY
 			GroupProductId
-	END
+
 
 
 END

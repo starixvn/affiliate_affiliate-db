@@ -15,20 +15,12 @@ AS
 	
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
-		- 20250526@Lewis: Apply FromDate - ToDate [RedmineID: #228530]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @Language NVARCHAR(5) = 'en-US'
-
-	DECLARE @Duration INT
-	DECLARE @StartTime DATETIME = GETDATE()
-
-	DECLARE @CurrentDate DATETIME = DATEADD(HOUR, 12, GETDATE())
-	DECLARE @ActionDate DATETIME =  CAST(@CurrentDate AS DATE)
-			, @ToDate DATETIME = '9999-12-31'
 
 	EXEC dbo.Aff_Con_CheckPermission
 		@CustId		= @UserId,
@@ -90,8 +82,6 @@ BEGIN
 	END CATCH
 
 	-- Write log
-	DECLARE @EndTime DATETIME = GETDATE()
-	SELECT @Duration = DATEDIFF(SECOND, @StartTime, @EndTime)
 	DECLARE @SPName VARCHAR(200)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
 
@@ -107,7 +97,6 @@ BEGIN
 		@OldData	= @OldData,
 		@NewData	= @NewData,
 		@IP			= @IP,
-		@Language	= @Language,
-		@Duration	= @Duration
+		@Language	= @Language
 END
 GO

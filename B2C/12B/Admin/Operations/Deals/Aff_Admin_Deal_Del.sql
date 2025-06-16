@@ -36,7 +36,7 @@ BEGIN
 	-- =========================
 	EXEC dbo.Aff_Con_CheckPermission
 		@CustId		= @UserId,
-		@FuncName	= '[RevenueGroup]',
+		@FuncName	= '[Deal]',
 		@ErrCode	= @ErrCode OUTPUT,
 		@ErrMsg		= @ErrMsg OUTPUT
 	

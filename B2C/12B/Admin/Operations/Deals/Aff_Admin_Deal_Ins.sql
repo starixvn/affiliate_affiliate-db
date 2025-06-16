@@ -13,10 +13,10 @@ CREATE PROCEDURE [dbo].[Aff_Admin_Deal_Ins]
 	,@TierList			XML = NULL
 	--CPA
     ,@CountryCodes      VARCHAR(MAX) = ''
-    ,@ActiveDays        INT
-    ,@HoldingDays       INT = 0
-    ,@HoldingTickets    INT = 0
-    ,@Quota             INT = 0
+    ,@ActiveDays        SMALLINT
+    ,@HoldingDays       SMALLINT = 0
+    ,@HoldingTickets    SMALLINT = 0
+    ,@Quota             SMALLINT = 0
     ,@IsInstant         BIT = 0
     ,@CPATierList       XML = NULL
     ,@CPAProductList    XML = NULL
@@ -95,7 +95,7 @@ BEGIN
 	-- =========================
 	EXEC dbo.Aff_Con_CheckPermission
 		@CustId		= @UserId,
-		@FuncName	= '[RevenueGroup]',
+		@FuncName	= '[Deal]',
 		@ErrCode	= @ErrCode OUTPUT,
 		@ErrMsg		= @ErrMsg OUTPUT
 	
@@ -113,10 +113,10 @@ BEGIN
 		RETURN
 	END
 
-	IF EXISTS (SELECT 1 FROM dbo.CommGroup WITH (NOLOCK) WHERE GroupName = @GroupName)
+	IF EXISTS (SELECT 1 FROM dbo.CommGroup WITH (NOLOCK) WHERE GroupName = @GroupName AND IsDeleted = 0)
 	BEGIN
 		-- Group name is already existed
-		SELECT @ErrCode = 102, @ErrMsg = dbo.Aff_f_GetMessageById(1002, @Language)
+		SELECT @ErrCode = 102, @ErrMsg = 'Deal name is already existed'
 		RETURN
 	END
 
@@ -175,7 +175,7 @@ BEGIN
 
 		-- Update MaxAmount for each tier of each products's group
 		UPDATE t1
-		SET t1.MaxAmount = t2.MinAmount - 1
+		SET t1.MaxAmount = t2.MinAmount
 		FROM @TierSetting t1
 			INNER JOIN @TierSetting t2 ON t1.TierID + 1 = t2.TierID AND t1.GroupProductId = t2.GroupProductId
 	
@@ -226,12 +226,6 @@ BEGIN
         END
 
         IF EXISTS(
-                SELECT 1
-                FROM @TierSetting ts1
-                    INNER JOIN @TierSetting ts2 ON ts1.TierID + 1 = ts2.TierID AND ts1.GroupProductId = ts2.GroupProductId
-                WHERE ts1.MaxAmount + 1 <> ts2.MinAmount
-            )
-			OR EXISTS(
 				SELECT TOP 1 1
 				FROM @TierSetting ts1
 					INNER JOIN @TierSetting ts2 ON ts1.TierID + 1 = ts2.TierID AND ts1.GroupProductId = ts2.GroupProductId
@@ -266,7 +260,7 @@ BEGIN
 		IF (@HoldingDays > 0 OR @HoldingTickets > 0)
 			AND NOT (@HoldingDays > 0 AND @HoldingTickets > 0)
 		BEGIN
-			SELECT @ErrCode = 313, @ErrMsg = N'Holding tickets and Holding days must both be greater than 0.'
+			SELECT @ErrCode = 313, @ErrMsg = N'Holding tickets and Holding days must both be between 1 and 30,000.'
 			RETURN
 		END
 
@@ -306,14 +300,14 @@ BEGIN
             RETURN
         END
 
-		 -- CPATierList: Please select at least one condition: Min FDM, Min Total Deposit, or Min Wagering.
+		 -- CPATierList: Please select at least one condition: Min FDM, Min Total Deposit, or Min Turnover.
         IF EXISTS (
             SELECT 1 FROM @CPATier
             WHERE GroupProductId IS NULL OR TierId IS NULL OR CPAAmount IS NULL
                 OR (ISNULL(MinFDM,0) = 0 AND ISNULL(MinTotalDeposit,0) = 0 AND ISNULL(MinTO,0) = 0)
         )
         BEGIN
-            SELECT @ErrCode = 309, @ErrMsg = N'Please select at least one condition: Min FDM, Min Total Deposit, or Min Wagering.'
+            SELECT @ErrCode = 309, @ErrMsg = N'Please select at least one condition: Min FDM, Min Total Deposit, or Min Turnover.'
             RETURN
         END
 		
@@ -321,7 +315,7 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM @CPATier WHERE MinTO IS NOT NULL)
 			AND @IsInstant = 1
 		BEGIN
-			SELECT @ErrCode = 309, @ErrMsg = N'Instantly Payment not apply for Min Wagering. Please contact your system administrator to resolve this issue.'
+			SELECT @ErrCode = 309, @ErrMsg = N'Instantly Payment not apply for Min Turnover. Please contact your system administrator to resolve this issue.'
             RETURN
 		END	
 		
@@ -400,9 +394,9 @@ BEGIN
 
         -- Calculate Max values for each tier per group product
         UPDATE t1
-        SET MaxFDM = t2.MinFDM - 1,
-            MaxTotalDeposit = t2.MinTotalDeposit - 1,
-            MaxTO = t2.MinTO - 1
+        SET MaxFDM = t2.MinFDM,
+            MaxTotalDeposit = t2.MinTotalDeposit,
+            MaxTO = t2.MinTO
         FROM @CPATier t1
         INNER JOIN @CPATier t2 ON t1.GroupProductId = t2.GroupProductId AND t1.TierId + 1 = t2.TierId
 
@@ -442,6 +436,11 @@ BEGIN
         INSERT INTO dbo.CommGroup (GroupName, Description, Creator, CreatedDate, IsPrivate, IsDeleted, SubCommRate, GroupTypeId, QMTurnover, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, IsInstant, UpdatedBy, UpdatedTime)
         VALUES (@GroupName, @Description, @UserId, @CurrentDate, 0, 0, @SubCommRate, @GroupTypeId, @QMTurnover, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @IsInstant, @UserId, @CurrentDate)
         SET @GroupId = SCOPE_IDENTITY()
+		IF @GroupId IS NULL 
+		BEGIN
+			SELECT @ErrCode = 105, @ErrMsg = 'Failed to insert new deal! Please try again!'
+			RETURN
+		END
 
 		IF @GroupTypeId = 1 -- Revenue
         BEGIN
