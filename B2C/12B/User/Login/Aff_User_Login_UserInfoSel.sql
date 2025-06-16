@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20251014@Lewis: Add TargetCountry [RedmineID: #240520]
 
 	Parameter's Explanation:
 		- @UserName: username
@@ -57,6 +58,7 @@ BEGIN
 		,CONVERT(BIT, ISNULL(ad.DisabledTransfer, 1)) AS DisabledTransfer
 		,ISNULL(@Dep_IsDeductedPercent, 0) AS Dep_IsDeductedPercent
 		,ISNULL(@Wit_IsDeductedPercent, 0) AS Wit_IsDeductedPercent
+		,ad.TargetCountryCode
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffID = ad.AffID
 		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupID = cg.GroupID

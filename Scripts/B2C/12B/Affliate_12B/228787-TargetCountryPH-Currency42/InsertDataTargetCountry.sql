@@ -2,7 +2,7 @@
 /*
 	Created: 20250616@Lewis
 	DB: DBAFF12B-Affiliate_12B
-	Task: Support PHP [RedmineID: #228787]
+	Task: Support PHP [RedmineID: #240520]
 */
 use Affiliate_12B
 go
@@ -10,3 +10,6 @@ go
 INSERT INTO TargetCountry (MarketID, MarketName, CountryCode, CountryName, OrderNo, ShortedCode)
 VALUES ('en-US', 'English', 'PH', 'Philippines', 10, 'phen');
 go
+
+INSERT INTO Country (CountryCode, CountryName)
+VALUES ('PH','Philippines')

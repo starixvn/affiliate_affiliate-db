@@ -2,14 +2,10 @@
 /*
 	Created: 20250616@Lewis
 	DB: DBAFF12B-Affiliate_12B
-	Task: Support PHP [RedmineID: #228787]
+	Task: Support PHP [RedmineID: #240520]
+
 */
-USE Affiliate_12B
-GO
 UPDATE S SET S.SValue = SValue + ',42:PHP'
 FROM dbo.SystemSettings S WITH (UPDLOCK, ROWLOCK)
 WHERE SName IN ('AFF_PaymentCurrencies','AFF_SupportedCurrencies')
 GO
-SELECT *
-FROM dbo.SystemSettings S WITH (NOLOCK)
-WHERE SName IN ('AFF_PaymentCurrencies','AFF_SupportedCurrencies')
