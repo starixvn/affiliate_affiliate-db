@@ -121,7 +121,7 @@ BEGIN
 	IF EXISTS (SELECT 1 FROM dbo.CommGroup WITH (NOLOCK) WHERE GroupName = @GroupName AND IsDeleted = 0 AND GroupId <> @GroupId)
 	BEGIN
 		-- Group name is already existed
-		SELECT @ErrCode = 102, @ErrMsg = 'Deal name is already existed'
+		SELECT @ErrCode = 102, @ErrMsg = N'Deal name already exists!'
 		RETURN
 	END
 
@@ -257,7 +257,7 @@ BEGIN
 		 -- Player Target Country must not be empty
         IF TRIM(@CountryCodes) = ''
         BEGIN
-            SELECT @ErrCode = 311, @ErrMsg = N'At least 1 Target Country is selected.'
+            SELECT @ErrCode = 311, @ErrMsg = N'At least one Target Country must be selected.'
             RETURN
         END
 
@@ -286,7 +286,7 @@ BEGIN
         -- Validate CPATierList
         IF @CPATierList IS NULL OR @CPATierList.exist('/root/row') = 0
         BEGIN
-            SELECT @ErrCode = 302, @ErrMsg = N'Missing or invalid CPA Tier. Please contact your system administrator to resolve this issue.'
+            SELECT @ErrCode = 302, @ErrMsg = N'Missing or invalid CPA Tier. Please contact your system administrator.'
             RETURN
         END
 
@@ -326,7 +326,7 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM @CPATier WHERE MinTO IS NOT NULL)
 			AND @IsInstant = 1
 		BEGIN
-			SELECT @ErrCode = 309, @ErrMsg = N'Instantly Payment not apply for Min Turnover. Please contact your system administrator to resolve this issue.'
+			SELECT @ErrCode = 309, @ErrMsg = N'Instant Payment is unavailable when Min Turnover is enabled. Please contact your system administrator.'
             RETURN
 		END	
 		
@@ -334,16 +334,16 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM @CPATier WHERE MinTO IS NOT NULL)
 			AND @CPAProductList IS NULL
 		BEGIN
-			SELECT @ErrCode = 309, @ErrMsg = N'Missing or invalid CPA ProductList. Please contact your system administrator to resolve this issue.'
+			SELECT @ErrCode = 309, @ErrMsg = N'Missing or invalid CPA product list. Please contact your system administrator.'
             RETURN
 		END
 
         -- CPATierList: CPA Amount must be > 0
         IF EXISTS (
-            SELECT 1 FROM @CPATier WHERE CPAAmount <= 0
+            SELECT 1 FROM @CPATier WHERE CPAAmount < 0
         )
         BEGIN
-            SELECT @ErrCode = 309, @ErrMsg = N'CPA Amount must be > 0'
+            SELECT @ErrCode = 309, @ErrMsg = N'CPA Amount cannot be negative.'
             RETURN
         END
 		
@@ -377,7 +377,7 @@ BEGIN
 			-- CPAProductList: Check for required fields
 			IF EXISTS (SELECT 1 FROM @CPAProduct WHERE GroupProductId IS NULL OR ProductId IS NULL)
 			BEGIN
-				SELECT @ErrCode = 303, @ErrMsg = N'CPAProductList: Missing required fields (groupproductid or productid).'
+				SELECT @ErrCode = 303, @ErrMsg = N'CPA product list: Missing required fields (GroupProductId or ProductId).'
 				RETURN
 			END
 
@@ -386,7 +386,7 @@ BEGIN
 				SELECT ProductId, COUNT(1) FROM @CPAProduct GROUP BY ProductId HAVING COUNT(1) > 1
 			)
 			BEGIN
-				SELECT @ErrCode = 304, @ErrMsg = N'CPAProductList: Duplicate productid found.'
+				SELECT @ErrCode = 304, @ErrMsg = N'CPA product list: Duplicate Productid found.'
 				RETURN
 			END
 
@@ -398,7 +398,7 @@ BEGIN
 				)
 			)
 			BEGIN
-				SELECT @ErrCode = 309, @ErrMsg = N'CPATierList: Each product must have at least one tier'
+				SELECT @ErrCode = 309, @ErrMsg = N'CPA tier list: Each product must have at least one tier.'
 				RETURN
 			END
 		END
@@ -435,7 +435,7 @@ BEGIN
                OR (NextMinTO IS NOT NULL AND NextMinTO <= MinTO)
         )
         BEGIN
-            SELECT @ErrCode = 309, @ErrMsg = N'CPATierList: Each min value of next tier must be greater than previous tier for the same group product.'
+            SELECT @ErrCode = 309, @ErrMsg = N'CPA tier list: The min value of each next tier must be greater than the previous tier for the same group product.'
             RETURN
         END
 	END

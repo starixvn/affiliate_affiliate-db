@@ -48,6 +48,7 @@ BEGIN
 			LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON cg.Creator = au.custid
 		WHERE (@GroupId = 0 OR cg.GroupId = @GroupId)
 			AND cg.IsDeleted = 0
+			AND cg.GroupTypeId = 1 --revenue only
 			AND cg.GroupName LIKE '%' + ISNULL(@GroupName, '') + '%'
 			AND (cg.GroupTypeId = @GroupTypeId OR @GroupTypeId IS NULL)
 			AND cg.GroupTypeId = 1 --revenue only
