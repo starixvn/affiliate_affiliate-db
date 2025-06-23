@@ -169,10 +169,10 @@ BEGIN
 	-- 4. Compose @OldData JSON (include only non-null sections)
 	DECLARE @OldData NVARCHAR(MAX) = '{'
 		+ '"di":' + ISNULL(@DealInfo, '{}')
-		+ CASE WHEN @CPAInfo IS NOT NULL THEN ',"ci":' + @CPAInfo ELSE '' END
-		+ CASE WHEN @CPATierJson IS NOT NULL THEN ',"ct":' + @CPATierJson ELSE '' END
-		+ CASE WHEN @RevenueShareInfo IS NOT NULL THEN ',"ri":' + @RevenueShareInfo ELSE '' END
-		+ CASE WHEN @TierJson IS NOT NULL THEN ',"rt":' + @TierJson ELSE '' END
+		+ ',"ci":' + ISNULL(@CPAInfo, '{}')
+		+ ',"ct":' + ISNULL(@CPATierJson, '{}')
+		+ ',"ri":' + ISNULL(@RevenueShareInfo, '{}')
+		+ ',"rt":' + ISNULL(@TierJson, '{}')
 		+ '}'
 
 	-- 5. Write log with Items and NewData
@@ -184,7 +184,7 @@ BEGIN
 		@UserId		= @UserId,
 		@AffId		= 0,
 		@SPName		= @SPName,
-		@OldData	= OldData,
+		@OldData	= @OldData,
 		@IP			= @IP,
 		@Language	= @Language,
 		@Duration	= @Duration

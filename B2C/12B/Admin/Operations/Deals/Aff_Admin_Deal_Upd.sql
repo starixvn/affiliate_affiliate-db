@@ -577,6 +577,12 @@ BEGIN
 	IF @GroupTypeId = 3 -- CPA
 	BEGIN
 		-- CPAGroupSetting
+		-- Old data
+		INSERT INTO @old_CPAGroupSetting(TypeId,FromDate,ToDate,GroupId,GroupTypeId,SubCommRate,ActiveDays,HoldingDays,HoldingTickets,Quota,CountryCodes,IsInstant)
+		SELECT 1,FromDate,ToDate,GroupId,GroupTypeId,SubCommRate,ActiveDays,HoldingDays,HoldingTickets,Quota,CountryCodes,IsInstant
+		FROM CPAGroupSetting WITH (NOLOCK)
+		WHERE GroupId = @GroupId AND ToDate = @ToDate;
+
 		IF EXISTS (
 			SELECT 1 FROM CPAGroupSetting WITH (NOLOCK)
 			WHERE GroupId = @GroupId AND ToDate = @ToDate
@@ -591,12 +597,6 @@ BEGIN
 				 )
 		)
 		BEGIN
-			-- Old data
-			INSERT INTO @old_CPAGroupSetting(TypeId,FromDate,ToDate,GroupId,GroupTypeId,SubCommRate,ActiveDays,HoldingDays,HoldingTickets,Quota,CountryCodes,IsInstant)
-			SELECT 1,FromDate,ToDate,GroupId,GroupTypeId,SubCommRate,ActiveDays,HoldingDays,HoldingTickets,Quota,CountryCodes,IsInstant
-			FROM CPAGroupSetting WITH (NOLOCK)
-			WHERE GroupId = @GroupId AND ToDate = @ToDate;
-
 			-- Update current row in CPAGroupSetting --> Todate = ActionDate
 			UPDATE CPAGroupSetting WITH (ROWLOCK, UPDLOCK)
 			SET ToDate = DATEADD(dd,-1,@ActionDate)
@@ -609,6 +609,12 @@ BEGIN
 		END
 
 		-- CPATierSetting: Add/Remove/Change
+		-- Old data
+		INSERT INTO @old_CPATierSetting(TypeId,FromDate,ToDate,GroupId,GroupProductId,TierId,MinFDM,MaxFDM,MinTotalDeposit,MaxTotalDeposit,MinTO,MaxTO,CPAAmount)
+		SELECT 1,FromDate,ToDate,GroupId,GroupProductId,TierId,MinFDM,MaxFDM,MinTotalDeposit,MaxTotalDeposit,MinTO,MaxTO,CPAAmount
+		FROM CPATierSetting WITH (NOLOCK)
+		WHERE GroupId = @GroupId AND ToDate = @ToDate;
+
 		IF EXISTS (
 				SELECT 1
 				FROM CPATierSetting t WITH (NOLOCK)
@@ -626,12 +632,6 @@ BEGIN
 					OR ISNULL(t.CPAAmount,0) <> ISNULL(n.CPAAmount,0)
 		)
 		BEGIN
-			-- Old data
-			INSERT INTO @old_CPATierSetting(TypeId,FromDate,ToDate,GroupId,GroupProductId,TierId,MinFDM,MaxFDM,MinTotalDeposit,MaxTotalDeposit,MinTO,MaxTO,CPAAmount)
-			SELECT 1,FromDate,ToDate,GroupId,GroupProductId,TierId,MinFDM,MaxFDM,MinTotalDeposit,MaxTotalDeposit,MinTO,MaxTO,CPAAmount
-			FROM CPATierSetting WITH (NOLOCK)
-			WHERE GroupId = @GroupId AND ToDate = @ToDate;
-
 			-- Remove/Change: Update ToDate for removed/changed
 			UPDATE t
 			SET ToDate = DATEADD(dd,-1,@ActionDate)
@@ -670,6 +670,12 @@ BEGIN
 		END
 
 		-- CPAProductSetting: Add/Remove
+		-- Old data
+		INSERT INTO @old_CPAProductSetting(TypeId,FromDate,ToDate,GroupId,GroupProductId,ProductId)
+		SELECT 1,FromDate,ToDate,GroupId,GroupProductId,ProductId
+		FROM CPAProductSetting WITH (NOLOCK)
+		WHERE GroupId = @GroupId AND ToDate = @ToDate;
+
 		IF EXISTS (
 			SELECT 1
 			FROM (
@@ -685,12 +691,6 @@ BEGIN
 			WHERE cur.GroupProductId IS NULL OR new.GroupProductId IS NULL
 		)
 		BEGIN
-			-- Old data
-			INSERT INTO @old_CPAProductSetting(TypeId,FromDate,ToDate,GroupId,GroupProductId,ProductId)
-			SELECT 1,FromDate,ToDate,GroupId,GroupProductId,ProductId
-			FROM CPAProductSetting WITH (NOLOCK)
-			WHERE GroupId = @GroupId AND ToDate = @ToDate;
-
 			-- Remove: Update ToDate for removed
 			UPDATE t
 			SET ToDate = DATEADD(dd,-1,@ActionDate)
@@ -757,6 +757,12 @@ BEGIN
 		-- CPA
 		-- ==========================
 		-- CPAGroupSetting
+		-- Old data
+		INSERT INTO @old_CPAGroupSetting(TypeId,FromDate,ToDate,GroupId,GroupTypeId,SubCommRate,ActiveDays,HoldingDays,HoldingTickets,Quota,CountryCodes,IsInstant)
+		SELECT 1,FromDate,ToDate,GroupId,GroupTypeId,SubCommRate,ActiveDays,HoldingDays,HoldingTickets,Quota,CountryCodes,IsInstant
+		FROM CPAGroupSetting WITH (NOLOCK)
+		WHERE GroupId = @GroupId AND ToDate = @ToDate;
+
 		IF EXISTS (
 			SELECT 1 FROM CPAGroupSetting WITH (NOLOCK)
 			WHERE GroupId = @GroupId AND ToDate = @ToDate
@@ -771,12 +777,6 @@ BEGIN
 				 )
 		)
 		BEGIN
-			-- Old data
-			INSERT INTO @old_CPAGroupSetting(TypeId,FromDate,ToDate,GroupId,GroupTypeId,SubCommRate,ActiveDays,HoldingDays,HoldingTickets,Quota,CountryCodes,IsInstant)
-			SELECT 1,FromDate,ToDate,GroupId,GroupTypeId,SubCommRate,ActiveDays,HoldingDays,HoldingTickets,Quota,CountryCodes,IsInstant
-			FROM CPAGroupSetting WITH (NOLOCK)
-			WHERE GroupId = @GroupId AND ToDate = @ToDate;
-
 			-- Update current row in CPAGroupSetting --> Todate = ActionDate
 			UPDATE CPAGroupSetting WITH (ROWLOCK, UPDLOCK)
 			SET ToDate = DATEADD(dd,-1,@ActionDate)
@@ -789,6 +789,11 @@ BEGIN
 		END
 
 		-- CPATierSetting: Add/Remove/Change
+		-- Old data
+		INSERT INTO @old_CPATierSetting(TypeId,FromDate,ToDate,GroupId,GroupProductId,TierId,MinFDM,MaxFDM,MinTotalDeposit,MaxTotalDeposit,MinTO,MaxTO,CPAAmount)
+		SELECT 1,FromDate,ToDate,GroupId,GroupProductId,TierId,MinFDM,MaxFDM,MinTotalDeposit,MaxTotalDeposit,MinTO,MaxTO,CPAAmount
+		FROM CPATierSetting WITH (NOLOCK)
+		WHERE GroupId = @GroupId AND ToDate = @ToDate;
 		IF EXISTS (
 				SELECT 1
 				FROM CPATierSetting t WITH (NOLOCK)
@@ -806,12 +811,6 @@ BEGIN
 					OR ISNULL(t.CPAAmount,0) <> ISNULL(n.CPAAmount,0)
 		)
 		BEGIN
-			-- Old data
-			INSERT INTO @old_CPATierSetting(TypeId,FromDate,ToDate,GroupId,GroupProductId,TierId,MinFDM,MaxFDM,MinTotalDeposit,MaxTotalDeposit,MinTO,MaxTO,CPAAmount)
-			SELECT 1,FromDate,ToDate,GroupId,GroupProductId,TierId,MinFDM,MaxFDM,MinTotalDeposit,MaxTotalDeposit,MinTO,MaxTO,CPAAmount
-			FROM CPATierSetting WITH (NOLOCK)
-			WHERE GroupId = @GroupId AND ToDate = @ToDate;
-
 			-- Remove/Change: Update ToDate for removed/changed
 			UPDATE t
 			SET ToDate = DATEADD(dd,-1,@ActionDate)
@@ -850,6 +849,12 @@ BEGIN
 		END
 
 		-- CPAProductSetting: Add/Remove
+		-- Old data
+		INSERT INTO @old_CPAProductSetting(TypeId,FromDate,ToDate,GroupId,GroupProductId,ProductId)
+		SELECT 1,FromDate,ToDate,GroupId,GroupProductId,ProductId
+		FROM CPAProductSetting WITH (NOLOCK)
+		WHERE GroupId = @GroupId AND ToDate = @ToDate;
+
 		IF EXISTS (
 			SELECT 1
 			FROM (
@@ -865,12 +870,6 @@ BEGIN
 			WHERE cur.GroupProductId IS NULL OR new.GroupProductId IS NULL
 		)
 		BEGIN
-			-- Old data
-			INSERT INTO @old_CPAProductSetting(TypeId,FromDate,ToDate,GroupId,GroupProductId,ProductId)
-			SELECT 1,FromDate,ToDate,GroupId,GroupProductId,ProductId
-			FROM CPAProductSetting WITH (NOLOCK)
-			WHERE GroupId = @GroupId AND ToDate = @ToDate;
-
 			-- Remove: Update ToDate for removed
 			UPDATE t
 			SET ToDate = DATEADD(dd,-1,@ActionDate)
@@ -933,7 +932,7 @@ BEGIN
 			@OldRevenueShareInfo = (
 				SELECT 
 					QMTurnover AS qpt, 
-					IsActivePlayerSum AS cqp,
+					(SELECT TOP 1 IsActivePlayerSum FROM #updateData WHERE TypeId = 2) AS cqp,
 					(SELECT DeductedPercentage FROM #updateData WHERE TypeId = 3 AND DeductionId IN (13)) AS df,
 					(SELECT DeductedAmount FROM #updateData WHERE TypeId = 3 AND DeductionId IN (13)) AS dfx,
 					(SELECT DeductedPercentage FROM #updateData WHERE TypeId = 3 AND DeductionId IN (14)) AS wf,
@@ -964,7 +963,7 @@ BEGIN
 					FOR JSON PATH
 				) AS rti
 			FROM #updateData t1 
-			WHERE t1.TypeId = 2
+			WHERE t1.TypeId = 3 AND DeductionId IN (10)
 			GROUP BY GroupProductId
 			FOR JSON PATH
 		)
@@ -1027,32 +1026,33 @@ BEGIN
 	-- 4. Compose @OldDataJson/@NewDataJson
 	DECLARE @OldData NVARCHAR(MAX) = '{'
 	    + '"di":' + ISNULL(@OldDealInfo, '{}')
-	    + CASE WHEN @OldCPAInfo IS NOT NULL THEN ',"ci":' + @OldCPAInfo ELSE '' END
-	    + CASE WHEN @OldCPATierJson IS NOT NULL THEN ',"ct":' + @OldCPATierJson ELSE '' END
-	    + CASE WHEN @OldRevenueShareInfo IS NOT NULL THEN ',"ri":' + @OldRevenueShareInfo ELSE '' END
-	    + CASE WHEN @OldTierJson IS NOT NULL THEN ',"rt":' + @OldTierJson ELSE '' END
+	    + ',"ci":' + ISNULL(@OldCPAInfo, '{}')
+	    + ',"ct":' + ISNULL(@OldCPATierJson, '{}')
+	    + ',"ri":' + ISNULL(@OldRevenueShareInfo, '{}')
+	    + ',"rt":' + ISNULL(@OldTierJson, '{}')
 	    + '}'
 
 	DECLARE @NewData NVARCHAR(MAX) = '{'
 	    + '"di":' + ISNULL(@NewDealInfo, '{}')
-	    + CASE WHEN @NewCPAInfo IS NOT NULL THEN ',"ci":' + @NewCPAInfo ELSE '' END
-	    + CASE WHEN @NewCPATierJson IS NOT NULL THEN ',"ct":' + @NewCPATierJson ELSE '' END
-	    + CASE WHEN @NewRevenueShareInfo IS NOT NULL THEN ',"ri":' + @NewRevenueShareInfo ELSE '' END
-	    + CASE WHEN @NewTierJson IS NOT NULL THEN ',"rt":' + @NewTierJson ELSE '' END
+	    + ',"ci":' + ISNULL(@NewCPAInfo, '{}')
+	    + ',"ct":' + ISNULL(@NewCPATierJson, '{}')
+	    + ',"ri":' + ISNULL(@NewRevenueShareInfo, '{}')
+	    + ',"rt":' + ISNULL(@NewTierJson, '{}')
 	    + '}'
 
 	DECLARE @SPName VARCHAR(200)
 	SELECT  @SPName = OBJECT_NAME(@@PROCID)
-	
+
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
-		@UserId		= @UserId,
-		@AffId		= 0,
-		@SPName		= @SPName,
-		@OldData	= @OldData,
-		@NewData	= @NewData,
-		@IP			= @IP,
-		@Language	= @Language,
-		@Duration	= @Duration
+				@UserId     = @UserId,
+				@AffId      = 0,
+				@SPName     = @SPName,
+				@OldData    = @OldData,
+				@NewData    = @NewData,
+				@IP         = @IP,
+				@Language   = @Language,
+				@Duration   = @Duration
+	
 
 	DROP TABLE #updateData
 END

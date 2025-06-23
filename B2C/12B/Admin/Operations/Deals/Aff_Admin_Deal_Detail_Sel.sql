@@ -29,8 +29,10 @@ BEGIN
 		cg.HoldingTickets,
 		cg.HoldingDays,
 		cg.Quota,
-		cg.IsInstant
+		cg.IsInstant,
+		a.IsActivePlayerSum
     FROM CommGroup cg WITH (NOLOCK)
+	OUTER APPLY (SELECT TOP 1 IsActivePlayerSum FROM TierSetting gs WITH (NOLOCK) WHERE cg.GroupId = gs.GroupId) a
     WHERE cg.GroupId = @GroupId
 	  AND cg.IsDeleted = 0
 	
