@@ -29,6 +29,7 @@ AS
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 		- 20240425@Sally: Calculate commission by Turnover [RedmineID: #203756]
 		- 20250512@Lewis: Support negative minamount, QMTurnover, IsActivePlayerSum, remove P2P [RedmineID: #226985]
+		- 20250623@Sally: Enhance Revenue calculation [RedmineID: #231221]
 
 	Parameter's Explanation:
 		- @DeductionList:
@@ -103,9 +104,9 @@ BEGIN
 		FROM @DeductionList.nodes('/root/row') AS t(c)
 	)
 	INSERT INTO @DeductionSetting (GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
-	SELECT GroupProductId, ds.DeductionId, ISNULL(CONVERT(INT, f.val), 0), ISNULL(ds.DeductedPercentage, 0), ISNULL(ds.DeductedAmount, 0), ISNULL(ds.IsDeductedPercent, 0)
+	SELECT GroupProductId, ds.DeductionId, ISNULL(CONVERT(INT, f.value), 0), ISNULL(ds.DeductedPercentage, 0), ISNULL(ds.DeductedAmount, 0), ISNULL(ds.IsDeductedPercent, 0)
 	FROM CTE_DeductionSetting ds
-		OUTER APPLY dbo.Aff_f_StringSplit(dbo.Aff_f_AddRelatedProducts(ds.ProductIds), ',') f
+		OUTER APPLY STRING_SPLIT(dbo.Aff_f_AddRelatedProducts(ds.ProductIds), ',') f
 	OPTION (OPTIMIZE FOR (@DeductionList = NULL), MAXRECURSION 0)
 
 	UPDATE @DeductionSetting
@@ -138,7 +139,7 @@ BEGIN
 	) AS l
 
 	UPDATE t1
-		SET t1.MaxAmount = t2.MinAmount - 1
+		SET t1.MaxAmount = t2.MinAmount
 	FROM @TierSetting t1
 		INNER JOIN @TierSetting t2 ON t1.TierID +1 = t2.TierID AND t1.GroupProductId = t2.GroupProductId
 	
@@ -191,17 +192,11 @@ BEGIN
         END
 
         IF EXISTS(
-                SELECT 1
-                FROM @TierSetting ts1
-                    INNER JOIN @TierSetting ts2 ON ts1.TierID + 1 = ts2.TierID AND ts1.GroupProductId = ts2.GroupProductId
-                WHERE ts1.MaxAmount + 1 <> ts2.MinAmount
-            )
-			OR EXISTS(
 				SELECT TOP 1 1
 				FROM @TierSetting ts1
 					INNER JOIN @TierSetting ts2 ON ts1.TierID + 1 = ts2.TierID AND ts1.GroupProductId = ts2.GroupProductId
 				 WHERE ts1.MaxAmount > ts2.MaxAmount 
-				 	OR ts1.MinAmount > ts2.MinAmount 
+					OR ts1.MinAmount > ts2.MinAmount 
 			)
         BEGIN
             -- The values in the Min Net Win column must increase sequentially.

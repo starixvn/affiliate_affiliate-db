@@ -38,6 +38,7 @@ AS
 		- 20240718@Sally: Enhance SP for better performance [RedmineID: #208057]
 		- 20250514@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
 		- 20250514@Sally: Change Royalty Fee condition [RedmineID: #230064]
+		- 20250623@Sally: Enhance Revenue calculation [RedmineID: #231221]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -659,7 +660,8 @@ BEGIN
 				FROM dbo.TierSettingHistory gsh WITH (NOLOCK)
 					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(gsh.MonthDate, @AffExchangeId, @BaseExchangeId) e
 				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId AND c.GroupProductId = gsh.GroupProductId
-					AND FLOOR(CASE WHEN ag.GroupTypeBy = 'Winloss' THEN IIF(c.MonthDate >= @CommissionCal_CutOffDate, c.NetWinloss, ABS(c.NetWinloss)) ELSE  ABS(c.NetTurnover) END)  BETWEEN gsh.MinAmount * e.Rate AND gsh.MaxAmount * e.Rate
+					AND FLOOR(CASE WHEN ag.GroupTypeBy = 'Winloss' THEN IIF(c.MonthDate >= @CommissionCal_CutOffDate, c.NetWinloss, ABS(c.NetWinloss)) ELSE  ABS(c.NetTurnover) END)  >= gsh.MinAmount * e.Rate
+					AND FLOOR(CASE WHEN ag.GroupTypeBy = 'Winloss' THEN IIF(c.MonthDate >= @CommissionCal_CutOffDate, c.NetWinloss, ABS(c.NetWinloss)) ELSE  ABS(c.NetTurnover) END)  < gsh.MaxAmount * e.Rate
 			) AS t
 			OUTER APPLY (
 				SELECT TOP 1 gsh.Commission
