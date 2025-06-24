@@ -49,6 +49,7 @@ AS
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225821]
 		- 20250423@Lewis: Enhance Rpt [RedmineID: #224733]
 		- 20250515@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
+		- 20250624@Lewis: Add column Withdrawal [RedmineID: #231047]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -677,7 +678,8 @@ BEGIN
 			QualifiedMember		INT,
 			NoOfSubAff			INT,
 			TotalDeposit		INT,
-			DepositAmount		MONEY
+			DepositAmount		MONEY,
+			WithdrawalAmount	MONEY
 	)
 	
 	--IP statistics
@@ -751,12 +753,14 @@ BEGIN
 		WinlostDate,
 		AffId,
 		TotalDeposit,
-		DepositAmount
+		DepositAmount,
+		WithdrawalAmount
 	)
 	SELECT s.WinlostDate,
 		s.AffId,
 		SUM(s.TotalDeposit)	AS TotalDeposit,
-		SUM(s.TotalDepositAmount) AS DepositAmount
+		SUM(s.TotalDepositAmount) AS DepositAmount,
+		SUM(s.TotalWithdrawalAmount) AS WithdrawalAmount
 	FROM #TotalDeposit s
 	GROUP BY s.WinlostDate, s.AffId
 
@@ -971,7 +975,8 @@ BEGIN
 			ISNULL(SUM(ed.ActivePlayer),0) AS ActivePlayer,
 			ISNULL(SUM(ed.NoOfSubAff),0) AS NoOfSubAff,
 			ISNULL(SUM(ed.TotalDeposit),0) AS TotalDeposit,
-			ISNULL(SUM(ed.DepositAmount),0) AS DepositAmount
+			ISNULL(SUM(ed.DepositAmount),0) AS DepositAmount,
+			ISNULL(SUM(ed.WithdrawalAmount),0) AS WithdrawalAmount
 		FROM #ExcelDetail ed
 			INNER JOIN AffInfo ai WITH (NOLOCK) ON ai.AffId = ed.AffId
 			INNER JOIN AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
