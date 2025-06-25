@@ -12,6 +12,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250526@Lewis: Exclude grouptypeid = 3 4 [RedmineID: #228530]
 */
 
 BEGIN
@@ -25,6 +26,7 @@ BEGIN
 	WHERE IsPrivate = 0
 		AND IsDeleted = 0
 		AND (cg.GroupTypeId = @GroupTypeId OR @GroupTypeId = -1)
+		AND GroupTypeId = 1 --revenue only
 		AND EXISTS (SELECT 1 FROM dbo.TierSetting ts WITH (NOLOCK) WHERE cg.GroupId = ts.GroupId)
 END	 
 GO
