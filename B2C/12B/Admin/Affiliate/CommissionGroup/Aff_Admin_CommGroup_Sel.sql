@@ -16,6 +16,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
         - 20250320@Sally: Exclude StraightSetting [RedmineID: #219936]
+		- 20250526@Lewis: Exclude grouptypeid = 3 4 [RedmineID: #228530]
 */
 
 BEGIN
@@ -49,6 +50,7 @@ BEGIN
 			AND cg.IsDeleted = 0
 			AND cg.GroupName LIKE '%' + ISNULL(@GroupName, '') + '%'
 			AND (cg.GroupTypeId = @GroupTypeId OR @GroupTypeId IS NULL)
+			AND cg.GroupTypeId = 1 --revenue only
 			AND EXISTS (SELECT 1 FROM dbo.TierSetting t WITH (NOLOCK) WHERE cg.GroupId = t.GroupId)
 			AND EXISTS (
 				SELECT 1 FROM dbo.Deductions d WITH (NOLOCK)
