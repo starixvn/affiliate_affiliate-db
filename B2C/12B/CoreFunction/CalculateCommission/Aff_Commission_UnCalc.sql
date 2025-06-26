@@ -24,6 +24,7 @@ AS
 		- 20250319@Sally: Change Commission Calculation [RedmineID: #219936]
 		- 20250319@Sally: Enhance the formula for calculating fees [RedmineID: #223865]
 		- 20250509@Sally: Enhance calculate FlatFormFee VS [RedmineID: #226858]
+		- 20250623@Sally: Enhance Revenue calculation [RedmineID: #231221]
 		
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -412,7 +413,6 @@ BEGIN
 				SELECT MonthDate, AffId
 					,COUNT(DISTINCT CustId) AS ActivePlayer
 				FROM CTE_Player
-				WHERE IsActivePlayerSum = 1
 				GROUP BY MonthDate, AffId
 			)
 			,CTE_QualifiedPlayerSum AS(
@@ -420,7 +420,6 @@ BEGIN
 				FROM (
 					SELECT d.MonthDate, d.AffId, d.CustId, SUM(d.Turnover) AS Turnover, QMTurnover
 					FROM CTE_DataPlayer d
-					WHERE d.IsActivePlayerSum = 1
 					GROUP BY d.MonthDate, d.AffId, d.CustId, QMTurnover
 				)d
 				GROUP BY d.MonthDate, d.AffId
@@ -448,7 +447,8 @@ BEGIN
 				FROM dbo.TierSettingHistory gsh WITH (NOLOCK)
 					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(gsh.MonthDate, @AffExchangeId, @BaseExchangeId) e
 				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId AND c.GroupProductId = gsh.GroupProductId
-					AND IIF(c.MonthDate >= @CommissionCal_CutOffDate, c.NetWinloss, abs(c.NetWinloss)) BETWEEN gsh.MinAmount * e.Rate AND gsh.MaxAmount * e.Rate
+					AND IIF(c.MonthDate >= @CommissionCal_CutOffDate, c.NetWinloss, abs(c.NetWinloss)) >= gsh.MinAmount * e.Rate
+					AND IIF(c.MonthDate >= @CommissionCal_CutOffDate, c.NetWinloss, abs(c.NetWinloss)) < gsh.MaxAmount * e.Rate
 			) AS t
 			OUTER APPLY (
 				SELECT TOP 1 gsh.Commission
