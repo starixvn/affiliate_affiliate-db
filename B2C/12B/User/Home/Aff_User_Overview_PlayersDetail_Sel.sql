@@ -18,6 +18,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250425@Sally: Get FDMAmount [RedmineID: #225616]
+		- 20250627@Sally: Sort by FDMAmount [RedmineID: #231702]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -31,6 +32,7 @@ AS
 						9 = Deposit Fee
 					   10 = Withdrawal Fee
 					   11 = First Deposit Date
+					   12 = First Deposit Amount
 		- @IsSortAsc:	0 = DESC
 						1 = ASC
 		- @BaseCurrency : Currency of B2C
@@ -163,6 +165,7 @@ BEGIN
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  9 THEN d.Deposit			END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 10 THEN d.Withdrawal			END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 11 THEN m.FirstDepositDate	END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 12 THEN ISNULL(m.FirstDepositAmount, 0) * e.Rate END) ASC
 
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  1 THEN m.UserName			END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  2 THEN m.RegisteredDate		END) DESC
@@ -175,6 +178,7 @@ BEGIN
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  9 THEN d.Deposit			END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 10 THEN d.Withdrawal			END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 11 THEN m.FirstDepositDate	END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 12 THEN ISNULL(m.FirstDepositAmount, 0) * e.Rate END) DESC
 			) AS RN
 		FROM #tmpData d
 			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId
