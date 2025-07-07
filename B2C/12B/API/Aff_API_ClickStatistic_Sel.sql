@@ -15,6 +15,7 @@ AS
 
 	Revisions:
 		- 20250625@Sally: Initialize SP [RedmineID: #230555]
+		- 20250707@Sally: Fix get DateTime GMT-4 [RedmineID: #232334]
     
     Param's Explanation:
 		- @FromDate, @ToDate: GMT+8
@@ -71,7 +72,7 @@ BEGIN
 	SELECT @ArchiveDate = dbo.Aff_f_GetSetting('ArchiveDate_ClickStatistics'); -- GMT-4
 
 	SELECT @FromDate_Local = DATEADD(HOUR, -12, CAST(@FromDate AS DATETIME)) -- GMT+8 to GMT-4
-		,@ToDate_Local = DATEADD(HOUR, -12, DATEADD(DAY, 1, CAST(@ToDate AS DATETIME))); -- GMT+8 to GMT-4
+		,@ToDate_Local = DATEADD(HOUR, -12,  CAST(@ToDate AS DATETIME)); -- GMT+8 to GMT-4
 
 	IF @ToDate_Local > @ArchiveDate
 	BEGIN
@@ -94,8 +95,7 @@ BEGIN
 		FROM dbo.ClickStatistics c WITH (NOLOCK)
 		WHERE [Date] >= @tempFromDate
 			AND [Date] < @tempToDate
-			AND UpdatedTime >= @FromDate_Local -- GMT-4
-			AND UpdatedTime < @ToDate_Local -- GMT-4
+			AND UpdatedTime BETWEEN @FromDate_Local AND @ToDate_Local -- GMT-4
 		
 	END
 
@@ -119,8 +119,7 @@ BEGIN
 		FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
 		WHERE [Date] >= @tempFromDate
 			AND [Date] < @tempToDate
-			AND UpdatedTime >= @FromDate_Local -- GMT-4
-			AND UpdatedTime < @ToDate_Local -- GMT-4
+			AND UpdatedTime BETWEEN @FromDate_Local AND @ToDate_Local -- GMT-4
 	END
 
 	-- Return paginated results with AffInfo data
