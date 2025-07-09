@@ -8,12 +8,9 @@ USE Affiliate_12B
 GO
 
 INSERT INTO dbo.Market (MarketId, MarketName, MarketNativeName, ShortedCode, DisplayName, IsDeleted)
-VALUES ('en-PH', 'English (Philippines)', 'English (Philippines)', 'phien','English (Philippines)', 0)
+VALUES ('en-PH', 'English (Philippines)', 'English (Philippines)', 'phen','English (Philippines)', 0)
 GO
  
 INSERT INTO dbo.TargetCountry (MarketID, MarketName, CountryCode, CountryName, OrderNo, ShortedCode)
-VALUES ('en-PH', 'English (Philippines)', 'PH', 'Philippines', 10, 'phien')
+VALUES ('en-PH', 'English (Philippines)', 'PH', 'Philippines', 10, 'phen')
 GO
-
-DELETE dbo.TargetCountry WHERE MarketID = 'en-US' AND CountryCode = 'PH'
-

@@ -8,5 +8,5 @@ USE Affiliate_N88
 GO
 
 INSERT INTO Market (MarketId, MarketName, MarketNativeName, ShortedCode, DisplayName)
-VALUES ('en-PH', 'English (Philippines)', 'English (Philippines)', 'phien','English (Philippines)')
+VALUES ('en-PH', 'English (Philippines)', 'English (Philippines)', 'phen','English (Philippines)')
 GO
