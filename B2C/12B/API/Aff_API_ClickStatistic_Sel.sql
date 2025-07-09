@@ -1,4 +1,3 @@
-
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_API_ClickStatistic_Sel]
     @FromDate   SMALLDATETIME
@@ -16,6 +15,7 @@ AS
 	Revisions:
 		- 20250625@Sally: Initialize SP [RedmineID: #230555]
 		- 20250707@Sally: Fix get DateTime GMT-4 [RedmineID: #232334]
+		- 20250709@Sally: Enhance filter data by MemberInfo data where the ClickId exists in [RedmineID: #232701]
     
     Param's Explanation:
 		- @FromDate, @ToDate: GMT+8
@@ -87,15 +87,16 @@ BEGIN
 			OS, Device, BrowserVersion, BrowserResolution, BrowserLanguage, UserAgent,
 			Country, LanguageCode, SportCode, RedirectURL, Status, DeviceType,
 			AffMediaLink, ChannelCode
-		)
-		SELECT ClickId, AffId, UpdatedTime, IP, [Date], Browser, URLReferrer, DomainReferrer,
-               OS, Device, BrowserVersion, BrowserResolution, BrowserLanguage, UserAgent,
-               Country, LanguageCode, SportCode, RedirectURL, Status, DeviceType,
-               AffMediaLink, ChannelCode
+			)
+		SELECT c.ClickId, c.AffId, c.UpdatedTime, c.IP, c.[Date], c.Browser, c.URLReferrer, c.DomainReferrer,
+			c.OS, c.Device, c.BrowserVersion, c.BrowserResolution, c.BrowserLanguage, c.UserAgent,
+			c.Country, c.LanguageCode, c.SportCode, c.RedirectURL, c.Status, c.DeviceType,
+			c.AffMediaLink, c.ChannelCode
 		FROM dbo.ClickStatistics c WITH (NOLOCK)
-		WHERE [Date] >= @tempFromDate
-			AND [Date] < @tempToDate
-			AND UpdatedTime BETWEEN @FromDate_Local AND @ToDate_Local -- GMT-4
+			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON c.ClickId = m.ClickId
+		WHERE c.[Date] >= @tempFromDate
+			AND c.[Date] < @tempToDate
+			AND c.UpdatedTime BETWEEN @FromDate_Local AND @ToDate_Local -- GMT-4
 		
 	END
 
@@ -112,14 +113,15 @@ BEGIN
 			Country, LanguageCode, SportCode, RedirectURL, Status, DeviceType,
 			AffMediaLink, ChannelCode
 		)
-		SELECT ClickId, AffId, UpdatedTime, IP, [Date], Browser, URLReferrer, DomainReferrer,
-               OS, Device, BrowserVersion, BrowserResolution, BrowserLanguage, UserAgent,
-               Country, LanguageCode, SportCode, RedirectURL, Status, DeviceType,
-               AffMediaLink, ChannelCode
+		SELECT c.ClickId, c.AffId, c.UpdatedTime, c.IP, c.[Date], c.Browser, c.URLReferrer, c.DomainReferrer,
+			c.OS, c.Device, c.BrowserVersion, c.BrowserResolution, c.BrowserLanguage, c.UserAgent,
+			c.Country, c.LanguageCode, c.SportCode, c.RedirectURL, c.Status, c.DeviceType,
+			c.AffMediaLink, c.ChannelCode
 		FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
-		WHERE [Date] >= @tempFromDate
-			AND [Date] < @tempToDate
-			AND UpdatedTime BETWEEN @FromDate_Local AND @ToDate_Local -- GMT-4
+			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON c.ClickId = m.ClickId
+		WHERE c.[Date] >= @tempFromDate
+			AND c.[Date] < @tempToDate
+			AND c.UpdatedTime BETWEEN @FromDate_Local AND @ToDate_Local -- GMT-4
 	END
 
 	-- Return paginated results with AffInfo data
