@@ -25,6 +25,7 @@ AS
 		- 20250319@Sally: Enhance the formula for calculating fees [RedmineID: #223865]
 		- 20250509@Sally: Enhance calculate FlatFormFee VS [RedmineID: #226858]
 		- 20250623@Sally: Enhance Revenue calculation [RedmineID: #231221]
+		- 20250723@Sophia: Implement hybrid approach using rptMemberDaily for historical data and DepositInfo for last month and current month [RedmineID: #233096]
 		
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -49,6 +50,11 @@ BEGIN
     
 	IF @BeginOfFromMonthDate BETWEEN @SoftLaunchDate AND DATEADD(DAY, -1, @LaunchDate)
 		SELECT @BeginOfFromMonthDate = @SoftLaunchDate
+
+	-- Hybrid approach variables for DepositInfo optimization
+	DECLARE @LastMonthStart SMALLDATETIME = DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) - 1, 0)
+	DECLARE @WinlostDateFrom DATE = CAST(@BeginOfFromMonthDate AS DATE)
+	DECLARE @WinlostDateTo DATE = CAST(@EndOfToMonthDate AS DATE)
 
 	-- Get sub affiliate
 	DECLARE @InputAffIds VARCHAR(MAX) = @AffIds
@@ -110,6 +116,8 @@ BEGIN
 		)
 		CREATE CLUSTERED INDEX IX_Data_MonthDate ON #Data (MonthDate, ProductId)
 
+		-- Hybrid approach: Use rptMemberDaily for historical data, DepositInfo for recent data
+		-- First, get data from rptMemberDaily with conditional deposit logic
 		INSERT INTO #Data
 		(
 			MonthDate,
@@ -134,14 +142,14 @@ BEGIN
 		FROM (
 			SELECT EOMONTH(WinlostDate) AS MonthDate
 				,AffId, CustId, Currency, CASE WHEN ProductId < 0 THEN 0 ELSE ProductId END AS ProductId
-				,SUM(ISNULL(Deposit, 0))	AS Deposit
+				,SUM(CASE WHEN EOMONTH(WinlostDate) >= @LastMonthStart THEN 0 
+						  ELSE ISNULL(Deposit, 0) END) AS Deposit
 				,SUM(ISNULL(Withdrawal, 0))	AS Withdrawal
 				,SUM(ISNULL(Bonus, 0))		AS Bonus
 				,SUM(ISNULL(Rebate, 0))		AS Rebate
 				,SUM(ISNULL(Turnover, 0))	AS Turnover
 				,SUM(ISNULL(Winloss, 0) - ISNULL(ProgressiveWin, 0) + ISNULL(ProgressiveBet, 0)) AS Winloss
 			FROM dbo.rptMemberDaily r WITH (NOLOCK)
-	
 			WHERE r.WinlostDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
 				AND (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), AffId) + ',%')
 				AND NOT EXISTS (
@@ -154,6 +162,46 @@ BEGIN
 			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
 			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.MonthDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
 		GROUP BY r.MonthDate, r.AffId, r.CustId, r.Currency, r.ProductId
+
+		-- Add recent deposit data from DepositInfo for last month and current month
+		INSERT INTO #Data
+		(
+			MonthDate,
+			AffId,
+			CustId,
+			Currency,
+			ProductId,
+			Deposit,
+			Withdrawal,
+			Bonus,
+			Rebate,
+			Turnover,
+			Winloss
+		)
+		SELECT d.MonthDate, m.AffId, d.CustId, m.Currency, d.ProductId
+			,SUM(d.Deposit * e.Rate) AS Deposit
+			,0 AS Withdrawal, 0 AS Bonus, 0 AS Rebate, 0 AS Turnover, 0 AS Winloss
+		FROM (
+			SELECT EOMONTH(DATEADD(HOUR, 8, d.CreateTime)) AS MonthDate
+				,d.CustId, 0 AS ProductId
+				,SUM(ISNULL(d.Amount, 0)) AS Deposit
+			FROM bodb_12B.dbo.DepositInfo d WITH (NOLOCK)
+			WHERE d.Status = 3
+				AND d.WinlostDate BETWEEN @WinlostDateFrom AND @WinlostDateTo
+				AND EOMONTH(DATEADD(HOUR, 8, d.CreateTime)) >= @LastMonthStart
+				AND EOMONTH(DATEADD(HOUR, 8, d.CreateTime)) BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
+				AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+					WHERE mr.CustId = d.CustId AND d.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+				)
+			GROUP BY EOMONTH(DATEADD(HOUR, 8, d.CreateTime))
+				,d.CustId
+		) d
+			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON m.Currency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(d.MonthDate, ISNULL(t.ExchangeId, m.Currency), @BaseExchangeId) e
+		WHERE (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), m.AffId) + ',%')
+		GROUP BY d.MonthDate, m.AffId, d.CustId, m.Currency, d.ProductId
 	END
 
 

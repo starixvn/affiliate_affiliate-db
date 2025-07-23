@@ -44,6 +44,7 @@ AS
 		- 20250516@Sally: Get correct Date for FDM's Total Deposit [RedmineID: #227685]
 		- 20250516@Sally: Fix Get BBF [RedmineID: #227716]
 		- 20250812@Sally: Enhance conditions to view data of marketing affiliate accounts [RedmineID: #235773]
+		- 20250723@Sophia: Implement hybrid approach using rptMemberDaily for historical data and DepositInfo for last month and current month [RedmineID: #233096]
 
 	Param's Explanation:
 		- @SortType: 
@@ -78,6 +79,15 @@ BEGIN
 		,@StartDayOfFromDate	SMALLDATETIME
 		,@FromDate_Local		DATETIME
 		,@ToDate_Local			DATETIME
+
+	-- Calculate last month start for hybrid approach (convert server GMT-4 to GMT+8)
+	DECLARE @LastMonthStart SMALLDATETIME
+	SELECT @LastMonthStart = DATEADD(MONTH, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, DATEADD(HOUR, 12, GETDATE())), 0))  -- Start of last month
+
+	-- Pre-calculate DATE variables for WinlostDate index optimization
+	DECLARE @WinlostDateFrom DATE, @WinlostDateTo DATE
+	SELECT @WinlostDateFrom = DATEADD(DAY, -1, CONVERT(DATE, @FromDate))
+	SELECT @WinlostDateTo = DATEADD(DAY, 1, CONVERT(DATE, @ToDate))
 
     DECLARE @Status TABLE ([Status] VARCHAR(30))
 	INSERT INTO @Status ([Status]) 
@@ -537,8 +547,9 @@ BEGIN
 				AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate)
 			GROUP BY mi.AffId
 		),
-		-- Calculate FDM and FDM_Amount and FDM_TotalDeposit using OUTER APPLY
-		CTE_FDM_Combined AS (
+		-- Calculate FDM and FDM_Amount and FDM_TotalDeposit using hybrid approach
+		CTE_FDM_Historical AS (
+			-- Historical FDM data (FirstDepositDate < @LastMonthStart) - use rptMemberDaily
 			SELECT 
 				mi.AffId,
 				COUNT(DISTINCT mi.CustId) AS FDM,
@@ -556,7 +567,38 @@ BEGIN
 				) r
 			WHERE mi.FirstDepositDate >= @FromDate 
 				AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
+				AND mi.FirstDepositDate < @LastMonthStart  -- Historical data only
 			GROUP BY mi.AffId
+		),
+		CTE_FDM_Recent AS (
+			-- Recent FDM data (FirstDepositDate >= @LastMonthStart) - use DepositInfo
+			SELECT 
+				mi.AffId,
+				COUNT(DISTINCT mi.CustId) AS FDM,
+				SUM(ISNULL(mi.FirstDepositAmount, 0) * ex.Rate) AS FDM_Amount,
+				SUM(ISNULL(d.Amount, 0) * ex.Rate) AS FDM_TotalDeposit
+			FROM dbo.MemberInfo mi WITH (NOLOCK)
+				LEFT JOIN dbo.TpExchange te WITH (NOLOCK) ON mi.Currency = te.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(mi.FirstDepositDate, ISNULL(te.ExchangeId, mi.Currency), @BaseCurrency) ex
+				OUTER APPLY (
+					SELECT 
+						SUM(d.Amount) AS Amount
+					FROM bodb_12B.dbo.DepositInfo d WITH (NOLOCK)
+					WHERE d.CustId = mi.CustId 
+					AND d.Status = 3  -- Approved deposits only
+					AND d.WinlostDate BETWEEN @WinlostDateFrom AND @WinlostDateTo  -- Use WinlostDate index first
+					AND CONVERT(DATE, DATEADD(HOUR, 8, d.CreateTime)) BETWEEN CAST(mi.FirstDepositDate AS DATE) AND EOMONTH(mi.FirstDepositDate)  -- Convert GMT+0 to GMT+8
+				) d
+			WHERE mi.FirstDepositDate >= @FromDate 
+				AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
+				AND mi.FirstDepositDate >= @LastMonthStart  -- Recent data only
+			GROUP BY mi.AffId
+		),
+		CTE_FDM_Combined AS (
+			-- Combine historical and recent FDM data
+			SELECT AffId, FDM, FDM_Amount, FDM_TotalDeposit FROM CTE_FDM_Historical
+			UNION ALL
+			SELECT AffId, FDM, FDM_Amount, FDM_TotalDeposit FROM CTE_FDM_Recent
 		)
 		-- Insert data into #Signup
 		INSERT INTO #Signup (AffId, Signup, FDM, FDM_Amount, FDM_TotalDeposit)
@@ -587,11 +629,15 @@ BEGIN
 		-- Total Deposit
 		CREATE TABLE #TotalDeposit(AffId INT, TotalDeposit BIGINT, TotalDepositAmount MONEY, TotalWithdrawalAmount MONEY)
 		;WITH CTE_DataDeposit AS (
+		-- Get deposit count and deposit amounts from live DepositInfo
 		SELECT mi.AffId
 			,COUNT(1) AS TotalDeposit
+			,SUM(ISNULL(d.Amount, 0) * ex.Rate) AS Deposit
 		FROM bodb_12B.dbo.DepositInfo d WITH (NOLOCK)
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
-		WHERE d.WinlostDate BETWEEN DATEADD(DAY, -1, @FromDate) AND DATEADD(DAY, 1, @ToDate)
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON mi.Currency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(CONVERT(DATE, DATEADD(HOUR, 8, d.CreateTime)), ISNULL(t.ExchangeId, mi.Currency), @BaseExchangeId) ex
+		WHERE d.WinlostDate BETWEEN @WinlostDateFrom AND @WinlostDateTo  -- Use WinlostDate index first
 			AND d.Status = 3 -- Approved
 			AND d.CreateTime >= @FromDateTimeGMT0 
 			AND d.CreateTime < DATEADD(DAY, 1, @ToDateTimeGMT0)
@@ -602,8 +648,8 @@ BEGIN
 		GROUP BY mi.AffId
 		),
 		CTE_DataDepositAmount AS (
+			-- Get withdrawal amounts only from rptMemberDaily (deposits now come from CTE_DataDeposit)
 			SELECT r.AffId
-				,SUM(ISNULL(Deposit, 0) * e.Rate)	    AS Deposit
 				,SUM(ISNULL(r.Withdrawal, 0) * e.Rate)	AS Withdrawal
 			FROM dbo.rptMemberDaily r WITH (NOLOCK)
 				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
@@ -625,13 +671,13 @@ BEGIN
 		FROM (
 			SELECT mi.AffId
 				,mi.TotalDeposit
-				,0 AS TotalDepositAmount
+				,mi.Deposit AS TotalDepositAmount  -- Now includes deposit amounts from DepositInfo
 				,0 AS TotalWithdrawalAmount
 			FROM CTE_DataDeposit mi
 			UNION ALL
 			SELECT mi.AffId
-				,0 TotalDeposit
-				,Deposit	AS TotalDepositAmount
+				,0 AS TotalDeposit
+				,0 AS TotalDepositAmount  -- No longer includes deposits from rptMemberDaily
 				,Withdrawal	AS TotalWithdrawalAmount
 			FROM CTE_DataDepositAmount mi
 		)t

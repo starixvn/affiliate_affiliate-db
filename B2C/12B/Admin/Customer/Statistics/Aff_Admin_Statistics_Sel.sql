@@ -17,11 +17,16 @@ AS
 		- 20250416@Sophia: Get report by timezone [RedmineID: #222352]
 		- 20250421@Sally: Add FDM_TotalDepositByMonth column [RedmineID: #224709]
 		- 20250516@Sally: Get correct Date for FDM's Total Deposit [RedmineID: #227685]
+		- 20250722@Sophia: Implement hybrid approach using rptMemberDaily for historical data (up to month before last month) and live DepositInfo for last month and current month [RedmineID: #233096]
 		
 	Notes:
 	  - ClickStatistics.Date contains Date only, in GMT-4
 	  - ClickStatistics.UpdatedTime is DateTime in GMT-4
 	  - MemberInfo dates are DateTime in GMT+8
+	  - rptMemberDaily.WinlostDate is in GMT+8
+	  - bodb_12B.dbo.DepositInfo.CreateTime is in GMT+0
+	  - bodb_12B.dbo.DepositInfo.WinlostDate is indexed (Date of CreateTime)	 
+	  - Hybrid approach: rptMemberDaily for historical data (up to month before last month), DepositInfo for last month and current month
 */
 
 BEGIN
@@ -54,6 +59,16 @@ BEGIN
 	SELECT	@ToNextMonth	= DATEADD(MONTH, 1, @FromBeginMonth)
 	SELECT  @CurrentDate    = CONVERT(DATE, DATEADD(HOUR, 12, GETDATE())) -- GMT-4 TO GMT+8
 	SELECT  @MonthDate      = EOMONTH(@MonthDate)
+
+	-- Calculate last month start for hybrid approach (convert server GMT-4 to GMT+8)
+	DECLARE @LastMonthStart SMALLDATETIME
+	SELECT @LastMonthStart = DATEADD(MONTH, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, DATEADD(HOUR, 12, GETDATE())), 0))  -- Start of last month
+
+	-- Pre-calculate DATE variables for WinlostDate index optimization
+	DECLARE @WinlostDateFrom DATE, @WinlostDateTo DATE
+	SELECT @WinlostDateFrom = DATEADD(DAY, -1, CONVERT(DATE, @FromBeginMonth))
+	SELECT @WinlostDateTo = DATEADD(DAY, 1, CONVERT(DATE, @ToNextMonth))
+	
 	-- member statistics
 	BEGIN
 		DECLARE @MaxCommDate SMALLDATETIME
@@ -198,24 +213,50 @@ BEGIN
 
 	DROP TABLE #TempCommission
 
-	;WITH CTE_DataDeposit AS(
+	-- Hybrid approach: Use rptMemberDaily for historical data (up to month before last month) and DepositInfo for last month and current month
+	;WITH CTE_HistoricalDeposit AS(
+		-- Historical data from rptMemberDaily (up to month before last month)
 		SELECT m.AffId
 			,m.Currency
 			,EOMONTH(m.WinlostDate) AS MonthDate
 			,SUM(ISNULL(m.Deposit, 0)) AS Deposit
 		FROM dbo.rptMemberDaily m WITH(NOLOCK)
 		WHERE m.AffId = @AffId
-			 AND NOT EXISTS (
-					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
-					WHERE mr.CustId = m.custid AND m.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
-					 )
-		GROUP BY  m.AffId
-			,m.Currency
-			,EOMONTH(m.WinlostDate)
+			AND m.WinlostDate < @LastMonthStart  -- Historical data only (before last month)
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
+				WHERE mr.CustId = m.custid AND m.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+			)
+		GROUP BY m.AffId, m.Currency, EOMONTH(m.WinlostDate)
+	),
+	CTE_RecentDeposit AS(
+		-- Recent data from live DepositInfo (last month and current month)
+		SELECT mi.AffId
+			,mi.Currency
+			,EOMONTH(DATEADD(HOUR, 8, d.CreateTime)) AS MonthDate  -- Convert GMT+0 to GMT+8
+			,SUM(d.Amount) AS Deposit
+		FROM bodb_12B.dbo.DepositInfo d WITH(NOLOCK)
+			INNER JOIN dbo.MemberInfo mi WITH(NOLOCK) ON d.CustId = mi.CustId
+		WHERE mi.AffId = @AffId
+			AND d.Status = 3  -- Approved deposits only
+			AND d.WinlostDate BETWEEN @WinlostDateFrom AND @WinlostDateTo  -- Use WinlostDate index first (covers full date range)
+			AND DATEADD(HOUR, 8, d.CreateTime) >= @LastMonthStart  -- Last month and current month data (GMT+8)
+			AND NOT EXISTS (
+				SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
+				WHERE mr.CustId = d.CustId 
+				AND CAST(DATEADD(HOUR, 8, d.CreateTime) AS DATE) BETWEEN mr.FromDate AND mr.ToDate  -- Convert to GMT+8 for comparison
+			)
+		GROUP BY mi.AffId, mi.Currency, EOMONTH(DATEADD(HOUR, 8, d.CreateTime))  -- Convert GMT+0 to GMT+8
+	),
+	CTE_CombinedDeposit AS(
+		-- Combine historical and recent data
+		SELECT AffId, Currency, MonthDate, Deposit FROM CTE_HistoricalDeposit
+		UNION ALL
+		SELECT AffId, Currency, MonthDate, Deposit FROM CTE_RecentDeposit
 	)
 	SELECT @DepositByMonth = SUM(CASE WHEN MonthDate = @MonthDate THEN r.Deposit * e.Rate ELSE 0 END)
 		,@DepositTotal = SUM(r.Deposit * e.Rate)
-	FROM CTE_DataDeposit r				
+	FROM CTE_CombinedDeposit r				
 		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
 		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.MonthDate, ISNULL(t.ExchangeId, r.Currency), 0) e
 
@@ -226,27 +267,51 @@ BEGIN
 		@TotalFDMAmount	= SUM(ISNULL(FirstDepositAmount, 0) * ISNULL(e.Rate, 0))
 	FROM dbo.MemberInfo r WITH (NOLOCK)
 		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
-		OUTER APPLY dbo.Aff_f_ExchangeRate_Sel(r.FirstDepositDate, ISNULL(t.ExchangeId, r.Currency), 0) e
+		OUTER APPLY dbo.Aff_f_ExchangeRate_Sel(@FromBeginMonth, ISNULL(t.ExchangeId, r.Currency), 0) e
 	WHERE AffId = @AffId
 
-	-- Calculate FDM_TotalDepositByMonth
+	-- Calculate FDM_TotalDepositByMonth using hybrid approach
 	SELECT 
 		@FDMByMonth	 			 = COUNT(DISTINCT mi.CustId),
-		@TotalFDMAmountByMonth 	 = SUM(ISNULL(FirstDepositAmount, 0) * ISNULL(ex.Rate, 0)),
-		@FDM_TotalDepositByMonth = SUM(ISNULL(r.Deposit, 0) * ex.Rate)
+		@TotalFDMAmountByMonth 	 = SUM(ISNULL(FirstDepositAmount, 0) * ISNULL(ex.Rate, 0))
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
 		LEFT JOIN dbo.TpExchange te WITH (NOLOCK) ON mi.Currency = te.TpExchangeId
-		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(mi.FirstDepositDate, ISNULL(te.ExchangeId, mi.Currency), 0) ex
-		OUTER APPLY (
-			SELECT 
-				SUM(r.Deposit) AS Deposit
-			FROM dbo.rptMemberDaily r WITH (NOLOCK)
-			WHERE r.CustId = mi.CustId 
-			AND r.WinlostDate BETWEEN CAST(mi.FirstDepositDate AS DATE) AND EOMONTH(mi.FirstDepositDate)
-		) r
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@FromBeginMonth, ISNULL(te.ExchangeId, mi.Currency), 0) ex
 	WHERE mi.AffId = @AffId
 		AND mi.FirstDepositDate >= @FromBeginMonth 
 		AND mi.FirstDepositDate < @ToNextMonth
+
+	-- Calculate @FDM_TotalDepositByMonth using conditional approach based on month comparison
+	IF @FromBeginMonth < @LastMonthStart
+	BEGIN
+		-- Historical data from rptMemberDaily (for months before last month)
+		SELECT @FDM_TotalDepositByMonth = SUM(ISNULL(r.Deposit, 0) * ex.Rate)
+		FROM dbo.MemberInfo mi WITH (NOLOCK)
+			INNER JOIN dbo.rptMemberDaily r WITH (NOLOCK) ON r.CustId = mi.CustId
+			LEFT JOIN dbo.TpExchange te WITH (NOLOCK) ON mi.Currency = te.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@FromBeginMonth, ISNULL(te.ExchangeId, mi.Currency), 0) ex
+		WHERE mi.AffId = @AffId
+			AND mi.FirstDepositDate >= @FromBeginMonth 
+			AND mi.FirstDepositDate < @ToNextMonth
+			AND mi.FirstDepositDate < @LastMonthStart  -- Only FDM from before last month
+			AND r.WinlostDate BETWEEN CAST(mi.FirstDepositDate AS DATE) AND EOMONTH(mi.FirstDepositDate)
+	END
+	ELSE
+	BEGIN
+		-- Recent data from live DepositInfo (for last month and current month)
+		SELECT @FDM_TotalDepositByMonth = SUM(ISNULL(d.Amount, 0) * ex.Rate)
+		FROM dbo.MemberInfo mi WITH (NOLOCK)
+			INNER JOIN bodb_12B.dbo.DepositInfo d WITH(NOLOCK) ON d.CustId = mi.CustId
+			LEFT JOIN dbo.TpExchange te WITH (NOLOCK) ON mi.Currency = te.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@FromBeginMonth, ISNULL(te.ExchangeId, mi.Currency), 0) ex
+		WHERE mi.AffId = @AffId
+			AND mi.FirstDepositDate >= @FromBeginMonth 
+			AND mi.FirstDepositDate < @ToNextMonth
+			AND mi.FirstDepositDate >= @LastMonthStart  -- Only FDM from last month onwards
+			AND d.Status = 3  -- Approved deposits only
+			AND d.WinlostDate BETWEEN @WinlostDateFrom AND @WinlostDateTo  -- Use WinlostDate index first (covers full date range)
+			AND CAST(DATEADD(HOUR, 8, d.CreateTime) AS DATE) BETWEEN CAST(mi.FirstDepositDate AS DATE) AND EOMONTH(mi.FirstDepositDate)
+	END
 
 	DECLARE @ArchiveDate SMALLDATETIME
 	SELECT @ArchiveDate = dbo.Aff_f_GetSetting('ArchiveDate_ClickStatistics') -- GMT-4, Date only

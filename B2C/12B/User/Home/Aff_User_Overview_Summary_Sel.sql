@@ -17,15 +17,25 @@ AS
 		- 20250313@Sally: Get Rate for  FDM's Deposit [RedmineID: #219974]
 		- 20250416@Sally: Change the data retrieval method for Deposit [RedmineID: #224116]
 		- 20250401@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
+		- 20250723@Sophia: Optimize Deposit using conditional hybrid approach - if @BeginOfMonth < last month use rptMemberDaily only, else use hybrid with DepositInfo for recent months [RedmineID: #233096]
 */
 
 BEGIN
 	SET NOCOUNT ON
 	
 	-- date range for get data whole month of @MonthDate
-	DECLARE @BeginOfMonth SMALLDATETIME, @EndOfMonth SMALLDATETIME
+	DECLARE @BeginOfMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME
 	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
-	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
+	SELECT  @ToNextMonth	= DATEADD(MONTH, 1, @BeginOfMonth)
+
+	-- Pre-calculate DATE variables for WinlostDate index optimization
+	DECLARE @WinlostDateFrom DATE, @WinlostDateTo DATE
+	SELECT @WinlostDateFrom = DATEADD(DAY, -1, CONVERT(DATE, @BeginOfMonth))
+	SELECT @WinlostDateTo = DATEADD(DAY, 1, CONVERT(DATE, @ToNextMonth))
+
+	-- Calculate last month start for conditional hybrid approach
+	DECLARE @LastMonthStart SMALLDATETIME
+	SELECT @LastMonthStart = DATEADD(MONTH, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0))
 
 	DECLARE @BaseExchangeId INT = @BaseCurrency
 	SELECT @BaseExchangeId = t.ExchangeId
@@ -36,8 +46,8 @@ BEGIN
 	BEGIN
 		DECLARE @Signups INT, @DepositedMembers INT, @FDMDeposit MONEY
 		
-		SELECT  @Signups		   = COUNT(CASE WHEN RegisteredDate >= @BeginOfMonth AND RegisteredDate < DATEADD(DAY, 1, @EndOfMonth) THEN 1 ELSE NULL END)
-				,@DepositedMembers = COUNT(CASE WHEN FirstDepositDate >= @BeginOfMonth AND FirstDepositDate < DATEADD(DAY, 1, @EndOfMonth) THEN 1 ELSE NULL END)			
+		SELECT  @Signups		   = COUNT(CASE WHEN RegisteredDate >= @BeginOfMonth AND RegisteredDate < @ToNextMonth THEN 1 ELSE NULL END)
+				,@DepositedMembers = COUNT(CASE WHEN FirstDepositDate >= @BeginOfMonth AND FirstDepositDate < @ToNextMonth THEN 1 ELSE NULL END)			
 		FROM dbo.MemberInfo m WITH (NOLOCK)
 		WHERE AffId = @AffId
 
@@ -47,23 +57,48 @@ BEGIN
 			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (r.FirstDepositDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
 		WHERE AffId = @AffId
 			AND FirstDepositDate >= @BeginOfMonth 
-			AND FirstDepositDate < DATEADD(DAY, 1, @EndOfMonth)
+			AND FirstDepositDate < @ToNextMonth
 	END
 
-	-- Total Deposit
+	-- Total Deposit - Conditional hybrid approach
 	BEGIN
 		DECLARE @Deposit MONEY
-		SELECT @Deposit =SUM(ISNULL(Deposit, 0) * e.Rate)	   
-		FROM dbo.rptMemberDaily r WITH (NOLOCK)
-			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
-		WHERE r.WinlostDate >= @BeginOfMonth 
-			AND r.WinlostDate < DATEADD(DAY, 1, @EndOfMonth)
-			AND r.AffId = @AffId
-			AND NOT EXISTS (
-				SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
-				WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
-			)	
+		
+		-- Check if @BeginOfMonth is before last month
+		IF @BeginOfMonth < @LastMonthStart
+		BEGIN
+			-- Use rptMemberDaily only for historical data
+			SELECT @Deposit = SUM(ISNULL(Deposit, 0) * e.Rate)	   
+			FROM dbo.rptMemberDaily r WITH (NOLOCK)
+				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@BeginOfMonth, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
+			WHERE r.WinlostDate >= @BeginOfMonth 
+				AND r.WinlostDate < @ToNextMonth
+				AND r.AffId = @AffId
+				AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+					WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+				)	
+		END
+		ELSE
+		BEGIN
+			-- Use live DepositInfo for recent months (last month and current month)
+			SELECT @Deposit = SUM(d.Amount * e.Rate)
+			FROM bodb_12B.dbo.DepositInfo d WITH(NOLOCK)
+				INNER JOIN dbo.MemberInfo mi WITH(NOLOCK) ON d.CustId = mi.CustId
+				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON mi.Currency = t.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(@BeginOfMonth, ISNULL(t.ExchangeId, mi.Currency), @BaseExchangeId) e
+			WHERE mi.AffId = @AffId
+				AND d.Status = 3  -- Approved deposits only
+				AND d.WinlostDate BETWEEN @WinlostDateFrom AND @WinlostDateTo  -- Use WinlostDate index with pre-calculated DATE variables
+				AND DATEADD(HOUR, 8, d.CreateTime) >= @BeginOfMonth  -- Within month range (GMT+8)
+				AND DATEADD(HOUR, 8, d.CreateTime) < @ToNextMonth  -- Within month range (GMT+8)
+				AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
+					WHERE mr.CustId = d.CustId 
+					AND CAST(DATEADD(HOUR, 8, d.CreateTime) AS DATE) BETWEEN mr.FromDate AND mr.ToDate  -- Convert to GMT+8 for comparison
+				)
+		END
 	END
 
 	-- Balance Brought Forward
@@ -72,7 +107,7 @@ BEGIN
 		SELECT  @BBF = SUM(Amount)
 		FROM dbo.AffTrans WITH (NOLOCK)
 		WHERE AffId = @AffId
-			AND WinlostDate < DATEADD(DAY, 1, @EndOfMonth)
+			AND WinlostDate < @ToNextMonth
 			AND Status IN ('Pending', 'Approved', 'Completed')
 	END
 
@@ -85,7 +120,7 @@ BEGIN
 		WHERE ParentAffId = @AffId
 			AND Status = 'Approved'
 			AND IsClosed = 0
-			AND ApprovedDate >= @BeginOfMonth AND ApprovedDate < DATEADD(DAY, 1, @EndOfMonth)
+			AND ApprovedDate >= @BeginOfMonth AND ApprovedDate < @ToNextMonth
 
 		CREATE TABLE #TempCommission
 		(
