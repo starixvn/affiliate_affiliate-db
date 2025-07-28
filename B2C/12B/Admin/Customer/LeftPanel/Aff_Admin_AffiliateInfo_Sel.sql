@@ -14,6 +14,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250417@Lewis: Get TargetCountry [RedmineID: #223644]
+        - 20250623@Sally: Get info Affcategory [RedmineID: #212201]
 
 */
 
@@ -49,6 +50,8 @@ BEGIN
 		ad.LastLoginDate,
 		ad.LastLoginIP,
 		cg.GroupTypeId,
+        ai.AffCategoryId,
+        ac.AffCategoryDesc,
 		-- Personal Information
 		ai.UserName,
 		ai.UserName2,
@@ -65,6 +68,7 @@ BEGIN
 		ad.Postal,
 		ad.Country,
 		ISNULL(q.Question, ad.Question) AS Question,
+		ISNULL(q.QuestionID, ad.QuestionID) AS QuestionID,
 		ad.Answer,
 		-- Email Format Preference
 		ad.MailOption,
@@ -85,6 +89,7 @@ BEGIN
 		ad.Player_CustId		AS PlayerCustId,
 		ad.Player_Username		AS PlayerUsername,
 		ad.Player_CurrencyCode	AS PlayerCurrency,
+		ad.Player_Currency		AS PlayerCurrencyId,
 		ad.TransferLimit,
 		CONVERT(BIT, ISNULL(ad.DisabledTransfer, 0)) AS DisabledTransfer,
 			-- Netteller
@@ -102,9 +107,11 @@ BEGIN
 		ISNULL(dep.IsDeductedPercent, 0) AS Dep_IsDeductedPercent,
 		ISNULL(wit.IsDeductedPercent, 0) AS Wit_IsDeductedPercent,
 		-- TargetCountry
-		ISNULL(tc.CountryName,'') AS TargetCountryName
+		ISNULL(tc.CountryName,'') AS TargetCountryName,
+		ISNULL(tc.CountryCode,'') AS TargetCountryCode
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+        INNER JOIN dbo.AffCategory ac WITH (NOLOCK) ON ai.AffCategoryId = ac.AffCategoryId
 		LEFT JOIN dbo.AffInfo p WITH (NOLOCK) ON ai.ParentAffId = p.AffId
 		OUTER APPLY dbo.Aff_f_GetBalBroughtForward (@AffId) b
 		LEFT JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupId = cg.GroupId

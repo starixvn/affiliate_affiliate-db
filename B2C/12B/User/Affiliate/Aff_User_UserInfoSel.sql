@@ -11,6 +11,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250417@Lewis: Add TargetCountry [RedmineID: #223644]
+		- 20250707@Sally: Get info Affcategory [RedmineID: #212201]
 
 */
 
@@ -53,9 +54,12 @@ BEGIN
 		@AffCurrencyCode AS AffCurrency,
 		ai.DefaultCurrency AS DefaultBaseCurrency,
 		ai.AffCode,
-		ad.TargetCountryCode
+		ad.TargetCountryCode,
+		ai.AffCategoryId,
+		ac.AffCategoryDesc
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+		INNER JOIN dbo.AffCategory ac WITH (NOLOCK) ON ai.AffCategoryId = ac.AffCategoryId
 	WHERE ai.AffId = @AffId
 END
 GO

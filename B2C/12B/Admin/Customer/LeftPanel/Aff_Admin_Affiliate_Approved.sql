@@ -18,6 +18,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250320@Lewis: Exclude Special Email [RedmineID: #220971]
+        - 20250623@Sally: valid Affiliate account by Affcategory [RedmineID: #212201]
 */
 
 BEGIN
@@ -93,10 +94,26 @@ BEGIN
 	-- Update process
 	BEGIN
 		-- Check exists Email
-		DECLARE @Email NVARCHAR(50) = (SELECT Email FROM AffInfo WITH (NOLOCK) WHERE AffId = @AffId)
+		DECLARE @Email NVARCHAR(50)
+            ,@AffCategoryId INT
+            
+        SELECT @Email = Email 
+            ,@AffCategoryId = AffCategoryId
+        FROM AffInfo WITH (NOLOCK) 
+        WHERE AffId = @AffId
 		
-		IF EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId <> @AffId AND Email = @Email AND Status = 'Approved')
-		AND NOT EXISTS (SELECT 1 FROM dbo.Aff_f_GetSpecialEmail() f WHERE f.Email = @Email)
+		IF EXISTS (
+			SELECT 1 
+			FROM dbo.AffInfo WITH (NOLOCK) 
+			WHERE AffId <> @AffId 
+				AND Email = @Email 
+				AND Status = 'Approved' 
+				AND (
+					(AffCategoryId = 1 AND @AffCategoryId = 2)
+					OR
+					(@AffCategoryId = 1)
+				)
+        )
 		BEGIN
 			-- Email Address has been used. Please choose another one!
 			SELECT @ErrCode = 1007, @ErrMsg = dbo.Aff_f_GetMessageById(1, @Language)

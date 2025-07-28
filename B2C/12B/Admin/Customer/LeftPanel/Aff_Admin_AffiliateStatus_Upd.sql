@@ -17,6 +17,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250320@Lewis: Exclude Special Email [RedmineID: #220971]
+        - 20250623@Sally: valid Affiliate account by Affcategory [RedmineID: #212201]
 
 */
 
@@ -25,6 +26,7 @@ BEGIN
 
 	DECLARE @Language VARCHAR(10) = 'en-US'
 	DECLARE @AffCode VARCHAR(20)
+        ,@AffCategoryId INT
 
 	SELECT @ErrCode = 0, @ErrMsg = '', @Status = ISNULL(@Status, '')
 
@@ -52,7 +54,7 @@ BEGIN
 		RETURN
 	END
 	
-	DECLARE @OldStatus VARCHAR(5)
+	DECLARE @OldStatus VARCHAR(30)
 	SELECT  @OldStatus = CASE
 							WHEN Status = 'Approved' AND IsClosed = 1 THEN 'Closed'
 							WHEN Status = 'Approved' AND IsRejected = 1 THEN 'Suspended'
@@ -69,13 +71,24 @@ BEGIN
 			,@NewData	= 'Status=' + @Status
 			,@SPName	= OBJECT_NAME(@@PROCID)
 			,@Email		= Email
+            ,@AffCategoryId = AffCategoryId
 	FROM dbo.AffInfo WITH (NOLOCK)
 	WHERE AffID = @AffID
 
 	IF @Status = 'Approved' -- From Pending/Disapproved
 	BEGIN
-		IF EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE Email = @Email AND Status = 'Approved' AND AffID <> @AffID)
-			AND NOT EXISTS (SELECT 1 FROM dbo.Aff_f_GetSpecialEmail() f WHERE f.Email = @Email)
+		IF EXISTS (
+			SELECT 1 
+			FROM dbo.AffInfo WITH (NOLOCK) 
+			WHERE AffId <> @AffId 
+				AND Email = @Email 
+				AND Status = 'Approved' 
+				AND (
+					(AffCategoryId = 1 AND @AffCategoryId = 2)
+					OR
+					(@AffCategoryId = 1)
+				)
+        )
 		BEGIN
 			-- Email Address has been used. Please choose another one!
 			SELECT @ErrCode = 1007, @ErrMsg = dbo.Aff_f_GetMessageById(1, @Language)
