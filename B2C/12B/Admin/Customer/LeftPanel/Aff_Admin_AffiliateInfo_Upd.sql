@@ -49,6 +49,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250320@Lewis: Exclude Special Email [RedmineID: #220971]
+		- 20250623@Sally: valid Affiliate account by Affcategory [RedmineID: #212201]
 
 */
 
@@ -57,6 +58,7 @@ BEGIN
 
 	DECLARE @CurrentDate SMALLDATETIME
 		,@Language VARCHAR(20)
+        ,@AffCategoryId INT = 1 -- default normal affiliate account
 
 	SELECT @CurrentDate = GETDATE()
 	SELECT @Language	= 'en-US'
@@ -80,67 +82,55 @@ BEGIN
 		RETURN
 	END
 
-	DECLARE @UpdatedData TABLE
+	-- Separate table variables for old and new data logging
+	DECLARE @OldDataTable TABLE
 	(
-		FirstName_Del			NVARCHAR(50),
-		LastName_Del			NVARCHAR(50),
-		Email_Del				NVARCHAR(50),
-		IsPageEnabled_Del		BIT,
-		Level_Del				TINYINT,
-		Gender_Del				BIT,
-		Country_Del				NVARCHAR(50),
-		Phone_Del				VARCHAR(50),
-		ContactApps_Del			NVARCHAR(2000),
-		Address_Del				NVARCHAR(250),
-		City_Del				NVARCHAR(250),
-		State_Del				NVARCHAR(50),
-		Postal_Del				NVARCHAR(50),
-		SiteURL_Del				VARCHAR(100),
-		MoreSiteURLs_Del		VARCHAR(1000),
-		NoSiteDesc_Del			NVARCHAR(1000),
-		PreferredPayment_Del	VARCHAR(20),
-		Player_CustId_Del		INT,
-		Player_Username_Del		NVARCHAR(50),
-		Player_Currency_Del		INT,
-		Neteller_AccountId_Del	VARCHAR(50),
-		Moneybookers_Email_Del	NVARCHAR(50),
-		Wire_BankName_Del		NVARCHAR(100),
-		Wire_BankAddress_Del	NVARCHAR(200),
-		Wire_SwiftCode_Del		NVARCHAR(50),
-		Wire_AccountName_Del	NVARCHAR(100),
-		Wire_AccountNo_Del		VARCHAR(100),
-		MailOption_Del			BIT,
-		IsRejected_Del			BIT,
-		-- insert
-		FirstName_Ins			NVARCHAR(50),
-		LastName_Ins			NVARCHAR(50),
-		Email_Ins				NVARCHAR(50),
-		IsPageEnabled_Ins		BIT,
-		Level_Ins				TINYINT,
-		Gender_Ins				BIT,
-		Country_Ins				NVARCHAR(50),
-		Phone_Ins				VARCHAR(50),
-		ContactApps_Ins			NVARCHAR(2000),
-		Address_Ins				NVARCHAR(250),
-		City_Ins				NVARCHAR(250),
-		State_Ins				NVARCHAR(50),
-		Postal_Ins				NVARCHAR(50),
-		SiteURL_Ins				VARCHAR(100),
-		MoreSiteURLs_Ins		VARCHAR(1000),
-		NoSiteDesc_Ins			NVARCHAR(1000),
-		PreferredPayment_Ins	VARCHAR(20),
-		Player_CustId_Ins		INT,
-		Player_Username_Ins		NVARCHAR(50),
-		Player_Currency_Ins		INT,
-		Neteller_AccountId_Ins	VARCHAR(50),
-		Moneybookers_Email_Ins	NVARCHAR(50),
-		Wire_BankName_Ins		NVARCHAR(100),
-		Wire_BankAddress_Ins	NVARCHAR(200),
-		Wire_SwiftCode_Ins		NVARCHAR(50),
-		Wire_AccountName_Ins	NVARCHAR(100),
-		Wire_AccountNo_Ins		VARCHAR(100),
-		MailOption_Ins			BIT,
-		IsRejected_Ins			BIT
+		FirstName			NVARCHAR(50),
+		LastName			NVARCHAR(50),
+		Email				NVARCHAR(50),
+		Gender				BIT,
+		Country				NVARCHAR(50),
+		Phone				VARCHAR(50),
+		ContactApps			NVARCHAR(2000),
+		Address				NVARCHAR(250),
+		City				NVARCHAR(250),
+		State				NVARCHAR(50),
+		Postal				NVARCHAR(50),
+		SiteURL				VARCHAR(100),
+		MoreSiteURLs		VARCHAR(1000),
+		NoSiteDesc			NVARCHAR(1000),
+		PreferredPayment	VARCHAR(20),
+		Player_CustId		INT,
+		Player_Username		NVARCHAR(50),
+		Player_Currency		INT,
+		Player_CurrencyName	NVARCHAR(50),
+		Player_CurrencyCode	VARCHAR(3),
+		MailOption			BIT
+	)
+
+	DECLARE @NewDataTable TABLE
+	(
+		FirstName			NVARCHAR(50),
+		LastName			NVARCHAR(50),
+		Email				NVARCHAR(50),
+		Gender				BIT,
+		Country				NVARCHAR(50),
+		Phone				VARCHAR(50),
+		ContactApps			NVARCHAR(2000),
+		Address				NVARCHAR(250),
+		City				NVARCHAR(250),
+		State				NVARCHAR(50),
+		Postal				NVARCHAR(50),
+		SiteURL				VARCHAR(100),
+		MoreSiteURLs		VARCHAR(1000),
+		NoSiteDesc			NVARCHAR(1000),
+		PreferredPayment	VARCHAR(20),
+		Player_CustId		INT,
+		Player_Username		NVARCHAR(50),
+		Player_Currency		INT,
+		Player_CurrencyName	NVARCHAR(50),
+		Player_CurrencyCode	VARCHAR(3),
+		MailOption			BIT
 	)
 
 	-- Write log
@@ -152,7 +142,12 @@ BEGIN
 	-- Update others (Edit tab)
 	BEGIN
 		-- Check if change player_username
-		IF EXISTS (SELECT 1 FROM dbo.AffDetail WITH (NOLOCK) WHERE AffID = @AffId AND Player_Username <> @Player_Username)
+		IF EXISTS (
+            SELECT 1 
+            FROM dbo.AffDetail WITH (NOLOCK) 
+            WHERE AffID = @AffId 
+                AND ISNULL(Player_Username, '') <> ISNULL(@Player_Username,'')
+        )
 		BEGIN
 			IF EXISTS (SELECT 1 FROM dbo.AffPayout WITH (NOLOCK) WHERE AffID = @AffId AND Status = 'Pending')
 			BEGIN
@@ -162,7 +157,12 @@ BEGIN
 			END
 
 			-- Check exists player_username
-			IF EXISTS (SELECT 1 FROM dbo.AffDetail WITH (NOLOCK) WHERE Player_Username = @Player_UserName AND AffID <> @AffId)
+			IF EXISTS (SELECT 1 
+                FROM dbo.AffDetail WITH (NOLOCK) 
+                WHERE Player_Username = @Player_UserName 
+                    AND ISNULL(Player_Username, '') <> '' 
+                    AND AffID <> @AffId
+            )
 			BEGIN
 				-- Player Username has been used. Please choose another one!
 				SELECT @ErrCode = 1002, @ErrMsg = dbo.Aff_f_GetMessageById(3, @Language)
@@ -171,146 +171,301 @@ BEGIN
 			END
 		END
 
-		-- Check duplicate email
-		IF EXISTS (SELECT 1 FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId <> @AffId AND Email = @Email AND Status <> 'Disapproved')
-			AND NOT EXISTS (SELECT 1 FROM dbo.Aff_f_GetSpecialEmail() f WHERE f.Email = @Email)
+        -- Get category of affiliate
+        SELECT @AffCategoryId  = AffCategoryId
+        FROM dbo.AffInfo WITH (NOLOCK)
+        WHERE AffId = @AffId
+
+		-- Error shows Message if user edit to an existed email Address of Normal AFF account 
+		IF EXISTS (
+			SELECT 1 
+			FROM dbo.AffInfo WITH (NOLOCK) 
+			WHERE AffId <> @AffId 
+				AND Email = @Email 
+				AND Status <> 'Disapproved' 
+				AND (
+					(AffCategoryId = 1 AND @AffCategoryId = 2)
+					OR
+					(@AffCategoryId = 1)
+				)
+		)
 		BEGIN
 			-- Email Address has been used. Please choose another one!
 			SELECT @ErrCode = 1002, @ErrMsg = dbo.Aff_f_GetMessageById(1, @Language)
 			RETURN
 		END
 
-		DECLARE @Player_CurrencyName NVARCHAR(50), @Player_CurrencyCode VARCHAR(3),  @Player_ExchangeId INT = @Player_Currency
+		DECLARE @Player_CurrencyName NVARCHAR(50), @Player_CurrencyCode VARCHAR(3), @Player_ExchangeId INT = @Player_Currency
+		
+		--Get player currency mapping
+        IF @Player_Currency IS NOT NULL
+        BEGIN
+            SELECT @Player_ExchangeId = t.ExchangeId
+            FROM dbo.TpExchange t WITH (NOLOCK)
+            WHERE t.TpExchangeId = @Player_Currency
 
-		---Get player currency mapping
-		SELECT @Player_ExchangeId = t.ExchangeId
-		FROM dbo.TpExchange t WITH (NOLOCK)
-		WHERE t.TpExchangeId = @Player_Currency
+            SELECT  @Player_CurrencyName = currency, @Player_CurrencyCode = CASE WHEN e.ExchangeId = 20 THEN 'UUS' ELSE Code END
+            FROM bodb02.dbo.Exchange e WITH (NOLOCK)
+            WHERE e.ExchangeId = @Player_ExchangeId
+        END
 
-		SELECT  @Player_CurrencyName = currency, @Player_CurrencyCode = CASE WHEN e.ExchangeId = 20 THEN 'UUS' ELSE Code END
-		FROM bodb02.dbo.Exchange e WITH (NOLOCK)
-		WHERE e.ExchangeId = @Player_ExchangeId
+		-- Capture current data before UPDATE (Old Data)
+		INSERT INTO @OldDataTable (
+			FirstName,
+			LastName,
+			Email,
+			Gender,
+			Country,
+			Phone,
+			ContactApps,
+			Address,
+			City,
+			State,
+			Postal,
+			SiteURL,
+			MoreSiteURLs,
+			NoSiteDesc,
+			PreferredPayment,
+			Player_CustId,
+			Player_Username,
+			Player_Currency,
+			Player_CurrencyName,
+			Player_CurrencyCode,
+			MailOption
+		)
+		SELECT ai.FirstName,
+			   ai.LastName,
+			   ai.Email,
+			   ad.Gender,
+			   ad.Country,
+			   ad.Phone,
+			   ad.ContactApps,
+			   ad.Address,
+			   ad.City,
+			   ad.State,
+			   ad.Postal,
+			   ad.SiteURL,
+			   ad.MoreSiteURLs,
+			   ad.NoSiteDesc,
+			   ad.PreferredPayment,
+			   ad.Player_CustId,
+			   ad.Player_Username,
+			   ad.Player_Currency,
+			   ad.Player_CurrencyName,
+			   ad.Player_CurrencyCode,
+			   ad.MailOption
+		FROM dbo.AffInfo ai WITH (NOLOCK)
+		LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+		WHERE ai.AffId = @AffId;
+
+		-- Capture new data from parameters (New Data)
+		INSERT INTO @NewDataTable (
+			FirstName,
+			LastName,
+			Email,
+			Gender,
+			Country,
+			Phone,
+			ContactApps,
+			Address,
+			City,
+			State,
+			Postal,
+			SiteURL,
+			MoreSiteURLs,
+			NoSiteDesc,
+			PreferredPayment,
+			Player_CustId,
+			Player_Username,
+			Player_Currency,
+			Player_CurrencyName,
+			Player_CurrencyCode,
+			MailOption
+		)
+		SELECT @FirstName,
+			   @LastName,
+			   @Email,
+			   @Gender,
+			   @Country,
+			   @Phone,
+			   @ContactApps,
+			   @Address,
+			   @City,
+			   @State,
+			   @Postal,
+			   @SiteURL,
+			   @MoreSiteURLs,
+			   @NoSiteDesc,
+			   @PreferredPayment,
+			   @Player_CustId,
+			   @Player_Username,
+			   @Player_Currency,
+			   @Player_CurrencyName,
+			   @Player_CurrencyCode,
+			   @MailOption;
 
 		BEGIN TRY
+			-- Update AffInfo table
 			UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
-			SET FirstName = ISNULL(@FirstName, FirstName),
-				LastName = ISNULL(@LastName, LastName),
-				Email = ISNULL(@Email, Email)
-			OUTPUT	DELETED.FirstName, DELETED.LastName, DELETED.Email,
-					INSERTED.FirstName, INSERTED.LastName, INSERTED.Email
-			INTO @UpdatedData (FirstName_Del, LastName_Del, Email_Del,
-								FirstName_Ins, LastName_Ins, Email_Ins)
+			SET FirstName = @FirstName,
+				LastName = @LastName,
+				Email = @Email
 			WHERE AffId = @AffId
-		END TRY
-		BEGIN CATCH
-			-- Update process is unsuccessful. Please try again!
-			SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-			RETURN
-		END CATCH
 
-		BEGIN TRY
+			-- Update AffDetail table
 			UPDATE AffDetail WITH (ROWLOCK, UPDLOCK)
-			SET Gender = ISNULL(@Gender, Gender),
-				Country = ISNULL(@Country, Country),
-				Phone = ISNULL(@Phone, Phone),
-				ContactApps = ISNULL(@ContactApps, ContactApps),
-				Address = ISNULL(@Address, Address),
-				City = ISNULL(@City, City),
-				State = ISNULL(@State, State),
-				Postal = ISNULL(@Postal, Postal),
-				SiteURL = ISNULL(@SiteURL, SiteURL),
-				MoreSiteURLs = ISNULL(@MoreSiteURLs, MoreSiteURLs),
-				NoSiteDesc = ISNULL(@NoSiteDesc, NoSiteDesc),
+			SET Gender = @Gender,
+				Country = @Country,
+				Phone = @Phone,
+				ContactApps = @ContactApps,
+				Address = @Address,
+				City = @City,
+				State = @State,
+				Postal = @Postal,
+				SiteURL = @SiteURL,
+				MoreSiteURLs = @MoreSiteURLs,
+				NoSiteDesc = @NoSiteDesc,
 				PreferredPayment = @PreferredPayment,
-				Player_CustId = ISNULL(@Player_CustId, Player_CustId),
-				Player_Username = ISNULL(@Player_Username, Player_Username),
-				Player_Currency = ISNULL(@Player_Currency, Player_Currency),
-				Player_CurrencyName = ISNULL(@Player_CurrencyName, Player_CurrencyName),
-				Player_CurrencyCode = ISNULL(@Player_CurrencyCode, Player_CurrencyCode),
-				MailOption = ISNULL(@MailOption, MailOption)
-			OUTPUT	DELETED.Gender,DELETED.Country,DELETED.Phone,DELETED.ContactApps,DELETED.Address,DELETED.City,DELETED.State,DELETED.Postal,
-					DELETED.SiteURL,DELETED.MoreSiteURLs,DELETED.NoSiteDesc,
-					DELETED.PreferredPayment,
-					DELETED.Player_CustId,DELETED.Player_Username,DELETED.Player_Currency,DELETED.MailOption,
-					INSERTED.Gender,INSERTED.Country,INSERTED.Phone,INSERTED.ContactApps,INSERTED.Address,INSERTED.City,INSERTED.State,INSERTED.Postal,
-					INSERTED.SiteURL,INSERTED.MoreSiteURLs,INSERTED.NoSiteDesc,
-					INSERTED.PreferredPayment,
-					INSERTED.Player_CustId,INSERTED.Player_Username,INSERTED.Player_Currency,INSERTED.MailOption
-			INTO @UpdatedData
-			(
-					Gender_Del,Country_Del,Phone_Del,ContactApps_Del,Address_Del,City_Del,State_Del,Postal_Del,
-					SiteURL_Del,MoreSiteURLs_Del,NoSiteDesc_Del,
-					PreferredPayment_Del,
-					Player_CustId_Del,Player_Username_Del,Player_Currency_Del,MailOption_Del,
-					Gender_Ins,Country_Ins,Phone_Ins,ContactApps_Ins,Address_Ins,City_Ins,State_Ins,Postal_Ins,
-					SiteURL_Ins,MoreSiteURLs_Ins,NoSiteDesc_Ins,
-					PreferredPayment_Ins,
-					Player_CustId_Ins,Player_Username_Ins,Player_Currency_Ins,MailOption_Ins
-			)
+				Player_CustId = @Player_CustId,
+				Player_Username = @Player_Username,
+				Player_Currency = @Player_Currency,
+				Player_CurrencyName = @Player_CurrencyName,
+				Player_CurrencyCode = @Player_CurrencyCode,
+				MailOption = @MailOption
 			WHERE AffId = @AffId
 		END TRY
 		BEGIN CATCH
-			-- Rollback manually
+			-- Rollback manually using old data from @OldDataTable
 			UPDATE ai WITH (ROWLOCK, UPDLOCK)
-			SET FirstName = ud.FirstName_Del,
-				LastName = ud.LastName_Del,
-				Email = ud.Email_Del,
-				IsPageEnabled = ud.IsPageEnabled_Del,
-				Level = ud.Level_Del
+			SET FirstName = od.FirstName,
+				LastName = od.LastName,
+				Email = od.Email
 			FROM dbo.AffInfo ai
-				CROSS APPLY @UpdatedData ud
-			WHERE AffId = @AffId
+				CROSS JOIN @OldDataTable od
+			WHERE ai.AffId = @AffId
+
+			UPDATE ad WITH (ROWLOCK, UPDLOCK)
+			SET Gender = od.Gender,
+				Country = od.Country,
+				Phone = od.Phone,
+				ContactApps = od.ContactApps,
+				Address = od.Address,
+				City = od.City,
+				State = od.State,
+				Postal = od.Postal,
+				SiteURL = od.SiteURL,
+				MoreSiteURLs = od.MoreSiteURLs,
+				NoSiteDesc = od.NoSiteDesc,
+				PreferredPayment = od.PreferredPayment,
+				Player_CustId = od.Player_CustId,
+				Player_Username = od.Player_Username,
+				Player_Currency = od.Player_Currency,
+				Player_CurrencyName = od.Player_CurrencyName,
+				Player_CurrencyCode = od.Player_CurrencyCode,
+				MailOption = od.MailOption
+			FROM dbo.AffDetail ad
+				CROSS JOIN @OldDataTable od
+			WHERE ad.AffId = @AffId
+
+			-- After rollback, refresh @NewDataTable from actual table data
+			DELETE FROM @NewDataTable;
+			INSERT INTO @NewDataTable (
+				FirstName,
+				LastName,
+				Email,
+				Gender,
+				Country,
+				Phone,
+				ContactApps,
+				Address,
+				City,
+				State,
+				Postal,
+				SiteURL,
+				MoreSiteURLs,
+				NoSiteDesc,
+				PreferredPayment,
+				Player_CustId,
+				Player_Username,
+				Player_Currency,
+				Player_CurrencyName,
+				Player_CurrencyCode,
+				MailOption
+			)
+			SELECT ai.FirstName,
+				   ai.LastName,
+				   ai.Email,
+				   ad.Gender,
+				   ad.Country,
+				   ad.Phone,
+				   ad.ContactApps,
+				   ad.Address,
+				   ad.City,
+				   ad.State,
+				   ad.Postal,
+				   ad.SiteURL,
+				   ad.MoreSiteURLs,
+				   ad.NoSiteDesc,
+				   ad.PreferredPayment,
+				   ad.Player_CustId,
+				   ad.Player_Username,
+				   ad.Player_Currency,
+				   ad.Player_CurrencyName,
+				   ad.Player_CurrencyCode,
+				   ad.MailOption
+			FROM dbo.AffInfo ai WITH (NOLOCK)
+			LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+			WHERE ai.AffId = @AffId;
 
 			-- Update process is unsuccessful. Please try again!
 			SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
 			RETURN
 		END CATCH
 
+		-- Build log strings from separate Old and New data tables
 		SELECT	@OldData =
-					'FirstName='			+ ISNULL(FirstName_Del, '') + ',' +
-					'LastName='				+ ISNULL(LastName_Del, '') + ',' +
-					'Email='				+ ISNULL(Email_Del, '') + ',' +
-					'IsPageEnabled='		+ ISNULL(CONVERT(VARCHAR(1), IsPageEnabled_Del), '') + ',' +
-					'Level='				+ ISNULL(CONVERT(VARCHAR(10), Level_Del), '') + ',' +
-					'Gender='				+ ISNULL(CONVERT(VARCHAR(1), Gender_Del), '') + ',' +
-					'Country='				+ ISNULL(Country_Del, '') + ',' +
-					'Phone='				+ ISNULL(Phone_Del, '') + ',' +
-					'ContactApps='			+ ISNULL(ContactApps_Del, '') + ',' +
-					'Address='				+ ISNULL(Address_Del, '') + ',' +
-					'City='					+ ISNULL(City_Del, '') + ',' +
-					'State='				+ ISNULL(State_Del, '') + ',' +
-					'Postal='				+ ISNULL(Postal_Del, '') + ',' +
-					'SiteURL='				+ ISNULL(SiteURL_Del, '') + ',' +
-					'MoreSiteURLs='			+ ISNULL(MoreSiteURLs_Del, '') + ',' +
-					'NoSiteDesc='			+ ISNULL(NoSiteDesc_Del, '') + ',' +
-					'PreferredPayment='		+ ISNULL(PreferredPayment_Del, '') + ',' +
-					'Player_CustId='		+ ISNULL(CONVERT(VARCHAR(15), Player_CustId_Del), '') + ',' +
-					'Player_Username='		+ ISNULL(Player_Username_Del, '') + ',' +
-					'Player_Currency='		+ ISNULL(CONVERT(VARCHAR(10), Player_Currency_Del), '') + ',' +
-					'MailOption='			+ ISNULL(CONVERT(VARCHAR(1), MailOption_Del), ''),
-				@NewData =
-					'FirstName='			+ ISNULL(FirstName_Ins, '') + ',' +
-					'LastName='				+ ISNULL(LastName_Ins, '') + ',' +
-					'Email='				+ ISNULL(Email_Ins, '') + ',' +
-					'IsPageEnabled='		+ ISNULL(CONVERT(VARCHAR(1), IsPageEnabled_Ins), '') + ',' +
-					'Level='				+ ISNULL(CONVERT(VARCHAR(10), Level_Ins), '') + ',' +
-					'Gender='				+ ISNULL(CONVERT(VARCHAR(1), Gender_Ins), '') + ',' +
-					'Country='				+ ISNULL(Country_Ins, '') + ',' +
-					'Phone='				+ ISNULL(Phone_Ins, '') + ',' +
-					'ContactApps='			+ ISNULL(ContactApps_Ins, '') + ',' +
-					'Address='				+ ISNULL(Address_Ins, '') + ',' +
-					'City='					+ ISNULL(City_Ins, '') + ',' +
-					'State='				+ ISNULL(State_Ins, '') + ',' +
-					'Postal='				+ ISNULL(Postal_Ins, '') + ',' +
-					'SiteURL='				+ ISNULL(SiteURL_Ins, '') + ',' +
-					'MoreSiteURLs='			+ ISNULL(MoreSiteURLs_Ins, '') + ',' +
-					'NoSiteDesc='			+ ISNULL(NoSiteDesc_Ins, '') + ',' +
-					'PreferredPayment='		+ ISNULL(PreferredPayment_Ins, '') + ',' +
-					'Player_CustId='		+ ISNULL(CONVERT(VARCHAR(15), Player_CustId_Ins), '') + ',' +
-					'Player_Username='		+ ISNULL(Player_Username_Ins, '') + ',' +
-					'Player_Currency='		+ ISNULL(CONVERT(VARCHAR(10), Player_Currency_Ins), '') + ',' +
-					'MailOption='			+ ISNULL(CONVERT(VARCHAR(1), MailOption_Ins), '')
-		FROM @UpdatedData
+				'FirstName=' + ISNULL(FirstName, '') + ',' +
+				'LastName=' + ISNULL(LastName, '') + ',' +
+				'Email=' + ISNULL(Email, '') + ',' +
+				'Gender=' + ISNULL(CONVERT(VARCHAR(1), Gender), '') + ',' +
+				'Country=' + ISNULL(Country, '') + ',' +
+				'Phone=' + ISNULL(Phone, '') + ',' +
+				'ContactApps=' + ISNULL(ContactApps, '') + ',' +
+				'Address=' + ISNULL(Address, '') + ',' +
+				'City=' + ISNULL(City, '') + ',' +
+				'State=' + ISNULL(State, '') + ',' +
+				'Postal=' + ISNULL(Postal, '') + ',' +
+				'SiteURL=' + ISNULL(SiteURL, '') + ',' +
+				'MoreSiteURLs=' + ISNULL(MoreSiteURLs, '') + ',' +
+				'NoSiteDesc=' + ISNULL(NoSiteDesc, '') + ',' +
+				'PreferredPayment=' + ISNULL(PreferredPayment, '') + ',' +
+				'Player_CustId=' + ISNULL(CONVERT(VARCHAR(15), Player_CustId), '') + ',' +
+				'Player_Username=' + ISNULL(Player_Username, '') + ',' +
+				'Player_Currency=' + ISNULL(CONVERT(VARCHAR(10), Player_Currency), '') + ',' +
+				'MailOption=' + ISNULL(CONVERT(VARCHAR(1), MailOption), '')
+		FROM @OldDataTable
+
+		SELECT	@NewData =
+				'FirstName=' + ISNULL(FirstName, '') + ',' +
+				'LastName=' + ISNULL(LastName, '') + ',' +
+				'Email=' + ISNULL(Email, '') + ',' +
+				'Gender=' + ISNULL(CONVERT(VARCHAR(1), Gender), '') + ',' +
+				'Country=' + ISNULL(Country, '') + ',' +
+				'Phone=' + ISNULL(Phone, '') + ',' +
+				'ContactApps=' + ISNULL(ContactApps, '') + ',' +
+				'Address=' + ISNULL(Address, '') + ',' +
+				'City=' + ISNULL(City, '') + ',' +
+				'State=' + ISNULL(State, '') + ',' +
+				'Postal=' + ISNULL(Postal, '') + ',' +
+				'SiteURL=' + ISNULL(SiteURL, '') + ',' +
+				'MoreSiteURLs=' + ISNULL(MoreSiteURLs, '') + ',' +
+				'NoSiteDesc=' + ISNULL(NoSiteDesc, '') + ',' +
+				'PreferredPayment=' + ISNULL(PreferredPayment, '') + ',' +
+				'Player_CustId=' + ISNULL(CONVERT(VARCHAR(15), Player_CustId), '') + ',' +
+				'Player_Username=' + ISNULL(Player_Username, '') + ',' +
+				'Player_Currency=' + ISNULL(CONVERT(VARCHAR(10), Player_Currency), '') + ',' +
+				'MailOption=' + ISNULL(CONVERT(VARCHAR(1), MailOption), '')
+		FROM @NewDataTable
 	END
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog

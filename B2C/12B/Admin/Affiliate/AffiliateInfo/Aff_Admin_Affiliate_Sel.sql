@@ -15,7 +15,8 @@ CREATE PROCEDURE [dbo].[Aff_Admin_Affiliate_Sel]
 	@PageSize 			INT 			= 50,
 	@PageIndex 			INT 			= 1,
 	@NRows 				INT 			= 0 OUTPUT,
-	@TargetCountryCode	VARCHAR(5)		= ''
+	@TargetCountryCode	VARCHAR(5)		= '',
+    @AffCategoryIds 	VARCHAR(50) 	= '1'
 AS
 
 /*
@@ -26,12 +27,18 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
+        - 20250623@Sally: Exclude Marketing Account [RedmineID: #212201]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
 		- @SortDirectionType: 0: ASC (ascending), 1: DESC (descending)
 		- @PreferredLanguage: default -> get ALL
 		- @TargetCountryCode: default -> get ALL
+        - @AffCategoryIds: default get only normal affiliate accounts
+			+ 1: Normal Affiliate account
+			+ 2: Marketing Affiliate account
+			+ 'all': All Affiliate accounts
+
 */
 
 BEGIN
@@ -39,6 +46,7 @@ BEGIN
 
 	SELECT @NRows = COUNT(1)
 	FROM dbo.AffInfo ai WITH (NOLOCK)
+        INNER JOIN dbo.AffCategory ac WITH (NOLOCK) ON ai.AffCategoryId = ac.AffCategoryId
 		LEFT JOIN dbo.AffInfo p WITH (NOLOCK) ON p.AffId = ai.ParentAffId
 		LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 		LEFT JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupId = cg.GroupId
@@ -65,8 +73,11 @@ BEGIN
 			@GroupIds = 'all'
 			OR  ',' + @GroupIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), ai.GroupId) + ',%'
 		)
-		
-	
+        AND (
+			@AffCategoryIds ='all'
+			OR ',' + @AffCategoryIds + ',' LIKE '%,' + CONVERT(VARCHAR(10), ai.AffCategoryId) + ',%' 
+		)
+
 	DECLARE @RowStart INT, @RowEnd INT
 
 	IF @IsExportExcel = 0
@@ -108,7 +119,9 @@ BEGIN
 		Currency,
 		PlayerCurrency,
 		Phone,
-		Player_Username
+		Player_Username,
+        AffCategoryId,
+        AffCategoryDesc
 	FROM
 	(
 		SELECT
@@ -138,6 +151,8 @@ BEGIN
 			CASE WHEN ISNULL(ad.Player_CurrencyCode, '') = '' THEN ad.Player_CurrencyName ELSE ad.Player_CurrencyCode END AS PlayerCurrency,
 			ad.Phone,
 			ad.Player_Username,
+            ai.AffCategoryId,
+            ac.AffCategoryDesc,
 			ROW_NUMBER() OVER (ORDER BY
 						CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN ai.Username END ASC,
 						CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN ai.Username END DESC,
@@ -151,6 +166,7 @@ BEGIN
 						CASE WHEN @SortType = 5 AND @SortDirectionType = 1 THEN CASE WHEN ai.Status IN ('Pending', 'Disapproved') THEN -1 ELSE ISNULL(mi.NoOfMember, 0) END END DESC)
 													AS RowIdx
 		FROM dbo.AffInfo ai WITH (NOLOCK)
+            INNER JOIN dbo.AffCategory ac WITH (NOLOCK) ON ai.AffCategoryId = ac.AffCategoryId
 			LEFT JOIN dbo.AffInfo p WITH (NOLOCK) ON p.AffId = ai.ParentAffId
 			LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ad.AffId = ai.AffId
 			LEFT JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.GroupId = ai.GroupId
@@ -197,6 +213,11 @@ BEGIN
 				@GroupIds = 'all'
 				OR  ',' + @GroupIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), ai.GroupId) + ',%'
 			)
+            AND (
+				@AffCategoryIds ='all'
+				OR ',' + @AffCategoryIds + ',' LIKE '%,' + CONVERT(VARCHAR(10), ai.AffCategoryId) + ',%' 
+			)
+
 	) AS result
 	WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 END
