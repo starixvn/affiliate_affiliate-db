@@ -21,6 +21,7 @@ AS
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
 		- 20240426@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
 		- 20250512@Lewis: Support negative minamount, QMTurnover, IsActivePlayerSum [RedmineID: #226985]
+		- 20250708@Eddie: Add new column in tier [RedmineID: #232323]
 
 */
 
@@ -101,7 +102,11 @@ BEGIN
 		gs.MinQM,
 		gs.MaxQM,
 		gs.Commission,
-		gs.GroupProductId
+		gs.GroupProductId,
+		gs.MinFTDCount,
+		gs.MaxFTDCount,
+		gs.MinTotalDeposit,
+		gs.MaxTotalDeposit
 	FROM dbo.TierSetting gs WITH (NOLOCK)
 		INNER JOIN @Group g ON gs.GroupId = g.GroupId
 	ORDER BY

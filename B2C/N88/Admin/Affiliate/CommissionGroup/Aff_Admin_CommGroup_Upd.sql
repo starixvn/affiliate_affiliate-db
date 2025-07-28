@@ -28,6 +28,7 @@ AS
 		- 20240426@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
 		- 20250512@Lewis: Support negative minamount, QMTurnover, IsActivePlayerSum [RedmineID: #226985]
 		- 20250623@Sally: Enhance Revenue calculation [RedmineID: #231221]
+		- 20250708@Eddie: Add new column in tier [RedmineID: #232323]
 
 	Parameter's Explanation:
 		- @DeductionList:
@@ -41,10 +42,10 @@ AS
 			</root>
 		- @TierList:
 			<root>
-				<row id="1" productids="1,2,3" minamount="0" maxamount="100" minam="0" maxam="5" commission="0.2" />
-				<row id="2" productids="1,2,3" minamount="101" maxamount="100000000000000" minam="6" maxam="1000000000" commission="0.3" />
-				<row id="1" productids="4,5" minamount="0" maxamount="100" minam="0" maxam="5" commission="0.2" />
-				<row id="2" productids="4,5" minamount="101" maxamount="100000000000000" minam="6" maxam="1000000000" commission="0.3" />
+				<row id="1" productids="1,2,3" minamount="0" maxamount="100" minam="0" maxam="5" minftdcount="1" mintotaldeposit="50" commission="0.2" />
+				<row id="2" productids="1,2,3" minamount="101" maxamount="100000000000000" minam="6" maxam="1000000000" minftdcount="2" mintotaldeposit="51" commission="0.3" />
+				<row id="1" productids="4,5" minamount="0" maxamount="100" minam="0" maxam="5" minftdcount="1" mintotaldeposit="50" commission="0.2" />
+				<row id="2" productids="4,5" minamount="101" maxamount="100000000000000" minam="6" maxam="1000000000" minftdcount="3" mintotaldeposit="500" commission="0.3" />
 			</root>
 		- @StraightList:
 			<root>
@@ -97,7 +98,7 @@ BEGIN
 
 	DECLARE @MonthDate SMALLDATETIME
 	SELECT  @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
-	DECLARE @Infinity_Amount MONEY = 100000000000, @Inifinity_QM INT = 1000000000
+	DECLARE @Infinity_Amount MONEY = 100000000000, @Infinity_QM INT = 1000000000
 	DECLARE @Infinity_NegativeAmount MONEY = -100000000000
 
 	-- Deductions
@@ -125,18 +126,20 @@ BEGIN
 		,DeductedAmount		= CASE WHEN IsDeductedPercent = 1 THEN 0 ELSE ISNULL(DeductedAmount, 0) END
 
 	-- Tier Setting
-	DECLARE @TierSetting TABLE (TierID TINYINT, productids VARCHAR(MAX), GroupProductId TINYINT, MinAmount MONEY, MaxAmount MONEY, MinQM INT, MaxQM INT, Commission DECIMAL(9,8), IsNegativeAmount BIT)
+	DECLARE @TierSetting TABLE (TierID TINYINT, productids VARCHAR(MAX), GroupProductId TINYINT, MinAmount MONEY, MaxAmount MONEY, MinQM INT, MaxQM INT, Commission DECIMAL(9,8), IsNegativeAmount BIT, MinFTDCount INT, MaxFTDCount INT, MinTotalDeposit MONEY, MaxTotalDeposit MONEY)
 	
-	INSERT INTO @TierSetting (TierID, productids, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsNegativeAmount)
+	INSERT INTO @TierSetting (TierID, productids, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsNegativeAmount, MinFTDCount, MinTotalDeposit)
 	SELECT
 		t.c.value('@id', 'TINYINT'),
 		t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
 		t.c.value('@minamount', 'MONEY'),
 		t.c.value('@maxamount', 'MONEY'),
 		t.c.value('@minqm', 'INT'),
-		@Inifinity_QM AS MaxQM,
+		@Infinity_QM AS MaxQM,
 		t.c.value('@commission', 'DECIMAL(9,8)'),
-        CASE WHEN t.c.value('@minamount', 'MONEY') < 0 THEN 1 ELSE 0 END AS IsNegativeAmount
+        CASE WHEN t.c.value('@minamount', 'MONEY') < 0 THEN 1 ELSE 0 END AS IsNegativeAmount,
+		t.c.value('@minftdcount', 'INT'),
+		t.c.value('@mintotaldeposit', 'MONEY')
 	FROM @TierList.nodes('/root/row') AS t(c)
 	OPTION (OPTIMIZE FOR (@TierList = NULL))
 
@@ -151,6 +154,8 @@ BEGIN
 
 	UPDATE t1
 	SET t1.MaxAmount = t2.MinAmount
+	  , t1.MaxFTDCount = t2.MinFTDCount
+	  , t1.MaxTotalDeposit = t2.MinTotalDeposit
 	FROM @TierSetting t1
 		INNER JOIN @TierSetting t2 ON t1.TierID + 1 = t2.TierID AND t1.GroupProductId = t2.GroupProductId
 	
@@ -159,7 +164,9 @@ BEGIN
 		SELECT GroupProductId, MAX(TierID) AS TierID FROM @TierSetting GROUP BY GroupProductId
 	)
 	UPDATE t
-		SET t.MaxAmount = @Infinity_Amount
+	SET t.MaxAmount = @Infinity_Amount
+	   ,t.MaxFTDCount = IIF(t.MinFTDCount IS NULL, t.MaxFTDCount, @Infinity_QM)
+	   ,t.MaxTotalDeposit = IIF(t.MinTotalDeposit IS NULL, t.MaxTotalDeposit, @Infinity_Amount)
 	FROM @TierSetting t
 		INNER JOIN CTE e ON t.TierID = e.TierID AND t.GroupProductId = e.GroupProductId
 
@@ -215,6 +222,20 @@ BEGIN
             SELECT @ErrCode = 203, @ErrMsg = dbo.Aff_f_GetMessageById(1012, @Language)
             RETURN
         END
+
+		IF EXISTS(
+				SELECT TOP 1 1
+				FROM @TierSetting ts1
+					INNER JOIN @TierSetting ts2 ON ts1.TierID + 1 = ts2.TierID AND ts1.GroupProductId = ts2.GroupProductId
+				 WHERE ts1.MaxFTDCount > ts2.MaxFTDCount
+					OR ts1.MinFTDCount > ts2.MinFTDCount
+					OR ts1.MaxTotalDeposit > ts2.MaxTotalDeposit
+					OR ts1.MinTotalDeposit > ts2.MinTotalDeposit
+			)
+        BEGIN
+            SELECT @ErrCode = 204, @ErrMsg = N'Each min value of next tier must be greater than previous tier for the same group product.'
+            RETURN
+        END
     END
 
 	DECLARE @updateData TABLE
@@ -233,6 +254,10 @@ BEGIN
 		,MaxAmount				MONEY
 		,MinQM					INT
 		,MaxQM					INT
+		,MinFTDCount 			INT
+		,MaxFTDCount 			INT
+		,MinTotalDeposit 		MONEY
+		,MaxTotalDeposit 		MONEY
 		,Commission				DECIMAL(9, 8)
 		,IsActivePlayerSum		BIT
 		-- Deduction List
@@ -259,17 +284,17 @@ BEGIN
 
 		-- Tier List
 		DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK)
-			OUTPUT DELETED.TierId, DELETED.GroupProductId, DELETED.MinAmount, DELETED.MaxAmount, DELETED.MinQM, DELETED.MaxQM, DELETED.Commission, DELETED.IsActivePlayerSum,2
-			INTO @updateData (TierId, GroupProductId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum, TypeId)
+			OUTPUT DELETED.TierId, DELETED.GroupProductId, DELETED.MinAmount, DELETED.MaxAmount, DELETED.MinQM, DELETED.MaxQM, DELETED.MinFTDCount, DELETED.MaxFTDCount, DELETED.MinTotalDeposit, DELETED.MaxTotalDeposit, DELETED.Commission, DELETED.IsActivePlayerSum, 2
+			INTO @updateData (TierId, GroupProductId, MinAmount, MaxAmount, MinQM, MaxQM, MinFTDCount, MaxFTDCount, MinTotalDeposit, MaxTotalDeposit, Commission, IsActivePlayerSum, TypeId)
 		WHERE GroupId = @GroupId
 
 		DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
-		INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
-		SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, @IsActivePlayerSum FROM @TierSetting
+		INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, MinFTDCount, MaxFTDCount, MinTotalDeposit, MaxTotalDeposit, Commission, IsActivePlayerSum)
+		SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, MinFTDCount, MaxFTDCount, MinTotalDeposit, MaxTotalDeposit, Commission, @IsActivePlayerSum FROM @TierSetting
 
-		INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
-		SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, @IsActivePlayerSum FROM @TierSetting
+		INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, MinFTDCount, MaxFTDCount, MinTotalDeposit, MaxTotalDeposit, Commission, IsActivePlayerSum)
+		SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, MinFTDCount, MaxFTDCount, MinTotalDeposit, MaxTotalDeposit, Commission, @IsActivePlayerSum FROM @TierSetting
 
 		-- Deduction List
 		DELETE dbo.DeductionSetting WITH (ROWLOCK, UPDLOCK)
@@ -312,11 +337,11 @@ BEGIN
 			DELETE dbo.TierSetting WITH (ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId
 			DELETE dbo.TierSettingHistory WITH (ROWLOCK, UPDLOCK) WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
-			INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
-			SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum FROM @updateData WHERE TypeId = 2
+			INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, MinFTDCount, MaxFTDCount, MinTotalDeposit, MaxTotalDeposit, Commission, IsActivePlayerSum)
+			SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, MinFTDCount, MaxFTDCount, MinTotalDeposit, MaxTotalDeposit, Commission, IsActivePlayerSum FROM @updateData WHERE TypeId = 2
 
-			INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
-			SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum FROM @updateData WHERE TypeId = 2
+			INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, MinFTDCount, MaxFTDCount, MinTotalDeposit, MaxTotalDeposit, Commission, IsActivePlayerSum)
+			SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, MinFTDCount, MaxFTDCount, MinTotalDeposit, MaxTotalDeposit, Commission, IsActivePlayerSum FROM @updateData WHERE TypeId = 2
 		END
 
 		IF EXISTS (SELECT 1 FROM @updateData WHERE TypeId = 3)
@@ -353,6 +378,8 @@ BEGIN
 				u.MaxAmount			AS '@maxamount',
 				u.MinQM				AS '@minqm',
 				u.MaxQM				AS '@maxqm',
+				u.MinFTDCount		AS '@minftdcount',
+				u.MinTotalDeposit	AS '@mintotaldeposit',
 				u.Commission		AS '@commission',
 				u.GroupProductId	AS '@GroupProductId',
 				u.IsActivePlayerSum AS '@IsActivePlayerSum',

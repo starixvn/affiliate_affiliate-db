@@ -50,6 +50,7 @@ AS
 		- 20250423@Lewis: Enhance Rpt [RedmineID: #224733]
 		- 20250515@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
 		- 20250624@Lewis: Add column Withdrawal [RedmineID: #231047]
+		- 20250714@Eddie: Show total deposits when only having 1st deposit date [RedmineID: #232842]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -562,31 +563,47 @@ BEGIN
 		FROM  #IP
 		GROUP BY AffId
 
-		-- Signup, FDM
-		CREATE TABLE #Signup (AffId INT, Signup INT, FDM INT, WinlostDate SMALLDATETIME)
-		INSERT INTO #Signup (AffId, Signup, FDM, WinlostDate)
-		SELECT F.AffId
-			,SUM(F.Signup)
-			,SUM(F.FDM)
-			,F.WinlostDate
+		-- Signup, FDM, FDM_TotalDeposit
+		CREATE TABLE #Signup (AffId INT, Signup INT, FDM INT, WinlostDate SMALLDATETIME, FDM_TotalDeposit MONEY)
+
+		;WITH CTE_Signup AS (
+			SELECT mi.AffId
+				  ,COUNT(1) AS Signup
+				  ,CAST(mi.RegisteredDate AS DATE) WinlostDate
+			FROM dbo.MemberInfo mi WITH (NOLOCK)
+			WHERE mi.RegisteredDate >= @FromDate 
+				AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate)
+			GROUP BY mi.AffId, CAST(mi.RegisteredDate AS DATE)
+		), 
+		CTE_FDM_Combined AS (
+			SELECT mi.AffId
+				  ,COUNT(DISTINCT mi.CustId) 			AS FDM
+				  ,SUM(ISNULL(t.Deposit, 0) * ex.Rate) 	AS FDM_TotalDeposit
+				  ,CAST(mi.FirstDepositDate AS DATE) 	AS WinlostDate
+			FROM dbo.MemberInfo mi WITH (NOLOCK)
+				LEFT JOIN dbo.TpExchange te WITH (NOLOCK) ON mi.Currency = te.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(mi.FirstDepositDate, ISNULL(te.ExchangeId, mi.Currency), @BaseCurrency) ex
+				OUTER APPLY (
+					SELECT SUM(r.Deposit) AS Deposit
+					FROM dbo.rptMemberDaily r WITH (NOLOCK)
+					WHERE r.CustId = mi.CustId 
+					AND r.WinlostDate BETWEEN CAST(mi.FirstDepositDate AS DATE) AND EOMONTH(mi.FirstDepositDate)
+				) t
+			WHERE mi.FirstDepositDate >= @FromDate 
+			  AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
+			GROUP BY mi.AffId, CAST(mi.FirstDepositDate AS DATE)
+		)
+		-- Insert data into #Signup
+		INSERT INTO #Signup (AffId, Signup, FDM, FDM_TotalDeposit, WinlostDate)
+		SELECT t.AffId, SUM(t.Signup) AS Signup, SUM(t.FDM) AS FDM, SUM(t.FDM_TotalDeposit) AS FDM_TotalDeposit, t.WinlostDate
 		FROM (
-				SELECT mi.AffId
-						,COUNT(1) AS Signup
-						,0 AS FDM
-						,CAST(mi.RegisteredDate AS DATE) WinlostDate
-				FROM dbo.MemberInfo mi WITH (NOLOCK)
-				WHERE mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate)
-				GROUP BY mi.AffId,CAST(mi.RegisteredDate AS DATE) 
+				SELECT AffId, Signup, 0 AS FDM, 0 AS FDM_TotalDeposit, WinlostDate
+				FROM CTE_Signup
 				UNION ALL
-				SELECT mi.AffId
-						,0 AS Signup
-						,COUNT(1) AS FDM
-						,CAST(mi.FirstDepositDate AS DATE) AS WinlostDate
-				FROM dbo.MemberInfo mi WITH (NOLOCK)
-				WHERE mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
-				GROUP BY mi.AffId,CAST(mi.FirstDepositDate AS DATE) 
-			) AS F
-		GROUP BY F.AffId,F.WinlostDate
+				SELECT AffId, 0 AS Signup, FDM, FDM_TotalDeposit, WinlostDate
+				FROM CTE_FDM_Combined
+			) AS t
+		GROUP BY t.AffId, t.WinlostDate
 
 		-- AffWithdrawal, AffAdjustment
 		CREATE TABLE #AffTrans (AffId INT, AffWithdrawal MONEY, AffAdjustment MONEY, BFF MONEY, CurrentBBF MONEY)
@@ -666,49 +683,52 @@ BEGIN
 
 	-- Export Excel Detail
 	CREATE TABLE #ExcelDetail(
-			WinlostDate			SMALLDATETIME,
-			AffId				INT,
-			Username			NVARCHAR(30),
-			PaymentCurrency		VARCHAR(5),
-			TotalClick			INT,
-			UniqueClick			INT,
-			Signup				INT,
-			FDM					INT,
-			ActivePlayer 		INT,
-			QualifiedMember		INT,
-			NoOfSubAff			INT,
-			TotalDeposit		INT,
-			DepositAmount		MONEY,
-			WithdrawalAmount	MONEY
+			WinlostDate			SMALLDATETIME
+		   ,AffId				INT
+		   ,Username			NVARCHAR(30)
+		   ,PaymentCurrency		VARCHAR(5)
+		   ,TotalClick			INT
+		   ,UniqueClick			INT
+		   ,Signup				INT
+		   ,FDM					INT
+		   ,FDM_TotalDeposit	MONEY
+		   ,ActivePlayer 		INT
+		   ,QualifiedMember		INT
+		   ,NoOfSubAff			INT
+		   ,TotalDeposit		INT
+		   ,DepositAmount		MONEY
+		   ,WithdrawalAmount	MONEY
 	)
 	
 	--IP statistics
 	INSERT INTO #ExcelDetail
 	(
-		WinlostDate,
-		AffId,
-		TotalClick,
-		UniqueClick
+		WinlostDate
+	  , AffId
+	  , TotalClick
+	  , UniqueClick
 	)
-	SELECT s.winlostdate,
-		s.AffId,
-		SUM(TotalClick),
-		COUNT(DISTINCT IP)
+	SELECT s.winlostdate
+		 , s.AffId
+		 , SUM(TotalClick)
+		 , COUNT(DISTINCT IP)
 	FROM #IP s
 	GROUP BY s.WinlostDate, s.AffId
 
-	--SignUp, FDM
+	--SignUp, FDM, FDM_TotalDeposit
 	INSERT INTO #ExcelDetail
 	(
-		WinlostDate,
-		AffId,
-		Signup,
-		FDM
+		WinlostDate
+	  , AffId
+	  , Signup
+	  , FDM
+	  , FDM_TotalDeposit
 	)
-	SELECT s.WinlostDate,
-		s.AffId,
-		SUM(s.Signup)	AS Signup,
-		SUM(s.FDM)		AS FDM
+	SELECT s.WinlostDate
+		 , s.AffId
+		 , SUM(s.Signup) 		 	AS Signup
+		 , SUM(s.FDM)    		 	AS FDM
+		 , SUM(s.FDM_TotalDeposit) 	AS FDM_TotalDeposit
 	FROM #Signup s
 	GROUP BY s.WinlostDate, s.AffId
 
@@ -768,118 +788,119 @@ BEGIN
 	BEGIN
 		CREATE TABLE #Result
 		(
-			AffId				INT,
-			Username			NVARCHAR(30),
-			PaymentCurrency		VARCHAR(5),
-			TotalClick			INT,
-			UniqueClick			INT,
-			Signup				INT,
-			FDM					INT,
-			ActivePlayer 		INT,
-			QualifiedMember		INT,
-			NoOfSubAff			INT,
-			Deposit				MONEY,
-			Withdrawal			MONEY,
-			Turnover			MONEY,
-			GGR					MONEY,
-			Bonus				MONEY,
-			Rebate				MONEY,
-			PlatFormFee			MONEY,
-			OperationalFee		MONEY,
-			DepositFee			MONEY,
-			WithdrawalFee		MONEY,
-			CommissionRate		MONEY,
-			IsMultiGroupProduct BIT,
-			Earning				MONEY,
-			P2PEarning			MONEY,
-			SubAffEarning		MONEY,
-			AffWithdrawal		MONEY,
-			AffAdjustment		MONEY,
-			BFF					MONEY,
-			CurrentBFF			MONEY,
-			TotalDeposit		BIGINT,
-			RowIdx				INT
+			AffId				INT
+		   ,Username			NVARCHAR(30)
+		   ,PaymentCurrency		VARCHAR(5)
+		   ,TotalClick			INT
+		   ,UniqueClick			INT
+		   ,Signup				INT
+		   ,FDM					INT
+		   ,FDM_TotalDeposit	MONEY
+		   ,ActivePlayer 		INT
+		   ,QualifiedMember		INT
+		   ,NoOfSubAff			INT
+		   ,Deposit				MONEY
+		   ,Withdrawal			MONEY
+		   ,Turnover			MONEY
+		   ,GGR					MONEY
+		   ,Bonus				MONEY
+		   ,Rebate				MONEY
+		   ,PlatFormFee			MONEY
+		   ,OperationalFee		MONEY
+		   ,DepositFee			MONEY
+		   ,WithdrawalFee		MONEY
+		   ,CommissionRate		MONEY
+		   ,IsMultiGroupProduct BIT
+		   ,Earning				MONEY
+		   ,P2PEarning			MONEY
+		   ,SubAffEarning		MONEY
+		   ,AffWithdrawal		MONEY
+		   ,AffAdjustment		MONEY
+		   ,BFF					MONEY
+		   ,CurrentBFF			MONEY
+		   ,TotalDeposit		BIGINT
+		   ,RowIdx				INT
 		)
 		INSERT INTO #Result
 		(
-			AffId,
-			Username,
-			PaymentCurrency,
-			TotalClick,
-			UniqueClick,
-			Signup,
-			FDM,
-			ActivePlayer,
-			QualifiedMember,
-			NoOfSubAff,
-			Deposit,
-			Withdrawal,
-			Turnover,
-			GGR,
-			Bonus,
-			Rebate,
-			PlatFormFee,
-			OperationalFee,
-			DepositFee,
-			WithdrawalFee,
-			CommissionRate,
-			IsMultiGroupProduct,
-			Earning,
-			P2PEarning,
-			SubAffEarning,
-			AffWithdrawal,
-			AffAdjustment,
-			BFF,
-			CurrentBFF,
-			TotalDeposit,
-			RowIdx
+			AffId
+		   ,Username
+		   ,PaymentCurrency
+		   ,TotalClick
+		   ,UniqueClick
+		   ,Signup
+		   ,FDM
+		   ,FDM_TotalDeposit
+		   ,ActivePlayer
+		   ,QualifiedMember
+		   ,NoOfSubAff
+		   ,Deposit
+		   ,Withdrawal
+		   ,Turnover
+		   ,GGR
+		   ,Bonus
+		   ,Rebate
+		   ,PlatFormFee
+		   ,OperationalFee
+		   ,DepositFee
+		   ,WithdrawalFee
+		   ,CommissionRate
+		   ,IsMultiGroupProduct
+		   ,Earning
+		   ,P2PEarning
+		   ,SubAffEarning
+		   ,AffWithdrawal
+		   ,AffAdjustment
+		   ,BFF
+		   ,CurrentBFF
+		   ,TotalDeposit
+		   ,RowIdx
 		)
-		SELECT
-			ai.AffId,
-			ai.Username,
-			ad.Player_CurrencyCode AS PaymentCurrency,
-			ISNULL(s.TotalClick, 0)				AS TotalClick,
-			ISNULL(s.UniqueClick, 0)			AS UniqueClick,
-			ISNULL(su.Signup, 0)				AS Signup,
-			ISNULL(su.FDM, 0)					AS FDM,
-			ISNULL(tc.ActivePlayer, 0)			AS ActivePlayer,
-			ISNULL(tc.QualifiedMember, 0)		AS QualifiedMember,
-			ISNULL(a.NoOfSubAff, 0)				AS NoOfSubAff,
-			ISNULL(tc.Deposit, 0)				AS Deposit,
-			ISNULL(tc.Withdrawal, 0)			AS Withdrawal,
-			ISNULL(tc.Turnover, 0)				AS Turnover,
-			ISNULL(tc.GGR, 0)					AS GGR,
-			ISNULL(tc.Bonus, 0)					AS Bonus,
-			ISNULL(tc.Rebate, 0)				AS Rebate,
-			ISNULL(tc.PlatFormFee, 0)			AS PlatFormFee,
-			ISNULL(tc.OperationalFee, 0)		AS OperationalFee,
-			ISNULL(tc.DepositFee, 0)			AS DepositFee,
-			ISNULL(tc.WithdrawalFee, 0)			AS WithdrawalFee,
-			ISNULL(tc.CommissionRate, 0)		AS CommissionRate,
-			ISNULL(tc.IsMultiGroupProduct, 0)   AS IsMultiGroupProduct,
-			ISNULL(tc.Commission, 0)			AS Earning,
-			ISNULL(tc.StraightCommission, 0)	AS P2PEarning,
-			ISNULL(tc.SubAffCommission, 0)		AS SubAffEarning,
-			ISNULL(at.AffWithdrawal, 0)			AS AffWithdrawal,
-			ISNULL(at.AffAdjustment, 0)			AS AffAdjustment,
-
-			ISNULL(at.BFF, 0)					AS BFF,
-			ISNULL(at.CurrentBBF, 0)			AS CurrentBBF,
-			ISNULL(td.TotalDeposit, 0)			AS TotalDeposit,
-			ROW_NUMBER() OVER(ORDER BY
-				CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN ai.Username END ASC,
-				CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN ai.Username END DESC,
-				CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN ISNULL(tc.Turnover, 0) END ASC,
-				CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN ISNULL(tc.Turnover, 0) END DESC,
-				CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN ISNULL(tc.GGR, 0) END ASC,
-				CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ISNULL(tc.GGR, 0) END DESC,
-				CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN ISNULL(tc.Commission, 0) END ASC,
-				CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ISNULL(tc.Commission, 0) END DESC) AS RowIdx
+		SELECT ai.AffId
+			  ,ai.Username
+			  ,ad.Player_CurrencyCode 			 AS PaymentCurrency
+			  ,ISNULL(s.TotalClick, 0)			 AS TotalClick
+			  ,ISNULL(s.UniqueClick, 0)			 AS UniqueClick
+			  ,ISNULL(su.Signup, 0)				 AS Signup
+			  ,ISNULL(su.FDM, 0)				 AS FDM
+			  ,ISNULL(su.FDM_TotalDeposit, 0)	 AS FDM_TotalDeposit
+			  ,ISNULL(tc.ActivePlayer, 0)		 AS ActivePlayer
+			  ,ISNULL(tc.QualifiedMember, 0)	 AS QualifiedMember
+			  ,ISNULL(a.NoOfSubAff, 0)			 AS NoOfSubAff
+			  ,ISNULL(tc.Deposit, 0)			 AS Deposit
+			  ,ISNULL(tc.Withdrawal, 0)			 AS Withdrawal
+			  ,ISNULL(tc.Turnover, 0)			 AS Turnover
+			  ,ISNULL(tc.GGR, 0)				 AS GGR
+			  ,ISNULL(tc.Bonus, 0)				 AS Bonus
+			  ,ISNULL(tc.Rebate, 0)				 AS Rebate
+			  ,ISNULL(tc.PlatFormFee, 0)		 AS PlatFormFee
+			  ,ISNULL(tc.OperationalFee, 0)		 AS OperationalFee
+			  ,ISNULL(tc.DepositFee, 0)			 AS DepositFee
+			  ,ISNULL(tc.WithdrawalFee, 0)		 AS WithdrawalFee
+			  ,ISNULL(tc.CommissionRate, 0)		 AS CommissionRate
+			  ,ISNULL(tc.IsMultiGroupProduct, 0) AS IsMultiGroupProduct
+			  ,ISNULL(tc.Commission, 0)			 AS Earning
+			  ,ISNULL(tc.StraightCommission, 0)	 AS P2PEarning
+			  ,ISNULL(tc.SubAffCommission, 0)	 AS SubAffEarning
+			  ,ISNULL(at.AffWithdrawal, 0)		 AS AffWithdrawal
+			  ,ISNULL(at.AffAdjustment, 0)		 AS AffAdjustment
+			  ,ISNULL(at.BFF, 0)				 AS BFF
+			  ,ISNULL(at.CurrentBBF, 0)			 AS CurrentBBF
+			  ,ISNULL(td.TotalDeposit, 0)		 AS TotalDeposit
+			  ,ROW_NUMBER() OVER(ORDER BY
+					CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN ai.Username END ASC,
+					CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN ai.Username END DESC,
+					CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN ISNULL(tc.Turnover, 0) END ASC,
+					CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN ISNULL(tc.Turnover, 0) END DESC,
+					CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN ISNULL(tc.GGR, 0) END ASC,
+					CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN ISNULL(tc.GGR, 0) END DESC,
+					CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN ISNULL(tc.Commission, 0) END ASC,
+					CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ISNULL(tc.Commission, 0) END DESC) AS RowIdx
 		FROM dbo.AffInfo ai WITH (NOLOCK)
 			INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 			INNER JOIN bodb_N88.dbo.Customer c WITH(NOLOCK) ON ad.Player_CustId = c.CustId
 			LEFT JOIN (
-				SELECT AffId, SUM(SignUp) SignUp, SUM(FDM) FDM
+				SELECT AffId, SUM(SignUp) AS SignUp, SUM(FDM) AS FDM, SUM(FDM_TotalDeposit) AS FDM_TotalDeposit
 				FROM #Signup 
 				GROUP BY AffId
 			) su ON ai.AffId = su.AffId
@@ -964,19 +985,20 @@ BEGIN
 		SELECT @RowStart = 1, @RowEnd = @NRows
 		
 		--TODO: Result
-		SELECT ed.winlostdate,
-			ed.AffId,
-			ai.Username,
-			ad.Player_CurrencyCode AS PaymentCurrency,
-			ISNULL(SUM(ed.TotalClick),0) AS TotalClick,
-			ISNULL(SUM(ed.UniqueClick),0) AS UniqueClick,
-			ISNULL(SUM(ed.Signup),0) AS Signup,
-			ISNULL(SUM(ed.FDM),0) AS FDM,
-			ISNULL(SUM(ed.ActivePlayer),0) AS ActivePlayer,
-			ISNULL(SUM(ed.NoOfSubAff),0) AS NoOfSubAff,
-			ISNULL(SUM(ed.TotalDeposit),0) AS TotalDeposit,
-			ISNULL(SUM(ed.DepositAmount),0) AS DepositAmount,
-			ISNULL(SUM(ed.WithdrawalAmount),0) AS WithdrawalAmount
+		SELECT ed.winlostdate
+			  ,ed.AffId
+			  ,ai.Username
+			  ,ad.Player_CurrencyCode 				AS PaymentCurrency
+			  ,ISNULL(SUM(ed.TotalClick),0) 		AS TotalClick
+			  ,ISNULL(SUM(ed.UniqueClick),0) 		AS UniqueClick
+			  ,ISNULL(SUM(ed.Signup),0) 			AS Signup
+			  ,ISNULL(SUM(ed.FDM),0) 				AS FDM
+			  ,ISNULL(SUM(ed.FDM_TotalDeposit),0) 	AS FDM_TotalDeposit
+			  ,ISNULL(SUM(ed.ActivePlayer),0) 		AS ActivePlayer
+			  ,ISNULL(SUM(ed.NoOfSubAff),0) 		AS NoOfSubAff
+			  ,ISNULL(SUM(ed.TotalDeposit),0) 		AS TotalDeposit
+			  ,ISNULL(SUM(ed.DepositAmount),0) 		AS DepositAmount
+			  ,ISNULL(SUM(ed.WithdrawalAmount),0) 	AS WithdrawalAmount
 		FROM #ExcelDetail ed
 			INNER JOIN AffInfo ai WITH (NOLOCK) ON ai.AffId = ed.AffId
 			INNER JOIN AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
@@ -998,14 +1020,11 @@ BEGIN
 			AND (@IsByApprovalMonth = 0 OR 
 				 (ai.ApprovedDate >= @FromDate AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate) AND ai.IsRejected = 0))
 		GROUP BY ed.winlostdate, ed.AffId, ai.Username, ad.Player_CurrencyCode
-		ORDER BY ed.AffId,ed.WinlostDate
+		ORDER BY ed.AffId, ed.WinlostDate
 	END
 
 	-- Return detail
-	SELECT AffId, Username, PaymentCurrency, TotalClick, UniqueClick, Signup, FDM, ActivePlayer, QualifiedMember, NoOfSubAff
-		,Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee
-		,PlatFormFee + OperationalFee + DepositFee + WithdrawalFee AS TotalFee
-		,CommissionRate, IsMultiGroupProduct, P2PEarning, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF, CurrentBFF, TotalDeposit
+	SELECT AffId, Username, PaymentCurrency, TotalClick, UniqueClick, Signup, FDM, FDM_TotalDeposit, ActivePlayer, QualifiedMember, NoOfSubAff, Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, PlatFormFee, OperationalFee, DepositFee, WithdrawalFee, (PlatFormFee + OperationalFee + DepositFee + WithdrawalFee) AS TotalFee, CommissionRate, IsMultiGroupProduct, P2PEarning, Earning, SubAffEarning, AffWithdrawal, AffAdjustment, BFF, CurrentBFF, TotalDeposit
 	FROM #Result
 	WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 	ORDER BY RowIdx
@@ -1016,6 +1035,7 @@ BEGIN
 		,SUM(UniqueClick)		AS UniqueClick
 		,SUM(Signup)			AS Signup
 		,SUM(FDM)				AS FDM
+		,SUM(FDM_TotalDeposit)	AS FDM_TotalDeposit
 		,SUM(ActivePlayer)		AS ActivePlayer
 		,SUM(QualifiedMember)	AS QualifiedMember
 		,SUM(NoOfSubAff)		AS NoOfSubAff

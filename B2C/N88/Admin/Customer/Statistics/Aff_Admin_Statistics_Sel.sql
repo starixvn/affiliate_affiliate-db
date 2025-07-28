@@ -20,6 +20,7 @@ AS
 		- 20250402@Sophia: Fix Unique Click count IP by range from - to [RedmineID: #221818]
 		- 20250416@Sophia: Get report by timezone [RedmineID: #222401]
 		- 20250520@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
+		- 20250714@Eddie: Show total deposits when only having 1st deposit date [RedmineID: #232842]
 		
 	Notes:
 	  - ClickStatistics.Date contains Date only, in GMT-4
@@ -47,7 +48,8 @@ BEGIN
 			@UniqueClickMobileByMonth	INT,
 			@TotalClickMobileByMonth	INT,
 			@NoOfSubAffByMonth			INT,
-			@NoOfSubAffTotal			INT
+			@NoOfSubAffTotal			INT,
+			@FDM_TotalDepositByMonth	MONEY
 
 	DECLARE @FromBeginMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME, @CurrentDate SMALLDATETIME
 	SELECT	@FromBeginMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
@@ -210,6 +212,21 @@ BEGIN
 	FROM dbo.MemberInfo WITH (NOLOCK)
 	WHERE AffId = @AffId
 
+	-- Calculate FDM_TotalDepositByMonth
+	SELECT @FDM_TotalDepositByMonth = SUM(ISNULL(r.Deposit, 0) * ex.Rate)
+	FROM dbo.MemberInfo mi WITH (NOLOCK)
+		LEFT JOIN dbo.TpExchange te WITH (NOLOCK) ON mi.Currency = te.TpExchangeId
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(mi.FirstDepositDate, ISNULL(te.ExchangeId, mi.Currency), 0) ex
+		OUTER APPLY (
+			SELECT SUM(r.Deposit) AS Deposit
+			FROM dbo.rptMemberDaily r WITH (NOLOCK)
+			WHERE r.CustId = mi.CustId 
+			  AND r.WinlostDate BETWEEN CAST(mi.FirstDepositDate AS DATE) AND EOMONTH(mi.FirstDepositDate)
+		) r
+	WHERE mi.AffId = @AffId
+		AND mi.FirstDepositDate >= @FromBeginMonth 
+		AND mi.FirstDepositDate < @ToNextMonth
+
 	DECLARE @ArchiveDate SMALLDATETIME
 	SELECT @ArchiveDate = dbo.Aff_f_GetSetting('ArchiveDate_ClickStatistics') -- GMT-4, Date only
 	
@@ -305,6 +322,7 @@ BEGIN
 		ISNULL(@TotalClickMobileByMonth, 0)		AS TotalClickMobileByMonth,
 		ISNULL(@UniqueClickMobileByMonth, 0)	AS UniqueClickMobileByMonth,
 		ISNULL(@NoOfSubAffByMonth, 0)			AS NoOfSubAffByMonth,
-		ISNULL(@NoOfSubAffTotal, 0)				AS NoOfSubAffTotal
+		ISNULL(@NoOfSubAffTotal, 0)				AS NoOfSubAffTotal,
+		ISNULL(@FDM_TotalDepositByMonth, 0)		AS FDM_TotalDepositByMonth
 END
 GO

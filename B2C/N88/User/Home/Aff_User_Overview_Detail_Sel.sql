@@ -21,6 +21,7 @@ AS
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 		- 20250521@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
+		- 20250714@Eddie: Show total deposits when only having 1st deposit date [RedmineID: #232842]
 
 	Param's Explanation:
 		. @BaseCurrency : Currency of B2C
@@ -74,21 +75,48 @@ BEGIN
 
 	-- Signups, Deposited Members
 	BEGIN
-		DECLARE @Signups TABLE (WinlostDate SMALLDATETIME, Signups INT DEFAULT(0), DepositedMembers INT DEFAULT(0))
-
-		INSERT INTO @Signups (WinlostDate, Signups)
-		SELECT CONVERT(DATE, RegisteredDate) AS WinlostDate, COUNT(1) AS Signups
-		FROM dbo.MemberInfo WITH (NOLOCK)
-		WHERE AffId = @AffId
-			AND RegisteredDate >= @FromBeginMonth AND RegisteredDate < @ToNextMonth
-		GROUP BY CONVERT(DATE, RegisteredDate)
-
-		INSERT INTO @Signups (WinlostDate, DepositedMembers)
-		SELECT CONVERT(DATE, FirstDepositDate) AS WinlostDate, COUNT(1) AS DepositedMembers
-		FROM dbo.MemberInfo WITH (NOLOCK)
-		WHERE AffId = @AffId
-			AND FirstDepositDate >= @FromBeginMonth AND FirstDepositDate < @ToNextMonth
-		GROUP BY CONVERT(DATE, FirstDepositDate)
+		DECLARE @Signups TABLE (WinlostDate SMALLDATETIME, Signups INT DEFAULT(0), DepositedMembers INT DEFAULT(0), FDM_TotalDeposit MONEY)
+	
+		;WITH CTE_Signup AS (
+			SELECT COUNT(1) AS Signups
+				  ,CAST(mi.RegisteredDate AS DATE) WinlostDate
+			FROM dbo.MemberInfo mi WITH (NOLOCK)
+			WHERE mi.AffId = @AffId
+				AND mi.RegisteredDate >= @FromBeginMonth
+				AND mi.RegisteredDate < @ToNextMonth
+			GROUP BY CAST(mi.RegisteredDate AS DATE)
+		), 
+		CTE_FDM_Combined AS (
+			SELECT COUNT(IIF(t.WinlostDate = CONVERT(DATE, mi.FirstDepositDate), 1, NULL))	AS DepositedMembers
+				  ,SUM(ISNULL(t.Deposit, 0) * ex.Rate) 										AS FDM_TotalDeposit
+				  ,CAST(ISNULL(t.WinlostDate, mi.FirstDepositDate) AS DATE) 				AS WinlostDate
+			FROM dbo.MemberInfo mi WITH (NOLOCK)
+				LEFT JOIN dbo.TpExchange te WITH (NOLOCK) ON mi.Currency = te.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(mi.FirstDepositDate, ISNULL(te.ExchangeId, mi.Currency), @BaseCurrency) ex
+				OUTER APPLY (
+					SELECT SUM(r.Deposit) AS Deposit, r.WinlostDate
+					FROM dbo.rptMemberDaily r WITH (NOLOCK)
+					WHERE r.CustId = mi.CustId 
+					  AND r.WinlostDate BETWEEN CAST(mi.FirstDepositDate AS DATE) AND EOMONTH(mi.FirstDepositDate)
+					GROUP BY r.WinlostDate
+				) t
+			WHERE mi.AffId = @AffId
+			  AND mi.FirstDepositDate >= @FromBeginMonth
+			  AND mi.FirstDepositDate < @ToNextMonth
+			GROUP BY CAST(ISNULL(t.WinlostDate, mi.FirstDepositDate) AS DATE)
+		)
+		INSERT INTO @Signups (WinlostDate, Signups, DepositedMembers, FDM_TotalDeposit)
+		SELECT t.WinlostDate, SUM(t.Signups) AS Signups, SUM(t.DepositedMembers) AS DepositedMembers, SUM(t.FDM_TotalDeposit) AS FDM_TotalDeposit
+		FROM (
+				SELECT WinlostDate, Signups, 0 AS DepositedMembers, 0 AS FDM_TotalDeposit
+				FROM CTE_Signup
+				UNION ALL
+				SELECT WinlostDate, 0 AS Signups, DepositedMembers, FDM_TotalDeposit
+				FROM CTE_FDM_Combined
+		) AS t
+		GROUP BY t.WinlostDate
+		
+		
 	END
 
 	-- Turnover, Winloss, Deposit, Withdrawl, Qualified Active Members
@@ -173,6 +201,7 @@ BEGIN
 			wld.WinlostDate
 			,ISNULL(s.Signups, 0)			AS Signups
 			,ISNULL(s.DepositedMembers, 0)	AS DepositedMembers
+			,ISNULL(s.FDM_TotalDeposit, 0)	AS FDM_TotalDeposit
 			,ISNULL(d.Deposit, 0)			AS Deposit
 			,ISNULL(d.Withdrawal, 0)		AS Withdrawal
 			,ISNULL(d.Turnover, 0)			AS Turnover
@@ -181,7 +210,7 @@ BEGIN
 			,ISNULL(q.QualifiedMember, 0)	AS QualifiedMember
 		FROM CTE_WinlostDate wld
 			OUTER APPLY (
-				SELECT SUM(s.Signups) AS Signups, SUM(s.DepositedMembers) AS DepositedMembers
+				SELECT SUM(s.Signups) AS Signups, SUM(s.DepositedMembers) AS DepositedMembers, SUM(s.FDM_TotalDeposit) AS FDM_TotalDeposit
 				FROM @Signups s
 				WHERE wld.WinlostDate = s.WinlostDate
 			) s
