@@ -39,6 +39,7 @@ AS
 		- 20250514@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
 		- 20250514@Sally: Change Royalty Fee condition [RedmineID: #230064]
 		- 20250623@Sally: Enhance Revenue calculation [RedmineID: #231221]
+		- 20250710@Sally: Enhance Revenue calculation with new setting [RedmineID: #232456]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -341,6 +342,8 @@ BEGIN
 			Commission			MONEY DEFAULT (0),
 			StraightCommission	MONEY DEFAULT (0),
 			SubAffCommission	MONEY DEFAULT (0),
+			FDM_TotalDeposit	MONEY DEFAULT (0),
+			TotalFTDCount		INT DEFAULT (0),
 			IsHasMemberData		BIT DEFAULT (1),
 			ActivePlayerSum		INT DEFAULT (0),
 			QualifiedMemberSum	INT DEFAULT (0),
@@ -648,39 +651,68 @@ BEGIN
 			WHERE c.ProductId = 0 AND c.MonthDate >= @P2P_CutOffDate AND c.IsStraightSetting = 0
 		END
 
+		-- Update FDM_TotalDeposit and TotalFTDCount
+		;WITH CTE_FDMData AS (
+			SELECT mi.AffId,
+				EOMONTH(mi.FirstDepositDate) AS MonthDate,
+				COUNT(DISTINCT mi.CustId) AS TotalFTDCount,
+				SUM(ISNULL(r.Deposit, 0) * ISNULL(ex.Rate, 0)) AS FDM_TotalDeposit
+			FROM dbo.MemberInfo mi WITH (NOLOCK)
+				LEFT JOIN dbo.TpExchange te WITH (NOLOCK) ON mi.Currency = te.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(mi.FirstDepositDate, ISNULL(te.ExchangeId, mi.Currency), @BaseExchangeId) ex
+				OUTER APPLY (
+					SELECT 
+						SUM(r.Deposit) AS Deposit
+					FROM dbo.rptMemberDaily r WITH (NOLOCK)
+					WHERE r.CustId = mi.CustId 
+					AND r.WinlostDate BETWEEN CAST(mi.FirstDepositDate AS DATE) AND EOMONTH(mi.FirstDepositDate)
+				) r
+			WHERE mi.FirstDepositDate >= @BeginOfFromMonthDate 
+				AND mi.FirstDepositDate < DATEADD(DAY, 1, @EndOfToMonthDate)
+			GROUP BY mi.AffId, EOMONTH(mi.FirstDepositDate)
+		)
+		UPDATE c
+			SET c.FDM_TotalDeposit = ISNULL(fdm.FDM_TotalDeposit, 0),
+				c.TotalFTDCount = ISNULL(fdm.TotalFTDCount, 0)
+		FROM #Commission c
+			LEFT JOIN CTE_FDMData fdm ON c.MonthDate = fdm.MonthDate AND c.AffId = fdm.AffId
+		WHERE c.ProductId = 0 AND c.IsStraightSetting = 0
+
 		-- Total: Commission
 		UPDATE c
-		SET c.CommissionRate = COALESCE(sn.Commission, s.Commission, 0)
-			,c.Commission	 = CASE WHEN ag.GroupTypeBy = 'Winloss' THEN COALESCE(sn.Commission, s.Commission, 0) * c.NetWinloss
-								ELSE (ISNULL(s.Commission, 0) * c.NetTurnover) - c.PlatFormFee - c.Bonus - c.Rebate - c.DepositFee - c.WithdrawalFee - (c.OperationalFee)/ISNULL(e.NoGroupProduct, 1) END										
+		SET c.CommissionRate = ISNULL(t.Commission, 0)
+			,c.Commission	 = CASE WHEN ag.GroupTypeBy = 'Winloss' THEN ISNULL(t.Commission, 0) * c.NetWinloss
+								ELSE (ISNULL(t.Commission, 0) * c.NetTurnover) - c.PlatFormFee - c.Bonus - c.Rebate - c.DepositFee - c.WithdrawalFee - (c.OperationalFee)/ISNULL(e.NoGroupProduct, 1) END										
 		FROM #Commission c
 			INNER JOIN @AffGroupInfo ag ON c.MonthDate = ag.MonthDate AND c.AffId = ag.AffId AND c.GroupId = ag.GroupId
 			OUTER APPLY (
-				SELECT gsh.TierId
+				SELECT TOP 1 gsh.Commission
 				FROM dbo.TierSettingHistory gsh WITH (NOLOCK)
 					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(gsh.MonthDate, @AffExchangeId, @BaseExchangeId) e
 				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId AND c.GroupProductId = gsh.GroupProductId
-					AND FLOOR(CASE WHEN ag.GroupTypeBy = 'Winloss' THEN IIF(c.MonthDate >= @CommissionCal_CutOffDate, c.NetWinloss, ABS(c.NetWinloss)) ELSE  ABS(c.NetTurnover) END)  >= gsh.MinAmount * e.Rate
-					AND FLOOR(CASE WHEN ag.GroupTypeBy = 'Winloss' THEN IIF(c.MonthDate >= @CommissionCal_CutOffDate, c.NetWinloss, ABS(c.NetWinloss)) ELSE  ABS(c.NetTurnover) END)  < gsh.MaxAmount * e.Rate
+					AND FLOOR(CASE WHEN ag.GroupTypeBy = 'Winloss' THEN IIF(c.MonthDate >= @CommissionCal_CutOffDate, c.NetWinloss, ABS(c.NetWinloss)) ELSE  ABS(c.NetTurnover) END) >= gsh.MinAmount * e.Rate
+					AND (            
+						gsh.MinFTDCount IS NULL
+						OR  
+						(gsh.MinFTDCount IS NOT NULL AND C.TotalFTDCount >= gsh.MinFTDCount) 
+					)
+					AND (            
+						gsh.MinTotalDeposit IS NULL 
+						OR  
+						(gsh.MinTotalDeposit IS NOT NULL AND C.FDM_TotalDeposit >= (gsh.MinTotalDeposit * e.Rate))
+					)
+					AND ( 
+						c.MonthDate >= @CommissionCal_CutOffDate
+						OR
+						(c.MonthDate < @CommissionCal_CutOffDate AND c.ActivePlayer >= ISNULL(gsh.MinAM, 0))
+					)
+					AND (
+						c.MonthDate < @CommissionCal_CutOffDate
+						OR 
+						(c.MonthDate >= @CommissionCal_CutOffDate AND c.QualifiedMember >= ISNULL(gsh.MinQM, 0))
+					)
+				ORDER BY gsh.TierId DESC
 			) AS t
-			OUTER APPLY (
-				SELECT TOP 1 gsh.Commission
-				FROM dbo.TierSettingHistory gsh WITH (NOLOCK)
-				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId AND c.GroupProductId = gsh.GroupProductId
-					AND c.MonthDate < @CommissionCal_CutOffDate
-					AND c.ActivePlayer BETWEEN gsh.MinAM AND gsh.MaxAM
-					AND gsh.TierId <= t.TierId
-				ORDER BY gsh.TierId DESC
-			) AS s
-			OUTER APPLY (
-				SELECT TOP 1 gsh.Commission
-				FROM dbo.TierSettingHistory gsh WITH (NOLOCK)
-				WHERE c.MonthDate = gsh.MonthDate AND c.GroupId = gsh.GroupId AND c.GroupProductId = gsh.GroupProductId
-					AND c.MonthDate >= @CommissionCal_CutOffDate
-					AND c.QualifiedMember BETWEEN gsh.MinQM AND gsh.MaxQM
-					AND gsh.TierId <= t.TierId
-				ORDER BY gsh.TierId DESC
-			) AS sn
 			LEFT JOIN @GroupProductInfo e ON c.MonthDate = e.MonthDate AND c.GroupId = e.GroupId 
 		WHERE c.ProductId = 0 AND c.IsStraightSetting = 0
 

@@ -36,6 +36,7 @@ AS
 		- 20250508@Sally: Fix get ClickStatistic by TimeZone [RedmineID: #226614]
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225821]
 		- 20250520@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
+		- 20250714@Eddie: Show total deposits when only having 1st deposit date [RedmineID: #232842]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -106,9 +107,9 @@ BEGIN
 	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME, RowIdx INT, EarningBy VARCHAR(50))
 	;WITH CTE_MonthDate AS
 	(
-		SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate) + 1, 0)) AS MonthDate
+		SELECT EOMONTH(@FromDate) AS MonthDate
 		UNION ALL
-		SELECT DATEADD(DAY, -1, DATEADD(MONTH, 1, DATEADD(DAY, 1, MonthDate)))
+		SELECT EOMONTH(DATEADD(DAY, 1, MonthDate))
 		FROM CTE_MonthDate
 		WHERE MonthDate < @ToDate
 	)
@@ -381,38 +382,64 @@ BEGIN
 	SET md1.BFF = ISNULL(md.BFF, 0)
 	FROM @tblAffStatistics md1
 		CROSS APPLY (SELECT SUM(md2.BFF) AS BFF FROM @tblAffStatistics md2 WHERE md2.MonthDate <= md1.MonthDate) AS md
+		
+	-- Signup, FDM, FDM_TotalDeposit
+	DECLARE @MemberStatistics TABLE (MonthDate DATETIME, Signup INT, FDM INT, FDM_TotalDeposit MONEY)
 
-	DECLARE @MemberStatistics TABLE (MonthDate DATETIME, Signup INT, FDM INT)
-	
-	INSERT INTO @MemberStatistics (MonthDate, Signup)
-	SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, RegisteredDate) + 1, 0)), COUNT(1)
-	FROM dbo.MemberInfo mi WITH (NOLOCK)
-	WHERE mi.AffId = @AffId
-		AND mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate)
-	GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, RegisteredDate) + 1, 0))
-
-	INSERT INTO @MemberStatistics (MonthDate, FDM)
-	SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, FirstDepositDate) + 1, 0)), COUNT(1)
-	FROM dbo.MemberInfo mi WITH (NOLOCK)
-	WHERE mi.AffId = @AffId
-		AND mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
-	GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, FirstDepositDate) + 1, 0))
+	;WITH CTE_Signup AS (
+		SELECT EOMONTH(mi.RegisteredDate) AS MonthDate
+			  ,COUNT(1) AS Signup
+		FROM dbo.MemberInfo mi WITH (NOLOCK)
+		WHERE mi.AffId = @AffId
+			AND mi.RegisteredDate >= @FromDate 
+			AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate)
+		GROUP BY EOMONTH(mi.RegisteredDate)
+	),
+	CTE_FDM_Combined AS (
+		SELECT EOMONTH(mi.FirstDepositDate) 		AS MonthDate
+			  ,COUNT(DISTINCT mi.CustId) 			AS FDM
+			  ,SUM(ISNULL(t.Deposit, 0) * ex.Rate) 	AS FDM_TotalDeposit
+		FROM dbo.MemberInfo mi WITH (NOLOCK)
+			LEFT JOIN dbo.TpExchange te WITH (NOLOCK) ON mi.Currency = te.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(mi.FirstDepositDate, ISNULL(te.ExchangeId, mi.Currency), @BaseExchangeId) ex
+			OUTER APPLY (
+				SELECT SUM(r.Deposit) AS Deposit
+				FROM dbo.rptMemberDaily r WITH (NOLOCK)
+				WHERE r.CustId = mi.CustId 
+				  AND r.WinlostDate BETWEEN CAST(mi.FirstDepositDate AS DATE) AND EOMONTH(mi.FirstDepositDate)
+			) t
+		WHERE mi.AffId = @AffId
+		  AND mi.FirstDepositDate >= @FromDate 
+		  AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
+		GROUP BY EOMONTH(mi.FirstDepositDate)
+	)
+	-- Insert data into @MemberStatistics
+	INSERT INTO @MemberStatistics (MonthDate, Signup, FDM, FDM_TotalDeposit)
+	SELECT t.MonthDate, SUM(t.Signup) AS Signup, SUM(t.FDM) AS FDM, SUM(t.FDM_TotalDeposit) AS FDM_TotalDeposit
+	FROM (
+			SELECT MonthDate, Signup, 0 AS FDM, 0 AS FDM_TotalDeposit
+			FROM CTE_Signup
+			UNION ALL
+			SELECT MonthDate, 0 AS Signup, FDM, FDM_TotalDeposit
+			FROM CTE_FDM_Combined
+	) AS t
+	GROUP BY MonthDate
 
 	DECLARE @tblSubAff TABLE (MonthDate SMALLDATETIME, NoOfSubAff INT)
 	INSERT INTO @tblSubAff (MonthDate, NoOfSubAff)
-	SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, ApprovedDate) + 1, 0)), COUNT(1)
+	SELECT EOMONTH(ApprovedDate), COUNT(1)
 	FROM dbo.AffInfo WITH (NOLOCK)
 	WHERE ParentAffId = @AffId
-		AND Status = 'Approved'
-		AND IsClosed = 0
-		AND ApprovedDate >= @FromDate AND ApprovedDate < DATEADD(DAY, 1, @ToDate)
-	GROUP BY DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, ApprovedDate) + 1, 0))
+	  AND Status = 'Approved'
+	  AND IsClosed = 0
+	  AND ApprovedDate >= @FromDate AND ApprovedDate < DATEADD(DAY, 1, @ToDate)
+	GROUP BY EOMONTH(ApprovedDate)
 
 	-- Total Deposit
 	DECLARE @TotalDeposit TABLE(MonthDate SMALLDATETIME, TotalDeposit BIGINT)
 	INSERT INTO @TotalDeposit(MonthDate, TotalDeposit)
 	SELECT CONVERT(DATE, EOMONTH(DATEADD(HOUR, 8, d.CreateTime))) AS MonthDate
-		,COUNT(1) AS TotalDeposit
+		  ,COUNT(1) AS TotalDeposit
 	FROM bodb_N88.dbo.DepositInfo d WITH (NOLOCK)
 		INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
 	WHERE d.WinlostDate BETWEEN DATEADD(DAY, -1, @FromDate) AND DATEADD(DAY, 1, @ToDate)
@@ -421,60 +448,58 @@ BEGIN
 		AND d.CreateTime < DATEADD(DAY, 1, @ToDateTimeGMT0)
 		AND mi.AffId = @AffId
 		AND NOT EXISTS (
-					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
-					WHERE mr.CustId = d.custid AND CAST(DATEADD(HOUR, @TimeZone, d.CreateTime) AS DATE) BETWEEN mr.FromDate AND mr.ToDate
-				)
+				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK) 
+				WHERE mr.CustId = d.custid AND CAST(DATEADD(HOUR, @TimeZone, d.CreateTime) AS DATE) BETWEEN mr.FromDate AND mr.ToDate
+			)
 	GROUP BY CONVERT(DATE, EOMONTH(DATEADD(HOUR, 8, d.CreateTime)))
 
 	-- Return detail
-	SELECT
-		md.MonthDate,
-		md.EarningBy,
-		CASE
-			WHEN md.MonthDate >= GETDATE() THEN 'Temporary'
-			WHEN md.MonthDate > @MaxCommDate THEN 'Uncalculated'
-			ELSE '' END AS Description,
-		ISNULL(s.TotalClick, 0)					AS TotalClick,
-		ISNULL(s.UniqueClick, 0)				AS UniqueClick,
-		ISNULL(m.Signup, 0)						AS Signup,
-		ISNULL(m.FDM, 0)						AS FDM,
-		ISNULL(ts.NoOfSubAff, 0)				AS NoOfSubAff,
-		ISNULL(tc.ActivePlayer, 0)				AS ActivePlayer,
-		ISNULL(tc.QualifiedMember, 0)			AS QualifiedMember,
-		ISNULL(tc.Deposit, 0)					AS Deposit,
-		ISNULL(tc.Withdrawal, 0)				AS Withdrawal,
-		ISNULL(tc.Turnover, 0)					AS Turnover,
-		ISNULL(-tc.Winloss + tc.Revenue, 0)		AS GGR,
-		ISNULL(tc.Bonus, 0)						AS Bonus,
-		ISNULL(tc.Rebate, 0)					AS Rebate,
-		ISNULL(tc.PlatFormFee + tc.P2PFee, 0)	AS PlatFormFee,
-		ISNULL(tc.OperationalFee, 0)			AS OperationalFee,
-		ISNULL(tc.DepositFee, 0)				AS DepositFee,
-		ISNULL(tc.WithdrawalFee, 0)				AS WithdrawalFee,
-		ISNULL(tc.PlatFormFee + tc.P2PFee + tc.OperationalFee + tc.DepositFee + tc.WithdrawalFee, 0) AS TotalFee,
-		ISNULL(tc.CommissionRate, 0)			AS CommissionRate,
-		ISNULL(tc.IsMultiGroupProduct, 0)       AS IsMultiGroupProduct,
-		ISNULL(tc.Commission, 0)				AS Earning,
-		ISNULL(tc.StraightCommission, 0)		AS P2PEarning,
-		ISNULL(tc.SubAffCommission, 0)			AS SubAffEarning,
-		ISNULL(at.AffWithdrawal, 0)				AS AffWithdrawal,
-		ISNULL(at.AffAdjustment, 0)				AS AffAdjustment,
-		ISNULL(at.BFF, 0)						AS BFF,
-		ISNULL(tp.TotalDeposit, 0)				AS TotalDeposit
+	SELECT md.MonthDate
+		  ,md.EarningBy
+		  ,CASE WHEN md.MonthDate >= GETDATE() 	 THEN 'Temporary'
+			    WHEN md.MonthDate > @MaxCommDate THEN 'Uncalculated'
+		   ELSE '' END AS Description
+		  ,ISNULL(s.TotalClick, 0)				 AS TotalClick
+		  ,ISNULL(s.UniqueClick, 0)				 AS UniqueClick
+		  ,ISNULL(m.Signup, 0)					 AS Signup
+		  ,ISNULL(m.FDM, 0)						 AS FDM
+		  ,ISNULL(m.FDM_TotalDeposit, 0)		 AS FDM_TotalDeposit
+		  ,ISNULL(ts.NoOfSubAff, 0)				 AS NoOfSubAff
+		  ,ISNULL(tc.ActivePlayer, 0)			 AS ActivePlayer
+		  ,ISNULL(tc.QualifiedMember, 0)		 AS QualifiedMember
+		  ,ISNULL(tc.Deposit, 0)				 AS Deposit
+		  ,ISNULL(tc.Withdrawal, 0)				 AS Withdrawal
+		  ,ISNULL(tc.Turnover, 0)				 AS Turnover
+		  ,ISNULL(-tc.Winloss + tc.Revenue, 0)	 AS GGR
+		  ,ISNULL(tc.Bonus, 0)					 AS Bonus
+		  ,ISNULL(tc.Rebate, 0)					 AS Rebate
+		  ,ISNULL(tc.PlatFormFee + tc.P2PFee, 0) AS PlatFormFee
+		  ,ISNULL(tc.OperationalFee, 0)			 AS OperationalFee
+		  ,ISNULL(tc.DepositFee, 0)				 AS DepositFee
+		  ,ISNULL(tc.WithdrawalFee, 0)			 AS WithdrawalFee
+		  ,ISNULL(tc.PlatFormFee + tc.P2PFee + tc.OperationalFee + tc.DepositFee + tc.WithdrawalFee, 0) AS TotalFee
+		  ,ISNULL(tc.CommissionRate, 0)			 AS CommissionRate
+		  ,ISNULL(tc.IsMultiGroupProduct, 0)     AS IsMultiGroupProduct
+		  ,ISNULL(tc.Commission, 0)				 AS Earning
+		  ,ISNULL(tc.StraightCommission, 0)		 AS P2PEarning
+		  ,ISNULL(tc.SubAffCommission, 0)		 AS SubAffEarning
+		  ,ISNULL(at.AffWithdrawal, 0)			 AS AffWithdrawal
+		  ,ISNULL(at.AffAdjustment, 0)			 AS AffAdjustment
+		  ,ISNULL(at.BFF, 0)					 AS BFF
+		  ,ISNULL(tp.TotalDeposit, 0)			 AS TotalDeposit
 	FROM @MonthDate md
 		LEFT JOIN #TempCommission tc ON md.MonthDate = tc.MonthDate
 		OUTER APPLY (
-			SELECT
-				SUM(ISNULL(Signup, 0)) AS Signup,
-				SUM(ISNULL(FDM, 0)) AS FDM
+			SELECT SUM(ISNULL(Signup, 0)) 			AS Signup
+				  ,SUM(ISNULL(FDM, 0)) 				AS FDM
+				  ,SUM(ISNULL(FDM_TotalDeposit, 0))	AS FDM_TotalDeposit
 			FROM @MemberStatistics m
 			WHERE md.MonthDate = m.MonthDate
 		) m
 		LEFT JOIN @tblSubAff ts ON md.MonthDate = ts.MonthDate
 		CROSS APPLY (
-			SELECT
-				SUM(ISNULL(TotalClick, 0)) AS TotalClick,
-				SUM(ISNULL(UniqueClick, 0)) AS UniqueClick
+			SELECT SUM(ISNULL(TotalClick, 0)) 	AS TotalClick
+				  ,SUM(ISNULL(UniqueClick, 0)) 	AS UniqueClick
 			FROM #Statistics s
 			WHERE md.MonthDate = s.MonthDate
 		) s
@@ -488,48 +513,47 @@ BEGIN
 	ORDER BY md.RowIdx
 
 	-- Return total
-	SELECT
-		SUM(ISNULL(s.TotalClick, 0))				AS TotalClick,
-		SUM(ISNULL(s.UniqueClick, 0))				AS UniqueClick,
-		SUM(ISNULL(m.Signup, 0))					AS Signup,
-		SUM(ISNULL(m.FDM, 0))						AS FDM,
-		SUM(ISNULL(ts.NoOfSubAff, 0))				AS NoOfSubAff,
-		SUM(ISNULL(tc.ActivePlayer, 0))				AS ActivePlayer,
-		SUM(ISNULL(tc.QualifiedMember, 0))			AS QualifiedMember,
-		SUM(ISNULL(tc.Deposit, 0))					AS Deposit,
-		SUM(ISNULL(tc.Withdrawal, 0))				AS Withdrawal,
-		SUM(ISNULL(tc.Turnover, 0))					AS Turnover,
-		SUM(ISNULL(-tc.Winloss + tc.Revenue, 0))	AS GGR,
-		SUM(ISNULL(tc.Bonus, 0))					AS Bonus,
-		SUM(ISNULL(tc.Rebate, 0))					AS Rebate,
-		SUM(ISNULL(tc.PlatFormFee, 0) + ISNULL(tc.P2PFee, 0))	AS PlatFormFee,
-		SUM(ISNULL(tc.OperationalFee, 0))			AS OperationalFee,
-		SUM(ISNULL(tc.DepositFee, 0))				AS DepositFee,
-		SUM(ISNULL(tc.WithdrawalFee, 0))			AS WithdrawalFee,
-		SUM(ISNULL(tc.PlatFormFee, 0) + ISNULL(tc.P2PFee, 0) + ISNULL(tc.OperationalFee, 0) + ISNULL(tc.DepositFee, 0) + ISNULL(tc.WithdrawalFee, 0)) AS TotalFee,
-		0											AS CommissionRate,
-		CONVERT(BIT, MAX(CONVERT(TINYINT, ISNULL(tc.IsMultiGroupProduct, 0)))) AS IsMultiGroupProduct,
-		SUM(ISNULL(tc.Commission, 0))				AS Earning,
-		SUM(ISNULL(tc.StraightCommission, 0))		AS P2PEarning,
-		SUM(ISNULL(tc.SubAffCommission, 0))			AS SubAffEarning,
-		SUM(ISNULL(at.AffWithdrawal, 0))			AS AffWithdrawal,
-		SUM(ISNULL(at.AffAdjustment, 0))			AS AffAdjustment,
-		SUM(ISNULL(CASE WHEN md.MonthDate = @ToDate THEN at.BFF ELSE 0 END, 0)) AS BFF, -- the last month by running total
-		SUM(ISNULL(tp.TotalDeposit, 0))				AS TotalDeposit
+	SELECT SUM(ISNULL(s.TotalClick, 0))								AS TotalClick
+		  ,SUM(ISNULL(s.UniqueClick, 0))							AS UniqueClick
+		  ,SUM(ISNULL(m.Signup, 0))									AS Signup
+		  ,SUM(ISNULL(m.FDM, 0))									AS FDM
+		  ,SUM(ISNULL(m.FDM_TotalDeposit, 0))						AS FDM_TotalDeposit
+		  ,SUM(ISNULL(ts.NoOfSubAff, 0))							AS NoOfSubAff
+		  ,SUM(ISNULL(tc.ActivePlayer, 0))							AS ActivePlayer
+		  ,SUM(ISNULL(tc.QualifiedMember, 0))						AS QualifiedMember
+		  ,SUM(ISNULL(tc.Deposit, 0))								AS Deposit
+		  ,SUM(ISNULL(tc.Withdrawal, 0))							AS Withdrawal
+		  ,SUM(ISNULL(tc.Turnover, 0))								AS Turnover
+		  ,SUM(ISNULL(-tc.Winloss + tc.Revenue, 0))					AS GGR
+		  ,SUM(ISNULL(tc.Bonus, 0))									AS Bonus
+		  ,SUM(ISNULL(tc.Rebate, 0))								AS Rebate
+		  ,SUM(ISNULL(tc.PlatFormFee, 0) + ISNULL(tc.P2PFee, 0))	AS PlatFormFee
+		  ,SUM(ISNULL(tc.OperationalFee, 0))						AS OperationalFee
+		  ,SUM(ISNULL(tc.DepositFee, 0))							AS DepositFee
+		  ,SUM(ISNULL(tc.WithdrawalFee, 0))							AS WithdrawalFee
+		  ,SUM(ISNULL(tc.PlatFormFee, 0) + ISNULL(tc.P2PFee, 0) + ISNULL(tc.OperationalFee, 0) + ISNULL(tc.DepositFee, 0) + ISNULL(tc.WithdrawalFee, 0)) AS TotalFee
+		  ,0 AS CommissionRate
+		  ,CONVERT(BIT, MAX(CONVERT(TINYINT, ISNULL(tc.IsMultiGroupProduct, 0)))) AS IsMultiGroupProduct
+		  ,SUM(ISNULL(tc.Commission, 0))		 AS Earning
+		  ,SUM(ISNULL(tc.StraightCommission, 0)) AS P2PEarning
+		  ,SUM(ISNULL(tc.SubAffCommission, 0))	 AS SubAffEarning
+		  ,SUM(ISNULL(at.AffWithdrawal, 0))		 AS AffWithdrawal
+		  ,SUM(ISNULL(at.AffAdjustment, 0))		 AS AffAdjustment
+		  ,SUM(ISNULL(CASE WHEN md.MonthDate = @ToDate THEN at.BFF ELSE 0 END, 0)) AS BFF -- the last month by running total
+		  ,SUM(ISNULL(tp.TotalDeposit, 0)) AS TotalDeposit
 	FROM @MonthDate md
 		LEFT JOIN #TempCommission tc ON md.MonthDate = tc.MonthDate
 		OUTER APPLY (
-			SELECT
-				SUM(ISNULL(Signup, 0)) AS Signup,
-				SUM(ISNULL(FDM, 0)) AS FDM
+			SELECT SUM(ISNULL(Signup, 0)) 		 	AS Signup
+				  ,SUM(ISNULL(FDM, 0)) 			 	AS FDM
+				  ,SUM(ISNULL(FDM_TotalDeposit, 0)) AS FDM_TotalDeposit
 			FROM @MemberStatistics m
 			WHERE md.MonthDate = m.MonthDate
 		) m
 		LEFT JOIN @tblSubAff ts ON md.MonthDate = ts.MonthDate
 		CROSS APPLY (
-			SELECT
-				SUM(ISNULL(TotalClick, 0)) AS TotalClick,
-				SUM(ISNULL(UniqueClick, 0)) AS UniqueClick
+			SELECT SUM(ISNULL(TotalClick, 0))  AS TotalClick
+				  ,SUM(ISNULL(UniqueClick, 0)) AS UniqueClick
 			FROM #Statistics s
 			WHERE md.MonthDate = s.MonthDate
 		) s
