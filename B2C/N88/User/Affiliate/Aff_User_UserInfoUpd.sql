@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_UserInfoUpd]
 	@AffId					INT,
 	@UserId					INT,
@@ -21,79 +21,123 @@ AS
 	
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+        - 20250707@Sally: Get info Affcategory [RedmineID: #212201]
 */
 
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @UpdatedData TABLE
+	-- Separate table variables for old and new data logging
+	DECLARE @OldDataTable TABLE
 	(
-		-- del
-		Phone_Del				VARCHAR(50),
-		ContactApps_Del			NVARCHAR(2000),
-		SiteURL_Del				VARCHAR(100),
-		MoreSiteURLs_Del		VARCHAR(1000),
-		NoSiteDesc_Del			NVARCHAR(1000),
-		DefaultCurrency_Del		INT,
-		-- insert
-		Phone_Ins				NVARCHAR(50),
-		ContactApps_Ins			NVARCHAR(2000),
-		SiteURL_Ins				VARCHAR(100),
-		MoreSiteURLs_Ins		VARCHAR(1000),
-		NoSiteDesc_Ins			NVARCHAR(1000),
-		DefaultCurrency_Ins		INT
+		Phone				VARCHAR(50),
+		ContactApps			NVARCHAR(2000),
+		SiteURL				VARCHAR(100),
+		MoreSiteURLs		VARCHAR(1000),
+		NoSiteDesc			NVARCHAR(1000),
+		DefaultCurrency		INT
 	)
 
-	BEGIN TRY
-		IF @DefaultBaseCurrency IS NOT NULL
-			UPDATE dbo.AffInfo WITH (ROWLOCK)
-			SET DefaultCurrency = @DefaultBaseCurrency
-			OUTPUT
-				DELETED.DefaultCurrency,
-				INSERTED.DefaultCurrency
-			INTO @UpdatedData
-			(
-				DefaultCurrency_Del,
-				DefaultCurrency_Ins
-			)
-			WHERE AffId = @AffId
+	DECLARE @NewDataTable TABLE
+	(
+		Phone				VARCHAR(50),
+		ContactApps			NVARCHAR(2000),
+		SiteURL				VARCHAR(100),
+		MoreSiteURLs		VARCHAR(1000),
+		NoSiteDesc			NVARCHAR(1000),
+		DefaultCurrency		INT
+	)
 
+	-- Capture current data before UPDATE (Old Data)
+	INSERT INTO @OldDataTable (
+		Phone,
+		ContactApps,
+		SiteURL,
+		MoreSiteURLs,
+		NoSiteDesc,
+		DefaultCurrency
+	)
+	SELECT ad.Phone,
+		   ad.ContactApps,
+		   ad.SiteURL,
+		   ad.MoreSiteURLs,
+		   ad.NoSiteDesc,
+		   ai.DefaultCurrency
+	FROM dbo.AffInfo ai WITH (NOLOCK)
+	LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+	WHERE ai.AffId = @AffId;
+
+	-- Capture new data from parameters (New Data)
+	INSERT INTO @NewDataTable (
+		Phone,
+		ContactApps,
+		SiteURL,
+		MoreSiteURLs,
+		NoSiteDesc,
+		DefaultCurrency
+	)
+	SELECT @Phone,
+		   @ContactApps,
+		   @SiteURL,
+		   @MoreSiteURLs,
+		   @NoSiteDesc,
+		   @DefaultBaseCurrency;
+
+	BEGIN TRY
+		-- Update AffInfo table
+		UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
+		SET DefaultCurrency = @DefaultBaseCurrency
+		WHERE AffId = @AffId
+
+		-- Update AffDetail table
 		UPDATE dbo.AffDetail WITH (ROWLOCK, UPDLOCK)
 		SET Phone				= ISNULL(@Phone, Phone),
 			ContactApps			= ISNULL(@ContactApps, ContactApps),
 			SiteURL				= ISNULL(@SiteURL, SiteURL),
 			MoreSiteURLs		= ISNULL(@MoreSiteURLs, MoreSiteURLs),
 			NoSiteDesc			= ISNULL(@NoSiteDesc, NoSiteDesc)
-		OUTPUT
-			DELETED.Phone,
-			DELETED.ContactApps,
-			DELETED.SiteURL,
-			DELETED.MoreSiteURLs,
-			DELETED.NoSiteDesc,
-			INSERTED.Phone,
-			INSERTED.ContactApps,
-			INSERTED.SiteURL,
-			INSERTED.MoreSiteURLs,
-			INSERTED.NoSiteDesc
-		INTO @UpdatedData
-		(
-			Phone_Del,
-			ContactApps_Del,
-			SiteURL_Del,
-			MoreSiteURLs_Del,
-			NoSiteDesc_Del,
-			Phone_Ins,
-			ContactApps_Ins,
-			SiteURL_Ins,
-			MoreSiteURLs_Ins,
-			NoSiteDesc_Ins
-		)
 		WHERE AffID = @AffId
 	END TRY
 	BEGIN CATCH
+		-- Rollback manually using old data from @OldDataTable
+		UPDATE ai WITH (ROWLOCK, UPDLOCK)
+		SET DefaultCurrency = od.DefaultCurrency
+		FROM dbo.AffInfo ai
+			CROSS JOIN @OldDataTable od
+		WHERE ai.AffId = @AffId
+
+		UPDATE ad WITH (ROWLOCK, UPDLOCK)
+		SET Phone = od.Phone,
+			ContactApps = od.ContactApps,
+			SiteURL = od.SiteURL,
+			MoreSiteURLs = od.MoreSiteURLs,
+			NoSiteDesc = od.NoSiteDesc
+		FROM dbo.AffDetail ad
+			CROSS JOIN @OldDataTable od
+		WHERE ad.AffId = @AffId
+
+		-- After rollback, refresh @NewDataTable from actual table data
+		DELETE FROM @NewDataTable;
+		INSERT INTO @NewDataTable (
+			Phone,
+			ContactApps,
+			SiteURL,
+			MoreSiteURLs,
+			NoSiteDesc,
+			DefaultCurrency
+		)
+		SELECT ad.Phone,
+			   ad.ContactApps,
+			   ad.SiteURL,
+			   ad.MoreSiteURLs,
+			   ad.NoSiteDesc,
+			   ai.DefaultCurrency
+		FROM dbo.AffInfo ai WITH (NOLOCK)
+		LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+		WHERE ai.AffId = @AffId;
+
 		-- Update process is unsuccessful. Please try again!
 		SELECT @ErrCode = 1006, @ErrMsg = dbo.Aff_f_GetMessageById(303, @Language)
-
 		RETURN
 	END CATCH
 
@@ -103,23 +147,24 @@ BEGIN
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
-	SELECT  @OldData =
-		'Phone='			+ ISNULL(Phone_Del, '') + ',' +
-		'ContactApps='		+ ISNULL(ContactApps_Del, '') + ',' +
-		'SiteURL='			+ ISNULL(SiteURL_Del, '') + ',' +
-		'MoreSiteURLs='		+ ISNULL(MoreSiteURLs_Del, '') + ',' +
-		'NoSiteDesc='		+ ISNULL(NoSiteDesc_Del, '') + ',' +
-		'DefaultCurrency='	+ ISNULL(CONVERT(VARCHAR(10), DefaultCurrency_Del), '')
-	FROM @UpdatedData
+	-- Build log strings from separate Old and New data tables
+	SELECT @OldData =
+		'Phone=' + ISNULL(Phone, '') + ',' +
+		'ContactApps=' + ISNULL(ContactApps, '') + ',' +
+		'SiteURL=' + ISNULL(SiteURL, '') + ',' +
+		'MoreSiteURLs=' + ISNULL(MoreSiteURLs, '') + ',' +
+		'NoSiteDesc=' + ISNULL(NoSiteDesc, '') + ',' +
+		'DefaultCurrency=' + ISNULL(CONVERT(VARCHAR(10), DefaultCurrency), '')
+	FROM @OldDataTable
 
-	SELECT  @NewData =
-		'Phone='			+ ISNULL(Phone_Ins, '') + ',' +
-		'ContactApps='		+ ISNULL(ContactApps_Ins, '') + ',' +
-		'SiteURL='			+ ISNULL(SiteURL_Ins, '') + ',' +
-		'MoreSiteURLs='		+ ISNULL(MoreSiteURLs_Ins, '') + ',' +
-		'NoSiteDesc='		+ ISNULL(NoSiteDesc_Ins, '') + ',' +
-		'DefaultCurrency='	+ ISNULL(CONVERT(VARCHAR(10), DefaultCurrency_Ins), '')
-	FROM @UpdatedData
+	SELECT @NewData =
+		'Phone=' + ISNULL(Phone, '') + ',' +
+		'ContactApps=' + ISNULL(ContactApps, '') + ',' +
+		'SiteURL=' + ISNULL(SiteURL, '') + ',' +
+		'MoreSiteURLs=' + ISNULL(MoreSiteURLs, '') + ',' +
+		'NoSiteDesc=' + ISNULL(NoSiteDesc, '') + ',' +
+		'DefaultCurrency=' + ISNULL(CONVERT(VARCHAR(10), DefaultCurrency), '')
+	FROM @NewDataTable
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,

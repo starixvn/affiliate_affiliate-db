@@ -21,6 +21,7 @@ AS
 		- 20201215@Percy: Add AffMediaLink [RedmineID: #146201]
 		- 20210223@Percy: Do not update ApprovedDate if change from Suspended [RedmineID: #150493]
 		- 20240828@Sally: Add new permission for approve new affiliate [RedmineID: #209858]
+        - 20250623@Sally: valid Affiliate account by Affcategory [RedmineID: #212201]
 */
 
 BEGIN
@@ -96,17 +97,31 @@ BEGIN
 
 	-- Update process
 	BEGIN
+		-- Check exists Email
+		DECLARE @Email NVARCHAR(50)
+            ,@AffCategoryId INT
+            
+        SELECT @Email = Email 
+            ,@AffCategoryId = AffCategoryId
+        FROM AffInfo WITH (NOLOCK) 
+        WHERE AffId = @AffId
+		
 		IF EXISTS (
-			SELECT 1
-			FROM dbo.AffInfo ai1 WITH (NOLOCK)
-				INNER JOIN dbo.AffInfo ai2 WITH (NOLOCK) ON ai1.Email = ai2.Email AND ai1.AffId <> ai2.AffId
-			WHERE ai1.AffId = @AffId
-				AND ai2.Status = 'Approved'
-		)
+			SELECT 1 
+			FROM dbo.AffInfo WITH (NOLOCK) 
+			WHERE AffId <> @AffId 
+				AND Email = @Email 
+				AND Status = 'Approved' 
+				AND (
+					(AffCategoryId = 1 AND @AffCategoryId = 2)
+					OR
+					(@AffCategoryId = 1)
+				)
+        )
 		BEGIN
 			-- Email Address has been used. Please choose another one!
 			SELECT @ErrCode = 1007, @ErrMsg = dbo.Aff_f_GetMessageById(1, @Language)
-
+		
 			RETURN
 		END
 
@@ -152,12 +167,12 @@ BEGIN
 		INSERT INTO dbo.AffMediaChannel (AffId, ChannelCode, ChannelName)
 		SELECT @AffId, LOWER(t.ChannelName), t.ChannelName
 		FROM (
-			select 'Youtube' as ChannelName
-			union all select 'Facebook'
-			union all select 'Twitter'
-			union all select 'Tiktok'
-			union all select 'Whatsapp'
-			union all select 'Telegram'
+			SELECT 'Youtube' as ChannelName
+			UNION ALL SELECT 'Facebook'
+			UNION ALL SELECT 'Twitter'
+			UNION ALL SELECT 'Tiktok'
+			UNION ALL SELECT 'Whatsapp'
+			UNION ALL SELECT 'Telegram'
 		) t
 			LEFT JOIN dbo.AffMediaChannel a WITH (NOLOCK) ON a.AffId = @AffId AND a.ChannelCode = LOWER(t.ChannelName)
 		WHERE a.AffId IS NULL

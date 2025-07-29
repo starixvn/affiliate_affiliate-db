@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_UserInfoSel]
 	@AffId INT
 AS
@@ -13,6 +13,7 @@ AS
 		- 20201026@Percy: Add AffCode [RedmineID: #143852]
 		- 20211005@Percy: Support Transfer Balance For Player [RedmineID: #153227]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+        - 20250707@Sally: Get info Affcategory [RedmineID: #212201]
 */
 
 BEGIN
@@ -53,9 +54,12 @@ BEGIN
 		ad.Player_CurrencyCode AS PlayerCurrency,
 		@AffCurrencyCode AS AffCurrency,
 		ai.DefaultCurrency AS DefaultBaseCurrency,
-		ai.AffCode
+		ai.AffCode,
+		ai.AffCategoryId,
+		ac.AffCategoryDesc
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
+		INNER JOIN dbo.AffCategory ac WITH (NOLOCK) ON ai.AffCategoryId = ac.AffCategoryId
 	WHERE ai.AffId = @AffId
 END
 GO
