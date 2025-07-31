@@ -42,9 +42,11 @@ AS
 		- 20250417@Lewis: Add TargetCountry [RedmineID: #223644]
 		- 20250515@Lewis: Get TargetCountryCode by table TargetCountry [RedmineID: #227338]
 		- 20250521@Lewis: Get ShortedCode by table TargetCountry for Secondary Language  [RedmineID: #227338]
+		- 20250729@Sally: Insert Clickstatistics into Clickstatistics2 Table [RedmineID: #233088]
 */
 
 BEGIN
+	-- This SP will be no longer used in production
 	SET NOCOUNT ON
 	DECLARE @AffId 				INT = NULL
 	      , @AffUsername 		NVARCHAR(30)
@@ -243,8 +245,64 @@ BEGIN
 		SELECT @RedirectPage = @RedirectPage + '&clickId=' + CONVERT(VARCHAR(20), @clickId)
 		
 		UPDATE 	dbo.ClickStatistics WITH (ROWLOCK,UPDLOCK)
-		SET 	RedirectURL = @RedirectPage
+		SET 	RedirectURL = @RedirectPage,
+				ClickId2 = @ClickId
 		WHERE 	ClickId = @ClickId
+
+		-- Insert into ClickStatistics2 table with final data from ClickStatistics (only when ClickId is not null)
+		IF @ClickID IS NOT NULL
+		BEGIN
+			INSERT INTO dbo.ClickStatistics2 WITH (ROWLOCK)
+			(
+				ClickId
+				,AffId
+				,UpdatedTime
+				,IP
+				,Date
+				,Browser
+				,URLReferrer
+				,DomainReferrer
+				,AffMediaLink
+				,OS
+				,Device
+				,BrowserVersion
+				,BrowserResolution
+				,BrowserLanguage
+				,UserAgent
+				,Country
+				,LanguageCode
+				,SportCode
+				,RedirectURL
+				,Status
+				,DeviceType
+				,ChannelCode
+			)
+			SELECT 
+				@ClickID  -- Use @ClickID as ClickId for ClickStatistics2 (no auto-increment)
+				,AffId
+				,UpdatedTime
+				,IP
+				,Date
+				,Browser
+				,URLReferrer
+				,DomainReferrer
+				,AffMediaLink
+				,OS
+				,Device
+				,BrowserVersion
+				,BrowserResolution
+				,BrowserLanguage
+				,UserAgent
+				,Country
+				,LanguageCode
+				,SportCode
+				,RedirectURL
+				,Status
+				,DeviceType
+				,ChannelCode
+			FROM dbo.ClickStatistics WITH (NOLOCK)
+			WHERE ClickId = @ClickID
+		END
 		
 	END
 END
