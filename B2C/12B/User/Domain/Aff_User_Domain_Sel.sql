@@ -14,6 +14,7 @@ AS
 		- 20250402@Lewis: Include Specific Domain [RedmineID: #221035]
 		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
 		- 20250523@Lewis: Add new column RedirectDomain [RedmineID: #227130]
+		- 20250523@Lewis: Add new column IsSpecific [RedmineID: #234823]
 
 */
 
@@ -124,6 +125,7 @@ BEGIN
 		,ISNULL(a.IsSSL,b.IsSSL) AS IsSSL
 		,ISNULL(a.CreateDate,b.CreateDate) AS CreateDate
 		,ISNULL(a.RedirectDomain,b.RedirectDomain) AS RedirectDomain
+		,ISNULL(a.IsSpecific,b.IsSpecific) AS IsSpecific
 	FROM cte_Specific a
 	FULL OUTER JOIN cte_Normal b 
 		ON a.DomainID = b.DomainID
