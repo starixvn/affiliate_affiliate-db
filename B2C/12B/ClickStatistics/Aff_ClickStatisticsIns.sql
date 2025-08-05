@@ -31,10 +31,12 @@ AS
 
 	Revisions:  
 		- 20250729@Sally: Initialize SP [RedmineID: #233088]
+        - 20250729@Sally: Remove insert data into ClickStatistics2 table [RedmineID: #234697]
 
 */
 BEGIN
 	SET NOCOUNT ON;
+
 	-- Get AffId from AffiliateCode table using AffCode
 	DECLARE @AffId INT;
 	SELECT @AffId = AffId FROM dbo.AffiliateCode WITH(NOLOCK) WHERE AffCode = @AffCode;
@@ -47,34 +49,8 @@ BEGIN
 		RETURN;
 	END
 
-	DECLARE @ClickStatistics TABLE
-	(
-		AffId INT,
-		UpdatedTime DATETIME,
-		IP VARCHAR(25),
-		Date SMALLDATETIME,
-		Browser NVARCHAR(50),
-		URLReferrer NVARCHAR(300),
-		DomainReferrer NVARCHAR(300),
-		OS NVARCHAR(50),
-		Device NVARCHAR(50),
-		BrowserVersion NVARCHAR(16),
-		BrowserResolution NVARCHAR(16),
-		BrowserLanguage NVARCHAR(8),
-		UserAgent NVARCHAR(256),
-		Country NVARCHAR(256),
-		LanguageCode VARCHAR(10),
-		SportCode VARCHAR(50),
-		RedirectURL NVARCHAR(256),
-		Status TINYINT,
-		DeviceType TINYINT,
-		AffMediaLink VARCHAR(500),
-		ChannelCode VARCHAR(50),
-		ClickID2 BIGINT
-	);
-
 	BEGIN TRY
-	
+
 		DECLARE @IPNum BIGINT, @CountryCode VARCHAR(256)
 		SELECT  @IPNum = dbo.Aff_IPConvertToNumber(@IP)
 
@@ -86,53 +62,18 @@ BEGIN
 		SELECT @DomainReferrer = CASE WHEN @DomainReferrer IS NULL OR TRIM(@DomainReferrer) = '' THEN 'none' ELSE @DomainReferrer END
 		SELECT @AffMediaLink   = CASE WHEN @AffMediaLink IS NULL OR TRIM(@AffMediaLink) = '' THEN 'none' ELSE @AffMediaLink END
 		
-		-- Insert into ClickStatistics and output to @ClickStatistics
+		-- Insert into ClickStatistics
 		INSERT INTO dbo.ClickStatistics
-		(
-			AffId, UpdatedTime, IP, Date, Browser, URLReferrer, DomainReferrer, OS, Device, BrowserVersion, BrowserResolution, BrowserLanguage, UserAgent, Country, LanguageCode, SportCode, RedirectURL, Status, DeviceType, AffMediaLink, ChannelCode, ClickId2
-		)
-		OUTPUT 
-			INSERTED.AffId,
-			INSERTED.UpdatedTime,
-			INSERTED.IP,
-			INSERTED.Date,
-			INSERTED.Browser,
-			INSERTED.URLReferrer,
-			INSERTED.DomainReferrer,
-			INSERTED.OS,
-			INSERTED.Device,
-			INSERTED.BrowserVersion,
-			INSERTED.BrowserResolution,
-			INSERTED.BrowserLanguage,
-			INSERTED.UserAgent,
-			INSERTED.Country,
-			INSERTED.LanguageCode,
-			INSERTED.SportCode,
-			INSERTED.RedirectURL,
-			INSERTED.Status,
-			INSERTED.DeviceType,
-			INSERTED.AffMediaLink,
-			INSERTED.ChannelCode,
-			INSERTED.ClickID2
-		INTO @ClickStatistics
-		VALUES
-		(
-			@AffId, @UpdatedTime, @IP, CAST(@UpdatedTime AS DATE), @Browser, @URLReferrer, @DomainReferrer, @OS, @Device, @BrowserVersion, @BrowserResolution, @BrowserLanguage, @UserAgent, COALESCE(@CountryCode, '(not set)', @Country), @LanguageCode, @PageCode, @RedirectURL, 0, @DeviceType, @AffMediaLink, @ChannelCode, @ClickId
-		);
-
-		-- Insert into ClickStatistics2 from @ClickStatistics
-		INSERT INTO dbo.ClickStatistics2
 		(
 			ClickId, AffId, UpdatedTime, IP, Date, Browser, URLReferrer, DomainReferrer, OS, Device, BrowserVersion, BrowserResolution, BrowserLanguage, UserAgent, Country, LanguageCode, SportCode, RedirectURL, Status, DeviceType, AffMediaLink, ChannelCode
 		)
-		SELECT 
-			ClickId2, AffId, UpdatedTime, IP, Date, Browser, URLReferrer, DomainReferrer, OS, Device, BrowserVersion, BrowserResolution, BrowserLanguage, UserAgent, Country, LanguageCode, SportCode, RedirectURL, Status, DeviceType, AffMediaLink, ChannelCode
-		FROM @ClickStatistics;
+		VALUES
+		(
+			@ClickId, @AffId, @UpdatedTime, @IP, CAST(@UpdatedTime AS DATE), @Browser, @URLReferrer, @DomainReferrer, @OS, @Device, @BrowserVersion, @BrowserResolution, @BrowserLanguage, @UserAgent, COALESCE(@CountryCode, '(not set)', @Country), @LanguageCode, @PageCode, @RedirectURL, 0, @DeviceType, @AffMediaLink, @ChannelCode
+		);
+
 	END TRY
 	BEGIN CATCH
-		-- Remove data from ClickStatistics if ClickStatistics2 insert failed
-		DELETE FROM dbo.ClickStatistics WITH (ROWLOCK)
-		WHERE ClickId2 = @ClickId;
 		
 		-- Set error information for insert failures
 		SET @ErrCode = 303;
