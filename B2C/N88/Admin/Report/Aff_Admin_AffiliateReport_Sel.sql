@@ -7,7 +7,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	,@PreferredLanguage	VARCHAR(11) = NULL
 	,@ProductIds		VARCHAR(MAX) = '0'
 	,@Currencies		VARCHAR(MAX) = ''
-	,@PaymentCurrencies	VARCHAR(MAX) = ''
+	,@PaymentCurrencies	VARCHAR(MAX) = 'all'
 	,@BaseCurrency		INT = 0
 	,@SortType			TINYINT = 1
 	,@SortDirectionType	BIT = 0
@@ -51,6 +51,7 @@ AS
 		- 20250515@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
 		- 20250624@Lewis: Add column Withdrawal [RedmineID: #231047]
 		- 20250714@Eddie: Show total deposits when only having 1st deposit date [RedmineID: #232842]
+		- 20250808@Sally: Enhance conditions to view data of marketing affiliate accounts [RedmineID: #235649]
 
 	Param's Explanation:
 		- @SortType: 1: Affiliate username, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -144,14 +145,16 @@ BEGIN
 	WHERE t.TpExchangeId = @BaseCurrency
 
 	--Get list payment currency mapping TpExchange
-	DECLARE @ListPaymentCurrencies	VARCHAR(MAX) = ''
-	SELECT @ListPaymentCurrencies = COALESCE(@ListPaymentCurrencies + ',', '') + CONVERT(VARCHAR(20), t.TpExchangeId)
-	FROM STRING_SPLIT(@PaymentCurrencies, ',') f
-		CROSS APPLY(
-			SELECT TpExchangeId
-			FROM dbo.Aff_f_TpExchange_Sel(f.value)
+	DECLARE @ListPaymentCurrencies	VARCHAR(MAX) = @PaymentCurrencies
+	IF (@ListPaymentCurrencies <> 'all')
+	BEGIN
+		SELECT @ListPaymentCurrencies = COALESCE(@ListPaymentCurrencies + ',', '') + CONVERT(VARCHAR(20), t.TpExchangeId)
+		FROM STRING_SPLIT(@PaymentCurrencies, ',') f
+			CROSS APPLY(
+				SELECT TpExchangeId
+				FROM dbo.Aff_f_TpExchange_Sel(f.value)
 		)t
-
+	END
 	/*
 		===== Get data =====
 	*/
@@ -898,7 +901,7 @@ BEGIN
 					CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN ISNULL(tc.Commission, 0) END DESC) AS RowIdx
 		FROM dbo.AffInfo ai WITH (NOLOCK)
 			INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
-			INNER JOIN bodb_N88.dbo.Customer c WITH(NOLOCK) ON ad.Player_CustId = c.CustId
+			LEFT JOIN bodb_N88.dbo.Customer c WITH(NOLOCK) ON ad.Player_CustId = c.CustId
 			LEFT JOIN (
 				SELECT AffId, SUM(SignUp) AS SignUp, SUM(FDM) AS FDM, SUM(FDM_TotalDeposit) AS FDM_TotalDeposit
 				FROM #Signup 
@@ -948,7 +951,9 @@ BEGIN
 		WHERE ai.Status = 'Approved'
 			AND ai.Username LIKE '%' + @Username + '%'
 			AND (@PreferredLanguage = '' OR ad.PreferredLanguage = @PreferredLanguage)
-			AND ',' + @ListPaymentCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(20), ad.Player_Currency) + ',%'
+			AND (@ListPaymentCurrencies = 'all' 
+				OR ',' + @ListPaymentCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(20), ad.Player_Currency) + ',%' 
+			)
 			AND (
 				@GroupIds = 'all'
 				OR EXISTS (
@@ -958,7 +963,7 @@ BEGIN
 				)
 			)
 			AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate)
-			AND (c.IsTest = 0 OR @IsExcludeAFFTest = 0)
+			AND ((ISNULL(c.IsTest, 0) = 0 AND ai.AffCategoryId <> 2) OR @IsExcludeAFFTest = 0) -- exclude AFF marketing account
 			AND (@IsByApprovalMonth = 0 OR 
 				 (ai.ApprovedDate >= @FromDate AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate) AND ai.IsRejected = 0))
 			AND	1 = (CASE
@@ -1002,11 +1007,13 @@ BEGIN
 		FROM #ExcelDetail ed
 			INNER JOIN AffInfo ai WITH (NOLOCK) ON ai.AffId = ed.AffId
 			INNER JOIN AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
-			INNER JOIN bodb_N88.dbo.Customer c WITH(NOLOCK) ON ad.Player_CustId = c.CustId
+			LEFT JOIN bodb_N88.dbo.Customer c WITH(NOLOCK) ON ad.Player_CustId = c.CustId
 		WHERE ai.Status = 'Approved'
 			AND ai.Username LIKE '%' + @Username + '%'
 			AND (@PreferredLanguage = '' OR ad.PreferredLanguage = @PreferredLanguage)
-			AND ',' + @ListPaymentCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(20), ad.Player_Currency) + ',%'
+						AND (@ListPaymentCurrencies = 'all' 
+				OR ',' + @ListPaymentCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(20), ad.Player_Currency) + ',%' 
+			)
 			AND (
 				@GroupIds = 'all'
 				OR EXISTS (
@@ -1016,7 +1023,7 @@ BEGIN
 				)
 			)
 			AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate)
-			AND (c.IsTest = 0 OR @IsExcludeAFFTest = 0)
+			AND ((ISNULL(c.IsTest, 0) = 0 AND ai.AffCategoryId <> 2) OR @IsExcludeAFFTest = 0) -- exclude AFF marketing account
 			AND (@IsByApprovalMonth = 0 OR 
 				 (ai.ApprovedDate >= @FromDate AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate) AND ai.IsRejected = 0))
 		GROUP BY ed.winlostdate, ed.AffId, ai.Username, ad.Player_CurrencyCode
