@@ -8,7 +8,7 @@ CREATE PROCEDURE [dbo].[Aff_Admin_AffiliateReport_Sel]
 	,@Statuses			VARCHAR(MAX)	= 'Approved'
 	,@ProductIds		VARCHAR(MAX) = '0'
 	,@Currencies		VARCHAR(MAX) = ''
-	,@PaymentCurrencies	VARCHAR(MAX) = ''
+	,@PaymentCurrencies	VARCHAR(MAX) = 'all'
 	,@BaseCurrency		INT = 0
 	,@SortType			TINYINT = 1
 	,@SortDirectionType	BIT = 0
@@ -43,6 +43,7 @@ AS
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225820] 
 		- 20250516@Sally: Get correct Date for FDM's Total Deposit [RedmineID: #227685]
 		- 20250516@Sally: Fix Get BBF [RedmineID: #227716]
+		- 20250812@Sally: Enhance conditions to view data of marketing affiliate accounts [RedmineID: #235773]
 
 	Param's Explanation:
 		- @SortType: 
@@ -151,13 +152,16 @@ BEGIN
 	WHERE t.TpExchangeId = @BaseCurrency
 
 	--Get list payment currency mapping TpExchange
-	DECLARE @ListPaymentCurrencies	VARCHAR(MAX) = ''
-	SELECT @ListPaymentCurrencies = COALESCE(@ListPaymentCurrencies + ',', '') + CONVERT(VARCHAR(20), t.TpExchangeId)
-	FROM STRING_SPLIT(@PaymentCurrencies, ',') f
-		CROSS APPLY(
-			SELECT TpExchangeId
-			FROM dbo.Aff_f_TpExchange_Sel(f.value)
+	DECLARE @ListPaymentCurrencies	VARCHAR(MAX) = @PaymentCurrencies
+	IF (@ListPaymentCurrencies <> 'all')
+	BEGIN
+		SELECT @ListPaymentCurrencies = COALESCE(@ListPaymentCurrencies + ',', '') + CONVERT(VARCHAR(20), t.TpExchangeId)
+		FROM STRING_SPLIT(@PaymentCurrencies, ',') f
+			CROSS APPLY(
+				SELECT TpExchangeId
+				FROM dbo.Aff_f_TpExchange_Sel(f.value)
 		)t
+	END
 
 	/*
 		===== Get data =====
@@ -687,7 +691,7 @@ BEGIN
             FROM dbo.AffInfo ai WITH (NOLOCK)
 				INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupId = cg.GroupId
                 INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
-                INNER JOIN bodb_12B.dbo.Customer c WITH(NOLOCK) ON ad.Player_CustId = c.CustId
+                LEFT JOIN bodb_12B.dbo.Customer c WITH(NOLOCK) ON ad.Player_CustId = c.CustId
                 LEFT JOIN (
                     SELECT ParentAffId, COUNT(1) AS NoOfSubAff
                     FROM dbo.AffInfo WITH (NOLOCK)
@@ -698,7 +702,9 @@ BEGIN
             WHERE ai.Status = 'Approved'
                 AND ai.Username LIKE '%' + @Username + '%'
                 AND (@PreferredLanguage = '' OR ad.PreferredLanguage = @PreferredLanguage)
-                AND ',' + @ListPaymentCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(20), ad.Player_Currency) + ',%'
+                AND (@ListPaymentCurrencies = 'all' 
+					OR ',' + @ListPaymentCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(20), ad.Player_Currency) + ',%' 
+				)
                 AND (
                     @GroupIds = 'all'
                     OR EXISTS (
@@ -708,7 +714,7 @@ BEGIN
                     )
                 )
                 AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate)
-                AND (c.IsTest = 0 OR @IsExcludeAFFTest = 0)
+                AND ((ISNULL(c.IsTest, 0) = 0 AND ai.AffCategoryId <> 2) OR @IsExcludeAFFTest = 0) -- exclude AFF marketing account
         )
 		INSERT INTO #Result
 		(
