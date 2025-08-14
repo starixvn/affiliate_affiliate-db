@@ -25,6 +25,7 @@ AS
 		- 20250319@Sally: Enhance the formula for calculating fees [RedmineID: #223865]
 		- 20250509@Sally: Enhance calculate FlatFormFee VS [RedmineID: #226858]
 		- 20250623@Sally: Enhance Revenue calculation [RedmineID: #231221]
+		- 20250814@Lewis: Exclude CPA, Only Approved Aff, Hybrid get data from StartDate for firstmonth cal Comm [RedmineID: #236124]
 		
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -699,7 +700,7 @@ BEGIN
 			SELECT md.MonthDate, ai.AffId
 			FROM CTE_MonthDate md
 				CROSS JOIN dbo.AffInfo ai WITH (NOLOCK)
-			WHERE ai.Status = 'Approved' AND ai.IsClosed = 0
+			WHERE ai.Status = 'Approved' AND ai.IsRejected = 0
 			OPTION (MAXRECURSION 0)
 		END
 		
