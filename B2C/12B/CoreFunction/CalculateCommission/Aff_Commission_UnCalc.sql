@@ -52,7 +52,7 @@ BEGIN
 		SELECT @BeginOfFromMonthDate = @SoftLaunchDate
 
 	-- Get sub affiliate
-	DECLARE @InputAffIds VARCHAR(MAX) = @AffIds
+	DECLARE @InputAffIds VARCHAR(MAX) = @AffIds 
 
 	-- Max Sub Affiliate Commission Setting
 	DECLARE @MaxSubAff INT
@@ -687,7 +687,7 @@ BEGIN
 				CROSS JOIN dbo.Aff_f_StringSplit(@InputAffIds, ',') f
 			OPTION (MAXRECURSION 0)
 		END
-		ELSE
+		ELSE --All AffIds
 		BEGIN
 			WITH CTE_MonthDate AS (
 				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate) + 1, 0)) AS MonthDate
@@ -718,6 +718,7 @@ BEGIN
 				LEFT JOIN #Commission c ON c.MonthDate = md.MonthDate AND c.AffId = md.AffId AND c.ProductId = 0 AND c.GroupProductId = 0
 			WHERE c.AffId IS NULL
 		END
+
 		----- Get SubAffCommission
 	    ;WITH CTE_SubCommRateDirect AS (
             SELECT agh.MonthDate, agh.AffId AS SubAffId, af.AffId, cgh.SubCommRate, f.Level
@@ -777,55 +778,6 @@ BEGIN
 			,WithdrawalFee			= 0
 			,CommissionRate			= 0
 		WHERE MonthDate < DATEADD(DAY, -1, @LaunchDate)
-	END
-
-	-- Data between SoftLaunchDate and LaunchDate
-	IF EXISTS (SELECT 1 FROM #Data WHERE IsDataInMonth = 0)
-	BEGIN
-		UPDATE c
-		SET c.Deposit		= ISNULL(d.Deposit, 0)
-			,c.Withdrawal	= ISNULL(d.Withdrawal, 0)
-			,c.Bonus		= ISNULL(d.Bonus, 0)
-			,c.Rebate		= ISNULL(d.Rebate, 0)
-			,c.Turnover		= ISNULL(d.Turnover, 0)
-			,c.Winloss		= ISNULL(d.Winloss, 0)
-			,c.Revenue		= ISNULL(d.Revenue, 0)
-			,c.GrossWinloss	= ISNULL(-d.Winloss, 0)
-		FROM #Commission c
-			INNER JOIN (
-				SELECT MonthDate, AffId, ProductId
-					,SUM(Deposit)		AS Deposit
-					,SUM(Withdrawal)	AS Withdrawal
-					,SUM(Bonus)			AS Bonus
-					,SUM(Rebate)		AS Rebate
-					,SUM(Turnover)		AS Turnover
-					,SUM(Winloss)		AS Winloss
-					,SUM(Revenue)		AS Revenue
-				FROM #Data
-				WHERE IsDataInMonth = 1
-				GROUP BY MonthDate, AffId, ProductId
-			) d ON c.MonthDate = d.MonthDate AND c.AffId = d.AffId AND c.ProductId = d.ProductId
-		WHERE c.MonthDate = DATEADD(DAY, -1, @LaunchDate)
-
-		UPDATE c
-		SET c.Turnover		= d.Turnover
-			,c.Winloss		= d.Winloss
-			,c.Revenue		= d.Revenue
-			,c.GrossWinloss	= d.GrossWinloss
-		FROM #Commission c
-			INNER JOIN (
-				SELECT MonthDate, AffId
-					,SUM(Turnover)		AS Turnover
-					,SUM(Winloss)		AS Winloss
-					,SUM(Revenue)		AS Revenue
-					,SUM(GrossWinloss)	AS GrossWinloss
-				FROM #Commission
-				WHERE MonthDate = DATEADD(DAY, -1, @LaunchDate)
-					AND ProductId > 0
-				GROUP BY MonthDate, AffId
-			) d ON c.MonthDate = d.MonthDate AND c.AffId = d.AffId
-		WHERE c.MonthDate = DATEADD(DAY, -1, @LaunchDate)
-			AND c.ProductId = 0
 	END
 
 	-- Update Multi Group
