@@ -2,7 +2,8 @@
 CREATE PROCEDURE [dbo].[Aff_Admin_PlayersDetail_Sel]
 	@AffId			INT
 	,@ProductId		INT = 0
-	,@MonthDate		SMALLDATETIME
+	,@FromDate		SMALLDATETIME
+	,@ToDate		SMALLDATETIME
 	,@Currencies	VARCHAR(MAX) = ''
 	,@BaseCurrency	INT = 0
 	,@SortById		TINYINT = 5 -- default
@@ -24,8 +25,11 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250506@Sally: Enhance Removed Player logic [RedmineID: #225717]
+		- 20250815@Sally: Add date picker functionality [RedmineID: #236120]
 
 	Param's Explanation:
+		- @FromDate:	Start date of the range
+		- @ToDate:		End date of the range
 		- @SortById:	1 = Username
 						2 = Registered Date
 						3 = Deposit
@@ -43,15 +47,28 @@ AS
 						1 = ASC
 		- @BaseCurrency : Currency of B2C
 		- @Currencies : Currency of B2C, 72: represent for USD( currency 72, 3)
+
+	Example:
+		EXEC dbo.Aff_Admin_PlayersDetail_Sel 
+			@AffId = 123, 
+			@FromDate = '2025-07-15', 
+			@ToDate = '2025-08-15',
+			@ProductId = 0,
+			@PageIndex = 1,
+			@PageSize = 20;
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	-- date range for get data whole month of @MonthDate
-	DECLARE @BeginOfMonth SMALLDATETIME, @EndOfMonth SMALLDATETIME
-	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
-	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
+	DECLARE @AffCurrency INT, @Rate FLOAT
+	SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
+
+	--Get AffCurrency mapping
+	DECLARE @AffExchangeId INT = @AffCurrency
+	SELECT @AffExchangeId = t.ExchangeId
+	FROM dbo.TpExchange t WITH (NOLOCK)
+	WHERE t.TpExchangeId = @AffCurrency
 
 	-- Get basecurrency mapping
 	DECLARE @BaseExchangeId INT = @BaseCurrency
@@ -68,26 +85,65 @@ BEGIN
 			FROM dbo.Aff_f_TpExchange_Sel(f.value)
 		)t
 	
-	CREATE TABLE #tmpData (CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, GGR MONEY, Bonus MONEY, Rebate MONEY)
+	CREATE TABLE #tmpData (
+		CustId INT, 
+		Deposit MONEY, 
+		Withdrawal MONEY, 
+		Turnover MONEY, 
+		GGR MONEY, 
+		Bonus MONEY, 
+		Rebate MONEY,
+		DepositFee MONEY,
+		WithdrawalFee MONEY
+	)
 
-	DECLARE @Products TABLE (ProductId INT, IsStraightSetting BIT)
-		
-	INSERT INTO @Products (ProductId, IsStraightSetting)
-	SELECT DISTINCT dsh.ProductId, 0
-	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-		INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupId = dsh.GroupId AND agh.MonthDate = dsh.MonthDate
-	WHERE dsh.ProductId > 0
-		AND agh.MonthDate = @EndOfMonth
-		AND agh.AffID = @AffId
+	-- Get list of months within date range (end of month dates)
+	DECLARE @MonthDate TABLE (MonthDate SMALLDATETIME)
+	
+	;WITH CTE_MonthDate AS (
+		SELECT EOMONTH (@FromDate) AS MonthDate
+		UNION ALL
+		SELECT DATEADD(MONTH, 1, MonthDate)
+		FROM CTE_MonthDate
+		WHERE MonthDate <= EOMONTH(DATEADD(MONTH,-1, @ToDate))
+	)
+	INSERT INTO @MonthDate (MonthDate)
+	SELECT md.MonthDate
+	FROM CTE_MonthDate md
+	OPTION (MAXRECURSION 0)
 
-	INSERT INTO @Products (ProductId, IsStraightSetting)
-	SELECT DISTINCT ssh.ProductId, 1
-	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-		INNER JOIN dbo.StraightSettingHistory ssh WITH (NOLOCK) ON agh.GroupId = ssh.GroupId AND agh.MonthDate = ssh.MonthDate
-	WHERE ssh.ProductId > 0
-		AND agh.MonthDate = @EndOfMonth
-		AND agh.AffID = @AffId
-		
+	-- Create temporary table to store deduction settings for each month in date range
+	;WITH CTE_DeductionSettings AS (
+		SELECT 
+			ml.MonthDate,
+			SUM(CASE WHEN dsh.DeductionID = 13 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE 0 END) AS DepositRate,
+			SUM(CASE WHEN dsh.DeductionID = 13 THEN ISNULL(dsh.DeductedAmount, 0) ELSE 0 END) AS DepositAmount,
+			SUM(CASE WHEN dsh.DeductionID = 14 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE 0 END) AS WithdrawalRate,
+			SUM(CASE WHEN dsh.DeductionID = 14 THEN ISNULL(dsh.DeductedAmount, 0) ELSE 0 END) AS WithdrawalAmount
+		FROM @MonthDate ml
+			INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON agh.MonthDate = ml.MonthDate AND agh.AffID = @AffId
+			INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupId = dsh.GroupId 
+																		AND agh.MonthDate = dsh.MonthDate
+																		AND dsh.DeductionID IN (13, 14)
+		GROUP BY ml.MonthDate
+	)
+	SELECT 
+		ds.MonthDate,
+		ds.DepositRate,
+		ds.DepositAmount * er.Rate AS DepositAmount,
+		ds.WithdrawalRate,
+		ds.WithdrawalAmount * er.Rate AS WithdrawalAmount
+	INTO #tmpDeductionSettings
+	FROM CTE_DeductionSettings ds
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(ds.MonthDate, @AffCurrency, @BaseExchangeId) er						
+
+	DECLARE @Products TABLE (ProductId INT)
+	
+	-- Get products based on the months in date range
+	INSERT INTO @Products (ProductId)
+	SELECT p.ProductId
+	FROM dbo.Products p WITH (NOLOCK)
+
 	IF @ProductId <> 0
 	BEGIN
 		;WITH CTE_GProducts AS(
@@ -100,8 +156,9 @@ BEGIN
 		WHERE gp.ProductId IS NULL
 	END
 	
-	-- Get data
+	-- Get data player detail
 	BEGIN
+
 		INSERT INTO #tmpData
 		(
 			CustId
@@ -111,72 +168,51 @@ BEGIN
 			,Rebate
 			,Turnover
 			,GGR
+			,DepositFee
+			,WithdrawalFee
 		)
-		SELECT r.CustId
-			,SUM(ISNULL(r.Deposit * e.Rate, 0))		AS Deposit
-			,SUM(ISNULL(r.Withdrawal * e.Rate, 0))	AS Withdrawal
-			,SUM(ISNULL(r.Bonus * e.Rate, 0))		AS Bonus
-			,SUM(ISNULL(r.Rebate * e.Rate, 0))		AS Rebate
-			,SUM(ISNULL(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Turnover END * e.Rate, 0)) AS Turnover
-			,SUM(ISNULL(CASE WHEN p.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0)
-							ELSE -(r.Winloss - ISNULL(ProgressiveWin, 0)) - ISNULL(ProgressiveBet, 0) END * e.Rate, 0)) AS GGR
-		FROM dbo.rptMemberDaily r WITH (NOLOCK)
-			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON r.CustId = m.CustId
-			LEFT JOIN @Products p ON r.ProductId = p.ProductId
+		SELECT 
+			r.CustId
+			,SUM(r.Deposit		* e.Rate)	AS Deposit
+			,SUM(r.Withdrawal	* e.Rate)	AS Withdrawal
+			,SUM(r.Bonus		* e.Rate)	AS Bonus
+			,SUM(r.Rebate		* e.Rate)	AS Rebate
+			,SUM(r.Turnover		* e.Rate)	AS Turnover
+			,SUM(r.GGR			* e.Rate)	AS GGR
+			,SUM(r.Deposit 		* e.Rate * ISNULL(ds.DepositRate, 0) 	+ ISNULL(ds.DepositAmount, 0)) 	  AS DepositFee
+			,SUM(r.Withdrawal 	* e.Rate * ISNULL(ds.WithdrawalRate, 0) + ISNULL(ds.WithdrawalAmount, 0)) AS WithdrawalFee
+		FROM (
+			SELECT EOMONTH(r.winlostDate) AS MonthDate
+				,r.CustId
+				,r.Currency
+				,SUM(ISNULL(r.Deposit, 0))		AS Deposit
+				,SUM(ISNULL(r.Withdrawal, 0))	AS Withdrawal
+				,SUM(ISNULL(r.Bonus, 0))		AS Bonus
+				,SUM(ISNULL(r.Rebate, 0))		AS Rebate
+				,SUM(ISNULL(r.Turnover, 0)) 	AS Turnover
+				,SUM(ISNULL(-(r.Winloss - ISNULL(ProgressiveWin, 0)) - ISNULL(ProgressiveBet, 0), 0)) AS GGR
+			FROM dbo.rptMemberDaily r WITH (NOLOCK)
+				INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON r.CustId = m.CustId
+				LEFT JOIN @Products p ON r.ProductId = p.ProductId
+			WHERE r.WinlostDate BETWEEN @FromDate AND @ToDate
+				AND r.AffId = @AffId
+				AND (m.IsRemoved = 0 OR @IsIncludeRemovedPlayer = 1)
+				AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
+				AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
+					WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate 
+				)
+				AND (@ListCurrencies = '' OR ',' + @ListCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
+			GROUP BY EOMONTH(r.winlostDate), r.CustId, r.Currency
+		)r
 			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, ISNULL(T.ExchangeId,r.Currency), @BaseExchangeId) e
-		WHERE r.WinlostDate BETWEEN @BeginOfMonth AND @EndOfMonth
-			AND r.AffId = @AffId
-			AND (m.IsRemoved = 0 OR @IsIncludeRemovedPlayer = 1)
-			AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
-			AND NOT EXISTS (
-				SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
-				WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate 
-			)
-			AND (@ListCurrencies = '' OR ',' + @ListCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
-		GROUP BY r.CustId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.MonthDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
+			LEFT JOIN #tmpDeductionSettings ds ON ds.MonthDate = r.MonthDate
+		GROUP BY r.CustId	
 
 		DELETE #tmpData WHERE Deposit = 0 AND Withdrawal = 0 AND Bonus = 0 AND Rebate = 0 AND Turnover = 0 AND GGR = 0
 
 		SELECT @NRows = COUNT(1) FROM #tmpData
-
-		-- Banking Fee
-		DECLARE @DepositRate DECIMAL(9, 8) = 0, @DepositAmount MONEY = 0
-			,@WithdrawalRate DECIMAL(9, 8) = 0, @WithdrawalAmount MONEY = 0
-		
-		IF EXISTS (SELECT 1 FROM #tmpData WHERE Deposit + Withdrawal > 0)
-		BEGIN
-			SELECT
-				@DepositRate = CASE WHEN DeductionID = 13 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE @DepositRate END
-				,@DepositAmount = CASE WHEN DeductionID = 13 THEN ISNULL(dsh.DeductedAmount, 0) ELSE @DepositAmount END
-				,@WithdrawalRate = CASE WHEN DeductionID = 14 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE @WithdrawalRate END
-				,@WithdrawalAmount = CASE WHEN DeductionID = 14 THEN ISNULL(dsh.DeductedAmount, 0) ELSE @WithdrawalAmount END
-			FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-				INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupId = dsh.GroupId AND agh.MonthDate = dsh.MonthDate
-			WHERE dsh.DeductionID IN (13, 14)
-				AND agh.MonthDate = @EndOfMonth
-				AND agh.AffID = @AffId
-
-			SELECT @DepositRate = ISNULL(@DepositRate, 0), @DepositAmount = ISNULL(@DepositAmount, 0)
-				,@WithdrawalRate = ISNULL(@WithdrawalRate, 0), @WithdrawalAmount = ISNULL(@WithdrawalAmount, 0)
-
-			IF @BaseCurrency <> 0
-			BEGIN
-				DECLARE @AffCurrency INT, @Rate FLOAT
-				SELECT  @AffCurrency = SValue FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AffCurrency'
-
-				--Get AffCurrency mapping
-				DECLARE @AffExchangeId INT = @AffCurrency
-				SELECT @AffExchangeId = t.ExchangeId
-				FROM dbo.TpExchange t WITH (NOLOCK)
-				WHERE t.TpExchangeId = @AffCurrency
-
-				SELECT  @Rate = Rate FROM dbo.Aff_f_ExchangeRate_Sel(@EndOfMonth, @AffExchangeId, @BaseExchangeId)
-			
-				SELECT  @DepositAmount = @DepositAmount * @Rate
-						,@WithdrawalAmount = @WithdrawalAmount * @Rate
-			END
-		END
 	END
 
 	-- Paging
@@ -203,8 +239,8 @@ BEGIN
 			,d.GGR
 			,d.Bonus
 			,d.Rebate
-			,d.Deposit * @DepositRate + @DepositAmount AS DepositFee
-			,d.Withdrawal * @WithdrawalRate + @WithdrawalAmount AS WithdrawalFee
+			,d.DepositFee
+			,d.WithdrawalFee
 			,ROW_NUMBER() OVER(ORDER BY
 				 (CASE WHEN @IsSortAsc = 1 AND @SortById =  1 THEN m.UserName			END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  2 THEN m.RegisteredDate		END) ASC
@@ -243,5 +279,6 @@ BEGIN
 	ORDER BY r.RN
 
 	DROP TABLE #tmpData
+	DROP TABLE #tmpDeductionSettings
 END
 GO
