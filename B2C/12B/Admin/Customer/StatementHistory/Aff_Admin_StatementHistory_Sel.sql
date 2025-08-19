@@ -5,7 +5,8 @@ ALTER PROCEDURE [dbo].[Aff_Admin_StatementHistory_Sel]
 	@TDate		SMALLDATETIME = NULL,
 	@PageSize	INT = 50,
 	@PageIndex	INT = 1,
-	@NRows		INT = 0 OUTPUT
+	@NRows		INT = 0		 OUTPUT,
+	@Username	NVARCHAR(30) OUTPUT
 AS
 
 /*
@@ -17,6 +18,7 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20241225@Sally: Apply QM Turnover [RedmineID: #212201]
 		- 20250404@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
+		- 20250819@Danny: Show CPA info [RedmineID: #235279]
 
 */
 
@@ -46,6 +48,7 @@ BEGIN
 		RETURN
 
 	SELECT @EndOfTDate = EOMONTH(@TDate) -- Last day of @TDate
+	SELECT @Username = Username FROM dbo.AffInfo a WITH (NOLOCK) WHERE AffId = @AffId
 	
 	-- Get GroupType Info
 	INSERT INTO @AffGroupInfo (MonthDate, GroupTypeName)
@@ -131,16 +134,18 @@ BEGIN
 				SUM(Amount),
 				'B/F' AS Status,
 				'System' AS Creator,
-				CASE WHEN TransType = 201 THEN 'Monthly Earning' ELSE 'Revenue Share' END AS Description
+				CASE WHEN TransType = 201 THEN 'Monthly Earning' 
+					 WHEN TransType = 206 THEN 'Approved CPA Earning'
+					 WHEN TransType = 207 THEN 'Approved Sub-Affiliate CPA Earning' ELSE 'Revenue Share' END AS Description
 			FROM (
 				SELECT md.MonthDate, at.TransType, ISNULL(at.Amount, 0) AS Amount
 				FROM CTE_MonthDate md
 					OUTER APPLY (
 						SELECT at.TransType, at.Amount
 						FROM dbo.AffTrans at WITH (NOLOCK)
-						WHERE md.MonthDate = at.WinlostDate
+						WHERE md.MonthDate = EOMONTH(at.WinlostDate)
 							AND at.AffId = @AffId
-							AND at.TransType IN (201, 204)
+							AND at.TransType IN (201, 204, 206, 207)
 					) at
 			) t
 			GROUP BY MonthDate, TransType
@@ -252,7 +257,7 @@ BEGIN
 				'B/F' AS Status,
 				'System' AS Creator,
 				CASE WHEN MonthDate >= @CurrentDate THEN 'Current ' ELSE 'UnCalculated ' END
-					+ CASE WHEN TransType = 201 THEN 'Monthly Earning' ELSE 'Revenue Share' END AS Description,
+					+ CASE WHEN TransType = 201 THEN 'Temporary Monthly Earning' ELSE 'Revenue Share' END AS Description,
 				CASE WHEN MonthDate >= @CurrentDate THEN 0 ELSE 1 END AS CalculatedType
 			FROM (
 				SELECT md.MonthDate,TransType, ISNULL(at.Amount, 0) AS Amount
@@ -267,6 +272,48 @@ BEGIN
 					OUTER APPLY (
 						SELECT 201 AS TransType, c.Commission AS Amount
 						UNION ALL SELECT 204, c.SubAffCommission
+					) at
+			) t
+			GROUP BY MonthDate, TransType
+			OPTION (MAXRECURSION 0)
+
+			;WITH CTE_MonthDate AS
+			(
+				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempFromDate) + 1, 0)) AS MonthDate
+				UNION ALL
+				SELECT DATEADD(DAY, -1, DATEADD(MONTH, 1, DATEADD(DAY, 1, MonthDate)))
+				FROM CTE_MonthDate
+				WHERE MonthDate < @tempToDate
+			)
+			INSERT INTO #tempData
+			(
+				TransId,
+				MonthDate,
+				TransType,
+				Amount,
+				Status,
+				Creator,
+				Description
+			)
+			SELECT
+				0,
+				MonthDate,
+				TransType,
+				SUM(Amount),
+				'B/F' AS Status,
+				'System' AS Creator,
+				CASE WHEN TransType = 201 THEN 'Monthly Earning' 
+					 WHEN TransType = 206 THEN 'Approved CPA Earning'
+					 WHEN TransType = 207 THEN 'Approved Sub-Affiliate CPA Earning' ELSE 'Revenue Share' END AS Description
+			FROM (
+				SELECT md.MonthDate, at.TransType, ISNULL(at.Amount, 0) AS Amount
+				FROM CTE_MonthDate md
+					OUTER APPLY (
+						SELECT at.TransType, at.Amount
+						FROM dbo.AffTrans at WITH (NOLOCK)
+						WHERE md.MonthDate = EOMONTH(at.WinlostDate)
+							AND at.AffId = @AffId
+							AND at.TransType IN (201, 204, 206, 207)
 					) at
 			) t
 			GROUP BY MonthDate, TransType
@@ -304,7 +351,7 @@ BEGIN
 			Creator,
 			Description,
 			CalculatedType,
-			DENSE_RANK() OVER(ORDER BY MonthDate DESC, CASE WHEN TransType IN (201, 204) THEN 0 ELSE TransId END DESC) AS RowNum
+			DENSE_RANK() OVER(ORDER BY MonthDate DESC, CASE WHEN TransType IN (201, 204, 206, 207) THEN 0 ELSE TransId END DESC) AS RowNum
 		FROM #tempData
 	) AS result
 		LEFT JOIN @AffGroupInfo ag ON ag.MonthDate = result.MonthDate
