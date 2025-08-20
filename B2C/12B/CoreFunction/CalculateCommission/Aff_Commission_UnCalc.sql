@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="1"></info>*/
+ /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Commission_UnCalc]
 	@AffIds				VARCHAR(MAX) = 'all'
 	,@FromMonthDate		SMALLDATETIME
@@ -47,7 +47,7 @@ BEGIN
 	SELECT  @SoftLaunchDate             = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'SoftLaunchDate'
 	SELECT  @LaunchDate		            = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'LaunchDate'
     SELECT  @CommissionCal_CutOffDate	= CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'CommissionCal_CutOffDate'
-    
+
 	IF @BeginOfFromMonthDate BETWEEN @SoftLaunchDate AND DATEADD(DAY, -1, @LaunchDate)
 		SELECT @BeginOfFromMonthDate = @SoftLaunchDate
 
@@ -92,6 +92,33 @@ BEGIN
 
 	-- Get data
 	BEGIN
+		-- =================================
+		--	AffIds - Deal Hybrid FirstMonthComm 
+		-- =================================
+		-- get affid hybrid first time cal commission
+		DECLARE @AffIdHybrid TABLE (
+			AffId		INT,
+			GroupId		INT,
+			StartDate	DATE
+		)
+		INSERT INTO @AffIdHybrid (
+			AffId,
+			GroupId,
+			StartDate
+		)
+		SELECT 
+			ai.AffId
+			, ai.GroupId
+			, cg.StartDate
+		FROM dbo.AffInfo ai WITH (NOLOCK)
+			INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupId = cg.GroupId AND cg.GroupTypeId = 4 --hybrid
+		WHERE  (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), ai.AffId) + ',%')
+			AND cg.StartDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate -- first time cal commission - StartDate UNCHANGE
+			AND ai.Status = 'Approved' AND ai.IsRejected = 0 -- only Approved Aff
+
+		-- =================================
+		-- #Data
+		-- =================================
 		CREATE TABLE #Data
 		(
 			MonthDate		SMALLDATETIME,
@@ -133,6 +160,7 @@ BEGIN
 			,SUM(r.Turnover		* e.Rate)	AS Turnover
 			,SUM(r.Winloss		* e.Rate)	AS Winloss
 		FROM (
+			--rev only
 			SELECT EOMONTH(WinlostDate) AS MonthDate
 				,AffId, CustId, Currency, CASE WHEN ProductId < 0 THEN 0 ELSE ProductId END AS ProductId
 				,SUM(ISNULL(Deposit, 0))	AS Deposit
@@ -142,15 +170,34 @@ BEGIN
 				,SUM(ISNULL(Turnover, 0))	AS Turnover
 				,SUM(ISNULL(Winloss, 0) - ISNULL(ProgressiveWin, 0) + ISNULL(ProgressiveBet, 0)) AS Winloss
 			FROM dbo.rptMemberDaily r WITH (NOLOCK)
-	
 			WHERE r.WinlostDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
 				AND (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), AffId) + ',%')
+				AND NOT EXISTS (SELECT TOP 1 1 FROM @AffIdHybrid ah WHERE ah.AffId = r.AffId) -- exclude hybrid 1st time CalComm
 				AND NOT EXISTS (
 					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
 					WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
 				)
 			GROUP BY EOMONTH(WinlostDate)
 				,AffId, CustId, Currency, CASE WHEN ProductId < 0 THEN 0 ELSE ProductId END
+			UNION ALL
+			--hybrid
+			SELECT EOMONTH(WinlostDate) AS MonthDate
+				,r.AffId, CustId, Currency, CASE WHEN ProductId < 0 THEN 0 ELSE ProductId END AS ProductId
+				,SUM(ISNULL(Deposit, 0))	AS Deposit
+				,SUM(ISNULL(Withdrawal, 0))	AS Withdrawal
+				,SUM(ISNULL(Bonus, 0))		AS Bonus
+				,SUM(ISNULL(Rebate, 0))		AS Rebate
+				,SUM(ISNULL(Turnover, 0))	AS Turnover
+				,SUM(ISNULL(Winloss, 0) - ISNULL(ProgressiveWin, 0) + ISNULL(ProgressiveBet, 0)) AS Winloss
+			FROM dbo.rptMemberDaily r WITH (NOLOCK)
+				INNER JOIN @AffIdHybrid ah ON ah.AffId = r.AffId
+			WHERE r.WinlostDate BETWEEN ah.StartDate AND @EndOfToMonthDate --StartDate of Deal for 1st time CalComm
+				AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+					WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+				)
+			GROUP BY EOMONTH(WinlostDate)
+				,r.AffId, CustId, Currency, CASE WHEN ProductId < 0 THEN 0 ELSE ProductId END
 		) r
 			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
 			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.MonthDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
@@ -172,6 +219,7 @@ BEGIN
 		SELECT agh.MonthDate, agh.AffId, agh.GroupId
 		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
 		WHERE agh.MonthDate BETWEEN @FromMonthDate AND @ToMonthDate
+			AND agh.MonthDate = EOMONTH(agh.MonthDate) -- 1 eomonth 1 groupid 1 affid
 			AND (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), agh.AffId) + ',%')
 			AND EXISTS (SELECT 1 FROM dbo.DeductionSettingHistory dsh WITH (NOLOCK) WHERE dsh.MonthDate = agh.MonthDate AND dsh.GroupId = agh.GroupId AND dsh.DeductedAmount <> 0)
 			AND NOT EXISTS (SELECT 1 FROM @AffGroupInfo a WHERE a.AffId = agh.AffId AND a.MonthDate = agh.MonthDate)
@@ -687,7 +735,7 @@ BEGIN
 				CROSS JOIN dbo.Aff_f_StringSplit(@InputAffIds, ',') f
 			OPTION (MAXRECURSION 0)
 		END
-		ELSE --All AffIds
+		ELSE --@InputAffIds = 'all' => @AffIds = 'all'
 		BEGIN
 			WITH CTE_MonthDate AS (
 				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate) + 1, 0)) AS MonthDate

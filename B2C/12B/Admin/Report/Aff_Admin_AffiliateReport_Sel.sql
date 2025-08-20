@@ -288,8 +288,34 @@ BEGIN
 				@GetRowTotalOnly	= 1
 		END
 
+		-- =================================
+		--	AffIds - Deal Hybrid FirstMonthComm 
+		-- =================================
+		-- get affid hybrid first time cal commission
+		DECLARE @AffIdHybrid TABLE (
+			AffId		INT,
+			GroupId		INT,
+			StartDate	DATE
+		)
+		INSERT INTO @AffIdHybrid (
+			AffId,
+			GroupId,
+			StartDate
+		)
+		SELECT 
+			ai.AffId
+			, ai.GroupId
+			, cg.StartDate
+		FROM dbo.AffInfo ai WITH (NOLOCK)
+			INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupId = cg.GroupId AND cg.GroupTypeId = 4 --hybrid
+		WHERE  (Username LIKE '%' + @Username + '%' OR @Username IS NULL)
+			AND cg.StartDate BETWEEN @FromDate AND @ToDate -- first time cal commission - StartDate UNCHANGE
+			AND ai.Status = 'Approved' AND ai.IsRejected = 0 -- only Approved Aff
+
+		--TODO: DatePicker
 		IF(@IsGetMonthly = 0)
 		BEGIN
+			
 			CREATE TABLE #DataMemberDaily (MonthDate SMALLDATETIME, AffId INT, Currency INT, CustId INT, ProductId INT, Bonus MONEY, Rebate MONEY, Turnover MONEY, Winloss MONEY)
 			CREATE CLUSTERED INDEX IX_DataMemberDaily ON #DataMemberDaily (MonthDate, AffId)
 			INSERT INTO #DataMemberDaily
@@ -304,6 +330,7 @@ BEGIN
 				Turnover,
 				Winloss
 			)
+			--rev only
 			SELECT CONVERT(SMALLDATETIME,EOMONTH(r.WinlostDate)) AS MonthDate
 					,r.AffId
 					,Currency
@@ -315,6 +342,31 @@ BEGIN
 					,SUM(ISNULL(Winloss, 0) - ISNULL(ProgressiveWin, 0) + ISNULL(ProgressiveBet, 0)) AS Winloss				
 			FROM dbo.rptMemberDaily r WITH (NOLOCK)
 			WHERE r.WinlostDate >= @FromDate 
+				AND r.WinlostDate < DATEADD(DAY, 1, @ToDate)
+				AND NOT EXISTS (SELECT TOP 1 1 FROM @AffIdHybrid ah WHERE ah.AffId = r.AffId) -- exclude hybrid 1st time CalComm
+				AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+					WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+				)
+			GROUP BY CONVERT(SMALLDATETIME,EOMONTH(r.WinlostDate))
+				,r.AffId
+				,Currency
+				,CustId
+				,r.ProductId
+			UNION ALL
+			--hybrid only
+			SELECT CONVERT(SMALLDATETIME,EOMONTH(r.WinlostDate)) AS MonthDate
+					,r.AffId
+					,Currency
+					,CustId
+					,r.ProductId
+					,SUM(ISNULL(Bonus, 0))		AS Bonus
+					,SUM(ISNULL(Rebate, 0))		AS Rebate
+					,SUM(ISNULL(Turnover, 0))	AS Turnover
+					,SUM(ISNULL(Winloss, 0) - ISNULL(ProgressiveWin, 0) + ISNULL(ProgressiveBet, 0)) AS Winloss				
+			FROM dbo.rptMemberDaily r WITH (NOLOCK)
+				INNER JOIN @AffIdHybrid ah ON ah.AffId = r.AffId
+			WHERE r.WinlostDate >= ah.StartDate 
 				AND r.WinlostDate < DATEADD(DAY, 1, @ToDate)
 				AND NOT EXISTS (
 					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
@@ -335,7 +387,7 @@ BEGIN
 					INNER JOIN dbo.AffInfo a WITH (NOLOCK) ON t.AffId = a.AffId
 					INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON a.AffId = agh.AffId AND agh.MonthDate = t.MonthDate
 				WHERE (Username LIKE '%' + @Username + '%' OR @Username IS NULL)
-					AND Status NOT IN ('Pending', 'Disapproved')					
+					AND a.Status = 'Approved' AND a.IsRejected = 0 -- only Approved Aff			
 			
 			UPDATE a SET a.QMTurnover = ISNULL(cg.QMTurnover, 0) * e.Rate
 			FROM @AffInfo a
@@ -468,6 +520,7 @@ BEGIN
 		DROP TABLE #ProductSetting
 		DROP TABLE #DataMemberDaily 
 		END
+
 		-- Statistics
 		CREATE TABLE #IP (AffId INT, TotalClick INT, IP VARCHAR (25))
 		CREATE TABLE #Statistics (AffId INT, TotalClick INT, UniqueClick INT)
@@ -548,11 +601,22 @@ BEGIN
 				LEFT JOIN dbo.TpExchange te WITH (NOLOCK) ON mi.Currency = te.TpExchangeId
 				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(mi.FirstDepositDate, ISNULL(te.ExchangeId, mi.Currency), @BaseCurrency) ex
 				OUTER APPLY (
+					--rev only
 					SELECT 
 						SUM(r.Deposit) AS Deposit
 					FROM dbo.rptMemberDaily r WITH (NOLOCK)
 					WHERE r.CustId = mi.CustId 
-					AND r.WinlostDate BETWEEN CAST(mi.FirstDepositDate AS DATE) AND EOMONTH(mi.FirstDepositDate)
+						AND NOT EXISTS (SELECT TOP 1 1 FROM @AffIdHybrid ah WHERE ah.AffId = r.AffId) -- exclude hybrid 1st time CalComm
+						AND r.WinlostDate BETWEEN CAST(mi.FirstDepositDate AS DATE) AND EOMONTH(mi.FirstDepositDate)
+					UNION ALL
+					--hybrid
+					SELECT 
+						SUM(r.Deposit) AS Deposit
+					FROM dbo.rptMemberDaily r WITH (NOLOCK)
+						INNER JOIN @AffIdHybrid ah ON ah.AffId = r.AffId
+					WHERE r.CustId = mi.CustId 
+						AND r.WinlostDate BETWEEN CAST(mi.FirstDepositDate AS DATE) AND EOMONTH(mi.FirstDepositDate)
+						AND r.WinlostDate >= ah.StartDate
 				) r
 			WHERE mi.FirstDepositDate >= @FromDate 
 				AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
@@ -602,6 +666,7 @@ BEGIN
 		GROUP BY mi.AffId
 		),
 		CTE_DataDepositAmount AS (
+			--rev only
 			SELECT r.AffId
 				,SUM(ISNULL(Deposit, 0) * e.Rate)	    AS Deposit
 				,SUM(ISNULL(r.Withdrawal, 0) * e.Rate)	AS Withdrawal
@@ -609,6 +674,24 @@ BEGIN
 				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
 				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
 			WHERE r.WinlostDate >= @FromDate 
+				AND r.WinlostDate < DATEADD(DAY, 1, @ToDate)
+				AND NOT EXISTS (SELECT TOP 1 1 FROM @AffIdHybrid ah WHERE ah.AffId = r.AffId) -- exclude hybrid 1st time CalComm
+				AND r.ProductId < 0
+				AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+					WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+				)
+			GROUP BY r.AffId
+			UNION ALL
+			--hybrid
+			SELECT r.AffId
+				,SUM(ISNULL(Deposit, 0) * e.Rate)	    AS Deposit
+				,SUM(ISNULL(r.Withdrawal, 0) * e.Rate)	AS Withdrawal
+			FROM dbo.rptMemberDaily r WITH (NOLOCK)
+				INNER JOIN @AffIdHybrid ah ON ah.AffId = r.AffId
+				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
+			WHERE r.WinlostDate >= ah.StartDate
 				AND r.WinlostDate < DATEADD(DAY, 1, @ToDate)
 				AND r.ProductId < 0
 				AND NOT EXISTS (
