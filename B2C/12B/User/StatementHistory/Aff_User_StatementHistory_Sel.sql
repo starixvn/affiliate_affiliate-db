@@ -4,7 +4,8 @@ CREATE PROCEDURE [dbo].[Aff_User_StatementHistory_Sel]
 	,@BaseCurrency	INT = 0
 	,@PageIndex		INT = 1
 	,@PageSize		INT = 50
-	,@NRows			INT = 0 OUTPUT
+	,@NRows			INT = 0		 OUTPUT
+	,@Username		NVARCHAR(30) OUTPUT
 AS
 
 /*
@@ -17,6 +18,7 @@ AS
 		- 20241225@Sally: Apply QM Turnover [RedmineID: #212201]
 		- 20250124@Eddie: show descript of adjustent in user site [RedmineID: #212201]
 		- 20250408@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
+		- 20250819@Danny: Show CPA info [RedmineID: #236672]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -35,6 +37,8 @@ BEGIN
 
 	SELECT @CurrentDate = CONVERT(DATE, DATEADD(HOUR, 12, GETDATE()))
 	SELECT @MaxSubLevel = ISNULL(@MaxSubLevel, 0)
+
+	SELECT @Username = Username FROM dbo.AffInfo a WITH (NOLOCK) WHERE AffId = @AffId
 
 	--Get Base currency mapping
 	DECLARE @BaseExchangeId INT = @BaseCurrency
@@ -130,7 +134,9 @@ BEGIN
 				TransType,
 				SUM(Amount),
 				'B/F' AS Status,
-				CASE WHEN TransType = 201 THEN 'Monthly Earning' ELSE 'Revenue Share' END AS Description
+				CASE WHEN TransType = 201 THEN 'Monthly Earning' 
+					 WHEN TransType = 206 THEN 'Approved CPA Earning'
+					 WHEN TransType = 207 THEN 'Approved Sub-Affiliate CPA Earning' ELSE 'Revenue Share' END AS Description
 			FROM (
 				SELECT md.MonthDate, at.TransType, ISNULL(at.Amount, 0) AS Amount
 				FROM CTE_MonthDate md
@@ -139,9 +145,9 @@ BEGIN
 						FROM dbo.AffTrans at WITH (NOLOCK)
 							LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId 
 							CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.WinlostDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
-						WHERE md.MonthDate = at.WinlostDate
+						WHERE md.MonthDate = EOMONTH(at.WinlostDate)
 							AND at.AffId = @AffId
-							AND at.TransType IN (201, 204)
+							AND at.TransType IN (201, 204, 206, 207)
 					) at
 			) t
 			GROUP BY MonthDate, TransType
@@ -255,12 +261,12 @@ BEGIN
 				SUM(Amount),
 				'Current' AS Status,
 				CASE WHEN MonthDate >= @CurrentDate THEN 'Current ' ELSE 'UnCalculated ' END
-					+ CASE WHEN TransType = 201 THEN 'Monthly Earning' ELSE 'Revenue Share' END AS Description,
+					+ CASE WHEN TransType = 201 THEN 'Temporary Monthly Earning' ELSE 'Temporary Sub-Affiliate Revenue Share' END AS Description,
 				CASE WHEN MonthDate >= @CurrentDate THEN 0 ELSE 1 END AS CalculatedType
 			FROM (
 				SELECT md.MonthDate, at.TransType, ISNULL(at.Amount, 0) AS Amount
 				FROM CTE_MonthDate md
-					OUTER APPLY (
+					CROSS APPLY (
 						SELECT c.Commission, c.SubAffCommission
 						FROM #TempCommission c
 						WHERE md.MonthDate = c.MonthDate
@@ -276,6 +282,47 @@ BEGIN
 			OPTION (MAXRECURSION 0)
 
 			DROP TABLE #TempCommission
+
+			;WITH CTE_MonthDate AS
+			(
+				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @tempFromDate) + 1, 0)) AS MonthDate
+				UNION ALL
+				SELECT DATEADD(DAY, -1, DATEADD(MONTH, 1, DATEADD(DAY, 1, MonthDate)))
+				FROM CTE_MonthDate
+				WHERE MonthDate < @tempToDate
+			)
+			INSERT INTO #tempData
+			(
+				TransId,
+				MonthDate,
+				TransType,
+				Amount,
+				Status,
+				Description
+			)
+			SELECT
+				0,
+				MonthDate,
+				TransType,
+				SUM(Amount),
+				'B/F' AS Status,
+				CASE WHEN TransType = 206 THEN 'Approved CPA Earning'
+					 WHEN TransType = 207 THEN 'Approved Sub-Affiliate CPA Earning'  END AS Description
+			FROM (
+				SELECT md.MonthDate, at.TransType, ISNULL(at.Amount, 0) AS Amount
+				FROM CTE_MonthDate md
+					OUTER APPLY (
+						SELECT at.TransType, at.Amount * e.Rate AS Amount
+						FROM dbo.AffTrans at WITH (NOLOCK)
+							LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON at.AffCurrency = t.TpExchangeId 
+							CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (at.WinlostDate, ISNULL(t.ExchangeId, at.AffCurrency), @BaseExchangeId) e
+						WHERE md.MonthDate = EOMONTH(at.WinlostDate)
+							AND at.AffId = @AffId
+							AND at.TransType IN (206, 207)
+					) at
+			) t
+			GROUP BY MonthDate, TransType
+			OPTION (MAXRECURSION 0)
 		END
 	END
 
