@@ -1,15 +1,16 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_SpecificDomainControl_Ins]
-	@AffUserName NVARCHAR(MAX) = ''
-	,@AffDomain NVARCHAR(200) = ''
-	,@AffDomainIsSSL BIT
-	,@RedirectDomain NVARCHAR(200) = ''
+	@AffUserName 		  NVARCHAR(MAX) = ''
+	,@AffDomain 		  NVARCHAR(200) = ''
+	,@AffDomainIsSSL 	  BIT
+	,@RedirectDomain 	  NVARCHAR(200) = ''
 	,@RedirectDomainIsSSL BIT
-	,@Status BIT
-	,@UserId INT
-	,@IP VARCHAR(50) = ''
-	,@ErrCode INT = 0 OUTPUT
-	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
+	,@Status 			  BIT
+	,@UserId 			  INT
+	,@IP 				  VARCHAR(50) = ''
+	,@IsMobile	 		  BIT = 0
+	,@ErrCode 			  INT = 0 OUTPUT
+	,@ErrMsg 			  NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*  
@@ -19,6 +20,7 @@ AS
 
 	Revisions:
 		- 20250402@Lewis: Initialize SP [RedmineID: #221035]
+		- 20250815@Eddie: Support for Mobile Only [RedmineID: #233219]
 */
 
 BEGIN
@@ -35,7 +37,6 @@ BEGIN
 
 	IF @ErrCode <> 0
 		RETURN
-	
 
 	-- =================
 	-- Validate Param
@@ -65,16 +66,16 @@ BEGIN
 	END
 
 	DECLARE @AffInfo TABLE (ID INT IDENTITY(1,1), AffId INT, AffUserName NVARCHAR(60), AffDomainName NVARCHAR(200))
+
 	INSERT INTO @AffInfo (AffId, AffUserName, AffDomainName)
 	SELECT DISTINCT a.AffId, UPPER(s.value), @AffDomain
-	FROM string_split(@AffUserName,',') s
-	LEFT JOIN AffInfo a WITH (NOLOCK) ON s.value = a.UserName AND a.Status = 'Approved' AND a.IsRejected = 0
+	FROM STRING_SPLIT(@AffUserName,',') s
+		LEFT JOIN dbo.AffInfo a WITH (NOLOCK) ON s.value = a.UserName AND a.Status = 'Approved' AND a.IsRejected = 0
 
 	IF EXISTS (SELECT 1 FROM @AffInfo WHERE AffId IS NULL)
 	BEGIN
-		SELECT 
-				@ErrCode = 103,
-				@ErrMsg = 'These Affiliates ' + ISNULL(STRING_AGG(CONVERT(varchar(max), AffUserName), ', '), 'None') + ' are invalid!'
+		SELECT @ErrCode = 103
+			  ,@ErrMsg = 'These Affiliates ' + ISNULL(STRING_AGG(CONVERT(varchar(max), AffUserName), ', '), 'None') + ' are invalid!'
 		FROM @AffInfo
 		WHERE AffId IS NULL
 
@@ -84,17 +85,15 @@ BEGIN
 	IF EXISTS (
 		SELECT 1 
 		FROM dbo.SpecificDomainControl s WITH (NOLOCK)
-		INNER JOIN @AffInfo a 
-			ON s.AffId = a.AffId 
-			AND a.AffDomainName = s.AffDomainName
+			INNER JOIN @AffInfo a ON s.AffId = a.AffId
+								 AND a.AffDomainName = s.AffDomainName
 	)
 	BEGIN
 		SELECT @ErrCode = 104
 			  ,@ErrMsg = 'This specific domain setting already exists for the Affiliate ' + ISNULL(STRING_AGG(CONVERT(varchar(max), AffUserName), ', '), 'None') + '!'
 		FROM dbo.SpecificDomainControl s WITH (NOLOCK)
-		INNER JOIN @AffInfo a 
-			ON s.AffId = a.AffId 
-			AND a.AffDomainName = s.AffDomainName
+			INNER JOIN @AffInfo a ON s.AffId = a.AffId
+			                     AND a.AffDomainName = s.AffDomainName
 
 		RETURN
 	END
@@ -115,6 +114,7 @@ BEGIN
 			,CreatedDate
 			,UpdatedBy
 			,UpdatedDate
+			,IsMobile
 		)
 		SELECT
 			AffId
@@ -127,6 +127,7 @@ BEGIN
 			,GETDATE()
 			,@UserId
 			,GETDATE()
+			,@IsMobile
 		FROM @AffInfo
 
 	END TRY
@@ -146,6 +147,7 @@ BEGIN
 					+ ',AffDomainIsSSL=' + CONVERT(VARCHAR(10), @AffDomainIsSSL)
 					+ ',LicenseeDomainName=' + CONVERT(VARCHAR(200), @RedirectDomain)
 					+ ',LicenseeDomainIsSSL=' + CONVERT(VARCHAR(10), @RedirectDomainIsSSL)
+					+ ',IsMobile=' + CONVERT(VARCHAR(2), @IsMobile)
 	FROM @AffInfo
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog

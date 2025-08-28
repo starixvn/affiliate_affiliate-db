@@ -14,12 +14,14 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20250721@Eddie: Add new condition [RedmineID: #233219]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @Language VARCHAR(10) = 'en-US'
+		   ,@Default_PageId SMALLINT
 
 	-- Check permission
 	EXEC dbo.Aff_Con_CheckPermission
@@ -35,12 +37,17 @@ BEGIN
 		RETURN
 
 	DECLARE @LandingPage TABLE (PageId SMALLINT)
+	
+	-- Default pagecode
+	SELECT @Default_PageId = CONVERT(SMALLINT, SValue)
+	FROM dbo.SystemSettings WITH (NOLOCK)
+	WHERE SName = 'LandingPage'
 
 	UPDATE lp WITH (ROWLOCK, UPDLOCK)
 	SET lp.IsDeleted = 1
 	OUTPUT DELETED.PageId INTO @LandingPage (PageId)
 	FROM dbo.LandingPage lp
-	WHERE EXISTS (SELECT 1 FROM dbo.Aff_f_StringSplit (@PageIds, ',') f WHERE lp.PageId = f.val)
+	WHERE EXISTS (SELECT 1 FROM dbo.Aff_f_StringSplit (@PageIds, ',') f WHERE lp.PageId = f.val AND lp.PageId <> @Default_PageId) -- Default pagecode must not be deleted
 		AND lp.IsDeleted = 0
 	OPTION(MAXRECURSION 0)
 

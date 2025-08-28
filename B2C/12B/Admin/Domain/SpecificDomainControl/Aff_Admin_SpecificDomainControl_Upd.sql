@@ -1,16 +1,17 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_SpecificDomainControl_Upd]
 	@SpecificDomainControlID INT
-	,@AffUserName NVARCHAR(60)
-	,@AffDomain NVARCHAR(200) = ''
-	,@AffDomainIsSSL BIT
-	,@RedirectDomain NVARCHAR(200) = ''
-	,@RedirectDomainIsSSL BIT
-	,@Status BIT
-	,@UserId INT
-	,@IP VARCHAR(50) = ''
-	,@ErrCode INT = 0 OUTPUT
-	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
+	,@AffUserName 			 NVARCHAR(60)
+	,@AffDomain 			 NVARCHAR(200) = ''
+	,@AffDomainIsSSL 		 BIT
+	,@RedirectDomain 		 NVARCHAR(200) = ''
+	,@RedirectDomainIsSSL 	 BIT
+	,@Status 				 BIT
+	,@UserId 				 INT
+	,@IP 					 VARCHAR(50) = ''
+	,@IsMobile	 		  	 BIT = 0
+	,@ErrCode 				 INT = 0 OUTPUT
+	,@ErrMsg 				 NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*  
@@ -20,6 +21,7 @@ AS
 
 	Revisions:
 		- 20250402@Lewis: Initialize SP [RedmineID: #221035]
+		- 20250815@Eddie: Support for Mobile Only [RedmineID: #233219]
 */
 
 BEGIN
@@ -43,7 +45,14 @@ BEGIN
 	DECLARE @AffId INT 
 	SELECT @AffId = AffId FROM AffInfo WHERE Username = @AffUserName
 
-	IF EXISTS (SELECT 1 FROM SpecificDomainControl WITH (NOLOCK) WHERE Id <> @SpecificDomainControlID AND AffId = @AffId AND AffDomainName = @AffDomain AND LicenseeDomainName <> @RedirectDomain)
+	IF EXISTS (
+				SELECT 1
+				FROM dbo.SpecificDomainControl WITH (NOLOCK)
+				WHERE Id <> @SpecificDomainControlID
+				  AND AffId = @AffId
+				  AND AffDomainName = @AffDomain
+				  AND LicenseeDomainName <> @RedirectDomain
+	)
 	BEGIN
 		SELECT @ErrCode = 100
 			  ,@ErrMsg = 'This Affiliate and AffDomain is redirected another domain! Please check again'
@@ -74,12 +83,14 @@ BEGIN
 					+ ',LicenseeDomainName=' + CONVERT(VARCHAR(200), LicenseeDomainName)
 					+ ',LicenseeDomainIsSSL=' + CONVERT(VARCHAR(10), LicenseeDomainIsSSL)
 					+ ',Status=' + CONVERT(VARCHAR(10), Status)
+					+ ',IsMobile=' + CONVERT(VARCHAR(2), IsMobile)
 			,@NewData = 'AffId=' + CONVERT(VARCHAR(10), AffId)
 					+ ',AffDomainName=' + CONVERT(VARCHAR(200), @AffDomain)
 					+ ',AffDomainIsSSL=' + CONVERT(VARCHAR(10), @AffDomainIsSSL)
 					+ ',LicenseeDomainName=' + CONVERT(VARCHAR(200), @RedirectDomain)
 					+ ',LicenseeDomainIsSSL=' + CONVERT(VARCHAR(10), @RedirectDomainIsSSL)
 					+ ',Status=' + CONVERT(VARCHAR(10), @Status)
+					+ ',IsMobile=' + CONVERT(VARCHAR(2), @IsMobile)
 	FROM dbo.SpecificDomainControl s WITH (NOLOCK) 
 	WHERE Id = @SpecificDomainControlID AND AffId = @AffId
 
@@ -95,10 +106,7 @@ BEGIN
 					WHERE Id <> @SpecificDomainControlID
 					AND AffId = @AffId 
 					AND AffDomainName = @AffDomain 
-					AND LicenseeDomainName = @RedirectDomain 
-					--AND Status = @Status 
-					--AND AffDomainIsSSL = @AffDomainIsSSL
-					--AND LicenseeDomainIsSSL = @RedirectDomainIsSSL
+					AND LicenseeDomainName = @RedirectDomain
 				)
 		BEGIN
 			SELECT @ErrCode = 101
@@ -119,6 +127,7 @@ BEGIN
 			,Status	= @Status
 			,UpdatedBy = @UserId
 			,UpdatedDate = GETDATE()
+			,IsMobile = @IsMobile
 		WHERE Id = @SpecificDomainControlID AND AffId = @AffId
 	END TRY
 	BEGIN CATCH
