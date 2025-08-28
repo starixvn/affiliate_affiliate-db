@@ -14,33 +14,38 @@ AS
 		- 20250402@Lewis: Include Specific Domain [RedmineID: #221035]
 		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
 		- 20250523@Lewis: Add new column RedirectDomain [RedmineID: #227130]
-
+		- 20250721@Eddie: Add new condition [RedmineID: #233219]
 */
 
 BEGIN
 	SET NOCOUNT ON
-	DECLARE @CutOffDate DATETIME = '20250213'
+	DECLARE @CutOffDate DATETIME = '20250213', @DealId INT
 
 	CREATE TABLE #Result (
-		DomainID INT -- AffDomainId
-		,DomainName NVARCHAR(200) -- AffDomainName
-		,IsSSL BIT -- AffDomainIsSSL
-		,CreateDate DATETIME
-		,IsSpecific BIT
+		DomainID 		INT -- AffDomainId
+		,DomainName 	NVARCHAR(200) -- AffDomainName
+		,IsSSL 			BIT -- AffDomainIsSSL
+		,CreateDate 	DATETIME
+		,IsSpecific 	BIT
 		,RedirectDomain NVARCHAR(200) -- LicenseeDomainName
+		,IsMobile 		BIT
 	)
+
+	SELECT @DealId = GroupId FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @AffID
 
 	-- TODO: Specific Domain
 	CREATE TABLE #SpecificDomainControl (
-		AffId INT
-		,AffDomainId INT
-		,AffDomainName NVARCHAR(200)
-		,AffDomainIsSSL BIT
-		,LicenseeDomainName NVARCHAR(200)
+		AffId 				 INT
+		,AffDomainId 		 INT
+		,AffDomainName 		 NVARCHAR(200)
+		,AffDomainIsSSL 	 BIT
+		,LicenseeDomainName  NVARCHAR(200)
 		,LicenseeDomainIsSSL BIT
-		,Status BIT
-		,CreatedDate DATETIME
+		,Status 			 BIT
+		,CreatedDate 		 DATETIME
+		,IsMobile 			 BIT
 	)
+
 	INSERT INTO #SpecificDomainControl (
 		AffId
 		,AffDomainId
@@ -50,6 +55,7 @@ BEGIN
 		,LicenseeDomainIsSSL
 		,Status
 		,CreatedDate
+		,IsMobile
 	)
 	SELECT 
 		s.AffId
@@ -60,14 +66,15 @@ BEGIN
 		,s.LicenseeDomainIsSSL
 		,s.Status
 		,s.CreatedDate
-	FROM SpecificDomainControl s WITH (NOLOCK)
+		,s.IsMobile
+	FROM dbo.SpecificDomainControl s WITH (NOLOCK)
 	WHERE s.AffId = @AffID
-		AND s.Status = 1 -->> both AffDomain and RedirectDomain are AVAILABLE
+	  AND s.Status = 1 -->> both AffDomain and RedirectDomain are AVAILABLE
 	
 	-- Update #SpecificDomainControl => AffDomainId and CreateDate
 	UPDATE s SET s.AffDomainId = ad.DomainId, s.CreatedDate = ad.CreateDate
 	FROM #SpecificDomainControl s
-	LEFT JOIN AffDomain ad ON s.AffDomainName = ad.DomainName
+		LEFT JOIN dbo.AffDomain ad ON s.AffDomainName = ad.DomainName
 	WHERE ad.DomainId IS NOT NULL
 
 	-- Insert into #Result
@@ -78,6 +85,7 @@ BEGIN
 		,CreateDate
 		,IsSpecific
 		,RedirectDomain
+		,IsMobile
 	)
 	SELECT 
 		AffDomainId
@@ -86,6 +94,7 @@ BEGIN
 		,CreatedDate
 		,1
 		,LicenseeDomainName
+		,IsMobile
 	FROM #SpecificDomainControl
 
 	-- TODO: Normal Domain
@@ -96,17 +105,24 @@ BEGIN
 		,CreateDate
 		,IsSpecific
 		,RedirectDomain
+		,IsMobile
 	)
-	SELECT a.DomainID, a.DomainName, CONVERT(BIT, ISNULL(a.IsSSL, 0)) AS IsSSL, a.CreateDate, 0, ld.DomainName 
+	SELECT a.DomainID, a.DomainName, CONVERT(BIT, ISNULL(a.IsSSL, 0)) AS IsSSL, a.CreateDate, 0, ld.DomainName, b.IsMobile
 	FROM dbo.AffDomain a WITH (NOLOCK)
 		INNER JOIN dbo.DomainControl b WITH (NOLOCK) ON a.DomainID = b.AffDomainId 
 		INNER JOIN dbo.LicenseeDomain ld WITH (NOLOCK) ON b.LicenseeDomainId = ld.DomainId
-	WHERE b.STATUS = 1
+	WHERE b.Status = 1
 		AND a.IsDeleted = 0
 		AND b.IsDeleted = 0
 		AND ld.IsDeleted = 0
 		AND a.CreateDate >= @CutOffDate
 		AND b.TargetCountryCode = @TargetCountryCode
+		AND (
+			b.IsExcluded = 1 AND b.DealIds = ''
+		 OR b.IsExcluded = 1 AND ( ',' + b.DealIds + ',' NOT LIKE ('%,' + CONVERT(VARCHAR(10), @DealId) + ',%' ) )
+		 OR b.IsExcluded = 0 AND b.DealIds = '0'
+		 OR b.IsExcluded = 0 AND ( ',' + b.DealIds + ',' LIKE ('%,' + CONVERT(VARCHAR(10), @DealId) + ',%' ) )
+		)
 
 	-- TODO: Result
 	;WITH cte_Specific AS (
@@ -119,14 +135,14 @@ BEGIN
 		WHERE IsSpecific = 0
 	)
 	SELECT DISTINCT
-		ISNULL(a.DomainID,b.DomainID) AS DomainID
-		,ISNULL(a.DomainName,b.DomainName) AS DomainName
-		,ISNULL(a.IsSSL,b.IsSSL) AS IsSSL
-		,ISNULL(a.CreateDate,b.CreateDate) AS CreateDate
-		,ISNULL(a.RedirectDomain,b.RedirectDomain) AS RedirectDomain
+		ISNULL(a.DomainID, b.DomainID) 			    AS DomainID
+		,ISNULL(a.DomainName, b.DomainName) 	    AS DomainName
+		,ISNULL(a.IsSSL, b.IsSSL) 				    AS IsSSL
+		,ISNULL(a.CreateDate, b.CreateDate) 		AS CreateDate
+		,ISNULL(a.RedirectDomain, b.RedirectDomain) AS RedirectDomain
+		,ISNULL(a.IsMobile, b.IsMobile) 			AS IsMobile
 	FROM cte_Specific a
-	FULL OUTER JOIN cte_Normal b 
-		ON a.DomainID = b.DomainID
+		FULL OUTER JOIN cte_Normal b ON a.DomainID = b.DomainID
 
 	DROP TABLE #SpecificDomainControl
 	DROP TABLE #Result

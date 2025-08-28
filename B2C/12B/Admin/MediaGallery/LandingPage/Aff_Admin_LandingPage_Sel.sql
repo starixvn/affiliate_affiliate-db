@@ -11,12 +11,20 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
+		- 20250721@Eddie: Add new condition [RedmineID: #233219]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT lp.PageId, lp.PageName, lp.PageCode, oa.BlockTargetCountry
+	DECLARE @Default_PageId SMALLINT
+
+	-- Default pagecode
+	SELECT @Default_PageId = CONVERT(SMALLINT, SValue)
+	FROM dbo.SystemSettings WITH (NOLOCK)
+	WHERE SName = 'LandingPage'
+
+	SELECT lp.PageId, lp.PageName, lp.PageCode, oa.BlockTargetCountry, lp.IsMobile, lp.IsExcluded, lp.DealIds, IIF(PageId = @Default_PageId, 1, 0) AS IsDefault -- 'join' is the default
 	FROM dbo.LandingPage lp WITH (NOLOCK)
 	OUTER APPLY (
 					SELECT STRING_AGG(t.CountryName, ', ') AS BlockTargetCountry
@@ -27,7 +35,7 @@ BEGIN
 						) t
 				) AS oa
 	WHERE IsDeleted = 0
-		AND (@PageId IS NULL OR PageId = @PageId)
+	  AND (@PageId IS NULL OR PageId = @PageId)
 	ORDER BY PageId DESC
 END
 GO

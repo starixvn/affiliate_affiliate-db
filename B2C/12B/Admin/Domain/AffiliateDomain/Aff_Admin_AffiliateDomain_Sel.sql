@@ -11,18 +11,19 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250311@Lewis: Add block market [RedmineID: #219496]
 		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
+		- 20250729@Eddie: Support CountryCode [RedmineID: #233219]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT 
-			a.DomainID
-			, a.DomainName
-			, b.Username AS Creator
-			, a.CreateDate
-			, CONVERT(BIT, ISNULL(a.IsSSL, 0)) AS IsSSL
-			, oa.BlockTargetCountry
+	SELECT a.DomainID
+		 , a.DomainName
+		 , b.Username AS Creator
+		 , a.CreateDate
+		 , CONVERT(BIT, ISNULL(a.IsSSL, 0)) AS IsSSL
+		 , oa.BlockTargetCountry
+		 , IIF(a.BlockTargetCountry = '', NULL, a.BlockTargetCountry) AS BlockTargetCountryCode
 	FROM dbo.AffDomain a WITH (NOLOCK)
 		INNER JOIN dbo.Affiliate_User b WITH (NOLOCK) ON a.Creator = b.CustId
 		OUTER APPLY (

@@ -2,18 +2,20 @@
 CREATE PROCEDURE dbo.Aff_ClickStatistics_RedirectPage_Sel
 	@AffCode			VARCHAR(20)
 	,@AffDomain			NVARCHAR(50) = ''
-	,@PageCode			VARCHAR(50) = ''
+	,@PageCode			VARCHAR(50) = '' OUTPUT
 	,@LanguageCode		VARCHAR(6) = 'en'
 	,@RedirectPage		NVARCHAR(256) = NULL OUTPUT
 	,@ErrCode			INT = 0 OUTPUT
 	,@ErrMsg			NVARCHAR(4000) = '' OUTPUT
 AS
 /*
-        Created:      20250730@Lewis
-        Task:         Generate redirect page URL without click tracking – Get redirect URL for affiliate links without inserting click statistics
-        DB:           DBAFF12B-Affiliate_12B
-        Revisions:
-            - 20250730@Lewis: Generate redirect page URL without click tracking [RedmineID: #233088]
+    Created: 20250730@Lewis
+    Task: Generate redirect page URL without click tracking – Get redirect URL for affiliate links without inserting click statistics
+    DB: DBAFF12B-Affiliate_12B
+
+    Revisions:
+        - 20250730@Lewis: Generate redirect page URL without click tracking [RedmineID: #233088]
+		- 20250808@Eddie: Add new condition [RedmineID: #233219]
 */
 BEGIN
 	SET NOCOUNT ON;
@@ -25,32 +27,87 @@ BEGIN
 		  , @IsSSL				BIT
 		  , @AffDomainId 		INT
 		  , @RedirectDomain		NVARCHAR(256) = NULL
-		  , @LanguageMediaLink	VARCHAR(11)	  = '';
+		  , @TargetCountryCode 	VARCHAR(5)
+		  , @LanguageLink 		NVARCHAR(10)
+		  , @DealId 			INT
+		  , @DealName 			NVARCHAR(100)
+		  , @IsMobile_LP 		BIT -- check for landing page
+		  , @IsMobile_DC 		BIT -- check for domain control
+		  , @IsMobile_SDC 		BIT -- check for specific domain control
+		  , @Default_PageId 	SMALLINT
+		  , @Default_PageCode	VARCHAR(50)
+	
+	-- Get Info
+	BEGIN
+		-- AffId
+		SELECT @AffId = ac.AffId
+		FROM dbo.AffiliateCode ac WITH (NOLOCK)
+		WHERE ac.AffCode = @AffCode
 
-	--Get AffId
-	SELECT @AffId = ac.AffId
-	FROM dbo.AffiliateCode ac WITH (NOLOCK)
-	WHERE ac.AffCode = @AffCode;
-		
-	--Get TargetCountryCode
-	DECLARE @TargetCountryCode VARCHAR(5);
-	SELECT @TargetCountryCode = tc.CountryCode
-			,@LanguageMediaLink = tc.MarketId
-	FROM dbo.TargetCountry tc WITH (NOLOCK)
-	WHERE tc.ShortedCode = @LanguageCode;
+		SELECT @AffUsername = ai.Username
+		      ,@IsClosed = ai.IsClosed
+			  ,@DealId = ai.GroupId
+			  ,@DealName = cg.GroupName
+		FROM dbo.AffDetail ad WITH (NOLOCK)
+			INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON ai.AffId = ad.AffId
+			INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.GroupId = ai.GroupId
+		WHERE ai.AffId = @AffId 
+		  AND ai.Status = 'Approved'
+		  AND cg.IsDeleted = 0
 
-	SELECT @AffUsername = ai.Username
-		 , @IsClosed = ai.IsClosed
-	FROM dbo.AffDetail ad WITH (NOLOCK)
-		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON ai.AffId = ad.AffId
-	WHERE ai.AffId = @AffId 
-		AND ai.Status = 'Approved';
+		-- TargetCountryCode, LanguageLink
+		SELECT @TargetCountryCode = tc.CountryCode
+			  ,@LanguageLink = m.ShortedCode
+		FROM dbo.TargetCountry tc WITH (NOLOCK)
+			INNER JOIN dbo.Market m WITH (NOLOCK) ON tc.MarketID = m.MarketId
+		WHERE tc.ShortedCode = @LanguageCode;
 
-	--check Affiliate ID 
-	IF @AffUsername IS NULL OR @IsClosed IS NULL OR @IsClosed = 1
+		-- IsMobile_LP for checking
+		SELECT @IsMobile_LP = IsMobile
+		FROM dbo.LandingPage WITH (NOLOCK)
+		WHERE IsDeleted = 0
+		  AND PageCode = @PageCode
+
+		-- Default pageid
+		SELECT @Default_PageId = CONVERT(SMALLINT, SValue)
+		FROM dbo.SystemSettings WITH (NOLOCK)
+		WHERE SName = 'LandingPage'
+
+		-- Pagecode default
+		SELECT @Default_PageCode = PageCode
+		FROM dbo.LandingPage WITH (NOLOCK)
+		WHERE PageId = @Default_PageId
+
+	END
+
+	--Check Affiliate ID 
+	IF @AffUsername IS NULL OR ISNULL(@IsClosed, 1) = 1
 	BEGIN
 		SELECT @ErrCode = 102, @ErrMsg = 'This affiliate does not exists. Please contact administrator!';
 		RETURN;
+	END
+
+	-- Update @PageCode with specific cases
+	BEGIN
+
+		IF @IsMobile_LP IS NULL
+		BEGIN
+			SELECT @PageCode = @Default_PageCode
+		END
+
+		IF EXISTS (
+			SELECT 1
+			FROM dbo.LandingPage WITH (NOLOCK)
+			WHERE IsDeleted = 0
+			AND PageCode = @PageCode
+			AND (
+				   IsExcluded = 1 AND ( ',' + DealIds + ',' LIKE ('%,' + CONVERT(VARCHAR(10), @DealId) + ',%' ) )
+				OR IsExcluded = 0 AND ( ',' + DealIds + ',' NOT LIKE ('%,' + CONVERT(VARCHAR(10), @DealId) + ',%' ) AND DealIds <> '0' )
+			)
+		)
+		BEGIN
+			SELECT @PageCode = @Default_PageCode
+		END
 	END
 
 	--Get redirect link
@@ -65,11 +122,17 @@ BEGIN
 		BEGIN
 			-- Get redirect domain of specific AFF
 			SELECT @RedirectDomain = LicenseeDomainName
-				, @IsSSL = LicenseeDomainIsSSL
+				  ,@IsSSL = LicenseeDomainIsSSL
+				  ,@IsMobile_SDC = IsMobile
 			FROM dbo.SpecificDomainControl WITH (NOLOCK)
 			WHERE AffDomainName = @AffDomain
-				AND AffId = @AffId
-				AND Status = 1;
+			  AND AffId = @AffId
+			  AND Status = 1
+
+			IF ( @IsMobile_LP <> @IsMobile_SDC )
+			BEGIN
+				SELECT @PageCode = @Default_PageCode
+			END
 		END
 		ELSE
 		BEGIN
@@ -77,25 +140,25 @@ BEGIN
 			SELECT @AffDomainId	= DomainID
 			FROM dbo.AffDomain WITH (NOLOCK)
 			WHERE DomainName = @AffDomain 
-				AND IsDeleted = 0;
+			  AND IsDeleted = 0
 		
-			SELECT TOP (1) @LicenseeDomain 	= b.DomainName
-					,  @IsSSL		   		= b.IsSSL
+			SELECT TOP(1) @LicenseeDomain = b.DomainName
+					     ,@IsSSL = b.IsSSL
+					     ,@IsMobile_DC = a.IsMobile
 			FROM dbo.DomainControl a WITH (NOLOCK)
 				INNER JOIN dbo.LicenseeDomain b WITH (NOLOCK) ON a.LicenseeDomainId = b.DomainId
 			WHERE a.TargetCountryCode = @TargetCountryCode
-				AND a.AffDomainId = @AffDomainId
-				AND a.[Status] = 1
-				AND a.IsDeleted = 0
-				AND b.IsDeleted = 0;
-		END
-		
-		DECLARE @LanguageLink VARCHAR(10);
+			  AND a.AffDomainId = @AffDomainId
+			  AND a.[Status] = 1
+			  AND a.IsDeleted = 0
+			  AND b.IsDeleted = 0
 
-		SELECT @LanguageLink = m.ShortedCode
-		FROM dbo.TargetCountry tc WITH (NOLOCK)
-		INNER JOIN dbo.Market m WITH (NOLOCK) ON tc.MarketID = m.MarketId
-		WHERE tc.ShortedCode = @LanguageCode;
+			IF ( @IsMobile_LP <> @IsMobile_DC )
+			BEGIN
+				SELECT @PageCode = @Default_PageCode
+			END
+
+		END
 
 		IF @RedirectDomain IS NOT NULL
 		BEGIN	

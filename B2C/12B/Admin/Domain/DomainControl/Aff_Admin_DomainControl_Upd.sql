@@ -7,6 +7,9 @@ CREATE PROCEDURE [dbo].[Aff_Admin_DomainControl_Upd]
 	,@TargetCountryCode	VARCHAR(5)
 	,@Status			BIT
 	,@IP				VARCHAR(50) = ''
+	,@IsMobile 		 	BIT
+	,@IsExcluded 		BIT
+	,@DealIds 			NVARCHAR(MAX)
 	,@ErrCode			INT = 0 OUTPUT
 	,@ErrMsg			NVARCHAR(4000) = '' OUTPUT
 AS
@@ -19,6 +22,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
+		- 20250721@Eddie: Add new condition [RedmineID: #233219]
 */
 
 BEGIN
@@ -26,7 +30,7 @@ BEGIN
 
 	DECLARE @MarketId NVARCHAR(10)
 	SELECT TOP(1) @MarketId = tc.MarketID 
-	FROM TargetCountry tc WITH (NOLOCK)
+	FROM dbo.TargetCountry tc WITH (NOLOCK)
 	WHERE tc.OrderNo IS NOT NULL --Default MarketID for CountryCode have more than 1 MarketID
 		AND tc.CountryCode = @TargetCountryCode
 		AND EXISTS (SELECT 1 FROM Market m WITH (NOLOCK) WHERE m.MarketId = tc.MarketID AND m.IsDeleted = 0)
@@ -48,30 +52,61 @@ BEGIN
 						+ ',MarketId=' + ISNULL(MarketId, '')
 						+ ',TargetCountryCode=' + ISNULL(TargetCountryCode, '')
 						+ ',Status=' + CONVERT(VARCHAR(2), Status)
+						+ ',IsMobile=' + CONVERT(VARCHAR(2), IsMobile)
+						+ ',IsExcluded=' + CONVERT(VARCHAR(2), IsExcluded)
+						+ ',DealIds=' + ISNULL(DealIds, '')
 			,@NewData = 'AffDomainId=' + CONVERT(VARCHAR(10), @AffDomainId)
 						+ ',LicenseeDomainId=' + CONVERT(VARCHAR(10), @LicenseeDomainId)
 						+ ',MarketId=' + ISNULL(@MarketId, '')
 						+ ',TargetCountryCode=' + ISNULL(@TargetCountryCode, '')
 						+ ',Status=' + CONVERT(VARCHAR(2), @Status)
+						+ ',IsMobile=' + CONVERT(VARCHAR(2), @IsMobile)
+						+ ',IsExcluded=' + CONVERT(VARCHAR(2), @IsExcluded)
+						+ ',DealIds=' + ISNULL(@DealIds, '')
 	FROM dbo.DomainControl WITH (NOLOCK) WHERE Id = @DomainControlId AND IsDeleted = 0
 
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'This domain setting does not exists!'
+		SELECT @ErrCode = 111, @ErrMsg = 'This domain setting does not exists!'
 		RETURN
 	END
 
-	IF ISNULL(@OldData, '') = ISNULL(@NewData, '')
-		RETURN -- no change
-
 	IF EXISTS (
 		SELECT 1 FROM dbo.DomainControl WITH (NOLOCK)
-		WHERE Id <> @DomainControlId AND AffDomainId = @AffDomainId AND LicenseeDomainId = @LicenseeDomainId AND TargetCountryCode = @TargetCountryCode AND IsDeleted = 0
+		WHERE Id <> @DomainControlId
+		  AND TargetCountryCode = @TargetCountryCode
+		  AND AffDomainId = @AffDomainId
+		  AND IsDeleted = 0
 	)
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'This domain setting has been existed!'
 		RETURN
 	END
+	
+	IF (@IsExcluded = 0 AND ISNULL(@DealIds, '') = '')
+	BEGIN
+		SELECT @ErrCode = 103, @ErrMsg = 'Please select at least a deal.'
+		RETURN
+	END
+
+	IF (@IsExcluded = 1 AND @DealIds = '0')
+	BEGIN
+		SELECT @ErrCode = 104, @ErrMsg = 'Please deselect at least a deal.'
+		RETURN
+	END
+
+	IF EXISTS (
+		SELECT 1 FROM dbo.DomainControl WITH (NOLOCK)
+		WHERE Id = @DomainControlId
+		  AND AffDomainId = @AffDomainId
+		  AND LicenseeDomainId = @LicenseeDomainId
+		  AND TargetCountryCode = @TargetCountryCode
+		  AND Status = @Status
+		  AND IsMobile = @IsMobile
+		  AND IsExcluded = @IsExcluded
+		  AND DealIds = @DealIds
+		  AND IsDeleted = 0
+	) RETURN -- no change
 
 	BEGIN TRY
 		UPDATE dbo.DomainControl WITH (ROWLOCK)
@@ -81,10 +116,13 @@ BEGIN
 			,TargetCountryCode	= @TargetCountryCode
 			,ModifyDate			= GETDATE()
 			,Status				= @Status
+			,IsMobile			= @IsMobile
+			,IsExcluded			= @IsExcluded
+			,DealIds			= @DealIds
 		WHERE Id = @DomainControlId
 	END TRY
 	BEGIN CATCH
-		SELECT @ErrCode = 102, @ErrMsg = N'Error occurs. Update unsuccessfully.'
+		SELECT @ErrCode = 112, @ErrMsg = N'Error occurs. Update unsuccessfully.'
 		RETURN
 	END CATCH
 

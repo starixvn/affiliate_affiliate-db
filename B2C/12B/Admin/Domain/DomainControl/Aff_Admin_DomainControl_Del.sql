@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
+		- 20250721@Eddie: Add Device and Deal Name [RedmineID: #233219]
 */
 
 BEGIN
@@ -33,14 +34,18 @@ BEGIN
 	DECLARE @OldData NVARCHAR(MAX)
 
 	SELECT  @OldData = 'AffDomainId=' + CONVERT(VARCHAR(10), AffDomainId)
-						+ ',LicenseeDomainId=' + CONVERT(VARCHAR(10), LicenseeDomainId)
-						+ ',MarketId=' + ISNULL(MarketId, '')
-						+ ',TargetCountryCode=' + ISNULL(TargetCountryCode, '')
+					 + ',LicenseeDomainId=' + CONVERT(VARCHAR(10), LicenseeDomainId)
+					 + ',MarketId=' + ISNULL(MarketId, '')
+					 + ',TargetCountryCode=' + ISNULL(TargetCountryCode, '')
+					 + ',Status=' + CONVERT(VARCHAR(2), Status)
+					 + ',IsMobile=' + CONVERT(VARCHAR(2), IsMobile)
+					 + ',IsExcluded=' + CONVERT(VARCHAR(2), IsExcluded)
+					 + ',DealIds=' + ISNULL(DealIds, '')
 	FROM dbo.DomainControl WITH (NOLOCK) WHERE Id = @DomainControlId AND IsDeleted = 0
 
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'This domain setting does not exists!'
+		SELECT @ErrCode = 111, @ErrMsg = 'This domain setting does not exists!'
 		RETURN
 	END
 
@@ -50,7 +55,7 @@ BEGIN
 		WHERE Id = @DomainControlId
 	END TRY
 	BEGIN CATCH
-		SELECT @ErrCode = 102, @ErrMsg = N'Error occurs. Delete unsuccessfully.'
+		SELECT @ErrCode = 122, @ErrMsg = N'Error occurs. Delete unsuccessfully.'
 		RETURN
 	END CATCH
 
