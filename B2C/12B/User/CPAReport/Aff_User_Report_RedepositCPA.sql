@@ -43,9 +43,8 @@ BEGIN
         ,RedepositRate          DECIMAL(9,8)
         ,NoOfPlayerRedeposit    VARCHAR(100)
         ,TotalSettledCPAAmount  MONEY
-        ,Status                 VARCHAR(100)
+        ,StatusId	            TINYINT
         ,RowIdx                 INT
-        ,RId_paging             INT
     );
 
     INSERT INTO #data (
@@ -58,7 +57,7 @@ BEGIN
         ,RedepositRate
         ,NoOfPlayerRedeposit
         ,TotalSettledCPAAmount
-        ,Status
+        ,StatusId
         ,RowIdx
     )
     SELECT 
@@ -77,19 +76,22 @@ BEGIN
         , CONCAT(ISNULL(rd.cnt_rd, 0), '/', FLOOR(COUNT(m.CustId) * cg.RedepositRate)) AS NoOfPlayerRedeposit
         , SUM(m.CPAAmount) AS TotalSettledCPAAmount
         , CASE 
-                WHEN ISNULL(rd.cnt_rd, 0) < FLOOR(COUNT(m.CustId) * cg.RedepositRate) AND @CurrentDate <= DATEADD(DAY, cg.RedepositDays - 1, m.CPADate) THEN 'Monitoring' --1st
-                WHEN ISNULL(rd.cnt_rd, 0) < FLOOR(COUNT(m.CustId) * cg.RedepositRate)THEN 'Not qualified' --2nd
-                WHEN ISNULL(rd.cnt_rd, 0) >= FLOOR(COUNT(m.CustId) * cg.RedepositRate) THEN 'Qualified' --3rd
-        END AS Status
-        , ROW_NUMBER() OVER(ORDER BY m.CPADate DESC) AS RowIdx
+                WHEN ISNULL(rd.cnt_rd, 0) < FLOOR(COUNT(m.CustId) * cg.RedepositRate) AND @CurrentDate <= DATEADD(DAY, cg.RedepositDays - 1, m.CPADate) THEN 1 --'Monitoring' --1st
+                WHEN ISNULL(rd.cnt_rd, 0) < FLOOR(COUNT(m.CustId) * cg.RedepositRate)THEN 2 --'Not qualified' --2nd
+                WHEN ISNULL(rd.cnt_rd, 0) >= FLOOR(COUNT(m.CustId) * cg.RedepositRate) THEN 3 --'Qualified' --3rd
+        END AS StatusId
+        , ROW_NUMBER() OVER(ORDER BY m.GroupId ASC, m.CPADate ASC) AS RowIdx
     FROM dbo.MemberCPA m WITH (NOLOCK)
         INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON m.GroupId = cg.GroupId AND cg.IsDeleted = 0
         INNER JOIN dbo.Schedule s WITH (NOLOCK) ON s.ScheduleId = cg.ScheduleId
         OUTER APPLY (	
-                        SELECT COUNT(DISTINCT CustId) AS cnt_rd
+                        SELECT COUNT(DISTINCT r.CustId) AS cnt_rd
                         FROM dbo.rptMemberDaily r WITH (NOLOCK)
-                        WHERE r.AffId = m.AffId
-                            AND r.CustId = m.CustId
+							INNER JOIN dbo.MemberCPA m2 WITH (NOLOCK) ON r.AffId = m2.AffId AND r.CustId = m2.CustId
+                        WHERE m2.AffId = m.AffId
+							AND m2.GroupId = m.GroupId  
+							AND m2.CPADate = m.CPADate
+							AND m2.StatusId = 3
                             AND r.WinlostDate BETWEEN m.CPADate AND DATEADD(DAY, cg.RedepositDays - 1, m.CPADate) --After Approved CPA
                             AND r.ProductId = -1
                             AND r.Deposit > 0
@@ -102,17 +104,6 @@ BEGIN
 
     -- Get total row count
     SELECT @NRows = COUNT(*) FROM #data;
-
-    -- Add row numbers for paging (order by ApprovalDate DESC)
-    ;WITH CTE_RowNum AS
-    (
-        SELECT ROW_NUMBER() OVER(ORDER BY DealId ASC) AS RId_paging, RowIdx
-        FROM #data
-    )
-    UPDATE d
-    SET d.RId_paging = rn.RId_paging
-    FROM #data d
-        INNER JOIN CTE_RowNum rn ON d.RowIdx = rn.RowIdx;
 
     -- Paging logic
     DECLARE @RowStart INT, @RowEnd INT;
@@ -132,10 +123,15 @@ BEGIN
         ,RedepositRate
         ,NoOfPlayerRedeposit
         ,TotalSettledCPAAmount
-        ,Status
+        ,StatusId
+        ,CASE
+			WHEN StatusId = 1 THEN 'Monitoring'
+			WHEN StatusId = 2 THEN 'Not qualified'
+			WHEN StatusId = 3 THEN 'Qualified'
+		END AS Status
     FROM #data
-    WHERE RId_paging BETWEEN @RowStart AND @RowEnd
-    ORDER BY ApprovalDate DESC;
+    WHERE RowIdx BETWEEN @RowStart AND @RowEnd
+    ORDER BY RowIdx ASC;
 
 	--Return total
 	SELECT 
