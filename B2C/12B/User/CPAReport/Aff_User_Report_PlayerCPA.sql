@@ -5,6 +5,8 @@ CREATE PROCEDURE [dbo].[Aff_User_Report_PlayerCPA]
 	,@Viewby	TINYINT		= 1
 	,@FromDate	DATETIME	= ''
 	,@ToDate	DATETIME	= ''
+	,@PageIndex	INT			= 1
+	,@PageSize	INT			= 20
 	,@NRows		INT			= 0	 OUTPUT
 /*
 	Created: 20250822@Danny
@@ -15,6 +17,12 @@ CREATE PROCEDURE [dbo].[Aff_User_Report_PlayerCPA]
 */
 AS
 BEGIN
+	DECLARE @BaseCurrency INT
+    SELECT @BaseCurrency = ISNULL(t.ExchangeId, CONVERT(INT, SValue))
+    FROM dbo.SystemSettings s WITH (NOLOCK)
+    LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON CONVERT(INT, SValue) = t.TpExchangeId
+    WHERE SName = 'AffCurrency';
+
 	-- TODO: Implement Player CPA Report logic here
 	-- TODO:
 	CREATE TABLE #data (
@@ -40,6 +48,7 @@ BEGIN
 		, CPADate DATETIME
 		, IsAbnormal BIT
 		, Description VARCHAR(300)
+		, rid INT
 	)
 	INSERT INTO #data(
 		MemberCPA_ID
@@ -64,6 +73,7 @@ BEGIN
 		, CPADate
 		, IsAbnormal
 		, Description
+		, rid
 	)
 	SELECT 
 		m.MemberCPA_ID
@@ -71,7 +81,7 @@ BEGIN
 		, mem.UserName
 		, mem.RegisteredDate
 		--Active
-		, mem.FirstDepositAmount
+		, mem.FirstDepositAmount * ex.Rate
 		, m.TotalDeposit
 		, CASE WHEN mp.MemberCPA_ID IS NOT NULL THEN 1 ELSE 0 END AS IsTO
 		, m.ActiveQualifiedDate
@@ -81,15 +91,18 @@ BEGIN
 		, cg.HoldingTickets
 		, m.HoldingQualifiedDate
 		, DATEADD(DAY, -1 + cg.HoldingDays, m.HoldingQualifiedDate)
-		, CASE WHEN m.StatusId = 2 THEN m.CPAAmount ELSE 0 END
+		, CASE WHEN m.StatusId IN (2,3) THEN m.CPAAmount ELSE 0 END
 		--Approval
 		, CASE WHEN m.StatusId = 3 THEN m.CPAAmount ELSE 0 END
 		, m.StatusId
 		, m.CPADate
 		, IIF(StatusID = 4, 1, 0) AS IsAbnormal
 		, m.Description
+		, ROW_NUMBER() OVER (ORDER BY mem.UserName ASC) AS Rid
 	FROM MemberCPA m WITH (NOLOCK)
 	INNER JOIN MemberInfo mem WITH (NOLOCK) ON m.CustId = mem.CustId
+	LEFT JOIN dbo.TpExchange te WITH (NOLOCK) ON mem.Currency = te.TpExchangeId
+	CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(mem.FirstDepositDate, ISNULL(te.ExchangeId, mem.Currency), @BaseCurrency) ex
 	INNER JOIN CommGroup cg WITH (NOLOCK) ON m.GroupId = cg.GroupId AND cg.IsDeleted = 0
 	INNER JOIN Schedule s WITH (NOLOCK) ON cg.ScheduleId = s.ScheduleId
 	OUTER APPLY (SELECT DISTINCT a.MemberCPA_ID FROM MemberCPAProduct a WITH (NOLOCK) WHERE m.MemberCPA_ID = a.MemberCPA_ID) mp  
@@ -129,7 +142,11 @@ BEGIN
 		, d.CPADate
 		, d.IsAbnormal
 		, d.Description
-	FROM #data d;
+		, d.IsTO
+	FROM #data d
+	 WHERE Rid > (@PageSize * (@PageIndex - 1))
+		 AND Rid <= (@PageSize * @PageIndex)
+	  ORDER BY Rid;;
 
 	SELECT @NRows = COUNT(*) FROM #data;
 	

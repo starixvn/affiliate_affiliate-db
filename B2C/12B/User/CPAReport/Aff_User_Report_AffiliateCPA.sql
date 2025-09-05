@@ -67,7 +67,7 @@ BEGIN
 			c.Quota,
 			COUNT(CASE WHEN m.StatusId = 2 THEN 1 ELSE 0 END),
 			SUM(m.CPAAmount),
-			SUM(CASE WHEN m.StatusId = 2 THEN m.CPAAmount ELSE 0 END),
+			SUM(CASE WHEN m.StatusId IN (2,3) THEN m.CPAAmount ELSE 0 END),
 			SUM(CASE WHEN m.StatusId = 3 THEN m.CPAAmount ELSE 0 END)
 		FROM dbo.MemberCPA m WITH (NOLOCK)
 			INNER JOIN dbo.CommGroup c WITH (NOLOCK) ON m.GroupId = c.GroupId
@@ -96,7 +96,7 @@ BEGIN
 			c.Quota,
 			COUNT(CASE WHEN m.StatusId = 2 THEN 1 ELSE 0 END),
 			SUM(m.CPAAmount),
-			SUM(CASE WHEN m.StatusId = 2 THEN m.CPAAmount ELSE 0 END),
+			SUM(CASE WHEN m.StatusId IN (2,3) THEN m.CPAAmount ELSE 0 END),
 			SUM(CASE WHEN m.StatusId = 3 THEN m.CPAAmount ELSE 0 END)
 		FROM dbo.MemberCPA m WITH (NOLOCK)
 			INNER JOIN dbo.CommGroup c WITH (NOLOCK) ON m.GroupId = c.GroupId
@@ -124,7 +124,7 @@ BEGIN
 			c.Quota,
 			COUNT(CASE WHEN m.StatusId = 2 THEN 1 ELSE 0 END),
 			SUM(m.CPAAmount),
-			SUM(CASE WHEN m.StatusId = 2 THEN m.CPAAmount ELSE 0 END),
+			SUM(CASE WHEN m.StatusId IN (2,3) THEN m.CPAAmount ELSE 0 END),
 			SUM(CASE WHEN m.StatusId = 3 THEN m.CPAAmount ELSE 0 END)
 		FROM dbo.MemberCPA m WITH (NOLOCK)
 			INNER JOIN dbo.AffInfo a WITH (NOLOCK) ON m.AffId = a.AffId
@@ -152,18 +152,16 @@ BEGIN
 				   ORDER BY
 					   CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN [Month] END ASC,
 					   CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN [Month] END DESC,
-					   CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN GroupTypeId END ASC,
-					   CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN GroupTypeId END DESC,
-					   CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN [Quota] END ASC,
-					   CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN [CurrentQuota] END ASC,
-					   CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN [Quota] END DESC,
-					   CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN [CurrentQuota] END DESC,
-					   CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN [CPAAmount] END ASC,
-					   CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN [CPAAmount] END DESC,
-					   CASE WHEN @SortType = 5 AND @SortDirectionType = 0 THEN [EstimatedCPAAmount] END ASC,
-					   CASE WHEN @SortType = 5 AND @SortDirectionType = 1 THEN [EstimatedCPAAmount] END DESC,
-					   CASE WHEN @SortType = 6 AND @SortDirectionType = 0 THEN [ApprovedCPAAmount] END ASC,
-					   CASE WHEN @SortType = 6 AND @SortDirectionType = 1 THEN [ApprovedCPAAmount] END DESC
+					   CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN [Quota] END ASC,
+					   CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN [CurrentQuota] END ASC,
+					   CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN [Quota] END DESC,
+					   CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN [CurrentQuota] END DESC,
+					   CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN [CPAAmount] END ASC,
+					   CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN [CPAAmount] END DESC,
+					   CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN [EstimatedCPAAmount] END ASC,
+					   CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN [EstimatedCPAAmount] END DESC,
+					   CASE WHEN @SortType = 5 AND @SortDirectionType = 0 THEN [ApprovedCPAAmount] END ASC,
+					   CASE WHEN @SortType = 5 AND @SortDirectionType = 1 THEN [ApprovedCPAAmount] END DESC
 			   ) AS Rid
 		   FROM #data
 	   )
@@ -191,18 +189,16 @@ BEGIN
 				   ORDER BY
 					   CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN [Month] END ASC,
 					   CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN [Month] END DESC,
-					   CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN [GroupTypeId] END ASC,
-					   CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN [GroupTypeId] END DESC,
-					   CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN [Quota] END ASC,
-					   CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN [CurrentQuota] END ASC,
-					   CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN [Quota] END DESC,
-					   CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN [CurrentQuota] END DESC,
-					   CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN [CPAAmount] END ASC,
-					   CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN [CPAAmount] END DESC,
-					   CASE WHEN @SortType = 5 AND @SortDirectionType = 0 THEN [EstimatedCPAAmount] END ASC,
-					   CASE WHEN @SortType = 5 AND @SortDirectionType = 1 THEN [EstimatedCPAAmount] END DESC,
-					   CASE WHEN @SortType = 6 AND @SortDirectionType = 0 THEN [ApprovedCPAAmount] END ASC,
-					   CASE WHEN @SortType = 6 AND @SortDirectionType = 1 THEN [ApprovedCPAAmount] END DESC
+					   CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN [Quota] END ASC,
+					   CASE WHEN @SortType = 2 AND @SortDirectionType = 0 THEN [CurrentQuota] END ASC,
+					   CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN [Quota] END DESC,
+					   CASE WHEN @SortType = 2 AND @SortDirectionType = 1 THEN [CurrentQuota] END DESC,
+					   CASE WHEN @SortType = 3 AND @SortDirectionType = 0 THEN [CPAAmount] END ASC,
+					   CASE WHEN @SortType = 3 AND @SortDirectionType = 1 THEN [CPAAmount] END DESC,
+					   CASE WHEN @SortType = 4 AND @SortDirectionType = 0 THEN [EstimatedCPAAmount] END ASC,
+					   CASE WHEN @SortType = 4 AND @SortDirectionType = 1 THEN [EstimatedCPAAmount] END DESC,
+					   CASE WHEN @SortType = 5 AND @SortDirectionType = 0 THEN [ApprovedCPAAmount] END ASC,
+					   CASE WHEN @SortType = 5 AND @SortDirectionType = 1 THEN [ApprovedCPAAmount] END DESC
 			   ) AS Rid
 		   FROM #data
 	   )
@@ -220,7 +216,7 @@ BEGIN
 	END
 
 	-- Output total rows if needed
-	SELECT @NRows = COUNT(*) FROM #data;
+	SELECT @NRows = COUNT(1) FROM #data;
 	
 	SELECT 
 		SUM([CPAAmount]) AS CPAAmount,
