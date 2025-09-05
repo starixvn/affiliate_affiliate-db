@@ -32,6 +32,7 @@ AS
 		- 20230522@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
 		- 20240206@Sally: Merge VS 1,2,3 into VS only [RedmineID: #199895]
         - 20250429@Sally: Default show Active player [RedmineID: #224335]
+        - 20250905@Sally: Display new signup players [RedmineID: #237856]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -62,7 +63,7 @@ BEGIN
 	-- date range for get data whole month of @MonthDate
 	DECLARE @BeginOfMonth SMALLDATETIME, @EndOfMonth SMALLDATETIME
 	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
-	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
+	SELECT  @EndOfMonth		= EOMONTH(@BeginOfMonth)
 
 	-- Get basecurrency mapping
 	DECLARE @BaseExchangeId INT = @BaseCurrency
@@ -79,7 +80,15 @@ BEGIN
 			FROM dbo.Aff_f_TpExchange_Sel(f.value)
 		)t
 	
-	CREATE TABLE #tmpData (CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, GGR MONEY, Bonus MONEY, Rebate MONEY)
+	CREATE TABLE #tmpData (
+        CustId INT PRIMARY KEY, 
+        Deposit MONEY DEFAULT(0), 
+        Withdrawal MONEY DEFAULT(0), 
+        Turnover MONEY DEFAULT(0), 
+        GGR MONEY DEFAULT(0), 
+        Bonus MONEY DEFAULT(0), 
+        Rebate MONEY DEFAULT(0)
+    )
 
 	DECLARE @Products TABLE (ProductId INT, IsStraightSetting BIT)
 		
@@ -146,7 +155,16 @@ BEGIN
 			AND (@ListCurrencies = '' OR ',' + @ListCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
 		GROUP BY r.CustId
 
-		DELETE #tmpData WHERE Deposit = 0 AND Withdrawal = 0 AND Bonus = 0 AND Rebate = 0 AND Turnover = 0 AND GGR = 0
+        -- Get new signup players who have no any transaction in the month
+		INSERT INTO #tmpData(CustId)
+        SELECT m.CustId
+        FROM dbo.MemberInfo m WITH (NOLOCK)
+        WHERE m.AffId = @AffId
+            AND m.RegisteredDate >= @BeginOfMonth 
+            AND m.RegisteredDate < DATEADD(DAY, 1, @EndOfMonth)
+            AND (m.IsRemoved = 0 OR @IsIncludeRemovedPlayer = 1)
+            AND NOT EXISTS (SELECT 1 FROM #tmpData d WHERE d.CustId = m.CustId)
+            AND (@ListCurrencies = '' OR ',' + @ListCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), m.Currency) + ',%')
 
 		SELECT @NRows = COUNT(1) FROM #tmpData
 
