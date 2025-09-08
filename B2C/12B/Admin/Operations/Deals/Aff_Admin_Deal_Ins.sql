@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_Deal_Ins]
 	@UserId				INT
 	,@GroupId			INT = 0 OUTPUT
@@ -35,6 +35,7 @@ AS
 
 	Revisions:
 		- 20250526@Lewis: Initialize SP [RedmineID: #228530]
+		- 20250903@Lewis: For Monthly Deal -- Change ApproveDate DealBillingSchedule 4th [RedmineID: #237540]
 
 	Parameter's Explanation:
 		- @DeductionList xml = N'
@@ -536,7 +537,7 @@ BEGIN
 		
 		-- DealBillingSchedule
 		INSERT INTO dbo.DealBillingSchedule (GroupId, ScheduleId, NextBillingDate)
-		SELECT @GroupId, @ScheduleId, IIF(@IntervalType = 'MONTH', DATEADD(DAY, 5, EOMONTH(@StartDate, @IntervalValue - 1)), DATEADD(DAY, @IntervalValue - 1, @StartDate))
+		SELECT @GroupId, @ScheduleId, IIF(@IntervalType = 'MONTH', DATEADD(DAY, 4, EOMONTH(@StartDate, @IntervalValue - 1)), DATEADD(DAY, @IntervalValue - 1, @StartDate))
     END
 
 	IF @GroupTypeId = 4 -- Hydrid
@@ -594,7 +595,7 @@ BEGIN
 
 		-- DealBillingSchedule
 		INSERT INTO dbo.DealBillingSchedule (GroupId, ScheduleId, NextBillingDate)
-		SELECT @GroupId, @ScheduleId, IIF(@IntervalType = 'MONTH', DATEADD(DAY, 5, EOMONTH(@StartDate, @IntervalValue - 1)), DATEADD(DAY, @IntervalValue - 1, @StartDate))
+		SELECT @GroupId, @ScheduleId, IIF(@IntervalType = 'MONTH', DATEADD(DAY, 4, EOMONTH(@StartDate, @IntervalValue - 1)), DATEADD(DAY, @IntervalValue - 1, @StartDate))
 	END
 	
 	-- =========================

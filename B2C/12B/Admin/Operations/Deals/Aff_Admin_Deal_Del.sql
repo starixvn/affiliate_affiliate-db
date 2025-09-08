@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_Deal_Del]
 	@UserId				INT
 	,@GroupId			INT
@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20250526@Lewis: Initialize SP [RedmineID: #228530]
+		- 20250903@Lewis: Drop Column IsInstant [RedmineID: #237540]
 
 	Parameter's Explanation:
 
@@ -61,7 +62,7 @@ BEGIN
 	END
 
 	--get GroupType, IsInstant
-	DECLARE @GroupTypeId TINYINT, @IsInstant BIT
+	DECLARE @GroupTypeId TINYINT
 	SELECT @GroupTypeId = GroupTypeId
 	FROM CommGroup WITH (NOLOCK) WHERE GroupId = @GroupId
 
@@ -142,8 +143,12 @@ BEGIN
 				HoldingDays AS hd,
 				HoldingTickets AS ht,
 				Quota AS q,
-				CASE WHEN IsInstant = 1 THEN 'Yes' ELSE 'No' END AS ip
-			FROM CommGroup WITH (NOLOCK)
+				RedepositDays AS rd,
+				RedepositRate as rr,
+				s.ScheduleName AS pf,
+				StartDate AS sd
+			FROM CommGroup cg WITH (NOLOCK)
+				INNER JOIN dbo.Schedule s WITH (NOLOCK) ON cg.ScheduleId = s.ScheduleId
 			WHERE GroupId = @GroupId
 			FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
 		)
@@ -153,8 +158,8 @@ BEGIN
 					SELECT STRING_AGG(CAST(ProductName AS VARCHAR(MAX)), ', ')
 					FROM (
 						SELECT DISTINCT p.ProductName
-						FROM CPAProductSetting tprod
-						LEFT JOIN Products p WITH (NOLOCK) ON p.ProductId = tprod.ProductId
+						FROM CPAProductSetting tprod WITH (NOLOCK)
+							LEFT JOIN Products p WITH (NOLOCK) ON p.ProductId = tprod.ProductId
 						WHERE tprod.GroupId = @GroupId AND tprod.ToDate = @ToDate AND tprod.GroupProductId = t1.GroupProductId
 					) AS DistinctProducts
 				) AS cpg,

@@ -49,6 +49,7 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250320@Lewis: Exclude Special Email [RedmineID: #220971]
 		- 20250417@Lewis: Add TargetCountry [RedmineID: #223644]
+		- 20250526@Lewis: Deals - AffGroupHistory [RedmineID: #228530]
 
 
 */
@@ -146,6 +147,10 @@ BEGIN
 
 	-- Generate username
 	EXEC dbo.Aff_GenerateUsername @PrefixName = @PrefixName, @Username = @Username OUTPUT
+	
+	DECLARE @CurrentDate DATETIME = DATEADD(HOUR, 12, GETDATE())
+	DECLARE @ActionDate DATETIME =  CAST(@CurrentDate AS DATE)
+			, @ToDate DATETIME = '9999-12-31'
 
 	-- Insert data
 	
@@ -156,10 +161,10 @@ BEGIN
 
 		SELECT @AffId = SCOPE_IDENTITY()
 
-		SELECT @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()) + 1, 0))
+		SELECT @MonthDate = EOMONTH(@CurrentDate)
 
-		INSERT INTO dbo.AffGroupHistory (AffId,MonthDate,GroupId,ParentAffId,AllParentAffId)
-		VALUES (@AffId,@MonthDate,0,@ParentAffId,@AllParentAffId)
+		INSERT INTO dbo.AffGroupHistory (AffId,MonthDate,GroupId,ParentAffId,AllParentAffId,FromDate,ToDate)
+		VALUES (@AffId,@MonthDate,0,@ParentAffId,@AllParentAffId,@ActionDate,@ToDate)
 	END TRY
 	BEGIN CATCH
 		-- Rollback manually

@@ -48,6 +48,7 @@ AS
 
 	Revisions:
 		- 20250617@Sally: Initialize SP [RedmineID: #212201]
+		- 20250526@Lewis: Deals - AffGroupHistory [RedmineID: #228530]
 
 */
 
@@ -69,8 +70,12 @@ BEGIN
 		,@AffCategoryId 	TINYINT
 		,@CurrentDate 		SMALLDATETIME
 	  	,@AffCode 			VARCHAR(20) = NULL
-		
-	SELECT @CurrentDate 	= GETDATE()
+	
+	
+	SELECT @CurrentDate 	= DATEADD(HOUR, 12, GETDATE())
+	DECLARE @FromDate DATETIME =  CAST(@CurrentDate AS DATE)
+	DECLARE @ToDate DATETIME = '9999-12-31'
+
 	SELECT @AffCategoryId 	= 2 -- Marketing Account
 	SELECT @MonthDate 		= EOMONTH(@CurrentDate)
 
@@ -159,8 +164,8 @@ BEGIN
 		SET AffCode = @AffCode
 		WHERE AffId = @AffId
 
-		INSERT INTO dbo.AffGroupHistory (AffId,MonthDate,GroupId)
-		VALUES (@AffId, @MonthDate, @GroupId)
+		INSERT INTO dbo.AffGroupHistory (AffId,MonthDate,GroupId, FromDate, ToDate)
+		VALUES (@AffId, @MonthDate, @GroupId, @FromDate, @ToDate)
 		-- AffDetail
 		INSERT INTO dbo.AffDetail
 		(
