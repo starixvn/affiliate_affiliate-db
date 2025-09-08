@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_Overview_PlayersDetail_Sel]
 	@AffId			INT
 	,@MonthDate		SMALLDATETIME
@@ -24,6 +24,7 @@ AS
 		- 20210916@Percy: Change WL to GGR [RedmineID: #161540]
 		- 20220629@Malcolm: Support an Affiliate remove player [RedmineID: #173640]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
+        - 20250905@Sally: Display new signup players [RedmineID: #237856]
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -48,7 +49,7 @@ BEGIN
 	-- date range for get data whole month of @MonthDate
 	DECLARE @BeginOfMonth SMALLDATETIME, @EndOfMonth SMALLDATETIME
 	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
-	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
+	SELECT  @EndOfMonth		= EOMONTH(@BeginOfMonth)
 
 	-- Get basecurrency mapping
 	DECLARE @BaseExchangeId INT = @BaseCurrency
@@ -56,7 +57,15 @@ BEGIN
 	FROM dbo.TpExchange t WITH (NOLOCK)
 	WHERE t.TpExchangeId = @BaseCurrency
 
-	CREATE TABLE #tmpData (CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, GGR MONEY, Bonus MONEY, Rebate MONEY)
+	CREATE TABLE #tmpData (
+        CustId INT PRIMARY KEY, 
+        Deposit MONEY DEFAULT(0), 
+        Withdrawal MONEY DEFAULT(0), 
+        Turnover MONEY DEFAULT(0), 
+        GGR MONEY DEFAULT(0), 
+        Bonus MONEY DEFAULT(0), 
+        Rebate MONEY DEFAULT(0)
+    )
 
 	DECLARE @Products TABLE (ProductId INT, IsStraightSetting BIT)
 		
@@ -99,6 +108,15 @@ BEGIN
 				WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
 			)
 		GROUP BY r.CustId
+
+        -- Get new signup players who have no any transaction in the month
+		INSERT INTO #tmpData(CustId)
+        SELECT m.CustId
+        FROM dbo.MemberInfo m WITH (NOLOCK)
+        WHERE m.AffId = @AffId
+            AND m.RegisteredDate >= @BeginOfMonth 
+            AND m.RegisteredDate < DATEADD(DAY, 1, @EndOfMonth)
+            AND NOT EXISTS (SELECT 1 FROM #tmpData d WHERE d.CustId = m.CustId)
 
 		SELECT @NRows = COUNT(1) FROM #tmpData
 	END
