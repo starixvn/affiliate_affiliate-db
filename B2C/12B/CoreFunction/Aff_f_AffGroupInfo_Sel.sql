@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize Function [RedmineID: #212201]
         - 20250417@Sally: Add Revenue Group column [RedmineID: #224286]
+        - 20250826@Lewis: Get last groupid in 1 month [RedmineID: #236665]
 
 	Param's Explanation:
 		- @AffIds : list of Affiliate's id
@@ -31,6 +32,7 @@ RETURN
 		WHERE (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), agh.AffId) + ',%')
 			 AND agh.MonthDate >= @FromDate
 			 AND agh.MonthDate <= @ToDate
+			 AND agh.MonthDate = EOMONTH(agh.MonthDate) -- 1 eomonth 1 groupid 1 affid
 	)
 	SELECT c.MonthDate
 		,c.GroupId
