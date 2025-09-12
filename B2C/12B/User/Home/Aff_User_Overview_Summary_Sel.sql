@@ -17,6 +17,7 @@ AS
 		- 20250313@Sally: Get Rate for  FDM's Deposit [RedmineID: #219974]
 		- 20250416@Sally: Change the data retrieval method for Deposit [RedmineID: #224116]
 		- 20250401@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
+		- 20250912@Sally: Get NetGGR data [RedmineID: #238476]
 */
 
 BEGIN
@@ -25,7 +26,7 @@ BEGIN
 	-- date range for get data whole month of @MonthDate
 	DECLARE @BeginOfMonth SMALLDATETIME, @EndOfMonth SMALLDATETIME
 	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
-	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
+	SELECT  @EndOfMonth		= EOMONTH(@BeginOfMonth)
 
 	DECLARE @BaseExchangeId INT = @BaseCurrency
 	SELECT @BaseExchangeId = t.ExchangeId
@@ -78,7 +79,7 @@ BEGIN
 
 	-- Active Players, Turnover, Deposit, Commission, QualifiedMember
 	BEGIN
-		DECLARE @NoOfSubAff INT, @ActivePlayers INT, @QualifiedMember INT, @Turnover MONEY, @Commission MONEY, @SubAffCommission MONEY
+		DECLARE @NoOfSubAff INT, @ActivePlayers INT, @QualifiedMember INT, @Turnover MONEY, @Commission MONEY, @SubAffCommission MONEY, @NetGGR MONEY
 
 		SELECT @NoOfSubAff = COUNT(1)
 		FROM dbo.AffInfo WITH (NOLOCK)
@@ -210,6 +211,7 @@ BEGIN
 			,@Turnover			= SUM(ISNULL(Turnover, 0))
 			,@Commission		= SUM(ISNULL(Commission, 0))
 			,@SubAffCommission	= SUM(ISNULL(SubAffCommission, 0))
+			,@NetGGR			= SUM(ISNULL(NetWinloss, 0))
 		FROM #TempCommission
 
 		DROP TABLE #TempCommission
@@ -229,6 +231,7 @@ BEGIN
 			,ISNULL(@NoOfSubAff, 0)			AS NoOfSubAff
 			,ISNULL(@SubAffCommission, 0)	AS SubAffCommission
 			,ISNULL(@FDMDeposit, 0)			AS FDMDeposit
+			,ISNULL(@NetGGR, 0)				AS NetGGR
 	END
 END
 GO
