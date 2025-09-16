@@ -302,18 +302,18 @@ BEGIN
 				SUM(Amount),
 				'B/F' AS Status,
 				'System' AS Creator,
-				CASE WHEN TransType = 201 THEN 'Monthly Earning' 
+				CASE 
 					 WHEN TransType = 206 THEN 'Approved CPA Earning'
-					 WHEN TransType = 207 THEN 'Approved Sub-Affiliate CPA Earning' ELSE 'Revenue Share' END AS Description
+					 WHEN TransType = 207 THEN 'Approved Sub-Affiliate CPA Earning' END AS Description
 			FROM (
 				SELECT md.MonthDate, at.TransType, ISNULL(at.Amount, 0) AS Amount
 				FROM CTE_MonthDate md
-					OUTER APPLY (
+					CROSS APPLY (
 						SELECT at.TransType, at.Amount
 						FROM dbo.AffTrans at WITH (NOLOCK)
 						WHERE md.MonthDate = EOMONTH(at.WinlostDate)
 							AND at.AffId = @AffId
-							AND at.TransType IN (201, 204, 206, 207)
+							AND at.TransType IN (206, 207)
 					) at
 			) t
 			GROUP BY MonthDate, TransType
