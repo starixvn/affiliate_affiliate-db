@@ -1,6 +1,7 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_TargetCountry_Sel]
-	@TargetCountryCode VARCHAR(5) = ''
+	@TargetCountryCode VARCHAR(5) = '',
+    @IsDefault BIT = 1
 AS
 
 /*
@@ -10,6 +11,7 @@ AS
 
 	Revisions:
 		- 20250417@Lewis: Initialize SP [RedmineID: #223644]
+        - 20250825@Sally: Support en-US for all TargetCountry [RedmineID: #234155]
 
 */
 
@@ -17,15 +19,25 @@ BEGIN
 	SET NOCOUNT ON
 	
 	;WITH CTE_Market AS (
-		SELECT tc.CountryCode, tc.CountryName, tc.MarketId, tc.MarketName, tc.OrderNo
+		SELECT tc.CountryCode, tc.CountryName, tc.MarketId, tc.MarketName, m.MarketNativeName, tc.ShortedCode
+			,ISNULL(tl.TargetLanguageCode, tc.ShortedCode) AS TargetLanguageCode
+			,CASE WHEN tc.OrderNo IS NULL THEN tc1.OrderNo ELSE tc.OrderNo END AS OrderNo
+			,CASE WHEN tc.OrderNo IS NOT NULL THEN 1 ELSE 0 END AS IsDefault
 		FROM TargetCountry tc WITH (NOLOCK)
-		WHERE EXISTS (SELECT 1 FROM dbo.Market m WITH (NOLOCK) WHERE m.MarketId = tc.MarketId AND m.IsDeleted = 0 )
-			AND tc.OrderNo IS NOT NULL
+			LEFT JOIN dbo.TargetCountry tc1 WITH (NOLOCK) ON tc1.CountryCode = tc.CountryCode
+			INNER JOIN dbo.Market m WITH (NOLOCK) ON m.MarketId = tc.MarketId
+			LEFT JOIN dbo.Aff_f_GetTargetLanguageCode() tl ON tc.ShortedCode = tl.ShortedCode
+		WHERE m.IsDeleted = 0
+			AND tc1.OrderNo IS NOT NULL
+			AND (
+				(tc.OrderNo IS NOT NULL AND @IsDefault = 1) 
+				OR @IsDefault = 0
+			)
 			AND (@TargetCountryCode = '' OR tc.CountryCode = @TargetCountryCode)
 	)
-	SELECT OrderNo, CountryCode AS [TargetCountryCode], CountryName AS [TargetCountryName], MarketId AS [DefaultLanguageCode]
+	SELECT OrderNo, CountryCode AS [TargetCountryCode], CountryName AS [TargetCountryName], MarketId, MarketName, MarketNativeName, ShortedCode, TargetLanguageCode
 	FROM CTE_Market
-	ORDER BY OrderNo;
+	ORDER BY OrderNo, IsDefault DESC;
 
 END
 GO

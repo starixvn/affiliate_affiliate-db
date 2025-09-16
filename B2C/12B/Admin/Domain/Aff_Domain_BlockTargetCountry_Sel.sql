@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20250417@Lewis: Initialize SP [RedmineID: #223644]
+        - 20250910@Lewis: Support en-US for all TargetCountry [RedmineID: #237465]
 */
 BEGIN
 	SET NOCOUNT ON
@@ -114,7 +115,7 @@ BEGIN
 	END
 	
 	-- TODO: Result
-	SELECT 
+	SELECT DISTINCT
 			g.CountryCode AS TargetCountryCode
 			, g.CountryName AS TargetCountryName
 			, g.Status
