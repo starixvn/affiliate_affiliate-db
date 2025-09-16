@@ -257,7 +257,7 @@ BEGIN
 				'B/F' AS Status,
 				'System' AS Creator,
 				CASE WHEN MonthDate >= @CurrentDate THEN 'Current ' ELSE 'UnCalculated ' END
-					+ CASE WHEN TransType = 201 THEN 'Temporary Monthly Earning' ELSE 'Revenue Share' END AS Description,
+					+ CASE WHEN TransType = 201 THEN 'Temporary Monthly Earning' ELSE 'Temporary Sub-Affiliate Revenue Share' END AS Description,
 				CASE WHEN MonthDate >= @CurrentDate THEN 0 ELSE 1 END AS CalculatedType
 			FROM (
 				SELECT md.MonthDate,TransType, ISNULL(at.Amount, 0) AS Amount
