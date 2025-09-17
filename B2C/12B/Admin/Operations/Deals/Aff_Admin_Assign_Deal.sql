@@ -15,6 +15,7 @@ AS
 	
 	Revisions:
 		- 20250526@Lewis: Init [RedmineID: #228530]
+		- 20250916@Lewis: Enhance Write log [RedmineID: #238483]
 */
 
 BEGIN
@@ -47,14 +48,22 @@ BEGIN
 
 	DECLARE @OldGroupId INT
 	SELECT  @OldGroupId = GroupId FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @AffId
+	
+	DECLARE @MonthDate SMALLDATETIME
+	SELECT  @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @CurrentDate) + 1, 0))
 
 	IF ISNULL(@OldGroupId, 0) = @GroupId
 	BEGIN
 		RETURN
 	END
 
-	DECLARE @MonthDate SMALLDATETIME
-	SELECT  @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @CurrentDate) + 1, 0))
+	DECLARE @OldActionDate DATETIME = ''
+	SELECT @OldActionDate = FromDate 
+	FROM dbo.AffGroupHistory WITH (NOLOCK)
+	WHERE AffId = @AffId
+		AND GroupId = @OldGroupId
+		AND MonthDate = @MonthDate
+		AND ToDate = @ToDate
 
 	--TODO: Assign Deal
 	UPDATE dbo.AffInfo WITH (ROWLOCK, UPDLOCK)
@@ -89,8 +98,34 @@ BEGIN
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
-	SELECT  @OldData = 'GroupId=' + ISNULL(CONVERT(VARCHAR(20), @OldGroupId), ''),
-			@NewData = 'GroupId=' + ISNULL(CONVERT(VARCHAR(20), @GroupId), '')
+
+	-- Get Old Group Info & Format JSON
+	SELECT @OldData = (
+		SELECT 
+			ISNULL(cg.GroupName, '') as dn,
+			ISNULL(gt.GroupTypeName, '') as dt,
+			ISNULL(@OldActionDate, '') as ad
+		FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+	)
+	FROM dbo.CommGroup cg WITH (NOLOCK)
+		INNER JOIN dbo.GroupType gt WITH (NOLOCK) ON cg.GroupTypeId = gt.GroupTypeId
+	WHERE cg.GroupId = @OldGroupId
+
+	-- Get New Group Info & Format JSON  
+	SELECT @NewData = (
+		SELECT 
+			ISNULL(cg.GroupName, '') as dn,
+			ISNULL(gt.GroupTypeName, '') as dt,
+			ISNULL(@ActionDate, '') as ad
+		FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+	)
+	FROM dbo.CommGroup cg WITH (NOLOCK)
+		INNER JOIN dbo.GroupType gt WITH (NOLOCK) ON cg.GroupTypeId = gt.GroupTypeId
+	WHERE cg.GroupId = @GroupId
+
+	-- Wrap in 'da' object
+	SELECT  @OldData = '{"da":' + ISNULL(@OldData, '') + '}',
+			@NewData = '{"da":' + ISNULL(@NewData, '') + '}'
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,
