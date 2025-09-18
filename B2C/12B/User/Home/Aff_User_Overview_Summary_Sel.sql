@@ -21,6 +21,7 @@ AS
 		- 20250929@Sophia: Add TotalClick and UniqueClick columns [RedmineID: #239549]
 		- 20251002@Sophia: Implement hybrid approach using rptMemberDaily for historical data and DepositInfo for recent data based on commission date boundary [RedmineID: #239737]
 		- 20251022@Sophia: Add IsExcluded = 0 condition to filter excluded clicks [RedmineID: #241768]
+		- 20250918@Lewis: Get CPAAmount data [RedmineID: #238519]
 
 	Notes:
 	  - rptMemberDaily.WinlostDate is in GMT+8
@@ -194,7 +195,7 @@ BEGIN
 			AND Status IN ('Pending', 'Approved', 'Completed')
 	END
 
-	-- Active Players, Turnover, Deposit, Commission, QualifiedMember
+	-- Active Players, Turnover, Deposit, Commission, QualifiedMember, NetGGR
 	BEGIN
 		DECLARE @NoOfSubAff INT, @ActivePlayers INT, @QualifiedMember INT, @Turnover MONEY, @Commission MONEY, @SubAffCommission MONEY, @NetGGR MONEY
 
@@ -334,6 +335,65 @@ BEGIN
 		DROP TABLE #TempCommission
 	END
 
+	--CPAAmount
+	DECLARE @CPAAmount MONEY
+			,@IsHybridSetting BIT = 0
+			,@GroupTypeName NVARCHAR(200)
+	
+	-- GroupTypeId
+	SELECT @GroupTypeName = gt.GroupTypeName
+	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.IsDeleted = 0 AND cg.GroupId = agh.GroupId
+		INNER JOIN dbo.GroupType gt WITH (NOLOCK) ON cg.GroupTypeId = gt.GroupTypeId
+	WHERE agh.MonthDate BETWEEN @BeginOfMonth AND @EndOfMonth
+		AND agh.AffId = @AffId
+		AND agh.MonthDate = EOMONTH(@MonthDate) -- 1groupid 1affid 1month
+
+	-- IsHybridSetting
+	IF EXISTS ( --Hybrid
+				SELECT TOP 1 1
+				FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+				JOIN dbo.CommGroup cg WITH (NOLOCK) 
+					ON cg.GroupId = agh.GroupId
+				WHERE agh.AffId = @AffId
+				  AND agh.MonthDate BETWEEN @BeginOfMonth AND @EndOfMonth
+				  AND cg.IsDeleted = 0
+				  AND cg.GroupTypeId = 4 
+		)
+		OR ( --Revenue and CPA
+			EXISTS (
+					SELECT TOP 1 1
+					FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+					JOIN dbo.CommGroup cg WITH (NOLOCK) 
+						ON cg.GroupId = agh.GroupId
+					WHERE agh.AffId = @AffId
+					  AND agh.MonthDate BETWEEN @BeginOfMonth AND @EndOfMonth
+					  AND cg.IsDeleted = 0
+					  AND cg.GroupTypeId = 1
+			)
+			AND EXISTS (
+						SELECT TOP 1 1
+						FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+						JOIN dbo.CommGroup cg WITH (NOLOCK)
+							ON cg.GroupId = agh.GroupId
+						WHERE agh.AffId = @AffId
+						  AND agh.MonthDate BETWEEN @BeginOfMonth AND @EndOfMonth
+						  AND cg.IsDeleted = 0
+						  AND cg.GroupTypeId = 3
+			)
+		)
+	BEGIN
+		SET @IsHybridSetting = 1
+	END
+
+
+	-- CPAAmount
+	SELECT @CPAAmount = SUM(m.CPAAmount)
+	FROM dbo.MemberCPA m WITH (NOLOCK)
+	WHERE m.AffId = @AffId
+		AND m.HoldingQualifiedDate BETWEEN @BeginOfMonth AND @EndOfMonth --View by HoldingQualifiedDate
+		AND m.StatusId IN (2,3) --Estimate CPAAmount
+
 	-- Return result
 	BEGIN
 		SELECT
@@ -351,6 +411,9 @@ BEGIN
 			,ISNULL(@NetGGR, 0)				AS NetGGR
 			,ISNULL(@TotalClick, 0)			AS TotalClick
 			,ISNULL(@UniqueClick, 0)			AS UniqueClick
+			,ISNULL(@CPAAmount, 0)			AS CPAAmount
+			,@IsHybridSetting				AS IsHybridSetting
+			,@GroupTypeName					AS GroupType
 	END
 END
 GO
