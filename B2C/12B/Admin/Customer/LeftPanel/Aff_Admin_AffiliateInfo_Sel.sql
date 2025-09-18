@@ -17,6 +17,7 @@ AS
         - 20250623@Sally: Get info Affcategory [RedmineID: #212201]
 		- 20250526@Lewis: Deals - add dealtypename [RedmineID: #228530]
         - 20250910@Lewis: Support en-US for all TargetCountry [RedmineID: #237465]
+        - 20250917@Sally: get TargetCountry Info [RedmineID: #238480]
 
 */
 
@@ -123,7 +124,7 @@ BEGIN
 		OUTER APPLY (SELECT TOP 1 ds.IsDeductedPercent FROM dbo.DeductionSetting ds WITH (NOLOCK) WHERE cg.GroupId = ds.GroupId AND ds.DeductionId = 14) wit
 		LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON ai.ApprovedBy = u.CustId
 		LEFT JOIN dbo.Aff_f_Get_SecurityQuestions ('en-US') q ON ad.QuestionID = q.QuestionID
-		LEFT JOIN dbo.TargetCountry tc WITH (NOLOCK) ON tc.CountryCode = ad.TargetCountryCode AND ad.PreferredLanguage = tc.MarketID
+		LEFT JOIN dbo.Country tc WITH (NOLOCK) ON tc.CountryCode = ad.TargetCountryCode
 	WHERE ai.AffId = @AffId
 END
 GO
