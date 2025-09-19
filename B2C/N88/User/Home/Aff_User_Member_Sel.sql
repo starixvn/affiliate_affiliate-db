@@ -1,5 +1,5 @@
 /*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
-ALTER PROCEDURE [dbo].[Aff_Admin_Member_Sel]
+ALTER PROCEDURE [dbo].[Aff_User_Member_Sel]
 	@AffId		INT,
 	@MemberType	SMALLINT = 0,
 	@FromDate	SMALLDATETIME = NULL,
@@ -11,15 +11,12 @@ ALTER PROCEDURE [dbo].[Aff_Admin_Member_Sel]
 AS
 
 /*
-	Created: 20200220@Percy
+	Created: 20250919@Danny
 	DB: DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G
-	Task: Admin Site - Customer - Member
+	Task: User Site - Account Overview - Member List
 
 	Revisions:
-		- 20200220@Percy: Initialize SP [RedmineID: #128775]
-		- 20201109@Percy: Change way to get FDM [RedmineID: #145020]
-		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
-        - 20250429@Sally: Default show Active player [RedmineID: #224335]
+		- 20250919@Danny: Initialize SP [RedmineID: #128775]
 	
 	Param's Explanation:
 		@MemberType:
@@ -37,15 +34,12 @@ BEGIN
 	(
 		CustId			INT
 		,UserName		VARCHAR(50)
-		,FirstName		NVARCHAR(50)
-		,LastName		NVARCHAR(50)
-		,Email			NVARCHAR(200)
 		,Currency		INT
 		,RegisteredDate	DATETIME
 	)
 
-	INSERT INTO #MemberInfo (CustId, UserName, FirstName, LastName, Email, Currency, RegisteredDate)
-	SELECT CustId, UserName, FirstName, LastName, Email, Currency, RegisteredDate
+	INSERT INTO #MemberInfo (CustId, UserName,  Currency, RegisteredDate)
+	SELECT CustId, UserName, Currency, RegisteredDate
 	FROM dbo.MemberInfo WITH (NOLOCK)
 	WHERE AffId = @AffId
 		AND (IsRemoved = 0 OR @IsGetAll = 1)
@@ -71,10 +65,10 @@ BEGIN
 			@RowEnd		= @RowStart + @PageSize - 1
 
 	-- Return data
-	SELECT CustId, UserName, FirstName, LastName, Email, Currency, RegisteredDate
+	SELECT CustId, UserName, Currency, RegisteredDate
 	FROM
 	(
-		SELECT mi.CustId, mi.UserName, mi.FirstName, mi.LastName, mi.Email, e.Currency, mi.RegisteredDate,
+		SELECT mi.CustId, mi.UserName, e.Currency, mi.RegisteredDate,
 			ROW_NUMBER() OVER(ORDER BY mi.RegisteredDate DESC) AS RowNum
 		FROM #MemberInfo mi
 			LEFT JOIN TpExchange t WITH (NOLOCK) ON t.TpExchangeId = mi.Currency
