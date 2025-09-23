@@ -13,6 +13,7 @@ AS
 	Revisions:
 		- 20250417@Lewis: Initialize SP [RedmineID: #223644]
 		- 20250721@Eddie: Add new condition [RedmineID: #233219]
+        - 20250918@Sally: Get PageCode Active Status [RedmineID: #236797]
 */
 
 BEGIN
@@ -25,16 +26,14 @@ BEGIN
 	SELECT DISTINCT lp.PageId, lp.PageName, lp.PageCode
 	FROM dbo.LandingPage lp WITH (NOLOCK)
 		OUTER APPLY(
-					SELECT t.CountryCode
-					FROM(
-							SELECT DISTINCT CountryCode
-							FROM dbo.TargetCountry WITH (NOLOCK)
-							WHERE CountryCode NOT IN (SELECT value FROM STRING_SPLIT(lp.BlockTargetCountry, ','))
-						) AS t
-					) As oam
+			SELECT CountryCode
+			FROM dbo.Country WITH (NOLOCK)
+			WHERE CountryCode NOT IN (SELECT value FROM STRING_SPLIT(lp.BlockTargetCountry, ','))
+		) As oam
 	WHERE IsDeleted = 0 
-	  AND (@TargetCountryCode = '' OR oam.CountryCode = @TargetCountryCode)
-	  AND ( @AffID = 0
+        AND lp.StatusId = 1  -- Active Status
+	    AND (@TargetCountryCode = '' OR oam.CountryCode = @TargetCountryCode)
+	    AND ( @AffID = 0
 		 OR lp.IsExcluded = 1 AND lp.DealIds = ''
 		 OR lp.IsExcluded = 1 AND ( ',' + lp.DealIds + ',' NOT LIKE ('%,' + CONVERT(VARCHAR(10), @DealId) + ',%' ) )
 		 OR lp.IsExcluded = 0 AND lp.DealIds = '0'

@@ -16,6 +16,7 @@ AS
     Revisions:
         - 20250730@Lewis: Generate redirect page URL without click tracking [RedmineID: #233088]
 		- 20250808@Eddie: Add new condition [RedmineID: #233219]
+        - 20250918@Sally: Get PageCode Active Status [RedmineID: #236797]
 */
 BEGIN
 	SET NOCOUNT ON;
@@ -66,7 +67,8 @@ BEGIN
 		SELECT @IsMobile_LP = IsMobile
 		FROM dbo.LandingPage WITH (NOLOCK)
 		WHERE IsDeleted = 0
-		  AND PageCode = @PageCode
+            AND StatusId = 1  -- Active Status
+		    AND PageCode = @PageCode
 
 		-- Default pageid
 		SELECT @Default_PageId = CONVERT(SMALLINT, SValue)
@@ -99,11 +101,12 @@ BEGIN
 			SELECT 1
 			FROM dbo.LandingPage WITH (NOLOCK)
 			WHERE IsDeleted = 0
-			AND PageCode = @PageCode
-			AND (
-				   IsExcluded = 1 AND ( ',' + DealIds + ',' LIKE ('%,' + CONVERT(VARCHAR(10), @DealId) + ',%' ) )
-				OR IsExcluded = 0 AND ( ',' + DealIds + ',' NOT LIKE ('%,' + CONVERT(VARCHAR(10), @DealId) + ',%' ) AND DealIds <> '0' )
-			)
+                AND StatusId = 1  -- Active Status 
+                AND PageCode = @PageCode
+                AND (
+                    IsExcluded = 1 AND ( ',' + DealIds + ',' LIKE ('%,' + CONVERT(VARCHAR(10), @DealId) + ',%' ) )
+                    OR IsExcluded = 0 AND ( ',' + DealIds + ',' NOT LIKE ('%,' + CONVERT(VARCHAR(10), @DealId) + ',%' ) AND DealIds <> '0' )
+                )
 		)
 		BEGIN
 			SELECT @PageCode = @Default_PageCode
