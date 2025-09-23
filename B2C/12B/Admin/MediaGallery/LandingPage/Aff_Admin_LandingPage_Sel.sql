@@ -12,6 +12,7 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
 		- 20250721@Eddie: Add new condition [RedmineID: #233219]
+		- 20250917@Sophia: Added CanEdit column and add StatusId = 1 condition [RedmineID: #236797]
 */
 
 BEGIN
@@ -24,8 +25,13 @@ BEGIN
 	FROM dbo.SystemSettings WITH (NOLOCK)
 	WHERE SName = 'LandingPage'
 
-	SELECT lp.PageId, lp.PageName, lp.PageCode, oa.BlockTargetCountry, lp.IsMobile, lp.IsExcluded, lp.DealIds, IIF(PageId = @Default_PageId, 1, 0) AS IsDefault -- 'join' is the default
+	SELECT lp.PageId, lp.PageName, lp.PageCode, oa.BlockTargetCountry, lp.IsMobile, lp.IsExcluded, lp.DealIds, lp.StatusId, IIF(lp.PageId = @Default_PageId, 1, 0) AS IsDefault -- 'join' is the default
+		,CASE 
+			WHEN lb.PageCode IS NULL THEN 1
+			ELSE 0
+		END AS CanEdit
 	FROM dbo.LandingPage lp WITH (NOLOCK)
+	LEFT JOIN dbo.LandingPage_Builder lb WITH (NOLOCK) ON lb.PageCode = lp.PageCode
 	OUTER APPLY (
 					SELECT STRING_AGG(t.CountryName, ', ') AS BlockTargetCountry
 					FROM(
@@ -34,8 +40,8 @@ BEGIN
 							INNER JOIN STRING_SPLIT(lp.BlockTargetCountry, ',') s ON s.value = tc.CountryCode
 						) t
 				) AS oa
-	WHERE IsDeleted = 0
-	  AND (@PageId IS NULL OR PageId = @PageId)
-	ORDER BY PageId DESC
+	WHERE lp.IsDeleted = 0	 
+	  AND (@PageId IS NULL OR lp.PageId = @PageId)
+	ORDER BY lp.PageId DESC
 END
 GO

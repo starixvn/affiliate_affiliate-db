@@ -9,6 +9,7 @@ AS
     Output: Table with ShortedCode and corresponding TargetLanguageCode
     Revisions:
         - 20250915@Sophia: Initial version [RedmineID: #236797]
+        - 20250917@Sophia: Removed hardcoded values, kept only hitg mapping [RedmineID: #236797]
     Example:
         SELECT * FROM dbo.Aff_f_GetTargetLanguageCode()
   
@@ -16,9 +17,6 @@ AS
 RETURN
     SELECT ShortedCode, TargetLanguageCode
     FROM (VALUES
-        ('jp', 'en'),
-        ('hien', 'en'),
-        ('mycs', 'cs'),
         ('hitg', 'te')
     ) AS Codes(ShortedCode, TargetLanguageCode);
 GO

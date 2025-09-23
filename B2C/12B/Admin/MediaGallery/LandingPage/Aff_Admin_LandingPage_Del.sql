@@ -15,10 +15,11 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250721@Eddie: Add new condition [RedmineID: #233219]
+		- 20250918@Sophia: Add check for existing LandingPage_Builder table [RedmineID: #236797]
 */
 
 BEGIN
-	SET NOCOUNT ON
+	SET NOCOUNT ON;
 
 	DECLARE @Language VARCHAR(10) = 'en-US'
 		   ,@Default_PageId SMALLINT
@@ -31,32 +32,48 @@ BEGIN
 		@ErrMsg		= @ErrMsg OUTPUT
 
 	IF @ErrCode <> 0
-		RETURN
+	BEGIN
+		RETURN;
+	END
 	
 	IF ISNULL(@PageIds, '') = ''
-		RETURN
+		RETURN;
+
+	-- Check if any of the pages are linked in LandingPage_Builder
+	IF EXISTS (
+		SELECT 1
+		FROM dbo.LandingPage p WITH (NOLOCK)
+		INNER JOIN dbo.LandingPage_Builder b WITH (NOLOCK) ON b.PageCode = p.PageCode
+		WHERE p.PageId IN (SELECT val FROM dbo.Aff_f_StringSplit(@PageIds, ','))
+		AND p.IsDeleted = 0
+	)
+	BEGIN
+		SELECT @ErrCode = 108, @ErrMsg = 'One or more landing pages are linked to builder pages and cannot be deleted';
+		RETURN;
+	END
 
 	DECLARE @LandingPage TABLE (PageId SMALLINT)
 	
 	-- Default pagecode
 	SELECT @Default_PageId = CONVERT(SMALLINT, SValue)
 	FROM dbo.SystemSettings WITH (NOLOCK)
-	WHERE SName = 'LandingPage'
+	WHERE SName = 'LandingPage';
 
 	UPDATE lp WITH (ROWLOCK, UPDLOCK)
 	SET lp.IsDeleted = 1
+		,lp.StatusId = 2 -- Set status to Inactive when deleting
 	OUTPUT DELETED.PageId INTO @LandingPage (PageId)
 	FROM dbo.LandingPage lp
 	WHERE EXISTS (SELECT 1 FROM dbo.Aff_f_StringSplit (@PageIds, ',') f WHERE lp.PageId = f.val AND lp.PageId <> @Default_PageId) -- Default pagecode must not be deleted
 		AND lp.IsDeleted = 0
-	OPTION(MAXRECURSION 0)
+	OPTION(MAXRECURSION 0);
 
 	IF @@ROWCOUNT = 0
 		RETURN
 
 	-- Write log
-	DECLARE @SPName VARCHAR(200)
-	SELECT  @SPName = OBJECT_NAME(@@PROCID)
+	DECLARE @SPName VARCHAR(200);
+	SELECT  @SPName = OBJECT_NAME(@@PROCID);
 
 	DECLARE @OldData NVARCHAR(MAX)
 
@@ -71,6 +88,6 @@ BEGIN
 		@SPName		= @SPName,
 		@OldData	= @OldData,
 		@IP			= @IP,
-		@Language	= @Language
-END
+		@Language	= @Language;
+END;
 GO
