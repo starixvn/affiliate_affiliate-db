@@ -9,6 +9,7 @@ AS
 	Revisions:  
 		- 20250725@Lewis: Initialize SP [RedmineID: #233088]
 		- 20250808@Eddie: Return more info [RedmineID: #233219]
+        - 20250918@Sally: Get PageCode Active Status [RedmineID: #236797]
 */
 BEGIN
     SET NOCOUNT ON;
@@ -76,6 +77,7 @@ BEGIN
 	SELECT PageCode, IsMobile, IsExcluded, DealIds, IIF(PageId = @Default_PageId, 1, 0) AS IsDefault -- 'join' is the default
 	FROM dbo.LandingPage WITH (NOLOCK)
 	WHERE IsDeleted = 0
+		AND StatusId = 1  -- Active Status
 END
 GO
 
