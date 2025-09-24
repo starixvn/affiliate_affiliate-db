@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_Login_UserInfoSel]
 	@UserName NVARCHAR(50)
 AS
@@ -15,6 +15,7 @@ AS
 		- 20210426@Percy: Convert data type output column: IsMaxSubLevel [RedmineID: #153465]
 		- 20211005@Percy: Support Transfer Balance For Player [RedmineID: #153227]
 		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
+		- 20250924@Lewis: Add column TargetCountryCode [RedmineID: #239247]
 
 	Parameter's Explanation:
 		- @UserName: username
@@ -62,6 +63,7 @@ BEGIN
 		,CONVERT(BIT, ISNULL(ad.DisabledTransfer, 1)) AS DisabledTransfer
 		,ISNULL(@Dep_IsDeductedPercent, 0) AS Dep_IsDeductedPercent
 		,ISNULL(@Wit_IsDeductedPercent, 0) AS Wit_IsDeductedPercent
+		,ad.TargetCountryCode 
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffID = ad.AffID
 		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupID = cg.GroupID
