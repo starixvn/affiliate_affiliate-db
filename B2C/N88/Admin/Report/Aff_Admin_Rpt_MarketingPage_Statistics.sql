@@ -20,6 +20,7 @@ AS
 		- 20241118@Lewis: LanguageCode = ALL => show NULL [RedmineID: #219779]
 		- 20250409@Sophia: Add ChannelCode into ClickStatistics [Redmine: #223356]
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225821]
+		- 20250729@Danny:  Use table TargetCountry [RedmineID: #227560]
 */
 
 BEGIN
@@ -157,7 +158,7 @@ BEGIN
 	INSERT INTO #tmp_Result (AffId, ChannelName, AffMediaLink, MarketName, TotalClick, UniqueClick, SignUps, FDM)
 	SELECT d.AffId, ISNULL(c.ChannelName,'Others'), d.AffMediaLink, m.MarketName, SUM(TotalClick), SUM(UniqueClick), SUM(SignUps), SUM(FDM)
 	FROM CTE_Result d
-	LEFT JOIN dbo.Market m WITH (NOLOCK) 
+	LEFT JOIN dbo.TargetCountry m WITH (NOLOCK) 
         ON d.ShortedCode = m.ShortedCode 
 	LEFT JOIN dbo.AffMediaChannel c WITH (NOLOCK) 
 		ON d.ChannelCode = c.ChannelCode 

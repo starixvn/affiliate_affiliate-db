@@ -1,9 +1,10 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_LicenseeDomain_Ins]
 	@UserId			INT
 	,@DomainName	NVARCHAR(50)
 	,@IsSSL			BIT = 0
 	,@IP			NVARCHAR(15) = ''
+	,@BlockTargetCountry	VARCHAR(200) = '' 
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
@@ -15,6 +16,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20250729@Danny: Add BlockTargetCountry [RedmineID: #227560]
 */
 
 BEGIN
@@ -62,6 +64,7 @@ BEGIN
 			,Creator
 			,W3Prefix
 			,IsSSL
+			,BlockTargetCountry
 		)
 		VALUES
 		(
@@ -71,6 +74,7 @@ BEGIN
 			,@UserId
 			,@W3Prefix
 			,@IsSSL
+			,@BlockTargetCountry 
 		)
 
 		SELECT @DomainId = SCOPE_IDENTITY()
@@ -87,6 +91,7 @@ BEGIN
 	SELECT  @NewData = 'DomainId=' + CONVERT(VARCHAR(10), @DomainId)
 					+ ',DomainName=' + @DomainName
 					+ ',IsSSL=' + CONVERT(VARCHAR(1), @IsSSL)
+					+ ',BlockTargetCountry=' + @BlockTargetCountry 
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId

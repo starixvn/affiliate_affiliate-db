@@ -1,11 +1,12 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateDomain_Ins]
-	@UserId			INT
-	,@DomainName	NVARCHAR(50)
-	,@IsSSL			BIT = 0
-	,@IP			NVARCHAR(40) = ''
-	,@ErrCode		INT = 0 OUTPUT
-	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+	@UserId					INT
+	,@DomainName			NVARCHAR(50)
+	,@IsSSL					BIT = 0
+	,@IP					NVARCHAR(40)	= ''
+	,@ErrCode				INT = 0					OUTPUT
+	,@ErrMsg				NVARCHAR(4000)	= ''	OUTPUT
+	,@BlockTargetCountry	VARCHAR(200)	= ''
 AS
 
 /*  
@@ -15,6 +16,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20250729@Danny: Add BlockTargetCountry [RedmineID: #227560]
 */
 
 BEGIN
@@ -56,6 +58,7 @@ BEGIN
 			,ModifyDate
 			,Creator
 			,IsSSL
+			,BlockTargetCountry
 		)
 		VALUES
 		(
@@ -64,6 +67,7 @@ BEGIN
 			,GETDATE()
 			,@UserId
 			,@IsSSL
+			,@BlockTargetCountry
 		)
 
 		SELECT @DomainId = SCOPE_IDENTITY()
@@ -80,6 +84,7 @@ BEGIN
 	SELECT  @NewData = 'DomainId=' + CONVERT(VARCHAR(10), @DomainId)
 					+ ',DomainName=' + @DomainName
 					+ ',IsSSL=' + CONVERT(VARCHAR(1), @IsSSL)
+					+ ',BlockTargetCountry=' + @BlockTargetCountry
 
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId
