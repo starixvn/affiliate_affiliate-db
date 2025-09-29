@@ -28,6 +28,7 @@ AS
 		- 20250416@Sophia: Get report by timezone [RedmineID: 222401]
 		- 20250505@Sophia: Fix Signups duplicated data [RedmineID: #226056]
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225821]
+		- 20250926@Lewis: use marketid for param @LanguageCode and data ouptut column LanguageCode [RedmineID: #238489]
 		
 	Param:
 		@DeviceType = -1 : all 
@@ -48,6 +49,14 @@ BEGIN
 
 	CREATE TABLE #Result (UrlReferrer NVARCHAR(300), DeviceType TINYINT, TotalClick INT DEFAULT(0), IP VARCHAR(25), Signups BIGINT DEFAULT(0), FDM BIGINT DEFAULT(0))
 	CREATE TABLE #SumResult (UrlReferrer NVARCHAR(300), DeviceType TINYINT, TotalClick INT DEFAULT(0), UniqueClick INT DEFAULT(0), Signups BIGINT DEFAULT(0), FDM BIGINT DEFAULT(0))
+
+	-- get ShortedCode
+	DECLARE @ShortedCode TABLE (ShortedCode VARCHAR(10))
+
+	INSERT INTO @ShortedCode (ShortedCode)
+	SELECT DISTINCT ShortedCode 
+	FROM TargetCountry WITH (NOLOCK) 
+	WHERE MarketID = @LanguageCode OR @LanguageCode IS NULL
 
 	-- Normalize date parameters to start/end of day
 	SELECT @FromDate = CONVERT(DATE, @FromDate)
@@ -72,10 +81,10 @@ BEGIN
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
 		LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickID = mi.clickID
 		LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickID = mi.clickID
+		LEFT JOIN @ShortedCode sc ON sc.ShortedCode = ISNULL(md.LanguageCode, bk.LanguageCode)
 	WHERE mi.AffId = @AffID
 		AND (@Domain IS NULL OR COALESCE(md.DomainReferrer, bk.DomainReferrer, 'none') = @Domain)
-		AND (@SportCode IS NULL OR COALESCE(md.SportCode, bk.SportCode, 'none') = @SportCode)
-		AND (@LanguageCode IS NULL OR COALESCE(md.LanguageCode, bk.LanguageCode, 'none')  = @LanguageCode)			
+		AND (@SportCode IS NULL OR COALESCE(md.SportCode, bk.SportCode, 'none') = @SportCode)			
 		AND (	
 				(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
 				OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
@@ -97,13 +106,13 @@ BEGIN
 				
 		INSERT INTO #Result (URLReferrer, DeviceType, TotalClick, IP)		
 		SELECT ISNULL(URLReferrer, 'none'), ISNULL(DeviceType, 0), SUM(1) AS TotalClick, IP
-		FROM dbo.ClickStatistics WITH (NOLOCK)
+		FROM dbo.ClickStatistics c WITH (NOLOCK)
 		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
 			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
 			AND AffId = @AffID
 			AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
 			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
+			AND EXISTS (SELECT TOP 1 1 FROM @ShortedCode sc WHERE sc.ShortedCode = c.LanguageCode)
 		GROUP BY ISNULL(URLReferrer, 'none'), ISNULL(DeviceType, 0), IP
 		
 		
@@ -123,7 +132,7 @@ BEGIN
 			AND AffId = @AffID 
 			AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
 			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
+			AND EXISTS (SELECT TOP 1 1 FROM @ShortedCode sc WHERE sc.ShortedCode = c.LanguageCode)
 		GROUP BY ISNULL(URLReferrer, 'none'), ISNULL(DeviceType, 0), IP
 
 	END

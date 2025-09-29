@@ -3,8 +3,8 @@ ALTER PROCEDURE [dbo].[Aff_ClickStatistics_Ins]
 	@AffId				INT
 	,@AffDomain			NVARCHAR(50) = ''
 	,@PageCode			VARCHAR(50) = ''
-	,@LanguageCode		VARCHAR(5) = 'en'
-	,@IP				VARCHAR(25) = ''
+	,@LanguageCode		VARCHAR(20) = 'en'
+	,@IP				VARCHAR(50) = ''
 	,@Browser			NVARCHAR(50) = ''
 	,@URLReferrer		NVARCHAR(300) = NULL
 	,@DomainReferrer	NVARCHAR(300) = NULL
@@ -35,10 +35,19 @@ AS
 		- 20250320@Sophia: Add clickID into RedirectPage [Redmine: #221818]
 		- 20250408@Sophia: Change AffCode instead of AffId, remove /Register [Redmine: #221818]
 		- 20250409@Sophia: Add ChannelCode into ClickStatistics [Redmine: #223356]
+		- 20250806@Eddie: Improve the code logic [RedmineID: #227560]
 */
 
 BEGIN
 	SET NOCOUNT ON
+
+	DECLARE @IsClosed			BIT
+		   ,@LicenseeDomain		NVARCHAR(50)
+		   ,@IsSSL				BIT
+		   ,@AffDomainId 		INT
+		   ,@AffCode 			VARCHAR(20)
+		   ,@LanguageLink 		VARCHAR(20)
+		   ,@TargetCountryCode 	VARCHAR(5)
 
 	IF COALESCE(@IP, '') = ''
 	BEGIN
@@ -46,20 +55,20 @@ BEGIN
 		RETURN
 	END
 
-	DECLARE
-		@IsClosed			BIT
-		,@PreferredLanguage VARCHAR(11)
-		,@LicenseeDomain	NVARCHAR(50)
-		,@IsSSL				BIT
-		,@AffDomainId 		INT
-		,@AffCode 			VARCHAR(20)
-
-	SELECT @PreferredLanguage = ad.PreferredLanguage, @IsClosed = ai.IsClosed, @AffCode = ai.AffCode
+	SELECT @IsClosed = ai.IsClosed
+	      ,@AffCode = ai.AffCode
 	FROM dbo.AffDetail ad WITH (NOLOCK)
 		INNER JOIN dbo.AffInfo ai WITH (NOLOCK) ON ai.AffId = ad.AffId
 	WHERE ai.AffId = @AffId AND ai.Status = 'Approved'
+	
+	-- Get TargetCountryCode, LanguageLink
+	SELECT @TargetCountryCode = tc.CountryCode
+		  ,@LanguageLink = m.ShortedCode
+	FROM dbo.TargetCountry tc WITH (NOLOCK)
+		INNER JOIN Market m WITH (NOLOCK) ON tc.MarketID = m.MarketId
+	WHERE tc.ShortedCode = @LanguageCode
 
-	IF @IsClosed IS NULL OR @IsClosed = 1
+	IF ISNULL(@IsClosed, 1) = 1
 	BEGIN
 		SELECT @ErrCode = 102, @ErrMsg = 'This affiliate does not exists. Please contact administrator!'
 		RETURN
@@ -70,14 +79,13 @@ BEGIN
 		SELECT @AffDomainId	= DomainID
 		FROM dbo.AffDomain WITH (NOLOCK)
 		WHERE DomainName = @AffDomain
-			AND IsDeleted = 0
+		  AND IsDeleted = 0
 
-		SELECT TOP 1
-			@LicenseeDomain = b.DomainName
-			,@IsSSL			= b.IsSSL
+		SELECT TOP(1) @LicenseeDomain = b.DomainName
+					 ,@IsSSL = b.IsSSL
 		FROM dbo.DomainControl a WITH (NOLOCK)
 			INNER JOIN dbo.LicenseeDomain b WITH (NOLOCK) ON a.LicenseeDomainId = b.DomainId
-		WHERE a.MarketId = @PreferredLanguage
+		WHERE a.TargetCountryCode = @TargetCountryCode
 			AND a.AffDomainId = @AffDomainId
 			AND a.[Status] = 1
 			AND a.IsDeleted = 0
@@ -90,7 +98,7 @@ BEGIN
 		END
 
 		-- Replace Affilliate domain by Licensee domain to redirect to licensee site
-		SELECT @RedirectPage = CASE WHEN @IsSSL = 1 THEN 'https' ELSE 'http' END + '://' + @LicenseeDomain + '/' + @LanguageCode + '/' + @PageCode + '?affCode=' + CONVERT(VARCHAR(20), @AffCode)
+		SELECT @RedirectPage = CASE WHEN @IsSSL = 1 THEN 'https' ELSE 'http' END + '://' + @LicenseeDomain + '/' + @LanguageLink + '/' + @PageCode + '?affCode=' + CONVERT(VARCHAR(20), @AffCode)
 	END
 
 	-- Insert into ClickStatistics
@@ -155,9 +163,9 @@ BEGIN
 		
 		SELECT @RedirectPage = @RedirectPage + '&clickId=' + CONVERT(VARCHAR(20), @clickId)
 		
-		UPDATE 	dbo.ClickStatistics WITH (ROWLOCK,UPDLOCK)
-		SET 	RedirectURL = @RedirectPage
-		WHERE 	ClickId = @ClickId
+		UPDATE dbo.ClickStatistics WITH (ROWLOCK,UPDLOCK)
+		SET RedirectURL = @RedirectPage
+		WHERE ClickId = @ClickId
 	END
 END
 GO

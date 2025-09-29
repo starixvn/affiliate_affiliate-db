@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_User_Affiliate_Ins]
 	-- Type of affiliate: Asian, Euro, Media
 	@AffParentCode		VARCHAR(20) = '',
@@ -35,7 +35,9 @@ ALTER PROCEDURE [dbo].[Aff_User_Affiliate_Ins]
 	@Username			NVARCHAR(50) = NULL OUTPUT,
 	-- Others
 	@IP					VARCHAR(50) = '',
-	@Language			VARCHAR(10) = 'en-US'
+	@Language			VARCHAR(10) = 'en-US',
+	-- TargetCountryCode
+	@TargetCountryCode	VARCHAR(5)
 AS
 
 /*
@@ -48,6 +50,7 @@ AS
 		- 20201026@Percy: Replace ParentAffId to AffCode [RedmineID: #143852]
 		- 20230912@Sally: Fix recursion 100 has been exhausted [RedmineID: #193867]
 		- 20231109@Sally: Retrieved Correctly Player_currencyCode Player_CurrencyName Values
+		- 20250729@Danny: Add TargetCountry [RedmineID: #227560]
 
 */
 
@@ -187,7 +190,7 @@ BEGIN
 			-- Website Information
 			SiteUrl,MoreSiteUrls,NoSiteDesc,
 			-- Preferrence
-			PreferredLanguage,QuestionID,Answer,
+			PreferredLanguage,QuestionID,Answer,TargetCountryCode,
 			-- Payment Information
 			PreferredPayment,Player_CustID,Player_UserName,Player_Currency,Player_CurrencyName,Player_CurrencyCode
 		)
@@ -201,7 +204,7 @@ BEGIN
 			-- Website Information
 			@SiteUrl,@MoreSiteUrls,@NoSiteDesc,
 			-- Preferrence
-			@PreferredLanguage,@QuestionID,@Answer,
+			@PreferredLanguage,@QuestionID,@Answer,@TargetCountryCode,
 			-- Payment Information
 			@PreferredPayment,@Player_CustId,@Player_UserName,@Player_Currency,@Player_CurrencyName,@Player_CurrencyCode
 		)
@@ -249,6 +252,7 @@ BEGIN
 			'MoreSiteUrls='			+ ISNULL(@MoreSiteUrls, '') + ',' +
 			'NoSiteDesc='			+ ISNULL(@NoSiteDesc, '') + ',' +
 			'PreferredLanguage='	+ ISNULL(@PreferredLanguage, '') + ',' +
+			'TargetCountryCode='	+ ISNULL(@TargetCountryCode, '') + ',' +
 			'QuestionID='			+ ISNULL(CONVERT(VARCHAR(5), @QuestionID), '') + ',' +
 			'Answer='				+ ISNULL(@Answer, '') + ',' +
 			'PreferredPayment='		+ ISNULL(@PreferredPayment, '') + ',' +

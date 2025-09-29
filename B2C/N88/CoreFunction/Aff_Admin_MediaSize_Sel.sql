@@ -1,7 +1,7 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet,bodbDownlineNet,bodbDownlineNetView" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_MediaSize_Sel]
 	@TargetId		TINYINT = 0
-	,@Language		VARCHAR(100) = NULL
+	,@Language		VARCHAR(MAX) = NULL
 	,@Category		VARCHAR(50) = NULL
 	,@SubCategory	VARCHAR(50) = NULL
 	,@Currency		VARCHAR(10) = NULL
@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
+		- 20250814@Eddie: Support retrieving Language based on the Target Country [RedmineID: #227560]
 */
 
 BEGIN
@@ -42,7 +43,7 @@ BEGIN
 			FROM dbo.MediaGallery WITH (NOLOCK)
 			WHERE (@TargetId = 0 OR TargetId = @TargetId)
 				AND ImageType = 'Image'
-				AND (@Language IS NULL OR Language = @Language)
+				AND (@Language IS NULL OR ',' + @Language + ',' LIKE '%,' + Language + ',%' )
 				AND (@ImageType IS NULL OR ImageType = @ImageType)
 				AND (@Category IS NULL OR ',' + Categories + ',' LIKE '%,' + @Category + ',%')
 				AND (@SubCategory IS NULL OR ',' + SubCategories + ',' LIKE '%,' + @SubCategory + ',%')

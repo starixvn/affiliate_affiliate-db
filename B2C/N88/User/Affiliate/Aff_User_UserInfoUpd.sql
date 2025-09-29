@@ -11,7 +11,8 @@ ALTER PROCEDURE [dbo].[Aff_User_UserInfoUpd]
 	@Language				NVARCHAR(20) = 'en-US',
 	@IP						VARCHAR(50),
 	@ErrCode				INT = 0 OUTPUT,
-	@ErrMsg					NVARCHAR(2000) = '' OUTPUT
+	@ErrMsg					NVARCHAR(2000) = '' OUTPUT,
+	@TargetCountryCode		VARCHAR(5) = ''
 AS  
 
 /*
@@ -22,6 +23,7 @@ AS
 	Revisions:
 		- 20200220@Percy: Initialize SP [RedmineID: #128775]
         - 20250707@Sally: Get info Affcategory [RedmineID: #212201]
+		- 20250729@Danny: Add TargetCountry [RedmineID: #227560]
 */
 
 BEGIN
@@ -35,7 +37,8 @@ BEGIN
 		SiteURL				VARCHAR(100),
 		MoreSiteURLs		VARCHAR(1000),
 		NoSiteDesc			NVARCHAR(1000),
-		DefaultCurrency		INT
+		DefaultCurrency		INT,
+		TargetCountryCode	VARCHAR(5)
 	)
 
 	DECLARE @NewDataTable TABLE
@@ -45,7 +48,8 @@ BEGIN
 		SiteURL				VARCHAR(100),
 		MoreSiteURLs		VARCHAR(1000),
 		NoSiteDesc			NVARCHAR(1000),
-		DefaultCurrency		INT
+		DefaultCurrency		INT,
+		TargetCountryCode	VARCHAR(5)
 	)
 
 	-- Capture current data before UPDATE (Old Data)
@@ -55,14 +59,16 @@ BEGIN
 		SiteURL,
 		MoreSiteURLs,
 		NoSiteDesc,
-		DefaultCurrency
+		DefaultCurrency,
+		TargetCountryCode
 	)
 	SELECT ad.Phone,
 		   ad.ContactApps,
 		   ad.SiteURL,
 		   ad.MoreSiteURLs,
 		   ad.NoSiteDesc,
-		   ai.DefaultCurrency
+		   ai.DefaultCurrency,
+		   ad.TargetCountryCode
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 	LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 	WHERE ai.AffId = @AffId;
@@ -74,14 +80,16 @@ BEGIN
 		SiteURL,
 		MoreSiteURLs,
 		NoSiteDesc,
-		DefaultCurrency
+		DefaultCurrency,
+		TargetCountryCode
 	)
 	SELECT @Phone,
 		   @ContactApps,
 		   @SiteURL,
 		   @MoreSiteURLs,
 		   @NoSiteDesc,
-		   @DefaultBaseCurrency;
+		   @DefaultBaseCurrency,
+		   @TargetCountryCode;
 
 	BEGIN TRY
 		-- Update AffInfo table
@@ -95,7 +103,8 @@ BEGIN
 			ContactApps			= ISNULL(@ContactApps, ContactApps),
 			SiteURL				= ISNULL(@SiteURL, SiteURL),
 			MoreSiteURLs		= ISNULL(@MoreSiteURLs, MoreSiteURLs),
-			NoSiteDesc			= ISNULL(@NoSiteDesc, NoSiteDesc)
+			NoSiteDesc			= ISNULL(@NoSiteDesc, NoSiteDesc),
+			TargetCountryCode	= ISNULL(@TargetCountryCode, TargetCountryCode)
 		WHERE AffID = @AffId
 	END TRY
 	BEGIN CATCH
@@ -111,7 +120,8 @@ BEGIN
 			ContactApps = od.ContactApps,
 			SiteURL = od.SiteURL,
 			MoreSiteURLs = od.MoreSiteURLs,
-			NoSiteDesc = od.NoSiteDesc
+			NoSiteDesc = od.NoSiteDesc,
+			TargetCountryCode = od.TargetCountryCode
 		FROM dbo.AffDetail ad
 			CROSS JOIN @OldDataTable od
 		WHERE ad.AffId = @AffId
@@ -124,14 +134,16 @@ BEGIN
 			SiteURL,
 			MoreSiteURLs,
 			NoSiteDesc,
-			DefaultCurrency
+			DefaultCurrency,
+			TargetCountryCode
 		)
 		SELECT ad.Phone,
 			   ad.ContactApps,
 			   ad.SiteURL,
 			   ad.MoreSiteURLs,
 			   ad.NoSiteDesc,
-			   ai.DefaultCurrency
+			   ai.DefaultCurrency,
+			   ad.TargetCountryCode
 		FROM dbo.AffInfo ai WITH (NOLOCK)
 		LEFT JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 		WHERE ai.AffId = @AffId;
@@ -154,7 +166,8 @@ BEGIN
 		'SiteURL=' + ISNULL(SiteURL, '') + ',' +
 		'MoreSiteURLs=' + ISNULL(MoreSiteURLs, '') + ',' +
 		'NoSiteDesc=' + ISNULL(NoSiteDesc, '') + ',' +
-		'DefaultCurrency=' + ISNULL(CONVERT(VARCHAR(10), DefaultCurrency), '')
+		'DefaultCurrency=' + ISNULL(CONVERT(VARCHAR(10), DefaultCurrency), '')+ ',' +
+		'TargetCountryCode=' + ISNULL(TargetCountryCode, '')
 	FROM @OldDataTable
 
 	SELECT @NewData =
@@ -163,7 +176,8 @@ BEGIN
 		'SiteURL=' + ISNULL(SiteURL, '') + ',' +
 		'MoreSiteURLs=' + ISNULL(MoreSiteURLs, '') + ',' +
 		'NoSiteDesc=' + ISNULL(NoSiteDesc, '') + ',' +
-		'DefaultCurrency=' + ISNULL(CONVERT(VARCHAR(10), DefaultCurrency), '')
+		'DefaultCurrency=' + ISNULL(CONVERT(VARCHAR(10), DefaultCurrency), '')+ ',' +
+		'TargetCountryCode=' + ISNULL(TargetCountryCode, '')
 	FROM @NewDataTable
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog

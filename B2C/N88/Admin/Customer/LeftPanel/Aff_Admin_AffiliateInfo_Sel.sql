@@ -19,6 +19,7 @@ AS
 		- 20230809@Sally: Add Player_CustId [RedmineID: #192191]
 		- 20240506@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
 		- 20250626@Sally: Get info Affcategory [RedmineID: #212201]
+		- 20250806@Eddie: Add BlockTargetCountry [RedmineID: #227560]
 
 */
 
@@ -39,7 +40,7 @@ BEGIN
 			RETURN
 	END
 
-	SELECT
+	SELECT DISTINCT
 		p.AffId AS ParentAffId,
 		p.UserName AS ParentAffName,
 		ai.AffId,
@@ -109,7 +110,10 @@ BEGIN
 		-- More info
 		ISNULL(u.UserName, '') AS ApprovedBy,
 		ISNULL(dep.IsDeductedPercent, 0) AS Dep_IsDeductedPercent,
-		ISNULL(wit.IsDeductedPercent, 0) AS Wit_IsDeductedPercent
+		ISNULL(wit.IsDeductedPercent, 0) AS Wit_IsDeductedPercent,
+		-- TargetCountry
+		ISNULL(tc.CountryName,'') AS TargetCountryName,
+		ISNULL(tc.CountryCode,'') AS TargetCountryCode
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
 		INNER JOIN dbo.AffCategory ac WITH (NOLOCK) ON ai.AffCategoryId = ac.AffCategoryId
@@ -120,6 +124,7 @@ BEGIN
 		OUTER APPLY (SELECT TOP 1 ds.IsDeductedPercent FROM dbo.DeductionSetting ds WITH (NOLOCK) WHERE cg.GroupId = ds.GroupId AND ds.DeductionId = 14) wit
 		LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON ai.ApprovedBy = u.CustId
 		LEFT JOIN dbo.Aff_f_Get_SecurityQuestions ('en-US') q ON ad.QuestionID = q.QuestionID
+		LEFT JOIN dbo.Country tc WITH (NOLOCK) ON tc.CountryCode = ad.TargetCountryCode
 	WHERE ai.AffId = @AffId
 END
 GO

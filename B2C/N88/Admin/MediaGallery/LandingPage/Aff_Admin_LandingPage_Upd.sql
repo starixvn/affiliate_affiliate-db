@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_LandingPage_Upd]
 	@UserId		INT,
 	@PageId		SMALLINT,
@@ -6,7 +6,8 @@ ALTER PROCEDURE [dbo].[Aff_Admin_LandingPage_Upd]
 	@PageCode	NVARCHAR(100),
 	@IP			NVARCHAR(15) = '',
 	@ErrCode	INT = 0 OUTPUT,
-	@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+	@ErrMsg		NVARCHAR(4000) = '' OUTPUT,
+	@BlockTargetCountry	VARCHAR(200) = ''
 AS
 
 /*
@@ -16,13 +17,16 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102399]
+		- 20250806@Eddie: Add BlockTargetCountry [RedmineID: #227560]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @Language VARCHAR(10) = 'en-US'
-
+	DECLARE @Language 				VARCHAR(10) = 'en-US'
+           ,@OldPageName 			NVARCHAR(200)
+		   ,@OldPageCode 			VARCHAR(100)
+		   ,@OldBlockTargetCountry 	VARCHAR(200)
 	-- Check permission
 	EXEC dbo.Aff_Con_CheckPermission
 		@CustId		= @UserId,
@@ -41,16 +45,29 @@ BEGIN
 		RETURN
 	END
 
-	DECLARE @OldPageName NVARCHAR(200), @OldPageCode VARCHAR(100)
-	SELECT  @OldPageName = PageName, @OldPageCode = PageCode FROM dbo.LandingPage WITH (NOLOCK) WHERE PageId = @PageId
+	SELECT @OldPageName = PageName
+		  ,@OldPageCode = PageCode
+		  ,@OldBlockTargetCountry = BlockTargetCountry
+	FROM dbo.LandingPage WITH (NOLOCK)
+	WHERE PageId = @PageId
+	  AND IsDeleted = 0
 
-	IF @OldPageName IS NULL
+	IF ISNULL(@OldPageName, '') = ''
 	BEGIN
 		SELECT @ErrCode = 102, @ErrMsg = 'This landing page does not exists'
 		RETURN
 	END
-
-	IF @OldPageName = @PageName AND @OldPageCode = @PageCode
+	 
+	IF ( @OldPageName = @PageName
+	 AND @OldPageCode = @PageCode
+	 AND NOT EXISTS(
+		SELECT 1
+		FROM STRING_SPLIT(@BlockTargetCountry, ',') AS t
+			FULL OUTER JOIN STRING_SPLIT(@OldBlockTargetCountry, ',') AS s ON s.value = t.value
+		WHERE t.value IS NULL 
+		   OR s.value IS NULL
+	 )
+	)
 	BEGIN
 		SELECT @ErrCode = 103, @ErrMsg = 'This landing page does not changes'
 		RETURN
@@ -64,7 +81,8 @@ BEGIN
 
 	UPDATE dbo.LandingPage WITH (ROWLOCK, UPDLOCK)
 	SET PageName = @PageName,
-		PageCode = @PageCode
+		PageCode = @PageCode,
+		BlockTargetCountry = @BlockTargetCountry
 	WHERE PageId = @PageId
 
 	IF @@ERROR <> 0
@@ -79,8 +97,8 @@ BEGIN
 
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
-	SELECT  @OldData = 'PageName=' + @OldPageName + ',' + 'PageCode=' + @OldPageCode,
-			@NewData = 'PageName=' + @PageName + ',' + 'PageCode=' + @PageCode
+	SELECT  @OldData = 'PageName=' + @OldPageName + ',' + 'PageCode=' + @OldPageCode  + ',' + 'BlockTargetCountry=' + @OldBlockTargetCountry,
+			@NewData = 'PageName=' + @PageName + ',' + 'PageCode=' + @PageCode + ',' + 'BlockTargetCountry=' + @BlockTargetCountry
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,

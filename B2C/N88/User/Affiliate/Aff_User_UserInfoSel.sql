@@ -14,6 +14,7 @@ AS
 		- 20211005@Percy: Support Transfer Balance For Player [RedmineID: #153227]
 		- 20230523@Sally: Support Currency BDT, USD 72 [RedmineID: #188429]
         - 20250707@Sally: Get info Affcategory [RedmineID: #212201]
+		- 20250729@Danny: Add TargetCountry [RedmineID: #227560]
 */
 
 BEGIN
@@ -55,6 +56,7 @@ BEGIN
 		@AffCurrencyCode AS AffCurrency,
 		ai.DefaultCurrency AS DefaultBaseCurrency,
 		ai.AffCode,
+		ad.TargetCountryCode,
 		ai.AffCategoryId,
 		ac.AffCategoryDesc
 	FROM dbo.AffInfo ai WITH (NOLOCK)

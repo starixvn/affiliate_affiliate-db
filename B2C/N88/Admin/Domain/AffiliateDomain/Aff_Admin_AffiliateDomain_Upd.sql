@@ -1,4 +1,4 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateDomain_Upd]
 	@UserId			INT
 	,@DomainId		INT
@@ -7,6 +7,7 @@ ALTER PROCEDURE [dbo].[Aff_Admin_AffiliateDomain_Upd]
 	,@IP			NVARCHAR(40) = ''
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+	,@BlockTargetCountry	VARCHAR(200) = ''
 AS
 
 /*
@@ -16,6 +17,7 @@ AS
 
 	Revisions:
 		- 20191010@Percy: Initialize SP [RedmineID: #118992]
+		- 20250729@Danny: Add BlockTargetCountry [RedmineID: #227560]
 */
 
 BEGIN
@@ -46,14 +48,31 @@ BEGIN
 		RETURN
 	END
 
+	-- Declare @TargetCountry table
+	DECLARE @TargetCountry TABLE (
+		TargetCountryCode VARCHAR(5),
+		AffDomainId INT
+	);
+
+	-- Insert only rows that exist in DomainControl
+	INSERT INTO @TargetCountry (TargetCountryCode, AffDomainId)
+	SELECT DISTINCT dc.TargetCountryCode, dc.AffDomainId
+	FROM DomainControl dc WITH (NOLOCK)
+	INNER JOIN STRING_SPLIT(@BlockTargetCountry, ',') s
+		ON dc.TargetCountryCode = s.value
+	WHERE dc.IsDeleted = 0
+	  AND dc.AffDomainId = @DomainId;
+
 	DECLARE @OldData NVARCHAR(MAX), @NewData NVARCHAR(MAX)
 
 	SELECT  @OldData = 'DomainId=' + CONVERT(VARCHAR(10), DomainId)
 						+ ',DomainName=' + DomainName
 						+ ',IsSSL=' + CONVERT(VARCHAR(1), IsSSL)
+						+ ',BlockTargetCountry=' + BlockTargetCountry
 			,@NewData = 'DomainId=' + CONVERT(VARCHAR(10), @DomainId)
 						+ ',DomainName=' + @DomainName
 						+ ',IsSSL=' + CONVERT(VARCHAR(1), @IsSSL)
+						+ ',BlockTargetCountry=' + @BlockTargetCountry
 	FROM dbo.AffDomain WITH (NOLOCK) WHERE DomainId = @DomainId AND IsDeleted = 0
 
 	IF @@ROWCOUNT = 0
@@ -63,10 +82,21 @@ BEGIN
 	END
 
 	BEGIN TRY
+		-- Update DomainControl.Status = 0 only when CountryCode exists in @TargetCountry
+		UPDATE dc
+		SET dc.Status = 0
+		FROM DomainControl dc WITH (ROWLOCK)
+		INNER JOIN @TargetCountry tc
+			ON dc.TargetCountryCode = tc.TargetCountryCode
+			AND dc.AffDomainId = tc.AffDomainId
+		WHERE dc.Status = 1
+		  AND dc.IsDeleted = 0;
+
 		UPDATE dbo.AffDomain WITH (ROWLOCK)
 		SET ModifyDate	= GETDATE()
 			,DomainName = @DomainName
 			,IsSSL		= @IsSSL
+			,BlockTargetCountry = @BlockTargetCountry
 		WHERE DomainId	= @DomainId
 	END TRY
 	BEGIN CATCH

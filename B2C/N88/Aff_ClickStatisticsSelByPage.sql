@@ -23,6 +23,7 @@ AS
 		- 20250416@Sophia: Get report by timezone [RedmineID: 222401]
 		- 20250505@Sophia: Fix Signups duplicated data [RedmineID: #226056]
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225821]
+		- 20250926@Lewis: use marketid for param @LanguageCode and data ouptut column LanguageCode [RedmineID: #238489]
 		
 	Param:
 		@DeviceType = -1 : all 
@@ -52,6 +53,14 @@ BEGIN
 		FDM				INT DEFAULT(0)
 	)
 	
+	-- get ShortedCode
+	DECLARE @ShortedCode TABLE (ShortedCode VARCHAR(10))
+
+	INSERT INTO @ShortedCode (ShortedCode)
+	SELECT DISTINCT ShortedCode 
+	FROM TargetCountry WITH (NOLOCK) 
+	WHERE MarketID = @LanguageCode OR @LanguageCode IS NULL
+
 	-- Normalize date parameters to start/end of day
 	SELECT @FromDate = CONVERT(DATE, @FromDate)
 	SELECT @ToDate = CONVERT(DATE, DATEADD(DAY, 1, @ToDate))
@@ -77,13 +86,13 @@ BEGIN
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
 		LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickId = mi.clickId
 		LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickId = mi.clickId
+		LEFT JOIN @ShortedCode sc ON sc.ShortedCode = ISNULL(md.LanguageCode, bk.LanguageCode)
 	WHERE mi.AffId = @AffID
 		AND (
 				(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
 				OR (mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate)
 			)					
 		AND (@SportCode IS NULL OR COALESCE(md.SportCode, bk.SportCode, 'none') = @SportCode)
-		AND (@LanguageCode IS NULL OR COALESCE(md.LanguageCode, bk.LanguageCode, 'none') = @LanguageCode)
 	GROUP BY
 		COALESCE(md.SportCode, bk.SportCode, 'none'),
 		COALESCE(md.LanguageCode, bk.LanguageCode, 'none'),
@@ -104,7 +113,7 @@ BEGIN
 			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
 			AND AffId = @AffID
 			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
+			AND EXISTS (SELECT TOP 1 1 FROM @ShortedCode sc WHERE sc.ShortedCode = c.LanguageCode)
 		GROUP BY ISNULL(SportCode, 'none'), ISNULL(LanguageCode, 'none'), ISNULL(DeviceType, 0), IP
 		
 				
@@ -118,12 +127,12 @@ BEGIN
 	
 		INSERT INTO #tmpResult (SportCode, LanguageCode, DeviceType, TotalClick, IP)
 		SELECT SportCode, LanguageCode, DeviceType, SUM(1) AS TotalClick, IP
-		FROM dbo.ClickStatistics_bk WITH (NOLOCK)
+		FROM dbo.ClickStatistics_bk c WITH (NOLOCK)
 		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
 			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
 			AND AffId = @AffID
 			AND SportCode = ISNULL(@SportCode, SportCode)
-			AND LanguageCode = ISNULL(@LanguageCode, LanguageCode)
+			AND EXISTS (SELECT TOP 1 1 FROM @ShortedCode sc WHERE sc.ShortedCode = c.LanguageCode)
 		GROUP BY SportCode, LanguageCode, DeviceType, IP
 		
 		
@@ -141,15 +150,17 @@ BEGIN
 	
 	INSERT INTO #SumResult (SportCode, LanguageCode, TotalClick, UniqueClick, Signups, FDM)
 	SELECT
-		SportCode,
-		LanguageCode,
-		SUM(TotalClick) AS TotalClick,
-		COUNT(DISTINCT IP) AS UniqueClick, -- Count distinct IP for UniqueClick
-		SUM(Signups) AS Signups,
-		SUM(FDM) AS FDM
-	FROM #tmpResult
+		ISNULL(r.SportCode, 'none') AS SportCode,
+		ISNULL(tc.MarketID, 'none') AS LanguageCode,
+		SUM(r.TotalClick) AS TotalClick,
+		COUNT(DISTINCT r.IP) AS UniqueClick, -- Count distinct IP for UniqueClick
+		SUM(r.Signups) AS Signups,
+		SUM(r.FDM) AS FDM
+	FROM #tmpResult r
+	LEFT JOIN TargetCountry tc WITH (NOLOCK)
+		ON r.LanguageCode = tc.ShortedCode
 	WHERE (DeviceType = @DeviceType OR @DeviceType = -1)
-	GROUP BY SportCode, LanguageCode
+	GROUP BY r.SportCode, ISNULL(tc.MarketID, 'none')
 
 	SELECT @TotalSignUps = SUM(Signups), @TotalFDMs = SUM(FDM)
 	FROM #SumResult

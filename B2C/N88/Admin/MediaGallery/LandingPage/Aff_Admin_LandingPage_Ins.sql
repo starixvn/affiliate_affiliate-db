@@ -1,11 +1,12 @@
-/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFFN88-Affiliate_N88,DBAFFN8B-Affiliate_N8B,DBAFFN8G-Affiliate_N8G" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_Admin_LandingPage_Ins]
 	@UserId		INT,
 	@PageName	NVARCHAR(200),
 	@PageCode	NVARCHAR(100),
 	@IP			NVARCHAR(15) = '',
 	@ErrCode	INT = 0 OUTPUT,
-	@ErrMsg		NVARCHAR(4000) = '' OUTPUT
+	@ErrMsg		NVARCHAR(4000) = '' OUTPUT,
+	@BlockTargetCountry	VARCHAR(200) = ''
 AS
 
 /*
@@ -15,6 +16,7 @@ AS
 
 	Revisions:
 		- 20181001@Percy: Initialize SP [RedmineID: #102399]
+		- 20250729@Danny: Add BlockTargetCountry [RedmineID: #227560]
 */
 
 BEGIN
@@ -47,8 +49,8 @@ BEGIN
 		RETURN
 	END
 
-	INSERT INTO dbo.LandingPage (PageName, PageCode, IsDeleted)
-	VALUES (@PageName, @PageCode, 0)
+	INSERT INTO dbo.LandingPage (PageName, PageCode, IsDeleted, BlockTargetCountry)
+	VALUES (@PageName, @PageCode, 0, @BlockTargetCountry)
 
 	IF @@ERROR <> 0
 	BEGIN
@@ -62,7 +64,7 @@ BEGIN
 
 	DECLARE @Data NVARCHAR(MAX)
 
-	SELECT  @Data = 'PageName=' + @PageName + ',' + 'PageCode=' + @PageCode
+	SELECT  @Data = 'PageName=' + @PageName + ',' + 'PageCode=' + @PageCode + ',' + 'BlockTargetCountry=' + @BlockTargetCountry
 	
 	EXEC dbo.Aff_UserLog_RunSP_Detail_WriteLog
 		@UserId		= @UserId,
