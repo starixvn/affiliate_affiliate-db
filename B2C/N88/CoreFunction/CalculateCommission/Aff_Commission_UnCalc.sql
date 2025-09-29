@@ -40,6 +40,7 @@ AS
 		- 20250514@Sally: Change Royalty Fee condition [RedmineID: #230064]
 		- 20250623@Sally: Enhance Revenue calculation [RedmineID: #231221]
 		- 20250710@Sally: Enhance Revenue calculation with new setting [RedmineID: #232456]
+		- 20250916@Lewis: Enhance - cal subcomm for 1000levels [RedmineID: #238276]
 
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -70,9 +71,13 @@ BEGIN
 	-- Max Sub Affiliate Commission Setting
 	DECLARE @MaxSubAff INT
 	IF @SubLevel <> 0
+	BEGIN
 		SELECT @MaxSubAff = @SubLevel
+	END
 	ELSE
-		SELECT @MaxSubAff = 3
+	BEGIN
+		SELECT @MaxSubAff = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'MaxSubLevel' --1000 levels
+	END
 	
 	IF @AffIds <> 'all'
 	BEGIN
