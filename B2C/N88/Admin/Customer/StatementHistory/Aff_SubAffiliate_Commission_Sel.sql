@@ -23,7 +23,7 @@ AS
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20230404@Malcolm: Get sub commission rate [RedmineID: #185481]
 		- 20240502@Sally: Calculate Revenue Share By Turnover [RedmineID: #204177]
-		- 20250515@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
+		- 20250916@Lewis: Enhance - cal subcomm for 1000levels [RedmineID: #238276]
 
 */
 
@@ -124,7 +124,7 @@ BEGIN
 			@ToMonthDate		= @MonthDate,
 			@ProductIds			= '0',
 			@BaseCurrency		= @BaseCurrency,
-			@SubLevel			= 2,
+			@SubLevel			= 0, --1000 levels
 			@IsSumAll			= 0,
 			@GetRowTotalOnly	= 1
 
