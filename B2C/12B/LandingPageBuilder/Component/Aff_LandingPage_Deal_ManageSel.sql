@@ -36,14 +36,18 @@ BEGIN
         ld.DealId,
         cg.GroupName AS DealName,
         ld.StatusId,
-        s.Status AS StatusName,
-        ld.Creator,
+        s.Status AS Status,
+        ld.Creator AS CreatorId,
+        ISNULL(u.UserName, '') AS CreatedBy,
         ld.CreatedDate,
-        ld.UpdatedBy,
-        ld.UpdatedDate 
+        ISNULL(ld.UpdatedBy, 0) AS UpdatedById,
+        ISNULL(au.UserName, '') AS UpdatedBy,
+        ISNULL(ld.UpdatedDate, '') AS UpdatedDate
     FROM dbo.LandingPage_Deal ld WITH (NOLOCK)
     INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ld.DealId = cg.GroupId
     INNER JOIN dbo.Aff_f_LandingPage_Component_Status() s ON s.StatusId = ld.StatusId
+    LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON u.CustId = ld.Creator
+    LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON au.CustId = ld.UpdatedBy
     WHERE ld.StatusId IN (SELECT StatusId FROM @StatusIDTable)
         AND (@DealName = ''
             OR cg.GroupName LIKE '%' + @DealName + '%')
