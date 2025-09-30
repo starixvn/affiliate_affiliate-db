@@ -1,89 +1,189 @@
-# Copilot Instructions for B2C Affiliate Database
+# GitHub Copilot Instructions - B2C/12B Database Developer
 
-This document provides guidance for working with the B2C platform stored procedures and associated database scripts.
+## � **Core Role**
+Senior SQL Server developer for B2C/12B Affiliate Marketing Platform (12Bet casino).
 
-## 1. High-Level Focus
+**Database**: `DBAFF12B-Affiliate_12B`  
+**Executors**: `wsv_afinet` (Admin), `wsv_afinetv` (User)
 
-Development work is primarily concentrated in two main areas:
-- **`B2C/`**: Contains the stored procedures for various B2C brands (YashBet, N88, etc.).
-- **`Scripts/`**: Contains migration, deployment, and data manipulation scripts, organized by platform.
+## 🖥️ **Server Aliases & Database Configuration**
 
-## 2. B2C Platform Structure
+### **Database Server Mapping**
+| Alias | Server (LOCAL) | Server (PROD) | Database | ServerAlias Format |
+|-------|---------------|---------------|----------|-------------------|
+| DBAFFN8B | TESTDB053 | DR_DB05HA2G1L | Affiliate_N8B | `DBAFFN8B-Affiliate_N8B` |
+| DBAFFN8G | TESTDB053 | DR_DB05HA2G1L | Affiliate_N8G | `DBAFFN8G-Affiliate_N8G` |
+| DBAFFN88 | TESTDB053 | DR_DB05HA2G1L | Affiliate_N88 | `DBAFFN88-Affiliate_N88` |
+| DBN88 | TESTDB053 | DR_DB052 | bodb_N88, bodb_N88_Archive | `DBN88-bodb_N88` |
+| **DBAFF12B** | **TESTDB053** | **DR_DB05HA2G1L** | **Affiliate_12B** | **`DBAFF12B-Affiliate_12B`** |
+| DB12B | TESTDB053 | DR_DB05HA2G1L | bodb_12B_Archive, bodb_12B | `DB12B-bodb_12B` |
 
-The `B2C/` directory is organized by brand. While there are several brands, development work is focused almost exclusively on:
+### **ServerAlias Usage in Headers**
 
-- **`B2C/12B/`**
-- **`B2C/N88/`**
-
-Other brand folders like `B2C/YashBet/` exist but are not the primary focus of current development.
-
-Within each brand's folder, the structure is consistent, with subdirectories for functional areas like `Admin/`, `User/`, and `Report/`.
-
-## 3. Naming Conventions
-
-Stored procedures within the `B2C` folder follow a strict and descriptive naming convention.
-
-**Pattern:** `Aff_{Module}_{Entity}_{Action}`
-
-- **Prefix:** All affiliate-related procedures start with `Aff_`.
-- **Module:** Specifies the functional area (e.g., `Admin`, `User`, `Con`).
-- **Entity:** The business entity the procedure operates on (e.g., `AffiliateInfo`, `MediaCategory`).
-- **Action:** The operation performed (`_Sel`, `_Ins`, `_Upd`, `_Del`).
-
-**Example:**
-A procedure to select affiliate details for the N88 admin panel would be located in `B2C/N88/Admin/...` and likely named `Aff_Admin_AffiliateInfo_Sel`.
-
-## 4. Code and Documentation Standards
-
-### Stored Procedure Structure
-All stored procedures should follow this general structure:
-
-1.  **Metadata Header:** An XML-like comment block at the top.
-2.  **Database Context:** `USE [DatabaseName]` statement (e.g., `USE [Affiliate_YashBet]`).
-3.  **Standard Header:** A comment block detailing the author, date, and purpose.
-4.  **Procedure Body:** The `ALTER PROCEDURE` or `CREATE PROCEDURE` statement.
-
-### Metadata Header
-This header provides context for deployment and execution.
+#### **Stored Procedures**
 ```sql
-/*<info serverAlias="DBAFFN88-Affiliate_N88" executers="wsv_affnet" isFunction="0" isNested="0"></info>*/
+-- ✅ CORRECT: Full header with all attributes
+/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
+
+-- ❌ WRONG: Don't use server name directly  
+/*<info serverAlias="TESTDB053" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ```
-- `serverAlias`: The target database server alias (e.g., `DBAFFN88-Affiliate_N88` or `DBAFF12B-Affiliate_12B`).
-- `executers`: The database roles or users permitted to execute the procedure (e.g., `wsv_affnet`).
-- `isFunction`: Indicates if the object is a stored procedure (`0`) or a function (`1`).
 
-### Standard Header & Revisions
-This block documents the history and purpose of the procedure.
+#### **Script Files**
 ```sql
+-- ✅ CORRECT: Scripts only need serverAlias
+/*<info serverAlias="DBAFF12B-Affiliate_12B"></info>*/
+
+-- ❌ WRONG: Don't add executers to scripts
+/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv"></info>*/
+```
+
+### **Environment Notes**
+- **LOCAL/TEST**: All databases run on `TESTDB053`
+- **PRODUCTION**: Databases distributed across `DR_DB05HA2G1L` and `DR_DB052`
+- **Current Focus**: B2C/12B platform (`DBAFF12B-Affiliate_12B`)
+
+## 🧠 **Smart Automation**
+
+### **Auto-Implement (No Questions Asked)**
+- Standard CRUD operations (Select, Insert, Update, Delete)
+- Basic list procedures with pagination
+- Simple validation functions
+- Common utility functions
+
+### **Ask for Context (Complex Business Logic)**
+For commission calculations, payment workflows, or multi-table reports:
+```
+"I need business context. Please attach:
+• docs/domains/b2c-12b/modules/cpa/business.md
+• docs/domains/b2c-12b/modules/cpa/schema.md"
+```
+
+### **Collaborate (Architecture Changes)**
+- Schema modifications
+- Security model updates
+- Performance optimizations
+
+## 🎨 **Code Standards**
+
+### **Naming Conventions**
+```sql
+-- Standard Pattern: Aff_[Module]_[Entity]_[Action]
+Aff_Admin_Affiliate_Sel          -- Admin module, Affiliate entity, Select action  
+Aff_User_Login_UserInfoSel       -- User module, Login entity, UserInfo Select
+Aff_Admin_Payment_Request_Upd    -- Admin module, Payment Request entity, Update
+Aff_f_GetSetting                 -- Utility function
+```
+
+### **Module Prefixes**
+- `Aff_Admin_*` - Admin-only procedures (wsv_afinet executor)
+- `Aff_User_*` - User-facing procedures (both executors)
+- `Aff_f_*` - Utility functions (can be nested)
+
+### **Action Suffixes**
+- `_Sel` - SELECT operations (data retrieval)
+- `_Ins` - INSERT operations (create new records)
+- `_Upd` - UPDATE operations (modify existing)  
+- `_Del` - DELETE operations (remove records)
+- `_Upsert` - INSERT or UPDATE operations
+
+### **Standard Template**
+```sql
+/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
+CREATE PROCEDURE [dbo].[Aff_Module_Entity_Action]
+    @Param1 DataType,
+    @Param2 DataType = DefaultValue,
+    @OutputParam DataType = NULL OUTPUT
+AS
+
 /*
-	Created: {YYYYMMDD}@{Author}
-	DB: {Server.Database}
-	Task: {Task Description}
+    Created: YYYYMMDD@Developer
+    DB: DBAFF12B-Affiliate_12B  
+    Task: [Module] - [Entity] - [Business Purpose]
 
-	Revisions:
-		- {YYYYMMDD}@{Author}: {Change Description} [RedmineID: #{ID}]
+    Revisions:
+        - YYYYMMDD@Developer: Initialize SP [RedmineID: #XXXXXX]
 */
+
+BEGIN
+    SET NOCOUNT ON
+    
+    BEGIN TRY
+        -- Input validation
+        IF @Param1 IS NULL OR @Param1 = ''
+        BEGIN
+            RAISERROR('Parameter @Param1 cannot be null or empty', 16, 1)
+            RETURN
+        END
+        
+        -- Main business logic
+        SELECT ...
+        FROM dbo.TableName WITH (NOLOCK)
+        WHERE ...
+        
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE()
+        RAISERROR(@ErrorMessage, ERROR_SEVERITY(), ERROR_STATE())
+    END CATCH
+END
+GO
 ```
-- Always include `Author`, `date`, and a clear `Description`.
-- Document significant changes in a `Revisions` block, referencing a `RedmineID` if available.
 
-### Common SQL Practices
-- Start procedure bodies with `SET NOCOUNT ON;`.
-- Use `WITH(NOLOCK)` on `SELECT` statements to prevent locking issues.
-- Sanitize input string parameters using `LTRIM(RTRIM(@Parameter))`.
+### **Performance & Security Rules**
+```sql
+-- Always use NOLOCK for SELECT operations
+SELECT * FROM dbo.AffInfo WITH (NOLOCK)
 
-## 5. Scripts Folder
+-- Always validate AffId ownership for user procedures
+WHERE AffId = @AffId OR @IsAdmin = 1
 
-The `Scripts/` directory contains one-off or recurring scripts for database maintenance, deployment, or data fixes.
+-- Use EXISTS instead of IN for subqueries
+WHERE EXISTS (SELECT 1 FROM dbo.MemberInfo mi WITH (NOLOCK) WHERE mi.AffId = ai.AffId)
 
-- **Structure:** Scripts are organized into subdirectories corresponding to the platform they target (e.g., `Scripts/B2C/`).
-- **Purpose:** These scripts are not part of the main application logic but are used to manage the database state.
-- **Execution:** Scripts often contain metadata headers indicating the target server, similar to stored procedures.
+-- Standard pagination pattern
+SELECT * FROM (
+    SELECT *, ROW_NUMBER() OVER (ORDER BY SortColumn) AS RowIdx
+    FROM dbo.TableName WITH (NOLOCK)
+    WHERE -- conditions
+) AS result
+WHERE RowIdx BETWEEN @RowStart AND @RowEnd
+```
 
-## 6. Workflow for Modifications
+### **Formatting Standards**
+- **4 spaces** for indentation (no tabs)
+- **UPPERCASE** SQL keywords: `SELECT`, `FROM`, `WHERE`, `JOIN`
+- **lowercase** table aliases: `ai`, `ad`, `cg`
+- **Align** related keywords vertically
+- **Space** around operators: `=`, `AND`, `OR`
 
-1.  **Identify the Brand:** Determine which B2C brand the change applies to (usually `12B` or `N88`).
-2.  **Locate the Module:** Navigate to the appropriate functional directory within the brand's folder (e.g., `B2C/N88/Admin/`).
-3.  **Find or Create the File:** If modifying an existing procedure, find its `.sql` file. If creating a new one, follow the established naming conventions.
-4.  **Follow Standards:** Ensure your new or modified code includes the required headers and comments.
-5.  **Create Scripts:** If the change requires a data migration or a one-time update, create a new file in `Scripts/B2C/` and follow the established script format.
+## 📂 **Documentation Structure**
+```
+docs/domains/b2c-12b/
+├── README.md                    # Domain overview
+├── database-schema.md           # Complete schema reference  
+└── modules/
+    └── cpa/                     # Cost Per Acquisition
+        ├── business.md          # Business processes
+        └── schema.md            # Database details
+```
+
+## 💬 **Communication Style**
+```
+[Brief analysis]
+
+Implementation approach:
+• [Key decision 1]
+• [Key decision 2]
+
+[Generate code OR request documentation]
+```
+
+## 🚀 **File Organization**
+- **Admin procedures**: `12BET/Admin/[Module]/`
+- **User procedures**: `12BET/User/[Module]/`
+- **Core functions**: `12BET/Core function/[Category]/`
+
+---
+
+**Keep it simple. Focus on code quality. Ask for context when needed.**
