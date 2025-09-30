@@ -16,6 +16,7 @@ BEGIN
 
     SELECT 
         c.ComponentId,
+        c.ComponentCode,
         c.ComponentName,
         c.ComponentTypeId,
         c.CreatedDate,
@@ -31,7 +32,9 @@ BEGIN
     LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON au.CustId = c.UpdatedBy
     LEFT JOIN dbo.Aff_f_LandingPage_Component_Status() s ON s.StatusId = c.StatusId
     WHERE (c.ComponentTypeId = @ComponentTypeId)
-        AND (@ComponentName = '' OR c.ComponentName LIKE '%' + @ComponentName + '%')
+        AND (@ComponentName = '' 
+            OR c.ComponentName LIKE '%' + @ComponentName + '%'
+            OR c.ComponentCode LIKE '%' + @ComponentName + '%')
         AND (@StatusIds = '' OR ',' + @StatusIds + ',' LIKE '%,' + CONVERT(VARCHAR(10), c.StatusId) + ',%')
     ORDER BY c.ComponentId DESC;
 END;
