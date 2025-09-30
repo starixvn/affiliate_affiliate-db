@@ -19,20 +19,19 @@ BEGIN
         c.ComponentName,
         c.ComponentTypeId,
         c.CreatedDate,
-        u.UserName AS CreatedBy,
+        ISNULL(u.UserName, '') AS CreatedBy,
         c.Creator AS CreatorId,
-        c.UpdatedDate AS LastModifiedDate,
-        au.UserName AS LastModifiedBy,
-        c.UpdatedBy AS LastModifiedById,
-        CASE c.StatusId 
-            WHEN 1 THEN CAST(1 AS BIT)
-            ELSE CAST(0 AS BIT)
-        END AS IsActive
+        ISNULL(c.UpdatedDate, '') AS LastModifiedDate,
+        ISNULL(au.UserName, '') AS LastModifiedBy,
+        ISNULL(c.UpdatedBy, 0) AS LastModifiedById,
+        c.StatusId,
+        s.Status
     FROM dbo.LandingPage_Component c WITH (NOLOCK)
-    INNER JOIN dbo.Affiliate_User u WITH (NOLOCK) ON u.CustId = c.Creator
-    INNER JOIN dbo.Affiliate_User au WITH (NOLOCK) ON au.CustId = c.UpdatedBy
+    LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON u.CustId = c.Creator
+    LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON au.CustId = c.UpdatedBy
+    LEFT JOIN dbo.Aff_f_LandingPage_Component_Status() s ON s.StatusId = c.StatusId
     WHERE (c.ComponentTypeId = @ComponentTypeId)
         AND (@ComponentName = '' OR c.ComponentName LIKE '%' + @ComponentName + '%')
         AND (@StatusIds = '' OR ',' + @StatusIds + ',' LIKE '%,' + CONVERT(VARCHAR(10), c.StatusId) + ',%')
-    ORDER BY c.ComponentTypeId ASC, c.ComponentName ASC;
+    ORDER BY c.ComponentId DESC;
 END;

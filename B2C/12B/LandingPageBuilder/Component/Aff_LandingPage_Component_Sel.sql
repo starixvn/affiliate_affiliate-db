@@ -1,8 +1,7 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Aff_LandingPage_Component_Sel]
+ALTER PROCEDURE [dbo].[Aff_LandingPage_Component_Sel]
     @ComponentId INT = NULL,
-    @ComponentTypeId INT,
-    @StatusIds VARCHAR(50) = ''
+    @ComponentTypeId INT
 AS
 /*
     Created: 20250929@Sophia
@@ -11,26 +10,22 @@ AS
 
     Revisions:
         - 20250929@Sophia: Initial version [RedmineID: #239988]
+        - 20250929@Sophia: Removed @StatusIds parameter, simplified to only show active components [RedmineID: #239988]
 
     Param's Explanation:
         - @ComponentId:
-            + NULL     : indicates dropdown list behavior
-            + not NULL : indicates popup behavior
+            + NULL     : indicates dropdown list behavior (returns only active components)
+            + not NULL : indicates popup behavior (returns component regardless of status)
         - @ComponentTypeId:
             + 0       : all component types
             + >0      : specific component type
-        - @StatusIds:
-            + '0,1'   : all status
-            + '1'     : single status (Active)
-            + '0'     : single status (Inactive)
 */
 BEGIN
     SET NOCOUNT ON;
-    
-    DECLARE @Status TABLE (StatusId TINYINT);
 
     IF @ComponentId IS NOT NULL
     BEGIN
+        -- Get specific component regardless of status
         SELECT c.ComponentId
               ,c.ComponentName
               ,c.ComponentCode
@@ -46,10 +41,7 @@ BEGIN
     END
     ELSE
     BEGIN
-        INSERT INTO @Status(StatusId)
-        SELECT CAST(f.value AS TINYINT)
-        FROM STRING_SPLIT(@StatusIds, ',') f;
-
+        -- List all active components for the specified type
         SELECT c.ComponentId
               ,c.ComponentName
               ,c.ComponentCode
@@ -59,9 +51,9 @@ BEGIN
         FROM dbo.LandingPage_Component c WITH (NOLOCK)
             INNER JOIN dbo.Aff_f_LandingPage_Component_Status() s 
                 ON s.StatusId = c.StatusId
-        WHERE EXISTS(SELECT 1 FROM @Status st WHERE st.StatusId = c.StatusId)
+        WHERE c.StatusId = 1 -- Only active components
             AND c.ComponentTypeId = @ComponentTypeId
         ORDER BY c.ComponentId DESC;
-    END
-END
+    END;
+END;
 GO

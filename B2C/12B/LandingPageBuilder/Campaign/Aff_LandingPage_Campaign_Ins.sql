@@ -17,6 +17,7 @@ AS
 	Revisions:
 		- 20250903@Eddie: Initialize SP [RedmineID: #236797]
 		- 20250917@Sophia: Added @CampaignId output parameter [RedmineID: #236797]
+		- 20250930@Sophia: Removed UpdatedBy and UpdatedDate from initial insert [RedmineID: #239988]
 
 	Param's Explanation:
 		@CampaignId: Returns the ID of the newly inserted campaign
@@ -79,8 +80,8 @@ BEGIN
 	SELECT @CurrentDate = DATEADD(HOUR, @TimeZone, GETUTCDATE());
 	
 	BEGIN TRY
-		INSERT INTO dbo.LandingPage_Campaign(CampaignName, Description, Creator, CreatedDate, UpdatedBy, UpdatedDate, StatusId)
-		VALUES(@CampaignName, @Description, @UserId, @CurrentDate, @UserId, @CurrentDate, @StatusId);
+		INSERT INTO dbo.LandingPage_Campaign(CampaignName, Description, Creator, CreatedDate, StatusId)
+		VALUES(@CampaignName, @Description, @UserId, @CurrentDate, @StatusId);
 		
 		SELECT @NewCampaignId = SCOPE_IDENTITY();
 		SET @CampaignId = @NewCampaignId; -- Set output parameter
