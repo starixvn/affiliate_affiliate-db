@@ -16,6 +16,7 @@ AS
 
 	Revisions:
 		- 20250903@Eddie: Initialize SP [RedmineID: #236797]
+		- 20250930@Sophia: Modified to handle NULL values for UpdatedBy, UpdatedDate with LEFT JOIN [RedmineID: #239988]
 
 	Param's Explanation:
 		- @CampaignSearch:
@@ -88,15 +89,15 @@ BEGIN
 		  ,u.UserName AS Creator
 		  ,cp.Creator AS CreatorId
 		  ,CONVERT(DATE, cp.CreatedDate) AS CreatedDate
-		  ,au.UserName AS UpdatedBy
-		  ,cp.UpdatedBy AS UpdatedById
-		  ,CONVERT(DATE, cp.UpdatedDate) AS UpdatedDate
+		  ,ISNULL(au.UserName, '') AS UpdatedBy
+		  ,ISNULL(cp.UpdatedBy, 0) AS UpdatedById
+		  ,ISNULL(CONVERT(DATE, cp.UpdatedDate), '') AS UpdatedDate
 		  ,cp.StatusId
 		  ,f.Status
 		  ,ROW_NUMBER() OVER(ORDER BY cp.CampaignId DESC) AS RowIdx
 	FROM dbo.LandingPage_Campaign cp WITH (NOLOCK)
-		INNER JOIN dbo.Affiliate_User u WITH (NOLOCK) ON u.CustId = cp.Creator
-		INNER JOIN dbo.Affiliate_User au WITH (NOLOCK) ON au.CustId = cp.UpdatedBy
+		LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON u.CustId = cp.Creator
+		LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON au.CustId = cp.UpdatedBy
 		INNER JOIN dbo.Aff_f_LandingPage_Campaign_Status() f ON f.StatusId = cp.StatusId
 	WHERE EXISTS(SELECT 1 FROM @Status s WHERE s.StatusId = cp.StatusId)
 	AND (

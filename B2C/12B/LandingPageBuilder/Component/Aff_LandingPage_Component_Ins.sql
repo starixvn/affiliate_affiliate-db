@@ -97,8 +97,6 @@ BEGIN
             ComponentCode,
             Creator,
             CreatedDate,
-            UpdatedBy,
-            UpdatedDate,
             StatusId
         )
         VALUES
@@ -106,8 +104,6 @@ BEGIN
             @ComponentTypeId,
             @ComponentName,
             @ComponentCode,
-            @UserId,
-            @CurrentDate,
             @UserId,
             @CurrentDate,
             @StatusId
