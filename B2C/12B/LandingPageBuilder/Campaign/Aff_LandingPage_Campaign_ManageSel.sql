@@ -72,11 +72,9 @@ BEGIN
 		,CampaignName
 		,CampaignCode
 		,Description
-		,Creator
-		,CreatorId
+		,Creator 
 		,CreatedDate
-		,UpdatedBy
-		,UpdatedById
+		,UpdatedBy 
 		,UpdatedDate
 		,StatusId
 		,Status
@@ -86,12 +84,10 @@ BEGIN
 		  ,cp.CampaignName
 		  ,cp.CampaignCode
 		  ,cp.Description
-		  ,u.UserName AS Creator
-		  ,cp.Creator AS CreatorId
+		  ,u.UserName AS Creator 
 		  ,CONVERT(DATE, cp.CreatedDate) AS CreatedDate
-		  ,ISNULL(au.UserName, '') AS UpdatedBy
-		  ,ISNULL(cp.UpdatedBy, 0) AS UpdatedById
-		  ,ISNULL(CONVERT(DATE, cp.UpdatedDate), '') AS UpdatedDate
+		  ,au.UserName AS UpdatedBy 
+		  ,CONVERT(DATE, cp.UpdatedDate) AS UpdatedDate
 		  ,cp.StatusId
 		  ,f.Status
 		  ,ROW_NUMBER() OVER(ORDER BY cp.CampaignId DESC) AS RowIdx
