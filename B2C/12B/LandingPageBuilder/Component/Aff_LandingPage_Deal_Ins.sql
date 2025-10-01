@@ -3,6 +3,7 @@ ALTER PROCEDURE [dbo].[Aff_LandingPage_Deal_Ins]
 (
 	@DealId INT,
 	@UserId INT,
+	@StatusId TINYINT = 1, -- Default to Active
 	@IP VARCHAR(50) = '',
 	@ErrCode INT = 0 OUTPUT,
 	@ErrMsg NVARCHAR(MAX) = '' OUTPUT
@@ -15,6 +16,12 @@ AS
 
 	Revisions:  
 		- 20250825@Sophia: Initialize SP [RedmineID: #236797]
+		- 20251001@Sophia: Add @StatusId parameter [RedmineID: #239988]
+
+	Param's Explanation:
+		- @StatusId:
+			+ 1: Active (default)
+			+ 2: Inactive
 */
 BEGIN
 	SET NOCOUNT ON;
@@ -57,6 +64,14 @@ BEGIN
 		RETURN
 	END
 
+	-- Validate StatusId
+	IF @StatusId NOT IN (1, 2)
+	BEGIN
+		SET @ErrCode = 102
+		SET @ErrMsg = N'Invalid Status ID. Status must be either 1 (Active) or 2 (Inactive).'
+		RETURN
+	END
+
 	-- Insert new deal into LandingPage_Deal table
 	INSERT INTO LandingPage_Deal 
 	(
@@ -70,7 +85,7 @@ BEGIN
 		@DealId,
 		@UserId,
 		DATEADD(HOUR, 8, GETUTCDATE()), -- GMT+8
-		1
+		@StatusId
 	)
 
 	-- =========================
