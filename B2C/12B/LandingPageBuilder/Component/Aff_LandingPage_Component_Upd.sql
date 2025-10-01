@@ -65,6 +65,7 @@ BEGIN
             FROM dbo.LandingPage_Component WITH (NOLOCK)
             WHERE ComponentName = @ComponentName 
             AND ComponentId <> @ComponentId
+            AND ComponentTypeId = ISNULL(@ComponentTypeId, ComponentTypeId)
         )
         BEGIN
             SELECT @ErrCode = 1002

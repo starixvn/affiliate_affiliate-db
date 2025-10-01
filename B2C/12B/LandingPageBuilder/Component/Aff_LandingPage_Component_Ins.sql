@@ -58,7 +58,8 @@ BEGIN
         END
 
         IF EXISTS (SELECT 1 FROM dbo.LandingPage_Component WITH (NOLOCK) 
-                  WHERE ComponentName = @ComponentName)
+                  WHERE ComponentName = @ComponentName
+                  AND ComponentTypeId = @ComponentTypeId)
         BEGIN
             SELECT @ErrCode = 1003
                  , @ErrMsg = N'Component Name already exists.';
@@ -66,7 +67,8 @@ BEGIN
         END
 
         IF EXISTS (SELECT 1 FROM dbo.LandingPage_Component WITH (NOLOCK) 
-                  WHERE ComponentCode = @ComponentCode)
+                  WHERE ComponentCode = @ComponentCode
+                  AND ComponentTypeId = @ComponentTypeId)
         BEGIN
             SELECT @ErrCode = 1004
                  , @ErrMsg = N'Component Code already exists.';
