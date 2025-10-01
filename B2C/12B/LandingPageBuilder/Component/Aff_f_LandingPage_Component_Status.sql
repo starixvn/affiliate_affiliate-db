@@ -13,8 +13,8 @@ RETURN
 (
     SELECT StatusId, Status
     FROM (
-        VALUES (0, 'Inactive')
-              ,(1, 'Active')
+        VALUES  (1, 'Active'),
+                (2, 'Inactive')
     ) AS StatusTable(StatusId, Status)
 )
 GO

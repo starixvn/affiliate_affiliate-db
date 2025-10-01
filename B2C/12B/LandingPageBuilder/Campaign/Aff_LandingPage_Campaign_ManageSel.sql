@@ -42,12 +42,6 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 	
-	DECLARE @Status TABLE (StatusId TINYINT);
-	
-	INSERT INTO @Status(StatusId)
-    SELECT CAST(f2.value AS TINYINT)
-    FROM STRING_SPLIT(@StatusIds, ',') f2;
-	
     DROP TABLE IF EXISTS #data;
 
     CREATE TABLE #data
@@ -66,6 +60,16 @@ BEGIN
         ,Status			VARCHAR(50)
 		,RowIdx			INT
     );
+
+	-- Create table variables for StatusIds 
+    DECLARE @StatusIdTable TABLE (StatusId INT); 
+    
+    -- Split and insert status IDs
+    INSERT INTO @StatusIdTable (StatusId)
+    SELECT CAST(value AS INT)
+    FROM STRING_SPLIT(@StatusIDs, ',')
+    WHERE value <> '';
+
 	
 	INSERT INTO #data(
 		CampaignId
@@ -95,12 +99,14 @@ BEGIN
 		LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON u.CustId = cp.Creator
 		LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON au.CustId = cp.UpdatedBy
 		INNER JOIN dbo.Aff_f_LandingPage_Campaign_Status() f ON f.StatusId = cp.StatusId
-	WHERE EXISTS(SELECT 1 FROM @Status s WHERE s.StatusId = cp.StatusId)
+	WHERE ( @StatusIds = '' 
+            OR EXISTS (SELECT 1 FROM @StatusIdTable st WHERE st.StatusId = cp.StatusId))
 	AND (
 		(cp.CampaignCode LIKE '%' + @CampaignSearch + '%') 
 		OR (cp.CampaignName LIKE '%' + @CampaignSearch + '%')
 		OR  ISNULL(@CampaignSearch, '') = ''
-	)   AND (cp.Description LIKE '%' + @Description + '%' OR ISNULL(@Description, '') = '');
+		)   
+	AND (cp.Description LIKE '%' + @Description + '%' OR ISNULL(@Description, '') = '');
 
 
 	-- Get total row count
