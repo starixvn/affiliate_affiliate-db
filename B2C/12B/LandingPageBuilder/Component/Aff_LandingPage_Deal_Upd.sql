@@ -62,7 +62,7 @@ BEGIN
             RETURN;
         END
 
-        IF @StatusId NOT IN (0, 1, 2)
+        IF @StatusId NOT IN (1, 2)
         BEGIN
             SELECT @ErrCode = 1002
                  , @ErrMsg = N'Invalid Status ID.';
