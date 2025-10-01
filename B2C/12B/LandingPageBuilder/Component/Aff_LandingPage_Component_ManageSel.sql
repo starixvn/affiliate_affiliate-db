@@ -20,11 +20,9 @@ BEGIN
         c.ComponentName,
         c.ComponentTypeId,
         c.CreatedDate,
-        ISNULL(u.UserName, '') AS CreatedBy,
-        c.Creator AS CreatorId,
-        ISNULL(c.UpdatedDate, '') AS LastModifiedDate,
-        ISNULL(au.UserName, '') AS LastModifiedBy,
-        ISNULL(c.UpdatedBy, 0) AS LastModifiedById,
+        u.UserName AS CreatedBy,
+        c.UpdatedDate AS LastModifiedDate,
+        au.UserName AS LastModifiedBy,
         c.StatusId,
         s.Status
     FROM dbo.LandingPage_Component c WITH (NOLOCK)
