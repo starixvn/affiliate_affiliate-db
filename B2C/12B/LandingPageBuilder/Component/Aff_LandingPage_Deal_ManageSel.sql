@@ -1,7 +1,7 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Aff_LandingPage_Deal_ManageSel]
     @DealName   VARCHAR(100) = '',
-    @StatusIDs  VARCHAR(50) = '1', -- Default to active status
+    @StatusIDs  VARCHAR(50) = '', -- Default to active status
     @DealTypes  VARCHAR(50) = ''   -- Comma-separated list of GroupTypeId from CommGroup
 AS
 /*
@@ -49,6 +49,8 @@ BEGIN
     SELECT 
         ld.DealId,
         cg.GroupName AS DealName,
+        cg.GroupTypeId,
+        gt.GroupTypeName,
         ld.StatusId,
         s.Status AS Status,
         ld.Creator AS CreatorId,
@@ -59,10 +61,12 @@ BEGIN
         ISNULL(ld.UpdatedDate, '') AS UpdatedDate
     FROM dbo.LandingPage_Deal ld WITH (NOLOCK)
     INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ld.DealId = cg.GroupId
+    INNER JOIN dbo.GroupType gt WITH (NOLOCK) ON cg.GroupTypeId = gt.GroupTypeId 
     INNER JOIN dbo.Aff_f_LandingPage_Component_Status() s ON s.StatusId = ld.StatusId
     LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON u.CustId = ld.Creator
     LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON au.CustId = ld.UpdatedBy
-    WHERE EXISTS (SELECT 1 FROM @StatusIDTable st WHERE st.StatusId = ld.StatusId)
+    WHERE  ( @StatusIds = '' 
+            OR EXISTS (SELECT 1 FROM @StatusIDTable st WHERE st.StatusId = ld.StatusId))
         AND (@DealName = ''
             OR cg.GroupName LIKE '%' + @DealName + '%')
         AND (@DealTypes = ''
