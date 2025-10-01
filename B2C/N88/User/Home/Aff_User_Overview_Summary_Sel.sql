@@ -18,7 +18,8 @@ AS
 		- 20220307@Malcolm: Revenue Share Calculation Enhancement [RedmineId: #167335]
 		- 20240506@Sally: Calculate Revenue Share By Turnover [RedmineID: #203756]
 		- 20250401@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
-		- 20250515@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985].
+		- 20250515@Sally: Apply the commission calculation method used for OT to NV [RedmineID: #226985]
+		- 20250912@Sally: Get NetGGR data [RedmineID: #232837]
 
 */
 
@@ -28,7 +29,7 @@ BEGIN
 	-- date range for get data whole month of @MonthDate
 	DECLARE @BeginOfMonth SMALLDATETIME, @EndOfMonth SMALLDATETIME
 	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
-	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
+	SELECT  @EndOfMonth		= EOMONTH(@BeginOfMonth)
 
 	-- Total Signup/Deposited Members
 	BEGIN
@@ -52,7 +53,7 @@ BEGIN
 
 	-- Active Players, Turnover, Deposit, Commission, QualifiedMember
 	BEGIN
-		DECLARE @NoOfSubAff INT, @ActivePlayers INT, @QualifiedMember INT, @Turnover MONEY, @Deposit MONEY, @Commission MONEY, @SubAffCommission MONEY
+		DECLARE @NoOfSubAff INT, @ActivePlayers INT, @QualifiedMember INT, @Turnover MONEY, @Deposit MONEY, @Commission MONEY, @SubAffCommission MONEY, @NetGGR MONEY
 
 		SELECT @NoOfSubAff = COUNT(1)
 		FROM dbo.AffInfo WITH (NOLOCK)
@@ -185,6 +186,7 @@ BEGIN
 			,@Deposit			= SUM(ISNULL(Deposit, 0))
 			,@Commission		= SUM(ISNULL(Commission, 0) + ISNULL(StraightCommission, 0))
 			,@SubAffCommission	= SUM(ISNULL(SubAffCommission, 0))
+			,@NetGGR			= SUM(ISNULL(NetWinloss, 0))
 		FROM #TempCommission
 
 		DROP TABLE #TempCommission
@@ -203,6 +205,7 @@ BEGIN
 			,ISNULL(@Commission, 0)			AS Commission
 			,ISNULL(@NoOfSubAff, 0)			AS NoOfSubAff
 			,ISNULL(@SubAffCommission, 0)	AS SubAffCommission
+			,ISNULL(@NetGGR, 0)				AS NetGGR
 	END
 END
 GO
