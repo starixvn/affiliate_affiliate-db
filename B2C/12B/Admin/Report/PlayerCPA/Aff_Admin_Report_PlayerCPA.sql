@@ -3,7 +3,7 @@ CREATE PROCEDURE dbo.Aff_Admin_Report_PlayerCPA
 	@UserName NVARCHAR(100) = ''
 	,@CustName NVARCHAR(100) = ''
 	,@DealName NVARCHAR(MAX) = '' --list groupids
-	,@StatusId SMALLINT = -1
+	,@StatusId VARCHAR(MAX) = ''
 	,@Viewby TINYINT = 1
 	,@FromDate DATETIME = ''
 	,@ToDate DATETIME = ''
@@ -14,24 +14,25 @@ CREATE PROCEDURE dbo.Aff_Admin_Report_PlayerCPA
 	DB:           DBAFF12B-Affiliate_12B
 	Revisions:
 		- 20250721@Lewis: Initial [RedmineID: #228530]
+		- 20251002@Lewis: Get info RedepositCondition [RedmineID: #240524]
 */
 AS
 BEGIN
 	SET NOCOUNT ON
-
-	DECLARE @BaseCurrency INT
-    SELECT @BaseCurrency = ISNULL(t.ExchangeId, CONVERT(INT, SValue))
-    FROM dbo.SystemSettings s WITH (NOLOCK)
-    LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON CONVERT(INT, SValue) = t.TpExchangeId
-    WHERE SName = 'AffCurrency';
 
 	DECLARE @Deals TABLE (GroupId INT)
 	INSERT INTO @Deals (GroupId)
 	SELECT CAST(f.value AS INT)
 	FROM string_split(@DealName,',') f
 
+	DECLARE @Status TABLE (StatusId SMALLINT)
+	INSERT INTO @Status (StatusId)
+	SELECT CAST(f.value AS SMALLINT)
+	FROM string_split(@StatusId,',') f
+
+	DECLARE @Tdate DATETIME = '9999-12-31'
+
 	-- TODO: Implement Player CPA Report logic here
-	-- TODO:
 	CREATE TABLE #data (
 		MemberCPA_ID INT
 		, AffId INT
@@ -45,22 +46,29 @@ BEGIN
 		, ScheduleName VARCHAR(100)
 		--Active
 		, FTD MONEY
+		, IsFTD BIT
 		, TotalDeposit MONEY
+		, IsTotalDeposit BIT
 		, IsTO BIT
 		, AQD DATETIME
 		, CPAAmount MONEY
 		--Holding
+		, IsHolding BIT
 		, HoldingBetTickets SMALLINT
 		, HoldingTickets SMALLINT
 		, HQD DATETIME
 		, HED DATETIME
 		, EstimatedCPAAmount MONEY
+		--Redeposit
+		, FirstDepositDate DATETIME
+		, ReDepositDays INT
+		, ExpiredRedepositDate DATETIME
+		, IsRedeposit BIT
 		--Approval
-		, ApprovedCPAAmount MONEY
 		, StatusId SMALLINT
-		, CPADate DATETIME
 		, IsAbnormal BIT
 		, Description VARCHAR(300)
+		, UpdatedDate DATETIME
 	)
 	INSERT INTO #data(
 		MemberCPA_ID
@@ -75,22 +83,29 @@ BEGIN
 		, ScheduleName
 		--Active
 		, FTD
+		, IsFTD
 		, TotalDeposit
+		, IsTotalDeposit
 		, IsTO
 		, AQD
 		, CPAAmount
 		--Holding
+		, IsHolding
 		, HoldingBetTickets
 		, HoldingTickets
 		, HQD
 		, HED
 		, EstimatedCPAAmount
+		--Redeposit
+		, FirstDepositDate 
+		, ReDepositDays 
+		, ExpiredRedepositDate 
+		, IsRedeposit 
 		--Approval
-		, ApprovedCPAAmount
 		, StatusId
-		, CPADate
 		, IsAbnormal
 		, Description
+		, UpdatedDate
 	)
 	SELECT 
 		m.MemberCPA_ID
@@ -104,39 +119,42 @@ BEGIN
 		, cg.ScheduleId
 		, s.ScheduleName
 		--Active
-		, mem.FirstDepositAmount * ex.Rate
+		, m.FDM
+		, IIF(m.FDM = 0, 0, 1)
 		, m.TotalDeposit
-		, CASE WHEN mp.MemberCPA_ID IS NOT NULL THEN 1 ELSE 0 END AS IsTO
+		, IIF(m.TotalDeposit = 0, 0, 1)
+		, IIF(m.Turnover = 0, 0, 1)
 		, m.ActiveQualifiedDate
 		, m.CPAAmount
 		--Holding
+		, IIF(m.HoldingBetTickets IS NULL, 0, 1)
 		, m.HoldingBetTickets
 		, cg.HoldingTickets
 		, m.HoldingQualifiedDate
 		, m.HoldingExpiredDate
-		, CASE WHEN m.StatusId IN (2,3) THEN m.CPAAmount ELSE 0 END
+		, CASE WHEN m.StatusId IN (2,3,5,6) THEN m.CPAAmount ELSE 0 END
+		--Redeposit
+		, m.FirstDepositDate
+		, cg.RedepositDays
+		, m.ExpiredRedepositDate
+		, m.IsRedeposit
 		--Approval
-		, CASE WHEN m.StatusId = 3 THEN m.CPAAmount ELSE 0 END
 		, m.StatusId
-		, m.CPADate
 		, IIF(StatusID = 4, 1, 0) AS IsAbnormal
 		, m.Description
-	FROM MemberCPA m WITH (NOLOCK)
-	INNER JOIN MemberInfo mem WITH (NOLOCK) ON m.CustId = mem.CustId
-	LEFT JOIN dbo.TpExchange te WITH (NOLOCK) ON mem.Currency = te.TpExchangeId
-	CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(mem.FirstDepositDate, ISNULL(te.ExchangeId, mem.Currency), @BaseCurrency) ex
-	INNER JOIN AffInfo a WITH (NOLOCK) ON m.AffId = a.AffId
-	INNER JOIN CommGroup cg WITH (NOLOCK) ON m.GroupId = cg.GroupId AND cg.IsDeleted = 0
-	INNER JOIN Schedule s WITH (NOLOCK) ON cg.ScheduleId = s.ScheduleId
-	OUTER APPLY (SELECT DISTINCT a.MemberCPA_ID FROM MemberCPAProduct a WITH (NOLOCK) WHERE m.MemberCPA_ID = a.MemberCPA_ID) mp  
-	WHERE (@Username = '' OR a.Username LIKE '%' + @Username + '%')
-		AND (@Custname = '' OR mem.UserName LIKE '%' + @Custname + '%')
+		, m.UpdatedDate
+	FROM dbo.MemberCPA m WITH (NOLOCK)
+		INNER JOIN dbo.MemberInfo mem WITH (NOLOCK) ON m.CustId = mem.CustId
+		INNER JOIN dbo.AffInfo a WITH (NOLOCK) ON m.AffId = a.AffId
+		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON m.GroupId = cg.GroupId AND cg.IsDeleted = 0
+		INNER JOIN dbo.Schedule s WITH (NOLOCK) ON cg.ScheduleId = s.ScheduleId
+	WHERE (ISNULL(@Username,'') = '' OR a.Username LIKE '%' + @Username + '%')
+		AND (ISNULL(@Custname, '') = '' OR mem.UserName LIKE '%' + @Custname + '%')
 		AND EXISTS (SELECT 1 FROM @Deals d WHERE d.GroupId = cg.GroupId)
-		AND (@StatusId = -1 OR m.StatusId = @StatusId)
+		AND EXISTS (SELECT 1 FROM @Status s WHERE s.StatusId = m.StatusId)
 		AND (
 			(@Viewby = 1 AND m.ActiveQualifiedDate BETWEEN @FromDate AND @ToDate)
 			OR (@Viewby = 2 AND m.HoldingQualifiedDate BETWEEN @FromDate AND @ToDate)
-			OR (@Viewby = 3 AND m.CPADate BETWEEN @FromDate AND @ToDate)
 		)
 
 	SELECT 
@@ -150,38 +168,44 @@ BEGIN
 		, d.DealName
 		, d.ScheduleId
 		, d.ScheduleName
+		--Active
 		, d.FTD
+		, d.IsFTD
 		, d.TotalDeposit
+		, d.IsTotalDeposit
 		, d.IsTO
 		, d.AQD
 		, d.CPAAmount
-		, d.HoldingBetTickets
-		, d.HoldingTickets
+		--Holding
+		, d.IsHolding
+		, IIF(d.IsHolding = 0, NULL, d.HoldingBetTickets) AS HoldingBetTickets
+		, IIF(d.IsHolding = 0, NULL, d.HoldingTickets) AS HoldingTickets
 		, d.HQD
-		, d.HED
+		, IIF(d.IsHolding = 0, NULL, d.HED) AS HED
 		, d.EstimatedCPAAmount
-		, d.ApprovedCPAAmount
+		--Redeposit
+		, IIF(d.ExpiredRedepositDate IS NULL, NULL, d.FirstDepositDate) AS FirstDepositDate
+		, IIF(d.ExpiredRedepositDate IS NULL, NULL, d.ReDepositDays) AS ReDepositDays
+		, d.ExpiredRedepositDate
+		, IIF(d.ExpiredRedepositDate IS NULL, NULL, d.IsRedeposit) AS IsRedeposit
 		, CASE WHEN d.StatusId = 0 THEN 'Pending'
 				 WHEN d.StatusId = 1 THEN 'Ineligibled'
 				  WHEN d.StatusId = 2 THEN 'Eligibled'
-				   WHEN d.StatusId = 3 THEN 'Approved'
+				   WHEN d.StatusId = 3 THEN 'Settled'
 				    WHEN d.StatusId = 4 THEN 'Rejected'
 					 WHEN d.StatusId = 5 THEN 'Quota Exceeded'
+					  WHEN d.StatusId = 6 THEN 'Redeposit Failed'
 				END AS CPAStatus
-		, d.CPADate
 		, d.IsAbnormal
 		, d.Description
 	FROM #data d;
 
-	SELECT @NRows = COUNT(*) FROM #data;
+	SELECT @NRows = COUNT(MemberCPA_ID) FROM #data;
 	
 	-- Return sum totals for key columns
 	SELECT 
-		SUM(FTD) AS FTD,
-		SUM(TotalDeposit) AS TotalDeposit,
 		SUM(CPAAmount) AS CPAAmount,
-		SUM(EstimatedCPAAmount) AS EstimatedCPAAmount,
-		SUM(ApprovedCPAAmount) AS ApprovedCPAAmount
+		SUM(EstimatedCPAAmount) AS EstimatedCPAAmount
 	FROM #data;
 	
 	DROP TABLE #data;
