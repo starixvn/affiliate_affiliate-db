@@ -22,19 +22,13 @@ AS
 */
 BEGIN
     SET NOCOUNT ON;
-    
-    -- Clean input
-    SELECT @DealName = NULLIF(LTRIM(RTRIM(@DealName)), '');
-    
-    -- Clean input
-    SELECT @DealTypes = NULLIF(LTRIM(RTRIM(@DealTypes)), '');
 
     -- Create table variables for StatusIDs and DealTypes
-    DECLARE @StatusIDTable TABLE (StatusId INT);
+    DECLARE @StatusIdTable TABLE (StatusId INT);
     DECLARE @DealTypeTable TABLE (GroupTypeId INT);
     
     -- Split and insert status IDs
-    INSERT INTO @StatusIDTable (StatusId)
+    INSERT INTO @StatusIdTable (StatusId)
     SELECT CAST(value AS INT)
     FROM STRING_SPLIT(@StatusIDs, ',')
     WHERE value <> '';
@@ -60,13 +54,13 @@ BEGIN
         ISNULL(au.UserName, '') AS UpdatedBy,
         ISNULL(ld.UpdatedDate, '') AS UpdatedDate
     FROM dbo.LandingPage_Deal ld WITH (NOLOCK)
-    INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ld.DealId = cg.GroupId
-    INNER JOIN dbo.GroupType gt WITH (NOLOCK) ON cg.GroupTypeId = gt.GroupTypeId 
-    INNER JOIN dbo.Aff_f_LandingPage_Component_Status() s ON s.StatusId = ld.StatusId
+    LEFT JOIN dbo.CommGroup cg WITH (NOLOCK) ON ld.DealId = cg.GroupId
+    LEFT JOIN dbo.GroupType gt WITH (NOLOCK) ON cg.GroupTypeId = gt.GroupTypeId 
+    LEFT JOIN dbo.Aff_f_LandingPage_Component_Status() s ON s.StatusId = ld.StatusId
     LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON u.CustId = ld.Creator
     LEFT JOIN dbo.Affiliate_User au WITH (NOLOCK) ON au.CustId = ld.UpdatedBy
     WHERE  ( @StatusIds = '' 
-            OR EXISTS (SELECT 1 FROM @StatusIDTable st WHERE st.StatusId = ld.StatusId))
+            OR EXISTS (SELECT 1 FROM @StatusIdTable st WHERE st.StatusId = ld.StatusId))
         AND (@DealName = ''
             OR cg.GroupName LIKE '%' + @DealName + '%')
         AND (@DealTypes = ''
