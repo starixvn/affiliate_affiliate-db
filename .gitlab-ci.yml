@@ -1,6 +1,12 @@
- - project: ci/core-cicd
+include:
+  - project: ci/core-cicd
     ref: main
     file: nexcel.gitlab-ci.yml
+
 variables:
-  PROJECT_NAME: 'RepoName'
+  PROJECT_NAME: 'Affiliate-DB'
   ENABLE_SONAR_SQL: 'true'
+	
+		
+		
+		
