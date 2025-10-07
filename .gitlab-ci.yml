@@ -6,7 +6,3 @@ include:
 variables:
   PROJECT_NAME: 'Affiliate-DB'
   ENABLE_SONAR_SQL: 'true'
-	
-		
-		
-		
