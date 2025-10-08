@@ -18,6 +18,7 @@ AS
 		- 20250416@Sally: Change the data retrieval method for Deposit [RedmineID: #224116]
 		- 20250401@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 		- 20250912@Sally: Get NetGGR data [RedmineID: #238476]
+		- 20250929@Sophia: Add TotalClick and UniqueClick columns [RedmineID: #239549]
 */
 
 BEGIN
@@ -32,6 +33,57 @@ BEGIN
 	SELECT @BaseExchangeId = t.ExchangeId
 	FROM dbo.TpExchange t WITH (NOLOCK)
 	WHERE t.TpExchangeId = @BaseCurrency
+
+	-- Click Statistics
+	BEGIN
+		DECLARE @TotalClick INT, @UniqueClick INT;
+		
+		DECLARE @ArchiveDate SMALLDATETIME;
+		SELECT @ArchiveDate = dbo.Aff_f_GetSetting('ArchiveDate_ClickStatistics'); -- GMT-4, Date only
+	
+		-- Convert from GMT+8 to GMT-4 for comparison with ClickStatistics.Date
+		DECLARE @FromDate_GMT4 DATETIME, @ToDate_GMT4 DATETIME;
+		SELECT @FromDate_GMT4 = DATEADD(HOUR, -12, CAST(@BeginOfMonth AS DATETIME)), -- GMT+8 to GMT-4
+			   @ToDate_GMT4 = DATEADD(HOUR, -12, CAST(DATEADD(DAY, 1, @EndOfMonth) AS DATETIME)); -- GMT+8 to GMT-4
+	
+		CREATE TABLE #ClickData (TotalClick INT DEFAULT(0), IP VARCHAR(25));
+		
+		-- Current data
+		IF CONVERT(DATE, @ToDate_GMT4) > @ArchiveDate
+		BEGIN
+			INSERT INTO #ClickData (TotalClick, IP)
+			SELECT COUNT(1) AS TotalClick, IP
+			FROM dbo.ClickStatistics WITH (NOLOCK)
+			WHERE AffId = @AffID
+				AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4
+				AND [Date] >= CASE WHEN CONVERT(DATE, @FromDate_GMT4) > @ArchiveDate 
+							  THEN CONVERT(DATE, @FromDate_GMT4) 
+							  ELSE DATEADD(Day, 1, @ArchiveDate) END
+				AND [Date] < DATEADD(Day, 1, CONVERT(DATE, @ToDate_GMT4))
+			GROUP BY IP;
+		END;
+
+		-- Archived data
+		IF CONVERT(DATE, @FromDate_GMT4) <= @ArchiveDate
+		BEGIN
+			INSERT INTO #ClickData (TotalClick, IP)
+			SELECT COUNT(1) AS TotalClick, IP
+			FROM dbo.ClickStatistics_bk WITH (NOLOCK)
+			WHERE AffId = @AffID
+				AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4
+				AND [Date] >= CONVERT(DATE, @FromDate_GMT4)
+				AND [Date] < CASE WHEN CONVERT(DATE, @ToDate_GMT4) > @ArchiveDate 
+							 THEN DATEADD(Day, 1, @ArchiveDate) 
+							 ELSE DATEADD(Day, 1, CONVERT(DATE, @ToDate_GMT4)) END
+			GROUP BY IP;
+		END;
+
+		SELECT @TotalClick = SUM(TotalClick),
+			   @UniqueClick = COUNT(DISTINCT IP)
+		FROM #ClickData;
+
+		DROP TABLE #ClickData;
+	END;
 
 	-- Total Signup/Deposited Members
 	BEGIN
@@ -232,6 +284,8 @@ BEGIN
 			,ISNULL(@SubAffCommission, 0)	AS SubAffCommission
 			,ISNULL(@FDMDeposit, 0)			AS FDMDeposit
 			,ISNULL(@NetGGR, 0)				AS NetGGR
+			,ISNULL(@TotalClick, 0)			AS TotalClick
+			,ISNULL(@UniqueClick, 0)			AS UniqueClick
 	END
 END
 GO
