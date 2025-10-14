@@ -10,6 +10,15 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20241226@Sally: Apply QM Turnover [RedmineID: #212201]
+		- 20251009@Sophia: Update deposit data approach - update Aff_Commission_UnCalc with DepositInfo.ActualDeposit for uncalculated periods [RedmineID: #239737]
+
+	Notes:
+	  - Calculated periods: Use deposit data from Aff_Commission_Calc as-is
+	  - Uncalculated periods: Call Aff_Commission_UnCalc, then update #TempCommission.Deposit with DepositInfo.ActualDeposit
+	  - DepositInfo.CreateTime is in GMT+0, converted to GMT+8 for calculations
+	  - VND/IDR currencies are scaled by dividing by 1000
+	  - Currency conversion uses Aff_f_ExchangeRate_Sel to convert to base currency (USD = 3)
+	  - Final totals aggregate from #TempCommission.Deposit values
 
 */
 
@@ -24,6 +33,10 @@ BEGIN
 	BEGIN
 		DECLARE @MaxCommDate SMALLDATETIME
 		SELECT  @MaxCommDate = CONVERT(DATE, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
+
+		-- Calculate commission date boundary for data separation (commission date + 1 day)
+		DECLARE @CommissionBoundary SMALLDATETIME
+		SELECT @CommissionBoundary = DATEADD(DAY, 1, @MaxCommDate)
 
 		DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
 
@@ -100,6 +113,38 @@ BEGIN
 				@ProductIds			= '0',
 				@IsSumAll			= 0,
 				@GetRowTotalOnly	= 1
+
+			-- Update #TempCommission.Deposit with DepositInfo data for uncalculated periods
+			;WITH CTE_DepositByMonth AS (
+				SELECT d.AffId, 
+					d.MonthDate,
+					SUM(ISNULL(d.DepositAmount * er.Rate, 0)) AS Deposit
+				FROM (
+					SELECT 
+						EOMONTH(DATEADD(HOUR, 8, di.CreateTime)) AS MonthDate,
+						mi.Currency, mi.AffId,
+						SUM(ISNULL(di.ActualDeposit, 0) * 1.0 / CASE WHEN e.Code IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END) AS DepositAmount
+					FROM bodb_12B.dbo.DepositInfo di WITH (NOLOCK)
+						INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON di.CustId = mi.CustId
+						LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON mi.Currency = t.TpExchangeId
+						LEFT JOIN dbo.Exchange e WITH (NOLOCK) ON ISNULL(t.ExchangeId, mi.Currency) = e.ExchangeId
+					WHERE di.Status = 3  -- Approved deposits only
+						AND di.WinlostDate >= DATEADD(DAY, -1, @CommissionBoundary) 
+						AND DATEADD(HOUR, 8, di.CreateTime) >= @CommissionBoundary  -- Convert GMT+0 to GMT+8 for uncalculated period (after commission boundary)
+						AND NOT EXISTS (
+							SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+							WHERE mr.CustId = di.CustId AND CAST(DATEADD(HOUR, 8, di.CreateTime) AS DATE) BETWEEN mr.FromDate AND mr.ToDate
+						)
+					GROUP BY EOMONTH(DATEADD(HOUR, 8, di.CreateTime)), mi.Currency, mi.AffId
+				) d
+				LEFT JOIN dbo.TpExchange t2 WITH (NOLOCK) ON d.Currency = t2.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(d.MonthDate, ISNULL(t2.ExchangeId, d.Currency), 3) er
+				GROUP BY d.MonthDate, d.AffId
+			)
+			UPDATE tc
+			SET tc.Deposit = ISNULL(cte.Deposit, tc.Deposit)
+			FROM #TempCommission tc
+				LEFT JOIN CTE_DepositByMonth cte ON tc.MonthDate = cte.MonthDate AND cte.AffId = tc.AffId
 		END
 
 		-- Calculated Months

@@ -13,9 +13,13 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250310@Lewis: Add column Qualified Members [RedmineID: #219495]
+		- 20250723@Sophia: Optimize Deposit/Withdrawal using commission date boundary approach [RedmineID: #239737]
 
 	Param's Explanation:
 		. @BaseCurrency : Currency of B2C
+	NOT:
+	- Data separation: rptMemberDaily for historical data (before commission boundary), DepositInfo for recent data (after commission boundary)
+	- Commission boundary = @CommissionBoundary = AFF_CommissionDate + 1 day
 
 */
 
@@ -26,6 +30,15 @@ BEGIN
 	DECLARE @FromBeginMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME
 	SELECT  @FromBeginMonth = DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT  @ToNextMonth	= DATEADD(MONTH, 1, @FromBeginMonth)
+
+	-- Pre-calculate DATE variables for WinlostDate index optimization
+	DECLARE @WinlostDateFrom DATE, @WinlostDateTo DATE
+	SELECT @WinlostDateFrom = DATEADD(DAY, -1, CONVERT(DATE, @FromBeginMonth))
+	SELECT @WinlostDateTo =  @ToNextMonth 
+
+	-- Calculate commission date boundary for data separation (commission date + 1 day)
+	DECLARE @CommissionBoundary SMALLDATETIME
+	SELECT @CommissionBoundary = DATEADD(DAY, 1, CONVERT(SMALLDATETIME, SValue)) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
 	DECLARE @EndOfMonth SMALLDATETIME
 	SELECT  @EndOfMonth = DATEADD(DAY, -1, @ToNextMonth)
@@ -86,26 +99,121 @@ BEGIN
 	BEGIN
 		CREATE TABLE #Data (WinlostDate SMALLDATETIME, CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, GGR MONEY, IsActive TINYINT)
 		
-		INSERT INTO #Data (WinlostDate, CustId, Deposit, Withdrawal, Turnover, GGR, IsActive)
-		SELECT r.WinlostDate, r.CustId
-			,SUM(r.Deposit * e.Rate) AS Deposit
-			,SUM(r.Withdrawal * e.Rate) AS Withdrawal
-			,SUM(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Turnover END * e.Rate) AS Turnover
-			,SUM(CASE WHEN p.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0)
-					ELSE -(r.Winloss - ISNULL(r.ProgressiveWin, 0)) - ISNULL(r.ProgressiveBet, 0) END * e.Rate) AS GGR
-			,MAX(CASE WHEN r.ProductId > 0 THEN 1 ELSE 0 END)
-		FROM dbo.rptMemberDaily r WITH (NOLOCK)
-			LEFT JOIN @Products p ON r.ProductId = p.ProductId
-			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (r.WinlostDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
-		WHERE r.WinlostDate BETWEEN @FromBeginMonth AND @ToNextMonth
-			AND r.AffId = @AffId
-			AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
-			AND NOT EXISTS (
-				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-				WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+		-- Check if @FromBeginMonth is before commission boundary
+		IF @FromBeginMonth < @CommissionBoundary
+		BEGIN
+			-- Use rptMemberDaily only for all data with currency grouping optimization
+			;WITH CTE_RawData AS (
+				SELECT r.WinlostDate, r.CustId, r.Currency
+					,SUM(r.Deposit) AS Deposit
+					,SUM(r.Withdrawal) AS Withdrawal
+					,SUM(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Turnover END) AS Turnover
+					,SUM(CASE WHEN p.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0)
+							ELSE -(r.Winloss - ISNULL(r.ProgressiveWin, 0)) - ISNULL(r.ProgressiveBet, 0) END) AS GGR
+					,MAX(CASE WHEN r.ProductId > 0 THEN 1 ELSE 0 END) AS IsActive
+					,CONVERT(DATE, EOMONTH(r.WinlostDate)) AS MonthDate
+				FROM dbo.rptMemberDaily r WITH (NOLOCK)
+					LEFT JOIN @Products p ON r.ProductId = p.ProductId
+				WHERE r.WinlostDate >= @FromBeginMonth AND r.WinlostDate < @ToNextMonth
+					AND r.AffId = @AffId
+					AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
+					AND NOT EXISTS (
+						SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+						WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+					)
+				GROUP BY r.WinlostDate, r.CustId, r.Currency, CONVERT(DATE, EOMONTH(r.WinlostDate))
 			)
-		GROUP BY r.WinlostDate, r.CustId
+			INSERT INTO #Data (WinlostDate, CustId, Deposit, Withdrawal, Turnover, GGR, IsActive)
+			SELECT rd.WinlostDate, rd.CustId
+				,SUM(rd.Deposit * e.Rate) AS Deposit
+				,SUM(rd.Withdrawal * e.Rate) AS Withdrawal
+				,SUM(rd.Turnover * e.Rate) AS Turnover
+				,SUM(rd.GGR * e.Rate) AS GGR
+				,MAX(rd.IsActive) AS IsActive
+			FROM CTE_RawData rd
+				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON rd.Currency = t.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(rd.MonthDate, ISNULL(t.ExchangeId, rd.Currency), @BaseExchangeId) e
+			GROUP BY rd.WinlostDate, rd.CustId
+		END
+		ELSE
+		BEGIN
+			-- Use hybrid approach: rptMemberDaily for all data except deposits + DepositInfo for recent deposits
+			;WITH CTE_HistoricalDeposit AS (
+				-- Non-deposit data from rptMemberDaily (all metrics except deposits)
+				SELECT r.WinlostDate, r.CustId, r.Currency
+					,0 AS Deposit  -- Deposit will come from CTE_RecentDeposit
+					,SUM(r.Withdrawal) AS Withdrawal
+					,SUM(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Turnover END) AS Turnover
+					,SUM(CASE WHEN p.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0)
+							ELSE -(r.Winloss - ISNULL(r.ProgressiveWin, 0)) - ISNULL(r.ProgressiveBet, 0) END) AS GGR
+					,MAX(CASE WHEN r.ProductId > 0 THEN 1 ELSE 0 END) AS IsActive
+					,CONVERT(DATE, EOMONTH(r.WinlostDate)) AS MonthDate
+				FROM dbo.rptMemberDaily r WITH (NOLOCK)
+					LEFT JOIN @Products p ON r.ProductId = p.ProductId
+				WHERE r.WinlostDate >= @FromBeginMonth
+					AND r.WinlostDate < @ToNextMonth
+					AND r.AffId = @AffId
+					AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
+					AND NOT EXISTS (
+						SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+						WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+					)
+				GROUP BY r.WinlostDate, r.CustId, r.Currency, CONVERT(DATE, EOMONTH(r.WinlostDate))
+			),
+			CTE_RecentDeposit AS (
+				-- Deposit data from DepositInfo
+				SELECT CONVERT(DATE, DATEADD(HOUR, 8, d.CreateTime)) AS WinlostDate, d.CustId, mi.Currency
+					,SUM(d.ActualDeposit * 1.0 / CASE WHEN e.Code IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END) AS Deposit
+					,0 AS Withdrawal
+					,0 AS Turnover
+					,0 AS GGR
+					,1 AS IsActive
+					,CONVERT(DATE, EOMONTH(DATEADD(HOUR, 8, d.CreateTime))) AS MonthDate
+				FROM bodb_12B.dbo.DepositInfo d WITH (NOLOCK)
+					INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
+					LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON mi.Currency = t.TpExchangeId
+					LEFT JOIN dbo.Exchange e WITH (NOLOCK) ON ISNULL(t.ExchangeId, mi.Currency) = e.ExchangeId
+				WHERE d.Status = 3 -- Approved
+					AND d.WinlostDate BETWEEN @WinlostDateFrom AND @WinlostDateTo  -- Use WinlostDate index
+					AND DATEADD(HOUR, 8, d.CreateTime) >= @FromBeginMonth
+					AND DATEADD(HOUR, 8, d.CreateTime) < @ToNextMonth
+					AND mi.AffId = @AffId
+					AND NOT EXISTS (
+						SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
+						WHERE mr.CustId = d.CustId AND CAST(DATEADD(HOUR, 8, d.CreateTime) AS DATE) BETWEEN mr.FromDate AND mr.ToDate
+					)
+				GROUP BY CONVERT(DATE, DATEADD(HOUR, 8, d.CreateTime)), d.CustId, mi.Currency, CONVERT(DATE, EOMONTH(DATEADD(HOUR, 8, d.CreateTime)))
+			),
+			CTE_CombinedDeposit AS (
+				-- Combine historical and recent data with exchange rate conversion
+				SELECT 
+					WinlostDate,
+					CustId,
+					SUM(Deposit * e.Rate) AS Deposit,
+					SUM(Withdrawal * e.Rate) AS Withdrawal,
+					SUM(Turnover * e.Rate) AS Turnover,
+					SUM(GGR * e.Rate) AS GGR,
+					MAX(IsActive) AS IsActive
+				FROM (
+					SELECT WinlostDate, CustId, Currency, Deposit, Withdrawal, Turnover, GGR, IsActive, MonthDate FROM CTE_HistoricalDeposit
+					UNION ALL
+					SELECT WinlostDate, CustId, Currency, Deposit, Withdrawal, Turnover, GGR, IsActive, MonthDate FROM CTE_RecentDeposit
+				) b
+				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON b.Currency = t.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(b.MonthDate, ISNULL(t.ExchangeId, b.Currency), @BaseExchangeId) e
+				GROUP BY b.WinlostDate, b.CustId
+			)
+			INSERT INTO #Data (WinlostDate, CustId, Deposit, Withdrawal, Turnover, GGR, IsActive)
+			SELECT 
+				WinlostDate,
+				CustId,
+				Deposit,
+				Withdrawal,
+				Turnover,
+				GGR,
+				IsActive
+			FROM CTE_CombinedDeposit
+		END
 
 		CREATE CLUSTERED INDEX CIX_IBCCustId_WinlostDate ON #Data (CustId, WinlostDate)
 
