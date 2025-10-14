@@ -19,15 +19,32 @@ AS
 		- 20250401@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 		- 20250912@Sally: Get NetGGR data [RedmineID: #238476]
 		- 20250929@Sophia: Add TotalClick and UniqueClick columns [RedmineID: #239549]
+		- 20251002@Sophia: Implement hybrid approach using rptMemberDaily for historical data and DepositInfo for recent data based on commission date boundary [RedmineID: #239737]
+
+	Notes:
+	  - rptMemberDaily.WinlostDate is in GMT+8
+	  - bodb_12B.dbo.DepositInfo.CreateTime is in GMT+0
+	  - bodb_12B.dbo.DepositInfo.WinlostDate is indexed (Date of CreateTime)
+	  - Data separation: rptMemberDaily for historical data (before commission boundary), DepositInfo for recent data (after commission boundary)
+	  - Commission boundary = @CommissionBoundary = AFF_CommissionDate + 1 day
 */
 
 BEGIN
 	SET NOCOUNT ON
 	
 	-- date range for get data whole month of @MonthDate
-	DECLARE @BeginOfMonth SMALLDATETIME, @EndOfMonth SMALLDATETIME
+	DECLARE @BeginOfMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME
 	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
-	SELECT  @EndOfMonth		= EOMONTH(@BeginOfMonth)
+	SELECT  @ToNextMonth	= DATEADD(MONTH, 1, @BeginOfMonth)
+
+	-- Pre-calculate DATE variables for WinlostDate index optimization
+	DECLARE @WinlostDateFrom DATE, @WinlostDateTo DATE
+	SELECT @WinlostDateFrom = DATEADD(DAY, -1, CONVERT(DATE, @BeginOfMonth))
+	SELECT @WinlostDateTo = @ToNextMonth
+
+	-- Calculate commission date boundary for data separation (commission date + 1 day)
+	DECLARE @CommissionBoundary SMALLDATETIME
+	SELECT @CommissionBoundary = DATEADD(DAY, 1, CONVERT(SMALLDATETIME, SValue)) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
 	DECLARE @BaseExchangeId INT = @BaseCurrency
 	SELECT @BaseExchangeId = t.ExchangeId
@@ -44,7 +61,7 @@ BEGIN
 		-- Convert from GMT+8 to GMT-4 for comparison with ClickStatistics.Date
 		DECLARE @FromDate_GMT4 DATETIME, @ToDate_GMT4 DATETIME;
 		SELECT @FromDate_GMT4 = DATEADD(HOUR, -12, CAST(@BeginOfMonth AS DATETIME)), -- GMT+8 to GMT-4
-			   @ToDate_GMT4 = DATEADD(HOUR, -12, CAST(DATEADD(DAY, 1, @EndOfMonth) AS DATETIME)); -- GMT+8 to GMT-4
+			   @ToDate_GMT4 = DATEADD(HOUR, -12, CAST(@ToNextMonth AS DATETIME)); -- GMT+8 to GMT-4
 	
 		CREATE TABLE #ClickData (TotalClick INT DEFAULT(0), IP VARCHAR(25));
 		
@@ -89,34 +106,79 @@ BEGIN
 	BEGIN
 		DECLARE @Signups INT, @DepositedMembers INT, @FDMDeposit MONEY
 		
-		SELECT  @Signups		   = COUNT(CASE WHEN RegisteredDate >= @BeginOfMonth AND RegisteredDate < DATEADD(DAY, 1, @EndOfMonth) THEN 1 ELSE NULL END)
-				,@DepositedMembers = COUNT(CASE WHEN FirstDepositDate >= @BeginOfMonth AND FirstDepositDate < DATEADD(DAY, 1, @EndOfMonth) THEN 1 ELSE NULL END)			
+		SELECT  @Signups		   = COUNT(CASE WHEN RegisteredDate >= @BeginOfMonth AND RegisteredDate < @ToNextMonth THEN 1 ELSE NULL END)
+				,@DepositedMembers = COUNT(CASE WHEN FirstDepositDate >= @BeginOfMonth AND FirstDepositDate < @ToNextMonth THEN 1 ELSE NULL END)			
 		FROM dbo.MemberInfo m WITH (NOLOCK)
 		WHERE AffId = @AffId
 
-		SELECT @FDMDeposit = SUM(ISNULL(FirstDepositAmount,0) * e.Rate)
-		FROM dbo.MemberInfo r WITH (NOLOCK)
-			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (r.FirstDepositDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
-		WHERE AffId = @AffId
-			AND FirstDepositDate >= @BeginOfMonth 
-			AND FirstDepositDate < DATEADD(DAY, 1, @EndOfMonth)
+		SELECT @FDMDeposit = SUM(fd.FirstDepositAmount * ex.Rate)
+		FROM (
+			SELECT Currency
+				,SUM(ISNULL(FirstDepositAmount,0)) AS FirstDepositAmount
+				,CONVERT(DATE, EOMONTH(FirstDepositDate)) AS MonthDate
+			FROM dbo.MemberInfo r WITH (NOLOCK)
+			WHERE AffId = @AffId
+				AND FirstDepositDate >= @BeginOfMonth 
+				AND FirstDepositDate < @ToNextMonth
+			GROUP BY Currency, CONVERT(DATE, EOMONTH(FirstDepositDate))
+		) fd
+		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON fd.Currency = t.TpExchangeId
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(fd.MonthDate, ISNULL(t.ExchangeId, fd.Currency), @BaseExchangeId) ex
 	END
 
-	-- Total Deposit
+	-- Total Deposit - Conditional hybrid approach
 	BEGIN
 		DECLARE @Deposit MONEY
-		SELECT @Deposit =SUM(ISNULL(Deposit, 0) * e.Rate)	   
-		FROM dbo.rptMemberDaily r WITH (NOLOCK)
-			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
-		WHERE r.WinlostDate >= @BeginOfMonth 
-			AND r.WinlostDate < DATEADD(DAY, 1, @EndOfMonth)
-			AND r.AffId = @AffId
-			AND NOT EXISTS (
-				SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
-				WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
-			)	
+		
+		-- Check if @BeginOfMonth is before commission boundary
+		IF @BeginOfMonth < @CommissionBoundary
+		BEGIN
+			-- Use rptMemberDaily only for historical data with currency grouping optimization
+			SELECT @Deposit = SUM(rd.Deposit * ex.Rate)
+			FROM (
+				SELECT Currency
+					,SUM(ISNULL(Deposit, 0)) AS Deposit
+					,CONVERT(DATE, EOMONTH(WinlostDate)) AS MonthDate
+				FROM dbo.rptMemberDaily r WITH (NOLOCK)
+				WHERE r.WinlostDate >= @BeginOfMonth 
+					AND r.WinlostDate < @ToNextMonth
+					AND r.AffId = @AffId
+					AND NOT EXISTS (
+						SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
+						WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+					)
+				GROUP BY Currency, CONVERT(DATE, EOMONTH(WinlostDate))
+			) rd
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON rd.Currency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(rd.MonthDate, ISNULL(t.ExchangeId, rd.Currency), @BaseExchangeId) ex
+		END
+		ELSE
+		BEGIN
+			-- Use live DepositInfo for recent months with currency grouping optimization
+			SELECT @Deposit = SUM(dd.ActualDeposit * ex.Rate)
+			FROM (
+				SELECT mi.Currency
+					,SUM(d.ActualDeposit * 1.0 / CASE WHEN e.Code IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END) AS ActualDeposit
+					,CONVERT(DATE, EOMONTH(DATEADD(HOUR, 8, d.CreateTime))) AS MonthDate
+				FROM bodb_12B.dbo.DepositInfo d WITH(NOLOCK)
+					INNER JOIN dbo.MemberInfo mi WITH(NOLOCK) ON d.CustId = mi.CustId
+					LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON mi.Currency = t.TpExchangeId
+					LEFT JOIN dbo.Exchange e WITH (NOLOCK) ON ISNULL(t.ExchangeId, mi.Currency) = e.ExchangeId
+				WHERE mi.AffId = @AffId
+					AND d.Status = 3  -- Approved deposits only
+					AND d.WinlostDate BETWEEN @WinlostDateFrom AND @WinlostDateTo  -- Use WinlostDate index with pre-calculated DATE variables
+					AND DATEADD(HOUR, 8, d.CreateTime) >= @BeginOfMonth  -- Within month range (GMT+8)
+					AND DATEADD(HOUR, 8, d.CreateTime) < @ToNextMonth  -- Within month range (GMT+8)
+					AND NOT EXISTS (
+						SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
+						WHERE mr.CustId = d.CustId 
+						AND CAST(DATEADD(HOUR, 8, d.CreateTime) AS DATE) BETWEEN mr.FromDate AND mr.ToDate  -- Convert to GMT+8 for comparison
+					)
+				GROUP BY mi.Currency, CONVERT(DATE, EOMONTH(DATEADD(HOUR, 8, d.CreateTime)))
+			) dd
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON dd.Currency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(dd.MonthDate, ISNULL(t.ExchangeId, dd.Currency), @BaseExchangeId) ex
+		END
 	END
 
 	-- Balance Brought Forward
@@ -125,7 +187,7 @@ BEGIN
 		SELECT  @BBF = SUM(Amount)
 		FROM dbo.AffTrans WITH (NOLOCK)
 		WHERE AffId = @AffId
-			AND WinlostDate < DATEADD(DAY, 1, @EndOfMonth)
+			AND WinlostDate < @ToNextMonth
 			AND Status IN ('Pending', 'Approved', 'Completed')
 	END
 
@@ -138,7 +200,7 @@ BEGIN
 		WHERE ParentAffId = @AffId
 			AND Status = 'Approved'
 			AND IsClosed = 0
-			AND ApprovedDate >= @BeginOfMonth AND ApprovedDate < DATEADD(DAY, 1, @EndOfMonth)
+			AND ApprovedDate >= @BeginOfMonth AND ApprovedDate < @ToNextMonth
 
 		CREATE TABLE #TempCommission
 		(
