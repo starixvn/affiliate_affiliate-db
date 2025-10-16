@@ -20,25 +20,25 @@ BEGIN
 	SET NOCOUNT ON
 	; WITH c AS 
 	(
-		SELECT 'Affiliate_N88' AS DbName,'bn-BD' AS MarketID,'BD' AS CountryCode,'{"Email":"my@nova88aff.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}' AS ExtraInfo
-		UNION ALL SELECT 'Affiliate_N88','en-US','BD','{"Email":"my@nova88aff.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
-		UNION ALL SELECT 'Affiliate_N88','en-US','ID','{"Email":"my@nova88aff.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
-		UNION ALL SELECT 'Affiliate_N88','id-ID','ID','{"Email":"id@nova88aff.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
-		UNION ALL SELECT 'Affiliate_N88','en-US','IN','{"Email":"my@nova88aff.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
-		UNION ALL SELECT 'Affiliate_N88','hi-IN','IN','{"Email":"in@nova88aff.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
-		UNION ALL SELECT 'Affiliate_N88','en-US','MY','{"Email":"my@nova88aff.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
-		UNION ALL SELECT 'Affiliate_N88','ms-MY','MY','{"Email":"my@nova88aff.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
-		UNION ALL SELECT 'Affiliate_N88','zh-CN','MY','{"Email":"my@nova88aff.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
-		UNION ALL SELECT 'Affiliate_N88','en-US','TH','{"Email":"my@nova88aff.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
-		UNION ALL SELECT 'Affiliate_N88','th-TH','TH','{"Email":"th@nova88aff.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
-		UNION ALL SELECT 'Affiliate_N88','en-US','VN','{"Email":"my@nova88aff.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
-		UNION ALL SELECT 'Affiliate_N88','vi-VN','VN','{"Email":"my@nova88aff.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily","Zalo":"(+66) 991 915 095"}'
+		SELECT 'Affiliate_N88' AS DbName,'bn-BD' AS MarketID,'BD' AS CountryCode,'{"Email":"winston.chau@starixsoft.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}' AS ExtraInfo
+		UNION ALL SELECT 'Affiliate_N88','en-US','BD','{"Email":"winston.chau@starixsoft.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
+		UNION ALL SELECT 'Affiliate_N88','en-US','ID','{"Email":"winston.chau@starixsoft.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
+		UNION ALL SELECT 'Affiliate_N88','id-ID','ID','{"Email":"winston.chau@starixsoft.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
+		UNION ALL SELECT 'Affiliate_N88','en-US','IN','{"Email":"winston.chau@starixsoft.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
+		UNION ALL SELECT 'Affiliate_N88','hi-IN','IN','{"Email":"winston.chau@starixsoft.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
+		UNION ALL SELECT 'Affiliate_N88','en-US','MY','{"Email":"winston.chau@starixsoft.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
+		UNION ALL SELECT 'Affiliate_N88','ms-MY','MY','{"Email":"winston.chau@starixsoft.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
+		UNION ALL SELECT 'Affiliate_N88','zh-CN','MY','{"Email":"winston.chau@starixsoft.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
+		UNION ALL SELECT 'Affiliate_N88','en-US','TH','{"Email":"winston.chau@starixsoft.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
+		UNION ALL SELECT 'Affiliate_N88','th-TH','TH','{"Email":"winston.chau@nexcel.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
+		UNION ALL SELECT 'Affiliate_N88','en-US','VN','{"Email":"winston.chau@starixsoft.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily"}'
+		UNION ALL SELECT 'Affiliate_N88','vi-VN','VN','{"Email":"winston.chau@starixsoft.com","Telegram":"https://t.me/nova88affiliate","Whatsapp":"https://cli.re/nova88daily","Zalo":"(+66) 991 915 095"}'
 	
-		UNION ALL SELECT 'Affiliate_N8B','en-US','VN','{"Email":"affiliate@bwing.com","Telegram":"https://cli.re/bwing-affiliate","Whatsapp":"https://cli.re/bwingdaily"}'
-		UNION ALL SELECT 'Affiliate_N8B','vi-VN','VN','{"Email":"affiliate@bwing.com","Telegram":"https://cli.re/bwing-affiliate","Whatsapp":"https://cli.re/bwingdaily"}'
+		UNION ALL SELECT 'Affiliate_N8B','en-US','VN','{"Email":"winston.chau@starixsoft.com","Telegram":"https://cli.re/bwing-affiliate","Whatsapp":"https://cli.re/bwingdaily"}'
+		UNION ALL SELECT 'Affiliate_N8B','vi-VN','VN','{"Email":"winston.chau@starixsoft.com","Telegram":"https://cli.re/bwing-affiliate","Whatsapp":"https://cli.re/bwingdaily"}'
 
-		UNION ALL SELECT 'Affiliate_N8G','en-US','VN','{"Email":"affiliate@goal123.com","Telegram":"https://t.me/goal123_aff","Whatsapp":"https://cli.re/goal123daily"}'
-		UNION ALL SELECT 'Affiliate_N8G','vi-VN','VN','{"Email":"affiliate@goal123.com","Telegram":"https://t.me/goal123_aff","Whatsapp":"https://cli.re/goal123daily","Zalo":"(+66) 991 920 083"}'
+		UNION ALL SELECT 'Affiliate_N8G','en-US','VN','{"Email":"winston.chau@starixsoft.com","Telegram":"https://t.me/goal123_aff","Whatsapp":"https://cli.re/goal123daily"}'
+		UNION ALL SELECT 'Affiliate_N8G','vi-VN','VN','{"Email":"winston.chau@starixsoft.com","Telegram":"https://t.me/goal123_aff","Whatsapp":"https://cli.re/goal123daily","Zalo":"(+66) 991 920 083"}'
 	)
 
 	SELECT  t.CountryCode, 
