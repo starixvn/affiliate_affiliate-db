@@ -1,8 +1,10 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_User_Overview_Detail_Sel]
 	@AffId			INT
-	,@MonthDate		SMALLDATETIME
+	,@FromDate		SMALLDATETIME
+	,@ToDate		SMALLDATETIME
 	,@BaseCurrency	INT = 0
+	,@IsGetMonthly  BIT = 1
 AS
 
 /*
@@ -15,6 +17,7 @@ AS
 		- 20250310@Lewis: Add column Qualified Members [RedmineID: #219495]
 		- 20250723@Sophia: Optimize Deposit/Withdrawal using commission date boundary approach [RedmineID: #239737]
 		- 20251021@Lewis: Remove redundant @Products table logic and Enhance query performance [RedmineID: #242297]
+		- 20250918@Lewis: Get CPAAmount data [RedmineID: #238519]
 
 	Param's Explanation:
 		. @BaseCurrency : Currency of B2C
@@ -82,6 +85,7 @@ BEGIN
 	BEGIN
 		CREATE TABLE #Data (WinlostDate SMALLDATETIME, CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, GGR MONEY, IsActive TINYINT)
 		
+		-- Deposit Amount
 		-- Check if @FromBeginMonth is before commission boundary
 		IF @FromBeginMonth < @CommissionBoundary
 		BEGIN

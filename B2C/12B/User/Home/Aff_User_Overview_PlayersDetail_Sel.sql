@@ -1,13 +1,15 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_User_Overview_PlayersDetail_Sel]
 	@AffId			INT
-	,@MonthDate		SMALLDATETIME
+	,@FromDate		SMALLDATETIME
+	,@ToDate		SMALLDATETIME
 	,@BaseCurrency	INT = 0
 	,@SortById		TINYINT = 5 -- default
 	,@IsSortAsc		BIT = 0 -- default
 	,@PageIndex		INT = 1
 	,@PageSize		INT = 20
 	,@NRows			INT = 0 OUTPUT
+	,@IsGetMonthly  BIT = 1
 AS
 
 /*
@@ -20,6 +22,7 @@ AS
 		- 20250425@Sally: Get FDMAmount [RedmineID: #225616]
 		- 20250627@Sally: Sort by FDMAmount [RedmineID: #231702]
 		- 20251002@Sophia: Implement hybrid approach using rptMemberDaily for historical data and DepositInfo for recent data based on commission date boundary [RedmineID: #239737]
+		- 20250918@Lewis: Get CPAAmount data [RedmineID: #238519]
 
 	Notes:
 	  - rptMemberDaily.WinlostDate is in GMT+8

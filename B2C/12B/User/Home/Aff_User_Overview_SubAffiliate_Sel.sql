@@ -1,8 +1,10 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_User_Overview_SubAffiliate_Sel]
 	@AffId			INT
-	,@MonthDate		SMALLDATETIME
+	,@FromDate		SMALLDATETIME
+	,@ToDate		SMALLDATETIME
 	,@BaseCurrency	INT = 0
+	,@IsGetMonthly  BIT = 1
 AS
 
 /*
@@ -13,6 +15,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20241226@Sally: Apply QM Turnover [RedmineID: #212201]
+		- 20250918@Lewis: Get CPAAmount data [RedmineID: #238519]
 
 */
 
