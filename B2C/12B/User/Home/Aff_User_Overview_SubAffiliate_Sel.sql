@@ -189,8 +189,8 @@ BEGIN
 			AND ai.IsClosed = 0
 			AND ai.ApprovedDate < DATEADD(DAY, 1, @EndOfMonth)
 		ORDER BY
-			ai.IsSuspended
-			,ai.UserName
+			ai.IsSuspended ASC
+			,ai.UserName ASC
 	END
 
 	DROP TABLE #TempCommission

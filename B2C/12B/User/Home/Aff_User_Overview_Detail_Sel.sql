@@ -18,7 +18,6 @@ AS
 		- 20250723@Sophia: Optimize Deposit/Withdrawal using commission date boundary approach [RedmineID: #239737]
 		- 20251021@Lewis: Remove redundant @Products table logic and Enhance query performance [RedmineID: #242297]
 		- 20250918@Lewis: Get CPAAmount data [RedmineID: #238519]
-		- 20251017@Copilot: Apply flexible date range logic from Summary SP, support @IsGetMonthly parameter, fix @MonthDate bug
 
 	Param's Explanation:
 		. @BaseCurrency : Currency of B2C
