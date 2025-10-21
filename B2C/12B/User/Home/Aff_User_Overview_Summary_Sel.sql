@@ -38,10 +38,12 @@ BEGIN
 	
 	DECLARE @FDate SMALLDATETIME
 			,@TDate SMALLDATETIME
-
+			,@TimeZone INT
 	-- Calculate commission date boundary for data separation (commission date + 1 day)
 	DECLARE @MaxCommDate SMALLDATETIME
-	SELECT  @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
+	SELECT @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
+
+	SELECT @TimeZone = CAST(SValue AS INT) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
 
 	DECLARE @BaseExchangeId INT = @BaseCurrency
 	SELECT @BaseExchangeId = t.ExchangeId
@@ -503,7 +505,6 @@ BEGIN
 					FROM CTE_ActivePlayer q
 					WHERE q.AffId = t.AffId
 				)ap
-			DROP TABLE #ProductSetting
 			DROP TABLE #DataMemberDaily 
 		END
 
@@ -524,59 +525,46 @@ BEGIN
 	-- ===============================
 	DECLARE @ApprovedCPAAmount MONEY --Approved
 			,@TentativeCPAAmount MONEY
-			,@IsHybridSetting BIT = 0
-			,@GroupTypeName NVARCHAR(200)
+			,@GroupTypeName NVARCHAR(200) = 'Hybrid'
 			,@QualifiedMemberCPA INT
 			,@RemainQuota INT
 			,@Quota INT
 			,@GroupId INT
+			,@CurrentDate DATETIME = DATEADD(HOUR, @TimeZone, GETUTCDATE())
 	
-	-- GroupTypeId, GroupId, Quota
-	SELECT @GroupTypeName = gt.GroupTypeName
-		  ,@GroupId = agh.GroupId
-		  ,@Quota = IIF(cg.Quota = 0, NULL, cg.Quota) -- Quota = 0 ==> unlimited quota
+	-- Quota
+	SELECT @Quota = IIF(cg.Quota = 0, NULL, cg.Quota) -- Quota = 0 ==> unlimited quota
+		   ,@GroupId = agh.GroupId --current groupId
 	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
 		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.IsDeleted = 0 AND cg.GroupId = agh.GroupId
-		INNER JOIN dbo.GroupType gt WITH (NOLOCK) ON cg.GroupTypeId = gt.GroupTypeId
-	WHERE agh.MonthDate BETWEEN @FromDate AND @ToDate
+	WHERE agh.ToDate = '9999-12-31'
 		AND agh.AffId = @AffId
-		AND agh.MonthDate = EOMONTH(agh.MonthDate) -- 1groupid 1affid 1month
 
-	-- IsHybridSetting
-	IF EXISTS ( --Hybrid
-				SELECT TOP 1 1
-				FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-				JOIN dbo.CommGroup cg WITH (NOLOCK) 
-					ON cg.GroupId = agh.GroupId
-				WHERE agh.AffId = @AffId
-				  AND agh.MonthDate BETWEEN @FromDate AND @ToDate
-				  AND cg.IsDeleted = 0
-				  AND cg.GroupTypeId = 4 
-		)
-		OR ( --Revenue and CPA
-			EXISTS (
+	-- @GroupTypeName
+	IF NOT EXISTS (
 					SELECT TOP 1 1
 					FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-					JOIN dbo.CommGroup cg WITH (NOLOCK) 
-						ON cg.GroupId = agh.GroupId
+						INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.IsDeleted = 0 AND agh.GroupId = cg.GroupId
 					WHERE agh.AffId = @AffId
-					  AND agh.MonthDate BETWEEN @FromDate AND @ToDate
-					  AND cg.IsDeleted = 0
-					  AND cg.GroupTypeId = 1
-			)
-			AND EXISTS (
-						SELECT TOP 1 1
-						FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-						JOIN dbo.CommGroup cg WITH (NOLOCK)
-							ON cg.GroupId = agh.GroupId
-						WHERE agh.AffId = @AffId
-						  AND agh.MonthDate BETWEEN @FromDate AND @ToDate
-						  AND cg.IsDeleted = 0
-						  AND cg.GroupTypeId = 3
-			)
-		)
-	BEGIN
-		SET @IsHybridSetting = 1
+						AND agh.FromDate <= @ToDate
+						AND agh.ToDate >= @FromDate
+						AND cg.GroupTypeId <> 3
+					)
+	BEGIN 
+		SET @GroupTypeName = 'CPA'
+	END
+
+	IF NOT EXISTS (
+					SELECT TOP 1 1
+					FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+						INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.IsDeleted = 0 AND agh.GroupId = cg.GroupId
+					WHERE agh.AffId = @AffId
+						AND agh.FromDate <= @ToDate
+						AND agh.ToDate >= @FromDate
+						AND cg.GroupTypeId <> 1
+					)
+	BEGIN 
+		SET @GroupTypeName = 'Revenue'
 	END
 
 	-- ApprovedCPAAmount
@@ -592,13 +580,16 @@ BEGIN
 	FROM dbo.MemberCPA m WITH (NOLOCK)
 	WHERE m.AffId = @AffId
 		AND m.StatusId = 3 -- Settled
+		AND m.GroupId = @GroupId --Current group - current quota
 	
 	-- QualifiedMemberCPA
 	SELECT @QualifiedMemberCPA += IIF(@RemainQuota IS NULL, COUNT(m.CustId), IIF(COUNT(m.CustId) <= @RemainQuota, COUNT(m.CustId), @RemainQuota))
 	FROM dbo.MemberCPA m WITH (NOLOCK)
 	WHERE m.AffId = @AffId
 		AND m.StatusId = 2
-		AND m.HoldingQualifiedDate BETWEEN @FromDate AND @ToDate --View by HoldingQualifiedDate
+		AND m.GroupId = @GroupId
+		AND MONTH(@ToDate) = MONTH(@CurrentDate) --CurrentMonth
+		AND m.HoldingQualifiedDate <= @ToDate
 
 	-- TentativeCPAAmount -- up to now - and check quota slot
 	;WITH cte_TentativeMember AS (
@@ -612,6 +603,8 @@ BEGIN
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON m.CustId = mi.CustId
 		WHERE m.AffId = @AffId
 			AND m.HoldingQualifiedDate <= @ToDate --View by HoldingQualifiedDate
+			AND m.GroupId = @GroupId
+			AND MONTH(@ToDate) = MONTH(@CurrentDate) --CurrentMonth
 			AND m.StatusId = 2 -- Estimated
 	)
 	, cte_TentativeCPAAmount AS (
@@ -645,7 +638,6 @@ BEGIN
 			,ISNULL(@ApprovedCPAAmount, 0)	AS ApprovedCPAAmount
 			,ISNULL(@TentativeCPAAmount, 0)	AS TentativeCPAAmount
 			,ISNULL(@QualifiedMemberCPA,0)	AS QualifiedMemberCPA --CPA
-			,@IsHybridSetting				AS IsHybridSetting
 			,@GroupTypeName					AS GroupType
 	END
 END

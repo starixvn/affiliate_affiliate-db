@@ -21,11 +21,9 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
-
-	-- date range for get data whole month of @MonthDate
-	DECLARE @BeginOfMonth SMALLDATETIME, @EndOfMonth SMALLDATETIME
-	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
-	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
+	
+	DECLARE @FDate SMALLDATETIME
+			,@TDate SMALLDATETIME
 
 	-- Total Turnover, Winloss, Commission
 	BEGIN
@@ -67,16 +65,20 @@ BEGIN
 		FROM dbo.SystemSettings WITH (NOLOCK)
 		WHERE SName = 'AFF_CommissionDate'
 		
+		--get sub affids
 		SELECT  @AffIds = COALESCE(@AffIds + ',', '') + CONVERT(VARCHAR(20), AffId)
 		FROM dbo.AffInfo WITH (NOLOCK)
 		WHERE ParentAffId = @AffId
 			AND Status = 'Approved'
 			AND IsClosed = 0
 			AND ISNULL(IsSuspended, 0) = 0
-			AND ApprovedDate < DATEADD(DAY, 1, @EndOfMonth)
+			AND ApprovedDate < DATEADD(DAY, 1, @ToDate)
 
-		IF @BeginOfMonth > @MaxCommDate
+		IF @ToDate > @MaxCommDate  AND @IsGetMonthly = 1
 		BEGIN
+			SELECT @FDate	= IIF(@FromDate <= @MaxCommDate, DATEADD(DAY, 1, @MaxCommDate), @FromDate)
+			SELECT @TDate	= @ToDate
+
 			INSERT INTO #TempCommission
 			(
 				MonthDate,
@@ -108,15 +110,20 @@ BEGIN
 			)
 			EXEC dbo.Aff_Commission_UnCalc
 				@AffIds				= @AffIds,
-				@FromMonthDate		= @BeginOfMonth,
-				@ToMonthDate		= @BeginOfMonth,
+				@FromMonthDate		= @FDate,
+				@ToMonthDate		= @TDate,
 				@ProductIds			= '0',
 				@BaseCurrency		= @BaseCurrency,
 				@IsSumAll			= 1,
 				@GetRowTotalOnly	= 1
 		END
-		ELSE
+
+		IF @FromDate <= @MaxCommDate AND @IsGetMonthly = 1
 		BEGIN
+			
+			SELECT @FDate	= @FromDate
+			SELECT @TDate	= IIF(@ToDate > @MaxCommDate, @MaxCommDate, @ToDate)
+
 			INSERT INTO #TempCommission
 			(
 				MonthDate,
@@ -148,17 +155,41 @@ BEGIN
 			)
 			EXEC dbo.Aff_Commission_Calc
 				@AffIds				= @AffIds,
-				@FromMonthDate		= @BeginOfMonth,
-				@ToMonthDate		= @BeginOfMonth,
+				@FromMonthDate		= @FDate,
+				@ToMonthDate		= @TDate,
 				@ProductIds			= '0',
 				@BaseCurrency		= @BaseCurrency,
 				@IsSumAll			= 1,
 				@GetRowTotalOnly	= 1
 		END
 	END
+	
+	IF(@IsGetMonthly = 0)
+	BEGIN
+		SELECT @FDate	= @FromDate
+		SELECT @TDate	= @ToDate
+
+	END
+
+	-- Get Flag IsCPADealOnly
+	DECLARE @IsCPADealOnly BIT = 1
+	IF EXISTS (
+		SELECT TOP 1 1
+		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+			INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON agh.GroupId = cg.GroupId
+		WHERE agh.AffId = @AffId
+			AND agh.Fromdate <= @ToDate 
+			AND agh.ToDate >= @FromDate 
+			AND cg.GroupTypeId <> 3 -- Not CPA Deal
+	)
+	BEGIN
+		SET @IsCPADealOnly = 0
+	END
 
 	-- Return data
 	BEGIN
+		SELECT @IsCPADealOnly AS IsCPADealOnly
+
 		SELECT
 			ai.AffId
 			,ai.UserName
@@ -172,6 +203,7 @@ BEGIN
 			,c.Commission
 			,c.ActivePlayer
 			,c.QualifiedMember
+			, 0 AS QualifiedMemberCPA
 		FROM dbo.AffInfo ai WITH (NOLOCK)
 			OUTER APPLY (
 				SELECT
@@ -187,7 +219,7 @@ BEGIN
 		WHERE ai.ParentAffId = @AffId
 			AND ai.Status = 'Approved'
 			AND ai.IsClosed = 0
-			AND ai.ApprovedDate < DATEADD(DAY, 1, @EndOfMonth)
+			AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate)
 		ORDER BY
 			ai.IsSuspended ASC
 			,ai.UserName ASC

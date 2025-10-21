@@ -38,11 +38,21 @@ BEGIN
 	SELECT  @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
 	-- For monthly mode, get end of month for group settings
-	DECLARE @EndOfMonth TABLE (MonthDate DATETIME)
+	DECLARE @EndOfMonth TABLE (MonthDate DATE);
+
+	;WITH MonthCTE AS 
+	(
+		SELECT EOMONTH(@FromDate) AS MonthDate
+		UNION ALL
+		SELECT EOMONTH(DATEADD(MONTH, 1, MonthDate))
+		FROM MonthCTE
+		WHERE DATEADD(MONTH, 1, MonthDate) <= @ToDate
+	)
 	INSERT INTO @EndOfMonth (MonthDate)
-	SELECT EOMONTH(@FromDate,0)
-	UNION --Distinct EOMONTH
-	SELECT EOMONTH(@ToDate,0)
+	SELECT MonthDate
+	FROM MonthCTE
+	OPTION (MAXRECURSION 0);
+
 	
 	-- Get basecurrency mapping
 	DECLARE @BaseExchangeId INT = @BaseCurrency
@@ -256,9 +266,47 @@ BEGIN
 		END
 	END
 	
+	-- ===============================
+	-- CPA INFO
+	-- ===============================
+	DECLARE @TimeZone INT
+	SELECT @TimeZone = CAST(SValue AS INT) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
+
+	DECLARE @GroupTypeName NVARCHAR(200) = 'Hybrid'
+			,@CurrentDate DATETIME = DATEADD(HOUR, @TimeZone, GETUTCDATE())
+	
+	-- @GroupTypeName
+	IF NOT EXISTS (
+					SELECT TOP 1 1
+					FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+						INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.IsDeleted = 0 AND agh.GroupId = cg.GroupId
+					WHERE agh.AffId = @AffId
+						AND agh.FromDate <= @ToDate
+						AND agh.ToDate >= @FromDate
+						AND cg.GroupTypeId <> 3
+					)
+	BEGIN 
+		SET @GroupTypeName = 'CPA'
+	END
+
+	IF NOT EXISTS (
+					SELECT TOP 1 1
+					FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+						INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.IsDeleted = 0 AND agh.GroupId = cg.GroupId
+					WHERE agh.AffId = @AffId
+						AND agh.FromDate <= @ToDate
+						AND agh.ToDate >= @FromDate
+						AND cg.GroupTypeId <> 1
+					)
+	BEGIN 
+		SET @GroupTypeName = 'Revenue'
+	END
+
 	-- Return result
 	BEGIN
-		WITH CTE_WinlostDate AS (
+		SELECT @GroupTypeName AS GroupTypeName
+
+		;WITH CTE_WinlostDate AS (
 			SELECT @FDate AS WinlostDate
 			UNION ALL
 			SELECT DATEADD(DAY, 1, WinlostDate)
@@ -275,6 +323,7 @@ BEGIN
 			,ISNULL(d.GGR, 0)				AS GGR
 			,ISNULL(a.ActiveMembers, 0)		AS ActiveMembers
 			,ISNULL(q.QualifiedActiveMembers, 0)	AS QualifiedActiveMembers
+			, 0 AS QualifiedMemberCPA
 		FROM CTE_WinlostDate wld
 			OUTER APPLY (
 				SELECT SUM(s.Signups) AS Signups, SUM(s.DepositedMembers) AS DepositedMembers

@@ -249,10 +249,28 @@ BEGIN
 	WHERE dsh.DeductionID IN (13, 14)
 		AND EXISTS (SELECT TOP 1 1 FROM @EndOfMonth a WHERE agh.MonthDate = a.MonthDate)
 		AND agh.AffID = @AffId
+	
+	-- Get Flag IsCPADealOnly
+	DECLARE @IsCPADealOnly BIT = 1
+	IF EXISTS (
+		SELECT TOP 1 1
+		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+			INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON agh.GroupId = cg.GroupId
+		WHERE agh.AffId = @AffId
+			AND agh.Fromdate <= @ToDate 
+			AND agh.ToDate >= @FromDate 
+			AND cg.GroupTypeId <> 3 -- Not CPA Deal
+	)
+	BEGIN
+		SET @IsCPADealOnly = 0
+	END
 
 	-- Paging
 	DECLARE @RowStart INT, @RowEnd INT
 	SELECT  @RowStart = @PageSize * (@PageIndex - 1) + 1, @RowEnd = @RowStart + @PageSize - 1
+	
+	-- Return IsCPADealOnly flag
+	SELECT @IsCPADealOnly AS IsCPADealOnly;
 
 	SELECT 
 		r.CustId
