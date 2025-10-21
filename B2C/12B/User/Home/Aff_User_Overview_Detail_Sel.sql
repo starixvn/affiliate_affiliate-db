@@ -14,6 +14,7 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250310@Lewis: Add column Qualified Members [RedmineID: #219495]
 		- 20250723@Sophia: Optimize Deposit/Withdrawal using commission date boundary approach [RedmineID: #239737]
+		- 20251021@Lewis: Remove redundant @Products table logic and Enhance query performance [RedmineID: #242297]
 
 	Param's Explanation:
 		. @BaseCurrency : Currency of B2C
@@ -58,24 +59,6 @@ BEGIN
 	FROM dbo.TpExchange t WITH (NOLOCK)
 	WHERE t.TpExchangeId = @BaseCurrency
 
-	DECLARE @Products TABLE (ProductId INT, IsStraightSetting BIT)
-		
-	INSERT INTO @Products (ProductId, IsStraightSetting)
-	SELECT DISTINCT dsh.ProductId, 0
-	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-		INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupId = dsh.GroupId AND agh.MonthDate = dsh.MonthDate
-	WHERE dsh.ProductId > 0
-		AND agh.MonthDate = @EndOfMonth
-		AND agh.AffID = @AffId
-
-	INSERT INTO @Products (ProductId, IsStraightSetting)
-	SELECT DISTINCT ssh.ProductId, 1
-	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-		INNER JOIN dbo.StraightSettingHistory ssh WITH (NOLOCK) ON agh.GroupId = ssh.GroupId AND agh.MonthDate = ssh.MonthDate
-	WHERE ssh.ProductId > 0
-		AND agh.MonthDate = @EndOfMonth
-		AND agh.AffID = @AffId
-
 	-- Signups, Deposited Members
 	BEGIN
 		DECLARE @Signups TABLE (WinlostDate SMALLDATETIME, Signups INT DEFAULT(0), DepositedMembers INT DEFAULT(0))
@@ -107,16 +90,13 @@ BEGIN
 				SELECT r.WinlostDate, r.CustId, r.Currency
 					,SUM(r.Deposit) AS Deposit
 					,SUM(r.Withdrawal) AS Withdrawal
-					,SUM(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Turnover END) AS Turnover
-					,SUM(CASE WHEN p.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0)
-							ELSE -(r.Winloss - ISNULL(r.ProgressiveWin, 0)) - ISNULL(r.ProgressiveBet, 0) END) AS GGR
+					,SUM(r.Turnover) AS Turnover
+					,SUM(-(r.Winloss - ISNULL(r.ProgressiveWin, 0)) - ISNULL(r.ProgressiveBet, 0)) AS GGR
 					,MAX(CASE WHEN r.ProductId > 0 THEN 1 ELSE 0 END) AS IsActive
 					,CONVERT(DATE, EOMONTH(r.WinlostDate)) AS MonthDate
 				FROM dbo.rptMemberDaily r WITH (NOLOCK)
-					LEFT JOIN @Products p ON r.ProductId = p.ProductId
 				WHERE r.WinlostDate >= @FromBeginMonth AND r.WinlostDate < @ToNextMonth
 					AND r.AffId = @AffId
-					AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
 					AND NOT EXISTS (
 						SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 						WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
@@ -143,17 +123,14 @@ BEGIN
 				SELECT r.WinlostDate, r.CustId, r.Currency
 					,0 AS Deposit  -- Deposit will come from CTE_RecentDeposit
 					,SUM(r.Withdrawal) AS Withdrawal
-					,SUM(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Turnover END) AS Turnover
-					,SUM(CASE WHEN p.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0)
-							ELSE -(r.Winloss - ISNULL(r.ProgressiveWin, 0)) - ISNULL(r.ProgressiveBet, 0) END) AS GGR
+					,SUM(r.Turnover) AS Turnover
+					,SUM(-(r.Winloss - ISNULL(r.ProgressiveWin, 0)) - ISNULL(r.ProgressiveBet, 0)) AS GGR
 					,MAX(CASE WHEN r.ProductId > 0 THEN 1 ELSE 0 END) AS IsActive
 					,CONVERT(DATE, EOMONTH(r.WinlostDate)) AS MonthDate
 				FROM dbo.rptMemberDaily r WITH (NOLOCK)
-					LEFT JOIN @Products p ON r.ProductId = p.ProductId
 				WHERE r.WinlostDate >= @FromBeginMonth
 					AND r.WinlostDate < @ToNextMonth
 					AND r.AffId = @AffId
-					AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
 					AND NOT EXISTS (
 						SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
 						WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
@@ -167,7 +144,7 @@ BEGIN
 					,0 AS Withdrawal
 					,0 AS Turnover
 					,0 AS GGR
-					,1 AS IsActive
+					,0 AS IsActive
 					,CONVERT(DATE, EOMONTH(DATEADD(HOUR, 8, d.CreateTime))) AS MonthDate
 				FROM bodb_12B.dbo.DepositInfo d WITH (NOLOCK)
 					INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
