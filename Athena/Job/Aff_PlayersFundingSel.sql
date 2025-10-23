@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_PlayersFundingSel]  
 	@Xml	XML,	
 	@Prefix VARCHAR(100),
@@ -13,6 +13,7 @@ AS
 		- 20130111@Peter: Initialize SP 
 		- 20220118@Malcolm: Enhance performance [RedmineID: #167676] 
 		- 20211222@Malcolm: Split transfer out of bettrans [RedmineID: #165095] 
+		- 20251022@Lewis: Get Currency from Customer at the end (Table Customer) [RedmineID: #242450] 
 	Param's Explanation:  
   
 */  
@@ -31,8 +32,7 @@ BEGIN
 	(  
 		Winlostdate			SMALLDATETIME,  
 		CustID				INT,
-		username			VARCHAR(100),  
-		Currency			INT,  	
+		username			VARCHAR(100),
 		Deposit				MONEY,  
 		Withdrawal			MONEY,  
 		AffiliateTransfer	MONEY,  
@@ -43,18 +43,16 @@ BEGIN
  
 	DECLARE @TempTrans TABLE(UserName VARCHAR(30))
 
-	INSERT INTO @TempTrans --Convert xml to table
+	INSERT INTO @TempTrans(UserName) --Convert xml to table
 	SELECT	[Table].[Column].value('./@username', 'varchar(30)') AS UserName
 	FROM @Xml.nodes('/root/trans') AS [Table]([Column])
 
 
-	INSERT INTO #LicenseeCust  (CustID, UserName)
-
+	INSERT INTO #LicenseeCust (CustID, UserName)
 	SELECT c.CustID,t.UserName  
 	FROM bodb02.dbo.customer c WITH(NOLOCK) 
 		INNER JOIN @TempTrans AS t ON  @Prefix + t.username=c.username2
 	WHERE c.roleid = 1
-
 
 	DECLARE @maxdate_SUM SMALLDATETIME  
 	SELECT @maxdate_SUM =  MAX(winlostdate) FROM bodb_report.dbo.rptdepwinlost WITH(NOLOCK)   
@@ -64,8 +62,7 @@ BEGIN
 	   INSERT INTO #tmpRpt (  
 							Winlostdate ,  
 							CustID ,
-							username ,  
-							Currency ,  						
+							username ,  						
 							Deposit ,  
 							Withdrawal ,  
 							AffiliateTransfer ,  
@@ -73,7 +70,7 @@ BEGIN
 							Adjustment,
 							Transfer3rd   
 							)  
-		SELECT @Date,b.CustID,c.username,b.currency,
+		SELECT @Date,b.CustID,c.username,
 			  SUM( CASE WHEN bettype = 22001 THEN winlost-actual_stake ELSE 0 END), --Deposit  
 			  -SUM(CASE WHEN bettype IN (22002,22003) THEN winlost-actual_stake ELSE 0 END),--Withdrawal  
 			  SUM( CASE WHEN bettype = 21006 THEN winlost-actual_stake ELSE 0 END), --Aff2MemTransfer  
@@ -86,15 +83,14 @@ BEGIN
 			  AND b.custid > 0 
 			  AND b.bettype IN (22001,22002,22003,22004, 22005,22006,22007,21001, 21002, 21003, 21004, 21005,21006) 
 		  
-		GROUP BY b.CustID,c.username,b.currency	   
+		GROUP BY b.CustID,c.username
 	END  
 	ELSE IF @Date < @CutDate  
 	BEGIN    
 		INSERT INTO #tmpRpt (  
 							Winlostdate ,  
 							CustID ,
-							username ,  
-							Currency ,  						
+							username ,  						
 							Deposit ,  
 							Withdrawal ,  
 							AffiliateTransfer ,  
@@ -106,7 +102,6 @@ BEGIN
 			b.winlostdate  
 			,b.CustID
 			,c.Username
-			,b.currency  
 			,ISNULL(b.deposit,0)  
 			,ISNULL(b.withdrawal,0)  
 			,ISNULL(b.Aff2MemTransfer,0) 
@@ -124,8 +119,7 @@ BEGIN
 		INSERT INTO #tmpRpt (  
 							Winlostdate ,  
 							CustID ,
-							username ,  
-							Currency ,  						
+							username , 						
 							Deposit ,  
 							Withdrawal ,  
 							AffiliateTransfer ,  
@@ -137,7 +131,6 @@ BEGIN
 			b.winlostdate  
 			,b.CustID
 			,c.Username
-			,b.currency  
 			,ISNULL(b.deposit,0)  
 			,ISNULL(b.withdrawal,0)  
 			,ISNULL(b.Aff2MemTransfer,0) 
@@ -162,7 +155,8 @@ BEGIN
 		b.adjustment,
 		b.Transfer3rd  
 	FROM #tmpRpt b   	
-		INNER JOIN bodb02.dbo.Exchange e WITH (NOLOCK) ON b.currency = e.exchangeid  
+		INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON b.CustID = c.custid
+		INNER JOIN bodb02.dbo.Exchange e WITH (NOLOCK) ON c.currency = e.exchangeid  
   
 	DROP TABLE  #tmpRpt 
 	DROP table #LicenseeCust 
