@@ -25,6 +25,7 @@ AS
 		- 20250319@Sally: Enhance the formula for calculating fees [RedmineID: #223865]
 		- 20250509@Sally: Enhance calculate FlatFormFee VS [RedmineID: #226858]
 		- 20250623@Sally: Enhance Revenue calculation [RedmineID: #231221]
+		- 20251015@Sally: Enhance Sub-Commission calculation [RedmineID: #241604]
 		
 	Param's Explanation:
 		- @BaseCurrency : Currency of B2C
@@ -89,6 +90,28 @@ BEGIN
 		WHERE tp.TpExchangeId = @BaseCurrency
 	END 
 
+	-- Get AffGroup Info: Only get group type Revenue Share, Hybrid
+	BEGIN
+		CREATE TABLE #AffGroupInfo (
+			MonthDate SMALLDATETIME,
+			AffId INT, 
+			GroupId INT, 
+			GroupTypeId INT, 
+			QMTurnover MONEY, 
+			NumActualOfGroupProduct INT DEFAULT(1), 
+			PRIMARY KEY (MonthDate, AffId, GroupId, GroupTypeId)
+		)			
+		INSERT INTO #AffGroupInfo (MonthDate, AffId, GroupId, GroupTypeId)
+		SELECT agh.MonthDate, agh.AffId, agh.GroupId, cg.GroupTypeId
+		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+			INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.GroupId = agh.GroupId
+		WHERE agh.MonthDate BETWEEN @FromMonthDate AND @ToMonthDate
+			AND (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), agh.AffId) + ',%')
+
+		UPDATE a SET a.QMTurnover = ISNULL(cg.QMTurnover, 0)
+		FROM #AffGroupInfo a
+			INNER JOIN dbo.CommGroupHistory cg WITH (NOLOCK) ON a.GroupId = cg.GroupId AND a.MonthDate = cg.MonthDate
+	END
 	-- Get data
 	BEGIN
 		CREATE TABLE #Data
@@ -140,8 +163,7 @@ BEGIN
 				,SUM(ISNULL(Rebate, 0))		AS Rebate
 				,SUM(ISNULL(Turnover, 0))	AS Turnover
 				,SUM(ISNULL(Winloss, 0) - ISNULL(ProgressiveWin, 0) + ISNULL(ProgressiveBet, 0)) AS Winloss
-			FROM dbo.rptMemberDaily r WITH (NOLOCK)
-	
+			FROM dbo.rptMemberDaily r WITH (NOLOCK)	
 			WHERE r.WinlostDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
 				AND (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), AffId) + ',%')
 				AND NOT EXISTS (
@@ -156,29 +178,8 @@ BEGIN
 		GROUP BY r.MonthDate, r.AffId, r.CustId, r.Currency, r.ProductId
 	END
 
-
 	-- Setting
-	BEGIN
-		DECLARE @AffGroupInfo TABLE (MonthDate SMALLDATETIME, AffId INT, GroupId INT, QMTurnover MONEY, NumActualOfGroupProduct INT DEFAULT(1))
-		
-		;WITH CTE_AffGroup AS (SELECT DISTINCT MonthDate, AffId FROM #Data)
-		INSERT INTO @AffGroupInfo (MonthDate, AffId, GroupId)
-		SELECT agh.MonthDate, agh.AffId, agh.GroupId
-		FROM CTE_AffGroup d
-			INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON d.MonthDate = agh.MonthDate AND d.AffId = agh.AffId
-
-		INSERT INTO @AffGroupInfo (MonthDate, AffId, GroupId)
-		SELECT agh.MonthDate, agh.AffId, agh.GroupId
-		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-		WHERE agh.MonthDate BETWEEN @FromMonthDate AND @ToMonthDate
-			AND (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), agh.AffId) + ',%')
-			AND EXISTS (SELECT 1 FROM dbo.DeductionSettingHistory dsh WITH (NOLOCK) WHERE dsh.MonthDate = agh.MonthDate AND dsh.GroupId = agh.GroupId AND dsh.DeductedAmount <> 0)
-			AND NOT EXISTS (SELECT 1 FROM @AffGroupInfo a WHERE a.AffId = agh.AffId AND a.MonthDate = agh.MonthDate)
-
-		UPDATE a SET a.QMTurnover = ISNULL(cg.QMTurnover, 0)
-		FROM @AffGroupInfo a
-			INNER JOIN dbo.CommGroupHistory cg WITH (NOLOCK) ON a.GroupId = cg.GroupId AND a.MonthDate = cg.MonthDate
-		
+	BEGIN	
 		DECLARE @GroupProductInfo TABLE (MonthDate SMALLDATETIME, GroupId INT, NoGroupProduct SMALLINT)
 
 		DECLARE @Setting TABLE
@@ -195,7 +196,7 @@ BEGIN
 			WithdrawalAmount	MONEY DEFAULT (0)
 		)
 
-		;WITH CTE_Group AS (SELECT DISTINCT MonthDate, GroupId FROM @AffGroupInfo)
+		;WITH CTE_Group AS (SELECT DISTINCT MonthDate, GroupId FROM #AffGroupInfo)
 		INSERT INTO @Setting (MonthDate, GroupId , ProductId, GroupProductId, PlatFormFee, PlatFormAmount, DepositFee, DepositAmount, WithdrawalFee, WithdrawalAmount)
 		SELECT a.MonthDate, a.GroupId, ds.ProductId, ds.GroupProductId, ds.PlatFormFee, ds.PlatFormAmount, ds.DepositFee, ds.DepositAmount, ds.WithdrawalFee, ds.WithdrawalAmount
 		FROM CTE_Group a
@@ -223,13 +224,7 @@ BEGIN
 	UPDATE d
 	SET d.GroupId	= a.GroupId
 	FROM #Data d
-		INNER JOIN @AffGroupInfo a ON d.MonthDate = a.MonthDate AND d.AffId = a.AffId
-		INNER JOIN @Setting s ON d.MonthDate = s.MonthDate AND a.GroupId = s.GroupId AND d.ProductId = s.ProductId
-
-	DELETE d
-	FROM #Data d
-		LEFT JOIN @Setting s ON d.MonthDate = s.MonthDate AND d.GroupId = s.GroupId AND d.ProductId = s.ProductId
-	WHERE d.ProductId > 0 AND s.MonthDate IS NULL
+		INNER JOIN #AffGroupInfo a ON d.MonthDate = a.MonthDate AND d.AffId = a.AffId
 
 	-- Calculate commission
 	BEGIN
@@ -288,7 +283,7 @@ BEGIN
 			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, Turnover, Winloss, GrossWinloss)
 			SELECT 
 				d.MonthDate, d.AffId, d.GroupId, d.ProductId
-				,s.GroupProductId
+				,0 AS GroupProductId
 				,d.Turnover
 				,d.Winloss
 				,-d.Winloss AS GrossWinloss
@@ -298,17 +293,22 @@ BEGIN
 				WHERE ProductId > 0
 				GROUP BY MonthDate, AffId, GroupId, ProductId
 			) d
-				INNER JOIN @Setting s ON d.MonthDate = s.MonthDate AND d.GroupId = s.GroupId AND d.ProductId = s.ProductId
-			
+
+			UPDATE c 
+				SET c.GroupProductId = s.GroupProductId
+			FROM #Commission c
+				INNER JOIN @Setting s ON c.MonthDate = s.MonthDate AND c.GroupId = s.GroupId AND c.ProductId = s.ProductId
+
 			-- Update Number Actual of GroupProduct by AFF
 			;WITH CTE_ActualGroupProduct AS (
 				SELECT MonthDate, AffId, GroupId, COUNT(DISTINCT GroupProductId) AS NumActualOfGroupProduct
 				FROM #Commission
 				WHERE ProductId > 0
+					AND GroupProductId > 0
 				GROUP BY MonthDate, AffId, GroupId
 			)
 			UPDATE a SET a.NumActualOfGroupProduct = ac.NumActualOfGroupProduct
-			FROM @AffGroupInfo a 
+			FROM #AffGroupInfo a 
 				INNER JOIN CTE_ActualGroupProduct ac ON a.MonthDate   = ac.MonthDate
 														AND a.AffId   = ac.AffId
 														AND a.GroupId = ac.GroupId
@@ -366,7 +366,7 @@ BEGIN
 				,c.WithdrawalFee	= ISNULL(d.WithdrawalFee, 0) / ag.NumActualOfGroupProduct
 				,c.NetWinloss		= c.GrossWinloss - c.PlatFormFee - (ISNULL(d.DepositFee, 0) + ISNULL(d.WithdrawalFee, 0) + ISNULL(d.Bonus, 0) + ISNULL(d.Rebate, 0))/ ag.NumActualOfGroupProduct
 			FROM #Commission c
-				INNER JOIN @AffGroupInfo ag ON c.MonthDate = ag.MonthDate AND c.AffId = ag.AffId AND c.GroupId = ag.GroupId
+				INNER JOIN #AffGroupInfo ag ON c.MonthDate = ag.MonthDate AND c.AffId = ag.AffId AND c.GroupId = ag.GroupId AND ag.GroupTypeId <> 3 -- Exclude CPA Only
 				LEFT JOIN (
 					SELECT d.MonthDate, d.AffId, d.GroupId
 						,SUM(d.Deposit) AS Deposit
@@ -385,9 +385,10 @@ BEGIN
 			-- Update active player
 			;WITH CTE_Group AS(
 				SELECT a.MonthDate, a.GroupId, a.AffId, l.IsActivePlayerSum, ISNULL(a.QMTurnover, 0) * e.Rate AS QMTurnover
-				FROM @AffGroupInfo a
+				FROM #AffGroupInfo a
 					CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(a.MonthDate, @AffExchangeId, @BaseExchangeId) e
 					OUTER APPLY (SELECT TOP(1) h.IsActivePlayerSum FROM dbo.TierSettingHistory h WITH(NOLOCK) WHERE h.MonthDate = a.MonthDate AND h.GroupId = a.GroupId) AS l
+				WHERE a.GroupTypeId <> 3 -- Exclude CPA Only
 			)
 			,CTE_DataPlayer AS(
 				SELECT d.MonthDate, d.AffId, s.GroupProductId, d.CustId, g.IsActivePlayerSum, SUM(ISNULL(d.Turnover, 0)) AS Turnover, QMTurnover
@@ -441,7 +442,7 @@ BEGIN
 		SET c.CommissionRate = ISNULL(s.Commission, 0)
 			,c.Commission	 = ISNULL(s.Commission, 0) * c.NetWinloss									
 		FROM #Commission c
-			INNER JOIN @AffGroupInfo ag ON c.MonthDate = ag.MonthDate AND c.AffId = ag.AffId AND c.GroupId = ag.GroupId
+			INNER JOIN #AffGroupInfo ag ON c.MonthDate = ag.MonthDate AND c.AffId = ag.AffId AND c.GroupId = ag.GroupId AND ag.GroupTypeId <> 3
 			OUTER APPLY (
 				SELECT gsh.TierId
 				FROM dbo.TierSettingHistory gsh WITH (NOLOCK)
@@ -669,88 +670,79 @@ BEGIN
 		SubCommRate		DECIMAL(9,8) DEFAULT (0)
 	)
 
-	IF EXISTS (SELECT 1 FROM #Commission WHERE ProductId = 0)
-	BEGIN
-		IF @InputAffIds <> 'all'
-		BEGIN
-			WITH CTE_MonthDate AS (
-				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate) + 1, 0)) AS MonthDate
-				UNION ALL
-				SELECT DATEADD(DAY, -1, DATEADD(MONTH, 1, DATEADD(DAY, 1, MonthDate)))
-				FROM CTE_MonthDate
-				WHERE MonthDate < DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToMonthDate) + 1, 0))
-			)
-			INSERT INTO @MonthDate (MonthDate, AffId)
-			SELECT md.MonthDate, f.val
-			FROM CTE_MonthDate md
-				CROSS JOIN dbo.Aff_f_StringSplit(@InputAffIds, ',') f
-			OPTION (MAXRECURSION 0)
-		END
-		ELSE
-		BEGIN
-			WITH CTE_MonthDate AS (
-				SELECT DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromMonthDate) + 1, 0)) AS MonthDate
-				UNION ALL
-				SELECT DATEADD(DAY, -1, DATEADD(MONTH, 1, DATEADD(DAY, 1, MonthDate)))
-				FROM CTE_MonthDate
-				WHERE MonthDate < DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @ToMonthDate) + 1, 0))
-			)
-			INSERT INTO @MonthDate (MonthDate, AffId)
-			SELECT md.MonthDate, ai.AffId
-			FROM CTE_MonthDate md
-				CROSS JOIN dbo.AffInfo ai WITH (NOLOCK)
-			WHERE ai.Status = 'Approved' AND ai.IsClosed = 0
-			OPTION (MAXRECURSION 0)
-		END
-		
-		IF EXISTS (
-			SELECT 1
-			FROM @MonthDate md
-				LEFT JOIN #Commission c ON c.MonthDate = md.MonthDate AND c.AffId = md.AffId AND c.ProductId = 0 AND c.GroupProductId = 0
-			WHERE c.AffId IS NULL
+	IF EXISTS (SELECT TOP 1 1 FROM #Commission WHERE ProductId = 0)
+	BEGIN --WHERE ai.Status = 'Approved' AND ai.IsClosed = 0
+
+		----- Get SubCommRate
+		CREATE TABLE #SubCommRateDirect(
+			MonthDate		SMALLDATETIME,
+			SubAffId		INT,
+			AffId			INT,
+			GroupId 		INT,
+			SubCommRate		DECIMAL(9,8) DEFAULT (0),
+			[Level]			INT,
+			IsSubCommRate	BIT DEFAULT (0)
 		)
-		BEGIN
-			INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId,IsHasMemberData)
-			SELECT md.MonthDate, md.AffId, agh.GroupId, 0, 0, 0
-			FROM @MonthDate md
-				INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON agh.MonthDate = md.MonthDate AND agh.AffId = md.AffId
-				LEFT JOIN #Commission c ON c.MonthDate = md.MonthDate AND c.AffId = md.AffId AND c.ProductId = 0 AND c.GroupProductId = 0
-			WHERE c.AffId IS NULL
-		END
-		----- Get SubAffCommission
-	    ;WITH CTE_SubCommRateDirect AS (
-            SELECT agh.MonthDate, agh.AffId AS SubAffId, af.AffId, cgh.SubCommRate, f.Level
-            FROM dbo.AffGroupHistory agh WITH(NOLOCK)
-                CROSS APPLY (
-					SELECT CONVERT(INT, val) AS AffId, CONVERT(INT, Id) AS Level
-					FROM dbo.Aff_f_StringSplit(agh.AllParentAffId, ',')
-				) f
-                INNER JOIN dbo.AffGroupHistory af WITH(NOLOCK) ON f.AffId = af.Affid AND af.MonthDate = agh.MonthDate
-                INNER JOIN dbo.CommGroupHistory cgh WITH(NOLOCK) ON cgh.GroupId = af.Groupid AND cgh.MonthDate = agh.MonthDate
-            WHERE agh.MonthDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
-        )
+		INSERT INTO #SubCommRateDirect (MonthDate, SubAffId, AffId, GroupId, SubCommRate, [Level], IsSubCommRate)
+		SELECT agh.MonthDate, agh.AffId AS SubAffId, af.AffId, af.GroupId, cgh.SubCommRate AS SubCommRate, f.Level, cgh.IsSubCommRate AS IsSubCommRate
+        FROM dbo.AffGroupHistory agh WITH(NOLOCK)
+        CROSS APPLY (
+			SELECT CONVERT(INT, val) AS AffId, CONVERT(INT, Id) AS Level
+			FROM dbo.Aff_f_StringSplit(agh.AllParentAffId, ',')
+		) f		
+        INNER JOIN dbo.AffGroupHistory af WITH(NOLOCK) ON f.AffId = af.AffId AND af.MonthDate = agh.MonthDate
+		INNER JOIN dbo.CommGroupHistory cgh WITH(NOLOCK) ON cgh.GroupId = af.GroupId AND cgh.MonthDate = agh.MonthDate
+		WHERE agh.MonthDate BETWEEN @BeginOfFromMonthDate AND @EndOfToMonthDate
+			 AND f.Level <= @MaxSubAff
+
+		----- Delete level which have no turn on SubCommRate Setting
+		DELETE t
+		FROM #SubCommRateDirect t
+		WHERE EXISTS (
+			SELECT TOP 1 1
+			FROM #SubCommRateDirect t1
+			WHERE t.SubAffId = t1.SubAffId AND t1.Level <= t.Level
+				AND t1.IsSubCommRate = 0
+		)
+		----- Calculate SubAffCommission
+		CREATE TABLE #SubCommission(	
+			MonthDate			SMALLDATETIME,
+			AffId				INT,
+			GroupId				INT,
+			SubAffCommission	MONEY DEFAULT (0)
+		)
+		;WITH CTE_SubCommRate AS(
+			SELECT t.MonthDate, t.AffId, t.GroupId, t.SubAffId, t.Level, n.SubCommRate
+			FROM #SubCommRateDirect t
+				CROSS APPLY (
+					SELECT EXP(SUM(LOG(t1.SubCommRate))) AS SubCommRate
+					FROM #SubCommRateDirect t1
+					WHERE t1.SubAffId = t.SubAffId AND t.Level >= t1.Level AND t.MonthDate = t1.MonthDate 
+				) AS n
+		)
+		INSERT INTO #SubCommission (MonthDate, AffId, GroupId, SubAffCommission)
+		SELECT s.MonthDate, s.AffId, s.GroupId, SUM(s.SubCommRate * ISNULL(c.Commission, 0) ) AS SubAffCommission
+  		FROM CTE_SubCommRate s 
+  		    LEFT JOIN #Commission c ON s.SubAffId = c.AffId AND s.MonthDate = c.MonthDate
+  		WHERE c.ProductId = 0
+  		GROUP BY s.MonthDate, s.AffId, s.GroupId
 		
-		INSERT INTO #SubCommRate (MonthDate, AffId, SubAffId, Level, SubCommRate)
-        SELECT t.MonthDate, t.AffId, t.SubAffId, t.Level, n.SubCommRate
-        FROM CTE_SubCommRateDirect t
-			CROSS APPLY (
-				SELECT EXP(SUM(LOG(t1.SubCommRate))) AS SubCommRate
-				FROM CTE_SubCommRateDirect t1
-				WHERE t1.SubAffId = t.SubAffId AND t.Level >= t1.Level AND t.MonthDate = t1.MonthDate
-			) AS n
-        OPTION (MAXRECURSION 0)
-            
-       ;WITH CTE_SubAffCommission AS (
-            SELECT s.MonthDate, s.AffId, SUM(CASE WHEN s.Level <= @MaxSubAff THEN s.SubCommRate * (c.Commission + c.StraightCommission) ELSE 0 END) AS SubAffCommission
-            FROM #Commission c 
-                INNER JOIN #SubCommRate s ON s.SubAffId = c.AffId AND s.MonthDate = c.MonthDate
-            WHERE ProductId = 0
-            GROUP BY s.MonthDate, s.AffId
-        )
-        UPDATE c SET c.SubAffCommission = s.SubAffCommission
-        FROM #Commission c
-            INNER JOIN CTE_SubAffCommission s ON s.MonthDate = c.MonthDate AND s.AffId = c.AffId
-        WHERE c.ProductId = 0 AND c.GroupProductId = 0
+		-- Update SubAffCommission
+		UPDATE c SET c.SubAffCommission = s.SubAffCommission
+		FROM #Commission c
+		    INNER JOIN #SubCommission s ON s.MonthDate = c.MonthDate AND s.AffId = c.AffId
+		WHERE c.ProductId = 0 AND c.GroupProductId = 0
+
+		-- Insert SubAffCommission record if not exists from #Commission
+		INSERT INTO #Commission (MonthDate, AffId, GroupId, ProductId, GroupProductId, IsHasMemberData, SubAffCommission)
+		SELECT s.MonthDate, s.AffId, s.GroupId, 0, 0, 0, s.SubAffCommission
+		FROM #SubCommission s
+		WHERE NOT EXISTS (
+				SELECT TOP 1 1
+				FROM #Commission c
+				WHERE c.MonthDate = s.MonthDate AND c.AffId = s.AffId AND c.ProductId = 0 AND c.GroupProductId = 0
+			)
+			AND s.SubAffCommission <> 0
 
 		IF @AffIds <>  'all'
 		BEGIN
@@ -760,6 +752,11 @@ BEGIN
 
 		DELETE #Commission
 		WHERE IsHasMemberData = 0 AND SubAffCommission = 0
+
+		DROP TABLE #SubCommRate
+		DROP TABLE #SubCommRateDirect
+		DROP TABLE #SubCommission
+
 	END
 
 	-- Reset Fee, Commission if MonthDate < LaunchDate
@@ -869,7 +866,7 @@ BEGIN
 				CONVERT(BIT, MAX(CONVERT(TINYINT, IsMultiGroupProduct)))				AS IsMultiGroupProduct
 			FROM #Commission
 			GROUP BY AffId, GroupId, GroupProductId, ProductId
-			ORDER BY AffId, GroupId, GroupProductId, ProductId
+			ORDER BY AffId ASC, GroupId ASC, GroupProductId ASC, ProductId ASC
 		END
 		ELSE
 		BEGIN
@@ -902,7 +899,7 @@ BEGIN
 				SubAffCommission,
 				IsMultiGroupProduct
 			FROM #Commission
-			ORDER BY MonthDate, AffId, GroupId, GroupProductId, ProductId
+			ORDER BY MonthDate ASC, AffId ASC, GroupId ASC, GroupProductId ASC, ProductId ASC
 		END
 	END
 	ELSE
@@ -938,7 +935,7 @@ BEGIN
 				CONVERT(BIT, MAX(CONVERT(TINYINT, IsMultiGroupProduct)))				AS IsMultiGroupProduct
 			FROM #Commission
 			GROUP BY AffId, GroupId, ProductId
-			ORDER BY AffId, GroupId, ProductId
+			ORDER BY AffId ASC, GroupId ASC, ProductId ASC
 		END
 		ELSE
 		BEGIN
@@ -971,11 +968,11 @@ BEGIN
 				CONVERT(BIT, MAX(CONVERT(TINYINT, IsMultiGroupProduct)))				AS IsMultiGroupProduct
 			FROM #Commission
 			GROUP BY MonthDate, AffId, GroupId, ProductId
-			ORDER BY MonthDate, AffId, GroupId, ProductId
+			ORDER BY MonthDate ASC, AffId ASC, GroupId ASC, ProductId ASC
 		END
 	END
 
 	DROP TABLE #Data
 	DROP TABLE #Commission
-	DROP TABLE #SubCommRate
+
 END
