@@ -20,6 +20,7 @@ CREATE PROCEDURE [dbo].[Aff_ClickStatisticsIns]
 	,@DeviceType		TINYINT = 0
 	,@AffMediaLink		VARCHAR(500) = NULL
 	,@ChannelCode		VARCHAR(50) = NULL
+	,@IsExcluded		BIT = 0
 	,@ErrCode			INT = 0 OUTPUT
 	,@ErrMsg			NVARCHAR(4000) = '' OUTPUT
 
@@ -32,6 +33,7 @@ AS
 	Revisions:  
 		- 20250729@Sally: Initialize SP [RedmineID: #233088]
         - 20250729@Sally: Remove insert data into ClickStatistics2 table [RedmineID: #234697]
+        - 20251022@Sophia: Add IsExcluded parameter and column [RedmineID: #241768]
 
 */
 BEGIN
@@ -62,14 +64,13 @@ BEGIN
 		SELECT @DomainReferrer = CASE WHEN @DomainReferrer IS NULL OR TRIM(@DomainReferrer) = '' THEN 'none' ELSE @DomainReferrer END
 		SELECT @AffMediaLink   = CASE WHEN @AffMediaLink IS NULL OR TRIM(@AffMediaLink) = '' THEN 'none' ELSE @AffMediaLink END
 		
-		-- Insert into ClickStatistics
 		INSERT INTO dbo.ClickStatistics
 		(
-			ClickId, AffId, UpdatedTime, IP, Date, Browser, URLReferrer, DomainReferrer, OS, Device, BrowserVersion, BrowserResolution, BrowserLanguage, UserAgent, Country, LanguageCode, SportCode, RedirectURL, Status, DeviceType, AffMediaLink, ChannelCode
+			ClickId, AffId, UpdatedTime, IP, Date, Browser, URLReferrer, DomainReferrer, OS, Device, BrowserVersion, BrowserResolution, BrowserLanguage, UserAgent, Country, LanguageCode, SportCode, RedirectURL, Status, DeviceType, AffMediaLink, ChannelCode, IsExcluded
 		)
 		VALUES
 		(
-			@ClickId, @AffId, @UpdatedTime, @IP, CAST(@UpdatedTime AS DATE), @Browser, @URLReferrer, @DomainReferrer, @OS, @Device, @BrowserVersion, @BrowserResolution, @BrowserLanguage, @UserAgent, COALESCE(@CountryCode, '(not set)', @Country), @LanguageCode, @PageCode, @RedirectURL, 0, @DeviceType, @AffMediaLink, @ChannelCode
+			@ClickId, @AffId, @UpdatedTime, @IP, CAST(@UpdatedTime AS DATE), @Browser, @URLReferrer, @DomainReferrer, @OS, @Device, @BrowserVersion, @BrowserResolution, @BrowserLanguage, @UserAgent, COALESCE(@CountryCode, '(not set)', @Country), @LanguageCode, @PageCode, @RedirectURL, 0, @DeviceType, @AffMediaLink, @ChannelCode, @IsExcluded
 		);
 
 	END TRY
