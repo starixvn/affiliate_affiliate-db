@@ -6,6 +6,7 @@ CREATE PROCEDURE [dbo].[Aff_Admin_Deal_Ins]
 	,@GroupTypeId		INT = 1
 	,@Description		NVARCHAR(100) = ''
 	,@SubCommRate		DECIMAL(9,8)
+	,@IsSubCommRate		BIT = 1
 	--Revenue
 	,@QMTurnover		MONEY
 	,@IsActivePlayerSum BIT
@@ -36,6 +37,8 @@ AS
 	Revisions:
 		- 20250526@Lewis: Initialize SP [RedmineID: #228530]
 		- 20250903@Lewis: For Monthly Deal -- Change ApproveDate DealBillingSchedule 4th [RedmineID: #237540]
+		- 20250930@Lewis: Remove Min Turnover instant payment restriction
+						  Add column IsSubCommRate [RedmineID: #235601]
 
 	Parameter's Explanation:
 		- @DeductionList xml = N'
@@ -94,7 +97,6 @@ BEGIN
 		,@Infinity_PositiveAmount MONEY    = 100000000000
 		,@Inifinity_QM INT 				   = 1000000000
 
-	DECLARE @IsMonthly BIT = 0
 	DECLARE @IntervalType VARCHAR(20)
 			,@IntervalValue SMALLINT
 
@@ -103,16 +105,7 @@ BEGIN
 	FROM Schedule s WITH (NOLOCK)
 	WHERE s.ScheduleId = @ScheduleId 
 
-	-- Check Monthly or not
-	IF EXISTS (
-		SELECT 1
-		FROM Schedule s WITH (NOLOCK)
-		WHERE s.ScheduleId = @ScheduleId
-			AND s.IntervalType= 'Month'
-	)
-	BEGIN
-		SELECT @IsMonthly = 1
-	END
+
 
 	-- =========================
 	-- Check permission
@@ -144,6 +137,13 @@ BEGIN
 		RETURN
 	END
 
+	IF @IsSubCommRate = 1 AND @SubCommRate IS NULL
+	BEGIN
+		-- Sub-commission rate is invalid!
+		SELECT @ErrCode = 106, @ErrMsg = N'Sub-commission rate is invalid!'
+		RETURN
+	END
+
 	-- Revenue/Hybrid validation block
     IF @GroupTypeId IN (1,4)
 	BEGIN
@@ -153,7 +153,7 @@ BEGIN
 		;WITH CTE_DeductionSetting AS
 		(
 			SELECT
-				ROW_NUMBER() OVER(PARTITION BY t.c.value('@id', 'TINYINT') ORDER BY (SELECT NULL)) AS GroupProductId,
+				ROW_NUMBER() OVER(PARTITION BY t.c.value('@id', 'TINYINT') ORDER BY (SELECT 0) ASC) AS GroupProductId,
 				t.c.value('@id', 'TINYINT') AS DeductionId,
 				t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
 				t.c.value('@percent', 'DECIMAL(9,8)') AS DeductedPercentage,
@@ -350,13 +350,7 @@ BEGIN
             RETURN
         END
 
-		-- IF CPATierList exist MinTO => @IsMonthly = 1
-		IF EXISTS (SELECT 1 FROM @CPATier WHERE MinTO IS NOT NULL)
-			AND @IsMonthly = 0
-		BEGIN
-			SELECT @ErrCode = 309, @ErrMsg = N'Instant Payment is unavailable when Min Turnover is enabled. Please contact your system administrator.'
-            RETURN
-		END	
+
 		
 		-- IF CPATierList exist MinWagering => CPAProductList is required
 		IF EXISTS (SELECT 1 FROM @CPATier WHERE MinTO IS NOT NULL)
@@ -453,9 +447,9 @@ BEGIN
         IF EXISTS (
             SELECT 1 FROM (
                 SELECT GroupProductId, TierId, MinFDM, MinTotalDeposit, MinTO,
-                    LEAD(MinFDM) OVER (PARTITION BY GroupProductId ORDER BY TierId) AS NextMinFDM,
-                    LEAD(MinTotalDeposit) OVER (PARTITION BY GroupProductId ORDER BY TierId) AS NextMinTotalDeposit,
-                    LEAD(MinTO) OVER (PARTITION BY GroupProductId ORDER BY TierId) AS NextMinTO
+                    LEAD(MinFDM) OVER (PARTITION BY GroupProductId ORDER BY TierId ASC) AS NextMinFDM,
+                    LEAD(MinTotalDeposit) OVER (PARTITION BY GroupProductId ORDER BY TierId ASC) AS NextMinTotalDeposit,
+                    LEAD(MinTO) OVER (PARTITION BY GroupProductId ORDER BY TierId ASC) AS NextMinTO
                 FROM @CPATier
             ) t
             WHERE (NextMinFDM IS NOT NULL AND NextMinFDM <= MinFDM)
@@ -471,23 +465,46 @@ BEGIN
 	-- =========================
 	-- INSERT DATA
 	-- =========================
-	IF @GroupTypeId = 1 -- Revenue
+	
+	-- Single consolidated INSERT with CASE WHEN for clean logic
+	INSERT INTO dbo.CommGroup (
+		GroupName, Description, Creator, CreatedDate, IsDeleted, SubCommRate, GroupTypeId, UpdatedBy, UpdatedTime, IsSubCommRate,
+		-- Revenue fields (for types 1,4)
+		QMTurnover,
+		-- CPA fields (for types 3,4)
+		ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, RedepositDays, RedepositRate, StartDate, ScheduleId
+	)
+	VALUES (
+		@GroupName, @Description, @UserId, @CurrentDate, 0, @SubCommRate, @GroupTypeId, @UserId, @CurrentDate, @IsSubCommRate,
+		-- Revenue fields: only populate for Revenue(1) and Hybrid(4)
+		CASE WHEN @GroupTypeId IN (1,4) THEN @QMTurnover ELSE NULL END,
+		-- CPA fields: only populate for CPA(3) and Hybrid(4)  
+		CASE WHEN @GroupTypeId IN (3,4) THEN @ActiveDays ELSE NULL END,
+		CASE WHEN @GroupTypeId IN (3,4) THEN @HoldingDays ELSE NULL END,
+		CASE WHEN @GroupTypeId IN (3,4) THEN @HoldingTickets ELSE NULL END,
+		CASE WHEN @GroupTypeId IN (3,4) THEN @Quota ELSE NULL END,
+		CASE WHEN @GroupTypeId IN (3,4) THEN @CountryCodes ELSE NULL END,
+		CASE WHEN @GroupTypeId IN (3,4) THEN @RedepositDays ELSE NULL END,
+		CASE WHEN @GroupTypeId IN (3,4) THEN @RedepositRate ELSE NULL END,
+		CASE WHEN @GroupTypeId IN (3,4) THEN @StartDate ELSE NULL END,
+		CASE WHEN @GroupTypeId IN (3,4) THEN @ScheduleId ELSE NULL END
+	);
+
+	SET @GroupId = SCOPE_IDENTITY();
+
+	IF @GroupId IS NULL 
+	BEGIN
+		SET @ErrCode = 105;
+		SET @ErrMsg = 'Failed to insert new deal! Please try again!';
+		RETURN;
+	END;
+	
+	--History Group
+	INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate, QMTurnover, IsSubCommRate)
+	VALUES (@GroupId, @MonthDate, @SubCommRate, @QMTurnover, @IsSubCommRate)
+
+	IF @GroupTypeId IN (1, 4) -- Revenue
     BEGIN
-		-- Insert CommGroup and get new GroupId before any settings insert
-		INSERT INTO dbo.CommGroup (GroupName, Description, Creator, CreatedDate, IsDeleted, SubCommRate, GroupTypeId, QMTurnover, UpdatedBy, UpdatedTime)
-		VALUES (@GroupName, @Description, @UserId, @CurrentDate, 0, @SubCommRate, @GroupTypeId, @QMTurnover, @UserId, @CurrentDate)
-		
-		SET @GroupId = SCOPE_IDENTITY()
-
-		IF @GroupId IS NULL 
-		BEGIN
-			SELECT @ErrCode = 105, @ErrMsg = 'Failed to insert new deal! Please try again!'
-			RETURN
-		END
-
-		--History Group
-		INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate, QMTurnover)
-		VALUES (@GroupId, @MonthDate, @SubCommRate, @QMTurnover)
 
 		-- Tier List
 		INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
@@ -504,23 +521,12 @@ BEGIN
 		SELECT @GroupId, @MonthDate, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent FROM @DeductionSetting
 	END
 
-	IF @GroupTypeId = 3 -- CPA
+	IF @GroupTypeId IN (3, 4) -- CPA
     BEGIN
-		-- Insert CommGroup and get new GroupId before any settings insert
-		INSERT INTO dbo.CommGroup (GroupName, Description, Creator, CreatedDate, IsDeleted, SubCommRate, GroupTypeId, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, UpdatedBy, UpdatedTime, RedepositDays, RedepositRate, StartDate, ScheduleId)
-		VALUES (@GroupName, @Description, @UserId, @CurrentDate, 0, @SubCommRate, @GroupTypeId, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @UserId, @CurrentDate, @RedepositDays, @RedepositRate, @StartDate, @ScheduleId)
 		
-		SET @GroupId = SCOPE_IDENTITY()
-
-		IF @GroupId IS NULL 
-		BEGIN
-			SELECT @ErrCode = 105, @ErrMsg = 'Failed to insert new deal! Please try again!'
-			RETURN
-		END
-
         -- CPAGroupSetting
-        INSERT INTO dbo.CPAGroupSetting (FromDate, ToDate, GroupId, GroupTypeId, SubCommRate, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, RedepositDays, RedepositRate, StartDate, ScheduleId)
-        VALUES (@FromDate, @ToDate, @GroupId, @GroupTypeId, @SubCommRate, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @RedepositDays, @RedepositRate, @StartDate, @ScheduleId)
+        INSERT INTO dbo.CPAGroupSetting (FromDate, ToDate, GroupId, GroupTypeId, SubCommRate, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, RedepositDays, RedepositRate, StartDate, ScheduleId, IsSubCommRate)
+        VALUES (@FromDate, @ToDate, @GroupId, @GroupTypeId, @SubCommRate, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @RedepositDays, @RedepositRate, @StartDate, @ScheduleId, @IsSubCommRate)
 
         -- CPATierSetting
         INSERT INTO dbo.CPATierSetting (FromDate, ToDate, GroupId, GroupProductId, TierId, MinFDM, MaxFDM, MinTotalDeposit, MaxTotalDeposit, MinTO, MaxTO, CPAAmount)
@@ -540,64 +546,6 @@ BEGIN
 		SELECT @GroupId, @ScheduleId, IIF(@IntervalType = 'MONTH', DATEADD(DAY, 4, EOMONTH(@StartDate, @IntervalValue - 1)), DATEADD(DAY, @IntervalValue - 1, @StartDate))
     END
 
-	IF @GroupTypeId = 4 -- Hydrid
-    BEGIN
-		-- Insert CommGroup and get new GroupId before any settings insert
-		INSERT INTO dbo.CommGroup (GroupName, Description, Creator, CreatedDate, IsDeleted, SubCommRate, GroupTypeId, QMTurnover, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, UpdatedBy, UpdatedTime, RedepositDays, RedepositRate, StartDate, ScheduleId)
-		VALUES (@GroupName, @Description, @UserId, @CurrentDate, 0, @SubCommRate, @GroupTypeId, @QMTurnover, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @UserId, @CurrentDate, @RedepositDays, @RedepositRate, @StartDate, @ScheduleId)
-		
-		SET @GroupId = SCOPE_IDENTITY()
-
-		IF @GroupId IS NULL 
-		BEGIN
-			SELECT @ErrCode = 105, @ErrMsg = 'Failed to insert new deal! Please try again!'
-			RETURN
-		END
-
-		-- ==========================
-		-- Revenue Sharing by Winloss
-		-- ==========================
-		--History Group
-		INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate, QMTurnover)
-		VALUES (@GroupId, @MonthDate, @SubCommRate, @QMTurnover)
-
-		-- Tier List
-        INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
-        SELECT @GroupId, GroupProductId, TierID, MinAmount, MaxAmount, MinQM, MaxQM, Commission, @IsActivePlayerSum FROM @TierSetting
-        INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
-        SELECT @GroupId, GroupProductId, @MonthDate, TierID, MinAmount, MaxAmount, MinQM, MaxQM, Commission, @IsActivePlayerSum FROM @TierSetting
-		
-		-- Deduction List
-        INSERT INTO dbo.DeductionSetting (GroupId, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
-        SELECT @GroupId, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent FROM @DeductionSetting
-        INSERT INTO dbo.DeductionSettingHistory (GroupId, MonthDate, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
-        SELECT @GroupId, @MonthDate, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent FROM @DeductionSetting
-
-        -- ==========================
-		-- CPA
-		-- ==========================
-		-- CPAGroupSetting
-        INSERT INTO dbo.CPAGroupSetting (FromDate, ToDate, GroupId, GroupTypeId, SubCommRate, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, RedepositDays, RedepositRate, StartDate, ScheduleId)
-        VALUES (@FromDate, @ToDate, @GroupId, @GroupTypeId, @SubCommRate, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @RedepositDays, @RedepositRate, @StartDate, @ScheduleId)
-		
-		-- CPATierSetting
-        INSERT INTO dbo.CPATierSetting (FromDate, ToDate, GroupId, GroupProductId, TierId, MinFDM, MaxFDM, MinTotalDeposit, MaxTotalDeposit, MinTO, MaxTO, CPAAmount)
-        SELECT @FromDate, @ToDate, @GroupId, GroupProductId, TierId, MinFDM, MaxFDM, MinTotalDeposit, MaxTotalDeposit, MinTO, MaxTO, CPAAmount
-        FROM @CPATier
-
-		-- CPAProductSetting
-		IF EXISTS (SELECT 1 FROM @CPAProduct)
-		BEGIN
-			INSERT INTO dbo.CPAProductSetting (FromDate, ToDate, GroupId, GroupProductId, ProductId)
-			SELECT @FromDate, @ToDate, @GroupId, GroupProductId, ProductId
-			FROM @CPAProduct
-		END
-
-		-- DealBillingSchedule
-		INSERT INTO dbo.DealBillingSchedule (GroupId, ScheduleId, NextBillingDate)
-		SELECT @GroupId, @ScheduleId, IIF(@IntervalType = 'MONTH', DATEADD(DAY, 4, EOMONTH(@StartDate, @IntervalValue - 1)), DATEADD(DAY, @IntervalValue - 1, @StartDate))
-	END
-	
 	-- =========================
 	-- Write log
 	-- =========================
