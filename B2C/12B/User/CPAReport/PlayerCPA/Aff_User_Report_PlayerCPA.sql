@@ -3,6 +3,7 @@ CREATE PROCEDURE [dbo].[Aff_User_Report_PlayerCPA]
     @AffId INT,
     @CustName NVARCHAR(100) = '',
     @StatusId VARCHAR(MAX) = '',
+    @GroupId INT = 0,
     @Viewby TINYINT = 1,
     @FromDate DATETIME = '',
     @ToDate DATETIME = '',
@@ -35,10 +36,14 @@ BEGIN
             RegisteredDate DATETIME,
             --Active Period
             FTD MONEY,
+            IsFTD BIT,
             TotalDeposit MONEY,
+            IsTotalDeposit BIT,
+            IsTO BIT,
             AQD DATETIME,
             CPAAmount MONEY,
             --Holding Period
+            IsHolding BIT,
             HoldingBetTickets SMALLINT,
             HoldingTickets SMALLINT,
             HQD DATETIME,
@@ -52,6 +57,7 @@ BEGIN
             --Status
             StatusId SMALLINT,
             CPAStatus VARCHAR(20),
+            IsAbnormal BIT,
             Description VARCHAR(300)
         )
         INSERT INTO #data(
@@ -62,10 +68,14 @@ BEGIN
             RegisteredDate,
             --Active Period
             FTD,
+            IsFTD,
             TotalDeposit,
+            IsTotalDeposit,
+            IsTO,
             AQD,
             CPAAmount,
             --Holding Period
+            IsHolding,
             HoldingBetTickets,
             HoldingTickets,
             HQD,
@@ -79,6 +89,7 @@ BEGIN
             --Status
             StatusId,
             CPAStatus,
+            IsAbnormal,
             Description
         )
         SELECT 
@@ -89,10 +100,14 @@ BEGIN
             mem.RegisteredDate,
             --Active Period
             m.FDM,
+            IIF(m.FDM = 0, 0, 1),
             m.TotalDeposit,
+            IIF(m.TotalDeposit = 0, 0, 1),
+            IIF(m.Turnover = 0, 0, 1),
             m.ActiveQualifiedDate,
             m.CPAAmount,
             --Holding Period
+            IIF(m.HoldingBetTickets IS NULL, 0, 1),
             m.HoldingBetTickets,
             cg.HoldingTickets,
             m.HoldingQualifiedDate,
@@ -113,6 +128,7 @@ BEGIN
                  WHEN m.StatusId = 5 THEN 'Quota Exceeded'
                  WHEN m.StatusId = 6 THEN 'Redeposit Failed'
             END,
+            IIF(m.StatusId = 4, 1, 0) AS IsAbnormal,
             m.Description
         FROM dbo.MemberCPA m WITH (NOLOCK)
             INNER JOIN dbo.MemberInfo mem WITH (NOLOCK) ON m.CustId = mem.CustId
@@ -125,28 +141,36 @@ BEGIN
                 (@Viewby = 1 AND m.ActiveQualifiedDate BETWEEN @FromDate AND @ToDate)
                 OR (@Viewby = 2 AND m.HoldingQualifiedDate BETWEEN @FromDate AND @ToDate)
             )
+			AND (m.GroupId = @GroupId OR @GroupId = 0)
 
         -- Main result set
-        SELECT 
+        SELECT
+            d.MemberCPA_ID,
             ROW_NUMBER() OVER (ORDER BY d.AQD DESC) AS RowNum,
             d.CustUsername AS Player,
             d.RegisteredDate,
             --Active Period
             d.FTD,
+            d.IsFTD,
             d.TotalDeposit,
+            d.IsTotalDeposit,
+            d.IsTO,
             d.AQD AS ActiveQualifiedDate,
             d.CPAAmount,
             --Holding Period
-            CONCAT(ISNULL(d.HoldingBetTickets, 0), '/', ISNULL(d.HoldingTickets, 0)) AS BetTicket,
+            d.IsHolding,
+            IIF(d.IsHolding = 0, NULL, CONCAT(ISNULL(d.HoldingBetTickets, 0), '/', ISNULL(d.HoldingTickets, 0))) AS BetTicket,
             d.HQD AS HoldingQualifiedDate,
-            d.HED AS HoldingExpiredDate,
+            IIF(d.IsHolding = 0, NULL, d.HED) AS HoldingExpiredDate,
             d.EstimatedCPAAmount,
             --Redeposit Qualified Period
-            d.FirstDepositDate,
-            d.ReDepositDays AS RecheckDays,
+            IIF(d.ExpiredRedepositDate IS NULL, NULL, d.FirstDepositDate) AS FirstDepositDate,
+            IIF(d.ExpiredRedepositDate IS NULL, NULL, d.ReDepositDays) AS RecheckDays,
             d.ExpiredRedepositDate,
-            CASE WHEN d.IsRedeposit = 1 THEN 'Yes' ELSE 'No' END AS IsRedeposit,
-            d.CPAStatus
+            d.IsRedeposit,
+            d.CPAStatus,
+            d.IsAbnormal,
+            d.Description
         FROM #data d
         ORDER BY d.AQD DESC;
 
@@ -155,8 +179,8 @@ BEGIN
 
         -- Summary totals
         SELECT 
-            SUM(CPAAmount) AS TotalCPAAmount,
-            SUM(EstimatedCPAAmount) AS TotalEstimatedCPAAmount
+            SUM(CPAAmount) AS CPAAmount,
+            SUM(EstimatedCPAAmount) AS EstimatedCPAAmount
         FROM #data;
 
         DROP TABLE #data;
