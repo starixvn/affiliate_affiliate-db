@@ -32,6 +32,7 @@ AS
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225820] 
 		- 20250516@Sally: Get correct Date for FDM's Total Deposit [RedmineID: #227685]
 		- 20250723@Sophia: Implement hybrid approach using rptMemberDaily for historical data and DepositInfo for recent data based on commission date boundary [RedmineID: #239737]
+		- 20251022@Sophia: Add IsExcluded = 0 condition to filter excluded clicks [RedmineID: #241768]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -289,6 +290,7 @@ BEGIN
 				AND UpdatedTime >= @FromDate_Local -- GMT-4
 				AND UpdatedTime < @ToDate_Local -- GMT-4
 				AND AffId = @AffID
+				AND c.IsExcluded = 0
 			GROUP BY
 				EOMONTH(DATEADD(HOUR, 12, c.UpdatedTime)), c.IP
 		END
@@ -312,6 +314,7 @@ BEGIN
 				AND UpdatedTime >= @FromDate_Local -- GMT-4
 				AND UpdatedTime < @ToDate_Local -- GMT-4
 				AND AffId = @AffID
+				AND c.IsExcluded = 0
 			GROUP BY
 				EOMONTH(DATEADD(HOUR, 12, c.UpdatedTime)), c.IP
 		 END	

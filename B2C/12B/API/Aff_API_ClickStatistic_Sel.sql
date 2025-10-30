@@ -16,6 +16,7 @@ AS
 		- 20250625@Sally: Initialize SP [RedmineID: #230555]
 		- 20250707@Sally: Fix get DateTime GMT-4 [RedmineID: #232334]
 		- 20250709@Sally: Enhance filter data by MemberInfo data where the ClickId exists in [RedmineID: #232701]
+		- 20251022@Sophia: Add IsExcluded = 0 condition to filter excluded clicks [RedmineID: #241768]
     
     Param's Explanation:
 		- @FromDate, @ToDate: GMT+8
@@ -97,6 +98,8 @@ BEGIN
 		WHERE c.[Date] >= @tempFromDate
 			AND c.[Date] < @tempToDate
 			AND c.UpdatedTime BETWEEN @FromDate_Local AND @ToDate_Local -- GMT-4
+			AND c.IsExcluded = 0
+			
 		
 	END
 
@@ -122,6 +125,7 @@ BEGIN
 		WHERE c.[Date] >= @tempFromDate
 			AND c.[Date] < @tempToDate
 			AND c.UpdatedTime BETWEEN @FromDate_Local AND @ToDate_Local -- GMT-4
+			AND c.IsExcluded = 0
 	END
 
 	-- Return paginated results with AffInfo data

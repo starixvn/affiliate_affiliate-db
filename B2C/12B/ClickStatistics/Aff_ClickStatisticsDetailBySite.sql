@@ -27,6 +27,7 @@ AS
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225820]
 		- 20250515@Lewis: @LanguageCode => MarketId [RedmineID: #227338]
 		- 20250522@Lewis: ClickId NULL [RedmineID: #228311]
+		- 20251022@Sophia: Add IsExcluded = 0 condition to filter excluded clicks [RedmineID: #241768]
 	
 	Param:
 		@DeviceType = -1 : all 
@@ -77,8 +78,8 @@ BEGIN
 		COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
 		COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
-		LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickID = mi.clickID
-		LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickID = mi.clickID
+		LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickID = mi.clickID AND md.IsExcluded = 0
+		LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickID = mi.clickID AND bk.IsExcluded = 0
 		LEFT JOIN @ShortedCode sc ON sc.ShortedCode = ISNULL(md.LanguageCode, bk.LanguageCode)
 	WHERE mi.AffId = @AffID
 		AND (@Domain IS NULL OR COALESCE(md.DomainReferrer,bk.DomainReferrer, 'none') = @Domain)
@@ -110,6 +111,7 @@ BEGIN
 			AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
 			AND SportCode = ISNULL(@SportCode, SportCode)
 			AND EXISTS (SELECT TOP 1 1 FROM @ShortedCode sc WHERE sc.ShortedCode = c.LanguageCode)
+			AND c.IsExcluded = 0
 		GROUP BY URLReferrer, DeviceType, IP
 		
 				
@@ -130,6 +132,7 @@ BEGIN
 			AND DomainReferrer = ISNULL(@Domain, DomainReferrer)
 			AND SportCode = ISNULL(@SportCode, SportCode)
 			AND EXISTS (SELECT TOP 1 1 FROM @ShortedCode sc WHERE sc.ShortedCode = c.LanguageCode)
+			AND c.IsExcluded = 0
 		GROUP BY URLReferrer, ISNULL(DeviceType, 0), IP
 		
 		
@@ -162,12 +165,12 @@ BEGIN
 	;WITH CTE_UrlReferrer AS
 	(
 		SELECT
-			ROW_NUMBER() OVER (ORDER BY URLReferrer) AS TheCount,
+			ROW_NUMBER() OVER (ORDER BY URLReferrer ASC) AS TheCount,
 			URLReferrer, DeviceType
 		FROM (
 			SELECT DISTINCT URLReferrer, DeviceType
 			FROM (
-				SELECT TOP (@RowEnd) URLReferrer, DeviceType FROM #SumResult WHERE (DeviceType = @DeviceType OR @DeviceType = -1) ORDER BY URLReferrer
+				SELECT TOP (@RowEnd) URLReferrer, DeviceType FROM #SumResult WHERE (DeviceType = @DeviceType OR @DeviceType = -1) ORDER BY URLReferrer ASC
 			) A
 		) B
 	)

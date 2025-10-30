@@ -45,6 +45,7 @@ AS
 		- 20250516@Sally: Fix Get BBF [RedmineID: #227716]
 		- 20250812@Sally: Enhance conditions to view data of marketing affiliate accounts [RedmineID: #235773]
 		- 20251002@Sophia: Implement hybrid approach using rptMemberDaily for historical data and DepositInfo for recent data based on commission date boundary [RedmineID: #239737]
+		- 20251022@Sophia: Add IsExcluded = 0 condition to filter excluded clicks [RedmineID: #241768]
 
 	Param's Explanation:
 		- @SortType: 
@@ -509,6 +510,7 @@ BEGIN
 				AND [Date] < @tempToDate
 				AND UpdatedTime >= @FromDate_Local -- GMT-4
 				AND UpdatedTime < @ToDate_Local -- GMT-4
+				AND c.IsExcluded = 0
 			GROUP BY
 				AffId, IP
 			
@@ -530,6 +532,7 @@ BEGIN
 				AND [Date] < @tempToDate
 				AND UpdatedTime >= @FromDate_Local -- GMT-4
 				AND UpdatedTime < @ToDate_Local -- GMT-4
+				AND c.IsExcluded = 0
 			GROUP BY
 				AffId, IP
 		END

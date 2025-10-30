@@ -21,6 +21,7 @@ AS
 		- 20250416@Sophia: Get report by timezone [RedmineID: #222352]
 		- 20250505@Sophia: Fix Signups duplicated data [RedmineID: #226056]
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225820] 
+		- 20251022@Sophia: Add IsExcluded = 0 condition to filter excluded clicks [RedmineID: #241768] 
 		
 		
 	Param:
@@ -80,8 +81,8 @@ BEGIN
 		COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
 		COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
-		LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickId = mi.clickId
-		LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickId = mi.clickId
+		LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickId = mi.clickId AND md.IsExcluded = 0
+		LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickId = mi.clickId AND bk.IsExcluded = 0
 	WHERE mi.AffId = @AffID
 		AND (
 				(mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate)	 
@@ -104,6 +105,7 @@ BEGIN
 		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
 			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
 			AND AffId = @AffID
+			AND c.IsExcluded = 0
 		GROUP BY DomainReferrer, DeviceType, IP
 			
 		 
@@ -121,6 +123,7 @@ BEGIN
 		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
 			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use GMT-4 dates for UpdatedTime
 			AND AffId = @AffID
+			AND IsExcluded = 0
 		GROUP BY DomainReferrer, DeviceType, IP
 
 		
@@ -151,7 +154,7 @@ BEGIN
 		Signups,
 		FDM
 	FROM #SumResult
-	ORDER BY DomainReferrer
+	ORDER BY DomainReferrer ASC
 
 	DROP TABLE #tmpResult
 	DROP TABLE #SumResult
