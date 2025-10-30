@@ -23,6 +23,7 @@ AS
 		- 20250505@Sophia: Fix Signups duplicated data [RedmineID: #226056]
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225820] 
 		- 20250515@Lewis: @LanguageCode => MarketId [RedmineID: #227338]
+		- 20251022@Sophia: Add IsExcluded = 0 condition to filter excluded clicks [RedmineID: #241768]
 		
 	Param:
 		@FromDate: GMT+8, Date only
@@ -74,8 +75,8 @@ BEGIN
 			COUNT(CASE WHEN mi.RegisteredDate >= @MemFromDate AND mi.RegisteredDate < @MemToDate THEN 1 ELSE NULL END) AS Signups,
 			COUNT(CASE WHEN mi.FirstDepositDate >= @MemFromDate AND mi.FirstDepositDate < @MemToDate THEN 1 ELSE NULL END) AS FDM
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
-			LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickId = mi.clickId
-			LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickId = mi.clickId
+			LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickId = mi.clickId AND md.IsExcluded = 0
+			LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickId = mi.clickId AND bk.IsExcluded = 0
 		WHERE mi.AffId = @AffID
 			AND (
 					(mi.RegisteredDate >= @MemFromDate AND mi.RegisteredDate < @MemToDate)	 
@@ -99,6 +100,7 @@ BEGIN
 		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
 			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use full datetime in GMT-4
 			AND AffId = @AffId
+			AND c.IsExcluded = 0
 		GROUP BY AffMediaLink, LanguageCode, ChannelCode, IP
 
 		 
@@ -116,6 +118,7 @@ BEGIN
 		WHERE [Date] >= @TmpFromDate AND [Date] < @TmpToDate
 			AND UpdatedTime >= @FromDate_GMT4 AND UpdatedTime < @ToDate_GMT4 -- Use full datetime in GMT-4
 			AND AffId = @AffId
+			AND IsExcluded = 0
 		GROUP BY AffMediaLink, LanguageCode, ChannelCode, IP
 		
 	END

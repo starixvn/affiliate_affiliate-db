@@ -24,6 +24,7 @@ AS
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225820] 
 		- 20250515@Lewis: @LanguageCode => MarketId [RedmineID: #227338]
 		- 20250522@Lewis: ClickId NULL [RedmineID: #228311]
+		- 20251022@Sophia: Add IsExcluded = 0 condition to filter excluded clicks [RedmineID: #241768]
 		
 	Param:
 		@DeviceType = -1 : all 
@@ -93,8 +94,8 @@ BEGIN
 		COUNT(CASE WHEN mi.RegisteredDate >= @FromDate AND mi.RegisteredDate < @ToDate THEN 1 ELSE NULL END) AS Signups,
 		COUNT(CASE WHEN mi.FirstDepositDate >= @FromDate AND mi.FirstDepositDate < @ToDate THEN 1 ELSE NULL END) AS FDM
 	FROM dbo.MemberInfo mi WITH (NOLOCK)
-		LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickId = mi.clickId
-		LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickId = mi.clickId
+		LEFT JOIN dbo.ClickStatistics md WITH (NOLOCK) ON md.clickId = mi.clickId AND md.IsExcluded = 0
+		LEFT JOIN dbo.ClickStatistics_bk bk WITH (NOLOCK) ON bk.clickId = mi.clickId AND bk.IsExcluded = 0
 		LEFT JOIN @ShortedCode sc ON sc.ShortedCode = ISNULL(md.LanguageCode, bk.LanguageCode)
 	WHERE mi.AffId = @AffID
 		AND (
@@ -123,6 +124,7 @@ BEGIN
 			AND AffId = @AffID
 			AND SportCode = ISNULL(@SportCode, SportCode)
 			AND EXISTS (SELECT TOP 1 1 FROM @ShortedCode sc WHERE sc.ShortedCode = c.LanguageCode)
+			AND c.IsExcluded = 0
 		GROUP BY SportCode, LanguageCode, DeviceType, IP		
 		
 	END
@@ -141,6 +143,7 @@ BEGIN
 			AND AffId = @AffID
 			AND SportCode = ISNULL(@SportCode, SportCode)
 			AND EXISTS (SELECT TOP 1 1 FROM @ShortedCode sc WHERE sc.ShortedCode = c.LanguageCode)
+			AND c.IsExcluded = 0
 		GROUP BY SportCode, LanguageCode, DeviceType, IP
 		
 		
@@ -172,7 +175,7 @@ BEGIN
 		Signups,
 		FDM
 	FROM #SumResult
-	ORDER BY SportCode, LanguageCode
+	ORDER BY SportCode ASC, LanguageCode ASC
 
 	DROP TABLE #tmpResult
 	DROP TABLE #SumResult

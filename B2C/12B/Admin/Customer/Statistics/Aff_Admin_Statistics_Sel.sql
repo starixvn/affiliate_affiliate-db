@@ -18,6 +18,7 @@ AS
 		- 20250421@Sally: Add FDM_TotalDepositByMonth column [RedmineID: #224709]
 		- 20250516@Sally: Get correct Date for FDM's Total Deposit [RedmineID: #227685]
 		- 20251002@Sophia: Implement hybrid approach using rptMemberDaily for historical data and DepositInfo for recent data based on commission date boundary [RedmineID: #239737]
+		- 20251022@Sophia: Add IsExcluded = 0 condition to filter excluded clicks [RedmineID: #241768]
 		
 	Notes:
 	  - ClickStatistics.Date contains Date only, in GMT-4
@@ -370,6 +371,7 @@ BEGIN
 			WHERE AffId = @AffId
 				AND [Date] >= @TmpFromDate AND [Date] < @TmpToDate
 				AND UpdatedTime >= @FromBeginMonth_GMT4 AND UpdatedTime < @ToNextMonth_GMT4
+				AND IsExcluded = 0
 			GROUP BY ISNULL(DeviceType, 0)
 		)
 		SELECT
@@ -397,6 +399,7 @@ BEGIN
 			WHERE AffId = @AffId
 				AND [Date] >= @TmpFromDate AND [Date] < @TmpToDate
 				AND UpdatedTime >= @FromBeginMonth_GMT4 AND UpdatedTime < @ToNextMonth_GMT4
+				AND IsExcluded = 0
 			GROUP BY ISNULL(DeviceType, 0)
 		)
 		SELECT

@@ -20,6 +20,7 @@ AS
 		- 20250912@Sally: Get NetGGR data [RedmineID: #238476]
 		- 20250929@Sophia: Add TotalClick and UniqueClick columns [RedmineID: #239549]
 		- 20251002@Sophia: Implement hybrid approach using rptMemberDaily for historical data and DepositInfo for recent data based on commission date boundary [RedmineID: #239737]
+		- 20251022@Sophia: Add IsExcluded = 0 condition to filter excluded clicks [RedmineID: #241768]
 
 	Notes:
 	  - rptMemberDaily.WinlostDate is in GMT+8
@@ -77,6 +78,7 @@ BEGIN
 							  THEN CONVERT(DATE, @FromDate_GMT4) 
 							  ELSE DATEADD(Day, 1, @ArchiveDate) END
 				AND [Date] < DATEADD(Day, 1, CONVERT(DATE, @ToDate_GMT4))
+				AND IsExcluded = 0
 			GROUP BY IP;
 		END;
 
@@ -92,6 +94,7 @@ BEGIN
 				AND [Date] < CASE WHEN CONVERT(DATE, @ToDate_GMT4) > @ArchiveDate 
 							 THEN DATEADD(Day, 1, @ArchiveDate) 
 							 ELSE DATEADD(Day, 1, CONVERT(DATE, @ToDate_GMT4)) END
+				AND IsExcluded = 0
 			GROUP BY IP;
 		END;
 
