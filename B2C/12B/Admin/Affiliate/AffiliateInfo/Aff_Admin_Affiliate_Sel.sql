@@ -28,6 +28,7 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250417@Lewis: Add BlockTargetCountry [RedmineID: #223644]
         - 20250623@Sally: Exclude Marketing Account [RedmineID: #212201]
+        - 20251023@Sally: get DealVerifyFlags [RedmineID: #242398]
 
 	Param's Explanation:
 		- @SortType: 1: Username, 2: Registration Date, 3: Approval Date, 4: Balance B/F, 5: Member (Count)
@@ -121,7 +122,8 @@ BEGIN
 		Phone,
 		Player_Username,
         AffCategoryId,
-        AffCategoryDesc
+        AffCategoryDesc,
+        DealVerifyFlags
 	FROM
 	(
 		SELECT
@@ -153,6 +155,7 @@ BEGIN
 			ad.Player_Username,
             ai.AffCategoryId,
             ac.AffCategoryDesc,
+            ISNULL(dvf.DealVerifyFlags, 0) AS DealVerifyFlags,
 			ROW_NUMBER() OVER (ORDER BY
 						CASE WHEN @SortType = 1 AND @SortDirectionType = 0 THEN ai.Username END ASC,
 						CASE WHEN @SortType = 1 AND @SortDirectionType = 1 THEN ai.Username END DESC,
@@ -191,6 +194,7 @@ BEGIN
 				WHERE at.AffId = ai.AffId
 					AND at.status IN ('Approved', 'Pending', 'Completed')
 			) at
+			LEFT JOIN dbo.Aff_f_DealVerifyFlags_Sel() dvf ON dvf.DealId = ai.GroupId
 		WHERE
 			(ISNULL(@ParentAffName, '') = '' OR p.Username LIKE '%' + @ParentAffName + '%')
 			AND (ISNULL(@AffCode, '') = '' OR ai.AffCode = @AffCode)
