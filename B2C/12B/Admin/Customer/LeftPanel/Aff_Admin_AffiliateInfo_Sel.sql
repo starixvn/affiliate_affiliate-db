@@ -18,6 +18,7 @@ AS
 		- 20250526@Lewis: Deals - add dealtypename [RedmineID: #228530]
         - 20250910@Lewis: Support en-US for all TargetCountry [RedmineID: #237465]
         - 20250917@Sally: get TargetCountry Info [RedmineID: #238480]
+        - 20251023@Sally: get DealVerifyFlags [RedmineID: #242398]
 
 */
 
@@ -112,7 +113,8 @@ BEGIN
 		-- TargetCountry
 		ISNULL(tc.CountryName,'') AS TargetCountryName,
 		ISNULL(tc.CountryCode,'') AS TargetCountryCode,
-		ISNULL(gt.GroupTypeName,'') AS DealTypeName
+		ISNULL(gt.GroupTypeName,'') AS DealTypeName,
+		ISNULL(dvf.DealVerifyFlags, 0) AS DealVerifyFlags
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffId = ad.AffId
         INNER JOIN dbo.AffCategory ac WITH (NOLOCK) ON ai.AffCategoryId = ac.AffCategoryId
@@ -125,6 +127,7 @@ BEGIN
 		LEFT JOIN dbo.Affiliate_User u WITH (NOLOCK) ON ai.ApprovedBy = u.CustId
 		LEFT JOIN dbo.Aff_f_Get_SecurityQuestions ('en-US') q ON ad.QuestionID = q.QuestionID
 		LEFT JOIN dbo.Country tc WITH (NOLOCK) ON tc.CountryCode = ad.TargetCountryCode
+		LEFT JOIN dbo.Aff_f_DealVerifyFlags_Sel() dvf ON dvf.DealId = ai.GroupId
 	WHERE ai.AffId = @AffId
 END
 GO
