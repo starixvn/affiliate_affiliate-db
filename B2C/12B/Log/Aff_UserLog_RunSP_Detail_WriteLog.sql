@@ -8,7 +8,7 @@ CREATE PROCEDURE [dbo].[Aff_UserLog_RunSP_Detail_WriteLog]
 	@IP			VARCHAR(50) = '',
 	@Language	VARCHAR(20) = '',
 	@IsWebCall	BIT = 0,
-	@Duration SMALLINT = 0
+	@Duration 	INT = 0
 AS
 
 /*
@@ -19,6 +19,7 @@ AS
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250526@Lewis: add Duration [RedmineID: #228530]
+		- 20251020@Sophia: change datatype of Duration [RedmineID: #242115]
 
 */
 

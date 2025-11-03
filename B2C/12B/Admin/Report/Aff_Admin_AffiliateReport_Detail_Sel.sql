@@ -31,6 +31,7 @@ AS
         - 20250421@Sally: Add FDM_TotalDeposit column [RedmineID: #224709]
 		- 20250506@Sophia: Fix IP handling in UniqueClick [RedmineID: #225820] 
 		- 20250516@Sally: Get correct Date for FDM's Total Deposit [RedmineID: #227685]
+		- 20250723@Sophia: Implement hybrid approach using rptMemberDaily for historical data and DepositInfo for recent data based on commission date boundary [RedmineID: #239737]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -85,6 +86,19 @@ BEGIN
 		SELECT  @ToDate		= @EndOfCurrentMonth
 	END
 
+	DECLARE @MaxCommDate SMALLDATETIME
+	SELECT  @MaxCommDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
+	
+	-- Calculate commission date boundary for data separation (MaxCommDate + 1 day)
+	DECLARE @CommissionBoundary SMALLDATETIME
+	SELECT @CommissionBoundary = DATEADD(DAY, 1, @MaxCommDate)
+
+	-- Pre-calculate DATE variables for WinlostDate index optimization
+	DECLARE @WinlostDateFrom DATE, @WinlostDateTo DATE
+	SELECT @WinlostDateFrom = DATEADD(DAY, -1, CONVERT(DATE, @FromDate))
+	SELECT @WinlostDateTo = DATEADD(DAY, 1, CONVERT(DATE, @ToDate))
+
+
 	SELECT @NRows = DATEDIFF(MONTH, @FromDate, @ToDate) + 1
 
 	IF @NRows <= 0
@@ -109,9 +123,6 @@ BEGIN
 		INNER JOIN dbo.Aff_f_AffGroupInfo_Sel(@FromDate, @ToDate, CONVERT(VARCHAR(20), @AffId)) af ON af.MonthDate= m.MonthDate
 	WHERE (@EarningType ='all' OR GroupTypeBy = @EarningType)
 	OPTION (MAXRECURSION 0)
-
-	DECLARE @MaxCommDate SMALLDATETIME
-	SELECT  @MaxCommDate = CONVERT(SMALLDATETIME, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
 	DECLARE @tempFromDate SMALLDATETIME, @tempToDate SMALLDATETIME
 
@@ -246,7 +257,7 @@ BEGIN
 				@Currencies			= @Currencies,
 				@BaseCurrency		= @BaseCurrency,
 				@IsSumAll			= 0,
-				@GetRowTotalOnly	= 1
+				@GetRowTotalOnly	= 1;
 		END
 
 		-- Statistics
@@ -385,16 +396,35 @@ BEGIN
 			AND mi.RegisteredDate < DATEADD(DAY, 1, @ToDate)
 		GROUP BY EOMONTH(mi.RegisteredDate)
 	),
-	-- Calculate FDM, FDM_Amount, and FDM_TotalDeposit using OUTER APPLY
-	CTE_FDM_Combined AS (
+	-- Get FDM count and FirstDepositAmount with exchange rate conversion
+	CTE_FDM_Basic AS (
+		SELECT 
+			fd.MonthDate,
+			SUM(fd.FDM) AS FDM,
+			SUM(fd.FDM_Amount * er.Rate) AS FDM_Amount
+		FROM (
+			SELECT 
+				EOMONTH(mi.FirstDepositDate) AS MonthDate,
+				mi.Currency,
+				COUNT(DISTINCT mi.CustId) AS FDM,
+				SUM(ISNULL(mi.FirstDepositAmount, 0)) AS FDM_Amount
+			FROM dbo.MemberInfo mi WITH (NOLOCK)
+			WHERE mi.AffId = @AffId
+				AND mi.FirstDepositDate >= @FromDate 
+				AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
+			GROUP BY EOMONTH(mi.FirstDepositDate), mi.Currency
+		) fd
+		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON fd.Currency = t.TpExchangeId
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(fd.MonthDate, ISNULL(t.ExchangeId, fd.Currency), @BaseExchangeId) er
+		GROUP BY fd.MonthDate
+	),
+	-- Historical deposit data (FirstDepositDate < @CommissionBoundary) - use rptMemberDaily
+	CTE_FDM_Historical AS (
 		SELECT 
 			EOMONTH(mi.FirstDepositDate) AS MonthDate,
-			COUNT(DISTINCT mi.CustId) AS FDM,
-			SUM(ISNULL(mi.FirstDepositAmount, 0) * ex.Rate) AS FDM_Amount,
-			SUM(ISNULL(r.Deposit, 0) * ex.Rate) AS FDM_TotalDeposit
+			mi.Currency,
+			SUM(ISNULL(r.Deposit, 0)) AS FDM_TotalDeposit
 		FROM dbo.MemberInfo mi WITH (NOLOCK)
-			LEFT JOIN dbo.TpExchange te WITH (NOLOCK) ON mi.Currency = te.TpExchangeId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(mi.FirstDepositDate, ISNULL(te.ExchangeId, mi.Currency), @BaseExchangeId) ex
 			OUTER APPLY (
 				SELECT 
 					SUM(r.Deposit) AS Deposit
@@ -405,7 +435,42 @@ BEGIN
 		WHERE mi.AffId = @AffId
 			AND mi.FirstDepositDate >= @FromDate 
 			AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
-		GROUP BY EOMONTH(mi.FirstDepositDate)
+			AND mi.FirstDepositDate < @CommissionBoundary  -- Historical data only (before commission boundary)
+		GROUP BY EOMONTH(mi.FirstDepositDate), mi.Currency
+	),
+	-- Recent deposit data (FirstDepositDate >= @CommissionBoundary) - use DepositInfo
+	CTE_FDM_Recent AS (
+		SELECT 
+			EOMONTH(mi.FirstDepositDate) AS MonthDate,
+			mi.Currency,
+			SUM(ISNULL(d.ActualDeposit,0) * 1.0 / CASE WHEN e.Code  IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END) AS FDM_TotalDeposit
+		FROM dbo.MemberInfo mi WITH (NOLOCK)
+			INNER JOIN bodb_12B.dbo.DepositInfo d WITH (NOLOCK) ON d.CustId = mi.CustId
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON mi.Currency = t.TpExchangeId
+			LEFT JOIN dbo.Exchange e WITH (NOLOCK) ON ISNULL(t.ExchangeId, mi.Currency) = e.ExchangeId
+		WHERE mi.AffId = @AffId
+			AND mi.FirstDepositDate >= @FromDate 
+			AND mi.FirstDepositDate < DATEADD(DAY, 1, @ToDate)
+			AND mi.FirstDepositDate >= @CommissionBoundary  -- Recent data only (after commission boundary)
+			AND d.Status = 3  -- Approved deposits only
+			AND d.WinlostDate BETWEEN @WinlostDateFrom AND @WinlostDateTo  -- Use WinlostDate index first
+			AND CONVERT(DATE, DATEADD(HOUR, 8, d.CreateTime)) >= CAST(mi.FirstDepositDate AS DATE) 
+			AND CONVERT(DATE, DATEADD(HOUR, 8, d.CreateTime)) < DATEADD(Day, 1, EOMONTH(mi.FirstDepositDate))  -- Convert GMT+0 to GMT+8
+		GROUP BY EOMONTH(mi.FirstDepositDate), mi.Currency
+	),
+	CTE_FDM_Combined AS (
+		-- Combine deposit data with exchange rate conversion (FDM_TotalDeposit only)
+		SELECT 
+			MonthDate,
+			SUM(FDM_TotalDeposit * er.Rate) AS FDM_TotalDeposit
+		FROM (
+			SELECT MonthDate, Currency, FDM_TotalDeposit FROM CTE_FDM_Historical
+			UNION ALL
+			SELECT MonthDate, Currency, FDM_TotalDeposit FROM CTE_FDM_Recent
+		) fdep
+		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON fdep.Currency = t.TpExchangeId
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(fdep.MonthDate, ISNULL(t.ExchangeId, fdep.Currency), @BaseExchangeId) er
+		GROUP BY MonthDate
 	)
 	-- Insert data into @MemberStatistics
 	INSERT INTO @MemberStatistics (MonthDate, Signup, FDM, FDM_Amount, FDM_TotalDeposit)
@@ -414,10 +479,16 @@ BEGIN
 		SELECT MonthDate, Signup, 0 AS FDM, 0 AS FDM_Amount, 0 AS FDM_TotalDeposit
 		FROM CTE_Signup
 		UNION ALL
-		SELECT MonthDate, 0 AS Signup, FDM, FDM_Amount, FDM_TotalDeposit
+		SELECT MonthDate, 0 AS Signup, FDM, FDM_Amount, 0 AS FDM_TotalDeposit
+		FROM CTE_FDM_Basic
+		UNION ALL
+		SELECT MonthDate, 0 AS Signup, 0 AS FDM, 0 AS FDM_Amount, FDM_TotalDeposit
 		FROM CTE_FDM_Combined
 	) Combined
 	GROUP BY MonthDate
+
+
+
 
 	DECLARE @tblSubAff TABLE (MonthDate SMALLDATETIME, NoOfSubAff INT)
 	INSERT INTO @tblSubAff (MonthDate, NoOfSubAff)
@@ -431,29 +502,44 @@ BEGIN
 
 	-- Total Deposit
 	DECLARE @TotalDeposit TABLE(MonthDate SMALLDATETIME, TotalDeposit BIGINT, TotalDepositAmount MONEY, TotalWithdrawalAmount MONEY)	
-	;WITH CTE_DataDeposit AS ( 
-		SELECT CONVERT(DATE, EOMONTH(DATEADD(HOUR, @TimeZone, d.CreateTime))) AS MonthDate
+	;WITH CTE_DepositInfo AS (
+		-- DepositInfo data (counts and recent amounts)
+		SELECT CONVERT(DATE, EOMONTH(DATEADD(HOUR, 8, d.CreateTime))) AS MonthDate
+			,mi.Currency
 			,COUNT(1) AS TotalDeposit
+			,SUM(CASE 
+				WHEN DATEADD(HOUR, 8, d.CreateTime) >= @CommissionBoundary 
+				THEN (ISNULL(d.ActualDeposit,0) * 1.0 / CASE WHEN e.Code IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END)
+				ELSE 0 
+			END) AS TotalDepositAmount
+			,0 AS TotalWithdrawalAmount
 		FROM bodb_12B.dbo.DepositInfo d WITH (NOLOCK)
 			INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON d.CustId = mi.CustId
-		WHERE d.WinlostDate BETWEEN DATEADD(DAY, -1, @FromDate) AND DATEADD(DAY, 1, @ToDate)
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON mi.Currency = t.TpExchangeId
+			LEFT JOIN dbo.Exchange e WITH (NOLOCK) ON ISNULL(t.ExchangeId, mi.Currency) = e.ExchangeId
+		WHERE d.WinlostDate BETWEEN @WinlostDateFrom AND @WinlostDateTo  -- Use WinlostDate index first
 			AND d.Status = 3 -- Approved
-			AND d.CreateTime >= @FromDateTimeGMT0 
-			AND d.CreateTime < DATEADD(DAY, 1, @ToDateTimeGMT0)
+			AND CONVERT(DATE, DATEADD(HOUR, 8, d.CreateTime)) >= @FromDate
+			AND CONVERT(DATE, DATEADD(HOUR, 8, d.CreateTime)) < DATEADD(DAY, 1, @ToDate)  -- Convert GMT+0 to GMT+8
 			AND mi.AffId = @AffId
 			AND NOT EXISTS (
 					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
-					WHERE mr.CustId = d.custid AND CAST(DATEADD(HOUR, @TimeZone, d.CreateTime) AS DATE) BETWEEN mr.FromDate AND mr.ToDate
+					WHERE mr.CustId = d.custid AND CAST(DATEADD(HOUR, 8, d.CreateTime) AS DATE) BETWEEN mr.FromDate AND mr.ToDate
 				)
-		GROUP BY CONVERT(DATE, EOMONTH(DATEADD(HOUR, @TimeZone, d.CreateTime)))
+		GROUP BY CONVERT(DATE, EOMONTH(DATEADD(HOUR, 8, d.CreateTime))), mi.Currency
 	),
-	CTE_DataDepositAmount AS (
+	CTE_HistoricalData AS (
+		-- rptMemberDaily data (historical deposits and all withdrawals)
 		SELECT EOMONTH(r.WinlostDate) AS MonthDate
-			,SUM(ISNULL(Deposit, 0) * e.Rate)	    AS Deposit
-			,SUM(ISNULL(r.Withdrawal, 0) * e.Rate)	AS Withdrawal
+			,r.Currency
+			,0 AS TotalDeposit
+			,SUM(CASE 
+				WHEN r.WinlostDate < @CommissionBoundary 
+				THEN ISNULL(r.Deposit, 0)
+				ELSE 0 
+			END) AS TotalDepositAmount
+			,SUM(ISNULL(r.Withdrawal, 0)) AS TotalWithdrawalAmount
 		FROM dbo.rptMemberDaily r WITH (NOLOCK)
-			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.WinlostDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
 		WHERE r.WinlostDate >= @FromDate 
 			AND r.WinlostDate < DATEADD(DAY, 1, @ToDate)
 			AND r.AffId = @AffId
@@ -462,28 +548,29 @@ BEGIN
 				SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
 				WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
 			)
-		GROUP BY EOMONTH(r.WinlostDate)
-
+		GROUP BY EOMONTH(r.WinlostDate), r.Currency
+	),
+	CTE_CombinedData AS (
+		-- Combine both sources with exchange rate conversion
+		SELECT
+			td.MonthDate,
+			SUM(td.TotalDeposit) AS TotalDeposit,
+			SUM(td.TotalDepositAmount * er.Rate) AS TotalDepositAmount,
+			SUM(td.TotalWithdrawalAmount * er.Rate) AS TotalWithdrawalAmount
+		FROM (
+			SELECT MonthDate, Currency, TotalDeposit, TotalDepositAmount, TotalWithdrawalAmount 
+			FROM CTE_DepositInfo
+			UNION ALL
+			SELECT MonthDate, Currency, TotalDeposit, TotalDepositAmount, TotalWithdrawalAmount 
+			FROM CTE_HistoricalData
+		) td
+		LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON td.Currency = t.TpExchangeId
+		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(td.MonthDate, ISNULL(t.ExchangeId, td.Currency), @BaseExchangeId) er
+		GROUP BY td.MonthDate
 	)
 	INSERT INTO @TotalDeposit(MonthDate, TotalDeposit, TotalDepositAmount, TotalWithdrawalAmount)
-	SELECT t.MonthDate
-			,SUM(TotalDeposit)          AS TotalDeposit
-			,SUM(TotalDepositAmount)    AS TotalDepositAmount
-			,SUM(TotalWithdrawalAmount) AS TotalWithdrawalAmount
-		FROM (
-			SELECT mi.MonthDate
-				,mi.TotalDeposit
-				,0 AS TotalDepositAmount
-				,0 AS TotalWithdrawalAmount
-			FROM CTE_DataDeposit mi
-			UNION ALL
-			SELECT mi.MonthDate
-				,0 TotalDeposit
-				,Deposit	AS TotalDepositAmount
-				,Withdrawal	AS TotalWithdrawalAmount
-			FROM CTE_DataDepositAmount mi
-		)t
-		GROUP BY t.MonthDate
+	SELECT MonthDate, TotalDeposit, TotalDepositAmount, TotalWithdrawalAmount
+	FROM CTE_CombinedData
 
 	-- Return detail
 	SELECT
@@ -549,7 +636,7 @@ BEGIN
 		) at
 		LEFT JOIN @TotalDeposit tp ON md.MonthDate = tp.MonthDate
 	WHERE md.RowIdx BETWEEN @RowStart AND @RowEnd
-	ORDER BY md.RowIdx
+	ORDER BY md.RowIdx ASC
 
 	-- Return total
 	SELECT
@@ -562,8 +649,8 @@ BEGIN
 		SUM(ISNULL(ts.NoOfSubAff, 0))				AS NoOfSubAff,
 		SUM(ISNULL(tc.ActivePlayer, 0))				AS ActivePlayer,
 		SUM(ISNULL(tc.QualifiedMember, 0))			AS QualifiedMember,
-		SUM(ISNULL(tc.Deposit, 0))					AS Deposit,
-		SUM(ISNULL(tc.Withdrawal, 0))				AS Withdrawal,
+		SUM(ISNULL(tp.TotalDepositAmount, 0))		AS Deposit,
+		SUM(ISNULL(tp.TotalWithdrawalAmount, 0))	AS Withdrawal,
 		SUM(ISNULL(tc.Turnover, 0))					AS Turnover,
 		SUM(ISNULL(-tc.Winloss + tc.Revenue, 0))	AS GGR,
 		SUM(ISNULL(tc.Bonus, 0))					AS Bonus,

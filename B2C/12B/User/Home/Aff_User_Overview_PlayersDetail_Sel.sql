@@ -19,6 +19,14 @@ AS
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
 		- 20250425@Sally: Get FDMAmount [RedmineID: #225616]
 		- 20250627@Sally: Sort by FDMAmount [RedmineID: #231702]
+		- 20251002@Sophia: Implement hybrid approach using rptMemberDaily for historical data and DepositInfo for recent data based on commission date boundary [RedmineID: #239737]
+
+	Notes:
+	  - rptMemberDaily.WinlostDate is in GMT+8
+	  - bodb_12B.dbo.DepositInfo.CreateTime is in GMT+0
+	  - bodb_12B.dbo.DepositInfo.WinlostDate is indexed (Date of CreateTime)
+	  - Data separation: rptMemberDaily for historical data (before commission boundary), DepositInfo for recent data (after commission boundary)
+	  - Commission boundary = @CommissionBoundary = AFF_CommissionDate + 1 day
 
 	Param's Explanation:
 		- @SortById:	1 = Username
@@ -46,6 +54,15 @@ BEGIN
 	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
 	SELECT  @EndOfMonth		= DATEADD(DAY, -1, DATEADD(MONTH, 1, @BeginOfMonth))
 
+	-- Pre-calculate DATE variables for WinlostDate index optimization
+	DECLARE @WinlostDateFrom DATE, @WinlostDateTo DATE
+	SELECT @WinlostDateFrom = DATEADD(DAY, -1, CONVERT(DATE, @BeginOfMonth))
+	SELECT @WinlostDateTo = DATEADD(DAY, 1, CONVERT(DATE, DATEADD(DAY, 1, @EndOfMonth)))
+
+	-- Calculate commission date boundary for data separation (commission date + 1 day)
+	DECLARE @CommissionBoundary SMALLDATETIME
+	SELECT @CommissionBoundary = DATEADD(DAY, 1, CONVERT(SMALLDATETIME, SValue)) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
+
 	-- Get basecurrency mapping
 	DECLARE @BaseExchangeId INT = @BaseCurrency
 	SELECT @BaseExchangeId = t.ExchangeId
@@ -72,29 +89,129 @@ BEGIN
 		AND agh.MonthDate = @EndOfMonth
 		AND agh.AffID = @AffId
 
-	-- Get data
+	-- Get data using conditional hybrid approach
 	BEGIN
-		INSERT INTO #tmpData (CustId, Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate)
-		SELECT r.CustId
-			,SUM(r.Deposit * e.Rate) AS Deposit
-			,SUM(r.Withdrawal * e.Rate) AS Withdrawal
-			,SUM(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Turnover END * e.Rate) AS Turnover
-			,SUM(CASE WHEN p.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0)
-					ELSE -(r.Winloss - ISNULL(r.ProgressiveWin, 0)) - ISNULL(r.ProgressiveBet, 0) END * e.Rate) AS GGR
-			,SUM(r.Bonus * e.Rate)
-			,SUM(r.Rebate * e.Rate)
-		FROM dbo.rptMemberDaily r WITH (NOLOCK)
-			LEFT JOIN @Products p ON r.ProductId = p.ProductId
-			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel (r.WinlostDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
-		WHERE r.WinlostDate BETWEEN @BeginOfMonth AND @EndOfMonth
-			AND r.AffId = @AffId
-			AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
-			AND NOT EXISTS (
-				SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
-				WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+		-- Check if @BeginOfMonth is before commission boundary
+		IF @BeginOfMonth < @CommissionBoundary
+		BEGIN
+			-- Use rptMemberDaily only for historical data with currency grouping optimization
+			;WITH CTE_CombinedDeposit AS (
+				SELECT r.CustId, r.Currency
+					,SUM(r.Deposit) AS Deposit
+					,SUM(r.Withdrawal) AS Withdrawal
+					,SUM(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Turnover END) AS Turnover
+					,SUM(CASE WHEN p.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0)
+							ELSE -(r.Winloss - ISNULL(r.ProgressiveWin, 0)) - ISNULL(r.ProgressiveBet, 0) END) AS GGR
+					,SUM(r.Bonus) AS Bonus
+					,SUM(r.Rebate) AS Rebate
+					,CONVERT(DATE, EOMONTH(r.WinlostDate)) AS MonthDate
+				FROM dbo.rptMemberDaily r WITH (NOLOCK)
+					LEFT JOIN @Products p ON r.ProductId = p.ProductId
+				WHERE r.WinlostDate BETWEEN @BeginOfMonth AND @EndOfMonth
+					AND r.AffId = @AffId
+					AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
+					AND NOT EXISTS (
+						SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+						WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+					)
+				GROUP BY r.CustId, r.Currency, CONVERT(DATE, EOMONTH(r.WinlostDate))
 			)
-		GROUP BY r.CustId
+			INSERT INTO #tmpData (CustId, Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate)
+			SELECT 
+				c.CustId,
+				SUM(c.Deposit * e.Rate) AS Deposit,
+				SUM(c.Withdrawal * e.Rate) AS Withdrawal,
+				SUM(c.Turnover * e.Rate) AS Turnover,
+				SUM(c.GGR * e.Rate) AS GGR,
+				SUM(c.Bonus * e.Rate) AS Bonus,
+				SUM(c.Rebate * e.Rate) AS Rebate
+			FROM CTE_CombinedDeposit c
+				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON c.Currency = t.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(c.MonthDate, ISNULL(t.ExchangeId, c.Currency), @BaseExchangeId) e
+			GROUP BY c.CustId
+		END
+		ELSE
+		BEGIN
+			-- Use hybrid approach: DepositInfo for deposits, rptMemberDaily for other metrics
+			;WITH CTE_HistoricalDeposit AS (
+				-- Other metrics from rptMemberDaily
+				SELECT r.CustId, r.Currency,
+					0 AS Deposit,
+					SUM(r.Withdrawal) AS Withdrawal,
+					SUM(CASE WHEN p.IsStraightSetting = 1 THEN 0 ELSE r.Turnover END) AS Turnover,
+					SUM(CASE WHEN p.IsStraightSetting = 1 THEN ISNULL(r.Revenue, 0)
+							ELSE -(r.Winloss - ISNULL(r.ProgressiveWin, 0)) - ISNULL(r.ProgressiveBet, 0) END) AS GGR,
+					SUM(r.Bonus) AS Bonus,
+					SUM(r.Rebate) AS Rebate,
+					CONVERT(DATE, EOMONTH(r.WinlostDate)) AS MonthDate
+				FROM dbo.rptMemberDaily r WITH (NOLOCK)
+					LEFT JOIN @Products p ON r.ProductId = p.ProductId
+				WHERE r.WinlostDate BETWEEN @BeginOfMonth AND @EndOfMonth
+					AND r.AffId = @AffId
+					AND (r.ProductId <= 0 OR p.ProductId IS NOT NULL)
+					AND NOT EXISTS (
+						SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+						WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+					)
+				GROUP BY r.CustId, r.Currency, CONVERT(DATE, EOMONTH(r.WinlostDate))
+			),
+			CTE_RecentDeposit AS (
+				-- Deposit data from DepositInfo
+				SELECT 
+					mi.CustId,
+					mi.Currency,
+					SUM(di.ActualDeposit * 1.0 / CASE WHEN e.Code IN ('VND', 'IDR') THEN 1000.0 ELSE 1.0 END) AS Deposit,
+					0 AS Withdrawal,
+					0 AS Turnover,
+					0 AS GGR,
+					0 AS Bonus,
+					0 AS Rebate,
+					CONVERT(DATE, EOMONTH(DATEADD(HOUR, 8, di.CreateTime))) AS MonthDate
+				FROM bodb_12B.dbo.DepositInfo di WITH(NOLOCK)
+					INNER JOIN dbo.MemberInfo mi WITH(NOLOCK) ON di.CustId = mi.CustId
+					LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON mi.Currency = t.TpExchangeId
+					LEFT JOIN dbo.Exchange e WITH (NOLOCK) ON ISNULL(t.ExchangeId, mi.Currency) = e.ExchangeId
+				WHERE mi.AffId = @AffId
+					AND di.Status = 3  -- Approved deposits only
+					AND di.WinlostDate BETWEEN @WinlostDateFrom AND @WinlostDateTo  -- Use WinlostDate index
+					AND CAST(DATEADD(HOUR, 8, di.CreateTime) AS DATE) BETWEEN @BeginOfMonth AND @EndOfMonth  -- Convert GMT+0 to GMT+8
+					AND NOT EXISTS (
+						SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
+						WHERE mr.CustId = di.CustId 
+						AND CAST(DATEADD(HOUR, 8, di.CreateTime) AS DATE) BETWEEN mr.FromDate AND mr.ToDate
+					)
+				GROUP BY mi.CustId, mi.Currency, CONVERT(DATE, EOMONTH(DATEADD(HOUR, 8, di.CreateTime)))
+			),
+			CTE_CombinedDeposit AS (
+				-- Combine historical and recent data with exchange rate conversion
+				SELECT 
+					CustId,
+					SUM(Deposit * e.Rate) AS Deposit,
+					SUM(Withdrawal * e.Rate) AS Withdrawal,
+					SUM(Turnover * e.Rate) AS Turnover,
+					SUM(GGR * e.Rate) AS GGR,
+					SUM(Bonus * e.Rate) AS Bonus,
+					SUM(Rebate * e.Rate) AS Rebate
+				FROM (
+					SELECT CustId, Currency, Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, MonthDate FROM CTE_HistoricalDeposit
+					UNION ALL
+					SELECT CustId, Currency, Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, MonthDate FROM CTE_RecentDeposit
+				) b
+				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON b.Currency = t.TpExchangeId
+				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(b.MonthDate, ISNULL(t.ExchangeId, b.Currency), @BaseExchangeId) e
+				GROUP BY b.CustId
+			)
+			INSERT INTO #tmpData (CustId, Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate)
+			SELECT 
+				CustId,
+				Deposit,
+				Withdrawal,
+				Turnover,
+				GGR,
+				Bonus,
+				Rebate
+			FROM CTE_CombinedDeposit
+		END
 
 		SELECT @NRows = COUNT(1) FROM #tmpData
 	END
@@ -186,7 +303,7 @@ BEGIN
 			OUTER APPLY dbo.Aff_f_ExchangeRate_Sel (m.FirstDepositDate, ISNULL(t.ExchangeId, m.Currency), @BaseExchangeId) e
 	) r
 	WHERE r.RN BETWEEN @RowStart AND @RowEnd
-	ORDER BY r.RN
+	ORDER BY r.RN ASC
 
 	DROP TABLE #tmpData
 END
