@@ -1,0 +1,734 @@
+﻿# CPA Module – Live Database Schema Reference
+
+Database: DBAFF12B-Affiliate_12B  
+Generated: 2025-11-12 (live introspection via sys.* catalog)  
+Maintained By: DBA Team
+
+> This document is auto-refreshed from the actual SQL Server metadata for CPA-related tables. Foreign key constraints are not physically defined on many tables; business logic may enforce relationships at the application or job layer.
+
+---
+
+## Contents
+
+1. [Summary](#summary)
+2. [Design Notes](#design-notes)
+3. [Core Entity Tables](#core-entity-tables)
+4. [Configuration / Dimension Tables](#configuration--dimension-tables)
+5. [Operational & Scheduling Tables](#operational--scheduling-tables)
+6. [Reporting / Aggregation Tables](#reporting--aggregation-tables)
+7. [Transaction / Financial Tables](#transaction--financial-tables)
+8. [Lookup / Reference Tables](#lookup--reference-tables)
+9. [Historical / Snapshot Tables](#historical--snapshot-tables)
+10. [End-Of-Life / Archive Tables](#end-of-life--archive-tables)
+11. [Common Index Patterns](#common-index-patterns)
+
+---
+
+## Summary
+
+| Table | Category | Rows (est.) | Notes |
+|-------|----------|-------------|-------|
+| MemberInfo | Core | High | Player master info (affiliate linkage) |
+| AffInfo | Core | Medium | Affiliate master account |
+| MemberCPA | Core | High | CPA lifecycle per member |
+| MemberCPATier | Core | High | Progressive tier achievements |
+| MemberCPAProduct | Core | High | Product-level turnover mapping |
+| CPAGroupSetting | Config | Low | Versioned CPA deal rules |
+| CPAProductSetting | Config | Low | Eligible products per group |
+| CPATierSetting | Config | Low | Versioned tier ranges & payout |
+| CommGroup | Config | Medium | Commission/CPA group definition |
+| GroupType | Config | Low | Group classification enum |
+| DealBillingSchedule | Ops | Low | Next billing run per group/schedule |
+| Schedule | Ops | Tiny | Billing frequency definitions |
+| AffGroupHistory | Hist | Medium | Affiliate → group monthly lineage |
+| CommGroupHistory | Hist | Medium | Monthly snapshot of group revshare params |
+| MemberCPA_EOL | Archive | Growing | End-of-life CPA snapshot (expired phases) |
+| rptAffiliateCPA | Reporting | Medium | Aggregated CPA payment period summary |
+| rptMemberDaily | Reporting | Very High | Daily per member/product metrics (raw) |
+| AffTrans | Txn | High | Financial transaction header |
+| AffTransSubDetail | Txn | Medium | Breakdown of sub-affiliate transaction components |
+| TransType | Lookup | Tiny | Transaction type definitions |
+| Exchange | Lookup | Tiny | Currency/exchange base info |
+| TpExchange | Lookup | Medium | Third-party exchange mapping (per currency/country) |
+
+---
+
+## Design Notes
+
+- Money columns use SQL MONEY (implicit scale 4).
+- NVARCHAR/VARCHAR lengths shown as bytes from sys catalog; NVARCHAR bytes = 2 × characters. Where max_length = -1 => (MAX).
+- Identity columns flagged with (IDENTITY).
+- Absence of foreign keys suggests soft integrity or cross-database constraints.
+- Clustered index strategy varies: some tables use surrogate PK clustered; others choose composite business keys for clustering (e.g. rptAffiliateCPA, AffGroupHistory).
+
+Legend: NULL? (Y/N), PK (primary key column), ID (identity), CI (column participates in clustered index key).
+
+---
+
+## Core Entity Tables
+
+### MemberInfo
+
+Player master record (affiliate linkage & registration attributes).
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | CustId | INT | N |  | PK, CI |
+| 2 | UserName | VARCHAR(30) | N |  | Unique login |
+| 3 | FirstName | NVARCHAR(100) | Y |  |  |
+| 4 | LastName | NVARCHAR(100) | Y |  |  |
+| 5 | Email | NVARCHAR(100) | Y |  | Indexed (IX_MemberInfo_UserName covers UserName) |
+| 6 | Currency | INT | Y |  |  |
+| 7 | ActStatus | TINYINT | Y |  | Activity state |
+| 8 | Status | TINYINT | Y |  | Account state |
+| 9 | RegisteredDate | DATETIME | Y |  | GMT+8 registration |
+|10 | AffId | INT | N |  | Affiliate ref (no FK) |
+|11 | IBCCustId | INT | Y |  | External IBC system link |
+|12 | IBCUserName | VARCHAR(30) | Y |  |  |
+|13 | CreatedDate | DATETIME | Y |  |  |
+|14 | IsRemoved | BIT | Y |  | Logical exclusion flag |
+|15 | Recommend | INT | Y |  | Referral tracking |
+|16 | ClickId | BIGINT | Y |  | Source click identifier |
+|17 | FirstDepositDate | DATETIME | Y |  |  |
+|18 | FirstDepositAmount | MONEY | Y |  |  |
+|20 | AffMediaLinkId | INT | Y |  | Media attribution |
+|22 | TagList | NVARCHAR(MAX) | Y |  | Flexible tags JSON/list |
+
+Indexes:
+
+```sql
+CLUSTERED PK_MemberInfo (CustId)
+NONCLUSTERED IX_MemberInfo_UserName (UserName)
+NONCLUSTERED IX_MemberInfo_AffID (AffId, IsRemoved)
+NONCLUSTERED IX_AffId (AffId, IBCCustId)
+NONCLUSTERED IX_MemberInfo_IBCUserName (IBCUserName)
+```
+
+Foreign Keys: None defined.
+
+---
+
+### AffInfo
+
+Affiliate master account & hierarchy metadata.
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | AffId | INT | N | Y | PK, CI |
+| 2 | UserName | NVARCHAR(60) | Y |  | Indexed (login) |
+| 3 | UserName2 | NVARCHAR(60) | Y |  | Alt login |
+| 4 | FirstName | NVARCHAR(100) | Y |  |  |
+| 5 | LastName | NVARCHAR(100) | Y |  |  |
+| 6 | GroupId | INT | Y |  | Commission group ref |
+| 7 | Status | VARCHAR(30) | Y |  | Account state |
+| 8 | ApprovedDate | DATETIME | Y |  |  |
+| 9 | IsClosed | BIT | Y |  | Closed flag |
+|10 | Currency | INT | Y |  | Base currency id |
+|11 | RegisteredDate | DATETIME | Y |  |  |
+|12 | Email | NVARCHAR(100) | Y |  | Contact |
+|13 | Password | VARCHAR(40) | Y |  | Hashed |
+|14 | AffType | TINYINT | Y |  | Type enum |
+|15 | IsPageEnabled | BIT | Y |  | Custom landing page |
+|16 | Level | TINYINT | Y |  | Hierarchy depth |
+|17 | IsLocked | BIT | Y |  | Temporary lock |
+|18 | CasinoJoinedDate | DATETIME | Y |  | Vertical activation |
+|19 | ForceChangePass | BIT | Y |  | Force password change |
+|20 | SecretKey | VARCHAR(50) | Y |  | API key |
+|21 | CurrencyName | NVARCHAR(100) | Y |  | Denormalized |
+|22 | CurrencyCode | VARCHAR(3) | Y |  |  |
+|23 | ParentAffId | INT | Y |  | Upline aff id |
+|24 | AllParentAffId | VARCHAR(MAX) | Y |  | Comma chain |
+|25 | IsSuspended | BIT | Y |  | Suspension |
+|26 | SuspendedDate | DATETIME | Y |  |  |
+|27 | ApprovedBy | INT | Y |  | Admin approver |
+|28 | DefaultCurrency | INT | Y |  | Default currency |
+|29 | AffCode | VARCHAR(20) | Y |  | Tracking code |
+|30 | IsRejected | BIT | Y |  | Application rejected |
+|31 | AffCategoryId | TINYINT | Y |  | Category |
+
+Indexes:
+
+```sql
+CLUSTERED PK_AffInfo (AffId)
+NONCLUSTERED IX_UserName (UserName)
+NONCLUSTERED IX_UserName2 (UserName2)
+NONCLUSTERED IX_Email (Email)
+NONCLUSTERED IX_GroupID (GroupId)
+NONCLUSTERED IX_Search (UserName, Status, ApprovedDate, AffType)
+NONCLUSTERED IX_SearchAff (Status, IsClosed, IsRejected, RegisteredDate)
+```
+
+Foreign Keys: None defined.
+
+---
+
+### MemberCPA
+
+Core CPA lifecycle record per player.
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | MemberCPA_ID | INT | N | Y | PK (NONCLUSTERED) |
+| 2 | AffId | INT | N |  | Affiliate ref |
+| 3 | CustId | INT | N |  | Player ref |
+| 4 | GroupId | INT | Y |  | Commission group |
+| 5 | ActiveQualifiedDate | DATETIME | Y |  | End Active period |
+| 6 | FDM | MONEY | Y |  | First deposit amount |
+| 7 | TotalDeposit | MONEY | Y |  | Accumulated deposits |
+| 8 | Turnover | MONEY | Y |  | Accumulated turnover |
+| 9 | BetTickets | SMALLINT | Y |  | Bets during Active |
+|10 | HoldingQualifiedDate | DATETIME | Y |  | End Holding period |
+|11 | HoldingBetTickets | SMALLINT | Y |  | Bets during Holding |
+|12 | HoldingExpiredDate | DATETIME | Y |  | Holding deadline |
+|13 | CPAAmount | MONEY | Y |  | Final CPA amount |
+|14 | CPADate | DATETIME | Y |  | Settlement date |
+|15 | StatusId | SMALLINT | Y |  | 0–6 lifecycle |
+|16 | Description | VARCHAR(300) | Y |  | Notes / reject reason |
+|17 | RefId | BIGINT | Y |  | AffTrans.TransId when settled |
+|18 | FirstDepositDate | DATETIME | Y |  |  |
+|19 | ExpiredRedepositDate | DATETIME | Y |  | Redeposit deadline |
+|20 | IsRedeposit | BIT | Y |  | Flag second deposit met |
+|21 | UpdatedDate | DATETIME | Y |  | Last change |
+
+Indexes:
+
+```sql
+CLUSTERED CIX_MemberCPA_CustId_StatusId_AffId (CustId, StatusId, AffId)
+NONCLUSTERED PK_MemberCPA (MemberCPA_ID)
+NONCLUSTERED IX_MemberCPA_ActiveQualifiedDate_AffId_GroupId_StatusId (...)
+NONCLUSTERED IX_MemberCPA_HoldingQualifiedDate_AffId_GroupId_StatusId (...)
+NONCLUSTERED IX_MemberCPA_CPADate_AffId_GroupId_StatusId (...)
+```
+
+Foreign Keys: None defined.
+
+---
+
+### MemberCPATier
+
+Per-tier achievements contributing to CPA total.
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | MemberCPATier_ID | INT | N | Y | PK (NONCLUSTERED) |
+| 2 | MemberCPA_ID | INT | N |  | Parent CPA (no FK) |
+| 3 | AffId | INT | N |  | Affiliate ref |
+| 4 | CustId | INT | N |  | Player ref |
+| 5 | GroupId | INT | Y |  | Group context |
+| 6 | GroupProductId | TINYINT | Y |  | Product category |
+| 7 | ActiveQualifiedDate | DATETIME | Y |  | Tier qualification time |
+| 8 | Turnover | MONEY | Y |  | Turnover inside tier range |
+| 9 | BetTickets | SMALLINT | Y |  | Bets counted for tier |
+|10 | CPAAmount | MONEY | Y |  | Amount awarded for tier |
+|11 | UpdatedDate | DATETIME | Y |  | Last change |
+
+Indexes:
+
+```sql
+CLUSTERED CIX_MemberCPATier (MemberCPA_ID)
+NONCLUSTERED PK_MemberCPATier (MemberCPATier_ID)
+```
+
+Foreign Keys: None defined.
+
+---
+
+### MemberCPAProduct
+
+Turnover per product tied to CPA & tier.
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | MemberCPAProduct_ID | INT | N | Y | PK (NONCLUSTERED) |
+| 2 | MemberCPATier_ID | INT | N |  | Tier ref |
+| 3 | MemberCPA_ID | INT | N |  | CPA ref |
+| 4 | AffId | INT | N |  | Affiliate |
+| 5 | CustId | INT | N |  | Player |
+| 6 | GroupId | INT | Y |  | Group context |
+| 7 | GroupProductId | TINYINT | Y |  | Product category |
+| 8 | ProductId | INT | Y |  | Product id |
+| 9 | Turnover | MONEY | Y |  | Product turnover |
+|10 | ActiveQualifiedDate | DATETIME | Y |  | Qualification time |
+|11 | BetTickets | INT | Y |  | Bets on product |
+|12 | UpdatedDate | DATETIME | Y |  | Last change |
+
+Indexes:
+
+```sql
+CLUSTERED CIX_MemberCPAProduct (MemberCPA_ID)
+NONCLUSTERED PK_MemberCPAProduct (MemberCPAProduct_ID)
+```
+
+Foreign Keys: None defined.
+
+---
+
+## Configuration / Dimension Tables
+
+### CommGroup
+
+Commission / CPA group definition (RevShare & CPA hybrid attributes).
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | GroupId | INT | N | Y | PK, CI |
+| 2 | GroupName | NVARCHAR(200) | Y |  | Deal name |
+| 3 | Description | NVARCHAR(200) | Y |  | Notes |
+| 4 | Creator | INT | Y |  | Admin user |
+| 5 | CreatedDate | DATETIME | Y |  | Creation timestamp |
+| 6 | IsPrivate | BIT | Y |  | Hidden flag |
+| 7 | IsDeleted | BIT | Y |  | Soft delete |
+| 8 | SubCommRate | DECIMAL(9,8) | Y |  | Downline rate |
+| 9 | GroupTypeId | INT | N |  | 1–4 type enum |
+|10 | QMTurnover | MONEY | Y |  | Qualifying turnover |
+|11 | ActiveDays | SMALLINT | Y |  | CPA Active period |
+|12 | HoldingDays | SMALLINT | Y |  | CPA Holding period |
+|13 | HoldingTickets | SMALLINT | Y |  | Min bets holding |
+|14 | Quota | SMALLINT | Y |  | Monthly CPA limit |
+|15 | CountryCodes | VARCHAR(4000) | Y |  | Allowed countries |
+|17 | UpdatedBy | INT | Y |  | Last admin |
+|18 | UpdatedTime | DATETIME | Y |  | Last change |
+|19 | RedepositRate | DECIMAL(9,8) | Y |  | % redeposit requirement |
+|20 | StartDate | DATE | Y |  | Deal start |
+|21 | ScheduleId | SMALLINT | Y |  | Billing schedule |
+|22 | RedepositDays | SMALLINT | Y |  | Days for redeposit |
+|23 | IsSubCommRate | BIT | Y |  | Pay sub-comm flag |
+
+Indexes:
+
+```sql
+CLUSTERED PK_CommGroup (GroupId)
+```
+
+Foreign Keys: None defined.
+
+---
+
+### GroupType
+
+Enumeration of group types.
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | GroupTypeId | INT | N | Y | PK, CI |
+| 2 | GroupTypeBy | VARCHAR(50) | N |  | Category code |
+| 3 | GroupTypeName | NVARCHAR(200) | N |  | Display name |
+| 4 | DisplayOrder | SMALLINT | N |  | Ordering |
+| 5 | IsEnabled | BIT | N |  | Active flag |
+
+Indexes:
+
+```sql
+CLUSTERED PK_GroupType (GroupTypeId)
+```
+
+---
+
+### CPAGroupSetting
+
+Versioned CPA deal configuration per group.
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | ID | INT | N | Y | PK (NONCLUSTERED) |
+| 2 | FromDate | DATETIME | Y |  | Version start |
+| 3 | ToDate | DATETIME | Y |  | Version end (NULL=current) |
+| 4 | GroupId | INT | Y |  | Group ref |
+| 5 | GroupTypeId | INT | Y |  | Type override |
+| 6 | SubCommRate | DECIMAL(8,5) | Y |  | Sub commission rate |
+| 7 | ActiveDays | SMALLINT | Y |  | Active duration |
+| 8 | HoldingDays | SMALLINT | Y |  | Holding duration |
+| 9 | HoldingTickets | SMALLINT | Y |  | Min bets holding |
+|10 | Quota | SMALLINT | Y |  | CPA quota |
+|11 | CountryCodes | VARCHAR(4000) | Y |  | Allowed countries |
+|13 | RedepositRate | DECIMAL(9,8) | Y |  | Required % redeposit |
+|14 | StartDate | DATE | Y |  | Deal start snapshot |
+|15 | ScheduleId | SMALLINT | Y |  | Billing link |
+|16 | RedepositDays | SMALLINT | Y |  | Days allowed |
+|17 | IsSubCommRate | BIT | Y |  | Sub-comm enabled |
+
+Indexes:
+
+```sql
+CLUSTERED CIX_CPAGroupSetting_ToDate_GroupId (ToDate, GroupId)
+NONCLUSTERED PK_CPAGroupSetting_ID (ID)
+```
+
+---
+
+### CPAProductSetting
+
+Versioned eligible product mapping.
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | ID | INT | N | Y | PK (NONCLUSTERED) |
+| 2 | FromDate | DATETIME | Y |  | Start |
+| 3 | ToDate | DATETIME | Y |  | End (NULL=current) |
+| 4 | GroupId | INT | Y |  | Group ref |
+| 5 | GroupProductId | INT | Y |  | Product group |
+| 6 | ProductId | INT | Y |  | Specific product |
+
+Indexes:
+
+```sql
+CLUSTERED IX_CPAProductSetting_GroupId_ToDate (GroupId, ToDate)
+NONCLUSTERED PK_CPAProductSetting_ID (ID)
+```
+
+---
+
+### CPATierSetting
+
+Versioned tier thresholds & payouts.
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | ID | INT | N | Y | PK (NONCLUSTERED) |
+| 2 | FromDate | DATETIME | Y |  | Start |
+| 3 | ToDate | DATETIME | Y |  | End (NULL=current) |
+| 4 | GroupId | INT | Y |  | Group ref |
+| 5 | GroupProductId | TINYINT | Y |  | Product category |
+| 6 | TierId | INT | Y |  | Tier sequence |
+| 7 | MinFDM | MONEY | Y |  | Min first deposit |
+| 8 | MaxFDM | MONEY | Y |  | Max first deposit |
+| 9 | MinTotalDeposit | MONEY | Y |  | Min total deposit |
+|10 | MaxTotalDeposit | MONEY | Y |  | Max total deposit |
+|11 | MinTO | MONEY | Y |  | Min turnover |
+|12 | MaxTO | MONEY | Y |  | Max turnover (NULL=unbounded) |
+|13 | CPAAmount | MONEY | Y |  | Payout amount |
+
+Indexes:
+
+```sql
+CLUSTERED IX_CPATierSetting_GroupId_ToDate (GroupId, ToDate)
+NONCLUSTERED PK_CPATierSetting_ID (ID)
+```
+
+---
+
+## Operational & Scheduling Tables
+
+### Schedule
+
+Billing frequencies.
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | ScheduleId | TINYINT | N |  | PK, CI |
+| 2 | ScheduleName | VARCHAR(200) | N |  | Name |
+| 3 | IntervalType | VARCHAR(20) | N |  | Day/Week/Month |
+| 4 | IntervalValue | SMALLINT | N |  | Interval count |
+
+Indexes:
+
+```sql
+CLUSTERED PK_Schedule_ScheduleId (ScheduleId)
+```
+
+### DealBillingSchedule
+
+Next billing date per deal schedule.
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | GroupId | INT | N |  | PK part, CI |
+| 2 | ScheduleId | TINYINT | N |  | PK part, CI |
+| 3 | NextBillingDate | DATE | Y |  | Next run date |
+| 4 | Type | VARCHAR(100) | Y |  | 'CPA' / 'RevShare' |
+
+Indexes:
+
+```sql
+CLUSTERED PK_DealBillingSchedule (GroupId, ScheduleId)
+```
+
+---
+
+## Reporting / Aggregation Tables
+
+### rptAffiliateCPA
+
+Billing period CPA summary per affiliate & group.
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | Id | INT | N | Y | PK (NONCLUSTERED) |
+| 2 | StartSchedule | DATE | N |  | Period start |
+| 3 | EndSchedule | DATE | N |  | Period end |
+| 4 | AffId | INT | N |  | Affiliate |
+| 5 | GroupId | INT | N |  | Commission group |
+| 6 | Status | VARCHAR(50) | N |  | Monitoring/Qualified/Not Qualified/Empty |
+| 7 | ExpiredRedepositDate | DATETIME | Y |  | Redeposit deadline |
+| 8 | TotalEligiblePlayers | INT | N |  | Count StatusId=2 |
+| 9 | TotalRedepositPlayers | INT | N |  | Count redeposited |
+|10 | EstimateAmount | MONEY | Y |  | Before approval |
+|11 | ApprovedAmount | MONEY | Y |  | After redeposit check |
+|12 | ApprovedDate | DATE | Y |  | Approval date |
+|13 | AdjustedAmount | MONEY | Y |  | Manual adjustment |
+|14 | AdjustedDate | DATE | Y |  | Adjustment date |
+|15 | Description | NVARCHAR(600) | Y |  | Notes |
+|16 | AdjustedBy | INT | Y |  | Admin id |
+|17 | IsProcessed | BIT | N |  | Payment created flag |
+|18 | UpdatedDate | DATETIME | Y |  | Last update |
+
+Indexes:
+
+```sql
+CLUSTERED CIX_rptAffiliateCPA_AffId_GroupId_EndSchedule_StartSchedule (AffId, GroupId, EndSchedule, StartSchedule) UNIQUE
+NONCLUSTERED PK_rptAffiliateCPA_Id (Id)
+```
+
+### rptMemberDaily
+
+Daily raw metrics (large volume; prefer pre-aggregates).
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | WinlostDate | SMALLDATETIME | N |  | PK part |
+| 2 | AffId | INT | Y |  | Affiliate |
+| 3 | CustId | INT | N |  | PK part |
+| 4 | Currency | INT | Y |  | Currency id |
+| 5 | ExRate | FLOAT | Y |  | Base rate |
+| 6 | AffExRate | FLOAT | Y |  | Affiliate rate |
+| 7 | ProductId | INT | N |  | PK part |
+| 8 | Deposit | MONEY | Y |  |  |
+| 9 | Withdrawal | MONEY | Y |  |  |
+|10 | Bonus | MONEY | Y |  |  |
+|11 | Adjustment | MONEY | Y |  |  |
+|12 | Turnover | MONEY | Y |  |  |
+|13 | Winloss | MONEY | Y |  |  |
+|14 | Rebate | MONEY | Y |  |  |
+|15 | Revenue | MONEY | Y |  |  |
+|16 | ProgressiveBet | MONEY | Y |  |  |
+|17 | ProgressiveWin | MONEY | Y |  |  |
+|18 | BetCount | INT | Y |  |  |
+|19 | DepositCount | INT | Y |  |  |
+
+Indexes:
+
+```sql
+NONCLUSTERED PK_rptMemberDaily (WinlostDate, CustId, ProductId)
+CLUSTERED CIX_WinlostDate_AffId_ProductId (WinlostDate, AffId, ProductId)
+NONCLUSTERED IX_AffId_ProductId (AffId, ProductId)
+```
+
+---
+
+## Transaction / Financial Tables
+
+### AffTrans
+
+Transaction header (earnings, adjustments, payments).
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | TransId | BIGINT | N | Y | PK (NONCLUSTERED) |
+| 2 | AffId | INT | Y |  | Affiliate |
+| 3 | TransDate | DATETIME | Y |  | Transaction date |
+| 4 | CompletedDate | DATETIME | Y |  | Completion timestamp |
+| 5 | Amount | MONEY | Y |  | Transaction amount |
+| 6 | Status | VARCHAR(50) | Y |  | Pending/Approved/etc. |
+| 7 | Description | NVARCHAR(600) | Y |  | Notes |
+| 8 | Creator | INT | Y |  | Admin/system |
+| 9 | TransType | INT | Y |  | TypeId (TransType) |
+|10 | RefId | BIGINT | Y |  | Source entity (MemberCPA_ID etc.) |
+|11 | AffCurrency | INT | Y |  | Affiliate currency id |
+|12 | AffRate | FLOAT | Y |  | Applied rate |
+|15 | WinlostDate | SMALLDATETIME | N |  | Period date |
+
+Indexes:
+
+```sql
+NONCLUSTERED PK_AffTrans (TransId)
+CLUSTERED CIX_AffId (AffId, TransDate, Status)
+NONCLUSTERED IX_AffTrans_AffId_WinlostDate_Status (AffId, WinlostDate, Status)
+NONCLUSTERED IX_TransDate (TransDate)
+NONCLUSTERED IX_RefID (RefId)
+```
+
+### AffTransSubDetail
+
+Sub-affiliate component amounts contributing to an AffTrans.
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | TransId | BIGINT | N | Y | PK (NONCLUSTERED) |
+| 2 | AffId | INT | N |  | Affiliate header |
+| 3 | WinlostDate | SMALLDATETIME | N |  | Period date |
+| 4 | TransType | SMALLINT | N |  | Type enum |
+| 5 | TransDate | DATETIME | N |  | Creation time |
+| 6 | DownlineAffId | INT | N |  | Downline affiliate |
+| 7 | DownlineAmount | MONEY | N |  | Raw amount |
+| 8 | CumulativeSubRate | FLOAT | N |  | Effective stacked rate |
+| 9 | Amount | MONEY | N |  | Calculated sub commission |
+
+Indexes:
+
+```sql
+CLUSTERED CIX_AffTransSubDetail_AffId_WinlostDate_TransType (AffId, WinlostDate, TransType)
+NONCLUSTERED PK_AffTransSubDetail (TransId)
+```
+
+### TransType
+
+Transaction type lookup.
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | TypeId | SMALLINT | N | Y | PK, CI |
+| 2 | TypeName | NVARCHAR(100) | Y |  | Display name |
+| 3 | TypeDesc | NVARCHAR(100) | Y |  | Description |
+
+Indexes:
+
+```sql
+CLUSTERED PK_TransType (TypeId)
+```
+
+---
+
+## Lookup / Reference Tables
+
+### Exchange
+
+Base currency / multiplier reference.
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | ExchangeId | INT | N |  | PK, CI |
+| 2 | Code | VARCHAR(5) | Y |  | Currency code |
+| 3 | MultipliedBy | INT | Y |  | Scaling factor |
+| 4 | CountryCode | VARCHAR(5) | Y |  | Country association |
+
+Indexes:
+
+```sql
+CLUSTERED PK_Exchange (ExchangeId)
+```
+
+### TpExchange
+
+Third-party exchange mapping (partial columns introspected).
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | TpExchangeId | INT | N |  | PK (NONCLUSTERED) |
+| 2 | ExchangeId | INT | Y |  | Currency ref |
+| 3 | CountryCode | VARCHAR(5) | Y |  | Source country |
+
+Indexes:
+
+```sql
+NONCLUSTERED PK_TpExchange (TpExchangeId)
+```
+
+---
+
+## Historical / Snapshot Tables
+
+### AffGroupHistory
+
+Monthly snapshot of affiliate → group relationship (version lineage).
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | AffId | INT | N |  | PK part |
+| 2 | MonthDate | DATETIME | N |  | PK part (EOMONTH) |
+| 3 | GroupId | INT | N |  | PK part |
+| 4 | ParentAffId | INT | Y |  | Upline id |
+| 5 | AllParentAffId | VARCHAR(MAX) | Y |  | Full chain |
+| 6 | FromDate | DATETIME | Y |  | Effective start |
+| 7 | ToDate | DATETIME | Y |  | Effective end |
+
+Indexes:
+
+```sql
+CLUSTERED PK_AffGroupHistory (AffId, MonthDate, GroupId)
+NONCLUSTERED IX_AffGroupHistory_AffId_ToDate (AffId)
+NONCLUSTERED IX_AffGroupHistory_MonthDate_AffId (MonthDate, AffId)
+```
+
+### CommGroupHistory
+
+Monthly snapshot of revshare subgroup parameters (subset of columns).
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | MonthDate | DATETIME | N |  | PK part |
+| 2 | GroupId | INT | N |  | PK part |
+| 3 | SubCommRate | DECIMAL(9,8) | Y |  | Historical sub rate |
+| 4 | QMTurnover | MONEY | Y |  | Historical qualifier |
+| 5 | IsSubCommRate | BIT | Y |  | Flag snapshot |
+
+Indexes:
+
+```sql
+CLUSTERED PK_CommGroupHistory (MonthDate, GroupId)
+```
+
+### MemberCPA_EOL
+
+Expired CPA phase archival snapshot.
+
+| Ord | Column | Data Type | NULL? | Identity | Notes |
+|-----|--------|-----------|-------|----------|-------|
+| 1 | CustId | INT | N |  | PK, CI |
+| 2 | AffId | INT | N |  |  |
+| 3 | GroupId | INT | N |  |  |
+| 4 | ActiveExpiredDate | DATETIME | Y |  | Active phase end |
+| 5 | FDM | MONEY | Y |  | First deposit amount |
+| 6 | TotalDeposit | MONEY | Y |  | Accumulated deposits |
+| 7 | Turnover | MONEY | Y |  | Accumulated turnover |
+| 8 | BetTickets | SMALLINT | Y |  | Bet count |
+| 9 | HoldingExpiredDate | DATETIME | Y |  | Holding end |
+|10 | CreatedDate | DATETIME | Y |  | Archive timestamp |
+
+Indexes:
+
+```sql
+CLUSTERED PK_MemberCPA_EOL_CustId (CustId)
+```
+
+---
+
+## End-Of-Life / Archive Tables
+
+MemberCPA_EOL documented above (separate category for clarity).
+
+---
+
+## Common Index Patterns
+
+| Pattern | Purpose | Examples |
+|---------|---------|----------|
+| Composite Cluster on date + affiliation | Range scans by period / affiliate | rptAffiliateCPA, rptMemberDaily |
+| Surrogate INT identity PK nonclustered + covering clustered composite | High-write operational with alternative access pattern | MemberCPA (cluster = lifecycle composite) |
+| Versioned table clustered on (ToDate, GroupId) | Fast retrieval of current vs historical versions | CPAGroupSetting, CPAProductSetting, CPATierSetting |
+| Sub-detail clustered on parent + period + type | Optimizes statement assembly | AffTransSubDetail |
+| History snapshots composite PK | Guarantees uniqueness per snapshot period | AffGroupHistory, CommGroupHistory |
+
+---
+
+## Foreign Keys
+
+No foreign keys were returned for the listed tables. Integrity appears to be enforced logically by scheduled tasks / application code. Review SPs for implicit relationships.
+
+---
+
+## Refresh Instructions
+
+Regenerate this file by executing metadata extraction queries against TESTDB053 and replacing content. Automate via a PowerShell script calling sys.tables/columns/indexes snapshots.
+
+---
+
+## See Also
+
+- Business Rules: `business.md`
+- Stored Procedures: `sps.md`
+- SQL Standards: `.github/instructions/sql-standards.instructions.md`
+- Examples: `.github/instructions/sql-examples.instructions.md`
+
+---
+
+End of schema reference.

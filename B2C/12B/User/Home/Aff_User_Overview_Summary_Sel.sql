@@ -1,8 +1,11 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 CREATE  PROCEDURE [dbo].[Aff_User_Overview_Summary_Sel]
 	@AffId			INT
-	,@MonthDate		SMALLDATETIME
+	,@MonthDate		SMALLDATETIME = NULL
 	,@BaseCurrency	INT = 0
+	,@IsGetMonthly	BIT = 1
+	,@FromDate		SMALLDATETIME = NULL
+	,@ToDate		SMALLDATETIME = NULL
 AS
 
 /*
@@ -21,6 +24,7 @@ AS
 		- 20250929@Sophia: Add TotalClick and UniqueClick columns [RedmineID: #239549]
 		- 20251002@Sophia: Implement hybrid approach using rptMemberDaily for historical data and DepositInfo for recent data based on commission date boundary [RedmineID: #239737]
 		- 20251022@Sophia: Add IsExcluded = 0 condition to filter excluded clicks [RedmineID: #241768]
+		- YYYYMMDD@Lewis: Add dashboard type detection (RevShare/CPA/Hybrid), Date Range view support, CPA metrics, Current Month detection [RedmineID: #XXXXXX]
 
 	Notes:
 	  - rptMemberDaily.WinlostDate is in GMT+8
@@ -28,15 +32,66 @@ AS
 	  - bodb_12B.dbo.DepositInfo.WinlostDate is indexed (Date of CreateTime)
 	  - Data separation: rptMemberDaily for historical data (before commission boundary), DepositInfo for recent data (after commission boundary)
 	  - Commission boundary = @CommissionBoundary = AFF_CommissionDate + 1 day
+	  - Dashboard Type: Determined by CommGroup.GroupTypeId (1=RevShare Winloss, 2=RevShare Turnover, 3=CPA, 4=Hybrid)
+	  - CPA Metrics: Use MemberCPA.StatusId (2=Eligibled, 3=Settled) and TransType (206=CPA Earning, 208=Adjustment)
+	  - Date View: @IsGetMonthly=1 uses @MonthDate (Month view), @IsGetMonthly=0 uses @FromDate/@ToDate (Date Range view)
 */
 
 BEGIN
 	SET NOCOUNT ON
 	
-	-- date range for get data whole month of @MonthDate
+	-- Date range handling: Month view vs Date Range view
 	DECLARE @BeginOfMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME
-	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
-	SELECT  @ToNextMonth	= DATEADD(MONTH, 1, @BeginOfMonth)
+	
+	IF @IsGetMonthly = 1
+	BEGIN
+		-- Month view: Use @MonthDate parameter
+		IF @MonthDate IS NULL
+			SET @MonthDate = GETDATE()
+			
+		SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
+		SELECT  @ToNextMonth	= DATEADD(MONTH, 1, @BeginOfMonth)
+	END
+	ELSE
+	BEGIN
+		-- Date Range view: Use @FromDate and @ToDate parameters
+		IF @FromDate IS NULL OR @ToDate IS NULL
+		BEGIN
+			RAISERROR('Date Range view requires @FromDate and @ToDate parameters', 16, 1)
+			RETURN
+		END
+		
+		SET @BeginOfMonth = @FromDate
+		SET @ToNextMonth = DATEADD(DAY, 1, @ToDate)  -- Inclusive end date
+	END
+	
+	-- Detect Current Month (for conditional display logic)
+	DECLARE @IsCurrentMonth BIT = 0
+	IF @IsGetMonthly = 1 AND DATEPART(YEAR, @MonthDate) = DATEPART(YEAR, GETDATE()) AND DATEPART(MONTH, @MonthDate) = DATEPART(MONTH, GETDATE())
+		SET @IsCurrentMonth = 1
+	
+	-- Dashboard Type Detection: RevShare (1,2), CPA (3), Hybrid (4)
+	DECLARE @GroupTypeId INT, @DashboardType VARCHAR(20)
+	
+	SELECT TOP 1 @GroupTypeId = cg.GroupTypeId
+	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+	INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.GroupId = agh.GroupId
+	WHERE agh.AffId = @AffId
+	  AND agh.MonthDate = (
+		  SELECT MAX(MonthDate) 
+		  FROM dbo.AffGroupHistory WITH (NOLOCK)
+		  WHERE AffId = @AffId
+	  )
+	
+	-- Set dashboard type based on GroupTypeId
+	IF @GroupTypeId IN (1, 2)
+		SET @DashboardType = 'RevShare'
+	ELSE IF @GroupTypeId = 3
+		SET @DashboardType = 'CPA'
+	ELSE IF @GroupTypeId = 4
+		SET @DashboardType = 'Hybrid'
+	ELSE
+		SET @DashboardType = 'Unknown'
 
 	-- Pre-calculate DATE variables for WinlostDate index optimization
 	DECLARE @WinlostDateFrom DATE, @WinlostDateTo DATE
@@ -334,6 +389,52 @@ BEGIN
 		DROP TABLE #TempCommission
 	END
 
+	-- CPA Metrics (for CPA and Hybrid dashboards)
+	BEGIN
+		DECLARE @CPAQuota SMALLINT = 0, @CPAEligibledCount INT = 0, @CPASettledCount INT = 0, @CPAEarning MONEY = 0
+		
+		IF @DashboardType IN ('CPA', 'Hybrid')
+		BEGIN
+			-- Get CPA Quota from CommGroup
+			SELECT TOP 1 @CPAQuota = ISNULL(cg.Quota, 0)
+			FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+			INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.GroupId = agh.GroupId
+			WHERE agh.AffId = @AffId
+			  AND agh.MonthDate = (
+				  SELECT MAX(MonthDate) 
+				  FROM dbo.AffGroupHistory WITH (NOLOCK)
+				  WHERE AffId = @AffId
+			  )
+			
+			-- Count Eligibled CPAs (StatusId=2) in current period
+			SELECT @CPAEligibledCount = COUNT(DISTINCT mc.MemberCPA_ID)
+			FROM dbo.MemberCPA mc WITH (NOLOCK)
+			WHERE mc.AffId = @AffId
+			  AND mc.StatusId = 2  -- Eligibled
+			  AND mc.CPADate >= @BeginOfMonth
+			  AND mc.CPADate < @ToNextMonth
+			  AND mc.IsAbnormal = 0
+			
+			-- Count Settled CPAs (StatusId=3) in current period
+			SELECT @CPASettledCount = COUNT(DISTINCT mc.MemberCPA_ID)
+			FROM dbo.MemberCPA mc WITH (NOLOCK)
+			WHERE mc.AffId = @AffId
+			  AND mc.StatusId = 3  -- Settled
+			  AND mc.SettleDate >= @BeginOfMonth
+			  AND mc.SettleDate < @ToNextMonth
+			  AND mc.IsAbnormal = 0
+			
+			-- Calculate CPA Earning from AffTrans (TransType 206=CPA Earning, 208=CPA Adjustment)
+			SELECT @CPAEarning = SUM(ISNULL(at.Amount, 0))
+			FROM dbo.AffTrans at WITH (NOLOCK)
+			WHERE at.AffId = @AffId
+			  AND at.TransType IN (206, 208)  -- CPA Earning and Adjustment
+			  AND at.CreateDate >= @BeginOfMonth
+			  AND at.CreateDate < @ToNextMonth
+			  AND at.Status IN ('Pending', 'Approved', 'Completed')
+		END
+	END
+
 	-- Return result
 	BEGIN
 		SELECT
@@ -350,7 +451,14 @@ BEGIN
 			,ISNULL(@FDMDeposit, 0)			AS FDMDeposit
 			,ISNULL(@NetGGR, 0)				AS NetGGR
 			,ISNULL(@TotalClick, 0)			AS TotalClick
-			,ISNULL(@UniqueClick, 0)			AS UniqueClick
+			,ISNULL(@UniqueClick, 0)		AS UniqueClick
+			-- New fields for dashboard enhancement
+			,@DashboardType					AS DashboardType
+			,@IsCurrentMonth				AS IsCurrentMonth
+			,ISNULL(@CPAQuota, 0)			AS CPAQuota
+			,ISNULL(@CPAEligibledCount, 0)	AS CPAEligibledCount
+			,ISNULL(@CPASettledCount, 0)	AS CPASettledCount
+			,ISNULL(@CPAEarning, 0)			AS CPAEarning
 	END
 END
 GO

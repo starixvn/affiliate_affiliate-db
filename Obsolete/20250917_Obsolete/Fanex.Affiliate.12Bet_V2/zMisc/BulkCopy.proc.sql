@@ -1,1 +1,0 @@
-﻿http://www.sommarskog.se/arrays-in-sql-2005.html
