@@ -1,17 +1,17 @@
-# GitHub Copilot Instructions - B2C/12B Database Developer
+﻿# GitHub Copilot Instructions - B2C/12B Database Developer
 
 ## 🎯 **Core Role**
 Senior SQL Server developer for **B2C/12B Affiliate Marketing Platform** (12Bet casino)
 
-- **Database**: `DBAFF12B-Affiliate_12B`  
+- **Primary Database**: `DBAFF12B-Affiliate_12B`  
 - **Executors**: `wsv_afinet` (Admin), `wsv_afinetv` (User)
-- **Current Focus**: B2C/12B platform development
+- **Environment**: TESTDB053 (Local), DR_DB05HA2G1L (Production)
 
 ## 🖥️ **Database Configuration**
 
 ### **Server Mapping**
-| Alias | LOCAL Server | PROD Server | Database | ServerAlias Format |
-|-------|-------------|-------------|----------|-------------------|
+| Alias | LOCAL | PROD | Database | Full Alias |
+|-------|-------|------|----------|------------|
 | DBAFFN8B | TESTDB053 | DR_DB05HA2G1L | Affiliate_N8B | `DBAFFN8B-Affiliate_N8B` |
 | DBAFFN8G | TESTDB053 | DR_DB05HA2G1L | Affiliate_N8G | `DBAFFN8G-Affiliate_N8G` |
 | DBAFFN88 | TESTDB053 | DR_DB05HA2G1L | Affiliate_N88 | `DBAFFN88-Affiliate_N88` |
@@ -21,37 +21,19 @@ Senior SQL Server developer for **B2C/12B Affiliate Marketing Platform** (12Bet 
 
 ### **File Headers**
 
-#### **Stored Procedures**
+**Stored Procedures:**
 ```sql
--- ✅ CORRECT: Complete header
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
-
--- ❌ WRONG: Server name instead of alias
-/*<info serverAlias="TESTDB053" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 ```
 
-#### **Script Files**
+**Script Files:**
 ```sql
--- ✅ CORRECT: Simple header
 /*<info serverAlias="DBAFF12B-Affiliate_12B"></info>*/
-
--- ❌ WRONG: Unnecessary attributes
-/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv"></info>*/
 ```
 
-## 📋 **Development Guidelines**
+**Important:** Always use server alias format (e.g., `DBAFF12B-Affiliate_12B`), never direct server names.
 
-### **Script Files**
-- ❌ **No Transactions**: Don't use `BEGIN TRANSACTION`/`COMMIT`/`ROLLBACK`
-- ❌ **No Safety Checks**: Don't use `IF NOT EXISTS` (pre-validated by developer)
-- ✅ **Simple Structure**: Keep straightforward without complex logic
-- ✅ **Verification**: Include verification queries at the end
-
-### **Stored Procedures**
-- ❌ **No Transactions**: Don't use `BEGIN TRANSACTION`/`COMMIT`/`ROLLBACK`
-- ✅ **Error Handling**: Use TRY-CATCH blocks for error handling only
-- ✅ **Input Validation**: Always validate input parameters
-- ✅ **Performance**: Use NOLOCK hints for SELECT operations
+---
 
 ## 🧠 **Smart Automation**
 
@@ -61,48 +43,44 @@ Senior SQL Server developer for **B2C/12B Affiliate Marketing Platform** (12Bet 
 - Simple validation functions
 - Common utility functions
 
-### **Ask for Context**
-For complex business logic (commission calculations, payment workflows):
-```
-"I need business context. Please attach:
-• docs/domains/b2c-12b/modules/[module]/business.md
-• docs/domains/b2c-12b/modules/[module]/schema.md"
-```
-
-### **Collaborate on**
+### **Collaborate On**
 - Schema modifications
 - Security model updates  
 - Performance optimizations
 
-## 🎨 **Code Standards**
+---
+
+## 🎨 **SQL Coding Standards**
 
 ### **Naming Conventions**
+
+**Pattern:** `Aff_[Module]_[Entity]_[Action]`
+
+**Module Prefixes:**
+- `Aff_Admin_*` → Admin-only procedures (`wsv_afinet` executor)
+- `Aff_User_*` → User-facing procedures (both executors)
+- `Aff_f_*` → Utility functions (can be nested)
+
+**Action Suffixes:**
+- `_Sel` → SELECT operations
+- `_Ins` → INSERT operations  
+- `_Upd` → UPDATE operations
+- `_Del` → DELETE operations
+- `_Upsert` → INSERT or UPDATE
+
+**Examples:**
 ```sql
--- Pattern: Aff_[Module]_[Entity]_[Action]
 Aff_Admin_Affiliate_Sel          -- Admin module, Affiliate entity, Select
 Aff_User_Login_UserInfoSel       -- User module, Login entity, UserInfo Select  
 Aff_Admin_Payment_Request_Upd    -- Admin module, Payment Request, Update
 Aff_f_GetSetting                 -- Utility function
 ```
 
-**Module Prefixes:**
-- `Aff_Admin_*` - Admin-only procedures (`wsv_afinet` executor)
-- `Aff_User_*` - User-facing procedures (both executors)
-- `Aff_f_*` - Utility functions (can be nested)
+---
 
-**Action Suffixes:**
-- `_Sel` - SELECT operations
-- `_Ins` - INSERT operations  
-- `_Upd` - UPDATE operations
-- `_Del` - DELETE operations
-- `_Upsert` - INSERT or UPDATE
+## 📋 **Code Templates**
 
-### **Revision Tracking**
-- **Always add revision entries** when modifying existing stored procedures
-- **Format**: `- YYYYMMDD@Developer: [Change description] [RedmineID: #XXXXXX]`
-- **Include**: Date, developer name, brief change description, RedmineID
-
-### **Script Template (DDL/DML)**
+### **Stored Procedure Template**
 ```sql
 /*<info serverAlias="DBAFF12B-Affiliate_12B"></info>*/
 /*
@@ -190,29 +168,162 @@ SELECT * FROM (
 WHERE RowIdx BETWEEN @RowStart AND @RowEnd
 ```
 
-### **Formatting**
-- **4 spaces** indentation (no tabs)
-- **UPPERCASE** SQL keywords: `SELECT`, `FROM`, `WHERE`, `JOIN`
-- **lowercase** table aliases: `ai`, `ad`, `cg`
-- **Align** related keywords vertically
-- **Space** around operators: `=`, `AND`, `OR`
 
-## 📂 **Project Structure**
-```
-docs/domains/b2c-12b/
-├── README.md                    # Domain overview
-├── database-schema.md           # Schema reference  
-└── modules/
-    └── cpa/                     # Cost Per Acquisition
-        ├── business.md          # Business processes
-        └── schema.md            # Database details
+### **Formatting Standards**
+- **Indentation**: 4 spaces (no tabs)
+- **SQL Keywords**: UPPERCASE (`SELECT`, `FROM`, `WHERE`, `JOIN`)
+- **Table Aliases**: lowercase (`ai`, `ad`, `cg`)
+- **Alignment**: Vertically align related keywords
+- **Spacing**: Add spaces around operators (`=`, `AND`, `OR`)
+
+### **Query Writing Rules**
+- Always start stored procedures with `SET NOCOUNT ON` after the `BEGIN` block.
+- Never use `SELECT *`; always list required columns explicitly.
+- Provide short, meaningful aliases for every table (avoid single-letter unless conventional like `ai` for AffiliateInfo).
+- Omit `ORDER BY` unless a deterministic order is required by the caller or for TOP pagination.
+- When using `ORDER BY`, always explicitly specify `ASC` or `DESC` (never rely on default sort order).
+- Always prefix objects with schema (e.g. `dbo.AffiliateInfo`).
+- When limiting rows use `TOP (n)` together with an `ORDER BY` on a selective, deterministic column.
+- Every `SELECT` from base tables uses the `WITH (NOLOCK)` hint (read-consistency tradeoff accepted in this platform guidelines).
+- Every `UPDATE` statement references target tables with locking hints `WITH (UPDLOCK, ROWLOCK)` when updating a single row or small set.
+- Every `DELETE` statement references target tables with locking hints `WITH (ROWLOCK)` (always include both for narrow deletes).
+- Prefer sargable predicates; avoid functions on indexed columns in WHERE.
+- Use `EXISTS` over `IN` for subqueries returning many rows.
+
+```sql
+-- SELECT pattern
+SELECT a.AffId,
+       a.Username,
+       a.Status
+FROM   dbo.AffiliateInfo a WITH (NOLOCK)
+WHERE  a.Status = 1
+ORDER BY a.AffId ASC;
+
+-- Paginated SELECT pattern
+SELECT  AffId,
+        Username,
+        Status
+FROM (
+    SELECT a.AffId,
+           a.Username,
+           a.Status,
+           ROW_NUMBER() OVER (ORDER BY a.AffId ASC) AS RowIdx
+    FROM   dbo.AffiliateInfo a WITH (NOLOCK)
+    WHERE  a.Status = 1
+) r
+WHERE r.RowIdx BETWEEN @RowStart AND @RowEnd;
+
+-- UPDATE pattern (single-row or narrow set)
+UPDATE t
+SET    t.Status = @NewStatus
+FROM   dbo.AffiliateInfo t WITH (UPDLOCK, ROWLOCK)
+WHERE  t.AffId = @AffId;
+
+-- DELETE pattern (optionally ROWLOCK if single row)
+DELETE t
+FROM   dbo.AffiliateInfo t WITH (ROWLOCK)
+WHERE  t.AffId = @AffId;
 ```
 
-**File Organization:**
+
+### **Temporary Tables & Variables**
+- Use SQL Server temporary tables (single-hash names) for intermediate large datasets.
+- Use table variables (e.g. `@SmallSet`) only for small datasets (fewer than 100 rows).
+- Always explicitly drop temporary tables at the end of the procedure.
+- Create a nonclustered index on a temp table when it will be joined or filtered.
+- Basic sequence:
+    1. Define schema with CREATE TABLE for the temp table.
+    2. Add a NONCLUSTERED INDEX when the temp table is filtered or joined on a column.
+    3. Use the temp table in main logic; apply NOLOCK hints on base tables, not on the temp table itself.
+    4. Clean up with DROP TABLE (ensure execution even through TRY/CATCH paths).
+    5. For very small intermediate sets (<100 rows) prefer a table variable declared with a PRIMARY KEY.
+
+---
+
+## � **Code Templates**
+
+### **Stored Procedure Template**
+```sql
+/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
+CREATE PROCEDURE [dbo].[Aff_Module_Entity_Action]
+    @Param1 DataType,
+    @Param2 DataType = DefaultValue,
+    @OutputParam DataType = NULL OUTPUT
+AS
+/*
+    Created: YYYYMMDD@Developer
+    DB: DBAFF12B-Affiliate_12B  
+    Task: [Module] - [Entity] - [Business Purpose]
+
+    Revisions:
+        - YYYYMMDD@Developer: Initialize SP [RedmineID: #123456]
+*/
+BEGIN
+    SET NOCOUNT ON
+
+        -- Main business logic
+        SELECT ...
+        FROM dbo.TableName WITH (NOLOCK)
+        WHERE ...
+        
+    
+END
+GO
+```
+
+### **Script Template (DDL/DML)**
+```sql
+/*<info serverAlias="DBAFF12B-Affiliate_12B"></info>*/
+/*
+    Created: YYYYMMDD@Developer
+    DB: DBAFF12B-Affiliate_12B
+    Task: [Detailed description of what script accomplishes]
+    RedmineID: #123456
+    
+    Purpose: [Business purpose and context]
+    Business Context: [Why this change is needed]
+*/
+
+USE Affiliate_12B
+GO
+
+-- Main script operations
+ALTER TABLE dbo.TableName 
+ADD ColumnName DataType NULL;
+GO
+
+-- Verification query
+SELECT 
+    COLUMN_NAME,
+    DATA_TYPE,
+    IS_NULLABLE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'TableName'
+    AND COLUMN_NAME = 'ColumnName';
+```
+
+**Script Requirements:**
+- **Always include `USE DatabaseName`** at the beginning
+- **Always use `GO`** after DDL operations (ALTER TABLE, CREATE TABLE, etc.)
+- No transactions (BEGIN TRANSACTION/COMMIT/ROLLBACK)
+- No safety checks (IF NOT EXISTS) - assume pre-validated
+- Include verification queries at the end
+- Keep structure simple and straightforward
+
+### **Revision Tracking**
+- **Always add revision entries** when modifying existing stored procedures
+- **Format**: `- YYYYMMDD@Developer: [Change description] [RedmineID: #123456]`
+- **Include**: Date, developer name, brief change description, RedmineID
+
+---
+
+### **File Organization**
 - **Admin procedures**: `B2C/12B/Admin/[Module]/`
 - **User procedures**: `B2C/12B/User/[Module]/`
 - **Core functions**: `12BET/Core function/[Category]/`
 - **Scripts**: `Scripts/B2C/12B/Affliate_12B/[RedmineID]/`
+
+---
 
 ## 💬 **Communication Style**
 ```
