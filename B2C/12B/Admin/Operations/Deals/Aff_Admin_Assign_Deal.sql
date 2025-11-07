@@ -16,6 +16,7 @@ AS
 	Revisions:
 		- 20250526@Lewis: Init [RedmineID: #228530]
 		- 20250916@Lewis: Enhance Write log [RedmineID: #238483]
+		- 20251014@Lewis: Add 2 column related SubAff [RedmineID: #235601]
 */
 
 BEGIN
@@ -29,6 +30,9 @@ BEGIN
 	DECLARE @CurrentDate DATETIME = DATEADD(HOUR, 12, GETDATE())
 	DECLARE @ActionDate DATETIME =  CAST(@CurrentDate AS DATE)
 			, @ToDate DATETIME = '9999-12-31'
+
+	DECLARE @ParentAffId INT
+			,@AllParentAffId VARCHAR(MAX)
 
 	EXEC dbo.Aff_Con_CheckPermission
 		@CustId		= @UserId,
@@ -47,7 +51,10 @@ BEGIN
 	END
 
 	DECLARE @OldGroupId INT
-	SELECT  @OldGroupId = GroupId FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @AffId
+	SELECT  @OldGroupId = GroupId 
+			,@ParentAffId = ParentAffId
+			,@AllParentAffId = AllParentAffId
+	FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @AffId
 	
 	DECLARE @MonthDate SMALLDATETIME
 	SELECT  @MonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, 0, @CurrentDate) + 1, 0))
@@ -70,11 +77,11 @@ BEGIN
 	SET GroupId = @GroupId
 	WHERE AffId = @AffId
 
-	IF EXISTS (SELECT 1 FROM dbo.AffGroupHistory WITH (NOLOCK) WHERE AffId = @AffId AND MonthDate = DATEADD(dd,-1,@ActionDate) AND ToDate = DATEADD(dd,-1,@ActionDate))
+	IF EXISTS (SELECT 1 FROM dbo.AffGroupHistory WITH (NOLOCK) WHERE AffId = @AffId AND MonthDate = @MonthDate AND FromDate = @ActionDate AND ToDate = @ToDate)
 	BEGIN
 		--Delete for all actions in 1 day for this affid
 		DELETE dbo.AffGroupHistory WITH (ROWLOCK)
-		WHERE AffId = @AffId AND MonthDate = DATEADD(dd,-1,@ActionDate) AND ToDate = DATEADD(dd,-1,@ActionDate)
+		WHERE AffId = @AffId AND MonthDate = @MonthDate AND FromDate = @ActionDate AND ToDate = @ToDate
 	END
 
 	IF EXISTS (SELECT 1 FROM dbo.AffGroupHistory WITH (NOLOCK) WHERE AffId = @AffId AND MonthDate = @MonthDate AND ToDate = @ToDate)
@@ -87,8 +94,8 @@ BEGIN
 	END
 
 	--Insert New
-	INSERT INTO dbo.AffGroupHistory (AffId, GroupId, MonthDate, FromDate, ToDate)
-	VALUES (@AffId, @GroupId, @MonthDate, @ActionDate, @ToDate)
+	INSERT INTO dbo.AffGroupHistory (AffId, GroupId, MonthDate, ParentAffId, AllParentAffId, FromDate, ToDate)
+	VALUES (@AffId, @GroupId, @MonthDate, @ParentAffId, @AllParentAffId, @ActionDate, @ToDate)
 
 	-- Write log
 	DECLARE @EndTime DATETIME = GETDATE()

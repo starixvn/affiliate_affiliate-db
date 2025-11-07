@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20250526@Lewis: Initialize SP [RedmineID: #228530]
+		- 20250526@Lewis: Add column IsSubCommRate [RedmineID: #235601]
 */
 
 BEGIN
@@ -21,6 +22,7 @@ BEGIN
         cg.GroupTypeId AS DealType,
         cg.Description,
 		cg.SubCommRate,
+		cg.IsSubCommRate,
 		--Revenue
 		cg.QMTurnover,
 		--CPA
@@ -54,8 +56,8 @@ BEGIN
 		FROM dbo.TierSetting gs WITH (NOLOCK)
 		WHERE gs.GroupId = @GroupId
 		ORDER BY
-			gs.GroupProductId,
-			gs.TierId
+			gs.GroupProductId ASC,
+			gs.TierId ASC
 
 		-- Deduction List
 		SELECT
@@ -107,8 +109,8 @@ BEGIN
 		WHERE GroupId = @GroupId
 			AND ToDate = '9999-12-31'
 		ORDER BY
-			GroupProductId,
-			TierId
+			GroupProductId ASC,
+			TierId ASC
 
 		--Products
 		SELECT
@@ -124,7 +126,7 @@ BEGIN
 			d.GroupId,
 			d.GroupProductId
 		ORDER BY
-			GroupProductId
+			GroupProductId ASC
 
 
 
