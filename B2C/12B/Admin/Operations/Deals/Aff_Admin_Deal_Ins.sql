@@ -105,8 +105,6 @@ BEGIN
 	FROM Schedule s WITH (NOLOCK)
 	WHERE s.ScheduleId = @ScheduleId 
 
-
-
 	-- =========================
 	-- Check permission
 	-- =========================
@@ -349,8 +347,6 @@ BEGIN
             SELECT @ErrCode = 309, @ErrMsg = N'Please select at least one condition: Min FDM, Min Total Deposit, or Min Turnover.'
             RETURN
         END
-
-
 		
 		-- IF CPATierList exist MinWagering => CPAProductList is required
 		IF EXISTS (SELECT 1 FROM @CPATier WHERE MinTO IS NOT NULL)

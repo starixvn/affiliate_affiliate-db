@@ -5,6 +5,7 @@ CREATE PROCEDURE [dbo].[Aff_Admin_Deal_Upd]
 	,@GroupName			NVARCHAR(100) = ''
 	,@Description		NVARCHAR(100) = ''
 	,@SubCommRate		DECIMAL(9,8)
+	,@IsSubCommRate		BIT = 1
 	--Revenue
 	,@QMTurnover		MONEY
 	,@IsActivePlayerSum BIT
@@ -32,6 +33,9 @@ AS
 
 	Revisions:
 		- 20250526@Lewis: Initialize SP [RedmineID: #228530]
+		- 20250930@Lewis: Remove Min Turnover instant payment restriction
+						  Fix same day update to delete old settings instead of creating invalid date ranges 
+						  Add column IsSubCommRate [RedmineID: #235601]
 
 	Parameter's Explanation:
 		- @DeductionList xml = N'
@@ -89,8 +93,7 @@ BEGIN
 		,@Infinity_PositiveAmount MONEY    = 100000000000
 		,@Inifinity_QM INT 				   = 1000000000
 
-	DECLARE @IsMonthly BIT = 0
-			,@ScheduleId SMALLINT
+	DECLARE @ScheduleId SMALLINT
 			,@StartDate DATE
 
 	-- =========================
@@ -131,6 +134,13 @@ BEGIN
 		RETURN
 	END
 
+	IF @IsSubCommRate = 1 AND @SubCommRate IS NULL
+	BEGIN
+		-- Sub-commission rate is invalid!
+		SELECT @ErrCode = 106, @ErrMsg = N'Sub-commission rate is invalid!'
+		RETURN
+	END
+
 	--get GroupType
 	DECLARE @GroupTypeId TINYINT
 	SELECT @GroupTypeId = GroupTypeId
@@ -139,16 +149,7 @@ BEGIN
 	FROM CommGroup WITH (NOLOCK) 
 	WHERE GroupId = @GroupId
 
-	-- Check Monthly or not
-	IF EXISTS (
-		SELECT 1
-		FROM Schedule s WITH (NOLOCK)
-		WHERE s.ScheduleId = @ScheduleId
-			AND s.IntervalType= 'Month'
-	)
-	BEGIN
-		SELECT @IsMonthly = 1
-	END
+
 
 	-- Revenue/Hybrid validation block
 	IF @GroupTypeId IN (1,4)
@@ -159,7 +160,7 @@ BEGIN
 		;WITH CTE_DeductionSetting AS
 		(
 			SELECT
-				ROW_NUMBER() OVER(PARTITION BY t.c.value('@id', 'TINYINT') ORDER BY (SELECT NULL)) AS GroupProductId,
+				ROW_NUMBER() OVER(PARTITION BY t.c.value('@id', 'TINYINT') ORDER BY (SELECT 0) ASC) AS GroupProductId,
 				t.c.value('@id', 'TINYINT') AS DeductionId,
 				t.c.value('@productids', 'VARCHAR(MAX)') AS ProductIds,
 				t.c.value('@percent', 'DECIMAL(9,8)') AS DeductedPercentage,
@@ -349,13 +350,7 @@ BEGIN
             RETURN
         END
 		
-		-- IF CPATierList exist MinTO => @IsMonthly = 1
-		IF EXISTS (SELECT 1 FROM @CPATier WHERE MinTO IS NOT NULL)
-			AND @IsMonthly = 0
-		BEGIN
-			SELECT @ErrCode = 309, @ErrMsg = N'Instant Payment is unavailable when Min Turnover is enabled. Please contact your system administrator.'
-            RETURN
-		END	
+
 		
 		-- IF CPATierList exist MinWagering => CPAProductList is required
 		IF EXISTS (SELECT 1 FROM @CPATier WHERE MinTO IS NOT NULL)
@@ -452,9 +447,9 @@ BEGIN
         IF EXISTS (
             SELECT 1 FROM (
                 SELECT GroupProductId, TierId, MinFDM, MinTotalDeposit, MinTO,
-                    LEAD(MinFDM) OVER (PARTITION BY GroupProductId ORDER BY TierId) AS NextMinFDM,
-                    LEAD(MinTotalDeposit) OVER (PARTITION BY GroupProductId ORDER BY TierId) AS NextMinTotalDeposit,
-                    LEAD(MinTO) OVER (PARTITION BY GroupProductId ORDER BY TierId) AS NextMinTO
+                    LEAD(MinFDM) OVER (PARTITION BY GroupProductId ORDER BY TierId ASC) AS NextMinFDM,
+                    LEAD(MinTotalDeposit) OVER (PARTITION BY GroupProductId ORDER BY TierId ASC) AS NextMinTotalDeposit,
+                    LEAD(MinTO) OVER (PARTITION BY GroupProductId ORDER BY TierId ASC) AS NextMinTO
                 FROM @CPATier
             ) t
             WHERE (NextMinFDM IS NOT NULL AND NextMinFDM <= MinFDM)
@@ -476,6 +471,7 @@ BEGIN
 		TypeId					TINYINT
 		-- General information
 		,SubCommRate			DECIMAL(9,8)
+		,IsSubCommRate			BIT
 		,GroupName				NVARCHAR(100)
 		,QMTurnover				MONEY
 		,Description			NVARCHAR(100)
@@ -521,6 +517,7 @@ BEGIN
 		,RedepositRate DECIMAL(9,8)
 		,StartDate DATE
 		,ScheduleId SMALLINT
+		,IsSubCommRate BIT
 	)
 	DECLARE @old_CPATierSetting TABLE(
 		-- 1: OLD, 2: NEW
@@ -548,29 +545,45 @@ BEGIN
 		,ProductId INT
 	)
 
+	-- Update CommGroup with consolidated fields based on deal type
+	UPDATE	dbo.CommGroup WITH (ROWLOCK, UPDLOCK)
+	SET		GroupName = @GroupName,
+			Description = @Description,
+			SubCommRate = @SubCommRate,
+			UpdatedBy = @UserId,
+			UpdatedTime = @CurrentDate,
+			IsSubCommRate = @IsSubCommRate,
+			-- Revenue fields: only update for Revenue(1) and Hybrid(4)
+			QMTurnover = CASE WHEN @GroupTypeId IN (1,4) THEN @QMTurnover ELSE QMTurnover END,
+			-- CPA fields: only update for CPA(3) and Hybrid(4)
+			ActiveDays = CASE WHEN @GroupTypeId IN (3,4) THEN @ActiveDays ELSE ActiveDays END,
+			HoldingDays = CASE WHEN @GroupTypeId IN (3,4) THEN @HoldingDays ELSE HoldingDays END,
+			HoldingTickets = CASE WHEN @GroupTypeId IN (3,4) THEN @HoldingTickets ELSE HoldingTickets END,
+			Quota = CASE WHEN @GroupTypeId IN (3,4) THEN @Quota ELSE Quota END,
+			CountryCodes = CASE WHEN @GroupTypeId IN (3,4) THEN @CountryCodes ELSE CountryCodes END,
+			RedepositDays = CASE WHEN @GroupTypeId IN (3,4) THEN @RedepositDays ELSE RedepositDays END,
+			RedepositRate = CASE WHEN @GroupTypeId IN (3,4) THEN @RedepositRate ELSE RedepositRate END,
+			StartDate = CASE WHEN @GroupTypeId IN (3,4) THEN @StartDate ELSE StartDate END,
+			ScheduleId = CASE WHEN @GroupTypeId IN (3,4) THEN @ScheduleId ELSE ScheduleId END
+	OUTPUT	DELETED.GroupName, DELETED.SubCommRate, DELETED.Description, DELETED.IsSubCommRate,
+			DELETED.QMTurnover, DELETED.ActiveDays, DELETED.HoldingDays, DELETED.HoldingTickets, 
+			DELETED.Quota, DELETED.CountryCodes, DELETED.RedepositDays, DELETED.RedepositRate, 
+			DELETED.StartDate, DELETED.ScheduleId, 1
+	INTO	#updateData (GroupName, SubCommRate, Description, IsSubCommRate, QMTurnover, 
+			ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, RedepositDays, 
+			RedepositRate, StartDate, ScheduleId, TypeId)
+	WHERE	GroupId = @GroupId;
+
+	-- CommGroupHistory
+	DELETE dbo.CommGroupHistory WITH(ROWLOCK)
+	WHERE GroupId = @GroupId AND MonthDate = @MonthDate
+
+	INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate, QMTurnover, IsSubCommRate)
+	SELECT @GroupId, @MonthDate, @SubCommRate, @QMTurnover, @IsSubCommRate
+
 	-- TODO: UPDATE SETTING
-	IF @GroupTypeId = 1 -- Revenue Share by Winloss
+	IF @GroupTypeId IN (1, 4) -- Revenue Share by Winloss
 	BEGIN
-		-- General information
-		UPDATE dbo.CommGroup WITH (ROWLOCK, UPDLOCK)
-		SET GroupName = @GroupName
-			, Description = @Description
-			, SubCommRate = @SubCommRate
-			, QMTurnover = @QMTurnover
-			, UpdatedBy = @UserId
-			, UpdatedTime = @CurrentDate
-		OUTPUT DELETED.GroupName, DELETED.SubCommRate, DELETED.Description, DELETED.QMTurnover
-			,1
-		INTO #updateData (GroupName, SubCommRate, Description, QMTurnover
-			, TypeId)
-		WHERE GroupId = @GroupId
-
-		-- CommGroupHistory
-		DELETE dbo.CommGroupHistory WITH(ROWLOCK)
-		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-
-		INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate, QMTurnover)
-		SELECT @GroupId, @MonthDate, @SubCommRate, @QMTurnover
 
 		-- Tier List
 		DELETE dbo.TierSetting WITH (ROWLOCK)
@@ -601,36 +614,13 @@ BEGIN
 		SELECT @GroupId, @MonthDate, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent FROM @DeductionSetting
 	END
 
-	IF @GroupTypeId = 3 -- CPA
+	IF @GroupTypeId IN (3, 4) -- CPA
 	BEGIN
-		-- General information
-		UPDATE dbo.CommGroup WITH (ROWLOCK, UPDLOCK)
-		SET GroupName = @GroupName
-			, Description = @Description
-			, SubCommRate = @SubCommRate
-			, ActiveDays = @ActiveDays
-			, HoldingDays = @HoldingDays
-			, HoldingTickets = @HoldingTickets
-			, Quota = @Quota
-			, CountryCodes = @CountryCodes
-			, UpdatedBy = @UserId
-			, UpdatedTime = @CurrentDate
-			, RedepositDays = @RedepositDays
-			, RedepositRate = @RedepositRate
-			, StartDate = @StartDate
-			, ScheduleId = @ScheduleId
-		OUTPUT DELETED.GroupName, DELETED.SubCommRate, DELETED.Description
-			, DELETED.ActiveDays, DELETED.HoldingDays, DELETED.HoldingTickets, DELETED.Quota, DELETED.CountryCodes, DELETED.RedepositDays, DELETED.RedepositRate, DELETED.StartDate, DELETED.ScheduleId
-			,1
-		INTO #updateData (GroupName, SubCommRate, Description
-			, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, RedepositDays, RedepositRate, StartDate, ScheduleId
-			, TypeId)
-		WHERE GroupId = @GroupId
 
 		-- CPAGroupSetting
 		-- Old data
-		INSERT INTO @old_CPAGroupSetting(TypeId,FromDate,ToDate,GroupId,GroupTypeId,SubCommRate,ActiveDays,HoldingDays,HoldingTickets,Quota,CountryCodes,RedepositDays,RedepositRate,StartDate,ScheduleId)
-		SELECT 1,FromDate,ToDate,GroupId,GroupTypeId,SubCommRate,ActiveDays,HoldingDays,HoldingTickets,Quota,CountryCodes,RedepositDays,RedepositRate,StartDate,ScheduleId
+		INSERT INTO @old_CPAGroupSetting(TypeId,FromDate,ToDate,GroupId,GroupTypeId,SubCommRate,ActiveDays,HoldingDays,HoldingTickets,Quota,CountryCodes,RedepositDays,RedepositRate,StartDate,ScheduleId,IsSubCommRate)
+		SELECT 1,FromDate,ToDate,GroupId,GroupTypeId,SubCommRate,ActiveDays,HoldingDays,HoldingTickets,Quota,CountryCodes,RedepositDays,RedepositRate,StartDate,ScheduleId,IsSubCommRate
 		FROM CPAGroupSetting WITH (NOLOCK)
 		WHERE GroupId = @GroupId AND ToDate = @ToDate;
 
@@ -646,18 +636,26 @@ BEGIN
 				 OR ISNULL(CountryCodes, '') <> ISNULL(@CountryCodes, '')
 				 OR ISNULL(RedepositDays, 0) <> ISNULL(@RedepositDays, 0)
 				 OR ISNULL(RedepositRate, 0) <> ISNULL(@RedepositRate, 0)
+				 OR ISNULL(IsSubCommRate, 0) <> ISNULL(@IsSubCommRate, 0)
 				 )
 		)
 		BEGIN
-			-- Update current row in CPAGroupSetting --> Todate = ActionDate-1
-			UPDATE CPAGroupSetting WITH (ROWLOCK, UPDLOCK)
-			SET ToDate = DATEADD(dd,-1,@ActionDate)
-			WHERE GroupId = @GroupId AND ToDate = @ToDate;
+			-- Check if updating on same day as creation (FromDate = ActionDate)
+			IF EXISTS (SELECT 1 FROM CPAGroupSetting WITH (NOLOCK) WHERE GroupId = @GroupId AND FromDate = @ActionDate AND ToDate = @ToDate)
+			BEGIN
+				-- Same day update: Delete old setting and insert new one
+				DELETE FROM CPAGroupSetting WHERE GroupId = @GroupId AND FromDate = @ActionDate AND ToDate = @ToDate;
+			END
+			ELSE
+			BEGIN
+				-- Different day update: Update ToDate and insert new row
+				UPDATE CPAGroupSetting WITH (ROWLOCK, UPDLOCK)
+				SET ToDate = DATEADD(dd,-1,@ActionDate)
+				WHERE GroupId = @GroupId AND ToDate = @ToDate;	
+			END
 
-			-- Insert new row into CPAGroupSetting --> FromDate = ActionDate
-			INSERT INTO CPAGroupSetting (FromDate, ToDate, GroupId, GroupTypeId, SubCommRate, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, RedepositDays, RedepositRate, StartDate, ScheduleId)
-			VALUES (@ActionDate, @ToDate, @GroupId, @GroupTypeId, @SubCommRate, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @RedepositDays, @RedepositRate, @StartDate, @ScheduleId)
-			;
+			INSERT INTO CPAGroupSetting (FromDate, ToDate, GroupId, GroupTypeId, SubCommRate, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, RedepositDays, RedepositRate, StartDate, ScheduleId, IsSubCommRate)
+			VALUES (@ActionDate, @ToDate, @GroupId, @GroupTypeId, @SubCommRate, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @RedepositDays, @RedepositRate, @StartDate, @ScheduleId, @IsSubCommRate);
 		END
 
 		-- CPATierSetting: Add/Remove/Change
@@ -669,10 +667,14 @@ BEGIN
 
 		IF EXISTS (
 				SELECT 1
-				FROM CPATierSetting t WITH (NOLOCK)
+				FROM 
+					(	
+						SELECT GroupProductId,TierId,MinFDM,MaxFDM,MinTotalDeposit,MaxTotalDeposit,MinTO,MaxTO,CPAAmount
+						FROM CPATierSetting t WITH (NOLOCK) 
+						WHERE t.GroupId = @GroupId AND t.ToDate = @ToDate
+					) t
 				FULL OUTER JOIN @CPATier n
-					ON t.GroupId = @GroupId AND t.ToDate = @ToDate
-					AND t.GroupProductId = n.GroupProductId AND t.TierId = n.TierId
+					ON t.GroupProductId = n.GroupProductId AND t.TierId = n.TierId
 				WHERE 
 					t.GroupProductId IS NULL OR n.GroupProductId IS NULL -- add/remove
 					OR ISNULL(t.MinFDM,0) <> ISNULL(n.MinFDM,0)
@@ -684,41 +686,25 @@ BEGIN
 					OR ISNULL(t.CPAAmount,0) <> ISNULL(n.CPAAmount,0)
 		)
 		BEGIN
-			-- Remove/Change: Update ToDate for removed/changed
-			UPDATE t
-			SET ToDate = DATEADD(dd,-1,@ActionDate)
-			FROM CPATierSetting t WITH (ROWLOCK, UPDLOCK)
-			LEFT JOIN @CPATier n
-				ON t.GroupId = @GroupId AND t.ToDate = @ToDate
-				AND t.GroupProductId = n.GroupProductId AND t.TierId = n.TierId
-			WHERE t.GroupId = @GroupId AND t.ToDate = @ToDate
-			  AND (
-					n.GroupProductId IS NULL -- removed
-					OR ISNULL(t.MinFDM,0) <> ISNULL(n.MinFDM,0)
-					OR ISNULL(t.MaxFDM,0) <> ISNULL(n.MaxFDM,0)
-					OR ISNULL(t.MinTotalDeposit,0) <> ISNULL(n.MinTotalDeposit,0)
-					OR ISNULL(t.MaxTotalDeposit,0) <> ISNULL(n.MaxTotalDeposit,0)
-					OR ISNULL(t.MinTO,0) <> ISNULL(n.MinTO,0)
-					OR ISNULL(t.MaxTO,0) <> ISNULL(n.MaxTO,0)
-					OR ISNULL(t.CPAAmount,0) <> ISNULL(n.CPAAmount,0)
-			  );
+			-- Check if updating on same day as creation (FromDate = ActionDate)
+			IF EXISTS (SELECT 1 FROM CPATierSetting WITH (NOLOCK) WHERE GroupId = @GroupId AND FromDate = @ActionDate AND ToDate = @ToDate)
+			BEGIN
+				-- Same day update: Delete all and insert all
+				DELETE FROM CPATierSetting WHERE GroupId = @GroupId AND FromDate = @ActionDate AND ToDate = @ToDate;
 
-			-- Add/Change: Insert new rows for added/changed
+			END
+			ELSE
+			BEGIN
+				-- Different day update: Update all ToDate to yesterday, then insert all new
+				UPDATE CPATierSetting WITH (ROWLOCK, UPDLOCK)
+				SET ToDate = DATEADD(dd,-1,@ActionDate)
+				WHERE GroupId = @GroupId AND ToDate = @ToDate;
+				
+			END
+			
 			INSERT INTO CPATierSetting (FromDate, ToDate, GroupId, GroupProductId, TierId, MinFDM, MaxFDM, MinTotalDeposit, MaxTotalDeposit, MinTO, MaxTO, CPAAmount)
-			SELECT @ActionDate, @ToDate, @GroupId, n.GroupProductId, n.TierId, n.MinFDM, n.MaxFDM, n.MinTotalDeposit, n.MaxTotalDeposit, n.MinTO, n.MaxTO, n.CPAAmount
-			FROM @CPATier n
-			LEFT JOIN CPATierSetting t WITH (NOLOCK)
-				ON t.GroupId = @GroupId AND t.ToDate = @ToDate
-				AND t.GroupProductId = n.GroupProductId AND t.TierId = n.TierId
-			WHERE t.GroupProductId IS NULL -- added
-				OR ISNULL(t.MinFDM,0) <> ISNULL(n.MinFDM,0)
-				OR ISNULL(t.MaxFDM,0) <> ISNULL(n.MaxFDM,0)
-				OR ISNULL(t.MinTotalDeposit,0) <> ISNULL(n.MinTotalDeposit,0)
-				OR ISNULL(t.MaxTotalDeposit,0) <> ISNULL(n.MaxTotalDeposit,0)
-				OR ISNULL(t.MinTO,0) <> ISNULL(n.MinTO,0)
-				OR ISNULL(t.MaxTO,0) <> ISNULL(n.MaxTO,0)
-				OR ISNULL(t.CPAAmount,0) <> ISNULL(n.CPAAmount,0)
-			;
+			SELECT @ActionDate, @ToDate, @GroupId, GroupProductId, TierId, MinFDM, MaxFDM, MinTotalDeposit, MaxTotalDeposit, MinTO, MaxTO, CPAAmount
+			FROM @CPATier;
 		END
 
 		-- CPAProductSetting: Add/Remove
@@ -743,230 +729,25 @@ BEGIN
 			WHERE cur.GroupProductId IS NULL OR new.GroupProductId IS NULL
 		)
 		BEGIN
-			-- Remove: Update ToDate for removed
-			UPDATE t
-			SET ToDate = DATEADD(dd,-1,@ActionDate)
-			FROM CPAProductSetting t WITH (ROWLOCK, UPDLOCK)
-			LEFT JOIN @CPAProduct n
-				ON t.GroupId = @GroupId AND t.ToDate = @ToDate
-				AND t.GroupProductId = n.GroupProductId AND t.ProductId = n.ProductId
-			WHERE t.GroupId = @GroupId AND t.ToDate = @ToDate
-			  AND n.GroupProductId IS NULL;
+			-- Check if updating on same day as creation (FromDate = ActionDate)
+			IF EXISTS (SELECT 1 FROM CPAProductSetting WITH (NOLOCK) WHERE GroupId = @GroupId AND FromDate = @ActionDate AND ToDate = @ToDate)
+			BEGIN
+				-- Same day update: Delete all and insert all
+				DELETE FROM CPAProductSetting WHERE GroupId = @GroupId AND FromDate = @ActionDate AND ToDate = @ToDate;
 
-			-- Add: Insert new rows for added
+			END
+			ELSE
+			BEGIN
+				-- Different day update: Update all ToDate to yesterday, then insert all new
+				UPDATE CPAProductSetting WITH (ROWLOCK, UPDLOCK)
+				SET ToDate = DATEADD(dd,-1,@ActionDate)
+				WHERE GroupId = @GroupId AND ToDate = @ToDate;
+
+			END
+			
 			INSERT INTO CPAProductSetting (FromDate, ToDate, GroupId, GroupProductId, ProductId)
-			SELECT @ActionDate, @ToDate, @GroupId, n.GroupProductId, n.ProductId
-			FROM @CPAProduct n
-			LEFT JOIN CPAProductSetting t WITH (NOLOCK)
-				ON t.GroupId = @GroupId AND t.ToDate = @ToDate
-				AND t.GroupProductId = n.GroupProductId AND t.ProductId = n.ProductId
-			WHERE t.GroupProductId IS NULL
-			;
-		END
-	END
-
-	IF @GroupTypeId = 4 -- Hydrid
-	BEGIN
-		-- General information
-		UPDATE dbo.CommGroup WITH (ROWLOCK, UPDLOCK)
-		SET GroupName = @GroupName
-			, Description = @Description
-			, SubCommRate = @SubCommRate
-			, QMTurnover = @QMTurnover
-			, ActiveDays = @ActiveDays
-			, HoldingDays = @HoldingDays
-			, HoldingTickets = @HoldingTickets
-			, Quota = @Quota
-			, CountryCodes = @CountryCodes
-			, UpdatedBy = @UserId
-			, UpdatedTime = @CurrentDate
-			, RedepositDays = @RedepositDays
-			, RedepositRate = @RedepositRate
-			, StartDate = @StartDate
-			, ScheduleId = @ScheduleId
-		OUTPUT DELETED.GroupName, DELETED.SubCommRate, DELETED.Description, DELETED.QMTurnover
-			, DELETED.ActiveDays, DELETED.HoldingDays, DELETED.HoldingTickets, DELETED.Quota, DELETED.CountryCodes, DELETED.RedepositDays, DELETED.RedepositRate, DELETED.StartDate, DELETED.ScheduleId
-			,1
-		INTO #updateData (GroupName, SubCommRate, Description, QMTurnover
-			, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, RedepositDays, RedepositRate, StartDate, ScheduleId
-			, TypeId)
-		WHERE GroupId = @GroupId
-
-		-- ==========================
-		-- Revenue Sharing by Winloss
-		-- ==========================
-		-- CommGroupHistory
-		DELETE dbo.CommGroupHistory WITH(ROWLOCK)
-		WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-
-		INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate, QMTurnover)
-		SELECT @GroupId, @MonthDate, @SubCommRate, @QMTurnover
-
-		-- Tier List
-		DELETE dbo.TierSetting WITH (ROWLOCK)
-			OUTPUT DELETED.TierId, DELETED.GroupProductId, DELETED.MinAmount, DELETED.MaxAmount, DELETED.MinQM, DELETED.MaxQM, DELETED.Commission, DELETED.IsActivePlayerSum, 2
-		INTO #updateData (TierId, GroupProductId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum, TypeId)
-		WHERE GroupId = @GroupId
-
-		DELETE dbo.TierSettingHistory WITH (ROWLOCK) WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-
-		INSERT INTO dbo.TierSetting (GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
-		SELECT @GroupId, GroupProductId, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, @IsActivePlayerSum FROM @TierSetting
-
-		INSERT INTO dbo.TierSettingHistory (GroupId, GroupProductId, MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, IsActivePlayerSum)
-		SELECT @GroupId, GroupProductId, @MonthDate, TierId, MinAmount, MaxAmount, MinQM, MaxQM, Commission, @IsActivePlayerSum FROM @TierSetting
-
-		-- Deduction List
-		DELETE dbo.DeductionSetting WITH (ROWLOCK)
-			OUTPUT DELETED.DeductionId, DELETED.ProductId, DELETED.GroupProductId, DELETED.DeductedPercentage, DELETED.DeductedAmount, DELETED.IsDeductedPercent, 3
-		INTO #updateData (DeductionId, ProductId, GroupProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent, TypeId)
-		WHERE GroupId = @GroupId
-
-		DELETE dbo.DeductionSettingHistory WITH (ROWLOCK) WHERE GroupId = @GroupId AND MonthDate = @MonthDate
-
-		INSERT INTO dbo.DeductionSetting (GroupId, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
-		SELECT @GroupId, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent FROM @DeductionSetting
-
-		INSERT INTO dbo.DeductionSettingHistory (GroupId, MonthDate, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent)
-		SELECT @GroupId, @MonthDate, GroupProductId, DeductionId, ProductId, DeductedPercentage, DeductedAmount, IsDeductedPercent FROM @DeductionSetting
-		
-		-- ==========================
-		-- CPA
-		-- ==========================
-		-- CPAGroupSetting
-		-- Old data
-		INSERT INTO @old_CPAGroupSetting(TypeId,FromDate,ToDate,GroupId,GroupTypeId,SubCommRate,ActiveDays,HoldingDays,HoldingTickets,Quota,CountryCodes,RedepositDays,RedepositRate,StartDate,ScheduleId)
-		SELECT 1,FromDate,ToDate,GroupId,GroupTypeId,SubCommRate,ActiveDays,HoldingDays,HoldingTickets,Quota,CountryCodes,RedepositDays,RedepositRate,StartDate,ScheduleId
-		FROM CPAGroupSetting WITH (NOLOCK)
-		WHERE GroupId = @GroupId AND ToDate = @ToDate;
-
-		IF EXISTS (
-			SELECT 1 FROM CPAGroupSetting WITH (NOLOCK)
-			WHERE GroupId = @GroupId AND ToDate = @ToDate
-			  AND (
-					ISNULL(SubCommRate, 0) <> ISNULL(@SubCommRate, 0)
-				 OR ISNULL(ActiveDays, 0) <> ISNULL(@ActiveDays, 0)
-				 OR ISNULL(HoldingDays, 0) <> ISNULL(@HoldingDays, 0)
-				 OR ISNULL(HoldingTickets, 0) <> ISNULL(@HoldingTickets, 0)
-				 OR ISNULL(Quota, 0) <> ISNULL(@Quota, 0)
-				 OR ISNULL(CountryCodes, '') <> ISNULL(@CountryCodes, '')
-				 OR ISNULL(RedepositDays, 0) <> ISNULL(@RedepositDays, 0)
-				 OR ISNULL(RedepositRate, 0) <> ISNULL(@RedepositRate, 0)
-				 )
-		)
-		BEGIN
-			-- Update current row in CPAGroupSetting --> Todate = ActionDate
-			UPDATE CPAGroupSetting WITH (ROWLOCK, UPDLOCK)
-			SET ToDate = DATEADD(dd,-1,@ActionDate)
-			WHERE GroupId = @GroupId AND ToDate = @ToDate;
-
-			-- Insert new row into CPAGroupSetting --> FromDate = ActionDate + 1
-			INSERT INTO CPAGroupSetting (FromDate, ToDate, GroupId, GroupTypeId, SubCommRate, ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, RedepositDays, RedepositRate, StartDate, ScheduleId)
-			VALUES (@ActionDate, @ToDate, @GroupId, @GroupTypeId, @SubCommRate, @ActiveDays, @HoldingDays, @HoldingTickets, @Quota, @CountryCodes, @RedepositDays, @RedepositRate, @StartDate, @ScheduleId)
-			;
-		END
-
-		-- CPATierSetting: Add/Remove/Change
-		-- Old data
-		INSERT INTO @old_CPATierSetting(TypeId,FromDate,ToDate,GroupId,GroupProductId,TierId,MinFDM,MaxFDM,MinTotalDeposit,MaxTotalDeposit,MinTO,MaxTO,CPAAmount)
-		SELECT 1,FromDate,ToDate,GroupId,GroupProductId,TierId,MinFDM,MaxFDM,MinTotalDeposit,MaxTotalDeposit,MinTO,MaxTO,CPAAmount
-		FROM CPATierSetting WITH (NOLOCK)
-		WHERE GroupId = @GroupId AND ToDate = @ToDate;
-		
-		IF EXISTS (
-				SELECT 1
-				FROM CPATierSetting t WITH (NOLOCK)
-				FULL OUTER JOIN @CPATier n
-					ON t.GroupId = @GroupId AND t.ToDate = @ToDate
-					AND t.GroupProductId = n.GroupProductId AND t.TierId = n.TierId
-				WHERE 
-					t.GroupProductId IS NULL OR n.GroupProductId IS NULL -- add/remove
-					OR ISNULL(t.MinFDM,0) <> ISNULL(n.MinFDM,0)
-					OR ISNULL(t.MaxFDM,0) <> ISNULL(n.MaxFDM,0)
-					OR ISNULL(t.MinTotalDeposit,0) <> ISNULL(n.MinTotalDeposit,0)
-					OR ISNULL(t.MaxTotalDeposit,0) <> ISNULL(n.MaxTotalDeposit,0)
-					OR ISNULL(t.MinTO,0) <> ISNULL(n.MinTO,0)
-					OR ISNULL(t.MaxTO,0) <> ISNULL(n.MaxTO,0)
-					OR ISNULL(t.CPAAmount,0) <> ISNULL(n.CPAAmount,0)
-		)
-		BEGIN
-			-- Remove/Change: Update ToDate for removed/changed
-			UPDATE t
-			SET ToDate = DATEADD(dd,-1,@ActionDate)
-			FROM CPATierSetting t WITH (ROWLOCK, UPDLOCK)
-			LEFT JOIN @CPATier n
-				ON t.GroupId = @GroupId AND t.ToDate = @ToDate
-				AND t.GroupProductId = n.GroupProductId AND t.TierId = n.TierId
-			WHERE t.GroupId = @GroupId AND t.ToDate = @ToDate
-			  AND (
-					n.GroupProductId IS NULL -- removed
-					OR ISNULL(t.MinFDM,0) <> ISNULL(n.MinFDM,0)
-					OR ISNULL(t.MaxFDM,0) <> ISNULL(n.MaxFDM,0)
-					OR ISNULL(t.MinTotalDeposit,0) <> ISNULL(n.MinTotalDeposit,0)
-					OR ISNULL(t.MaxTotalDeposit,0) <> ISNULL(n.MaxTotalDeposit,0)
-					OR ISNULL(t.MinTO,0) <> ISNULL(n.MinTO,0)
-					OR ISNULL(t.MaxTO,0) <> ISNULL(n.MaxTO,0)
-					OR ISNULL(t.CPAAmount,0) <> ISNULL(n.CPAAmount,0)
-			  );
-
-			-- Add/Change: Insert new rows for added/changed
-			INSERT INTO CPATierSetting (FromDate, ToDate, GroupId, GroupProductId, TierId, MinFDM, MaxFDM, MinTotalDeposit, MaxTotalDeposit, MinTO, MaxTO, CPAAmount)
-			SELECT @ActionDate, @ToDate, @GroupId, n.GroupProductId, n.TierId, n.MinFDM, n.MaxFDM, n.MinTotalDeposit, n.MaxTotalDeposit, n.MinTO, n.MaxTO, n.CPAAmount
-			FROM @CPATier n
-			LEFT JOIN CPATierSetting t WITH (NOLOCK)
-				ON t.GroupId = @GroupId AND t.ToDate = @ToDate
-				AND t.GroupProductId = n.GroupProductId AND t.TierId = n.TierId
-			WHERE t.GroupProductId IS NULL -- added
-				OR ISNULL(t.MinFDM,0) <> ISNULL(n.MinFDM,0)
-				OR ISNULL(t.MaxFDM,0) <> ISNULL(n.MaxFDM,0)
-				OR ISNULL(t.MinTotalDeposit,0) <> ISNULL(n.MinTotalDeposit,0)
-				OR ISNULL(t.MaxTotalDeposit,0) <> ISNULL(n.MaxTotalDeposit,0)
-				OR ISNULL(t.MinTO,0) <> ISNULL(n.MinTO,0)
-				OR ISNULL(t.MaxTO,0) <> ISNULL(n.MaxTO,0)
-				OR ISNULL(t.CPAAmount,0) <> ISNULL(n.CPAAmount,0)
-			;
-		END
-
-		-- CPAProductSetting: Add/Remove
-		-- Old data
-		INSERT INTO @old_CPAProductSetting(TypeId,FromDate,ToDate,GroupId,GroupProductId,ProductId)
-		SELECT 1,FromDate,ToDate,GroupId,GroupProductId,ProductId
-		FROM CPAProductSetting WITH (NOLOCK)
-		WHERE GroupId = @GroupId AND ToDate = @ToDate;
-
-		IF EXISTS (
-			SELECT 1
-			FROM (
-				SELECT t.GroupProductId, t.ProductId
-				FROM CPAProductSetting t WITH (NOLOCK)
-				WHERE t.GroupId = @GroupId AND t.ToDate = @ToDate
-			) cur
-			FULL OUTER JOIN (
-				SELECT n.GroupProductId, n.ProductId
-				FROM @CPAProduct n
-			) new
-			ON cur.GroupProductId = new.GroupProductId AND cur.ProductId = new.ProductId
-			WHERE cur.GroupProductId IS NULL OR new.GroupProductId IS NULL
-		)
-		BEGIN
-			-- Remove: Update ToDate for removed
-			UPDATE t
-			SET ToDate = DATEADD(dd,-1,@ActionDate)
-			FROM CPAProductSetting t WITH (ROWLOCK, UPDLOCK)
-			LEFT JOIN @CPAProduct n
-				ON t.GroupId = @GroupId AND t.ToDate = @ToDate
-				AND t.GroupProductId = n.GroupProductId AND t.ProductId = n.ProductId
-			WHERE t.GroupId = @GroupId AND t.ToDate = @ToDate
-			  AND n.GroupProductId IS NULL;
-			-- Add: Insert new rows for added
-			INSERT INTO CPAProductSetting (FromDate, ToDate, GroupId, GroupProductId, ProductId)
-			SELECT @ActionDate, @ToDate, @GroupId, n.GroupProductId, n.ProductId
-			FROM @CPAProduct n
-			LEFT JOIN CPAProductSetting t WITH (NOLOCK)
-				ON t.GroupId = @GroupId AND t.ToDate = @ToDate
-				AND t.GroupProductId = n.GroupProductId AND t.ProductId = n.ProductId
-			WHERE t.GroupProductId IS NULL
-			;
+			SELECT @ActionDate, @ToDate, @GroupId, GroupProductId, ProductId
+			FROM @CPAProduct;
 		END
 	END
 	-- END UPDATE
