@@ -18,7 +18,6 @@ AS
 		- 20241225@Sally: Apply QM Turnover [RedmineID: #212201]
 		- 20250404@Sally: Enhance get BBF by TimeZone [RedmineID: #222352]
 		- 20251007@Danny: Show CPA info [RedmineID: #240525]
-		- 20251111@Lewis: Exclude Deal hybrid for CPA metrics get 204 subcommission [RedmineID: #236665]
 */
 
 BEGIN
@@ -146,7 +145,7 @@ BEGIN
 		SELECT 0, t.MonthDate, TransType, SUM(Amount), 'B/F', 'System' Creator, 'Sub-Affiliate Revenue Share'
 		FROM #tempData_CPA t
 		WHERE TransType IN (204)
-			AND EXISTS (SELECT TOP 1 1 FROM @AffGroupInfo a WHERE a.MonthDate = t.MonthDate AND a.GroupTypeId = 3)
+			AND EXISTS (SELECT TOP 1 1 FROM @AffGroupInfo a WHERE a.MonthDate = t.MonthDate AND a.GroupTypeId IN (3,4))
 		GROUP BY t.MonthDate, TransType
 
 	--  CPA Adjustment

@@ -32,6 +32,8 @@ This section documents the CPA lifecycle job stored procedures. Each entry inclu
 
 Wrapper job SP. Accepts @Step and @Date. If @Date NULL, uses yesterday (GMT+8). Executes sub-SPs conditionally by @Step value (0 runs all). Logs each step into CPAJobLog with timing and basic error message. Truncates CPAJobLog history to last 2000 rows.
 
+Schedule: Executed daily by SQL Server Agent job at 06:00 GMT+8 (production & test environments) before downstream reporting extracts.
+
 Parameters: @Step INT, @Date DATE
 Writes: CPAJobLog rows; cascaded writes inside called procedures.
 Failure: RAISERROR on any sub-step non-zero @ErrCode.
