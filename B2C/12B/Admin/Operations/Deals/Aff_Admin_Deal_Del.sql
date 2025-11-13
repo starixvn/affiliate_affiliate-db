@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_Deal_Del]
 	@UserId				INT
 	,@GroupId			INT
@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20250526@Lewis: Initialize SP [RedmineID: #228530]
 		- 20250903@Lewis: Drop Column IsInstant [RedmineID: #237540]
+        - 20251113@Sally: Add DealVerifyFlags column [RedmineID: #244127]
 
 	Parameter's Explanation:
 
@@ -84,7 +85,8 @@ BEGIN
 		SELECT 
 			GroupName AS dn,
 			CASE WHEN GroupTypeId = 1 THEN 'Revenue Share' WHEN GroupTypeId = 3 THEN 'CPA' ELSE 'Hybrid' END AS dt,
-			Description AS d,
+			DealVerifyFlags AS dv,
+            Description AS d,
 			CAST(SubCommRate AS VARCHAR(50)) AS sr
 		FROM CommGroup WITH (NOLOCK)
 		WHERE GroupId = @GroupId

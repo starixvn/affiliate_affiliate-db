@@ -11,6 +11,7 @@ AS
 	Revisions:
 		- 20250526@Lewis: Initialize SP [RedmineID: #228530]
 		- 20250526@Lewis: Add column IsSubCommRate [RedmineID: #235601]
+        - 20251113@Sally: Add DealVerifyFlags column [RedmineID: #244127]
 */
 
 BEGIN
@@ -20,6 +21,7 @@ BEGIN
 		cg.GroupId,
         cg.GroupName AS DealName,
         cg.GroupTypeId AS DealType,
+        cg.DealVerifyFlags,
         cg.Description,
 		cg.SubCommRate,
 		cg.IsSubCommRate,
@@ -127,8 +129,6 @@ BEGIN
 			d.GroupProductId
 		ORDER BY
 			GroupProductId ASC
-
-
-
+			
 END
 GO

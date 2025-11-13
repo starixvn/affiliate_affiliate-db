@@ -1,8 +1,9 @@
-﻿/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_Deal_Upd]
 	@UserId				INT
 	,@GroupId			INT
 	,@GroupName			NVARCHAR(100) = ''
+	,@DealVerifyFlags	INT = 0
 	,@Description		NVARCHAR(100) = ''
 	,@SubCommRate		DECIMAL(9,8)
 	,@IsSubCommRate		BIT = 1
@@ -36,6 +37,7 @@ AS
 		- 20250930@Lewis: Remove Min Turnover instant payment restriction
 						  Fix same day update to delete old settings instead of creating invalid date ranges 
 						  Add column IsSubCommRate [RedmineID: #235601]
+		- 20251113@Sally: Add DealVerifyFlags column [RedmineID: #244127]
 
 	Parameter's Explanation:
 		- @DeductionList xml = N'
@@ -138,6 +140,13 @@ BEGIN
 	BEGIN
 		-- Sub-commission rate is invalid!
 		SELECT @ErrCode = 106, @ErrMsg = N'Sub-commission rate is invalid!'
+		RETURN
+	END
+
+	IF @DealVerifyFlags IS NULL
+	BEGIN
+		-- Sub-commission rate is invalid!
+		SELECT @ErrCode = 106, @ErrMsg = N'Verification Method is invalid!'
 		RETURN
 	END
 
@@ -472,6 +481,7 @@ BEGIN
 		-- General information
 		,SubCommRate			DECIMAL(9,8)
 		,IsSubCommRate			BIT
+		,DealVerifyFlags		INT
 		,GroupName				NVARCHAR(100)
 		,QMTurnover				MONEY
 		,Description			NVARCHAR(100)
@@ -518,6 +528,7 @@ BEGIN
 		,StartDate DATE
 		,ScheduleId SMALLINT
 		,IsSubCommRate BIT
+		,DealVerifyFlags INT
 	)
 	DECLARE @old_CPATierSetting TABLE(
 		-- 1: OLD, 2: NEW
@@ -553,6 +564,7 @@ BEGIN
 			UpdatedBy = @UserId,
 			UpdatedTime = @CurrentDate,
 			IsSubCommRate = @IsSubCommRate,
+			DealVerifyFlags = @DealVerifyFlags,
 			-- Revenue fields: only update for Revenue(1) and Hybrid(4)
 			QMTurnover = CASE WHEN @GroupTypeId IN (1,4) THEN @QMTurnover ELSE QMTurnover END,
 			-- CPA fields: only update for CPA(3) and Hybrid(4)
@@ -565,11 +577,11 @@ BEGIN
 			RedepositRate = CASE WHEN @GroupTypeId IN (3,4) THEN @RedepositRate ELSE RedepositRate END,
 			StartDate = CASE WHEN @GroupTypeId IN (3,4) THEN @StartDate ELSE StartDate END,
 			ScheduleId = CASE WHEN @GroupTypeId IN (3,4) THEN @ScheduleId ELSE ScheduleId END
-	OUTPUT	DELETED.GroupName, DELETED.SubCommRate, DELETED.Description, DELETED.IsSubCommRate,
+	OUTPUT	DELETED.GroupName, DELETED.DealVerifyFlags, DELETED.SubCommRate, DELETED.Description, DELETED.IsSubCommRate,
 			DELETED.QMTurnover, DELETED.ActiveDays, DELETED.HoldingDays, DELETED.HoldingTickets, 
 			DELETED.Quota, DELETED.CountryCodes, DELETED.RedepositDays, DELETED.RedepositRate, 
 			DELETED.StartDate, DELETED.ScheduleId, 1
-	INTO	#updateData (GroupName, SubCommRate, Description, IsSubCommRate, QMTurnover, 
+	INTO	#updateData (GroupName, DealVerifyFlags, SubCommRate, Description, IsSubCommRate, QMTurnover, 
 			ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, RedepositDays, 
 			RedepositRate, StartDate, ScheduleId, TypeId)
 	WHERE	GroupId = @GroupId;
@@ -578,8 +590,8 @@ BEGIN
 	DELETE dbo.CommGroupHistory WITH(ROWLOCK)
 	WHERE GroupId = @GroupId AND MonthDate = @MonthDate
 
-	INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate, QMTurnover, IsSubCommRate)
-	SELECT @GroupId, @MonthDate, @SubCommRate, @QMTurnover, @IsSubCommRate
+	INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate, QMTurnover, IsSubCommRate, DealVerifyFlags)
+	SELECT @GroupId, @MonthDate, @SubCommRate, @QMTurnover, @IsSubCommRate, @DealVerifyFlags
 
 	-- TODO: UPDATE SETTING
 	IF @GroupTypeId IN (1, 4) -- Revenue Share by Winloss
@@ -771,6 +783,7 @@ BEGIN
 			SELECT 
 				GroupName AS dn,
 				CASE WHEN @GroupTypeId = 1 THEN 'Revenue Share' WHEN @GroupTypeId = 3 THEN 'CPA' ELSE 'Hybrid' END AS dt,
+				DealVerifyFlags AS dv,
 				Description AS d,
 				CAST(SubCommRate AS VARCHAR(50)) AS sr
 			FROM #updateData WHERE TypeId = 1
@@ -780,6 +793,7 @@ BEGIN
 			SELECT 
 				@GroupName AS dn,
 				CASE WHEN @GroupTypeId = 1 THEN 'Revenue Share' WHEN @GroupTypeId = 3 THEN 'CPA' ELSE 'Hybrid' END AS dt,
+				@DealVerifyFlags AS dv,
 				@Description AS d,
 				CAST(@SubCommRate AS VARCHAR(50)) AS sr
 			FOR JSON PATH, WITHOUT_ARRAY_WRAPPER

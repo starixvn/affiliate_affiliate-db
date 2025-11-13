@@ -1,9 +1,10 @@
-﻿/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Aff_Admin_Deal_Ins]
 	@UserId				INT
 	,@GroupId			INT = 0 OUTPUT
 	,@GroupName			NVARCHAR(100) = ''
 	,@GroupTypeId		INT = 1
+    ,@DealVerifyFlags	INT = 0
 	,@Description		NVARCHAR(100) = ''
 	,@SubCommRate		DECIMAL(9,8)
 	,@IsSubCommRate		BIT = 1
@@ -23,7 +24,7 @@ CREATE PROCEDURE [dbo].[Aff_Admin_Deal_Ins]
 	,@StartDate			DATE
 	,@ScheduleId		SMALLINT = 0
     ,@CPATierList       XML = NULL
-    ,@CPAProductList    XML = NULL
+    ,@CPAProductList    XML = NULL	
 	,@IP				VARCHAR(50) = ''
 	,@ErrCode			INT = 0 OUTPUT
 	,@ErrMsg			NVARCHAR(MAX) = '' OUTPUT
@@ -39,6 +40,7 @@ AS
 		- 20250903@Lewis: For Monthly Deal -- Change ApproveDate DealBillingSchedule 4th [RedmineID: #237540]
 		- 20250930@Lewis: Remove Min Turnover instant payment restriction
 						  Add column IsSubCommRate [RedmineID: #235601]
+		- 20251113@Sally: Add DealVerifyFlags column [RedmineID: #244127]
 
 	Parameter's Explanation:
 		- @DeductionList xml = N'
@@ -139,6 +141,13 @@ BEGIN
 	BEGIN
 		-- Sub-commission rate is invalid!
 		SELECT @ErrCode = 106, @ErrMsg = N'Sub-commission rate is invalid!'
+		RETURN
+	END
+
+	IF @DealVerifyFlags IS NULL
+	BEGIN
+		-- Verification Method is invalid!
+		SELECT @ErrCode = 107, @ErrMsg = N'Verification Method is invalid!'
 		RETURN
 	END
 
@@ -464,14 +473,14 @@ BEGIN
 	
 	-- Single consolidated INSERT with CASE WHEN for clean logic
 	INSERT INTO dbo.CommGroup (
-		GroupName, Description, Creator, CreatedDate, IsDeleted, SubCommRate, GroupTypeId, UpdatedBy, UpdatedTime, IsSubCommRate,
+		GroupName, Description, Creator, CreatedDate, IsDeleted, SubCommRate, GroupTypeId, UpdatedBy, UpdatedTime, IsSubCommRate, DealVerifyFlags,
 		-- Revenue fields (for types 1,4)
 		QMTurnover,
 		-- CPA fields (for types 3,4)
 		ActiveDays, HoldingDays, HoldingTickets, Quota, CountryCodes, RedepositDays, RedepositRate, StartDate, ScheduleId
 	)
 	VALUES (
-		@GroupName, @Description, @UserId, @CurrentDate, 0, @SubCommRate, @GroupTypeId, @UserId, @CurrentDate, @IsSubCommRate,
+		@GroupName, @Description, @UserId, @CurrentDate, 0, @SubCommRate, @GroupTypeId, @UserId, @CurrentDate, @IsSubCommRate, @DealVerifyFlags,
 		-- Revenue fields: only populate for Revenue(1) and Hybrid(4)
 		CASE WHEN @GroupTypeId IN (1,4) THEN @QMTurnover ELSE NULL END,
 		-- CPA fields: only populate for CPA(3) and Hybrid(4)  
@@ -496,8 +505,8 @@ BEGIN
 	END;
 	
 	--History Group
-	INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate, QMTurnover, IsSubCommRate)
-	VALUES (@GroupId, @MonthDate, @SubCommRate, @QMTurnover, @IsSubCommRate)
+	INSERT INTO dbo.CommGroupHistory (GroupId, MonthDate, SubCommRate, QMTurnover, IsSubCommRate, DealVerifyFlags)
+	VALUES (@GroupId, @MonthDate, @SubCommRate, @QMTurnover, @IsSubCommRate, @DealVerifyFlags)
 
 	IF @GroupTypeId IN (1, 4) -- Revenue
     BEGIN
@@ -553,6 +562,7 @@ BEGIN
 		SELECT 
 			@GroupName AS dn,
 			CASE WHEN @GroupTypeId = 1 THEN 'Revenue Share' WHEN @GroupTypeId = 3 THEN 'CPA' ELSE 'Hybrid' END AS dt,
+			@DealVerifyFlags AS dv,
 			@Description AS d,
 			CAST(@SubCommRate AS VARCHAR(50)) AS sr
 			FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
