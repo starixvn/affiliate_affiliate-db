@@ -107,11 +107,6 @@ GROUP BY CustomerID;
 - Transaction wrappers
 - Execution time tracking
 
-## 🎯 Server Alias Mapping
-- **Development**: `DBAFFN88-Affiliate_N88`
-- **Production**: `DBAFF12B-Affiliate_12B`
-- **Test**: `DBAFFT01-Affiliate_Test`
-
 ## ✅ Output Requirements
 
 1. **Generate filename**: `{YYYYMMDD}_{TaskDescription}.sql`
