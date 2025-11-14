@@ -525,7 +525,7 @@ BEGIN
 	-- ===============================
 	DECLARE @ApprovedCPAAmount MONEY --Approved
 			,@TentativeCPAAmount MONEY
-			,@GroupTypeName NVARCHAR(200) = 'Hybrid'
+			,@GroupTypeName NVARCHAR(200) = 'Hybrid CPA/Revenue Share'
 			,@QualifiedMemberCPA INT
 			,@RemainQuota INT
 			,@Quota INT
@@ -564,7 +564,7 @@ BEGIN
 						AND cg.GroupTypeId <> 1
 					)
 	BEGIN 
-		SET @GroupTypeName = 'Revenue'
+		SET @GroupTypeName = 'Revenue Share'
 	END
 
 	-- ApprovedCPAAmount
@@ -619,6 +619,8 @@ BEGIN
 
 	-- Return result
 	BEGIN
+		SELECT @GroupTypeName				AS GroupTypeName
+
 		SELECT
 			ISNULL(@Signups, 0)				AS Signups
 			,ISNULL(@DepositedMembers, 0)	AS DepositedMembers
@@ -638,7 +640,7 @@ BEGIN
 			,ISNULL(@ApprovedCPAAmount, 0)	AS ApprovedCPAAmount
 			,ISNULL(@TentativeCPAAmount, 0)	AS TentativeCPAAmount
 			,ISNULL(@QualifiedMemberCPA,0)	AS QualifiedMemberCPA --CPA
-			,@GroupTypeName					AS GroupType
+			
 	END
 END
 GO

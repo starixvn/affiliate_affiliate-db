@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20241118@Eddie: Initialize SP [RedmineID: #212201]
+		- 20251117@Lewis: Add more column grouptypename [RedmineID: #242956]
 
 	Parameter's Explanation:
 		- @UserName: username
@@ -57,9 +58,12 @@ BEGIN
 		,CONVERT(BIT, ISNULL(ad.DisabledTransfer, 1)) AS DisabledTransfer
 		,ISNULL(@Dep_IsDeductedPercent, 0) AS Dep_IsDeductedPercent
 		,ISNULL(@Wit_IsDeductedPercent, 0) AS Wit_IsDeductedPercent
+		,gt.GroupTypeName
+		,gt.GroupTypeId
 	FROM dbo.AffInfo ai WITH (NOLOCK)
 		INNER JOIN dbo.AffDetail ad WITH (NOLOCK) ON ai.AffID = ad.AffID
 		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON ai.GroupID = cg.GroupID
+		INNER JOIN dbo.GroupType gt WITH (NOLOCK) ON gt.GroupTypeId = cg.GroupTypeId
 		OUTER APPLY (SELECT COUNT(1) AS SubLevel FROM dbo.Aff_f_StringSplit(ai.AllParentAffId, ',')) l
 	WHERE ai.AffId = @AffId
 	OPTION (MAXRECURSION 0)

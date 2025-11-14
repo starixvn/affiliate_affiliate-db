@@ -4,7 +4,6 @@ CREATE PROCEDURE [dbo].[Aff_User_Overview_Detail_Sel]
 	,@FromDate		SMALLDATETIME
 	,@ToDate		SMALLDATETIME
 	,@BaseCurrency	INT = 0
-	,@IsGetMonthly  BIT = 1
 AS
 
 /*
@@ -84,7 +83,9 @@ BEGIN
 		CREATE TABLE #Data (WinlostDate SMALLDATETIME, CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, GGR MONEY, IsActive TINYINT
 							, MonthDate DATETIME)
 		
-		-- Deposit Amount
+		DECLARE @QualifiedMemberCPA TABLE (WinlostDate SMALLDATETIME, QualifiedMemberCPA INT)
+
+		-- Deposit Amount + QualifiedMemberCPA
 		-- Check if date range is before commission boundary
 		IF @FromDate <= @MaxCommDate
 		BEGIN
@@ -122,6 +123,15 @@ BEGIN
 				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON rd.Currency = t.TpExchangeId
 				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(rd.MonthDate, ISNULL(t.ExchangeId, rd.Currency), @BaseExchangeId) e
 			GROUP BY rd.WinlostDate, rd.CustId, rd.MonthDate
+
+			--QualifiedMemberCPA --pastmonth
+			INSERT INTO @QualifiedMemberCPA(WinlostDate, QualifiedMemberCPA)
+			SELECT mc.CPADate, COUNT(mc.CustId) AS QualifiedMemberCPA
+			FROM dbo.MemberCPA mc WITH (NOLOCK)
+			WHERE mc.StatusId = 3
+				AND mc.CPADate BETWEEN @FDate AND @TDate
+				AND mc.AffId = @AffId
+			GROUP BY mc.CPADate
 		END
 		
 		IF @ToDate > @MaxCommDate
@@ -208,6 +218,25 @@ BEGIN
 				IsActive,
 				MonthDate
 			FROM CTE_CombinedData
+
+			--QualifiedMemberCPA --currentmonth
+			INSERT INTO @QualifiedMemberCPA(WinlostDate, QualifiedMemberCPA)
+			SELECT WinlostDate, QualifiedMemberCPA
+			FROM (
+					SELECT mc.CPADate AS WinlostDate, COUNT(mc.CustId) AS QualifiedMemberCPA
+					FROM dbo.MemberCPA mc WITH (NOLOCK)
+					WHERE mc.StatusId = 3 --settled
+						AND mc.CPADate BETWEEN @FDate AND @TDate
+						AND mc.AffId = @AffId
+					GROUP BY mc.CPADate
+					UNION ALL
+					SELECT mc.HoldingQualifiedDate, COUNT(mc.CustId) AS QualifiedMemberCPA
+					FROM dbo.MemberCPA mc WITH (NOLOCK)
+					WHERE mc.StatusId = 2 --Eligibled
+						AND mc.HoldingQualifiedDate BETWEEN @FDate AND @TDate
+						AND mc.AffId = @AffId
+					GROUP BY mc.HoldingQualifiedDate
+				) t
 		END
 
 		CREATE CLUSTERED INDEX CIX_IBCCustId_WinlostDate ON #Data (CustId, WinlostDate)
@@ -253,13 +282,23 @@ BEGIN
 					AND NOT EXISTS (SELECT 1 FROM @ActiveMembers a WHERE d.CustId = a.CustId)
 
 				INSERT INTO @QualifiedActiveMembers (WinlostDate, CustId, Turnover)
-				SELECT @tmpWinlostDate AS WinlostDate, CustId, SUM(Turnover) AS Turnover
-				FROM #Data d
-					INNER JOIN @QMTurnOver q ON q.MonthDate = d.MonthDate
-				WHERE WinlostDate <= @tmpWinlostDate
-					AND NOT EXISTS (SELECT 1 FROM @QualifiedActiveMembers q WHERE d.CustId = q.CustId)
-				GROUP BY CustId
-				HAVING SUM(Turnover) >= q.QMTurnover
+				SELECT 
+					x.WinlostDate,
+					x.CustId,
+					x.TotalTurnover
+				FROM (
+					SELECT  
+						@tmpWinlostDate AS WinlostDate,
+						d.CustId,
+						SUM(d.Turnover) AS TotalTurnover,
+						q.QMTurnover
+					FROM #Data d
+						INNER JOIN @QMTurnOver q ON q.MonthDate = d.MonthDate
+					WHERE d.WinlostDate <= @tmpWinlostDate
+						AND NOT EXISTS (SELECT 1 FROM @QualifiedActiveMembers qa WHERE d.CustId = qa.CustId)
+					GROUP BY d.CustId, q.QMTurnover
+				) x
+				WHERE x.TotalTurnover >= x.QMTurnover
 			END
 
 			SELECT @tmpWinlostDate = DATEADD(DAY, 1, @tmpWinlostDate)
@@ -272,7 +311,7 @@ BEGIN
 	DECLARE @TimeZone INT
 	SELECT @TimeZone = CAST(SValue AS INT) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
 
-	DECLARE @GroupTypeName NVARCHAR(200) = 'Hybrid'
+	DECLARE @GroupTypeName NVARCHAR(200) = 'Hybrid CPA/Revenue Share'
 			,@CurrentDate DATETIME = DATEADD(HOUR, @TimeZone, GETUTCDATE())
 	
 	-- @GroupTypeName
@@ -299,8 +338,9 @@ BEGIN
 						AND cg.GroupTypeId <> 1
 					)
 	BEGIN 
-		SET @GroupTypeName = 'Revenue'
+		SET @GroupTypeName = 'Revenue Share'
 	END
+
 
 	-- Return result
 	BEGIN
@@ -323,7 +363,7 @@ BEGIN
 			,ISNULL(d.GGR, 0)				AS GGR
 			,ISNULL(a.ActiveMembers, 0)		AS ActiveMembers
 			,ISNULL(q.QualifiedActiveMembers, 0)	AS QualifiedActiveMembers
-			, 0 AS QualifiedMemberCPA
+			,ISNULL(mc.QualifiedMemberCPA, 0) AS QualifiedMemberCPA
 		FROM CTE_WinlostDate wld
 			OUTER APPLY (
 				SELECT SUM(s.Signups) AS Signups, SUM(s.DepositedMembers) AS DepositedMembers
@@ -345,6 +385,11 @@ BEGIN
 				FROM @QualifiedActiveMembers q
 				WHERE wld.WinlostDate = q.WinlostDate
 			) q
+			OUTER APPLY (
+				SELECT SUM(QualifiedMemberCPA) AS QualifiedMemberCPA
+				FROM  @QualifiedMemberCPA mc
+				WHERE wld.WinlostDate = mc.WinlostDate
+			) mc
 		ORDER BY wld.WinlostDate DESC
 	END
 
