@@ -18,7 +18,7 @@ This section documents the CPA lifecycle job stored procedures. Each entry inclu
 
 
 0 Pending / Active Phase in progress
-1 Active Completed (Holding pending or failed)
+1 Active Completed (Holding failed)
 2 Eligible (Holding met & awaiting payment window / redeposit)
 3 Settled / Paid
 4 Abnormal (excluded)
@@ -203,8 +203,6 @@ Failure: Null date check; updates may skip if no schedules match.
 Re-run: Not idempotent; should only run once per cycle per @Date.
 
 ---
-
-Next Step: Confirm this section before documenting Deal Setting SPs.
 
 ## Deal Setting Stored Procedures (Part 2)
 
@@ -511,8 +509,6 @@ Errors: 101/102 as above.
 * JSON keys abbreviate domain terms: dn (DealName), dt (DealType text), sr (SubCommRate), qpt (Quarterly? Actually QMTurnover), cqp (IsActivePlayerSum), fd/td/w (MinFDM, MinTotalDeposit, MinTO), cpa (CPAAmount), rpg/cpg (Revenue/CPA product groups), rf (Revenue factor deduction pct), rti/cti (tier arrays), ap/hd/ht/q/rd/rr etc.
 
 ---
-
-Next Step: Review Part 2 formatting, then proceed to Assignment & Reporting SPs (Part 3) upon confirmation.
 
 ## Assignment & Reporting Stored Procedures (Part 3)
 

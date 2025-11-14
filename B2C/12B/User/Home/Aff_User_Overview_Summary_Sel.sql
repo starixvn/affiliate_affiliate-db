@@ -1,8 +1,10 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
 CREATE  PROCEDURE [dbo].[Aff_User_Overview_Summary_Sel]
 	@AffId			INT
-	,@MonthDate		SMALLDATETIME
+	,@FromDate		SMALLDATETIME
+	,@ToDate		SMALLDATETIME
 	,@BaseCurrency	INT = 0
+	,@IsGetMonthly	BIT = 1
 AS
 
 /*
@@ -21,23 +23,34 @@ AS
 		- 20250929@Sophia: Add TotalClick and UniqueClick columns [RedmineID: #239549]
 		- 20251002@Sophia: Implement hybrid approach using rptMemberDaily for historical data and DepositInfo for recent data based on commission date boundary [RedmineID: #239737]
 		- 20251022@Sophia: Add IsExcluded = 0 condition to filter excluded clicks [RedmineID: #241768]
-		- 20251113@Lewis: Add preliminary CPA dashboard metrics & GroupTypeName (Spec #240535)
+		- 20251118@AI: Add date-range mode, CPA metrics (Approved/Tentative/Qualified), and GroupType detection [RedmineID: #202506]
 
 	Notes:
+	  - @IsGetMonthly = 1: Monthly mode (uses commission engines); = 0: Date-range mode (direct rptMemberDaily)
 	  - rptMemberDaily.WinlostDate is in GMT+8
 	  - bodb_12B.dbo.DepositInfo.CreateTime is in GMT+0
 	  - bodb_12B.dbo.DepositInfo.WinlostDate is indexed (Date of CreateTime)
 	  - Data separation: rptMemberDaily for historical data (before commission boundary), DepositInfo for recent data (after commission boundary)
 	  - Commission boundary = @CommissionBoundary = AFF_CommissionDate + 1 day
+	  - CPA: StatusId 2=Eligible, 3=Settled; Quota from current open-ended AffGroupHistory row
 */
 
 BEGIN
 	SET NOCOUNT ON
 	
-	-- date range for get data whole month of @MonthDate
+	-- Date range normalization
 	DECLARE @BeginOfMonth SMALLDATETIME, @ToNextMonth SMALLDATETIME
-	SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @MonthDate), 0)
-	SELECT  @ToNextMonth	= DATEADD(MONTH, 1, @BeginOfMonth)
+	IF @IsGetMonthly = 1
+	BEGIN
+		-- Monthly mode: normalize to month boundaries
+		SELECT  @BeginOfMonth	= DATEADD(MONTH, DATEDIFF(MONTH, 0, @FromDate), 0)
+		SELECT  @ToNextMonth	= DATEADD(MONTH, 1, @BeginOfMonth)
+	END
+	ELSE
+	BEGIN
+		-- Date-range mode: use supplied dates directly
+		SELECT @BeginOfMonth = @FromDate, @ToNextMonth = @ToDate
+	END
 
 	-- Pre-calculate DATE variables for WinlostDate index optimization
 	DECLARE @WinlostDateFrom DATE, @WinlostDateTo DATE
@@ -195,24 +208,120 @@ BEGIN
 			AND Status IN ('Pending', 'Approved', 'Completed')
 	END
 
+	-- GroupType Detection
+	BEGIN
+		DECLARE @GroupTypeName VARCHAR(20) = 'Hybrid'
+		
+		-- Check if affiliate has any non-CPA groups (GroupTypeId <> 3) in date range
+		DECLARE @HasNonCPA BIT = 0, @HasNonRevenue BIT = 0
+		
+		IF EXISTS (
+			SELECT 1 FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+			INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON agh.GroupId = cg.GroupId
+			WHERE agh.AffId = @AffId
+				AND agh.FromDate < @ToNextMonth
+				AND agh.ToDate >= @BeginOfMonth
+				AND cg.GroupTypeId <> 3  -- Not CPA
+		)
+			SET @HasNonCPA = 1
+		
+		IF EXISTS (
+			SELECT 1 FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+			INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON agh.GroupId = cg.GroupId
+			WHERE agh.AffId = @AffId
+				AND agh.FromDate < @ToNextMonth
+				AND agh.ToDate >= @BeginOfMonth
+				AND cg.GroupTypeId <> 1  -- Not Revenue Share
+		)
+			SET @HasNonRevenue = 1
+		
+		IF @HasNonCPA = 0
+			SET @GroupTypeName = 'CPA'
+		ELSE IF @HasNonRevenue = 0
+			SET @GroupTypeName = 'Revenue'
+	END
+
+	-- CPA Metrics
+	BEGIN
+		DECLARE @ApprovedCPAAmount MONEY = 0, @TentativeCPAAmount MONEY = 0, @QualifiedMemberCPA INT = 0
+		DECLARE @Quota INT, @RemainQuota INT, @CurrentGroupId INT
+		DECLARE @CurrentDate SMALLDATETIME = GETDATE()
+		
+		-- Get current group and quota from open-ended history row
+		SELECT TOP 1 @CurrentGroupId = agh.GroupId,
+			@Quota = CASE WHEN cg.Quota = 0 THEN NULL ELSE cg.Quota END
+		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON agh.GroupId = cg.GroupId
+		WHERE agh.AffId = @AffId
+			AND agh.ToDate = '9999-12-31'
+		ORDER BY agh.FromDate DESC
+		
+		IF @CurrentGroupId IS NOT NULL
+		BEGIN
+			-- Approved CPA (StatusId=3, CPADate in range)
+			SELECT @ApprovedCPAAmount = SUM(CPAAmount)
+			FROM dbo.MemberCPA WITH (NOLOCK)
+			WHERE AffId = @AffId
+				AND GroupId = @CurrentGroupId
+				AND StatusId = 3
+				AND CPADate >= @BeginOfMonth
+				AND CPADate < @ToNextMonth
+			
+			-- Calculate remaining quota (all-time consumption)
+			DECLARE @SettledCount INT
+			SELECT @SettledCount = COUNT(1)
+			FROM dbo.MemberCPA WITH (NOLOCK)
+			WHERE AffId = @AffId
+				AND GroupId = @CurrentGroupId
+				AND StatusId = 3
+			
+			IF @Quota IS NULL
+				SET @RemainQuota = 2147483647  -- Unlimited
+			ELSE
+				SET @RemainQuota = @Quota - @SettledCount
+			
+			-- Qualified CPA (current month only: add eligible candidates)
+			IF MONTH(@ToNextMonth) = MONTH(DATEADD(DAY, 1, @CurrentDate))  -- Current month check
+			BEGIN
+				DECLARE @EligibleCount INT
+				SELECT @EligibleCount = COUNT(1)
+				FROM dbo.MemberCPA WITH (NOLOCK)
+				WHERE AffId = @AffId
+					AND GroupId = @CurrentGroupId
+					AND StatusId = 2  -- Eligible
+					AND HoldingQualifiedDate <= @ToNextMonth
+				
+				SET @QualifiedMemberCPA = @SettledCount + CASE WHEN @RemainQuota < @EligibleCount THEN @RemainQuota ELSE @EligibleCount END
+				
+				-- Tentative CPA: sum top N eligible by HoldingQualifiedDate
+				SELECT @TentativeCPAAmount = SUM(CPAAmount)
+				FROM (
+					SELECT TOP (@RemainQuota) CPAAmount
+					FROM dbo.MemberCPA WITH (NOLOCK)
+					WHERE AffId = @AffId
+						AND GroupId = @CurrentGroupId
+						AND StatusId = 2
+						AND HoldingQualifiedDate <= @ToNextMonth
+					ORDER BY HoldingQualifiedDate ASC, FirstDepositDate ASC, MemberCPA_ID ASC
+				) AS TopEligible
+			END
+			ELSE
+			BEGIN
+				-- Past months: only settled count
+				SELECT @QualifiedMemberCPA = COUNT(1)
+				FROM dbo.MemberCPA WITH (NOLOCK)
+				WHERE AffId = @AffId
+					AND GroupId = @CurrentGroupId
+					AND StatusId = 3
+					AND CPADate >= @BeginOfMonth
+					AND CPADate < @ToNextMonth
+			END
+		END
+	END
+
 	-- Active Players, Turnover, Deposit, Commission, QualifiedMember
 	BEGIN
-		DECLARE @NoOfSubAff INT
-			,@ActivePlayers INT
-			,@QualifiedMember INT
-			,@Turnover MONEY
-			,@Commission MONEY
-			,@SubAffCommission MONEY
-			,@NetGGR MONEY
-			-- CPA related (initial lightweight implementation)
-			,@GroupTypeName VARCHAR(20) = 'RevenueShare'
-			,@QualifiedCPAPlayers INT = 0
-			,@TentativeCPAAmount MONEY = 0
-			,@ApprovedCPAAmount MONEY = 0
-			,@IsCurrentMonth BIT
-
-		-- Determine current month flag (compare input @MonthDate month with current GMT+8 date month)
-		SET @IsCurrentMonth = CASE WHEN (YEAR(@BeginOfMonth) = YEAR(DATEADD(HOUR,8,GETDATE())) AND MONTH(@BeginOfMonth) = MONTH(DATEADD(HOUR,8,GETDATE()))) THEN 1 ELSE 0 END
+		DECLARE @NoOfSubAff INT, @ActivePlayers INT, @QualifiedMember INT, @Turnover MONEY, @Commission MONEY, @SubAffCommission MONEY, @NetGGR MONEY
 
 		SELECT @NoOfSubAff = COUNT(1)
 		FROM dbo.AffInfo WITH (NOLOCK)
@@ -257,85 +366,152 @@ BEGIN
 		SELECT  @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 		SELECT  @AffIds = CONVERT(VARCHAR(20), @AffId)
 
-		IF @BeginOfMonth > @MaxCommDate
+		-- Revenue Share: Monthly mode uses commission engines
+		IF @IsGetMonthly = 1
 		BEGIN
-			INSERT INTO #TempCommission
-			(
-				MonthDate,
-				AffId,
-				GroupId,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Rebate,
-				Turnover,
-				Winloss,
-				Revenue,
-				P2PFee,
-				PlatFormFee,
-				OperationalFee,
-				DepositFee,
-				WithdrawalFee,
-				GrossWinloss,
-				NetWinloss,
-				NetTurnover,
-				ActivePlayer,
-				QualifiedMember,
-				CommissionRate,
-				Commission,
-				StraightCommission,
-				SubAffCommission,
-				IsMultiGroupProduct
-			)
-			EXEC dbo.Aff_Commission_UnCalc
-				@AffIds				= @AffIds,
-				@FromMonthDate		= @BeginOfMonth,
-				@ToMonthDate		= @BeginOfMonth,
-				@ProductIds			= '0',
-				@BaseCurrency		= @BaseCurrency,
-				@IsSumAll			= 1,
-				@GetRowTotalOnly	= 1
+			IF @BeginOfMonth > @MaxCommDate
+			BEGIN
+				INSERT INTO #TempCommission
+				(
+					MonthDate,
+					AffId,
+					GroupId,
+					ProductId,
+					Deposit,
+					Withdrawal,
+					Bonus,
+					Rebate,
+					Turnover,
+					Winloss,
+					Revenue,
+					P2PFee,
+					PlatFormFee,
+					OperationalFee,
+					DepositFee,
+					WithdrawalFee,
+					GrossWinloss,
+					NetWinloss,
+					NetTurnover,
+					ActivePlayer,
+					QualifiedMember,
+					CommissionRate,
+					Commission,
+					StraightCommission,
+					SubAffCommission,
+					IsMultiGroupProduct
+				)
+				EXEC dbo.Aff_Commission_UnCalc
+					@AffIds				= @AffIds,
+					@FromMonthDate		= @BeginOfMonth,
+					@ToMonthDate		= @BeginOfMonth,
+					@ProductIds			= '0',
+					@BaseCurrency		= @BaseCurrency,
+					@IsSumAll			= 1,
+					@GetRowTotalOnly	= 1
+			END
+			ELSE
+			BEGIN
+				INSERT INTO #TempCommission
+				(
+					MonthDate,
+					AffId,
+					GroupId,
+					ProductId,
+					Deposit,
+					Withdrawal,
+					Bonus,
+					Rebate,
+					Turnover,
+					Winloss,
+					Revenue,
+					P2PFee,
+					PlatFormFee,
+					OperationalFee,
+					DepositFee,
+					WithdrawalFee,
+					GrossWinloss,
+					NetWinloss,
+					NetTurnover,
+					ActivePlayer,
+					QualifiedMember,
+					CommissionRate,
+					Commission,
+					StraightCommission,
+					SubAffCommission,
+					IsMultiGroupProduct
+				)
+					EXEC dbo.Aff_Commission_Calc
+						@AffIds				= @AffIds,
+						@FromMonthDate		= @BeginOfMonth,
+						@ToMonthDate		= @BeginOfMonth,
+						@ProductIds			= '0',
+						@BaseCurrency		= @BaseCurrency,
+						@IsSumAll			= 1,
+						@GetRowTotalOnly	= 1
+			END
 		END
 		ELSE
 		BEGIN
-			INSERT INTO #TempCommission
-			(
-				MonthDate,
-				AffId,
-				GroupId,
-				ProductId,
-				Deposit,
-				Withdrawal,
-				Bonus,
-				Rebate,
-				Turnover,
-				Winloss,
-				Revenue,
-				P2PFee,
-				PlatFormFee,
-				OperationalFee,
-				DepositFee,
-				WithdrawalFee,
-				GrossWinloss,
-				NetWinloss,
-				NetTurnover,
-				ActivePlayer,
-				QualifiedMember,
-				CommissionRate,
-				Commission,
-				StraightCommission,
-				SubAffCommission,
-				IsMultiGroupProduct
+			-- Date-range mode: Direct rptMemberDaily aggregation
+			CREATE TABLE #DataMemberDaily (
+				MonthDate SMALLDATETIME,
+				AffId INT,
+				Currency INT,
+				CustId INT,
+				ProductId INT,
+				Turnover MONEY,
+				Winloss MONEY,
+				Bonus MONEY,
+				Rebate MONEY
 			)
-			EXEC dbo.Aff_Commission_Calc
-				@AffIds				= @AffIds,
-				@FromMonthDate		= @BeginOfMonth,
-				@ToMonthDate		= @BeginOfMonth,
-				@ProductIds			= '0',
-				@BaseCurrency		= @BaseCurrency,
-				@IsSumAll			= 1,
-				@GetRowTotalOnly	= 1
+			
+			INSERT INTO #DataMemberDaily (MonthDate, AffId, Currency, CustId, ProductId, Turnover, Winloss, Bonus, Rebate)
+			SELECT 
+				CONVERT(DATE, EOMONTH(r.WinlostDate)) AS MonthDate,
+				r.AffId,
+				r.Currency,
+				r.CustId,
+				r.ProductId,
+				SUM(ISNULL(r.Turnover, 0)) AS Turnover,
+				SUM(ISNULL(r.Winloss, 0)) AS Winloss,
+				SUM(ISNULL(r.Bonus, 0)) AS Bonus,
+				SUM(ISNULL(r.Rebate, 0)) AS Rebate
+			FROM dbo.rptMemberDaily r WITH (NOLOCK)
+			WHERE r.AffId = @AffId
+				AND r.WinlostDate >= @BeginOfMonth
+				AND r.WinlostDate < @ToNextMonth
+				AND NOT EXISTS (
+					SELECT 1 FROM dbo.MemberRemoval mr WITH (NOLOCK)
+					WHERE mr.CustId = r.CustId
+						AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
+				)
+			GROUP BY CONVERT(DATE, EOMONTH(r.WinlostDate)), r.AffId, r.Currency, r.CustId, r.ProductId
+			
+			-- Get QM Turnover from group history and calculate metrics
+			INSERT INTO #TempCommission (MonthDate, AffId, Turnover, NetWinloss, ActivePlayer, QualifiedMember)
+			SELECT 
+				dmd.MonthDate,
+				dmd.AffId,
+				SUM(dmd.Turnover * ex.Rate) AS Turnover,
+				SUM((dmd.Winloss - dmd.Bonus - dmd.Rebate) * ex.Rate) AS NetWinloss,
+				COUNT(DISTINCT CASE WHEN dmd.ProductId > 0 THEN dmd.CustId END) AS ActivePlayer,
+				COUNT(DISTINCT CASE 
+					WHEN dmd.ProductId > 0 AND SUM(dmd.Turnover) >= ISNULL(cgh.QMTurnover, 0) 
+					THEN dmd.CustId 
+				END) AS QualifiedMember
+			FROM #DataMemberDaily dmd
+			LEFT JOIN dbo.AffGroupHistory agh WITH (NOLOCK) 
+				ON agh.AffId = dmd.AffId 
+				AND agh.FromDate <= dmd.MonthDate 
+				AND agh.ToDate >= dmd.MonthDate
+			LEFT JOIN dbo.CommGroupHistory cgh WITH (NOLOCK) 
+				ON cgh.GroupId = agh.GroupId 
+				AND cgh.MonthDate = dmd.MonthDate
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON dmd.Currency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(dmd.MonthDate, ISNULL(t.ExchangeId, dmd.Currency), @BaseExchangeId) ex
+			GROUP BY dmd.MonthDate, dmd.AffId
+			
+			DROP TABLE #DataMemberDaily
 		END
 
 		SELECT
@@ -346,127 +522,6 @@ BEGIN
 			,@SubAffCommission	= SUM(ISNULL(SubAffCommission, 0))
 			,@NetGGR			= SUM(ISNULL(NetWinloss, 0))
 		FROM #TempCommission
-
-		/* -------------------------------------------------
-		   CPA Block (Revised per schema + business rules #240535)
-		   StatusId mapping (from business.md):
-		     0 Pending, 1 ActiveCompleted, 2 Eligible, 3 Paid, 4 Abnormal, 5 QuotaExceeded, 6 RedepositFailed
-		   Definitions (month scope @BeginOfMonth..@ToNextMonth):
-		     - Eligible players: StatusId = 2 with HoldingQualifiedDate in month window
-		     - Settled (Paid) players: StatusId = 3 with CPADate in month window
-		     - Current month QualifiedCPAPlayers = SettledCount + MIN(RemainingQuota, EligibleCount)
-		         RemainingQuota = (Quota - SettledCount, floor 0); Quota from CPAGroupSetting (current version) or CommGroup. NULL quota => unlimited
-		     - Past month QualifiedCPAPlayers = SettledCount only (spec: Past month shows settled players)
-		     - TentativeCPAAmount (current month only) = SUM CPAAmount of top Eligible rows ordered by HoldingQualifiedDate, FirstDepositDate limited by RemainingQuota
-		     - ApprovedCPAAmount = SUM CPAAmount of Settled (StatusId=3) rows in window
-		   GroupTypeName determination:
-		     - Derive from affiliate group history / CommGroup.GroupTypeId if available; fallback hybrid detection (has RS commission + CPA data)
-		-------------------------------------------------- */
-
-		DECLARE @AffGroupId INT = NULL
-		-- Prefer group from AffGroupHistory for target month (EOMONTH snapshot)
-		SELECT TOP (1) @AffGroupId = agh.GroupId
-		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-		WHERE agh.AffId = @AffId AND agh.MonthDate = EOMONTH(@BeginOfMonth)
-		ORDER BY agh.MonthDate DESC
-
-		IF @AffGroupId IS NULL
-			SELECT @AffGroupId = ai.GroupId FROM dbo.AffInfo ai WITH (NOLOCK) WHERE ai.AffId = @AffId
-
-		-- Resolve GroupTypeName from CommGroup -> GroupType
-		DECLARE @GroupTypeId INT
-		IF @AffGroupId IS NOT NULL
-		BEGIN
-			SELECT @GroupTypeId = cg.GroupTypeId
-			FROM dbo.CommGroup cg WITH (NOLOCK)
-			WHERE cg.GroupId = @AffGroupId
-		END
-
-		IF @GroupTypeId IS NOT NULL
-		BEGIN
-			SELECT @GroupTypeName = gt.GroupTypeName
-			FROM dbo.GroupType gt WITH (NOLOCK)
-			WHERE gt.GroupTypeId = @GroupTypeId AND gt.IsEnabled = 1
-		END
-
-		-- Detect existence of MemberCPA rows (restrict to month to avoid historical noise)
-		IF EXISTS (SELECT 1 FROM dbo.MemberCPA WITH (NOLOCK) WHERE AffId = @AffId AND (HoldingQualifiedDate >= @BeginOfMonth AND HoldingQualifiedDate < @ToNextMonth OR CPADate >= @BeginOfMonth AND CPADate < @ToNextMonth))
-		BEGIN
-			-- If GroupTypeName still NULL fallback to CPA/Hybrid inference
-			IF @GroupTypeName IS NULL
-			BEGIN
-				DECLARE @HasRS BIT = CASE WHEN ISNULL(@Commission,0) > 0 OR ISNULL(@Turnover,0) > 0 THEN 1 ELSE 0 END
-				SET @GroupTypeName = CASE WHEN @HasRS = 1 THEN 'Hybrid' ELSE 'CPA' END
-			END
-
-			-- Get quota from current CPAGroupSetting version (ToDate NULL or max future) overlapping month
-			DECLARE @Quota INT = NULL
-			IF @AffGroupId IS NOT NULL
-			BEGIN
-				SELECT TOP (1) @Quota = gs.Quota
-				FROM dbo.CPAGroupSetting gs WITH (NOLOCK)
-				WHERE gs.GroupId = @AffGroupId
-					AND (gs.ToDate IS NULL OR gs.ToDate >= @BeginOfMonth)
-					AND (gs.FromDate IS NULL OR gs.FromDate <= @ToNextMonth)
-				ORDER BY CASE WHEN gs.ToDate IS NULL THEN 0 ELSE 1 END, gs.ToDate ASC
-			END
-
-			-- Counts
-			DECLARE @EligibleCount INT = (
-				SELECT COUNT(1)
-				FROM dbo.MemberCPA WITH (NOLOCK)
-				WHERE AffId = @AffId
-					AND StatusId = 2
-					AND HoldingQualifiedDate >= @BeginOfMonth AND HoldingQualifiedDate < @ToNextMonth
-			)
-			DECLARE @SettledCount INT = (
-				SELECT COUNT(1)
-				FROM dbo.MemberCPA WITH (NOLOCK)
-				WHERE AffId = @AffId
-					AND StatusId = 3
-					AND CPADate >= @BeginOfMonth AND CPADate < @ToNextMonth
-			)
-
-			-- Remaining quota (NULL = unlimited)
-			DECLARE @RemainingQuota INT = CASE WHEN @Quota IS NULL THEN @EligibleCount ELSE CASE WHEN (@Quota - @SettledCount) < 0 THEN 0 ELSE (@Quota - @SettledCount) END END
-
-			IF @IsCurrentMonth = 1
-			BEGIN
-				SET @QualifiedCPAPlayers = @SettledCount + CASE WHEN @RemainingQuota < @EligibleCount THEN @RemainingQuota ELSE @EligibleCount END
-			END
-			ELSE
-			BEGIN
-				SET @QualifiedCPAPlayers = @SettledCount
-			END
-
-			-- Tentative CPA Amount (current month only, apply quota ordering)
-			IF @IsCurrentMonth = 1 AND (@EligibleCount > 0)
-			BEGIN
-				;WITH OrderedEligible AS (
-					SELECT CPAAmount,
-					       ROW_NUMBER() OVER (ORDER BY HoldingQualifiedDate, FirstDepositDate, MemberCPA_ID) AS rn
-					FROM dbo.MemberCPA WITH (NOLOCK)
-					WHERE AffId = @AffId
-					  AND StatusId = 2
-					  AND HoldingQualifiedDate >= @BeginOfMonth AND HoldingQualifiedDate < @ToNextMonth
-				)
-				SELECT @TentativeCPAAmount = SUM(ISNULL(CPAAmount,0))
-				FROM OrderedEligible
-				WHERE (@Quota IS NULL) OR rn <= @RemainingQuota
-			END
-
-			-- Approved (Paid) CPA Amount
-			SELECT @ApprovedCPAAmount = SUM(ISNULL(CPAAmount,0))
-			FROM dbo.MemberCPA WITH (NOLOCK)
-			WHERE AffId = @AffId
-				AND StatusId = 3
-				AND CPADate >= @BeginOfMonth AND CPADate < @ToNextMonth
-		END
-		ELSE
-		BEGIN
-			-- No CPA rows in scope; ensure CPA outputs remain zero; keep GroupTypeName as previously inferred or RevenueShare
-			IF @GroupTypeName IS NULL SET @GroupTypeName = 'RevenueShare'
-		END
 
 		DROP TABLE #TempCommission
 	END
@@ -479,19 +534,19 @@ BEGIN
 			,ISNULL(@BBF, 0)				AS BalanceBroughtForward
 			,ISNULL(@ActivePlayers, 0)		AS ActivePlayers
 			,ISNULL(@QualifiedMember, 0)	AS QualifiedMember
-			,ISNULL(@QualifiedCPAPlayers,0) AS QualifiedCPAPlayers
 			,ISNULL(@Turnover, 0)			AS Turnover
 			,ISNULL(@Deposit, 0)			AS Deposit
 			,ISNULL(@Commission, 0)			AS Commission
-			,ISNULL(@TentativeCPAAmount,0) AS TentativeCPAAmount
-			,ISNULL(@ApprovedCPAAmount,0) AS ApprovedCPAAmount
 			,ISNULL(@NoOfSubAff, 0)			AS NoOfSubAff
 			,ISNULL(@SubAffCommission, 0)	AS SubAffCommission
 			,ISNULL(@FDMDeposit, 0)			AS FDMDeposit
 			,ISNULL(@NetGGR, 0)				AS NetGGR
 			,ISNULL(@TotalClick, 0)			AS TotalClick
 			,ISNULL(@UniqueClick, 0)			AS UniqueClick
-			,@GroupTypeName				AS GroupTypeName
+			,ISNULL(@ApprovedCPAAmount, 0)	AS ApprovedCPAAmount
+			,ISNULL(@TentativeCPAAmount, 0)	AS TentativeCPAAmount
+			,ISNULL(@QualifiedMemberCPA, 0)	AS QualifiedMemberCPA
+			,@GroupTypeName					AS GroupType
 	END
 END
 GO

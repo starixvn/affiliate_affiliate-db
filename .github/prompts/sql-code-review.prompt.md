@@ -1,12 +1,11 @@
 ---
-mode: 'agent'
+agent: 'agent'
 tools: ['changes', 'codebase', 'editFiles', 'problems', 'execute_sql']
 description: 'Universal SQL code review assistant that performs comprehensive security, maintainability, and code quality analysis across all SQL databases (MySQL, PostgreSQL, SQL Server, Oracle). Focuses on SQL injection prevention, access control, code standards, and anti-pattern detection. Complements SQL optimization prompt for complete development coverage.'
 ---
 
 # SQL Code Review (Enhanced Advanced Edition)
 
-Version: 2.0  
 Purpose: High-fidelity, automated, multi-dimensional SQL Server (extensible to other RDBMS) review prompt with advanced analysis layers (performance, security, reliability, scalability, governance, maintainability).  
 Supports: Stored Procedures, Functions, Views, Ad‑hoc Queries, Migration Scripts, Multi-Statement Batches.  
 

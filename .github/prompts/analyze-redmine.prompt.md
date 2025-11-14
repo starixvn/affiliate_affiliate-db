@@ -1,5 +1,5 @@
 ---
-mode: 'agent'
+agent: 'agent'
 tools: ['changes', 'codebase', 'editFiles', 'problems', 'playwright/*']
 ---
 

@@ -17,10 +17,9 @@ Quick reference for common SQL patterns in 12B Affiliate DB. Copy-paste ready co
 4. [DELETE with Locking](#4-delete-with-lock)
 5. [Temp Table Pattern](#5-temp-table)
 6. [String Split Pattern](#6-string-split)
-7. [CPA Calculation](#7-cpa-calculation)
-8. [Transaction Pattern](#8-transaction)
-9. [Dynamic SQL](#9-dynamic-sql)
-10. [Performance Optimization](#10-performance)
+7. [Transaction Pattern](#7-transaction)
+8. [Dynamic SQL](#8-dynamic-sql)
+9. [Performance Optimization](#9-performance)
 
 ---
 
@@ -193,44 +192,17 @@ WHERE p.ProductId IN (SELECT value FROM STRING_SPLIT(@ProductIds, ','))
 
 ---
 
-## 7. CPA Calculation
+## 7. Transaction Pattern
 
 ```sql
--- Count Eligibled CPAs (ready for payment)
-SELECT 
-    mc.AffId,
-    COUNT(*) AS EligibleCount,
-    SUM(mc.CPAAmount) AS TotalAmount
-FROM dbo.MemberCPA mc WITH (NOLOCK)
-WHERE mc.StatusId = 2  -- Eligibled
-  AND mc.GroupId = @GroupId
-  AND mc.IsAbnormal = 0
-GROUP BY mc.AffId
-
--- Get CPA with tier breakdown
-SELECT 
-    mc.MemberCPA_ID,
-    mc.CustId,
-    mi.Username AS PlayerUsername,
-    mc.StatusId,
-    mc.CPAAmount,
-    mct.TierId,
-    mct.Turnover
-FROM dbo.MemberCPA mc WITH (NOLOCK)
-INNER JOIN dbo.MemberInfo mi WITH (NOLOCK) ON mi.CustId = mc.CustId
-LEFT JOIN dbo.MemberCPATier mct WITH (NOLOCK) ON mct.MemberCPA_ID = mc.MemberCPA_ID
-WHERE mc.AffId = @AffId
-  AND mc.StatusId = 2
-```
-
----
-
-## 8. Transaction Pattern
-
-```sql
--- Error handling with TRY-CATCH (NO explicit BEGIN TRAN)
--- SQL Server auto-starts implicit transaction for multi-step operations
+-- Error handling with TRY-CATCH
+-- Manual rollback = You must write code to undo changes if error occurs
 BEGIN TRY
+
+    -- Save current state before changes
+    DECLARE @OldStatusId INT, @OldBalance MONEY
+    SELECT @OldStatusId = StatusId FROM dbo.MemberCPA WITH (NOLOCK) WHERE MemberCPA_ID = @MemberCPA_ID
+    SELECT @OldBalance = Balance FROM dbo.AffInfo WITH (NOLOCK) WHERE AffId = @AffId
 
     -- Step 1: Update MemberCPA status
     UPDATE mc
@@ -250,6 +222,8 @@ BEGIN TRY
         @AffId, 206, @CPAAmount, @CurrencyId,
         @MemberCPA_ID, GETDATE(), GETDATE()
     )
+    
+    DECLARE @TransId INT = SCOPE_IDENTITY()
 
     -- Step 3: Update affiliate balance
     UPDATE ai
@@ -263,9 +237,23 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
 
-    -- Manual rollback if error occurs
-    IF @@TRANCOUNT > 0
-        ROLLBACK TRANSACTION
+    -- Manual rollback: Undo all changes manually
+    
+    -- Undo Step 3: Restore balance
+    UPDATE ai
+    SET ai.Balance = @OldBalance
+    FROM dbo.AffInfo ai WITH (UPDLOCK, ROWLOCK)
+    WHERE ai.AffId = @AffId
+    
+    -- Undo Step 2: Delete transaction
+    DELETE FROM dbo.AffTrans WITH (ROWLOCK)
+    WHERE TransId = @TransId
+    
+    -- Undo Step 1: Restore status
+    UPDATE mc
+    SET mc.StatusId = @OldStatusId
+    FROM dbo.MemberCPA mc WITH (UPDLOCK, ROWLOCK)
+    WHERE mc.MemberCPA_ID = @MemberCPA_ID
 
     -- Log error
     DECLARE @ErrorMsg NVARCHAR(4000) = ERROR_MESSAGE()
@@ -279,7 +267,7 @@ END CATCH
 
 ---
 
-## 9. Dynamic SQL
+## 8. Dynamic SQL
 
 ```sql
 -- Dynamic SQL with proper parameterization (prevent SQL injection)
@@ -316,7 +304,7 @@ EXEC sp_executesql
 
 ---
 
-## 10. Performance Optimization
+## 9. Performance Optimization
 
 ```sql
 -- Pattern 1: Use EXISTS instead of COUNT
@@ -412,4 +400,3 @@ WHERE AffId = @AffId
 
 **See Also**:
 - `sql-standards.instructions.md` - Complete coding standards
-- `cpa-module.instructions.md` - CPA-specific patterns

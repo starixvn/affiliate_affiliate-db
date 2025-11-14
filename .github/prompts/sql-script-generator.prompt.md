@@ -1,5 +1,5 @@
 ---
-mode: 'agent'
+agent: 'agent'
 tools: ['changes', 'codebase', 'editFiles', 'problems', 'execute_sql']
 description: 'SQL script generator that follows company standards for metadata headers, documentation, and coding practices. Generates minimal, focused SQL scripts with standard headers based on user requirements only.'
 ---

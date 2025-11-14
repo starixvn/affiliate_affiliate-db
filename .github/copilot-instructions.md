@@ -63,20 +63,24 @@ Instructions auto-apply when you:
 ### Creating New Feature
 1. Check if relevant instruction file exists (`.github/instructions/`)
 2. Follow patterns from instruction files
-3. Test on TESTDB053
-4. Commit with ticket reference: R123456 Description (replace R123456 with real ticket)
+3. **Place script file**: `Scripts/B2C/<Brand>/<RedmineID>/YYYYMMDD_<RedmineID>_<Description>.sql`
+4. **Place SP file**: `B2C/<Brand>/<Layer>/<Module>/Aff_<Layer>_<Module>_<Action>.sql`
+5. Test on TESTDB053 (local dev) or designated TEST environment
+6. Commit with ticket reference: `242450 - Add CPA monitoring report` (extract ID from branch name)
 
 ### Fixing Issues
 1. Read error message
 2. Check instruction file for anti-patterns
-3. Verify schema in `.context/modules/cpa/schema.md`
+3. Verify schema in `.context/modules/<module>/schema.md`
 4. Fix and test
+5. **Append revision entry** to SP header with date@developer and RedmineID
 
 ### Learning / Onboarding a Module
-1. Start: `.context/README.md`
-2. Deep-dive: `.context/modules/cpa/*.md`
-3. Patterns: Copy from instruction files
-4. Practice: Modify existing SPs
+1. Start: Module business rules (`.context/modules/<module>/business.md`)
+2. Schema reference: `.context/modules/<module>/schema.md`
+3. SP catalog: `.context/modules/<module>/sps.md`
+4. Patterns: Copy from `.github/instructions/sql-examples.instructions.md`
+5. Practice: Modify existing SPs in same module area
 
 ---
 
@@ -87,23 +91,49 @@ Instructions auto-apply when you:
   instructions/           ← Focused, auto-applied instructions
     sql-standards.instructions.md
     sql-examples.instructions.md
+  agents/                 ← Specialized agent modes (Git Assistant)
   copilot-instructions.md ← This file (general guidance)
 
 .context/
   modules/                ← Deep-dive module guides
     cpa/
-      business.md         ← CPA business rules
-      schema.md           ← CPA database schema
-      sps.md              ← CPA stored procedures
+      business.md         ← CPA business rules & lifecycle
+      schema.md           ← CPA database schema (sys catalog extract)
+      sps.md              ← CPA stored procedures (purpose, params, steps)
+  analysis/               ← One-off analysis documents
 
-B2C/12B/
-  Admin/                  ← Admin stored procedures
-  User/                   ← User stored procedures
-  CoreFunction/           ← Helper functions
+B2C/12B/                  ← 12B brand stored procedures (by layer)
+  Admin/                  ← Admin-facing SPs (executor: wsv_afinet)
+    Report/AffiliateCPA/  
+    Member/
+    Operations/Deals/
+  User/                   ← User-facing SPs (executors: wsv_afinet,wsv_afinetv)
+    Home/
+    Affiliate/
+    Payment/
+  CoreFunction/           ← Helper functions (Aff_f_*)
+    Aff_f_ExchangeRate_Sel.sql
+    Aff_f_StringSplit.sql
+  API/                    ← External API endpoints
+  ClickStatistics/        ← Click tracking & analytics
 
 Scripts/
-  B2C/12B/Affiliate_12B/  ← DDL/DML scripts by RedmineID
+  B2C/12B/Affiliate_12B/  ← DDL/DML migration scripts by RedmineID
+    <RedmineID>/YYYYMMDD_<RedmineID>_<Description>.sql
+  context/                ← Context extraction utilities
+    extract_sp_catalog.sql
+    refresh_context.ps1
 ```
+
+### Key Patterns
+
+**Layer-based organization**: 
+- `Admin/` → Backend/admin operations (single executor)
+- `User/` → Frontend/user operations (dual executors for redundancy)
+- `CoreFunction/` → Reusable helper functions (table-valued or scalar)
+- `API/` → External integration endpoints
+
+**Multi-brand support**: Same structure replicated for `N88/` and `YashBet/` brands
 
 ---
 
@@ -114,9 +144,10 @@ Scripts/
 - [ ] Locking hints: Reads `NOLOCK`; narrow updates `UPDLOCK, ROWLOCK`
 - [ ] Explicit column list (no `SELECT *`); `ORDER BY` has `ASC`/`DESC`
 - [ ] Revision entry appended for SP changes (date@developer RedmineID)
-- [ ] Script placed under `Scripts/<Brand>/<Module>/<RedmineID>/`
-- [ ] Tested on designated TEST environment
-- [ ] Commit message includes ticket: R123456 Brief description (replace R123456)
+- [ ] Script placed under `Scripts/B2C/<Brand>/<RedmineID>/YYYYMMDD_<RedmineID>_<Description>.sql`
+- [ ] SP placed under `B2C/<Brand>/<Layer>/<Module>/Aff_<Layer>_<Module>_<Action>.sql`
+- [ ] Tested on designated TEST environment (TESTDB053 or configured test server)
+- [ ] Commit message includes ticket: `242450 - Brief description` (no R prefix; extract from branch)
 
 ---
 
@@ -125,6 +156,9 @@ Scripts/
 1. **Instruction files are your friend**: Instead of asking generic questions, reference specific instruction files
 2. **Copy patterns**: All instruction files have copy-paste ready patterns
 3. **Use @workspace**: Always use `@workspace` to get specific context
+4. **Git workflow**: Use `.github/agents/git-assistant.agent.md` mode for auto-commit with Redmine ID extraction from branch names
+5. **Helper functions**: Check `B2C/<Brand>/CoreFunction/` for reusable functions (exchange rates, string split, settings lookup)
+6. **Context refresh**: Run `Scripts/context/refresh_context.ps1` to regenerate module documentation from live schema
 
 ---
 
@@ -169,5 +203,5 @@ Primary technical contacts: DBA Team (schema), Affiliate Dev Team (SP logic). Us
 
 ---
 
-**Last Updated**: 2025-11-12  
+**Last Updated**: 2025-11-18  
 **Owner**: DBA Team
