@@ -12,6 +12,7 @@ AS
 
 	Revisions:
 		- 20250526@Lewis: Initialize SP [RedmineID: #228530]
+		- 20251103@Lewis: Sort GroupName [RedmineID: #236665]
 */
 
 BEGIN
@@ -26,5 +27,6 @@ BEGIN
 	FROM dbo.CommGroup cg WITH (NOLOCK)
 	WHERE IsDeleted = 0
 		AND (cg.GroupTypeId = @GroupTypeId OR @GroupTypeId = 0)
+	ORDER BY GroupName ASC;
 END	 
 GO
