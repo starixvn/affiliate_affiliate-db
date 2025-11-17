@@ -16,6 +16,7 @@ CREATE PROCEDURE dbo.Aff_Admin_Report_PaymentCPA
 	DB:           DBAFF12B-Affiliate_12B
 	Revisions:
 		- 20250721@Lewis: Initial [RedmineID: #240525]
+		- 20251112@Lewis: Status Empty => NOredeposit is NULL [RedmineID: #236665]
 
 	Parameter's Explanation:
 		- @Viewby: 1 EndSchedule
@@ -179,7 +180,7 @@ BEGIN
 		END AS StatusId
 		,d.ExpiredRedepositDate
 		,d.TotalEligiblePlayers
-		,CONCAT(d.TotalRedepositPlayers,'/',d.TotalRequiredRedepositPlayers) AS NoOfRedepositPlayers
+		,IIF(d.Status = 'Empty', NULL, CONCAT(d.TotalRedepositPlayers,'/',d.TotalRequiredRedepositPlayers)) AS NoOfRedepositPlayers
 		,d.EstimateAmount
 		,d.ApprovedAmount
 		,d.ApprovedDate
@@ -189,7 +190,9 @@ BEGIN
 		,d.ManuallyApprovedBy
 		,d.AdjustedAmount
 		,d.FinalCPAAmount
-		,IIF(d.ManuallyApprovedDate IS NULL, IIF(DATEADD(DAY, -60, @CurrentDate) > (IIF(d.EndSchedule >= d.ExpiredRedepositDate, d.EndSchedule, d.ExpiredRedepositDate)), 0, 1), 0) AS IsEnabled
+		,IIF(d.ManuallyApprovedDate IS NULL
+				, IIF(DATEADD(DAY, -60, @CurrentDate) > (IIF(ISNULL(d.ApprovedDate,d.EndSchedule) >= d.ExpiredRedepositDate, ISNULL(d.ApprovedDate,d.EndSchedule), d.ExpiredRedepositDate)), 0, 1)
+				, 0) AS IsEnabled
 	FROM #data d
 	WHERE d.Rid BETWEEN @RowStart AND @RowEnd;
 

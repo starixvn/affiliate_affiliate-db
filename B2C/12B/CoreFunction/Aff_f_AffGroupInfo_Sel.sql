@@ -16,7 +16,8 @@ AS
 		- 20241118@Eddie: Initialize Function [RedmineID: #212201]
         - 20250417@Sally: Add Revenue Group column [RedmineID: #224286]
         - 20250826@Lewis: Get last groupid in 1 month [RedmineID: #236665]
-        - 20251103@Lewis: Get grouptypeid [RedmineID: #240525]
+		- 20251103@Lewis: Get grouptypeid [RedmineID: #240525]
+		- 20251106@Sally: get Schedule info [RedmineID: #236665]
 
 	Param's Explanation:
 		- @AffIds : list of Affiliate's id
@@ -41,9 +42,10 @@ RETURN
 		,c.AffId
 		,c.ParentAffId
 		,c.AllParentAffId
+		,gt.GroupTypeId
 		,gt.GroupTypeName
 		,gt.GroupTypeBy
-		,gt.GroupTypeId
+		,cg.ScheduleId
 	FROM CTE_CommGroup c
-		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON c.GroupId = cg.GroupId
+		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON c.GroupId = cg.GroupId AND cg.IsDeleted = 0
 		INNER JOIN dbo.GroupType gt WITH (NOLOCK) ON gt.GroupTypeId = cg.GroupTypeId
