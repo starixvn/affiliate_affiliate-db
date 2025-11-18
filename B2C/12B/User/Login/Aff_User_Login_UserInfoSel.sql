@@ -34,14 +34,6 @@ BEGIN
 
 	SELECT @MaxSubLevel = ISNULL(@MaxSubLevel, 0)
 
-	-- Get deposit & withdrawal fee setting
-	DECLARE @Dep_IsDeductedPercent BIT, @Wit_IsDeductedPercent BIT
-	SELECT  @Dep_IsDeductedPercent = CASE WHEN DeductionId = 13 THEN IsDeductedPercent ELSE @Dep_IsDeductedPercent END
-			,@Wit_IsDeductedPercent = CASE WHEN DeductionId = 14 THEN IsDeductedPercent ELSE @Wit_IsDeductedPercent END
-	FROM dbo.DeductionSetting WITH (NOLOCK)
-	WHERE GroupId = @GroupId
-		AND DeductionId IN (13, 14)
-
 	SELECT
 		ai.AffID
 		,ai.UserName
@@ -56,8 +48,6 @@ BEGIN
 		,ad.PreferredLanguage
 		,CONVERT(BIT, CASE WHEN l.SubLevel >= @MaxSubLevel THEN 1 ELSE 0 END) AS IsMaxSubLevel
 		,CONVERT(BIT, ISNULL(ad.DisabledTransfer, 1)) AS DisabledTransfer
-		,ISNULL(@Dep_IsDeductedPercent, 0) AS Dep_IsDeductedPercent
-		,ISNULL(@Wit_IsDeductedPercent, 0) AS Wit_IsDeductedPercent
 		,gt.GroupTypeName
 		,gt.GroupTypeId
 	FROM dbo.AffInfo ai WITH (NOLOCK)

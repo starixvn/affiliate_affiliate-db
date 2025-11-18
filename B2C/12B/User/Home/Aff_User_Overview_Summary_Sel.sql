@@ -39,12 +39,29 @@ BEGIN
 	DECLARE @FDate SMALLDATETIME
 			,@TDate SMALLDATETIME
 			,@TimeZone INT
+
 	-- Calculate commission date boundary for data separation (commission date + 1 day)
 	DECLARE @MaxCommDate SMALLDATETIME
 	SELECT @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
 
 	SELECT @TimeZone = CAST(SValue AS INT) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
 
+	DECLARE @CurrentDate DATETIME = DATEADD(HOUR, @TimeZone, GETUTCDATE())
+	
+	DECLARE @IsCurrentMonth BIT = 0
+	IF EOMONTH(@ToDate) = EOMONTH(@CurrentDate)
+	BEGIN
+		SET @IsCurrentMonth = 1
+	END
+	-- TODO: Handle AffCPA with Active and Qualified Player Rev
+	DECLARE @CPAAff TABLE (MonthDate SMALLDATETIME, AffId INT, GroupId INT, GroupTypeId INT)
+	
+	INSERT INTO @CPAAff (MonthDate, AffId, GroupId, GroupTypeId)
+	SELECT af.MonthDate, af.AffId, af.GroupId, af.GroupTypeId
+	FROM dbo.Aff_f_AffGroupInfo_Sel(@FromDate, @ToDate, CONVERT(VARCHAR(20), @AffId)) af
+	WHERE af.GroupTypeId = 3
+
+	-- BaseExchangeId
 	DECLARE @BaseExchangeId INT = @BaseCurrency
 	SELECT @BaseExchangeId = t.ExchangeId
 	FROM dbo.TpExchange t WITH (NOLOCK)
@@ -90,6 +107,9 @@ BEGIN
 				AND IsExcluded = 0
 			GROUP BY IP;
 		END;
+		
+		SELECT @FromDate_GMT4 = DATEADD(HOUR, -12, CAST(@FromDate AS DATETIME)), -- GMT+8 to GMT-4
+			   @ToDate_GMT4 = DATEADD(HOUR, -12, CAST(DATEADD(DAY, 1, @ToDate) AS DATETIME)); -- GMT+8 to GMT-4
 
 		-- Archived data
 		IF CONVERT(DATE, @FromDate_GMT4) <= @ArchiveDate
@@ -162,7 +182,7 @@ BEGIN
 					LEFT JOIN dbo.Exchange e WITH (NOLOCK) ON ISNULL(t.ExchangeId, mi.Currency) = e.ExchangeId
 				WHERE mi.AffId = @AffId
 					AND d.Status = 3  -- Approved deposits only
-					AND d.WinlostDate >= @FDate 
+					AND d.WinlostDate >= DATEADD(DAY, -1, @FDate) 
 					AND d.WinlostDate < @TDate  -- Use WinlostDate index with pre-calculated DATE variables
 					AND d.CreateTime >= DATEADD(HOUR, -8, @FDate)  -- GMT0
 					AND d.CreateTime < DATEADD(HOUR, -8, @TDate)  -- GMT0
@@ -185,7 +205,7 @@ BEGIN
 					, @TDate = IIF(@ToDate > @MaxCommDate, @MaxCommDate, @ToDate)
 
 			-- Use rptMemberDaily only for historical data with currency grouping optimization
-			SELECT @Deposit = SUM(rd.Deposit * ex.Rate)
+			SELECT @Deposit = ISNULL(@Deposit,0) + SUM(rd.Deposit * ex.Rate)
 			FROM (
 				SELECT Currency
 					,SUM(ISNULL(Deposit, 0)) AS Deposit
@@ -357,7 +377,7 @@ BEGIN
 			SELECT @FDate	= @FromDate
 			SELECT @TDate	= @ToDate
 
-			CREATE TABLE #DataMemberDaily (MonthDate SMALLDATETIME, AffId INT, Currency INT, CustId INT, ProductId INT, Bonus MONEY, Rebate MONEY, Turnover MONEY, Winloss MONEY)
+			CREATE TABLE #DataMemberDaily (MonthDate SMALLDATETIME, AffId INT, Currency INT, CustId INT, ProductId INT, Bonus MONEY, Rebate MONEY, Turnover MONEY, Winloss MONEY, IsExcludeOnlyCPA BIT DEFAULT 0)
 			CREATE CLUSTERED INDEX IX_DataMemberDaily ON #DataMemberDaily (MonthDate, AffId)
 			INSERT INTO #DataMemberDaily
 			(
@@ -379,7 +399,7 @@ BEGIN
 					,SUM(ISNULL(Bonus, 0))		AS Bonus
 					,SUM(ISNULL(Rebate, 0))		AS Rebate
 					,SUM(ISNULL(Turnover, 0))	AS Turnover
-					,SUM(ISNULL(Winloss, 0) - ISNULL(ProgressiveWin, 0) + ISNULL(ProgressiveBet, 0)) AS Winloss				
+					,SUM(ISNULL(Winloss, 0) - ISNULL(ProgressiveWin, 0) + ISNULL(ProgressiveBet, 0)) AS Winloss
 			FROM dbo.rptMemberDaily r WITH (NOLOCK)
 			WHERE r.WinlostDate >= @FDate 
 				AND r.WinlostDate <= @ToDate
@@ -396,7 +416,7 @@ BEGIN
 
 			DECLARE @AffInfo TABLE (AffId INT, AffUsername VARCHAR(50),MonthDate SMALLDATETIME, GroupId INT, QMTurnover MONEY)
 			INSERT INTO @AffInfo (AffId, AffUsername, MonthDate, GroupId)
-				SELECT a.AffId, a.Username, agh.MonthDate, a.GroupId
+				SELECT a.AffId, a.Username, agh.MonthDate, agh.GroupId
 				FROM (
 					SELECT DISTINCT AffId, MonthDate FROM #DataMemberDaily
 				)t
@@ -405,11 +425,17 @@ BEGIN
 				WHERE a.AffId = @AffId
 					AND Status NOT IN ('Pending', 'Disapproved')					
 			
-			UPDATE a SET a.QMTurnover = ISNULL(cg.QMTurnover, 0) * e.Rate
+			UPDATE a SET a.QMTurnover = cg.QMTurnover * e.Rate
 			FROM @AffInfo a
 				INNER JOIN dbo.CommGroupHistory cg WITH (NOLOCK) ON a.GroupId = cg.GroupId AND a.MonthDate = cg.MonthDate
 				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(a.MonthDate, @AffExchangeId, @BaseExchangeId) e
 			
+			-- TODO: Handle AffCPA with Active and Qualified Player Rev
+			UPDATE r SET r.IsExcludeOnlyCPA = 1
+			FROM #DataMemberDaily r
+			INNER JOIN @CPAAff acm 
+				ON r.AffId = acm.AffId AND r.MonthDate = acm.MonthDate
+
 			;WITH CTE_DataResult AS(
 				SELECT  r.AffId
 					,SUM(r.Bonus		* e.Rate)	AS Bonus
@@ -429,6 +455,7 @@ BEGIN
 					FROM #DataMemberDaily c
 						LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON c.Currency = t.TpExchangeId
 						CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(c.MonthDate, ISNULL(t.ExchangeId, c.Currency), @BaseExchangeId) e
+					WHERE c.IsExcludeOnlyCPA = 0
 					GROUP BY c.AffId, c.MonthDate, c.CustId
 				)r
 					INNER JOIN @AffInfo a ON a.AffId = r.AffId AND r.MonthDate = a.MonthDate
@@ -437,6 +464,7 @@ BEGIN
 			, CTE_ActivePlayer AS (
 				SELECT r.AffId, r.MonthDate, COUNT(DISTINCT IIF(r.productId > 0, r.CustId, NULL)) AS ActivePlayer
 				FROM #DataMemberDaily r
+				WHERE r.IsExcludeOnlyCPA = 0
 				GROUP BY r.AffId, r.MonthDate
 			)
 			INSERT INTO #TempCommission
@@ -525,51 +553,39 @@ BEGIN
 	-- ===============================
 	DECLARE @ApprovedCPAAmount MONEY --Approved
 			,@TentativeCPAAmount MONEY
-			,@GroupTypeName NVARCHAR(200) = 'Hybrid CPA/Revenue Share'
+			,@GroupTypeId INT
 			,@QualifiedMemberCPA INT
 			,@RemainQuota INT
 			,@Quota INT
 			,@GroupId INT
-			,@CurrentDate DATETIME = DATEADD(HOUR, @TimeZone, GETUTCDATE())
-	
+
 	-- Quota
 	SELECT @Quota = IIF(cg.Quota = 0, NULL, cg.Quota) -- Quota = 0 ==> unlimited quota
 		   ,@GroupId = agh.GroupId --current groupId
 	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.IsDeleted = 0 AND cg.GroupId = agh.GroupId
+		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.GroupId = agh.GroupId
 	WHERE agh.ToDate = '9999-12-31'
 		AND agh.AffId = @AffId
 
-	-- @GroupTypeName
-	IF NOT EXISTS (
-					SELECT TOP 1 1
-					FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-						INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.IsDeleted = 0 AND agh.GroupId = cg.GroupId
-					WHERE agh.AffId = @AffId
-						AND agh.FromDate <= @ToDate
-						AND agh.ToDate >= @FromDate
-						AND cg.GroupTypeId <> 3
-					)
-	BEGIN 
-		SET @GroupTypeName = 'CPA'
-	END
-
-	IF NOT EXISTS (
-					SELECT TOP 1 1
-					FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-						INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.IsDeleted = 0 AND agh.GroupId = cg.GroupId
-					WHERE agh.AffId = @AffId
-						AND agh.FromDate <= @ToDate
-						AND agh.ToDate >= @FromDate
-						AND cg.GroupTypeId <> 1
-					)
-	BEGIN 
-		SET @GroupTypeName = 'Revenue Share'
-	END
+	-- @GroupTypeId
+	SELECT @GroupTypeId = SUM(DISTINCT cg.GroupTypeId)
+	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON agh.GroupId = cg.GroupId
+	WHERE agh.AffId = @AffId
+		AND agh.FromDate <= @ToDate
+		AND agh.ToDate >= @FromDate
+  
+	SET @GroupTypeId = ISNULL(IIF(@GroupTypeId > 4, 4, @GroupTypeId),1)
 
 	-- ApprovedCPAAmount
-	SELECT @ApprovedCPAAmount = SUM(m.CPAAmount)
-		  ,@QualifiedMemberCPA = COUNT(m.CustId)
+	SELECT @ApprovedCPAAmount = SUM(at.Amount)
+	FROM dbo.AffTrans at WITH (NOLOCK)
+	WHERE at.TransType IN (206, 208)
+		AND at.WinlostDate BETWEEN @FromDate AND @ToDate
+		AND at.AffId = @AffId
+
+	-- QualifiedMemberCPA of settled player
+	SELECT @QualifiedMemberCPA = COUNT(m.CustId)
 	FROM dbo.MemberCPA m WITH (NOLOCK)
 	WHERE m.AffId = @AffId
 		AND m.CPADate BETWEEN @FromDate AND @ToDate --View by CPADate
@@ -582,13 +598,13 @@ BEGIN
 		AND m.StatusId = 3 -- Settled
 		AND m.GroupId = @GroupId --Current group - current quota
 	
-	-- QualifiedMemberCPA
+	-- QualifiedMemberCPA + egligiled vs remainingquota
 	SELECT @QualifiedMemberCPA += IIF(@RemainQuota IS NULL, COUNT(m.CustId), IIF(COUNT(m.CustId) <= @RemainQuota, COUNT(m.CustId), @RemainQuota))
 	FROM dbo.MemberCPA m WITH (NOLOCK)
 	WHERE m.AffId = @AffId
 		AND m.StatusId = 2
 		AND m.GroupId = @GroupId
-		AND MONTH(@ToDate) = MONTH(@CurrentDate) --CurrentMonth
+		AND @IsCurrentMonth = 1 --CurrentMonth
 		AND m.HoldingQualifiedDate <= @ToDate
 
 	-- TentativeCPAAmount -- up to now - and check quota slot
@@ -604,7 +620,7 @@ BEGIN
 		WHERE m.AffId = @AffId
 			AND m.HoldingQualifiedDate <= @ToDate --View by HoldingQualifiedDate
 			AND m.GroupId = @GroupId
-			AND MONTH(@ToDate) = MONTH(@CurrentDate) --CurrentMonth
+			AND @IsCurrentMonth = 1 --CurrentMonth
 			AND m.StatusId = 2 -- Estimated
 	)
 	, cte_TentativeCPAAmount AS (
@@ -619,7 +635,7 @@ BEGIN
 
 	-- Return result
 	BEGIN
-		SELECT @GroupTypeName				AS GroupTypeName
+		SELECT @GroupTypeId					AS GroupTypeId
 
 		SELECT
 			ISNULL(@Signups, 0)				AS Signups

@@ -32,6 +32,21 @@ BEGIN
 	-- Date range handling based on @IsGetMonthly parameter
 	DECLARE @FDate SMALLDATETIME, @TDate SMALLDATETIME
 
+	-- IsCurrentMonth, CurrentGroupTypeId
+	DECLARE @IsCPACurrent BIT = 0
+
+	DECLARE @TimeZone SMALLINT
+	SELECT  @TimeZone = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
+	DECLARE @CurrentDate DATE = DATEADD(HOUR, @TimeZone, GETUTCDATE())
+
+	-- TODO: Handle AffCPA with Active and Qualified Player Rev
+	DECLARE @CPAAff TABLE (MonthDate SMALLDATETIME, AffId INT, GroupId INT, GroupTypeId INT)
+	
+	INSERT INTO @CPAAff (MonthDate, AffId, GroupId, GroupTypeId)
+	SELECT af.MonthDate, af.AffId, af.GroupId, af.GroupTypeId
+	FROM dbo.Aff_f_AffGroupInfo_Sel(@FromDate, @ToDate, CONVERT(VARCHAR(20), @AffId)) af
+	WHERE af.GroupTypeId = 3
+
 	-- Calculate commission date boundary for data separation (commission date + 1 day)
 	DECLARE @MaxCommDate SMALLDATETIME
 	SELECT  @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'AFF_CommissionDate'
@@ -81,7 +96,8 @@ BEGIN
 	-- Turnover, Winloss, Deposit, Withdrawl, Qualified Active Members
 	BEGIN
 		CREATE TABLE #Data (WinlostDate SMALLDATETIME, CustId INT, Deposit MONEY, Withdrawal MONEY, Turnover MONEY, GGR MONEY, IsActive TINYINT
-							, MonthDate DATETIME)
+							, MonthDate DATETIME
+							, IsExcludeOnlyCPA BIT DEFAULT 0)
 		
 		DECLARE @QualifiedMemberCPA TABLE (WinlostDate SMALLDATETIME, QualifiedMemberCPA INT)
 
@@ -118,7 +134,7 @@ BEGIN
 				,SUM(rd.Turnover * e.Rate) AS Turnover
 				,SUM(rd.GGR * e.Rate) AS GGR
 				,MAX(rd.IsActive) AS IsActive
-				, rd.MonthDate
+				,rd.MonthDate
 			FROM CTE_RawData rd
 				LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON rd.Currency = t.TpExchangeId
 				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(rd.MonthDate, ISNULL(t.ExchangeId, rd.Currency), @BaseExchangeId) e
@@ -176,7 +192,7 @@ BEGIN
 					LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON mi.Currency = t.TpExchangeId
 					LEFT JOIN dbo.Exchange e WITH (NOLOCK) ON ISNULL(t.ExchangeId, mi.Currency) = e.ExchangeId
 				WHERE d.Status = 3 -- Approved
-					AND d.WinlostDate >= @FDate 
+					AND d.WinlostDate >= DATEADD(DAY, -1, @FDate) 
 					AND d.WinlostDate < @TDate  -- Use WinlostDate index with pre-calculated DATE variables
 					AND d.CreateTime >= DATEADD(HOUR, -8, @FDate)  -- GMT0
 					AND d.CreateTime < DATEADD(HOUR, -8, @TDate)  -- GMT0
@@ -239,7 +255,7 @@ BEGIN
 				) t
 		END
 
-		CREATE CLUSTERED INDEX CIX_IBCCustId_WinlostDate ON #Data (CustId, WinlostDate)
+		CREATE CLUSTERED INDEX CIX_IBCCustId_WinlostDate ON #Data (WinlostDate, CustId)
 
 		SELECT @FDate = @FromDate
 			,@TDate = @ToDate
@@ -254,9 +270,16 @@ BEGIN
 				OR m.FirstDepositDate > DATEADD(DAY, 1, @TDate)
 			)
 
+		-- TODO: Handle AffCPA with Active and Qualified Player Rev
+		UPDATE r SET r.IsExcludeOnlyCPA = 1
+		FROM #Data r
+		INNER JOIN @CPAAff acm 
+			ON r.MonthDate = acm.MonthDate
+
+			
 		-- Active Members + Qualified Members
-		DECLARE @ActiveMembers TABLE (WinlostDate SMALLDATETIME, CustId INT)
-		DECLARE @QualifiedActiveMembers TABLE (WinlostDate SMALLDATETIME, CustId INT, Turnover MONEY)
+		DECLARE @ActiveMembers TABLE (WinlostDate SMALLDATETIME, CustId INT, MonthDate SMALLDATETIME)
+		DECLARE @QualifiedActiveMembers TABLE (WinlostDate SMALLDATETIME, CustId INT, Turnover MONEY, MonthDate SMALLDATETIME)
 
 		DECLARE @QMTurnover TABLE (MonthDate DATETIME, QMTurnover MONEY)
 
@@ -269,36 +292,40 @@ BEGIN
 
 		DECLARE @tmpWinlostDate SMALLDATETIME
 		SELECT  @tmpWinlostDate = @FDate
-
+		
 		WHILE @tmpWinlostDate <= @TDate
 		BEGIN
 			IF EXISTS (SELECT 1 FROM #Data WHERE WinlostDate = @tmpWinlostDate)
 			BEGIN
-				INSERT INTO @ActiveMembers (WinlostDate, CustId)
-				SELECT WinlostDate, CustId
+				INSERT INTO @ActiveMembers (WinlostDate, CustId, MonthDate)
+				SELECT WinlostDate, CustId, d.MonthDate
 				FROM #Data d
-				WHERE WinlostDate = @tmpWinlostDate
+				WHERE d.WinlostDate = @tmpWinlostDate
 					AND IsActive = 1
-					AND NOT EXISTS (SELECT 1 FROM @ActiveMembers a WHERE d.CustId = a.CustId)
+					AND NOT EXISTS (SELECT TOP 1 1 FROM @ActiveMembers a WHERE d.CustId = a.CustId AND d.MonthDate = a.MonthDate)
+					AND d.IsExcludeOnlyCPA = 0
 
-				INSERT INTO @QualifiedActiveMembers (WinlostDate, CustId, Turnover)
+				INSERT INTO @QualifiedActiveMembers (WinlostDate, CustId, Turnover, MonthDate)
 				SELECT 
 					x.WinlostDate,
 					x.CustId,
-					x.TotalTurnover
+					x.TotalTurnover,
+					x.MonthDate
 				FROM (
 					SELECT  
 						@tmpWinlostDate AS WinlostDate,
 						d.CustId,
+						d.MonthDate,
 						SUM(d.Turnover) AS TotalTurnover,
 						q.QMTurnover
 					FROM #Data d
 						INNER JOIN @QMTurnOver q ON q.MonthDate = d.MonthDate
 					WHERE d.WinlostDate <= @tmpWinlostDate
-						AND NOT EXISTS (SELECT 1 FROM @QualifiedActiveMembers qa WHERE d.CustId = qa.CustId)
-					GROUP BY d.CustId, q.QMTurnover
+						AND NOT EXISTS (SELECT TOP 1 1 FROM @QualifiedActiveMembers qa WHERE d.CustId = qa.CustId AND d.MonthDate = qa.MonthDate)
+						AND d.IsExcludeOnlyCPA = 0
+					GROUP BY d.CustId, d.MonthDate, q.QMTurnover
 				) x
-				WHERE x.TotalTurnover >= x.QMTurnover
+				WHERE x.TotalTurnover >= x.QMTurnover;
 			END
 
 			SELECT @tmpWinlostDate = DATEADD(DAY, 1, @tmpWinlostDate)
@@ -308,43 +335,22 @@ BEGIN
 	-- ===============================
 	-- CPA INFO
 	-- ===============================
-	DECLARE @TimeZone INT
-	SELECT @TimeZone = CAST(SValue AS INT) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
-
-	DECLARE @GroupTypeName NVARCHAR(200) = 'Hybrid CPA/Revenue Share'
-			,@CurrentDate DATETIME = DATEADD(HOUR, @TimeZone, GETUTCDATE())
+	DECLARE @GroupTypeId INT --support view hybrid or CPA or Rev
 	
-	-- @GroupTypeName
-	IF NOT EXISTS (
-					SELECT TOP 1 1
-					FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-						INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.IsDeleted = 0 AND agh.GroupId = cg.GroupId
-					WHERE agh.AffId = @AffId
-						AND agh.FromDate <= @ToDate
-						AND agh.ToDate >= @FromDate
-						AND cg.GroupTypeId <> 3
-					)
-	BEGIN 
-		SET @GroupTypeName = 'CPA'
-	END
-
-	IF NOT EXISTS (
-					SELECT TOP 1 1
-					FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-						INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.IsDeleted = 0 AND agh.GroupId = cg.GroupId
-					WHERE agh.AffId = @AffId
-						AND agh.FromDate <= @ToDate
-						AND agh.ToDate >= @FromDate
-						AND cg.GroupTypeId <> 1
-					)
-	BEGIN 
-		SET @GroupTypeName = 'Revenue Share'
-	END
+	-- @GroupTypeId
+	SELECT @GroupTypeId = SUM(DISTINCT cg.GroupTypeId)
+	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON agh.GroupId = cg.GroupId
+	WHERE agh.AffId = @AffId
+		AND agh.FromDate <= @ToDate
+		AND agh.ToDate >= @FromDate
+  
+	SET @GroupTypeId = ISNULL(IIF(@GroupTypeId > 4, 4, @GroupTypeId),1)
 
 
 	-- Return result
 	BEGIN
-		SELECT @GroupTypeName AS GroupTypeName
+		SELECT @GroupTypeId AS GroupTypeId
 
 		;WITH CTE_WinlostDate AS (
 			SELECT @FDate AS WinlostDate

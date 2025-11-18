@@ -23,7 +23,8 @@ BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @FDate SMALLDATETIME
-			,@TDate SMALLDATETIME
+		,@TDate SMALLDATETIME
+		, @AffIds VARCHAR(MAX) = NULL
 
 	DECLARE @BaseExchangeId INT = @BaseCurrency
 	SELECT @BaseExchangeId = t.ExchangeId
@@ -39,6 +40,44 @@ BEGIN
 	SELECT  @AffExchangeId = tp.ExchangeId
 	FROM dbo.TpExchange tp WITH (NOLOCK)
 	WHERE tp.TpExchangeId = @AffCurrency
+	
+	DECLARE @TimeZone SMALLINT
+	SELECT  @TimeZone = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
+	DECLARE @CurrentDate DATE = DATEADD(HOUR, @TimeZone, GETUTCDATE())
+
+	-- TODO: Handle AffCPA with Active and Qualified Player Rev
+	DECLARE @CPAAff TABLE (MonthDate SMALLDATETIME, AffId INT, GroupId INT, GroupTypeId INT)
+	
+	INSERT INTO @CPAAff (MonthDate, AffId, GroupId, GroupTypeId)
+	SELECT af.MonthDate, af.AffId, af.GroupId, af.GroupTypeId
+	FROM dbo.Aff_f_AffGroupInfo_Sel(@FromDate, @ToDate, CONVERT(VARCHAR(20), @AffId)) af
+	WHERE af.GroupTypeId = 3
+
+	DECLARE @IsCurrentMonth BIT = 0
+	IF EOMONTH(@ToDate) = EOMONTH(@CurrentDate)
+	BEGIN
+		SET @IsCurrentMonth = 1
+	END
+
+	--get sub affids
+	DECLARE @ListAffIds TABLE (AffId INT)
+	INSERT INTO @ListAffIds (AffId)
+	SELECT AffId
+	FROM dbo.AffInfo WITH (NOLOCK)
+	WHERE ParentAffId = @AffId
+		AND Status = 'Approved'
+		AND IsClosed = 0
+		AND ISNULL(IsSuspended, 0) = 0
+		AND ApprovedDate < DATEADD(DAY, 1, @ToDate)
+
+    -- concatenate affids
+	IF EXISTS(SELECT TOP 1 1 FROM @ListAffIds)
+    BEGIN
+        SELECT @AffIds = STRING_AGG(CAST(AffId AS VARCHAR(MAX)), ',') FROM @ListAffIds
+    END
+	
+	DECLARE @QualifiedMemberCPA TABLE (AffId INT, QualifiedMemberCPA INT)
+	DECLARE @GroupTypeId TABLE (AffId INT, GroupTypeId INT)
 
 	-- Total Turnover, Winloss, Commission
 	BEGIN
@@ -73,21 +112,18 @@ BEGIN
 			SubAffCommission	MONEY,
 			IsMultiGroupProduct BIT
 		)
+		
+	
+		IF (@AffIds IS NULL)
+		BEGIN
+			GOTO __result
+		END
 
-		DECLARE @MaxCommDate SMALLDATETIME, @AffIds VARCHAR(MAX)
+		DECLARE @MaxCommDate SMALLDATETIME
 		
 		SELECT  @MaxCommDate = CONVERT(VARCHAR(10), SValue, 120)
 		FROM dbo.SystemSettings WITH (NOLOCK)
 		WHERE SName = 'AFF_CommissionDate'
-		
-		--get sub affids
-		SELECT  @AffIds = COALESCE(@AffIds + ',', '') + CONVERT(VARCHAR(20), AffId)
-		FROM dbo.AffInfo WITH (NOLOCK)
-		WHERE ParentAffId = @AffId
-			AND Status = 'Approved'
-			AND IsClosed = 0
-			AND ISNULL(IsSuspended, 0) = 0
-			AND ApprovedDate < DATEADD(DAY, 1, @ToDate)
 
 		IF @ToDate > @MaxCommDate  AND @IsGetMonthly = 1
 		BEGIN
@@ -177,15 +213,14 @@ BEGIN
 				@IsSumAll			= 1,
 				@GetRowTotalOnly	= 1
 		END
-	END
-	
-	IF(@IsGetMonthly = 0)
-	-- Show TurnOver, GGR, ActivePlayers, QualifiedRevPlayer
-	BEGIN
-		SELECT @FDate	= @FromDate
-		SELECT @TDate	= @ToDate
 
-		CREATE TABLE #DataMemberDaily (MonthDate SMALLDATETIME, AffId INT, Currency INT, CustId INT, ProductId INT, Bonus MONEY, Rebate MONEY, Turnover MONEY, Winloss MONEY)
+		IF(@IsGetMonthly = 0)
+		-- Show TurnOver, GGR, ActivePlayers, QualifiedRevPlayer
+		BEGIN
+			SELECT @FDate	= @FromDate
+			SELECT @TDate	= @ToDate
+
+			CREATE TABLE #DataMemberDaily (MonthDate SMALLDATETIME, AffId INT, Currency INT, CustId INT, ProductId INT, Bonus MONEY, Rebate MONEY, Turnover MONEY, Winloss MONEY, IsExcludeOnlyCPA BIT DEFAULT 0)
 			CREATE CLUSTERED INDEX IX_DataMemberDaily ON #DataMemberDaily (MonthDate, AffId)
 			INSERT INTO #DataMemberDaily
 			(
@@ -211,7 +246,7 @@ BEGIN
 			FROM dbo.rptMemberDaily r WITH (NOLOCK)
 			WHERE r.WinlostDate >= @FDate 
 				AND r.WinlostDate <= @ToDate
-				AND EXISTS (SELECT TOP 1 1 FROM string_split(@AffIds,',') s WHERE CAST(s.value AS INT) = r.AffId)
+				AND EXISTS (SELECT TOP 1 1 FROM @ListAffIds s WHERE s.AffId = r.AffId)
 				AND NOT EXISTS (
 					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK) 
 					WHERE mr.CustId = r.custid AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
@@ -222,22 +257,25 @@ BEGIN
 				,CustId
 				,r.ProductId
 
-			DECLARE @AffInfo TABLE (AffId INT, AffUsername VARCHAR(50),MonthDate SMALLDATETIME, GroupId INT, QMTurnover MONEY)
-			INSERT INTO @AffInfo (AffId, AffUsername, MonthDate, GroupId)
-				SELECT a.AffId, a.Username, agh.MonthDate, a.GroupId
+			DECLARE @AffInfo TABLE (AffId INT, MonthDate SMALLDATETIME, GroupId INT, QMTurnover MONEY)
+			INSERT INTO @AffInfo (AffId, MonthDate, GroupId)
+				SELECT agh.AffId, agh.MonthDate, agh.GroupId
 				FROM (
 					SELECT DISTINCT AffId, MonthDate FROM #DataMemberDaily
 				)t
-					INNER JOIN dbo.AffInfo a WITH (NOLOCK) ON t.AffId = a.AffId
-					INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON a.AffId = agh.AffId AND agh.MonthDate = t.MonthDate
-				WHERE EXISTS (SELECT TOP 1 1 FROM string_split(@AffIds,',') s WHERE CAST(s.value AS INT) = a.AffId)
-					AND Status NOT IN ('Pending', 'Disapproved')					
+					INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON t.AffId = agh.AffId AND agh.MonthDate = t.MonthDate	
 			
-			UPDATE a SET a.QMTurnover = ISNULL(cg.QMTurnover, 0) * e.Rate
+			UPDATE a SET a.QMTurnover = cg.QMTurnover * e.Rate
 			FROM @AffInfo a
 				INNER JOIN dbo.CommGroupHistory cg WITH (NOLOCK) ON a.GroupId = cg.GroupId AND a.MonthDate = cg.MonthDate
 				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(a.MonthDate, @AffExchangeId, @BaseExchangeId) e
 			
+			-- TODO: Handle AffCPA with Active and Qualified Player Rev
+			UPDATE r SET r.IsExcludeOnlyCPA = 1
+			FROM #DataMemberDaily r
+			INNER JOIN @CPAAff acm 
+				ON r.MonthDate = acm.MonthDate
+
 			;WITH CTE_DataResult AS(
 				SELECT  r.AffId
 					,SUM(r.Bonus		* e.Rate)	AS Bonus
@@ -257,6 +295,7 @@ BEGIN
 					FROM #DataMemberDaily c
 						LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON c.Currency = t.TpExchangeId
 						CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(c.MonthDate, ISNULL(t.ExchangeId, c.Currency), @BaseExchangeId) e
+					WHERE c.IsExcludeOnlyCPA = 0
 					GROUP BY c.AffId, c.MonthDate, c.CustId
 				)r
 					INNER JOIN @AffInfo a ON a.AffId = r.AffId AND r.MonthDate = a.MonthDate
@@ -265,6 +304,7 @@ BEGIN
 			, CTE_ActivePlayer AS (
 				SELECT r.AffId, r.MonthDate, COUNT(DISTINCT IIF(r.productId > 0, r.CustId, NULL)) AS ActivePlayer
 				FROM #DataMemberDaily r
+				WHERE r.IsExcludeOnlyCPA = 0
 				GROUP BY r.AffId, r.MonthDate
 			)
 			INSERT INTO #TempCommission
@@ -334,93 +374,78 @@ BEGIN
 					WHERE q.AffId = t.AffId
 				)ap
 			DROP TABLE #DataMemberDaily 
+		END
 	END
-	
+
 	-- QualifiedMemberCPA
-	DECLARE @TimeZone SMALLINT
-	SELECT  @TimeZone = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
-	DECLARE @CurrentDate DATE = DATEADD(HOUR, @TimeZone, GETUTCDATE())
-	DECLARE @QualifiedMemberCPA TABLE (AffId INT, QualifiedMemberCPA INT)
-
 	;WITH CTE_Settled AS (
-			SELECT AffId
-				, COUNT(CustId) AS SettledPlayer
-			FROM dbo.MemberCPA mc WITH (NOLOCK)
-			WHERE mc.CPADate BETWEEN @FromDate AND @ToDate
-				AND mc.StatusId = 3
-				AND EXISTS (SELECT TOP 1 1 FROM string_split(@AffIds,',') s WHERE CAST(s.value AS INT) = mc.AffId)
-			GROUP BY AffId
-		)
-		,CTE_Eligible AS (
-			SELECT mc.AffId
-				, COUNT(mc.CustId) AS EligibledPlayer
-			FROM dbo.MemberCPA mc WITH (NOLOCK)
-				INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON mc.AffId = agh.AffId AND mc.GroupId = agh.GroupId AND agh.ToDate = '9999-12-31'
-			WHERE mc.HoldingQualifiedDate <= @ToDate
-				AND MONTH(@ToDate) = MONTH(@CurrentDate) --current month
-				AND mc.StatusId = 2
-				AND EXISTS (SELECT TOP 1 1 FROM string_split(@AffIds,',') s WHERE CAST(s.value AS INT) = mc.AffId)
-			GROUP BY mc.AffId
-		)
-		,CTE_Remaining AS (
-			SELECT mc.AffId
-				, IIF(cpg.Quota = 0, NULL, cpg.Quota - COUNT(mc.CustId)) AS Remaining -- NULL is unlimitedQuota
-			FROM dbo.MemberCPA mc WITH (NOLOCK)
-				INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON mc.AffId = agh.AffId AND mc.GroupId = agh.GroupId AND agh.ToDate = '9999-12-31' -- get current groupid of AFF to get quota
-				INNER JOIN dbo.CPAGroupSetting cpg WITH (NOLOCK) ON mc.GroupId = cpg.GroupId AND cpg.ToDate = '9999-12-31'
-			WHERE mc.StatusId = 3
-				AND EXISTS (SELECT TOP 1 1 FROM string_split(@AffIds,',') s WHERE CAST(s.value AS INT) = mc.AffId)
-			GROUP BY mc.AffId, cpg.Quota
-		)
-		,CTE_AffIds AS(
-			SELECT AffId FROM CTE_Settled
-			UNION
-			SELECT AffId FROM CTE_Eligible
-			UNION
-			SELECT AffId FROM CTE_Remaining
-		),
-		CTE_QualifiedPlayerCPA AS(
-			SELECT COALESCE(s.AffId, e.AffId, r.AffId) AS AffId
-				,ISNULL(s.SettledPlayer, 0) + IIF(r.Remaining IS NULL, ISNULL(e.EligibledPlayer, 0), IIF(ISNULL(e.EligibledPlayer, 0) <= r.Remaining, ISNULL(e.EligibledPlayer, 0), r.Remaining)) AS QualifiedMemberCPA
-			FROM CTE_Settled s
-				FULL OUTER JOIN CTE_Eligible e ON s.AffId = e.AffId
-				FULL OUTER JOIN CTE_Remaining r ON ISNULL(s.AffId, e.AffId) = r.AffId
-		)	
-		-- @QualifiedMemberCPA
-		INSERT INTO @QualifiedMemberCPA (AffId, QualifiedMemberCPA)
-		SELECT t.AffId, SUM(t.QualifiedMemberCPA)
-		FROM CTE_QualifiedPlayerCPA t
-		GROUP BY t.AffId
+		SELECT AffId
+			, COUNT(CustId) AS SettledPlayer
+		FROM dbo.MemberCPA mc WITH (NOLOCK)
+		WHERE mc.CPADate BETWEEN @FromDate AND @ToDate
+			AND mc.StatusId = 3
+			AND EXISTS (SELECT TOP 1 1 FROM @ListAffIds s WHERE s.AffId = mc.AffId)
+		GROUP BY AffId
+	)
+	,CTE_Eligible AS (
+		SELECT mc.AffId
+			, COUNT(mc.CustId) AS EligibledPlayer
+		FROM dbo.MemberCPA mc WITH (NOLOCK)
+			INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON mc.AffId = agh.AffId AND mc.GroupId = agh.GroupId AND agh.ToDate = '9999-12-31'
+		WHERE mc.HoldingQualifiedDate <= @ToDate
+			AND @IsCurrentMonth = 1 --current month
+			AND mc.StatusId = 2
+			AND EXISTS (SELECT TOP 1 1 FROM @ListAffIds s WHERE s.AffId = mc.AffId)
+		GROUP BY mc.AffId
+	)
+	,CTE_Remaining AS (
+		SELECT mc.AffId
+			, IIF(cpg.Quota = 0, NULL, cpg.Quota - COUNT(mc.CustId)) AS Remaining -- NULL is unlimitedQuota
+		FROM dbo.MemberCPA mc WITH (NOLOCK)
+			INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON mc.AffId = agh.AffId AND mc.GroupId = agh.GroupId AND agh.ToDate = '9999-12-31' -- get current groupid of AFF to get quota
+			INNER JOIN dbo.CPAGroupSetting cpg WITH (NOLOCK) ON mc.GroupId = cpg.GroupId AND cpg.ToDate = '9999-12-31'
+		WHERE mc.StatusId = 3
+			AND EXISTS (SELECT TOP 1 1 FROM @ListAffIds s WHERE s.AffId = mc.AffId)
+		GROUP BY mc.AffId, cpg.Quota
+	)
+	,CTE_AffIds AS(
+		SELECT AffId FROM CTE_Settled
+		UNION
+		SELECT AffId FROM CTE_Eligible
+		UNION
+		SELECT AffId FROM CTE_Remaining
+	),
+	CTE_QualifiedPlayerCPA AS(
+		SELECT COALESCE(s.AffId, e.AffId, r.AffId) AS AffId
+			,ISNULL(s.SettledPlayer, 0) + IIF(r.Remaining IS NULL, ISNULL(e.EligibledPlayer, 0), IIF(ISNULL(e.EligibledPlayer, 0) <= r.Remaining, ISNULL(e.EligibledPlayer, 0), r.Remaining)) AS QualifiedMemberCPA
+		FROM CTE_Settled s
+			FULL OUTER JOIN CTE_Eligible e ON s.AffId = e.AffId
+			FULL OUTER JOIN CTE_Remaining r ON ISNULL(s.AffId, e.AffId) = r.AffId
+	)	
+	-- @QualifiedMemberCPA
+	INSERT INTO @QualifiedMemberCPA (AffId, QualifiedMemberCPA)
+	SELECT t.AffId, SUM(t.QualifiedMemberCPA)
+	FROM CTE_QualifiedPlayerCPA t
+	GROUP BY t.AffId
 
-	--GroupTypeName
-	DECLARE @GroupTypeName TABLE (AffId INT, GroupTypeName VARCHAR(200))
-	
-	-- @GroupTypeName
-	INSERT INTO @GroupTypeName (AffId, GroupTypeName)
-	SELECT 
-		AffId,
-		CASE 
-			WHEN MAX(CASE WHEN GroupTypeId = 4 THEN 1 ELSE 0 END) = 1 THEN 'Hybrid CPA/Revenue Share'
-			WHEN MAX(CASE WHEN GroupTypeId = 1 THEN 1 ELSE 0 END) = 1
-				 AND MAX(CASE WHEN GroupTypeId = 3 THEN 1 ELSE 0 END) = 1 THEN 'Hybrid CPA/Revenue Share'
-			WHEN MAX(CASE WHEN GroupTypeId = 3 THEN 1 ELSE 0 END) = 1 THEN 'CPA'
-			WHEN MAX(CASE WHEN GroupTypeId = 1 THEN 1 ELSE 0 END) = 1 THEN 'Revenue Share'
-		END AS GroupTypeName
-	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.IsDeleted = 0 AND agh.GroupId = cg.GroupId
-	WHERE EXISTS (
-			SELECT TOP 1 1 
-			FROM string_split(@AffIds, ',') s 
-			WHERE CAST(s.value AS INT) = agh.AffId
-		)
-		AND agh.FromDate <= @ToDate
-		AND agh.ToDate >= @FromDate
-	GROUP BY AffId;
-
+	--@GroupTypeId
+	INSERT INTO @GroupTypeId (AffId, GroupTypeId)
+    SELECT t.AffId, ISNULL(IIF(t.GroupTypeId > 4, 4, GroupTypeId), 1) AS GroupTypeId -- Default RevShare
+    FROM(
+        SELECT 
+            AffId,
+            SUM(DISTINCT cg.GroupTypeId) AS GroupTypeId 
+        FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+            INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON agh.GroupId = cg.GroupId
+        WHERE EXISTS (SELECT TOP 1 1 FROM @ListAffIds s WHERE s.AffId = agh.AffId)
+            AND agh.FromDate <= @ToDate
+            AND agh.ToDate >= @FromDate
+        GROUP BY AffId
+    )AS t;
 	
 	-- Return data
 	BEGIN
-
+	__result:
 		SELECT
 			ai.AffId
 			,ai.UserName
@@ -435,7 +460,7 @@ BEGIN
 			,c.ActivePlayer
 			,c.QualifiedMember
 			,qmc.QualifiedMemberCPA AS QualifiedMemberCPA
-			,gt.GroupTypeName AS GroupTypeName
+			,gt.GroupTypeId AS GroupTypeId
 		FROM dbo.AffInfo ai WITH (NOLOCK)
 			OUTER APPLY (
 				SELECT
@@ -455,11 +480,8 @@ BEGIN
 				WHERE ai.AffId = qmc.AffId
 					AND ISNULL(ai.IsSuspended, 0) = 0
 			) qmc
-			LEFT JOIN @GroupTypeName gt ON gt.AffId = ai.AffId
-		WHERE ai.ParentAffId = @AffId
-			AND ai.Status = 'Approved'
-			AND ai.IsClosed = 0
-			AND ai.ApprovedDate < DATEADD(DAY, 1, @ToDate)
+			LEFT JOIN @GroupTypeId gt ON gt.AffId = ai.AffId
+		WHERE EXISTS (SELECT TOP 1 1 FROM @ListAffIds s WHERE s.AffId = ai.AffId)
 		ORDER BY
 			ai.IsSuspended ASC
 			,ai.UserName ASC

@@ -1,5 +1,5 @@
 /*<info serverAlias="DBAFF12B-Affiliate_12B" executers="wsv_afinet,wsv_afinetv" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Aff_User_Overview_PlayersDetail_Sel]
+ALTER PROCEDURE [dbo].[Aff_User_Overview_PlayersDetail_Sel]
 	@AffId			INT
 	,@FromDate		SMALLDATETIME
 	,@ToDate		SMALLDATETIME
@@ -85,6 +85,18 @@ BEGIN
 	FROM CTE_MonthDate md
 	OPTION (MAXRECURSION 0)
 
+	-- GroupTypeId
+	DECLARE @GroupTypeId INT
+
+	-- @GroupTypeId
+	SELECT @GroupTypeId = SUM(DISTINCT cg.GroupTypeId)
+	FROM dbo.AffGroupHistory agh WITH (NOLOCK)
+		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON agh.GroupId = cg.GroupId
+	WHERE agh.AffId = @AffId
+		AND agh.FromDate <= @ToDate
+		AND agh.ToDate >= @FromDate
+  
+	SET @GroupTypeId = ISNULL(IIF(@GroupTypeId > 4, 4, @GroupTypeId),1)
 
 	-- Create temporary table to store intermediate data
 	CREATE TABLE #tmpData (
@@ -98,32 +110,62 @@ BEGIN
 		DepositFee MONEY,
 		WithdrawalFee MONEY
 	)
-
-	-- Create temporary table to store deduction settings for each month in date range
-	;WITH CTE_DeductionSettings AS (
-		SELECT 
-			ml.MonthDate,
-			SUM(CASE WHEN dsh.DeductionID = 13 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE 0 END) AS DepositRate,
-			SUM(CASE WHEN dsh.DeductionID = 13 THEN ISNULL(dsh.DeductedAmount, 0) ELSE 0 END) AS DepositAmount,
-			SUM(CASE WHEN dsh.DeductionID = 14 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE 0 END) AS WithdrawalRate,
-			SUM(CASE WHEN dsh.DeductionID = 14 THEN ISNULL(dsh.DeductedAmount, 0) ELSE 0 END) AS WithdrawalAmount
-		FROM @MonthDate ml
-			INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON agh.MonthDate = ml.MonthDate AND agh.AffID = @AffId
-			INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupId = dsh.GroupId 
-																		AND agh.MonthDate = dsh.MonthDate
-																		AND dsh.DeductionID IN (13, 14)
-		GROUP BY ml.MonthDate
+	CREATE TABLE #tmpDeductionSettings (
+		MonthDate SMALLDATETIME,
+		Dep_IsDeductedPercent TINYINT,
+		DepositRate FLOAT,
+		DepositAmount MONEY,
+		WithdrawalRate FLOAT,
+		WithdrawalAmount MONEY,
+		Wit_IsDeductedPercent TINYINT
 	)
-	SELECT 
-		ds.MonthDate,
-		ds.DepositRate,
-		ds.DepositAmount * er.Rate AS DepositAmount,
-		ds.WithdrawalRate,
-		ds.WithdrawalAmount * er.Rate AS WithdrawalAmount
-	INTO #tmpDeductionSettings
-	FROM CTE_DeductionSettings ds
-		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(ds.MonthDate, @AffExchangeId, @BaseExchangeId) er						
+	IF(@GroupTypeId <> 3)  -- Not CPA Only
+	BEGIN
+	-- Create temporary table to store deduction settings for each month in date range
+		;WITH CTE_DeductionSettings AS (
+			SELECT 
+				ml.MonthDate,
+				IIF(dsh.DeductionID = 13 AND dsh.IsDeductedPercent = 1, 1, 0) AS Dep_IsDeductedPercent,
+				IIF(dsh.DeductionID = 14 AND dsh.IsDeductedPercent = 1, 1, 0) AS Wit_IsDeductedPercent,
+				SUM(CASE WHEN dsh.DeductionID = 13 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE 0 END) AS DepositRate,
+				SUM(CASE WHEN dsh.DeductionID = 13 THEN ISNULL(dsh.DeductedAmount, 0) ELSE 0 END) AS DepositAmount,
+				SUM(CASE WHEN dsh.DeductionID = 14 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE 0 END) AS WithdrawalRate,
+				SUM(CASE WHEN dsh.DeductionID = 14 THEN ISNULL(dsh.DeductedAmount, 0) ELSE 0 END) AS WithdrawalAmount
+			FROM @MonthDate ml
+				INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON agh.MonthDate = ml.MonthDate AND agh.AffID = @AffId
+				INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupId = dsh.GroupId 
+																			AND agh.MonthDate = dsh.MonthDate
+																			AND dsh.DeductionID IN (13, 14)
+			GROUP BY ml.MonthDate
+					,IIF(dsh.DeductionID = 13 AND dsh.IsDeductedPercent = 1, 1, 0)
+					,IIF(dsh.DeductionID = 14 AND dsh.IsDeductedPercent = 1, 1, 0)
+		)
+		INSERT INTO #tmpDeductionSettings (
+			MonthDate,
+			Dep_IsDeductedPercent,
+			DepositRate,
+			DepositAmount,
+			WithdrawalRate,
+			WithdrawalAmount,
+			Wit_IsDeductedPercent
+		)
+		SELECT 
+			ds.MonthDate,
+			ds.Dep_IsDeductedPercent,
+			ds.DepositRate,
+			ds.DepositAmount * er.Rate AS DepositAmount,
+			ds.WithdrawalRate,
+			ds.WithdrawalAmount * er.Rate AS WithdrawalAmount,
+			ds.Wit_IsDeductedPercent
+		FROM CTE_DeductionSettings ds
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(ds.MonthDate, @AffExchangeId, @BaseExchangeId) er
+		
+		DECLARE @Dep_IsDeductedPercent BIT, @Wit_IsDeductedPercent BIT
+		SELECT @Dep_IsDeductedPercent = IIF(MAX(Dep_IsDeductedPercent) = 1, 1, 0)
+				,@Wit_IsDeductedPercent = IIF(MAX(Wit_IsDeductedPercent) = 1, 1, 0)
+		FROM #tmpDeductionSettings d
 
+	END
 	-- Create #DataByMonth table to store monthly aggregated data
 	CREATE TABLE #DataByMonth (
 		MonthDate SMALLDATETIME,
@@ -257,42 +299,14 @@ BEGIN
 		SELECT @NRows = COUNT(1) FROM #tmpData;
 	END
 
-	--GroupTypeName
-	DECLARE @GroupTypeName NVARCHAR(200) = 'Hybrid CPA/Revenue Share'
-	
-	-- @GroupTypeName
-	IF NOT EXISTS (
-					SELECT TOP 1 1
-					FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-						INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.IsDeleted = 0 AND agh.GroupId = cg.GroupId
-					WHERE agh.AffId = @AffId
-						AND agh.FromDate <= @ToDate
-						AND agh.ToDate >= @FromDate
-						AND cg.GroupTypeId <> 3
-					)
-	BEGIN 
-		SET @GroupTypeName = 'CPA'
-	END
-
-	IF NOT EXISTS (
-					SELECT TOP 1 1
-					FROM dbo.AffGroupHistory agh WITH (NOLOCK)
-						INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON cg.IsDeleted = 0 AND agh.GroupId = cg.GroupId
-					WHERE agh.AffId = @AffId
-						AND agh.FromDate <= @ToDate
-						AND agh.ToDate >= @FromDate
-						AND cg.GroupTypeId <> 1
-					)
-	BEGIN 
-		SET @GroupTypeName = 'Revenue Share'
-	END
-
 	-- Paging
 	DECLARE @RowStart INT, @RowEnd INT
 	SELECT  @RowStart = @PageSize * (@PageIndex - 1) + 1, @RowEnd = @RowStart + @PageSize - 1
 	
-	-- Return IsCPADealOnly flag
-	SELECT @GroupTypeName AS GroupTypeName;
+	-- Return GroupTypeId flag
+	SELECT @GroupTypeId AS GroupTypeId,
+			@Dep_IsDeductedPercent AS Dep_IsDeductedPercent,
+			@Wit_IsDeductedPercent AS Wit_IsDeductedPercent;
 
 	SELECT CustId, UserName, RegisteredDate, FirstDepositDate, FirstDepositAmount, Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, DepositFee, WithdrawalFee
 	FROM(
