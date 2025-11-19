@@ -168,6 +168,71 @@ DROP TABLE #TempResults
 
 ---
 
+## 5.1 Batch Update/Delete (Large Datasets)
+
+```sql
+-- Pattern: Process large UPDATE/DELETE in batches using a temp table
+-- 1) Create temp table with identity PK
+-- 2) Populate with the rows (deterministic ordering)
+-- 3) Loop with threshold-sized batches and perform set-based updates/deletes
+
+CREATE TABLE #Result (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    KeyCol INT NOT NULL,
+    SomeValue VARCHAR(200) NULL
+)
+
+-- Populate deterministic set
+INSERT INTO #Result (KeyCol, SomeValue)
+SELECT t.KeyCol, t.SomeValue
+FROM dbo.SourceTable t WITH (NOLOCK)
+WHERE /* your filter */ 1=1
+ORDER BY t.KeyCol -- ensure deterministic order
+
+-- Batch control variables
+DECLARE @StartRow INT,
+        @StopRow INT,
+        @MaxRow INT,
+        @Threshold INT = 20000; -- adjust as needed
+
+SELECT @MaxRow = (SELECT MAX(Id) FROM #Result)
+IF @MaxRow IS NULL
+BEGIN
+    DROP TABLE #Result
+    RETURN
+END
+
+IF @Threshold >= @MaxRow
+    SET @Threshold = @MaxRow
+
+SET @StartRow = 1
+SET @StopRow = @Threshold
+
+WHILE (@StartRow <= @MaxRow)
+BEGIN
+    -- Example: set-based UPDATE using UPDLOCK, ROWLOCK
+    UPDATE t
+    SET t.Status = 1,
+        t.UpdatedDate = GETDATE()
+    FROM dbo.TargetTable t WITH (UPDLOCK, ROWLOCK)
+    INNER JOIN #Result r ON r.KeyCol = t.KeyCol
+    WHERE r.Id BETWEEN @StartRow AND @StopRow
+
+    -- Optional: check progress
+    DECLARE @DebugMsg VARCHAR(200) = CONVERT(VARCHAR(50), GETDATE(), 121) + ' Processed ' + CAST(@StartRow AS VARCHAR) + '-' + CAST(@StopRow AS VARCHAR)
+    RAISERROR(@DebugMsg, 0, 1) WITH NOWAIT
+
+    IF @StopRow = @MaxRow BREAK
+
+    SET @StartRow = @StopRow + 1
+    SET @StopRow = @StopRow + @Threshold
+    IF @StopRow >= @MaxRow SET @StopRow = @MaxRow
+END
+
+DROP TABLE #Result
+```
+
+
 ## 6. String Split
 
 ```sql

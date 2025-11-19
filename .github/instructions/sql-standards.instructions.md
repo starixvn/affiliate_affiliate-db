@@ -7,31 +7,7 @@ applyTo: "**/*.sql"
 
 ## 🏷️ Naming Conventions
 
-### Stored Procedures
-**Pattern**: `Aff_[Layer]_[Module]_[Entity]_[Action]` or `Aff_[Layer]_[Entity]_[Action]`
-
-**Layer Prefixes**:
-- `Aff_Admin_*` - Admin procedures (executor: `wsv_afinet`)
-- `Aff_User_*` - User procedures (executors: `wsv_afinet,wsv_afinetv`)
-- `Aff_API_*` - API endpoint procedures
-- `Aff_ClickStatistics*` - Click tracking (note: no underscore after prefix)
-- `Aff_Con_*` - Security/UserControl procedures
-- `Aff_f_*` - Helper functions (table-valued or scalar)
-- `Task_Aff_*` - Scheduled jobs
-
-**Action Suffixes**:
-- `_Sel` - SELECT
-- `_Ins` - INSERT
-- `_Upd` - UPDATE
-- `_Del` - DELETE
-
-**Examples**:
-```sql
-Aff_Admin_Report_PlayerCPA_Sel
-Aff_User_Overview_Summary_Sel
-Aff_f_ExchangeRate_Sel
-Task_Aff_CPAActivePeriod
-```
+See the dedicated naming guide: `.context/common/sql-naming.md` for naming patterns, layer prefixes, action suffixes, and examples. This file centralizes naming so templates and environment docs can reference a single source of truth.
 
 ## 📝 Templates
 
@@ -158,6 +134,18 @@ DECLARE @SmallSet TABLE (
 
 INSERT INTO @SmallSet VALUES (1, 'Test')
 ```
+
+### Batch Processing Large Datasets
+
+When performing large UPDATE/DELETE operations, prefer batching to avoid long-running transactions and excessive log growth. Use a temporary table with an `IDENTITY` primary key for deterministic paging, then process rows in chunks.
+
+Guidelines:
+- Create temp table with an `IDENTITY` primary key (do not use `SELECT INTO`).
+- Populate with `INSERT INTO #tmp (...) SELECT ... ORDER BY <unique_key>` to ensure deterministic ordering.
+- Use `@Threshold` to control batch size and iterate with a `WHILE` loop using `Id BETWEEN @Start AND @Stop`.
+- Always `DROP TABLE` the temp table at the end.
+
+Refer to `sql-examples.instructions.md` for a copy-paste ready batch update/delete example.
 
 ## 🎯 Common Patterns (See sql-examples.instructions.md for full code)
 

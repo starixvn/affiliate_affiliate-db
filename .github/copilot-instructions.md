@@ -24,7 +24,7 @@ VS Code will automatically apply these when working with matching files:
 
 Each domain module lives under `.context/modules/<module>/` providing business rules, schema reference, and procedural documentation. Current modules:
 
-- `cpa/` – CPA lifecycle (business.md, schema.md, sps.md)
+- `cpa/` – CPA lifecycle (business.md, schema.md, sps-lifecycle.md, sps-deal-setting.md, sps-reporting.md)
 
 Add new modules by creating the directory structure:
 
@@ -32,10 +32,10 @@ Add new modules by creating the directory structure:
 .context/modules/<module>/
   business.md      ← Domain business logic & lifecycle
   schema.md        ← Live introspected schema (sys.* catalog)
-  sps.md           ← Stored procedure documentation (Purpose, Params, Steps, Writes, Idempotency)
+  sps-*.md         ← Stored procedure documentation (split by domain for token efficiency)
 ```
 
-Follow CPA docs as a template: Part-based procedural sections, integration notes mapping SP outputs to core states.
+Follow CPA docs as a template: Part-based procedural sections, integration notes mapping SP outputs to core states. For large SP catalogs, split by domain (lifecycle, mutation, reporting) into separate files with YAML tags.
 
 ---
 
@@ -171,9 +171,10 @@ When adding a new module (example: `rs` for Revenue Share specifics):
   - Overview, Core Entities, Process Flow (Mermaid), Rules, Data Flow, Dependencies, Integration Notes
 3. Add `schema.md`:
   - Generate via system catalog queries (reuse CPA script pattern) – list columns, data types, indexes, notes
-4. Add `sps.md`:
-  - Partition into Parts (e.g., Lifecycle, Setting, Reporting)
-  - For each SP include: Purpose | Parameters | Core Steps | Writes | Idempotency | Errors | Performance
+4. Add `sps-*.md` (split by domain if > 500 lines):
+  - Partition into domain files (e.g., sps-lifecycle.md, sps-mutation.md, sps-reporting.md)
+  - Each file: YAML front-matter with domain-specific tags + Summary Table + Refactored SP sections
+  - For each SP include: PURPOSE, BUSINESS RULE, PARAMETERS (table), TEMP TABLES (table), READS FROM, WRITES TO (table), LOGIC FLOW (pseudocode), DECISION TREE, SIDE EFFECTS, EDGE CASES, IDEMPOTENT, ERRORS (table), PERFORMANCE NOTES, SAMPLE I/O (3+ scenarios), DEPENDENCIES
 5. Update this instructions file Module Documentation list (no duplication of environment info)
 
 ## 🧪 Live Schema Generation (Pattern)
