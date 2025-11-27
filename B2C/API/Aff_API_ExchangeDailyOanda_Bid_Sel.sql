@@ -1,0 +1,86 @@
+/*<info serverAlias="DB12B-bodb_12B" executers="wsv_afinet" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[Aff_API_ExchangeDailyOanda_Bid_Sel]
+	@ExchangeDate	SMALLDATETIME
+	,@ExchangeIds	VARCHAR(MAX)
+AS
+/*
+	Created: 20251112@Sophia
+	DB: DB12B-bodb_12B
+	Task: Get ExchangeDailyOanda_Bid information
+
+	Revisions:
+		- 20251112@Sophia: Initialize SP [RedmineID: #243773]
+*/
+
+BEGIN
+	SET NOCOUNT ON
+
+	
+	DECLARE @TmpExchange TABLE(
+		ExchangeId	INT ,Code VARCHAR(12) ,MYR FLOAT, USD FLOAT, EUR FLOAT, CNY FLOAT, IDR FLOAT, AUD FLOAT, CHF FLOAT
+		,GBP FLOAT, SGD FLOAT, THB FLOAT, VND FLOAT, KRW FLOAT, JPY FLOAT, HKD FLOAT, TWD FLOAT, PHP FLOAT, BDT FLOAT, INR FLOAT
+		,TRY FLOAT, NPR FLOAT, MXN FLOAT, NGN FLOAT, BRL FLOAT, PKR FLOAT, ZAR FLOAT
+	)
+
+	INSERT INTO @TmpExchange (ExchangeId, Code, MYR, USD, EUR, CNY, IDR, AUD, CHF, GBP, SGD, THB, VND, KRW, JPY, HKD, TWD, PHP, BDT, INR, TRY, NPR, MXN, NGN, BRL, PKR, ZAR)
+	SELECT ExchangeId, Code, MYR, USD, EUR, CNY, IDR, AUD, CHF, GBP, SGD, THB, VND, KRW, JPY, HKD, TWD, PHP, BDT, INR, TRY, NPR, MXN, NGN, BRL, PKR, ZAR
+	FROM dbo.ExchangeDailyOanda_Bid e WITH(NOLOCK)
+	WHERE e.ExchangeDate = @ExchangeDate AND e.ExchangeId IN (SELECT CONVERT(INT, Value) FROM STRING_SPLIT(@ExchangeIds, ','))
+
+	SELECT t.ExchangeId, t.Code, n.Currency, n.Rate
+	FROM @TmpExchange t
+	CROSS APPLY 
+	(
+		SELECT 'MYR', MYR
+		UNION ALL
+		SELECT 'USD', USD
+		UNION ALL
+		SELECT 'EUR', EUR
+		UNION ALL
+		SELECT 'CNY', CNY
+		UNION ALL
+		SELECT 'IDR', IDR
+		UNION ALL
+		SELECT 'AUD', AUD
+		UNION ALL
+		SELECT 'CHF', CHF
+		UNION ALL
+		SELECT 'GBP', GBP
+		UNION ALL
+		SELECT 'SGD', SGD
+		UNION ALL
+		SELECT 'THB', THB
+		UNION ALL
+		SELECT 'VND', VND
+		UNION ALL
+		SELECT 'KRW', KRW
+		UNION ALL
+		SELECT 'JPY', JPY
+		UNION ALL
+		SELECT 'HKD', HKD
+		UNION ALL
+		SELECT 'TWD', TWD
+		UNION ALL
+		SELECT 'PHP', PHP
+		UNION ALL
+		SELECT 'BDT', BDT
+		UNION ALL
+		SELECT 'INR', INR
+		UNION ALL
+		SELECT 'TRY', TRY
+		UNION ALL
+		SELECT 'NPR', NPR
+		UNION ALL
+		SELECT 'MXN', MXN
+		UNION ALL
+		SELECT 'NGN', NGN
+		UNION ALL
+		SELECT 'BRL', BRL
+		UNION ALL
+		SELECT 'PKR', PKR
+		UNION ALL
+		SELECT 'ZAR', ZAR
+	) AS n(Currency, Rate)
+	ORDER BY t.ExchangeId ASC, t.Code ASC, n.Currency ASC
+END
+GO
