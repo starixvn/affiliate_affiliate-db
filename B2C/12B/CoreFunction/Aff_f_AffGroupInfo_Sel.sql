@@ -18,6 +18,7 @@ AS
         - 20250826@Lewis: Get last groupid in 1 month [RedmineID: #236665]
 		- 20251103@Lewis: Get grouptypeid [RedmineID: #240525]
 		- 20251106@Sally: get Schedule info [RedmineID: #236665]
+		- 20251201@Lewis: get eomonth for currentmonth [RedmineID: #245038]
 
 	Param's Explanation:
 		- @AffIds : list of Affiliate's id
@@ -32,8 +33,8 @@ RETURN
 			,agh.AllParentAffId
 		FROM dbo.AffGroupHistory agh WITH (NOLOCK)
 		WHERE (@AffIds = 'all' OR ',' + @AffIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), agh.AffId) + ',%')
-			 AND agh.MonthDate >= @FromDate
-			 AND agh.MonthDate <= @ToDate
+			 AND agh.FromDate <= @ToDate
+			 AND agh.ToDate >= @FromDate
 			 AND agh.MonthDate = EOMONTH(agh.MonthDate) -- 1 eomonth 1 groupid 1 affid
 	)
 	SELECT c.MonthDate
