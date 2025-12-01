@@ -47,6 +47,7 @@ AS
 		- 20251002@Sophia: Implement hybrid approach using rptMemberDaily for historical data and DepositInfo for recent data based on commission date boundary [RedmineID: #239737]
 		- 20251022@Sophia: Add IsExcluded = 0 condition to filter excluded clicks [RedmineID: #241768]
 		- 20250825@Lewis: Enhance report - add column related to CPA [RedmineID: #236665]
+		- 20250825@Lewis: Enhance report - handle null for QMTO setting and QualifiedPlayer for CPADeal [RedmineID: #245038]
 
 	Param's Explanation:
 		- @SortType: 
@@ -86,7 +87,11 @@ BEGIN
 	FROM STRING_SPLIT(@Statuses, ',') 
 
 	SELECT  @TimeZone = CONVERT(SMALLINT, SValue) FROM dbo.SystemSettings WITH (NOLOCK) WHERE SName = 'TimeZone'
-		
+	
+	DECLARE @CurrentDate DATETIME = DATEADD(HOUR, @TimeZone, GETUTCDATE())
+
+	
+
 	IF (@IsExcludeNegvBBF = 0 AND @IsExcludeNegvCurrentBBF = 0)
 	BEGIN
 		SET @IsExcludeAFFTest = 0
@@ -188,6 +193,15 @@ BEGIN
 		SELECT @AffIds = COALESCE(@AffIds + ',', '') + CONVERT(VARCHAR(20), AffId)
 		FROM @Aff	
 	END
+
+	-- TODO: Handle AffCPA with Active and Qualified Player Rev
+	DECLARE @CPAAff TABLE (MonthDate SMALLDATETIME, AffId INT, GroupId INT, GroupTypeId INT)
+	
+	INSERT INTO @CPAAff (MonthDate, AffId, GroupId, GroupTypeId)
+	SELECT af.MonthDate, af.AffId, af.GroupId, af.GroupTypeId
+	FROM dbo.Aff_f_AffGroupInfo_Sel(@FromDate, @ToDate, CONVERT(VARCHAR(20), @AffIds)) af
+	WHERE af.GroupTypeId = 3
+
 	/*
 		===== Get data =====
 	*/
@@ -323,7 +337,7 @@ BEGIN
 			SELECT ProductId FROM dbo.Products WITH (NOLOCK) 
 			WHERE ProductId IN (SELECT CONVERT(INT,value) AS ProductID FROM STRING_SPLIT(@ProductIds, ','))
 
-			CREATE TABLE #DataMemberDaily (MonthDate SMALLDATETIME, AffId INT, Currency INT, CustId INT, ProductId INT, Bonus MONEY, Rebate MONEY, Turnover MONEY, Winloss MONEY)
+			CREATE TABLE #DataMemberDaily (MonthDate SMALLDATETIME, AffId INT, Currency INT, CustId INT, ProductId INT, Bonus MONEY, Rebate MONEY, Turnover MONEY, Winloss MONEY, IsExcludeOnlyCPA BIT DEFAULT 0)
 			CREATE CLUSTERED INDEX IX_DataMemberDaily ON #DataMemberDaily (AffId, MonthDate)
 			;WITH CTE_rptMemberDailyData AS(
 				SELECT CONVERT(DATE, EOMONTH(r.WinlostDate)) AS MonthDate
@@ -382,14 +396,21 @@ BEGIN
 			CREATE CLUSTERED INDEX IX_temp_AffInfo_AffId_MonthDate ON #temp_AffInfo (AffId, MonthDate)
 
 			INSERT INTO #temp_AffInfo (AffId, MonthDate, GroupId, QMTurnover)
-				SELECT a.AffId, agh.MonthDate, agh.GroupId, ISNULL(cg.QMTurnover, 0) * e.Rate AS QMTurnover
+				SELECT a.AffId, agh.MonthDate, agh.GroupId, cg.QMTurnover * e.Rate AS QMTurnover
 				FROM (
 					SELECT DISTINCT AffId, MonthDate FROM #DataMemberDaily
 				)a
 				INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON a.AffId = agh.AffId AND agh.MonthDate = a.MonthDate				
 				INNER JOIN dbo.CommGroupHistory cg WITH (NOLOCK) ON agh.GroupId = cg.GroupId AND agh.MonthDate = cg.MonthDate
 				CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(a.MonthDate, @AffExchangeId, @BaseExchangeId) e
-				
+			
+			-- TODO: Handle Aff deal CPA in CurrentMonth for Active, Qualified Player 
+			UPDATE r SET r.IsExcludeOnlyCPA = 1
+			FROM #DataMemberDaily r
+			INNER JOIN @CPAAff acm 
+				ON r.AffId = acm.AffId AND r.MonthDate = acm.MonthDate
+			
+			-- Bonus, Rebate, Turnover, Winloss, GrossWinloss, ActivePlayer, QualifiedPlayer
 			;WITH CTE_DataResult AS(
 				SELECT  r.AffId
 					,SUM(r.Bonus) AS Bonus
@@ -405,6 +426,7 @@ BEGIN
 				FROM (
 					SELECT c.AffId, c.MonthDate, c.CustId, SUM(c.Turnover) AS Turnover
 					FROM #DataMemberDaily c
+					WHERE c.IsExcludeOnlyCPA = 0
 					GROUP BY c.AffId, c.MonthDate, c.CustId
 				)r
 					INNER JOIN #temp_AffInfo a ON a.AffId = r.AffId AND r.MonthDate = a.MonthDate
@@ -413,6 +435,7 @@ BEGIN
 			, CTE_ActivePlayer AS (
 				SELECT r.AffId, r.MonthDate, COUNT(DISTINCT IIF(r.productId > 0, r.CustId, NULL)) AS ActivePlayer
 				FROM #DataMemberDaily r
+				WHERE r.IsExcludeOnlyCPA = 0
 				GROUP BY r.AffId, r.MonthDate
 			)
 			INSERT INTO #TempCommission
@@ -675,7 +698,6 @@ BEGIN
 
 		-- AffWithdrawal, AffAdjustment, Approved CPA Amount , Adjusted CPA Amount
 		BEGIN
-			DECLARE @CurrentDate DATE = DATEADD(HOUR, @TimeZone, GETUTCDATE())
 			CREATE TABLE #AffTrans (AffId INT, AffWithdrawal MONEY, AffAdjustment MONEY, BFF MONEY, CurrentBBF MONEY, ApprovedCPAAmount MONEY, AdjustedCPAAmount MONEY)
 			INSERT INTO #AffTrans (AffId, AffWithdrawal, AffAdjustment, ApprovedCPAAmount, AdjustedCPAAmount, BFF, CurrentBBF)
             SELECT ata.AffId,
@@ -1076,7 +1098,7 @@ BEGIN
 		--sub
 		, SubAffEarning
 		, Earning + ApprovedCPAAmount + SubAffEarning + AdjustedCPAAmount AS TotalEarning
-
+		 
 		, AffWithdrawal
 		, AffAdjustment
 		, BFF
