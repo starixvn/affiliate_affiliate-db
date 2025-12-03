@@ -4,6 +4,7 @@ CREATE PROCEDURE [dbo].[Aff_Admin_PlayersDetail_Sel]
 	,@ProductId		INT = 0
 	,@FromDate		SMALLDATETIME
 	,@ToDate		SMALLDATETIME
+	,@ChannelCodes	VARCHAR(MAX) = 'all' -- default 'all' means include all channel codes
 	,@Currencies	VARCHAR(MAX) = ''
 	,@BaseCurrency	INT = 0
 	,@SortById		TINYINT = 5 -- default
@@ -14,7 +15,6 @@ CREATE PROCEDURE [dbo].[Aff_Admin_PlayersDetail_Sel]
 	,@NRows			INT = 0 OUTPUT
 	,@IsIncludeRemovedPlayer BIT = 0
 AS
-
 /*
 	Created: 20241118@Eddie
 	DB: DBAFF12B-Affiliate_12B
@@ -28,6 +28,7 @@ AS
 		- 20250815@Sally: Add date picker functionality [RedmineID: #236120]
 		- 20251002@Sophia: Implement hybrid approach using rptMemberDaily for historical data and DepositInfo for recent data based on commission date boundary [RedmineID: #239737]
 		- 20251027@Sally: Apply DepositCount [RedmineID: #242833]
+		- 20251120@Sally: get Channel info [RedmineID: #244655]
 		
 	Param's Explanation:
 		- @FromDate:	Start date of the range
@@ -46,6 +47,8 @@ AS
 					   12 = First Deposit Date
 					   13 = First Deposit Amount
 					   14 = Deposit Count
+					   15 = Channel Name
+
 		- @IsSortAsc:	0 = DESC
 						1 = ASC
 		- @BaseCurrency : Currency of B2C
@@ -67,7 +70,6 @@ AS
 			@PageIndex = 1,
 			@PageSize = 20;
 */
-
 BEGIN
 	SET NOCOUNT ON
 
@@ -113,9 +115,25 @@ BEGIN
 	BEGIN
 		SET @IsCPADealOnly = 0
 	END
+	DECLARE @tmpChannelCodes TABLE (ChannelCode VARCHAR(50))
 
+	IF(@ChannelCodes <> 'all')
+	BEGIN
+		INSERT INTO @tmpChannelCodes (ChannelCode)
+		SELECT TRIM(value) AS ChannelCode
+		FROM STRING_SPLIT(@ChannelCodes, ',')
+	END
+	
+
+	-- Temporary table to hold aggregated data
 	CREATE TABLE #tmpData (
-		CustId INT, 
+		CustId INT,
+		UserName VARCHAR(30),
+		ChannelName NVARCHAR(200),
+		IBCUserName VARCHAR(30),
+		RegisteredDate DATETIME,
+		FirstDepositDate DATETIME,
+		FirstDepositAmount MONEY,
 		Deposit MONEY, 
 		Withdrawal MONEY, 
 		Turnover MONEY, 
@@ -142,31 +160,44 @@ BEGIN
 	FROM CTE_MonthDate md
 	OPTION (MAXRECURSION 0)
 
-	-- Create temporary table to store deduction settings for each month in date range
-	;WITH CTE_DeductionSettings AS (
-		SELECT 
-			ml.MonthDate,
-			SUM(CASE WHEN dsh.DeductionID = 13 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE 0 END) AS DepositRate,
-			SUM(CASE WHEN dsh.DeductionID = 13 THEN ISNULL(dsh.DeductedAmount, 0) ELSE 0 END) AS DepositAmount,
-			SUM(CASE WHEN dsh.DeductionID = 14 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE 0 END) AS WithdrawalRate,
-			SUM(CASE WHEN dsh.DeductionID = 14 THEN ISNULL(dsh.DeductedAmount, 0) ELSE 0 END) AS WithdrawalAmount
-		FROM @MonthDate ml
-			INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON agh.MonthDate = ml.MonthDate AND agh.AffID = @AffId
-			INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupId = dsh.GroupId 
-																		AND agh.MonthDate = dsh.MonthDate
-																		AND dsh.DeductionID IN (13, 14)
-		GROUP BY ml.MonthDate
+	-- Prepare Deduction Settings per month
+	CREATE TABLE #tmpDeductionSettings (
+		MonthDate SMALLDATETIME,
+		DepositRate FLOAT,
+		DepositAmount MONEY,
+		WithdrawalRate FLOAT,
+		WithdrawalAmount MONEY
 	)
-	SELECT 
-		ds.MonthDate,
-		ds.DepositRate,
-		ds.DepositAmount * er.Rate AS DepositAmount,
-		ds.WithdrawalRate,
-		ds.WithdrawalAmount * er.Rate AS WithdrawalAmount
-	INTO #tmpDeductionSettings
-	FROM CTE_DeductionSettings ds
-		CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(ds.MonthDate, @AffExchangeId, @BaseExchangeId) er						
+
+	IF(@IsCPADealOnly = 0)  -- Not CPA Only
+	BEGIN
+		;WITH CTE_DeductionSettings AS (
+			SELECT 
+				ml.MonthDate,
+				SUM(CASE WHEN dsh.DeductionID = 13 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE 0 END) AS DepositRate,
+				SUM(CASE WHEN dsh.DeductionID = 13 THEN ISNULL(dsh.DeductedAmount, 0) ELSE 0 END) AS DepositAmount,
+				SUM(CASE WHEN dsh.DeductionID = 14 THEN ISNULL(dsh.DeductedPercentage, 0) ELSE 0 END) AS WithdrawalRate,
+				SUM(CASE WHEN dsh.DeductionID = 14 THEN ISNULL(dsh.DeductedAmount, 0) ELSE 0 END) AS WithdrawalAmount
+			FROM @MonthDate ml
+				INNER JOIN dbo.AffGroupHistory agh WITH (NOLOCK) ON agh.MonthDate = ml.MonthDate AND agh.AffID = @AffId
+				INNER JOIN dbo.DeductionSettingHistory dsh WITH (NOLOCK) ON agh.GroupId = dsh.GroupId 
+																			AND agh.MonthDate = dsh.MonthDate
+																			AND dsh.DeductionID IN (13, 14)
+			GROUP BY ml.MonthDate
+		)
+		INSERT INTO #tmpDeductionSettings (MonthDate, DepositRate, DepositAmount, WithdrawalRate, WithdrawalAmount)
+		SELECT 
+			ds.MonthDate,
+			ds.DepositRate,
+			ds.DepositAmount * er.Rate AS DepositAmount,
+			ds.WithdrawalRate,
+			ds.WithdrawalAmount * er.Rate AS WithdrawalAmount
+		FROM CTE_DeductionSettings ds
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(ds.MonthDate, @AffExchangeId, @BaseExchangeId) er						
+	END
 	
+
+
 	-- filter product 
 	DECLARE @ProductIds VARCHAR(MAX) = ''
 	
@@ -218,6 +249,12 @@ BEGIN
 		AND (m.IsRemoved = 0 OR @IsIncludeRemovedPlayer = 1)
 		AND (@ListCurrencies = '' OR ',' + @ListCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), r.Currency) + ',%')
 		AND (@ProductId = 0 OR ',' + @ProductIds + ',' LIKE '%,' + CONVERT(VARCHAR(5), ProductId) + ',%')
+		AND (@ChannelCodes ='all' 
+			OR EXISTS (
+				SELECT TOP 1 1 FROM @tmpChannelCodes cc
+				WHERE cc.ChannelCode = CASE WHEN ISNULL(m.ChannelCode, '') = '' THEN 'Others' ELSE m.ChannelCode END
+			)
+		)
 		AND NOT EXISTS (
 			SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
 			WHERE mr.CustId = r.CustId AND r.WinlostDate BETWEEN mr.FromDate AND mr.ToDate
@@ -260,6 +297,12 @@ BEGIN
 				AND d.CreateTime < @TDateGMT0
 				AND (mi.IsRemoved = 0 OR @IsIncludeRemovedPlayer = 1)
 				AND (@ListCurrencies = '' OR ',' + @ListCurrencies + ',' LIKE '%,' + CONVERT(VARCHAR(5), mi.Currency) + ',%')
+				AND (@ChannelCodes ='all' 
+					OR EXISTS (
+						SELECT TOP 1 1 FROM @tmpChannelCodes cc
+						WHERE cc.ChannelCode = CASE WHEN ISNULL(mi.ChannelCode, '') = '' THEN 'Others' ELSE mi.ChannelCode END
+					)
+				)
 				AND NOT EXISTS (
 					SELECT 1 FROM dbo.MemberRemoval mr WITH(NOLOCK)
 					WHERE mr.CustId = d.CustId 
@@ -272,22 +315,31 @@ BEGIN
 	BEGIN
 		;WITH CTE_SumData AS(
 			SELECT 
-				MonthDate,
 				CustId,
-				Currency,
-				SUM(Deposit) AS Deposit,
-				SUM(Withdrawal) AS Withdrawal,
-				SUM(Bonus) AS Bonus,
-				SUM(Rebate) AS Rebate,
-				SUM(Turnover) AS Turnover,
-				SUM(GGR) AS GGR,
+				SUM(Deposit * e.Rate * ISNULL(ds.DepositRate, 0) + ISNULL(ds.DepositAmount, 0)) AS DepositFee,
+				SUM(Withdrawal * e.Rate * ISNULL(ds.WithdrawalRate, 0) + ISNULL(ds.WithdrawalAmount, 0)) AS WithdrawalFee,
+				SUM(Deposit * e.Rate) AS Deposit,
+				SUM(Withdrawal * e.Rate) AS Withdrawal,
+				SUM(Bonus * e.Rate) AS Bonus,
+				SUM(Rebate * e.Rate) AS Rebate,
+				SUM(Turnover * e.Rate) AS Turnover,
+				SUM(GGR * e.Rate) AS GGR,
 				SUM(DepositCount) AS DepositCount
-			FROM #DataByMonth
-			GROUP BY MonthDate, CustId, Currency
+			FROM #DataByMonth d
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON d.Currency = t.TpExchangeId
+			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(d.MonthDate, ISNULL(t.ExchangeId, d.Currency), @BaseExchangeId) e
+			LEFT JOIN #tmpDeductionSettings ds ON ds.MonthDate = d.MonthDate
+			GROUP BY CustId
 		)
 		INSERT INTO #tmpData
 		(
 			CustId
+			,UserName
+			,IBCUserName
+			,ChannelName
+			,RegisteredDate
+			,FirstDepositDate
+			,FirstDepositAmount
 			,Deposit
 			,Withdrawal
 			,Bonus
@@ -298,27 +350,51 @@ BEGIN
 			,WithdrawalFee
 			,DepositCount
 		)
+		
 		SELECT 
 			r.CustId
-			,SUM(r.Deposit * e.Rate) AS Deposit
-			,SUM(r.Withdrawal * e.Rate) AS Withdrawal
-			,SUM(r.Bonus * e.Rate) AS Bonus
-			,SUM(r.Rebate * e.Rate) AS Rebate
-			,SUM(r.Turnover * e.Rate) AS Turnover
-			,SUM(r.GGR * e.Rate) AS GGR
-			,SUM(r.Deposit 		* e.Rate * ISNULL(ds.DepositRate, 0) 	+ ISNULL(ds.DepositAmount, 0)) 	  AS DepositFee
-			,SUM(r.Withdrawal 	* e.Rate * ISNULL(ds.WithdrawalRate, 0) + ISNULL(ds.WithdrawalAmount, 0)) AS WithdrawalFee
-			,SUM(r.DepositCount) AS DepositCount
+			,m.UserName
+			,m.IBCUserName
+			,CASE WHEN ISNULL(m.ChannelCode, '') = '' THEN 'Others' ELSE mc.ChannelName END AS ChannelName
+			,m.RegisteredDate
+			,m.FirstDepositDate
+			,m.FirstDepositAmount * ISNULL(e.Rate, 0) AS FirstDepositAmount
+			,r.Deposit
+			,r.Withdrawal
+			,r.Bonus
+			,r.Rebate
+			,r.Turnover
+			,r.GGR
+			,r.DepositFee
+			,r.WithdrawalFee
+			,r.DepositCount
 		FROM CTE_SumData r
-			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON r.Currency = t.TpExchangeId
-			CROSS APPLY dbo.Aff_f_ExchangeRate_Sel(r.MonthDate, ISNULL(t.ExchangeId, r.Currency), @BaseExchangeId) e
-			LEFT JOIN #tmpDeductionSettings ds ON ds.MonthDate = r.MonthDate
-		GROUP BY r.CustId;
+			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON r.CustId = m.CustId
+			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON m.currency = t.TpExchangeId
+			OUTER APPLY dbo.Aff_f_ExchangeRate_Sel(m.FirstDepositDate, ISNULL(t.ExchangeId, m.currency), @BaseExchangeId) e
+			LEFT JOIN dbo.AffMediaChannel mc WITH (NOLOCK) ON mc.ChannelCode = m.ChannelCode AND mc.AffId = m.AffId
 
 		DELETE #tmpData WHERE Deposit = 0 AND Withdrawal = 0 AND Bonus = 0 AND Rebate = 0 AND Turnover = 0 AND GGR = 0 AND DepositCount = 0;
 
 		SELECT @NRows = COUNT(1) FROM #tmpData;
 	END
+
+	-- Return IsCPADealOnly flag
+	SELECT @IsCPADealOnly AS IsCPADealOnly;
+
+	-- Return sum totals data
+	SELECT 
+		SUM(FirstDepositAmount) AS FirstDepositAmount,
+		SUM(Deposit) AS Deposit,
+		SUM(Withdrawal) AS Withdrawal,
+		SUM(Turnover) AS Turnover,
+		SUM(GGR) AS GGR,
+		SUM(Bonus) AS Bonus,
+		SUM(Rebate) AS Rebate,
+		SUM(DepositFee) AS DepositFee,
+		SUM(WithdrawalFee) AS WithdrawalFee,
+		SUM(DepositCount) AS DepositCount
+	FROM #tmpData;
 
 	-- Paging
 	DECLARE @RowStart INT, @RowEnd INT;
@@ -328,20 +404,18 @@ BEGIN
 	ELSE
 		SELECT @RowStart =  1, @RowEnd = @NRows;
 
-	-- Return IsCPADealOnly flag
-	SELECT @IsCPADealOnly AS IsCPADealOnly;
-
 	-- Final Select with sorting and paging
-	SELECT CustId, UserName, IBCUserName, RegisteredDate, FirstDepositDate, FirstDepositAmount, Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, DepositFee, WithdrawalFee, DepositCount
+	SELECT CustId, UserName, IBCUserName, RegisteredDate, ChannelName, FirstDepositDate, FirstDepositAmount, Deposit, Withdrawal, Turnover, GGR, Bonus, Rebate, DepositFee, WithdrawalFee, DepositCount
 	FROM
 	(
 		SELECT
-			m.CustId
-			,m.UserName
-			,m.IBCUserName
-			,m.RegisteredDate
-			,m.FirstDepositDate
-			,CONVERT(MONEY, m.FirstDepositAmount * ISNULL(e.Rate, 0)) AS FirstDepositAmount
+			d.CustId
+			,d.UserName
+			,d.IBCUserName
+			,d.RegisteredDate
+			,d.ChannelName
+			,d.FirstDepositDate
+			,d.FirstDepositAmount
 			,d.Deposit
 			,d.Withdrawal
 			,d.Turnover
@@ -352,8 +426,8 @@ BEGIN
 			,d.WithdrawalFee
 			,d.DepositCount
 			,ROW_NUMBER() OVER(ORDER BY
-				 (CASE WHEN @IsSortAsc = 1 AND @SortById =  1 THEN m.UserName			END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  2 THEN m.RegisteredDate		END) ASC
+				 (CASE WHEN @IsSortAsc = 1 AND @SortById =  1 THEN d.UserName			END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  2 THEN d.RegisteredDate		END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  3 THEN d.Deposit			END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  4 THEN d.Withdrawal			END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  5 THEN d.Turnover			END) ASC
@@ -361,14 +435,15 @@ BEGIN
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  7 THEN d.Bonus				END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  8 THEN d.Rebate				END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById =  9 THEN d.DepositFee			END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 10 THEN d.WithdrawalFee			END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 11 THEN m.IBCUserName		END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 12 THEN m.FirstDepositDate	END) ASC
-				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 13 THEN m.FirstDepositAmount * ISNULL(e.Rate, 0)	END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 10 THEN d.WithdrawalFee		END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 11 THEN d.IBCUserName		END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 12 THEN d.FirstDepositDate	END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 13 THEN d.FirstDepositAmount END) ASC
 				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 14 THEN d.DepositCount		END) ASC
+				,(CASE WHEN @IsSortAsc = 1 AND @SortById = 15 THEN d.ChannelName		END) ASC
 				
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  1 THEN m.UserName			END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  2 THEN m.RegisteredDate		END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  1 THEN d.UserName			END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  2 THEN d.RegisteredDate		END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  3 THEN d.Deposit			END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  4 THEN d.Withdrawal			END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  5 THEN d.Turnover			END) DESC
@@ -376,16 +451,14 @@ BEGIN
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  7 THEN d.Bonus				END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  8 THEN d.Rebate				END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById =  9 THEN d.DepositFee			END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 10 THEN d.WithdrawalFee			END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 11 THEN m.IBCUserName		END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 12 THEN m.FirstDepositDate	END) DESC
-				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 13 THEN m.FirstDepositAmount * ISNULL(e.Rate, 0)	END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 10 THEN d.WithdrawalFee		END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 11 THEN d.IBCUserName		END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 12 THEN d.FirstDepositDate	END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 13 THEN d.FirstDepositAmount END) DESC
 				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 14 THEN d.DepositCount		END) DESC
+				,(CASE WHEN @IsSortAsc = 0 AND @SortById = 15 THEN d.ChannelName		END) DESC
 			) AS RN
 		FROM #tmpData d
-			INNER JOIN dbo.MemberInfo m WITH (NOLOCK) ON d.CustId = m.CustId
-			LEFT JOIN dbo.TpExchange t WITH (NOLOCK) ON m.currency = t.TpExchangeId
-			OUTER APPLY dbo.Aff_f_ExchangeRate_Sel(m.FirstDepositDate, ISNULL(t.ExchangeId, m.currency), @BaseExchangeId) e
 	) r
 	WHERE r.RN BETWEEN @RowStart AND @RowEnd
 	ORDER BY r.RN ASC;
