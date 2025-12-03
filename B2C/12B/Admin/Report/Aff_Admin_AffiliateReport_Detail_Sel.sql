@@ -34,6 +34,7 @@ AS
 		- 20250723@Sophia: Implement hybrid approach using rptMemberDaily for historical data and DepositInfo for recent data based on commission date boundary [RedmineID: #239737]
 		- 20251022@Sophia: Add IsExcluded = 0 condition to filter excluded clicks [RedmineID: #241768]
 		- 20250825@Lewis: Enhance report - add column related to CPA [RedmineID: #236665]
+		- 20250825@Lewis: Enhance report - handle null for QMTO setting and QualifiedPlayer for CPADeal [RedmineID: #245038]
 
 	Param's Explanation:
 		- @SortType: 1: Month, 2: Turnover, 3: GGR, 4: Earning (Commission)
@@ -553,7 +554,7 @@ BEGIN
 	)
 	,CTE_QualifiedPlayerCPA AS (
 		SELECT COALESCE(s.MonthDate, e.MonthDate, r.MonthDate) AS MonthDate
-			, ISNULL(s.SettledPlayer, 0) + IIF(r.Remaining IS NULL, ISNULL(e.EligibledPlayer, 0), IIF(ISNULL(e.EligibledPlayer, 0) <= r.Remaining, ISNULL(e.EligibledPlayer, 0), r.Remaining)) AS QualifiedCPAPlayer
+			, ISNULL(s.SettledPlayer, 0) + IIF(r.Remaining IS NULL, ISNULL(e.EligibledPlayer, 0), IIF(ISNULL(e.EligibledPlayer, 0) <= r.Remaining, ISNULL(e.EligibledPlayer, 0), IIF(r.Remaining < 0, 0, r.Remaining))) AS QualifiedCPAPlayer
 		FROM CTE_Settled s
 			FULL OUTER JOIN CTE_Eligible e ON s.MonthDate = e.MonthDate
 			FULL OUTER JOIN CTE_Remaining r ON COALESCE(s.MonthDate, e.MonthDate) = r.MonthDate
@@ -601,7 +602,7 @@ BEGIN
 		FDM_TotalDeposit	MONEY,
 		ActivePlayer		INT,
 		QualifiedMember		INT,
-		QualifiedCPAPlayer	INT,
+		QualifiedCPAMember	INT,
 		NoOfSubAff			INT,
 		TotalDeposit		BIGINT,
 		Deposit				MONEY,
@@ -647,7 +648,7 @@ BEGIN
 		FDM_TotalDeposit,
 		ActivePlayer,
 		QualifiedMember,
-		QualifiedCPAPlayer,
+		QualifiedCPAMember,
 		NoOfSubAff,
 		TotalDeposit,
 		Deposit,
@@ -704,7 +705,7 @@ BEGIN
 		ISNULL(m.FDM_TotalDeposit, 0)			AS FDM_TotalDeposit,
 		ISNULL(tc.ActivePlayer, 0)				AS ActivePlayer,
 		ISNULL(tc.QualifiedMember, 0)			AS QualifiedMember, --revenue
-		ISNULL(cpa.QualifiedCPAPlayer, 0)		AS QualifiedCPAPlayer, --cpa
+		ISNULL(cpa.QualifiedCPAPlayer, 0)		AS QualifiedCPAMember, --cpa
 		ISNULL(ts.NoOfSubAff, 0)				AS NoOfSubAff,
 		ISNULL(tp.TotalDeposit, 0)				AS TotalDeposit,
 		--Player Statistics
@@ -759,7 +760,7 @@ BEGIN
 		FDM_TotalDeposit,
 		ActivePlayer,
 		QualifiedMember,
-		QualifiedCPAPlayer,
+		QualifiedCPAMember,
 		NoOfSubAff,
 		TotalDeposit,
 		Deposit,
@@ -799,7 +800,7 @@ BEGIN
 		SUM(NoOfSubAff)				AS NoOfSubAff,
 		SUM(ActivePlayer)			AS ActivePlayer,
 		SUM(QualifiedMember)		AS QualifiedMember, --revenue
-		SUM(QualifiedCPAPlayer)		AS QualifiedCPAPlayer, --cpa
+		SUM(QualifiedCPAMember)		AS QualifiedCPAMember, --cpa
 		SUM(Deposit)				AS Deposit,
 		SUM(Withdrawal)				AS Withdrawal,
 		--Player Statistics

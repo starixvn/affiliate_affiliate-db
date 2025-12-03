@@ -190,8 +190,16 @@ BEGIN
 		WHERE (Username LIKE '%' + @Username + '%' OR @Username IS NULL)
 			AND Status NOT IN ('Pending', 'Disapproved')
 
-		SELECT @AffIds = COALESCE(@AffIds + ',', '') + CONVERT(VARCHAR(20), AffId)
-		FROM @Aff	
+		IF EXISTS (SELECT 1 FROM @Aff)
+		BEGIN
+			SELECT @AffIds = COALESCE(@AffIds + ',', '') + CONVERT(VARCHAR(20), AffId)
+			FROM @Aff
+		END
+		ELSE
+		BEGIN
+			-- No matches found - force empty result
+			SET @AffIds = '-1'  -- Non-existent AffId, returns 0 rows
+		END	
 	END
 
 	-- TODO: Handle AffCPA with Active and Qualified Player Rev
@@ -766,7 +774,7 @@ BEGIN
 		),
 		CTE_QualifiedPlayerCPA AS(
 			SELECT COALESCE(s.AffId, e.AffId, r.AffId) AS AffId
-				,ISNULL(s.SettledPlayer, 0) + IIF(r.Remaining IS NULL, ISNULL(e.EligibledPlayer, 0), IIF(ISNULL(e.EligibledPlayer, 0) <= r.Remaining, ISNULL(e.EligibledPlayer, 0), r.Remaining)) AS QualifiedCPAPlayer
+				,ISNULL(s.SettledPlayer, 0) + IIF(r.Remaining IS NULL, ISNULL(e.EligibledPlayer, 0), IIF(ISNULL(e.EligibledPlayer, 0) <= r.Remaining, ISNULL(e.EligibledPlayer, 0), IIF(r.Remaining < 0, 0, r.Remaining))) AS QualifiedCPAPlayer
 			FROM CTE_Settled s
 				FULL OUTER JOIN CTE_Eligible e ON s.AffId = e.AffId
 				FULL OUTER JOIN CTE_Remaining r ON ISNULL(s.AffId, e.AffId) = r.AffId

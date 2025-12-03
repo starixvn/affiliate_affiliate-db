@@ -48,5 +48,5 @@ RETURN
 		,gt.GroupTypeBy
 		,cg.ScheduleId
 	FROM CTE_CommGroup c
-		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON c.GroupId = cg.GroupId AND cg.IsDeleted = 0
+		INNER JOIN dbo.CommGroup cg WITH (NOLOCK) ON c.GroupId = cg.GroupId
 		INNER JOIN dbo.GroupType gt WITH (NOLOCK) ON gt.GroupTypeId = cg.GroupTypeId
